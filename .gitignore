@@ -1,0 +1,52 @@
+# Local reference documents and utility scripts
+/proj-docs/
+/scripts/
+
+# Environment variables and local secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.key
+credentials.json
+
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build output, coverage, and caches
+/dist/
+/build/
+/target/
+coverage/
+.next/
+.nuxt/
+.output/
+.cache/
+.turbo/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.tsbuildinfo
+
+# Runtime logs and temporary files
+*.log
+*.pid
+*.pid.lock
+/tmp/
+/temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Local editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
