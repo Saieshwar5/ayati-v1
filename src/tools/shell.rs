@@ -47,7 +47,6 @@ impl Shell {
         command.env_clear().args([
             "--die-with-parent",
             "--unshare-all",
-            "--new-session",
             "--ro-bind",
             "/usr",
             "/usr",
@@ -95,6 +94,17 @@ impl Shell {
             .stderr(Stdio::piped())
             .stdin(Stdio::null())
             .kill_on_drop(true);
+        // Create the session before Bubblewrap forks. Its namespace init then
+        // stays in this process group even if the command detaches itself.
+        // SAFETY: setsid is async-signal-safe; the closure performs no allocation.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
         ensure!(!cancel.is_cancelled(), "Stopped");
         let mut child = command.spawn().context("Could not start Bubblewrap; install bwrap and enable user namespaces. No unsandboxed fallback is used")?;
         let (tx, rx) = mpsc::channel(16);
@@ -108,16 +118,15 @@ impl Shell {
         ));
         let log = tokio::spawn(capture(rx, log_path.clone()));
         let (status, exit_code) = tokio::select! {
-            _ = cancel.cancelled() => { let _ = child.kill().await; ("cancelled", None) }
+            _ = cancel.cancelled() => { stop_sandbox(&mut child).await?; ("cancelled", None) }
             _ = tokio::time::sleep(Duration::from_secs(input.timeout_seconds)) => {
-                let _ = child.kill().await; ("timeout", None)
+                stop_sandbox(&mut child).await?; ("timeout", None)
             }
             result = child.wait() => {
                 let exit = result?;
                 (if exit.success() { "success" } else { "error" }, exit.code())
             }
         };
-        // Killing the Bubblewrap PID namespace terminates its shell descendants too.
         let _ = child.wait().await;
         stdout.await??;
         stderr.await??;
@@ -165,6 +174,26 @@ impl Shell {
             resolved.strip_prefix(&self.files.workspace)?.display()
         ))
     }
+}
+
+async fn stop_sandbox(child: &mut tokio::process::Child) -> Result<()> {
+    if let Some(pid) = child.id() {
+        // The launcher has not been reaped, so its process-group ID cannot be
+        // reused. Kill the namespace init too: --die-with-parent alone races
+        // when cancellation arrives before sandbox setup completes.
+        // SAFETY: kill only receives the dedicated group's ID and a signal.
+        if unsafe { libc::kill(-(pid as i32), libc::SIGKILL) } == -1 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::ESRCH) {
+                return Err(error).context("Could not stop sandbox process group");
+            }
+        }
+    }
+    child
+        .wait()
+        .await
+        .context("Could not reap stopped sandbox")?;
+    Ok(())
 }
 
 async fn read_pipe(mut pipe: impl AsyncRead + Unpin, tx: mpsc::Sender<Vec<u8>>) -> Result<()> {

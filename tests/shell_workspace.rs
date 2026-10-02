@@ -109,7 +109,7 @@ async fn stop_kills_shell_descendants_and_preserves_completed_outputs() {
         .run(
             "",
             input(
-                "printf saved > before.txt; (sleep 1; printf leaked > after.txt) & sleep 30; wait",
+                "printf saved > before.txt; setsid /bin/sh -c 'sleep 1; printf leaked > after.txt' & sleep 30; wait",
             ),
             cancel,
         )
@@ -119,6 +119,30 @@ async fn stop_kills_shell_descendants_and_preserves_completed_outputs() {
     assert!(files.workspace.join("before.txt").exists());
     tokio::time::sleep(Duration::from_millis(1100)).await;
     assert!(!files.workspace.join("after.txt").exists());
+}
+
+#[tokio::test]
+async fn stopping_during_sandbox_startup_returns_promptly() {
+    let (_dir, _store, files) = setup();
+    let shell = Shell::new(files);
+    for delay_ms in [1, 2, 3, 5, 10, 15, 1, 2, 3, 5, 10, 15] {
+        let cancel = CancellationToken::new();
+        let signal = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            signal.cancel();
+        });
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            shell.run("", input("sleep 30"), cancel),
+        )
+        .await
+        .expect("Stop must not leave a startup child holding output pipes open");
+        match result {
+            Ok(result) => assert_eq!(result.status, "cancelled"),
+            Err(error) => assert_eq!(error.to_string(), "Stopped"),
+        }
+    }
 }
 
 #[tokio::test]
