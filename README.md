@@ -111,6 +111,7 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 npm test --prefix web
+npm run check:e2e --prefix web
 npm run build --prefix web
 cargo build --release
 node tests/daemon_smoke.mjs
@@ -126,7 +127,23 @@ Backend tests exercise a local HTTP model fixture with **real** Bubblewrap shell
 execution, downloads, history, cancellation, incomplete calls and localhost
 access checks. They establish protocol/runtime behavior; they do not establish
 Fireworks account access or model intelligence. DOM tests cover stream/snapshot
-races and safe rendering. A graphical browser check is still needed.
+races and safe rendering. Playwright tests now exercise the actual web client,
+daemon, SQLite database and shell through browser interaction; a separate live
+suite uses your configured online model.
+
+```sh
+cd web && npx playwright install chromium && cd ..
+npm run test:e2e --prefix web               # repeatable, no paid model calls
+npm run test:e2e --prefix web -- --headed  # watch the browser work
+npm run test:live --prefix web             # uses FIREWORKS_API_KEY; billed model calls
+npm run test:report --prefix web           # inspect the latest browser report
+```
+
+Each run writes private, ignored evidence under `.test-runs`: a readable summary,
+HTML report, task/message/tool/file records, checks, timings, screenshots and
+failure traces. Test code, synthetic fixtures and lockfiles stay in Git.
+See [browser testing and feedback](tests/README.md) for scenarios, debugging,
+report contents and the limits of automated evaluation.
 
 ## Structure and dependency choices
 
@@ -138,6 +155,7 @@ races and safe rendering. A graphical browser check is still needed.
 | Execution | System Bubblewrap | Reuse Linux isolation instead of creating a sandbox |
 | Web | TypeScript + Vite | No UI framework runtime for the initial chat |
 | Development DOM checks | jsdom + Node test runner | Test stream races and rendering without shipping a test framework |
+| Development browser checks | Playwright Test + Chromium | Real user interaction, downloads and failure traces; development only |
 
 Versions are pinned in `Cargo.lock` and `web/package-lock.json`. The Rust
 libraries, Vite and jsdom have permissive licenses; TypeScript is Apache-2.0.

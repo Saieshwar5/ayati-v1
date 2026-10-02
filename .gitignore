@@ -25,6 +25,9 @@ __pycache__/
 /target/
 /web/dist/
 /.ayati/
+/.test-runs/
+/web/test-results/
+/web/playwright-report/
 coverage/
 .next/
 .nuxt/
