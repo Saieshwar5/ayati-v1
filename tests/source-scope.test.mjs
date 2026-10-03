@@ -97,3 +97,33 @@ test('Ayati policy rejects restored Mac-only bundled skills and permits retained
     (name) => `Retired source path returned: skills/${name}`,
   ).sort());
 });
+
+test('Ayati policy excludes retired VM entry points while retaining aggregate update inputs', (t) => {
+  const productPolicy = JSON.parse(readFileSync(
+    new URL('../config/source-scope.json', import.meta.url), 'utf8',
+  ));
+  const { root, write } = fixture(t, productPolicy);
+  write('scripts/e2e/parallels/macos-smoke.ts');
+  write('scripts/e2e/parallels/windows-smoke.ts');
+  write('scripts/e2e/parallels/macos-discord.ts');
+  write('scripts/e2e/parallels/windows-git.ts');
+  write('package.json', JSON.stringify({ scripts: {
+    'test:parallels:linux': '/bin/bash scripts/e2e/parallels-linux-smoke.sh',
+    'test:parallels:npm-update': '/bin/bash scripts/e2e/parallels-npm-update-smoke.sh',
+  } }));
+  assert.deepEqual(checkSourceScope(root, productPolicy), []);
+
+  const retired = ['macos-smoke', 'windows-smoke', 'windows-prepare'];
+  for (const name of retired) write(`scripts/e2e/parallels-${name}.sh`);
+  write('package.json', JSON.stringify({ scripts: {
+    'test:parallels:macos': 'retired',
+    'test:parallels:windows': 'retired',
+    'test:parallels:windows:prepare': 'retired',
+  } }));
+  const failures = checkSourceScope(root, productPolicy);
+  assert.equal(failures.length, 6);
+  for (const name of retired) {
+    assert(failures.some((failure) => failure.includes(`parallels-${name}.sh`)));
+  }
+  assert.equal(failures.filter((failure) => failure.includes('command returned')).length, 3);
+});

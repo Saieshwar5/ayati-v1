@@ -1950,16 +1950,34 @@ describe("scripts/test-projects changed-target routing", () => {
     ]);
   });
 
-  it("routes changed Parallels process helpers to their owner tooling tests", () => {
+  it.each([
+    "scripts/e2e/parallels/host-command.ts",
+    "scripts/e2e/parallels-linux-smoke.sh",
+    "scripts/e2e/parallels-npm-update-smoke.sh",
+    "test/scripts/parallels-smoke-source.test-support.ts",
+    "test/scripts/parallels-smoke-command.test-support.ts",
+    "test/scripts/parallels-smoke-background.test-support.ts",
+    "test/scripts/parallels-smoke-host-command.test-support.ts",
+  ])("routes changed Parallels tooling %s to its owner tests", (target) => {
     expectSingleVitestRunPlan(
-      buildVitestRunPlans(["--changed", "origin/main"], process.cwd(), () => [
-        "scripts/e2e/parallels/host-command.ts",
-      ]),
+      buildVitestRunPlans(["--changed", "origin/main"], process.cwd(), () => [target]),
       {
         config: "test/vitest/vitest.tooling.config.ts",
         includePatterns: [
           "test/scripts/parallels-smoke-model.test.ts",
-          "test/scripts/parallels-npm-update-smoke.test.ts",
+          "test/scripts/parallels-smoke-arguments.test.ts",
+          "test/scripts/parallels-smoke-runners.test.ts",
+          "test/scripts/parallels-smoke-vm.test.ts",
+          "test/scripts/parallels-smoke-artifacts.test.ts",
+          "test/scripts/parallels-smoke-guest-transports.test.ts",
+          "test/scripts/parallels-smoke-host-command.test.ts",
+          "test/scripts/parallels-smoke-npm-update.test.ts",
+          ...([
+            "scripts/e2e/parallels/host-command.ts",
+            "scripts/e2e/parallels-npm-update-smoke.sh",
+          ].includes(target)
+            ? ["test/scripts/parallels-npm-update-smoke.test.ts"]
+            : []),
         ],
       },
     );

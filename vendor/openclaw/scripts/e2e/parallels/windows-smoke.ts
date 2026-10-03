@@ -87,7 +87,7 @@ $env:PATH = "$portableGit\\cmd;$portableGit\\mingw64\\bin;$portableGit\\usr\\bin
 where.exe git.exe`;
 
 function usage(): string {
-  return `Usage: bash scripts/e2e/parallels-windows-smoke.sh [options]
+  return `Usage: node --import tsx scripts/e2e/parallels/windows-smoke.ts [options]
 
 Options:
   --vm <name>                Parallels VM name. Default: "Windows 11"

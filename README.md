@@ -18,6 +18,10 @@ Five Mac-only bundled skills (Apple Notes, Apple Reminders, Bear, Things and
 Peekaboo) are also excluded. General scheduling, memory, files and browser tools
 remain. See [skill removal](docs/skill-removal.md).
 
+Redundant Mac/Windows Parallels shell entry points and the Windows VM preparation
+tool are excluded. Linux and aggregate npm-update checks remain, including the
+guest runners they need. See [platform test cleanup](docs/platform-test-removal.md).
+
 The upstream Control UI is a development interface. Ayati's minimal UI,
 customer signup, official channel routing and isolated multi-customer hosting
 are still to build. Existing product requirements remain under `proj-docs`.
@@ -100,7 +104,7 @@ branch/merge commands, validation, release promotion and recovery requirements.
 | `vendor/openclaw` | Tracked runtime, tools, plugins and Control UI |
 | `bin`, `lib` | Small Ayati launcher and baseline checks |
 | `config/openclaw.json` | Public baseline template with no credentials |
-| `config/source-scope.json` | Retained mobile inputs and excluded desktop/plugin/skill paths |
+| `config/source-scope.json` | Required retained inputs and excluded product/tooling paths |
 | `tests` | State, update-policy, source-scope and Gateway restart checks |
 | `docs` | Versioned product development/update instructions |
 | `proj-docs` | Existing ignored product requirements and references |

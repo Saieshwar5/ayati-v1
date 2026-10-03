@@ -2831,11 +2831,21 @@ function resolveK8sManifestTargets(changedPath: string) {
 function resolveParallelsToolingTestTargets(changedPath: string) {
   if (
     !/^scripts\/e2e\/parallels\/[^/]+\.ts$/u.test(changedPath) &&
-    !/^scripts\/e2e\/parallels-(?:linux|macos|npm-update|windows)-smoke\.sh$/u.test(changedPath)
+    !/^scripts\/e2e\/parallels-(?:linux|npm-update)-smoke\.sh$/u.test(changedPath) &&
+    !/^test\/scripts\/parallels-smoke-[^/]+\.test-support\.ts$/u.test(changedPath)
   ) {
     return null;
   }
-  const targets = ["test/scripts/parallels-smoke-model.test.ts"];
+  const targets = [
+    "test/scripts/parallels-smoke-model.test.ts",
+    "test/scripts/parallels-smoke-arguments.test.ts",
+    "test/scripts/parallels-smoke-runners.test.ts",
+    "test/scripts/parallels-smoke-vm.test.ts",
+    "test/scripts/parallels-smoke-artifacts.test.ts",
+    "test/scripts/parallels-smoke-guest-transports.test.ts",
+    "test/scripts/parallels-smoke-host-command.test.ts",
+    "test/scripts/parallels-smoke-npm-update.test.ts",
+  ];
   if (
     [
       "scripts/e2e/parallels/guest-transports.ts",

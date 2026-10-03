@@ -809,8 +809,12 @@ export class NpmUpdateSmoke {
     const retrySuffix = attempt === 1 ? "" : `-retry-${attempt}`;
     const logPath = path.join(this.runDir, `${platform}-${phase}${retrySuffix}.log`);
     const auth = this.authForPlatform(platform);
-    const script = `scripts/e2e/parallels-${platform}-smoke.sh`;
+    // The aggregate owns all guest lanes; standalone Mac/Windows shell wrappers
+    // are excluded from Ayati. Launch the same runner with the current Node.
+    const script = `scripts/e2e/parallels/${platform}-smoke.ts`;
     const args = [
+      "--import",
+      "tsx",
       script,
       "--mode",
       "fresh",
@@ -851,11 +855,11 @@ export class NpmUpdateSmoke {
         attempt === 1
           ? () => this.spawnFresh(label, platform, extraArgs, env, packageSpec, phase, attempt + 1)
           : undefined,
-      rerunCommand: this.formatRerun("bash", args, commandEnv),
+      rerunCommand: this.formatRerun(process.execPath, args, commandEnv),
       startedAt,
     };
     job.promise = spawnLoggedCommand(
-      "bash",
+      process.execPath,
       args,
       logPath,
       commandEnv,

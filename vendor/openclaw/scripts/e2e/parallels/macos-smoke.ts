@@ -92,7 +92,7 @@ const defaultOptions = (): MacosOptions => ({
 });
 
 function usage(): string {
-  return `Usage: bash scripts/e2e/parallels-macos-smoke.sh [options]
+  return `Usage: node --import tsx scripts/e2e/parallels/macos-smoke.ts [options]
 
 Options:
   --vm <name>                Parallels VM name. Default: "macOS Tahoe"

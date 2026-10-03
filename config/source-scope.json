@@ -16,7 +16,13 @@
     "ui/public/licenses/apple-device-identifiers/NOTICE.md",
     "ui/public/licenses/apple-device-identifiers/LICENSE.apple-device-identifiers.txt",
     "scripts/release-core-finalize.mjs",
-    "src/infra/host-env-security-policy.json"
+    "src/infra/host-env-security-policy.json",
+    "scripts/e2e/parallels-linux-smoke.sh",
+    "scripts/e2e/parallels-npm-update-smoke.sh",
+    "scripts/e2e/parallels/linux-smoke.ts",
+    "scripts/e2e/parallels/npm-update-smoke.ts",
+    "scripts/e2e/parallels/macos-smoke.ts",
+    "scripts/e2e/parallels/windows-smoke.ts"
   ],
   "forbiddenPaths": [
     "appcast-arm64.xml",
@@ -84,7 +90,10 @@
     "skills/apple-reminders",
     "skills/bear-notes",
     "skills/things-mac",
-    "skills/peekaboo"
+    "skills/peekaboo",
+    "scripts/e2e/parallels-macos-smoke.sh",
+    "scripts/e2e/parallels-windows-smoke.sh",
+    "scripts/e2e/parallels-windows-prepare.sh"
   ],
   "forbiddenCommands": [
     "mac:open",
@@ -97,7 +106,10 @@
     "check:browser-inspect-script:swift",
     "check:host-env-policy:swift",
     "gen:browser-inspect-script:swift",
-    "gen:host-env-policy:swift"
+    "gen:host-env-policy:swift",
+    "test:parallels:macos",
+    "test:parallels:windows",
+    "test:parallels:windows:prepare"
   ],
   "forbiddenPluginPackages": [
     "@openclaw/apple-fm-provider",

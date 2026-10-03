@@ -89,6 +89,13 @@ verify skill discovery and packaged file contents. Shared protocols, historical
 configuration examples and synthetic tests may still name them; review the
 owner before removing those references. See [skill removal](skill-removal.md).
 
+Three Parallels shell entry points and their package commands are excluded.
+The aggregate npm-update check invokes retained TypeScript guest runners directly;
+keep its Mac/Windows dependencies until that shared contract changes deliberately.
+Do not restore deleted wrappers to satisfy upstream tests. Review changed runner
+arguments, worker registrations and test routing, and run the retained tooling
+suites. See [platform test cleanup](platform-test-removal.md).
+
 Test state migrations on a protected copy. Verify backups and restoration with
 the matching old release. Reverting a Git commit or image alone cannot reverse
 a storage migration or completed external effects.
