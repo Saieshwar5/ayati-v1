@@ -13,6 +13,11 @@ they are not released Ayati apps. See [desktop removal](docs/desktop-removal.md)
 Mac-only Apple Foundation Models, FaceTime and iMessage plugins, and Claude/Hermes
 installation importers are removed. Shared model, speech and migration machinery
 remains. See [plugin removal](docs/plugin-removal.md) for scope and upgrade handling.
+
+Five Mac-only bundled skills (Apple Notes, Apple Reminders, Bear, Things and
+Peekaboo) are also excluded. General scheduling, memory, files and browser tools
+remain. See [skill removal](docs/skill-removal.md).
+
 The upstream Control UI is a development interface. Ayati's minimal UI,
 customer signup, official channel routing and isolated multi-customer hosting
 are still to build. Existing product requirements remain under `proj-docs`.
@@ -95,7 +100,7 @@ branch/merge commands, validation, release promotion and recovery requirements.
 | `vendor/openclaw` | Tracked runtime, tools, plugins and Control UI |
 | `bin`, `lib` | Small Ayati launcher and baseline checks |
 | `config/openclaw.json` | Public baseline template with no credentials |
-| `config/source-scope.json` | Retained mobile inputs and excluded desktop/plugin paths |
+| `config/source-scope.json` | Retained mobile inputs and excluded desktop/plugin/skill paths |
 | `tests` | State, update-policy, source-scope and Gateway restart checks |
 | `docs` | Versioned product development/update instructions |
 | `proj-docs` | Existing ignored product requirements and references |

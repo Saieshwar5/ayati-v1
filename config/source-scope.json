@@ -79,7 +79,12 @@
     "dist-runtime/extensions/migrate-claude",
     "extensions/migrate-hermes",
     "dist/extensions/migrate-hermes",
-    "dist-runtime/extensions/migrate-hermes"
+    "dist-runtime/extensions/migrate-hermes",
+    "skills/apple-notes",
+    "skills/apple-reminders",
+    "skills/bear-notes",
+    "skills/things-mac",
+    "skills/peekaboo"
   ],
   "forbiddenCommands": [
     "mac:open",

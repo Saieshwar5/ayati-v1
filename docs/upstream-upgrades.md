@@ -82,6 +82,13 @@ See [plugin removal](plugin-removal.md) for the exact list and shared code retai
 After resolving an upgrade, regenerate affected metadata from the retained source;
 do not restore retired packages to make old inventories or tests pass.
 
+Five Mac-only bundled skills are excluded as well: `apple-notes`,
+`apple-reminders`, `bear-notes`, `things-mac` and `peekaboo`. Keep their bundled
+source directories absent, review moved or newly introduced equivalents, and
+verify skill discovery and packaged file contents. Shared protocols, historical
+configuration examples and synthetic tests may still name them; review the
+owner before removing those references. See [skill removal](skill-removal.md).
+
 Test state migrations on a protected copy. Verify backups and restoration with
 the matching old release. Reverting a Git commit or image alone cannot reverse
 a storage migration or completed external effects.
