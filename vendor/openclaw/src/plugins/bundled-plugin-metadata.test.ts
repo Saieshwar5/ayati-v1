@@ -293,9 +293,9 @@ describe("bundled plugin metadata", () => {
     });
   });
 
-  it("keeps iMessage message-tool discovery on a narrow public surface", () => {
-    const imessage = listRepoBundledPluginMetadata().find((entry) => entry.dirName === "imessage");
-    expectArtifactPresence(imessage?.publicSurfaceArtifacts, {
+  it("keeps Slack message-tool discovery on a narrow public surface", () => {
+    const slack = listRepoBundledPluginMetadata().find((entry) => entry.dirName === "slack");
+    expectArtifactPresence(slack?.publicSurfaceArtifacts, {
       contains: ["message-tool-api.js"],
     });
   });

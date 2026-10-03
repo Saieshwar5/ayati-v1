@@ -569,13 +569,16 @@ describe("bundled plugin build entries", () => {
     expect(artifacts).not.toContain("dist/extensions/volcengine/package.json");
   });
 
-  it("excludes the externalized iMessage channel from bundled artifacts", () => {
-    const entries = listBundledPluginBuildEntries();
-    const artifacts = listBundledPluginPackArtifacts();
+  it.each(["apple-fm", "facetime", "imessage", "migrate-claude", "migrate-hermes"])(
+    "excludes retired %s from bundled artifacts",
+    (pluginId) => {
+      const entries = listBundledPluginBuildEntries();
+      const artifacts = listBundledPluginPackArtifacts();
 
-    expectNoPrefixMatches(Object.keys(entries), "extensions/imessage/");
-    expectNoPrefixMatches(artifacts, "dist/extensions/imessage/");
-  });
+      expectNoPrefixMatches(Object.keys(entries), `extensions/${pluginId}/`);
+      expectNoPrefixMatches(artifacts, `dist/extensions/${pluginId}/`);
+    },
+  );
 
   it("keeps bundled channel secret contracts on packed top-level sidecars", () => {
     const artifacts = listBundledPluginPackArtifacts();

@@ -201,10 +201,6 @@ describe("scripts/test-extension.mts", () => {
 
   it.each([
     {
-      extensionId: "imessage",
-      ingressFile: "extensions/imessage/src/monitor/ingress.test.ts",
-    },
-    {
       extensionId: "feishu",
       ingressFile: "extensions/feishu/src/monitor.message-handler.ingress.test.ts",
     },

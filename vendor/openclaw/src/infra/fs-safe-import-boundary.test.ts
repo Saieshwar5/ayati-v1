@@ -105,9 +105,6 @@ const PLUGIN_OWNED_FS_SAFE_IMPORTS: Record<
   "extensions/qa-lab/src/scenario-catalog.ts": {
     "@openclaw/fs-safe/walk": { values: ["walkDirectorySync"] },
   },
-  "extensions/migrate-claude/skills.ts": {
-    "@openclaw/fs-safe/walk": { values: ["walkDirectory"] },
-  },
   "extensions/signal/src/install-signal-cli.ts": {
     "@openclaw/fs-safe/walk": { values: ["walkDirectory"] },
   },

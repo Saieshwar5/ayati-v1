@@ -135,7 +135,6 @@ describe("runtime postbuild static assets", () => {
     `);
 
     expect(payload.outputs).toEqual([
-      "dist/extensions/apple-fm/assets/AppleFoundationModels.swift",
       "dist/extensions/code-mode-quickjs/assets/encoding.so",
       "dist/extensions/code-mode-quickjs/assets/quickjs.wasm",
       "dist/extensions/crabbox/assets/openclaw-worker-wallpaper.png",

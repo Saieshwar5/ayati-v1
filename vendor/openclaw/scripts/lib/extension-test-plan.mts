@@ -82,7 +82,6 @@ const EXTENSION_TEST_COST_MULTIPLIERS: Record<string, number> = {
   "test/vitest/vitest.extension-diffs.config.ts": 0.734,
   "test/vitest/vitest.extension-discord.config.ts": 0.55,
   "test/vitest/vitest.extension-feishu.config.ts": 0.411,
-  "test/vitest/vitest.extension-imessage.config.ts": 0.874,
   "test/vitest/vitest.extension-irc.config.ts": 1.117,
   "test/vitest/vitest.extension-line.config.ts": 0.625,
   "test/vitest/vitest.extension-matrix.config.ts": 0.788,

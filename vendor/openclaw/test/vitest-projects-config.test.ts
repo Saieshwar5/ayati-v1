@@ -48,7 +48,6 @@ import {
   databaseWorkerExtensionTestRoots,
 } from "./vitest/vitest.extension-database-workers-paths.mjs";
 import { createExtensionDatabaseWorkersVitestConfig } from "./vitest/vitest.extension-database-workers.config.ts";
-import { createExtensionImessageVitestConfig } from "./vitest/vitest.extension-imessage.config.ts";
 import { createExtensionSlackVitestConfig } from "./vitest/vitest.extension-slack.config.ts";
 import { createExtensionsVitestConfig } from "./vitest/vitest.extensions.config.ts";
 import { diagnosticForksPool } from "./vitest/vitest.forks-pool.ts";
@@ -891,52 +890,6 @@ describe("projects vitest config", () => {
       expect(config.include).toContain(file.replace(/^extensions\//u, ""));
       expect(config.pool).toBe(diagnosticForksPool);
       expect(config.isolate).toBe(true);
-    },
-  );
-
-  it.each([
-    {
-      file: "approval-reactions.persistence.test.ts",
-      source: "approval-reactions.ts",
-      siblings: ["approval-reactions.test.ts", "approval-reaction-poller.test.ts"],
-    },
-    {
-      file: "send.sqlite.test.ts",
-      source: "send.ts",
-      siblings: ["outbound-tool-trace-sanitize.test.ts"],
-    },
-    { file: "send.test.ts", source: "send.ts", siblings: ["outbound-tool-trace-sanitize.test.ts"] },
-  ])(
-    "routes iMessage $file through its worker owner without moving sibling tests",
-    ({ file: basename, source, siblings }) => {
-      const file = `extensions/imessage/src/${basename}`;
-      const project = "test/vitest/vitest.extension-database-workers.config.ts";
-      const siblingProject = "test/vitest/vitest.extension-imessage.config.ts";
-      for (const target of [
-        file,
-        "extensions/imessage",
-        "extensions/imessage/src/*.test.ts",
-        `extensions/imessage/src/${source}`,
-      ]) {
-        const plans = buildVitestRunPlans([target]);
-        expect(plans.find((plan) => plan.config === project)?.includePatterns).toContain(file);
-      }
-      expect(buildVitestRunPlans([file]).map((plan) => plan.config)).toEqual([project]);
-      for (const sibling of siblings) {
-        expect(
-          buildVitestRunPlans([`extensions/imessage/src/${sibling}`]).map((plan) => plan.config),
-        ).toEqual([siblingProject]);
-      }
-      const workerConfig = requireTestConfig(createExtensionDatabaseWorkersVitestConfig({}));
-      expect(workerConfig.include).toContain(`imessage/src/${basename}`);
-      expect(workerConfig.pool).toBe(diagnosticForksPool);
-      expect(workerConfig.isolate).toBe(true);
-      expect(requireTestConfig(createExtensionImessageVitestConfig({})).exclude).toContain(
-        `imessage/src/${basename}`,
-      );
-      expect(requireTestConfig(createExtensionsVitestConfig({})).exclude).toContain(
-        `imessage/src/${basename}`,
-      );
     },
   );
 

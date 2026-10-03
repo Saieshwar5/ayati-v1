@@ -2185,7 +2185,6 @@ describe("scripts/test-projects changed-target routing", () => {
   });
 
   it.each([
-    ["extensions/imessage/message-tool-api.ts", "extensions/imessage/src/message-tool-api.test.ts"],
     ["extensions/slack/message-tool-api.ts", "extensions/slack/message-tool-api.ts"],
     [
       "extensions/slack/src/channel-actions.ts",

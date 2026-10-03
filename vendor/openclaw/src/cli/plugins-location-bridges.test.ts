@@ -206,25 +206,25 @@ describe("listPersistedBundledPluginLocationBridges", () => {
     },
   );
 
-  it("externalizes the shipped bundled iMessage channel while preserving default enablement", async () => {
+  it("externalizes the shipped bundled Signal channel while preserving default enablement", async () => {
     readPersistedInstalledPluginIndexMock.mockResolvedValue(
-      makeIndex("imessage", {
+      makeIndex("signal", {
         enabledByDefault: true,
         packageInstall: {
           warnings: [],
         },
       }),
     );
-    loadPluginManifestRegistryForInstalledIndexMock.mockReturnValue(makeRegistry("imessage"));
+    loadPluginManifestRegistryForInstalledIndexMock.mockReturnValue(makeRegistry("signal"));
 
     await expect(listPersistedBundledPluginLocationBridges({})).resolves.toEqual([
       {
-        bundledPluginId: "imessage",
-        pluginId: "imessage",
-        npmSpec: "@openclaw/imessage",
-        clawhubSpec: "clawhub:@openclaw/imessage",
+        bundledPluginId: "signal",
+        pluginId: "signal",
+        npmSpec: "@openclaw/signal",
+        clawhubSpec: "clawhub:@openclaw/signal",
         enabledByDefault: true,
-        channelIds: ["imessage"],
+        channelIds: ["signal"],
       },
     ]);
   });

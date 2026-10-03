@@ -194,7 +194,6 @@ describe("config footprint guardrails", () => {
     expect(exportedSchemaNames).toEqual([
       "DiscordConfigSchema",
       "GoogleChatConfigSchema",
-      "IMessageConfigSchema",
       "MSTeamsConfigSchema",
       "SignalConfigSchema",
       "SlackConfigSchema",
@@ -206,9 +205,6 @@ describe("config footprint guardrails", () => {
     }
     expect(bundledSource).toContain("Bundled-channel config schemas");
     expect(bundledSource).toContain("openclaw/plugin-sdk/channel-config-schema");
-    expect(bundledSource).toMatch(
-      /loadBundledConfigSchema<[^;]+?>\(\s*"imessage",\s*"IMessageConfigSchema",?\s*\)/u,
-    );
     expect(bundledSource).toMatch(
       /loadBundledConfigSchema<[^;]+?>\(\s*"telegram",\s*"TelegramConfigSchema",?\s*\)/u,
     );

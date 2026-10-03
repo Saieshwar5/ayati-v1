@@ -76,14 +76,6 @@ function loadBundledConfigSchema<TOutput extends object>(
   return schema;
 }
 
-export const IMessageConfigSchema = createLazyFacadeObjectValue<
-  BundledObjectConfigSchema<NonNullable<ChannelConfig["imessage"]>>
->(() =>
-  loadBundledConfigSchema<NonNullable<ChannelConfig["imessage"]>>(
-    "imessage",
-    "IMessageConfigSchema",
-  ),
-);
 export const TelegramConfigSchema = createLazyFacadeObjectValue<
   BundledObjectConfigSchema<NonNullable<ChannelConfig["telegram"]>>
 >(() =>

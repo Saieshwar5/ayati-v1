@@ -29,11 +29,6 @@ const BUNDLED_EXTENSION_CONFIG_IMPORT_GUARDS = [
     forbiddenSpecifier: "openclaw/plugin-sdk/bundled-channel-config-schema",
   },
   {
-    path: "extensions/imessage/src/config-schema.ts",
-    allowedSpecifier: "openclaw/plugin-sdk/channel-config-schema",
-    forbiddenSpecifier: "openclaw/plugin-sdk/bundled-channel-config-schema",
-  },
-  {
     path: "extensions/whatsapp/src/config-schema.ts",
     allowedSpecifier: "../config-api.js",
     forbiddenSpecifier: "openclaw/plugin-sdk/channel-config-schema",

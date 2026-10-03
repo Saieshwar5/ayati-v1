@@ -41,11 +41,6 @@ export const GENERATED_BUNDLED_CHANNEL_IDS: readonly BundledChannelIdMetadata[] 
     label: "Google Chat",
   },
   {
-    channelId: "imessage",
-    aliases: ["imsg"],
-    label: "iMessage",
-  },
-  {
     channelId: "irc",
     aliases: ["internet-relay-chat"],
     label: "IRC",

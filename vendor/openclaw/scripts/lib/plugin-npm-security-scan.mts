@@ -110,7 +110,6 @@ const RELEASE_2026_9_1_REQUIRED_REVIEWED_SOURCE_FINDING_COUNTS = new Map<string,
   ["@openclaw/codex:dangerous-exec:src/app-server/transport-stdio.ts", 1],
   ["@openclaw/codex:dangerous-exec:src/doctor.ts", 1],
   ["@openclaw/discord:dangerous-exec:src/voice/audio.ts", 1],
-  ["@openclaw/imessage:dangerous-exec:src/client.ts", 1],
   ["@openclaw/llama-cpp-provider:dangerous-exec:src/llama-server-install.ts", 1],
   ["@openclaw/mxc-sandbox:dangerous-exec:src/readiness.ts", 2],
   ["@openclaw/raft:dangerous-exec:src/gateway.ts", 1],
@@ -136,7 +135,6 @@ const RELEASE_2026_9_5_REQUIRED_REVIEWED_SOURCE_FINDING_COUNTS = new Map(
 // worker entry from process.execPath. Freeze these requirements for 9.6 and 9.7.
 const RELEASE_2026_9_7_REQUIRED_REVIEWED_SOURCE_FINDING_COUNTS = new Map<string, number>([
   ...RELEASE_2026_9_5_REQUIRED_REVIEWED_SOURCE_FINDING_COUNTS,
-  ["@openclaw/facetime:dangerous-exec:src/audio-pump.ts", 1],
   ["@openclaw/onnx:dangerous-exec:src/worker-client.ts", 1],
 ]);
 
@@ -191,7 +189,6 @@ const FROZEN_RELEASE_2026_9_OPTIONAL_REVIEWED_PACKED_FINDING_COUNTS = new Map<st
   ["@openclaw/diagnostics-prometheus:dangerous-exec:src/install-runtime.e2e.test.ts", 2],
   ["@openclaw/google-meet:dangerous-exec:src/cli-artifacts.test.ts", 1],
   ["@openclaw/google-meet:dangerous-exec:src/realtime.process.test.ts", 1],
-  ["@openclaw/imessage:dangerous-exec:src/client.test.ts", 3],
   ["@openclaw/llama-cpp-provider:dangerous-exec:dist/index.js", 1],
   ["@openclaw/memory-lancedb:dangerous-exec:memory-lancedb.concurrent.test.ts", 1],
   ["@openclaw/opencode-go-provider:env-harvesting:opencode-go.live.test.ts", 1],
@@ -305,7 +302,6 @@ const RELEASE_2026_9_6_OPTIONAL_REVIEWED_PACKED_FINDING_COUNTS = new Map(
 for (const [key, count] of [
   ["@openclaw/codex:dangerous-exec:src/app-server/auth-refresh-authority.integration.test.ts", 1],
   ["@openclaw/feishu:env-harvesting:src/client.test.ts", 1],
-  ["@openclaw/imessage:dangerous-exec:src/client.test.ts", 4],
   ["@openclaw/signal:dangerous-exec:src/socket-path.test.ts", 1],
 ] as const) {
   CURRENT_OPTIONAL_REVIEWED_PACKED_FINDING_COUNTS.set(key, count);

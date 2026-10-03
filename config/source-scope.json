@@ -64,7 +64,22 @@
     "scripts/test-macos-health-render.sh",
     "scripts/test-macos-native.mts",
     "scripts/verify-mac-runtime-fs.mjs",
-    "scripts/verify-mac-runtime.mjs"
+    "scripts/verify-mac-runtime.mjs",
+    "extensions/apple-fm",
+    "dist/extensions/apple-fm",
+    "dist-runtime/extensions/apple-fm",
+    "extensions/facetime",
+    "dist/extensions/facetime",
+    "dist-runtime/extensions/facetime",
+    "extensions/imessage",
+    "dist/extensions/imessage",
+    "dist-runtime/extensions/imessage",
+    "extensions/migrate-claude",
+    "dist/extensions/migrate-claude",
+    "dist-runtime/extensions/migrate-claude",
+    "extensions/migrate-hermes",
+    "dist/extensions/migrate-hermes",
+    "dist-runtime/extensions/migrate-hermes"
   ],
   "forbiddenCommands": [
     "mac:open",
@@ -78,5 +93,12 @@
     "check:host-env-policy:swift",
     "gen:browser-inspect-script:swift",
     "gen:host-env-policy:swift"
+  ],
+  "forbiddenPluginPackages": [
+    "@openclaw/apple-fm-provider",
+    "@openclaw/facetime",
+    "@openclaw/imessage",
+    "@openclaw/migrate-claude",
+    "@openclaw/migrate-hermes"
   ]
 }

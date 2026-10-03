@@ -46,7 +46,6 @@ const RECOMMENDED_CHANNEL_ORDER: ChannelKey[] = [
   "googlechat",
   "slack",
   "signal",
-  "imessage",
   "nostr",
 ];
 

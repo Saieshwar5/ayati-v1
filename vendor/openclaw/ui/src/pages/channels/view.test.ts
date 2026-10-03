@@ -167,7 +167,6 @@ describe("channels setup access", () => {
       "discord",
       "googlechat",
       "signal",
-      "imessage",
       "nostr",
     ]);
   });

@@ -9,6 +9,10 @@ The pinned source/build baseline and manual upgrade policy are established.
 Installed desktop applications and their exclusive packaging tools are removed.
 iOS, Android and shared mobile libraries remain as source for later evaluation;
 they are not released Ayati apps. See [desktop removal](docs/desktop-removal.md).
+
+Mac-only Apple Foundation Models, FaceTime and iMessage plugins, and Claude/Hermes
+installation importers are removed. Shared model, speech and migration machinery
+remains. See [plugin removal](docs/plugin-removal.md) for scope and upgrade handling.
 The upstream Control UI is a development interface. Ayati's minimal UI,
 customer signup, official channel routing and isolated multi-customer hosting
 are still to build. Existing product requirements remain under `proj-docs`.
@@ -91,7 +95,7 @@ branch/merge commands, validation, release promotion and recovery requirements.
 | `vendor/openclaw` | Tracked runtime, tools, plugins and Control UI |
 | `bin`, `lib` | Small Ayati launcher and baseline checks |
 | `config/openclaw.json` | Public baseline template with no credentials |
-| `config/source-scope.json` | Retained mobile inputs and excluded desktop paths |
+| `config/source-scope.json` | Retained mobile inputs and excluded desktop/plugin paths |
 | `tests` | State, update-policy, source-scope and Gateway restart checks |
 | `docs` | Versioned product development/update instructions |
 | `proj-docs` | Existing ignored product requirements and references |

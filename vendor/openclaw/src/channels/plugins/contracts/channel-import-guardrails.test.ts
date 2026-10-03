@@ -40,7 +40,6 @@ const GUARDED_CHANNEL_EXTENSIONS = new Set([
   "discord",
   "feishu",
   "googlechat",
-  "imessage",
   "irc",
   "line",
   "matrix",
@@ -86,7 +85,7 @@ function createGuardedSource(
 }
 
 const SAME_CHANNEL_SDK_GUARDS: GuardedSource[] = [
-  ...["discord", "slack", "telegram", "imessage", "whatsapp", "signal"].flatMap((pluginId) => {
+  ...["discord", "slack", "telegram", "whatsapp", "signal"].flatMap((pluginId) => {
     const relativePaths =
       pluginId === "signal" ? ["src/shared.ts", "runtime-api.ts"] : ["src/shared.ts"];
     return relativePaths.map((relativePath) =>
@@ -131,11 +130,6 @@ const SETUP_BARREL_GUARDS: GuardedSource[] = [
       createGuardedSource(pluginId, relativePath, [/\bformatDocsLink\b/]),
     ),
   ),
-  createGuardedSource("imessage", "src/setup-core.ts", [/\bformatDocsLink\b/]),
-  createGuardedSource("imessage", "src/setup-surface.ts", [
-    /\bdetectBinary\b/,
-    /\bformatDocsLink\b/,
-  ]),
   ...[
     { pluginId: "telegram", relativePath: "src/setup-core.ts" },
     { pluginId: "whatsapp", relativePath: "src/setup-surface.ts" },
@@ -160,7 +154,6 @@ const LOCAL_EXTENSION_API_BARREL_GUARDS = [
   "diffs",
   "feishu",
   "google",
-  "imessage",
   "irc",
   "llm-task",
   "line",
