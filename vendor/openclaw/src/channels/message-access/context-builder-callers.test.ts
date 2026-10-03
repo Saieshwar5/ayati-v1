@@ -9,7 +9,6 @@ const CALLERS = [
   ["extensions/feishu/src/bot.ts", "channelIngress:"],
   ["extensions/feishu/src/comment-handler.ts", "channelIngress:"],
   ["extensions/googlechat/src/monitor.ts", "channelIngress: access.channelIngress"],
-  ["extensions/imessage/src/monitor/inbound-processing.ts", "channelIngress,"],
   ["extensions/irc/src/inbound.ts", "channelIngress: access"],
   ["extensions/line/src/bot-message-context.ts", "channelIngress: params.channelIngress"],
   ["extensions/matrix/src/matrix/monitor/handler-context.ts", "channelIngress,"],
@@ -37,7 +36,6 @@ const CONTEXT_BINDING_PRODUCERS = [
   "extensions/discord/src/monitor/message-handler.preflight.ts",
   "extensions/feishu/src/policy.ts",
   "extensions/googlechat/src/monitor-access.ts",
-  "extensions/imessage/src/monitor/inbound-processing.ts",
   "extensions/irc/src/inbound.ts",
   "extensions/line/src/bot-handlers.ts",
   "extensions/matrix/src/matrix/monitor/access-state.ts",
@@ -70,10 +68,6 @@ const HOST_BUILDERS = [
   ["extensions/feishu/src/bot.ts", "core.channel.inbound.buildContext"],
   ["extensions/feishu/src/comment-handler.ts", "core.channel.inbound.buildContext"],
   ["extensions/googlechat/src/monitor.ts", "core.channel.inbound.buildContext"],
-  [
-    "extensions/imessage/src/monitor/inbound-processing.ts",
-    "params.buildContext ?? buildChannelInboundEventContext",
-  ],
   ["extensions/irc/src/inbound.ts", "core.channel.inbound.buildContext"],
   [
     "extensions/line/src/bot-message-context.ts",
@@ -120,10 +114,6 @@ const LATE_GLOBAL_BUILDERS = [
     "extensions/discord/src/monitor/message-handler.context.ts",
     "getDiscordRuntime().channel.inbound.buildContext",
   ],
-  [
-    "extensions/imessage/src/monitor/inbound-processing.ts",
-    "getIMessageRuntime().channel.inbound.buildContext",
-  ],
   ["extensions/line/src/bot-message-context.ts", "getLineRuntime().channel.inbound.buildContext"],
   ["extensions/qa-channel/src/inbound.ts", "runtime.channel.inbound.buildContext"],
   [
@@ -150,11 +140,6 @@ const SCOPED_BUILDER_HANDOFFS = [
   [
     "discord",
     "extensions/discord/src/monitor/provider.ts",
-    "buildContext: pluginChannelRuntime?.inbound.buildContext",
-  ],
-  [
-    "imessage",
-    "extensions/imessage/src/monitor/monitor-provider.ts",
     "buildContext: pluginChannelRuntime?.inbound.buildContext",
   ],
   [

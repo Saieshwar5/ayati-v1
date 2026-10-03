@@ -1665,9 +1665,9 @@ describe("scripts/ci-run-node-test-shard.mts", () => {
           env: { OPENCLAW_VITEST_MAX_WORKERS: "2", OPENCLAW_TEST_PROJECTS_PARALLEL: "2" },
         },
         {
-          configs: ["test/vitest/vitest.extension-imessage.config.ts"],
+          configs: ["test/vitest/vitest.extension-signal.config.ts"],
           shard_name: "changed-extensions-config-13",
-          includePatterns: ["extensions/imessage/src/conversation-route.test.ts"],
+          includePatterns: ["extensions/signal/src/accounts.test.ts"],
           env: { OPENCLAW_VITEST_MAX_WORKERS: "1" },
         },
       ];

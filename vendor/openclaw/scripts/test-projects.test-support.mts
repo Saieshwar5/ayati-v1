@@ -274,7 +274,6 @@ const EXTENSION_CODEX_SURFACE_VITEST_CONFIG =
 const EXTENSION_DIFFS_VITEST_CONFIG = "test/vitest/vitest.extension-diffs.config.ts";
 const EXTENSION_DISCORD_VITEST_CONFIG = "test/vitest/vitest.extension-discord.config.ts";
 const EXTENSION_FEISHU_VITEST_CONFIG = "test/vitest/vitest.extension-feishu.config.ts";
-const EXTENSION_IMESSAGE_VITEST_CONFIG = "test/vitest/vitest.extension-imessage.config.ts";
 const EXTENSION_IRC_VITEST_CONFIG = "test/vitest/vitest.extension-irc.config.ts";
 const EXTENSION_LINE_VITEST_CONFIG = "test/vitest/vitest.extension-line.config.ts";
 const EXTENSION_MATTERMOST_VITEST_CONFIG = "test/vitest/vitest.extension-mattermost.config.ts";
@@ -396,7 +395,6 @@ const FULL_SUITE_CONFIG_WEIGHT = new Map([
   [EXTENSION_FEISHU_VITEST_CONFIG, 18],
   [EXTENSION_MATTERMOST_VITEST_CONFIG, 16],
   [EXTENSION_MESSAGING_VITEST_CONFIG, 14],
-  [EXTENSION_IMESSAGE_VITEST_CONFIG, 13],
   [EXTENSION_LINE_VITEST_CONFIG, 12],
   [EXTENSION_SIGNAL_VITEST_CONFIG, 11],
   [EXTENSION_ACPX_VITEST_CONFIG, 10],
@@ -582,7 +580,6 @@ const VITEST_CONFIG_BY_KIND: Record<string, string> = {
   extensionBrowser: EXTENSION_BROWSER_VITEST_CONFIG,
   extensionDiscord: EXTENSION_DISCORD_VITEST_CONFIG,
   extensionFeishu: EXTENSION_FEISHU_VITEST_CONFIG,
-  extensionImessage: EXTENSION_IMESSAGE_VITEST_CONFIG,
   extensionIrc: EXTENSION_IRC_VITEST_CONFIG,
   extensionLine: EXTENSION_LINE_VITEST_CONFIG,
   extensionMattermost: EXTENSION_MATTERMOST_VITEST_CONFIG,
@@ -717,9 +714,6 @@ const CHANNEL_CONTRACT_REGISTRY_BACKED_TARGETS = [
 const CHANNEL_PLUGIN_SHAPE_PARITY_TEST_TARGET =
   "src/channels/plugins/contracts/plugin-shape.contract.test.ts";
 const CHANNEL_PLUGIN_SHAPE_PARITY_WIRING_PATHS = new Set([
-  "extensions/imessage/message-tool-api.ts",
-  "extensions/imessage/src/actions.ts",
-  "extensions/imessage/src/channel.ts",
   "extensions/slack/message-tool-api.ts",
   "extensions/slack/src/channel-actions.ts",
   "extensions/slack/src/channel.ts",

@@ -1365,10 +1365,6 @@ const policyTestWatches: readonly PolicyTestWatch[] = [
     watchGlobs: ["extensions/crabbox/src/crabbox-worker-provider.ts"],
   },
   {
-    testFile: "extensions/imessage/src/send.sqlite.test.ts",
-    watchGlobs: ["extensions/imessage/src/chat-db.worker.ts"],
-  },
-  {
     testFile: "extensions/logbook/src/store-batch-images.test.ts",
     watchGlobs: ["extensions/logbook/src/store.worker.ts"],
   },

@@ -18,11 +18,6 @@ const splitChannelExtensionShardSpecs = [
     config: "test/vitest/vitest.extension-signal.config.ts",
   },
   {
-    id: "imessage",
-    kind: "extensionImessage",
-    config: "test/vitest/vitest.extension-imessage.config.ts",
-  },
-  {
     id: "line",
     kind: "extensionLine",
     config: "test/vitest/vitest.extension-line.config.ts",

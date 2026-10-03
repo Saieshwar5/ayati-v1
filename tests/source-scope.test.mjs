@@ -8,7 +8,9 @@ import { checkSourceScope } from '../lib/source-scope.mjs';
 const policy = {
   allowedAppDirectories: ['ios', 'shared'],
   requiredFiles: ['apps/ios/project.yml', 'ui/public/licenses/NOTICE.md'],
-  forbiddenPaths: ['apps/macos', 'scripts/package-mac-app.sh'],
+  forbiddenPaths: ['apps/macos', 'scripts/package-mac-app.sh',
+    'extensions/imessage', 'dist/extensions/imessage', 'dist-runtime/extensions/imessage'],
+  forbiddenPluginPackages: ['@openclaw/imessage'],
   forbiddenCommands: ['mac:package'],
 };
 
@@ -48,7 +50,7 @@ test('rejects missing retained input and symbolic links replacing app ownership'
   symlinkSync('ios', path.join(root, 'apps/macos'));
   const failures = checkSourceScope(root, policy);
   assert(failures.some((failure) => failure.includes('Required retained file')));
-  assert(failures.some((failure) => failure.includes('Retired desktop path')));
+  assert(failures.some((failure) => failure.includes('Retired source path')));
 });
 
 test('rejects retired commands and indirect commands pointing at removed scripts', (t) => {
@@ -64,4 +66,17 @@ test('rejects nested desktop artifacts after building', (t) => {
   write('dist/installers/OpenClaw.AppImage');
   mkdirSync(path.join(root, 'dist/installers/OpenClaw.app'));
   assert.equal(checkSourceScope(root, policy).length, 2);
+});
+
+test('rejects retired plugin source, stale output and fallback install entries', (t) => {
+  const { root, write } = fixture(t);
+  write('extensions/imessage/index.ts');
+  write('dist/extensions/imessage/index.js');
+  write('dist-runtime/extensions/imessage/index.js');
+  write('scripts/lib/official-external-channel-catalog.json', JSON.stringify({ entries: [
+    { name: '@openclaw/imessage' }, { name: '@openclaw/telegram' },
+  ] }));
+  const failures = checkSourceScope(root, policy);
+  assert.equal(failures.length, 4);
+  assert(failures.some((failure) => failure.includes('Retired plugin advertised')));
 });

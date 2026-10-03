@@ -66,7 +66,6 @@ export const CHAINED_ASSERTION_EXCLUDED_ROOTS = [
   "extensions/github-copilot/index.ts", // config merge patches are intentionally deeper than Partial<OpenClawConfig>
   "extensions/google/realtime-voice-provider.ts", // provider tool schemas and lifecycle fields bridge Google SDK versions
   "extensions/googlechat/src/approval-native.ts", // approval runtime dynamically implements the public channel adapter seam
-  "extensions/imessage/src/approval-native.ts", // approval runtime dynamically implements the public channel adapter seam
   "extensions/line/src/outbound.ts", // LINE batch overload requires a bounded tuple that slice cannot retain
   "extensions/llm-task/index.ts", // tool factory bridges plugin-local and public AgentTool package types
   "extensions/matrix/src/approval-native.ts", // approval runtime dynamically implements the public channel adapter seam

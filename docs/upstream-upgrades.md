@@ -76,6 +76,12 @@ passes. See [desktop removal](desktop-removal.md) for retained mobile dependenci
 generator rules and conflict handling. Keep the selected upstream tree in the
 pin; our desktop deletion patch does not change that imported identity.
 
+Five optional plugins are also excluded. Keep their source and runtime output
+directories absent and their fallback install entries out of the shipped catalogs.
+See [plugin removal](plugin-removal.md) for the exact list and shared code retained.
+After resolving an upgrade, regenerate affected metadata from the retained source;
+do not restore retired packages to make old inventories or tests pass.
+
 Test state migrations on a protected copy. Verify backups and restoration with
 the matching old release. Reverting a Git commit or image alone cannot reverse
 a storage migration or completed external effects.

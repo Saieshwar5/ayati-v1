@@ -13,8 +13,7 @@ vi.mock("../config/bundled-channel-config-metadata.generated.js", () => {
 
 describe("channel ids", () => {
   it("normalizes built-in aliases + trims whitespace", () => {
-    expect(normalizeChatChannelId(" imsg ")).toBe("imessage");
-    expect(normalizeChatChannelId("gchat")).toBe("googlechat");
+    expect(normalizeChatChannelId(" gchat ")).toBe("googlechat");
     expect(normalizeChatChannelId("google-chat")).toBe("googlechat");
     expect(normalizeChatChannelId("internet-relay-chat")).toBe("irc");
     expect(normalizeChatChannelId("telegram")).toBe("telegram");

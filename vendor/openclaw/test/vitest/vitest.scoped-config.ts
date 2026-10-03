@@ -98,7 +98,6 @@ const SCOPED_PROJECT_GROUP_ORDER_BY_NAME = new Map(
     "extension-diffs",
     "extension-discord",
     "extension-feishu",
-    "extension-imessage",
     "extension-irc",
     "extension-line",
     "extension-mattermost",

@@ -152,7 +152,6 @@ export const fullSuiteVitestShards = [
       "test/vitest/vitest.extension-diffs.config.ts",
       "test/vitest/vitest.extension-discord.config.ts",
       "test/vitest/vitest.extension-feishu.config.ts",
-      "test/vitest/vitest.extension-imessage.config.ts",
       "test/vitest/vitest.extension-irc.config.ts",
       "test/vitest/vitest.extension-line.config.ts",
       "test/vitest/vitest.extension-mattermost.config.ts",

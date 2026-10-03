@@ -13,7 +13,6 @@ const migratedMessageTurnFiles = [
   "extensions/discord/src/monitor/message-handler.context.ts",
   "extensions/discord/src/monitor/message-handler.preflight.ts",
   "extensions/feishu/src/bot.ts",
-  "extensions/imessage/src/monitor/inbound-processing.ts",
   "extensions/line/src/bot-handlers.ts",
   "extensions/line/src/bot-message-context.ts",
   "extensions/mattermost/src/mattermost/monitor-posts.ts",

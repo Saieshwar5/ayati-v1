@@ -14,7 +14,6 @@ export const channelPluginSurfaceKeys = [
 export const sessionBindingContractChannelIds = [
   "discord",
   "feishu",
-  "imessage",
   "matrix",
   "telegram",
 ] as const;

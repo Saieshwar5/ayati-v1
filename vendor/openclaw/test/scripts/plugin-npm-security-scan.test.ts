@@ -323,7 +323,6 @@ describe("scripts/lib/plugin-npm-security-scan.mts", () => {
       "@openclaw/codex:dangerous-exec:src/app-server/transport-stdio.ts",
       "@openclaw/codex:dangerous-exec:src/doctor.ts",
       "@openclaw/discord:dangerous-exec:src/voice/audio.ts",
-      "@openclaw/imessage:dangerous-exec:src/client.ts",
       "@openclaw/llama-cpp-provider:dangerous-exec:src/llama-server-install.ts",
       "@openclaw/llama-cpp-provider:dangerous-exec:src/llama-server-vc-runtime.ts",
       "@openclaw/mxc-sandbox:dangerous-exec:src/readiness.ts",

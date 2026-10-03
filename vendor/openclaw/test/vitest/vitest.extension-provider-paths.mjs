@@ -6,7 +6,6 @@ const providerExtensionIds = [
   "amazon-bedrock-mantle",
   "anthropic",
   "anthropic-vertex",
-  "apple-fm",
   "byteplus",
   "chutes",
   "comfy",
