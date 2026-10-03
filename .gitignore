@@ -1,6 +1,8 @@
 # Local reference documents and utility scripts
 /proj-docs/
 /scripts/
+/.tmp/
+/.ayati-openclaw/
 
 # Environment variables and local secrets
 .env

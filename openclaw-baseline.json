@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/openclaw/openclaw.git",
+  "commit": "9d5c37cf80a9bf6c50833c405f0ae5a5b31298a1",
+  "version": "2026.9.7",
+  "tree": "4edb806b92e416177879221fc0ce159fa16234a0",
+  "directory": "vendor/openclaw",
+  "import": "git-subtree-squash",
+  "node": "26.2.0",
+  "pnpm": "12.5.1",
+  "lockfileSha256": "5172358f77e3883d57db7757e6d5a1063a2455689f068ce1ba71d235e60de83c",
+  "updatePolicy": "manual-upgrade-branch-test-review-release"
+}

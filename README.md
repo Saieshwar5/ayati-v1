@@ -1,168 +1,109 @@
 # Ayati
 
-A small local personal assistant: one continuous conversation, one Rust agent
-harness, and a lightweight TypeScript web interface. This is the first working
-foundation, not the completed product in `proj-docs/development-roadmap.md`.
+Ayati is a cloud-first single-assistant product built on OpenClaw. The previous
+Rust agent harness and web prototype have been removed from the active tree.
+The complete source in `vendor/openclaw` is now the sole agent runtime. It is
+tracked here as a squashed Git subtree, not a submodule or ignored reference.
 
-## Run locally
+This increment establishes the source/build baseline and manual upgrade policy.
+The upstream Control UI is a development interface. Ayati's minimal UI,
+customer signup, official channel routing and isolated multi-customer hosting
+are still to build. Existing product requirements remain under `proj-docs`.
 
-Requirements: Linux, Rust/Cargo, Node.js 26, and Bubblewrap (`bwrap`) with
-unprivileged user namespaces enabled. Tested with Rust 1.98.1, Node 26.2.0,
-and Bubblewrap 0.12.0 on Arch Linux. Bubblewrap must work; execution never falls
-back to an unrestricted host shell.
+## Pinned baseline
 
-From the project root:
+| Component | Pin |
+| --- | --- |
+| OpenClaw package | `2026.9.7` |
+| Upstream commit | `9d5c37cf80a9bf6c50833c405f0ae5a5b31298a1` |
+| Development Node | `26.2.0` (`.node-version`) |
+| Package manager | `pnpm 12.5.1` (integrity pin in `package.json`) |
+| Dependencies | Tracked upstream `pnpm-lock.yaml`, frozen install |
+
+[openclaw-baseline.json](openclaw-baseline.json) records the source tree and lock
+hash. This is the inspected development baseline, not a production release.
+The full upstream build needs about 4.7 GB peak memory according to its guard.
+Use a build host with sufficient available memory; GitHub CI also builds and
+checks the real Gateway and Control UI. The guard remains enabled.
+
+## Build and run
+
+Install the pinned Node and pnpm versions, then run from the repository root:
 
 ```sh
+pnpm setup:runtime
+pnpm build
+pnpm check
+pnpm test
+pnpm test:gateway
+pnpm run init
 cp .env.example .env
-# Edit .env locally and set FIREWORKS_API_KEY. Do not paste keys into chat.
-npm ci --prefix web
-npm run build --prefix web
-cargo run -- serve
+pnpm openclaw configure
+pnpm start
 ```
 
-Open **http://127.0.0.1:8765**. Without a key, the interface and file storage are
-available, and sending a request explains the missing configuration. Restart
-after changing `.env`. The provisional model is configurable with `AYATI_MODEL`.
-Account availability and live model quality still need validation with your key.
+Configure a model provider through OpenClaw. Optional provider credentials can
+live in the ignored `.env`. Archived prototype credentials are not migrated
+automatically. Never put real credentials in configuration templates or Git.
 
-Try attaching a text file and asking:
+The development Gateway listens on `http://127.0.0.1:19889`. Open the dashboard
+with `pnpm openclaw dashboard`. Control UI device authentication stays enabled.
+The token is generated into private local configuration and is not printed by
+our initializer. This is a trusted developer interface, not customer signup.
 
-> Read this file, create a clearer revised version, preserve my original, and
-> explain what you changed. Check the revised file before finishing.
+The launcher uses `.ayati-openclaw` for configuration, credentials, workspace and
+runtime state. Set `AYATI_STATE_DIR` for another private directory. Startup runs
+a foreground process without installing or managing an OS service. Keep that
+Gateway running; Ctrl+C stops it.
 
-Generated files appear under **Files**. Each archived version has its own download;
-original uploads are kept outside the writable shell workspace. Closing the web
-page does not stop work. Keep the daemon process running; automatic startup and
-restart recovery are a later increment.
+## Update ownership
+
+- Automatic Gateway/node updates and runtime update checks are explicitly off.
+- The launcher reapplies this policy on startup and sets
+  `OPENCLAW_NO_AUTO_UPDATE=1`, even if inherited settings enable updates.
+- The agent's `gateway` administration tool and chat config/restart commands are
+  disabled. The Ayati launcher refuses the native `update` CLI command.
+- Operators upgrade source through Git, review and test it, then build an Ayati
+  artifact. Future deployment must pin that artifact by digest.
+- The development UI retains trusted operator administration powers. These
+  controls do not establish customer authorization or an immutable production
+  runtime. Do not expose this baseline as a public service.
+
+See [manual upstream upgrades](docs/upstream-upgrades.md) for fresh-clone setup,
+branch/merge commands, validation, release promotion and recovery requirements.
+
+## Repository boundaries
+
+| Path | Owner and purpose |
+| --- | --- |
+| `vendor/openclaw` | Tracked runtime, tools, plugins and Control UI |
+| `bin`, `lib` | Small Ayati launcher and baseline checks |
+| `config/openclaw.json` | Public baseline template with no credentials |
+| `tests` | State-isolation and managed-update regression checks |
+| `docs` | Versioned product development/update instructions |
+| `proj-docs` | Existing ignored product requirements and references |
+
+Keep Ayati changes focused. Configure behavior first where sufficient; make
+needed runtime/UI changes inside the subtree in distinct commits. Future
+subtree merges reconcile our modifications against the imported base. The full
+upstream history is not embedded in every Ayati clone. Upstream CI files inside
+the subtree do not become active Ayati GitHub workflows.
+
+## Previous prototype recovery
+
+The annotated tag `ayati-before-openclaw-2026-10-03` preserves committed code.
+Open it on a separate worktree to retain the new codebase:
 
 ```sh
-cargo run -- status
-cargo run -- stop
-# Optional optimized binary:
-cargo build --release
-./target/release/ayati serve
+git fetch origin tag ayati-before-openclaw-2026-10-03
+git worktree add ../ayati-prototype ayati-before-openclaw-2026-10-03
 ```
 
-Run commands from the root so the daemon finds `web/dist` and `.env`. `start` is
-an alias for `serve`; it runs in the foreground. The UI's Stop button cancels
-current work; the CLI's `stop` shuts down the daemon. Neither undoes completed
-file operations. A local machine must stay powered on to do background work.
+A Git tag does not preserve ignored documents, credentials, runtime data or
+build output. Prior source/dependencies, `.env` if present, and a planning
+snapshot are separately retained locally under the ignored, private
+`.tmp/ayati-before-openclaw-2026-10-03`. Existing `.ayati` data and `target` output
+remain untouched; they are not migrated into OpenClaw.
 
-## Implemented
-
-- One chat, streamed replies, working status, Stop, file attachment/downloads,
-  and a compact files panel. The client uses vanilla TypeScript and CSS.
-- A normalized model boundary and Fireworks/OpenAI-compatible streaming adapter.
-  Other provider protocols can implement `Model`; Gemini and Anthropic adapters
-  are not implemented. No local inference or separate classifier is used.
-- One tool loop with sequential validated calls, corrective feedback for invalid
-  arguments, complete tool-call/result pairing, and explicit failure states.
-  Truncated or unfinished responses cannot dispatch tools.
-- Real shell commands through Bubblewrap. Only the private workspace is writable
-  persistently. System binaries are read-only; `/tmp` is private; host home,
-  `/etc`, provider credentials, and networking are absent from the shell.
-- SQLite history, tasks, tool attempts, model exchanges, and file references.
-  Files are ordinary files, archived separately from the live workspace.
-- Immediate model cancellation and shell/process-descendant termination. Waiting
-  requests can be cancelled before they run.
-- Local same-origin requests, private data-directory permissions, a daemon lock,
-  escaped chat content, and downloads forced as attachments.
-
-SQLite SQL stays in `src/storage`; a PostgreSQL implementation will require
-schema/query changes and migration, rather than just changing a connection URL.
-
-## Current boundaries
-
-One request runs at a time. Additional requests are saved and queued while the
-daemon remains responsive. Background jobs yielding to short new requests,
-corrections applied to running work, and automatic restart/resume come next.
-On restart, unfinished requests are marked interrupted; completed effects are
-never blindly replayed. Recent saved exchanges inform follow-ups.
-
-Context uses a conservative **96,000-byte** ceiling, not a claim about a model's
-token capacity. Up to 12 recent complete exchanges fit within half that budget.
-Current progress is saved and the request stops clearly at its context or
-24-turn limit. LLM compaction, full-history retrieval, automatic memory and
-durable approval/ask-resume are later increments. The UI loads the latest 200
-messages and files; older records remain in SQLite.
-
-Shell output has a 6 KB excerpt and an 8 MB log cap; omission is explicit.
-The model can inspect retained output with `head`/`tail` on the returned read-only
-`/artifacts` log path, without repeating a command that changed files.
-Commands have a 1–120 second timeout. Downloads/uploads are limited to 25 MB.
-At most 20 changed files per tool step are archived, with an omitted count.
-Workspace scans are bounded to 2,000 files and depth 12. Logs are available in
-tool records and through `/api/files/{id}`, and are hidden from the normal files
-panel. No disk quota, CPU/memory quota or retention cleanup exists yet, so this
-is a local development environment, not a hardened multi-user sandbox.
-
-The shell has no network in this increment; package downloads, browser work,
-connected apps, MCP, scheduling, recorded voice, rich document conversions and
-interactive generated UI are not available yet. Booking/payment approvals will
-be built before tools that can make those external actions. Never store actual
-credentials in uploaded files or the agent workspace. Ordinary chat and file
-contents used as context go to the configured online model provider.
-
-## Development and checks
-
-```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-npm test --prefix web
-npm run check:e2e --prefix web
-npm run build --prefix web
-cargo build --release
-node tests/daemon_smoke.mjs
-./scripts/check-file-lines.sh  # local ignored helper, when present
-```
-
-`npm run dev --prefix web` starts Vite with an API proxy to port 8765. Rebuild the
-web client for the daemon's normal single-origin interface. Dependency lockfiles
-are tracked; runtime data (`.ayati`), `.env`, build output, project reference
-documents and reference repositories are ignored.
-
-Backend tests exercise a local HTTP model fixture with **real** Bubblewrap shell
-execution, downloads, history, cancellation, incomplete calls and localhost
-access checks. They establish protocol/runtime behavior; they do not establish
-Fireworks account access or model intelligence. DOM tests cover stream/snapshot
-races and safe rendering. Playwright tests now exercise the actual web client,
-daemon, SQLite database and shell through browser interaction; a separate live
-suite uses your configured online model.
-
-```sh
-cd web && npx playwright install chromium && cd ..
-npm run test:e2e --prefix web               # repeatable, no paid model calls
-npm run test:e2e --prefix web -- --headed  # watch the browser work
-npm run test:live --prefix web             # uses FIREWORKS_API_KEY; billed model calls
-npm run test:report --prefix web           # inspect the latest browser report
-```
-
-Each run writes private, ignored evidence under `.test-runs`: a readable summary,
-HTML report, task/message/tool/file records, checks, timings, screenshots and
-failure traces. Test code, synthetic fixtures and lockfiles stay in Git.
-See [browser testing and feedback](tests/README.md) for scenarios, debugging,
-report contents and the limits of automated evaluation.
-
-## Structure and dependency choices
-
-| Boundary | Implementation | Reason |
-| --- | --- | --- |
-| Daemon/API | Tokio + Axum | One process for async HTTP and the harness |
-| Model protocol | reqwest + small streaming decoder | Keep provider translation out of the loop |
-| Persistence | rusqlite + SQLite WAL | Local durable state without a database server |
-| Execution | System Bubblewrap | Reuse Linux isolation instead of creating a sandbox |
-| Web | TypeScript + Vite | No UI framework runtime for the initial chat |
-| Development DOM checks | jsdom + Node test runner | Test stream races and rendering without shipping a test framework |
-| Development browser checks | Playwright Test + Chromium | Real user interaction, downloads and failure traces; development only |
-
-Versions are pinned in `Cargo.lock` and `web/package-lock.json`. The Rust
-libraries, Vite and jsdom have permissive licenses; TypeScript is Apache-2.0.
-Bubblewrap is a separately installed LGPL-2.1-or-later executable. License and
-bundling review will be needed before distributing packaged binaries.
-
-Read `AGENTS.md`, the local `proj-docs/README.md`, and
-`proj-docs/implementation-status.md` before further building. Use selective
-references under `proj-docs/proj-ref`, and preserve rationale and validation in
-Git history.
+OpenClaw's [MIT license](vendor/openclaw/LICENSE) and copyright notice are retained.
+Third-party components keep their respective notices and licenses.

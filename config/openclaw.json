@@ -1,0 +1,15 @@
+{
+  "update": {
+    "checkOnStart": false,
+    "auto": { "enabled": false }
+  },
+  "nodeHost": { "autoUpdate": { "enabled": false } },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 19889,
+    "auth": { "mode": "token" }
+  },
+  "tools": { "deny": ["gateway"] },
+  "commands": { "config": false, "restart": false }
+}
