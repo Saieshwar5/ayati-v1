@@ -9,6 +9,7 @@
   "scripts": {
     "setup:runtime": "pnpm --dir vendor/openclaw install --frozen-lockfile",
     "build": "pnpm --dir vendor/openclaw build",
+    "build:runtime": "OPENCLAW_RUN_NODE_SKIP_DTS_BUILD=1 pnpm --dir vendor/openclaw build",
     "init": "node bin/ayati.mjs init",
     "start": "node bin/ayati.mjs start",
     "openclaw": "node bin/ayati.mjs openclaw",

@@ -1,6 +1,6 @@
 # Ayati
 
-Ayati is a cloud-first single-assistant product built on OpenClaw. The previous
+Ayati is a cloud-only single-assistant product built on OpenClaw. The previous
 Rust agent harness and web prototype have been removed from the active tree.
 The complete source in `vendor/openclaw` is now the sole agent runtime. It is
 tracked here as a squashed Git subtree, not a submodule or ignored reference.
@@ -22,9 +22,18 @@ are still to build. Existing product requirements remain under `proj-docs`.
 
 [openclaw-baseline.json](openclaw-baseline.json) records the source tree and lock
 hash. This is the inspected development baseline, not a production release.
-The full upstream build needs about 4.7 GB peak memory according to its guard.
-Use a build host with sufficient available memory; GitHub CI also builds and
-checks the real Gateway and Control UI. The guard remains enabled.
+`pnpm build:runtime` uses upstream's supported development profile: it builds
+the runtime, plugins and UI without SDK declarations. `pnpm build` retains the
+full typed build for SDK validation and release packaging. Neither profile
+shrinks runtime capabilities or establishes idle memory use.
+
+The full build's guard estimates about 4.7 GB peak memory. Prefer a build host
+with sufficient available memory. Local runtime validation used upstream's
+explicit `OPENCLAW_TSDOWN_MAX_OLD_SPACE_MB=4352` heap setting and available swap;
+the launcher does not set this override. The runtime/UI build and Gateway smoke
+check passed. Full SDK declaration validation remains incomplete. GitHub CI is
+configured for the full build but could not start because of an account billing
+lock; this is not a passing CI result.
 
 ## Build and run
 
@@ -32,7 +41,7 @@ Install the pinned Node and pnpm versions, then run from the repository root:
 
 ```sh
 pnpm setup:runtime
-pnpm build
+pnpm build:runtime
 pnpm check
 pnpm test
 pnpm test:gateway

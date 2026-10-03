@@ -33,7 +33,7 @@ if (command === 'init') {
   const runtime = path.join(root, 'vendor/openclaw');
   if (!existsSync(path.join(runtime, 'dist/entry.js')) &&
       !existsSync(path.join(runtime, 'dist/entry.mjs'))) {
-    console.error('OpenClaw has not been built. Run pnpm setup:runtime and pnpm build.');
+    console.error('OpenClaw has not been built. Run pnpm setup:runtime and pnpm build:runtime.');
     process.exit(1);
   }
   const cliArgs = command === 'start' ? ['gateway', 'run', ...args] : args;
