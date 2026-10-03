@@ -657,8 +657,8 @@ function finalizationFixture(overrides: Record<string, unknown> = {}) {
     join(fixture.scripts, "release-tooling-identity.mjs"),
   );
   copyFileSync(
-    resolve("scripts/linux-app-channel.mjs"),
-    join(fixture.scripts, "linux-app-channel.mjs"),
+    resolve("scripts/release-core-finalize.mjs"),
+    join(fixture.scripts, "release-core-finalize.mjs"),
   );
   const statePath = writeFixtureFile(
     fixture.root,
@@ -1902,7 +1902,7 @@ describe("release preparation recovery", () => {
 
 describe("verified release activation", () => {
   it.each(["button", "parent"] as const)(
-    "keeps %s activation authoritative after an advisory Linux carry failure",
+    "checks %s activation authority without desktop continuity",
     (owner) => {
       for (const changes of [
         {},
@@ -1912,23 +1912,10 @@ describe("verified release activation", () => {
         { currentWriter: { run_attempt: 2 } },
         ...(owner === "button" ? [{ parentRunAttempt: 2 }] : []),
       ]) {
-        const fixture = finalizationFixture({ isPrerelease: false });
-        writeFixtureFile(
-          fixture.scripts,
-          "linux-updater-manifest.mjs",
-          `
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-const state = JSON.parse(readFileSync(process.env.FIXTURE_GITHUB_STATE, 'utf8'));
-Object.assign(state, ${JSON.stringify(changes)});
-writeFileSync(process.env.FIXTURE_GITHUB_STATE, JSON.stringify(state));
-appendFileSync(process.env.FIXTURE_TRACE, JSON.stringify({ event: 'carry-failed' }) + '\\n');
-console.error('fixture: Linux manifest transport unavailable');
-process.exitCode = 1;
-`,
-        );
+        const fixture = finalizationFixture({ isPrerelease: false, ...changes });
         const result = fixture.run(owner, "v2026.9.2", "latest");
         const authorized = Object.keys(changes).length === 0;
-        expect(fixture.trace().some((event) => event.event === "carry-failed")).toBe(true);
+        expect(fixture.trace().some((event) => event.event === "carry-failed")).toBe(false);
         expect(result.status, result.stderr).toBe(authorized ? 0 : 1);
         expect(fixture.state()).toMatchObject({
           writes: authorized ? 1 : 0,

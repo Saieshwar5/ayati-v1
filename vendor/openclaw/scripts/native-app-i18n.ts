@@ -98,7 +98,6 @@ const SOURCE_ROOTS: Record<NativeI18nSurface, string[]> = {
   ],
   apple: [
     path.join(ROOT, "apps", "ios"),
-    path.join(ROOT, "apps", "macos", "Sources"),
     path.join(ROOT, "apps", "shared", "OpenClawKit", "Sources"),
   ],
 };
@@ -1721,7 +1720,7 @@ async function main() {
     await syncAndroidAppI18n();
     const apple = await syncAppleAppI18n();
     process.stdout.write(
-      `native-app-i18n: synced derived artifacts (android, Apple catalogs, ${apple.infoPlistFiles} InfoPlist files); contradictions=${apple.build.contradictions.length + apple.macosBuild.contradictions.length}\n`,
+      `native-app-i18n: synced derived artifacts (android, iOS catalog, ${apple.infoPlistFiles} InfoPlist files); contradictions=${apple.build.contradictions.length}\n`,
     );
   }
 }

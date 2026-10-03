@@ -26,7 +26,6 @@ REPO_DIR="."
 MAX_CANDIDATES=12
 GITHUB_OUTPUT_FILE="${GITHUB_OUTPUT:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PREFLIGHT="${SCRIPT_DIR}/../release-preflight.mjs"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VALIDATOR="${OPENCLAW_RELEASE_CI_SUMMARY_VALIDATOR:-${REPO_ROOT}/scripts/release-ci-summary.mjs}"
 
@@ -221,11 +220,9 @@ else
   no_reuse "trusted workflow identity is not main or an exact protected tag"
 fi
 
-# Exact-target reuse still requires internally consistent version stamps
-# (for example package.json must agree with the macOS plist).
-if ! (cd "$REPO_DIR" && env -u NODE_OPTIONS node "$PREFLIGHT" --macos-versions-only >&2); then
-  no_reuse "target version metadata is inconsistent"
-fi
+# The workflow validates the core release version before this probe. The shared
+# evidence verifier below binds the exact target or a changelog-only descendant;
+# no separate native desktop version stamps are part of Ayati's release.
 
 runs_json=""
 if ! runs_json="$(

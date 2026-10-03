@@ -23,57 +23,78 @@ config.gateway.port = port;
 writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 const env = { ...process.env, AYATI_STATE_DIR: state };
 let output = '';
-const gateway = spawn(process.execPath, ['bin/ayati.mjs', 'start'], {
-  cwd: root, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-});
-gateway.stdout.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
-gateway.stderr.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
+let gateway;
+let gatewayExit;
 let startupError;
-gateway.on('error', (error) => { startupError = error; });
+function startGateway() {
+  startupError = undefined;
+  gateway = spawn(process.execPath, ['bin/ayati.mjs', 'start'], {
+    cwd: root, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  gateway.stdout.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
+  gateway.stderr.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
+  gateway.on('error', (error) => { startupError = error; });
+  gatewayExit = once(gateway, 'exit');
+}
+async function stopGateway() {
+  if (!gateway?.pid) return;
+  const stopping = gateway;
+  gateway = undefined;
+  try { process.kill(-stopping.pid, 'SIGTERM'); } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+  await Promise.race([gatewayExit, delay(5000)]);
+  try { process.kill(-stopping.pid, 'SIGKILL'); } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+const marker = path.join(state, 'workspace', 'smoke-marker.txt');
+mkdirSync(path.dirname(marker), { recursive: true, mode: 0o700 });
+writeFileSync(marker, 'retained across restart', { mode: 0o600 });
 
 try {
-  let ready = false;
-  const deadline = Date.now() + 90000;
-  while (Date.now() < deadline && gateway.exitCode === null && !startupError) {
+  for (let cycle = 0; cycle < 2; cycle++) {
+    startGateway();
+    let ready = false;
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline && gateway.exitCode === null && !startupError) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/readyz`, {
+          headers: { Authorization: `Bearer ${config.gateway.auth.token}` },
+          signal: AbortSignal.timeout(2000),
+        });
+        if (response.ok) { ready = true; break; }
+      } catch { /* Startup has not finished. */ }
+      await delay(250);
+    }
+    assert.equal(ready, true, 'Gateway did not become ready.');
+    const web = await fetch(`http://127.0.0.1:${port}/`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    assert.equal(web.status, 200);
+    assert.match(await web.text(), /<openclaw-app|<script[^>]+src=/);
+    const health = spawn(process.execPath, ['bin/ayati.mjs', 'openclaw', 'health', '--json'], {
+      cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const timeout = setTimeout(() => health.kill('SIGTERM'), 20000);
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/readyz`, {
-        headers: { Authorization: `Bearer ${config.gateway.auth.token}` },
-        signal: AbortSignal.timeout(2000),
-      });
-      if (response.ok) { ready = true; break; }
-    } catch { /* Startup has not finished. */ }
-    await delay(250);
+      health.stdout.on('data', () => {});
+      health.stderr.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
+      const [code] = await once(health, 'exit');
+      assert.equal(code, 0, 'Authenticated Gateway health command failed.');
+    } finally { clearTimeout(timeout); }
+    const finalConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+    assert.equal(finalConfig.update.auto.enabled, false);
+    assert.equal(finalConfig.nodeHost.autoUpdate.enabled, false);
+    assert.equal(finalConfig.gateway.auth.token, config.gateway.auth.token);
+    assert.equal(readFileSync(marker, 'utf8'), 'retained across restart');
+    await stopGateway();
   }
-  assert.equal(ready, true, 'Gateway did not become ready.');
-  const web = await fetch(`http://127.0.0.1:${port}/`, {
-    signal: AbortSignal.timeout(5000),
-  });
-  assert.equal(web.status, 200);
-  assert.match(await web.text(), /<openclaw-app|<script[^>]+src=/);
-  const health = spawn(process.execPath, ['bin/ayati.mjs', 'openclaw', 'health', '--json'], {
-    cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const timeout = setTimeout(() => health.kill('SIGTERM'), 20000);
-  try {
-    health.stdout.on('data', () => {});
-    health.stderr.on('data', (chunk) => { output = (output + chunk).slice(-16000); });
-    const [code] = await once(health, 'exit');
-    assert.equal(code, 0, 'Authenticated Gateway health command failed.');
-  } finally { clearTimeout(timeout); }
-  const finalConfig = JSON.parse(readFileSync(configPath, 'utf8'));
-  assert.equal(finalConfig.update.auto.enabled, false);
-  assert.equal(finalConfig.nodeHost.autoUpdate.enabled, false);
-  console.log('Gateway readiness, Control UI HTTP response, authenticated health and update policy passed.');
+  console.log('Gateway startup/restart, Control UI serving, fresh authenticated health connections, private workspace retention and update policy passed.');
 } catch (error) {
   console.error(output.replaceAll(config.gateway.auth.token, '[redacted]'));
   throw error;
 } finally {
-  if (gateway.pid && gateway.exitCode === null && gateway.signalCode === null) {
-    process.kill(-gateway.pid, 'SIGTERM');
-    await Promise.race([once(gateway, 'exit'), delay(5000)]);
-    try { process.kill(-gateway.pid, 'SIGKILL'); } catch (error) {
-      if (error.code !== 'ESRCH') throw error;
-    }
-  }
+  await stopGateway();
   rmSync(state, { recursive: true, force: true });
 }

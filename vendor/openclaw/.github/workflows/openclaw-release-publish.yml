@@ -2318,14 +2318,6 @@ jobs:
           if [[ "$expected_prerelease" == false && "${RELEASE_NPM_DIST_TAG}" == "latest" ]]; then
             expected_latest=true
           fi
-          if [[ "$expected_latest" == true ]]; then
-            if ! node scripts/linux-updater-manifest.mjs carry \
-              --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" \
-              --source-sha "$SOURCE_SHA" \
-              --output "$RUNNER_TEMP/linux-updater-carry"; then
-              echo "::warning::Linux updater continuity needs recovery; the independent Linux publication remains pending."
-            fi
-          fi
           release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
           latest_tag=""
           if [[ "$expected_latest" == true ]]; then
@@ -2350,7 +2342,7 @@ jobs:
               --writer-workflow-path .github/workflows/openclaw-release-publish.yml \
               --writer-workflow-event workflow_dispatch
           fi
-          node scripts/linux-app-channel.mjs finalize-core \
+          node scripts/release-core-finalize.mjs finalize-core \
             --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" --latest "$expected_latest" \
             --tooling-sha "$GITHUB_WORKFLOW_SHA" \
             --workflow-ref "$GITHUB_REF_NAME" --workflow-full-ref "$GITHUB_REF" \
@@ -2358,14 +2350,12 @@ jobs:
             --release-publish-ref "$GITHUB_REF_NAME" --release-publish-full-ref "$GITHUB_REF" \
             | tee "$RUNNER_TEMP/core-finalization.json"
 
-      - name: Retain Linux updater continuity evidence
+      - name: Retain core release finalization evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: linux-updater-continuity-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-          path: |
-            ${{ runner.temp }}/linux-updater-carry
-            ${{ runner.temp }}/core-finalization.json
+          name: core-finalization-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          path: ${{ runner.temp }}/core-finalization.json
           if-no-files-found: ignore
 
   approve_github_release_before_docker:

@@ -238,21 +238,6 @@ describe("native Gateway protocol levels", () => {
       "Watch node connects must advertise GATEWAY_PROTOCOL_VERSION as maxProtocol.",
     );
 
-    const swiftWizardPath = "apps/macos/Sources/OpenClawMacCLI/WizardCommand.swift";
-    const swiftWizard = await readRepoFile(swiftWizardPath);
-    assertPattern(
-      swiftWizard,
-      swiftWizardPath,
-      /"minProtocol": ProtoAnyCodable\(GATEWAY_MIN_PROTOCOL_VERSION\)/,
-      "operator connects must advertise GATEWAY_MIN_PROTOCOL_VERSION as minProtocol.",
-    );
-    assertPattern(
-      swiftWizard,
-      swiftWizardPath,
-      /"maxProtocol": ProtoAnyCodable\(GATEWAY_PROTOCOL_VERSION\)/,
-      "operator connects must advertise GATEWAY_PROTOCOL_VERSION as maxProtocol.",
-    );
-
     const androidPath = "apps/android/app/src/main/java/ai/openclaw/app/gateway/GatewaySession.kt";
     const android = await readRepoFile(androidPath);
     assertPattern(

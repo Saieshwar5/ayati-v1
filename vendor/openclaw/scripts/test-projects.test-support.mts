@@ -741,7 +741,6 @@ const TEST_HELPER_NORMALIZE_TEXT_TARGETS = [
   "src/tui/components/chat-log.test.ts",
 ];
 const HAPPY_PATH_PROMPT_SNAPSHOT_HELPER_TEST_TARGETS = ["test/scripts/prompt-snapshots.test.ts"];
-const APPCAST_TEST_TARGETS = ["test/appcast.test.ts", "test/scripts/make-appcast.test.ts"];
 const CODEX_VERSION_CONTRACT_TEST_TARGETS = [
   "extensions/codex/src/manifest.test.ts",
   "extensions/openai/openai-provider.test.ts",
@@ -769,14 +768,7 @@ const SOURCE_TEST_TARGETS = new Map([
     "extensions/browser/src/browser/chrome-mcp-options.ts",
     ["extensions/browser/src/browser/chrome-mcp.test.ts"],
   ],
-  [
-    "scripts/prepare-apple-mermaid.mjs",
-    [
-      "test/scripts/build-and-run-mac.test.ts",
-      "test/scripts/package-mac-app.test.ts",
-      "test/scripts/ci-workflow-guards.test.ts",
-    ],
-  ],
+  ["scripts/prepare-apple-mermaid.mjs", ["test/scripts/ci-workflow-guards.test.ts"]],
   ["packages/mermaid-renderer/package.json", MERMAID_RENDERER_TEST_TARGETS],
   ["packages/mermaid-renderer/vite.config.ts", MERMAID_RENDERER_TEST_TARGETS],
   ["packages/mermaid-renderer/native/index.html", MERMAID_RENDERER_TEST_TARGETS],
@@ -3516,20 +3508,10 @@ const SEMANTIC_TOOLING_TARGET_PATTERNS: Array<[RegExp, string[]]> = [
       "test/scripts/docker-setup.test.ts",
       "apple-release-source-check",
       "ios-version",
-      "package-mac-app",
       installDocker,
     ],
   ],
-  [/^scripts\/lib\/plistbuddy\.sh$/u, ["create-dmg", "package-mac-app", "package-mac-dist"]],
-  [
-    /^scripts\/lib\/swift-toolchain\.sh$/u,
-    ["package-mac-app", "package-mac-dist", "xcode-test-logs"],
-  ],
-  [/^scripts\/stage-cua-driver-macos\.sh$/u, ["package-mac-app"]],
-  [
-    /^scripts\/(stage-cloudflared-macos\.sh|lib\/cloudflared-macos\.json)$/u,
-    ["stage-cloudflared-macos", "package-mac-app"],
-  ],
+  [/^scripts\/lib\/swift-toolchain\.sh$/u, ["xcode-test-logs"]],
   [
     /^scripts\/lib\/npm-publish-plan\.mjs$/u,
     [
@@ -3634,10 +3616,6 @@ const SEMANTIC_TOOLING_TARGET_PATTERNS: Array<[RegExp, string[]]> = [
       crossOsReleaseChecks,
       changedScope,
     ],
-  ],
-  [
-    /^scripts\/sparkle-build\.ts$/u,
-    ["test/appcast.test.ts", releaseCheck, "package-mac-app", "package-mac-dist"],
   ],
   [
     /^test\/vitest\/vitest\.contracts-paths\.mjs$/u,
@@ -4179,10 +4157,6 @@ function resolvePackageFixtureTargets(changedPath: string, cwd: string) {
   return fs.existsSync(path.join(cwd, owner)) ? [owner] : null;
 }
 
-function resolveAppcastTargets(changedPath: string) {
-  return /^appcast(?:-(?:arm64|x86_64))?\.xml$/u.test(changedPath) ? APPCAST_TEST_TARGETS : null;
-}
-
 function resolveKovaSchemaTestTargets(changedPath: string) {
   // The workflow fixture reads schema bytes, so imports cannot express this dependency.
   return changedPath === "src/config/zod-schema.agent-defaults.ts" ||
@@ -4206,7 +4180,6 @@ function resolvePreciseChangedTestTargets(
       ? [changedPath, DOCS_CONFIG_EXAMPLES_TEST_TARGET]
       : null) ??
     resolveToolingTestTargets(changedPath, cwd, options) ??
-    resolveAppcastTargets(changedPath) ??
     resolvePromptSnapshotFixtureTargets(changedPath) ??
     resolvePackageFixtureTargets(changedPath, cwd);
   if (mappedTargets) {

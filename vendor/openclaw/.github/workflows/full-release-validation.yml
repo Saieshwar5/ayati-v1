@@ -984,7 +984,6 @@ jobs:
           path: target
           sparse-checkout: |
             package.json
-            apps/macos/Sources/OpenClaw/Resources/Info.plist
           sparse-checkout-cone-mode: false
           fetch-depth: 1
           persist-credentials: false

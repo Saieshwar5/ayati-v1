@@ -19,11 +19,6 @@ export const toolingTsEntrypoints = {
     sourceWorkerName: "../../scripts/control-ui-i18n",
     distWorkerPath: "legacy-finalizer/scripts/control-ui-i18n.js",
   },
-  sparkleBuild: {
-    currentModuleUrl: import.meta.url,
-    sourceWorkerName: "../../scripts/sparkle-build",
-    distWorkerPath: "legacy-finalizer/scripts/sparkle-build.js",
-  },
   prepack: {
     currentModuleUrl: import.meta.url,
     sourceWorkerName: "../../scripts/openclaw-prepack",

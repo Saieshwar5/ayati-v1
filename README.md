@@ -2,10 +2,13 @@
 
 Ayati is a cloud-only single-assistant product built on OpenClaw. The previous
 Rust agent harness and web prototype have been removed from the active tree.
-The complete source in `vendor/openclaw` is now the sole agent runtime. It is
+The reviewed source in `vendor/openclaw` is now the sole agent runtime. It is
 tracked here as a squashed Git subtree, not a submodule or ignored reference.
 
-This increment establishes the source/build baseline and manual upgrade policy.
+The pinned source/build baseline and manual upgrade policy are established.
+Installed desktop applications and their exclusive packaging tools are removed.
+iOS, Android and shared mobile libraries remain as source for later evaluation;
+they are not released Ayati apps. See [desktop removal](docs/desktop-removal.md).
 The upstream Control UI is a development interface. Ayati's minimal UI,
 customer signup, official channel routing and isolated multi-customer hosting
 are still to build. Existing product requirements remain under `proj-docs`.
@@ -88,7 +91,8 @@ branch/merge commands, validation, release promotion and recovery requirements.
 | `vendor/openclaw` | Tracked runtime, tools, plugins and Control UI |
 | `bin`, `lib` | Small Ayati launcher and baseline checks |
 | `config/openclaw.json` | Public baseline template with no credentials |
-| `tests` | State-isolation and managed-update regression checks |
+| `config/source-scope.json` | Retained mobile inputs and excluded desktop paths |
+| `tests` | State, update-policy, source-scope and Gateway restart checks |
 | `docs` | Versioned product development/update instructions |
 | `proj-docs` | Existing ignored product requirements and references |
 

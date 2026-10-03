@@ -181,14 +181,6 @@ jobs:
           elif [[ "$RELEASE_NPM_DIST_TAG" == latest ]]; then
             expected_latest=true
           fi
-          if [[ "$expected_latest" == true ]]; then
-            if ! node scripts/linux-updater-manifest.mjs carry \
-              --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" \
-              --source-sha "$SOURCE_SHA" --publication-request "$RUNNER_TEMP/release-request.json" \
-              --output "$RUNNER_TEMP/linux-updater-carry"; then
-              echo "::warning::Linux updater continuity needs recovery; the independent Linux publication remains pending."
-            fi
-          fi
           actual_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)"
           if [[ "$actual_sha" != "$SOURCE_SHA" ]]; then
             echo 'Release tag moved after publication; refusing activation.' >&2

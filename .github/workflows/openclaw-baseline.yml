@@ -37,5 +37,7 @@ jobs:
         run: pnpm setup:runtime
       - name: Build runtime and Control UI
         run: pnpm build
+      - name: Check source scope and build artifacts
+        run: pnpm check
       - name: Check real Gateway and web startup
         run: pnpm test:gateway

@@ -20,7 +20,6 @@ import { parseArgs } from "node:util";
 import { extract } from "tar";
 import { expectDefined } from "../packages/normalization-core/src/expect.js";
 import { COMPLETION_SKIP_PLUGIN_COMMANDS_ENV } from "../src/cli/completion-runtime.ts";
-import { escapeRegExp } from "../src/shared/regexp.js";
 import { checkCliBootstrapExternalImports } from "./check-cli-bootstrap-imports.mts";
 import {
   collectBundledExtensionManifestErrors,
@@ -46,7 +45,6 @@ import { parseNpmPackJsonOutput, type NpmPackResult } from "./openclaw-npm-relea
 import type * as OpenClawPrepack from "./openclaw-prepack.ts";
 import type * as OpenClawPackage from "./package-openclaw-for-docker.mts";
 import { resolvePnpmRunner } from "./pnpm-runner.mts";
-import { sparkleBuildFloorsFromShortVersion, type SparkleBuildFloors } from "./sparkle-build.ts";
 import { buildCmdExeCommandLine, resolveWindowsCmdExePath } from "./windows-cmd-helpers.mjs";
 
 type ReleaseCheckExecOptions = ExecFileSyncOptions & {
@@ -79,9 +77,6 @@ const forbiddenPrivatePluginSdkDeclarationMarkers = [
   "//#region src/test-utils/",
 ] as const;
 const forbiddenPrivateQaContentScanPrefixes = ["dist/"] as const;
-const appcastPath = resolve("appcast.xml");
-const laneBuildMin = 1_000_000_000;
-const laneFloorAdoptionReleaseKey = 20260227;
 const SAFE_UNIX_SMOKE_PATH = "/usr/bin:/bin";
 const DEFAULT_RELEASE_CHECK_COMMAND_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_RELEASE_CHECK_COMMAND_MAX_BUFFER_BYTES = 100 * 1024 * 1024;
@@ -1082,80 +1077,6 @@ export function collectForbiddenPackContentPaths(
     .toSorted((left, right) => left.localeCompare(right));
 }
 
-function extractTag(item: string, tag: string): string | null {
-  const escapedTag = escapeRegExp(tag);
-  const regex = new RegExp(`<${escapedTag}>([^<]+)</${escapedTag}>`);
-  return regex.exec(item)?.[1]?.trim() ?? null;
-}
-
-export function collectAppcastSparkleVersionErrors(xml: string): string[] {
-  const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
-  const errors: string[] = [];
-  const calverItems: Array<{ title: string; sparkleBuild: number; floors: SparkleBuildFloors }> =
-    [];
-
-  if (itemMatches.length === 0) {
-    errors.push("appcast.xml contains no <item> entries.");
-  }
-
-  for (const [index, match] of itemMatches.entries()) {
-    const item = expectDefined(match[1], `appcast item body at index ${index}`);
-    const title = extractTag(item, "title") ?? "unknown";
-    const shortVersion = extractTag(item, "sparkle:shortVersionString");
-    const sparkleVersion = extractTag(item, "sparkle:version");
-    const sparkleChannel = extractTag(item, "sparkle:channel");
-
-    if (!sparkleVersion) {
-      errors.push(`appcast item '${title}' is missing sparkle:version.`);
-      continue;
-    }
-    if (!/^[0-9]+$/.test(sparkleVersion)) {
-      errors.push(`appcast item '${title}' has non-numeric sparkle:version '${sparkleVersion}'.`);
-      continue;
-    }
-
-    if (!shortVersion) {
-      continue;
-    }
-    if (/(?:^|[.-])beta(?:[.-]|$)/i.test(shortVersion) && sparkleChannel !== "beta") {
-      errors.push(`appcast item '${title}' must set sparkle:channel to 'beta'.`);
-    }
-    const floors = sparkleBuildFloorsFromShortVersion(shortVersion);
-    if (floors === null) {
-      errors.push(
-        `appcast item '${title}' has invalid sparkle:shortVersionString '${shortVersion}'.`,
-      );
-      continue;
-    }
-
-    calverItems.push({ title, sparkleBuild: Number(sparkleVersion), floors });
-  }
-
-  const observedLaneAdoptionReleaseKey = calverItems
-    .filter((item) => item.sparkleBuild >= laneBuildMin)
-    .map((item) => item.floors.releaseKey)
-    .toSorted((a, b) => a - b)[0];
-  const effectiveLaneAdoptionReleaseKey =
-    typeof observedLaneAdoptionReleaseKey === "number"
-      ? Math.min(observedLaneAdoptionReleaseKey, laneFloorAdoptionReleaseKey)
-      : laneFloorAdoptionReleaseKey;
-
-  for (const item of calverItems) {
-    const expectLaneFloor =
-      item.sparkleBuild >= laneBuildMin ||
-      item.floors.releaseKey >= effectiveLaneAdoptionReleaseKey;
-    const floor = expectLaneFloor ? item.floors.laneFloor : item.floors.legacyFloor;
-    if (item.sparkleBuild < floor) {
-      const floorLabel = expectLaneFloor ? "lane floor" : "legacy floor";
-      errors.push(
-        `appcast item '${item.title}' has sparkle:version ${item.sparkleBuild} below ${floorLabel} ${floor}.`,
-      );
-    }
-  }
-
-  return errors;
-}
-
 // Critical functions that channel extension plugins import from openclaw/plugin-sdk.
 // If any are missing from the compiled output, plugins crash at runtime (#27569).
 const requiredPluginSdkExports = [
@@ -1276,10 +1197,6 @@ function runCriticalPluginSdkEntrypointImportSmoke(packageRoot: string) {
 
 async function main() {
   const { values } = parseArgs({ options: { tarball: { type: "string" } } });
-  checkValidationErrors(
-    "appcast sparkle version",
-    collectAppcastSparkleVersionErrors(readFileSync(appcastPath, "utf8")),
-  );
   checkValidationErrors("skill shell script permission", collectSkillShellScriptExecutableErrors());
   checkBundledExtensionMetadata();
   const temporaryDir = mkdtempSync(join(tmpdir(), "openclaw-release-check-"));
