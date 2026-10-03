@@ -9,6 +9,8 @@ It does not implement customer signup, a new web UI or multi-customer hosting.
 - `apps/macos`: the native Mac app and its app-specific CLI/package code.
 - `apps/linux`: the Tauri desktop app, including its cross-platform desktop shell.
 - `apps/macos-mlx-tts`: the Mac app's local speech helper.
+- `apps/shared/OpenClawMLXTTSProtocol`: the Mac-only speech helper protocol,
+  which had no remaining consumers after the desktop app/helper removal.
 - Exclusive app bundle, installer, signing/notarization, staging, Sparkle,
   appcast and Linux desktop updater tooling and their dedicated tests.
 - The Mac elevation installer, which installed the deleted `OpenClaw.app`.

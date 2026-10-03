@@ -25,6 +25,7 @@
     "apps/linux",
     "apps/macos",
     "apps/macos-mlx-tts",
+    "apps/shared/OpenClawMLXTTSProtocol",
     "scripts/build-and-run-mac.sh",
     "scripts/build-mac-sqlite.sh",
     "scripts/build-mac-swift.mts",
