@@ -1428,56 +1428,11 @@ describe("scripts/changed-lanes", () => {
     expect(findTypecheckInertPaths({ paths, base: "missing-ref", cwd: dir })).toEqual([]);
   });
 
-  it("runs macOS app CI tests for macOS app dependency changes", () => {
-    for (const changedPath of [
-      "apps/macos-mlx-tts/Sources/OpenClawMLXTTS/main.swift",
-      "Swabble/Sources/SwabbleKit/WakeWordGate.swift",
-    ]) {
-      const result = detectChangedLanes([changedPath]);
-      const plan = createChangedCheckPlan(result, {
-        env: { PATH: "/usr/bin" },
-        platform: "linux",
-        swiftlintAvailable: false,
-      });
-
-      expect(plan.commands.map((command) => command.args[0])).not.toContain("lint:apps");
-      expect(plan.commands.map((command) => command.args[0])).not.toContain("android:lint");
-      expect(plan.commands).toContainEqual(
-        expect.objectContaining({
-          name: "lint apps (swiftlint unavailable on this host)",
-          bin: "node",
-        }),
-      );
-      expect(plan.commands).toContainEqual(
-        expect.objectContaining({
-          name: "macOS app CI tests",
-          args: ["test:macos:ci"],
-        }),
-      );
-    }
-  });
-
-  it("keeps exact Swift test-only changes out of local packaging tests", () => {
-    const changedPath = "apps/macos/Tests/OpenClawIPCTests/MacNodeHostWorkerTests.swift";
-    const plan = createChangedCheckPlan(detectChangedLanes([changedPath]), {
-      env: { PATH: "/usr/bin" },
-      platform: "darwin",
-      swiftlintAvailable: true,
-    });
-
-    expect(plan.commands.map((command) => command.args[0])).toContain("lint:apps");
-    expect(plan.commands.map((command) => command.name)).toContain(
-      "native state schema version guard",
-    );
-    expect(plan.commands.map((command) => command.args[0])).not.toContain("test:macos:ci");
-  });
-
   it.each<[string, NodeJS.Platform, boolean, boolean]>([
-    ["apps/macos/Sources/OpenClawMac/AppDelegate.swift", "darwin", false, true],
     ["apps/shared/OpenClawKit/Sources/OpenClawKit/Client.swift", "linux", true, true],
   ])(
     "preserves Swift lint for %s on %s with SwiftLint=%s",
-    (changedPath, platform, swiftlintAvailable, macosCi) => {
+    (changedPath, platform, swiftlintAvailable) => {
       const plan = createChangedCheckPlan(detectChangedLanes([changedPath]), {
         env: { CI: "1", PATH: "/usr/bin" },
         platform,
@@ -1487,7 +1442,7 @@ describe("scripts/changed-lanes", () => {
 
       expect(commands).toContain("lint:apps");
       expect(commands).not.toContain("android:lint");
-      expect(commands.includes("test:macos:ci")).toBe(macosCi);
+      expect(commands.includes("test:macos:ci")).toBe(false);
     },
   );
 
@@ -1513,7 +1468,7 @@ describe("scripts/changed-lanes", () => {
   });
 
   it.each([false, true])("preserves mixed native lint with SwiftLint=%s", (swiftlintAvailable) => {
-    for (const { paths, androidLint, macosCi } of [
+    for (const { paths, androidLint } of [
       { paths: ["apps/ios/Sources/RootTabs.swift"], androidLint: false, macosCi: false },
       {
         paths: [
@@ -1534,7 +1489,7 @@ describe("scripts/changed-lanes", () => {
 
       expect(commands.has("android:lint")).toBe(androidLint);
       expect(commands.has("lint:apps")).toBe(swiftlintAvailable);
-      expect(commands.has("test:macos:ci")).toBe(macosCi);
+      expect(commands.has("test:macos:ci")).toBe(false);
       expect(
         plan.commands.some(
           (command) => command.name === "lint apps (swiftlint unavailable on this host)",
@@ -1599,14 +1554,6 @@ describe("scripts/changed-lanes", () => {
     [["src/state/openclaw-agent-schema.sql"], [["sqlite:sessions-schema:check"]]],
     [["docs/.generated/config-baseline.sha256", "docs/ci.md"], [["config:docs:check"]]],
     [["src/config/schema.ts"], [["config:docs:check"]]],
-    [
-      ["scripts/swift-build-cache-metadata.py"],
-      [["test:serial", "test/scripts/swift-build-cache-metadata.test.ts"], ["test:macos:ci"]],
-    ],
-    [
-      ["appcast-arm64.xml"],
-      [["test:serial", "test/appcast.test.ts", "test/scripts/make-appcast.test.ts"]],
-    ],
   ])("selects owner checks for %j", (paths, expected) => {
     const commands = createChangedCheckPlan(detectChangedLanes(paths)).commands.map(
       ({ args }) => args,

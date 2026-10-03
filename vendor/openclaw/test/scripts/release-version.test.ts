@@ -1,4 +1,4 @@
-// Release version tests cover one-command core and native version alignment.
+// Release version tests cover core alignment and the optional Android release train.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,9 +23,6 @@ function writeFixture(params?: {
   packageVersion?: string;
 }): string {
   const root = makeTempDir(tempDirs, "openclaw-release-version-");
-  fs.mkdirSync(path.join(root, "apps", "macos", "Sources", "OpenClaw", "Resources"), {
-    recursive: true,
-  });
   fs.mkdirSync(path.join(root, "apps", "android", "Config"), { recursive: true });
   fs.mkdirSync(path.join(root, "apps", "android", "fastlane", "metadata", "android", "en-US"), {
     recursive: true,
@@ -41,20 +38,6 @@ function writeFixture(params?: {
       null,
       2,
     )}\n`,
-  );
-  fs.writeFileSync(
-    path.join(root, "apps", "macos", "Sources", "OpenClaw", "Resources", "Info.plist"),
-    [
-      "<plist>",
-      "<dict>",
-      "  <key>CFBundleShortVersionString</key>",
-      "  <string>2026.6.11</string>",
-      "  <key>CFBundleVersion</key>",
-      "  <string>2026061100</string>",
-      "</dict>",
-      "</plist>",
-      "",
-    ].join("\n"),
   );
   fs.writeFileSync(
     path.join(root, "apps", "android", "version.json"),
@@ -140,7 +123,7 @@ describe("release version argument parsing", () => {
 });
 
 describe("release version planning", () => {
-  it("aligns root and macOS metadata to a prerelease without moving Android", () => {
+  it("aligns core metadata without a Mac directory or moving Android", () => {
     const root = writeFixture();
     const plan = planReleaseVersion({
       rootDir: root,
@@ -149,7 +132,6 @@ describe("release version planning", () => {
 
     expect(plan.changes.map((change) => path.relative(root, change.path))).toEqual([
       "package.json",
-      "apps/macos/Sources/OpenClaw/Resources/Info.plist",
     ]);
     applyReleaseVersionPlan(plan);
 
@@ -158,12 +140,7 @@ describe("release version planning", () => {
       private: true,
       version: "2026.7.2-beta.1",
     });
-    expect(
-      fs.readFileSync(
-        path.join(root, "apps", "macos", "Sources", "OpenClaw", "Resources", "Info.plist"),
-        "utf8",
-      ),
-    ).toContain("<string>2026070200</string>");
+    expect(fs.existsSync(path.join(root, "apps", "macos"))).toBe(false);
     expect(readJson(path.join(root, "apps", "android", "version.json"))).toMatchObject({
       version: "2026.7.1",
       versionCode: 2026070102,
@@ -182,12 +159,6 @@ describe("release version planning", () => {
     expect(readJson(path.join(root, "package.json"))).toMatchObject({
       version: "2026.7.2",
     });
-    expect(
-      fs.readFileSync(
-        path.join(root, "apps", "macos", "Sources", "OpenClaw", "Resources", "Info.plist"),
-        "utf8",
-      ),
-    ).toContain("<string>2026.7.2</string>");
   });
 
   it("keeps an existing Android build increment on the same release train", () => {
@@ -257,17 +228,15 @@ describe("release version planning", () => {
     const root = writeFixture();
     const packagePath = path.join(root, "package.json");
     const before = fs.readFileSync(packagePath, "utf8");
-    fs.writeFileSync(
-      path.join(root, "apps", "macos", "Sources", "OpenClaw", "Resources", "Info.plist"),
-      "<plist><dict></dict></plist>\n",
-    );
+    fs.writeFileSync(path.join(root, "apps", "android", "version.json"), "{invalid JSON}\n");
 
     expect(() =>
       planReleaseVersion({
+        android: true,
         rootDir: root,
         version: "2026.7.2-beta.1",
       }),
-    ).toThrow("must contain exactly one string value for CFBundleShortVersionString");
+    ).toThrow(SyntaxError);
     expect(fs.readFileSync(packagePath, "utf8")).toBe(before);
   });
 });

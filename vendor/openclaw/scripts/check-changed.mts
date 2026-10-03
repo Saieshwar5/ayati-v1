@@ -25,7 +25,7 @@ import {
   listStagedChangedPaths,
 } from "./changed-lanes.mts";
 import type { ChangedLaneResult } from "./changed-lanes.mts";
-import { detectChangedScope, isMacosToolingPath } from "./ci-changed-scope.mjs";
+import { detectChangedScope } from "./ci-changed-scope.mjs";
 import {
   booleanFlag,
   isOpenEndedTruthyValue,
@@ -164,9 +164,6 @@ const ANDROID_VERSION_SYNC_PATHS = new Set([
   "apps/android/fastlane/metadata/android/en-US/release_notes.txt",
   "apps/android/version.json",
 ]);
-const SWIFT_BUILD_CACHE_METADATA_TEST_PATH = "test/scripts/swift-build-cache-metadata.test.ts";
-const MACOS_APP_CI_PATH_RE =
-  /^(?:apps\/(?:macos\/(?!Tests\/.+\.swift$)|(?:macos-mlx-tts|shared|swabble)\/)|Swabble\/|src\/(?:agents\/github-exec-(?:launcher|credential)\.ts|shared\/worker-bundle-hash\.ts|worker\/workspace-rsync-receiver\.ts|gateway\/worker-environments\/workspace-(?:accepted-(?:remote-script|sync)|mutation-remote-script|rsync-path\.test|sync(?:-helpers)?)\.ts)$)/u;
 let corepackPnpmShimDir: string | undefined;
 let corepackPnpmShimCleanupRegistered = false;
 let cachedGeneratedExtensionAssetPaths: { cwd: string; paths: Set<string> } | undefined;
@@ -187,17 +184,6 @@ if (!isDirectRun()) {
 
 function hasAndroidVersionSyncPath(paths: string[]) {
   return paths.some((changedPath) => ANDROID_VERSION_SYNC_PATHS.has(changedPath));
-}
-
-function hasMacosAppCiPath(paths: string[]) {
-  // The metadata test has its own command; production edits still need native app proof.
-  // Swift test-target sources do not feed the packaged app; native CI still covers them.
-  return paths.some((changedPath) => {
-    return (
-      changedPath !== SWIFT_BUILD_CACHE_METADATA_TEST_PATH &&
-      (MACOS_APP_CI_PATH_RE.test(changedPath) || isMacosToolingPath(changedPath))
-    );
-  });
 }
 
 function executableExistsOnPath(command: string, env: NodeJS.ProcessEnv = process.env) {
@@ -373,10 +359,6 @@ function shouldRunDeprecationHygieneChecks(paths: string[]) {
 /** Returns whether changed files can alter wrapper-shadowing results. */
 function shouldRunWrapperShadowingCheck(paths: string[]) {
   return paths.some((changedPath) => WRAPPER_SHADOWING_PATH_RE.test(changedPath));
-}
-
-function shouldRunAppcastOwnerTest(paths: string[]) {
-  return paths.some((changedPath) => /^appcast(?:-(?:arm64|x86_64))?\.xml$/u.test(changedPath));
 }
 
 export function shouldRunTestTempCreationReport(paths: string[]) {
@@ -864,26 +846,6 @@ export function createChangedCheckPlan(
   if (result.lanes.all || shouldRunWrapperShadowingCheck(result.paths)) {
     add("wrapper shadowing", ["check:wrapper-shadowing"]);
   }
-  if (shouldRunAppcastOwnerTest(result.paths)) {
-    add(
-      "appcast owner tests",
-      ["test:serial", "test/appcast.test.ts", "test/scripts/make-appcast.test.ts"],
-      baseEnv,
-    );
-  }
-  if (
-    result.paths.some(
-      (changedPath) =>
-        changedPath === "scripts/swift-build-cache-metadata.py" ||
-        changedPath === SWIFT_BUILD_CACHE_METADATA_TEST_PATH,
-    )
-  ) {
-    add(
-      "Swift build cache metadata tests",
-      ["test:serial", SWIFT_BUILD_CACHE_METADATA_TEST_PATH],
-      baseEnv,
-    );
-  }
   add("package patch guard", ["deps:patches:check"]);
   if (
     hasDeadcodeScannedSource(result.paths) &&
@@ -1100,14 +1062,14 @@ export function createChangedCheckPlan(
     ) {
       addLint("lint Android", ["android:lint"]);
     }
-    if (appScopes.some(({ runMacos, runIosBuild }) => runMacos || runIosBuild)) {
+    if (appScopes.some(({ runIosBuild }) => runIosBuild)) {
       if (shouldSkipAppLintForMissingSwiftlint({ ...options, env: baseEnv })) {
         addCommand(
           "lint apps (swiftlint unavailable on this host)",
           "node",
           [
             "-e",
-            "console.error('[check:changed] Swift app lint skipped: swiftlint is unavailable on this non-macOS host; macOS CI owns SwiftLint coverage.')",
+            "console.error('[check:changed] Swift app lint skipped: swiftlint is unavailable on this host; retained iOS CI owns SwiftLint coverage.')",
           ],
           baseEnv,
         );
@@ -1115,9 +1077,6 @@ export function createChangedCheckPlan(
         addLint("lint apps", ["lint:apps"]);
       }
     }
-  }
-  if (hasMacosAppCiPath(result.paths)) {
-    add("macOS app CI tests", ["test:macos:ci"], baseEnv);
   }
   if (lanes.apps || lanes.core) {
     addCommand(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import releaseVersionCases from "../apps/linux/tests/release_version_cases.json" with { type: "json" };
+import releaseVersionCases from "./fixtures/release-version-cases.json" with { type: "json" };
 import {
   classifyReleaseTrain,
   collectReleaseVersionFloorErrors,
@@ -39,7 +39,7 @@ describe("release version policy", () => {
   });
 
   it.each(releaseVersionCases.ordered)(
-    "orders shared desktop release $current -> $candidate",
+    "orders release $current -> $candidate",
     ({ current, candidate, ordering }) => {
       expect(compareReleaseVersions(candidate, current)).toBe(ordering);
     },

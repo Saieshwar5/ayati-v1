@@ -13,7 +13,6 @@ import { booleanFlag, parseFlagArgs } from "./lib/arg-utils.mts";
 import { parseReleaseVersion } from "./lib/release-version.mjs";
 import { versionValueFlag } from "./lib/version-script-args.ts";
 
-const MACOS_INFO_PLIST = "apps/macos/Sources/OpenClaw/Resources/Info.plist";
 const ANDROID_CHANGELOG_FILE = "apps/android/CHANGELOG.md";
 const ANDROID_RELEASE_NOTES_FILE = "apps/android/fastlane/metadata/android/en-US/release_notes.txt";
 const ANDROID_VERSION_FILE = "apps/android/version.json";
@@ -94,10 +93,7 @@ export function planReleaseVersion(params: {
     parsedVersion.correctionNumber === undefined
       ? parsedVersion.version
       : parsedVersion.baseVersion;
-  const changes = [
-    planPackageJson(rootDir, packageVersion),
-    planMacosInfoPlist(rootDir, parsedVersion),
-  ];
+  const changes = [planPackageJson(rootDir, packageVersion)];
   if (params.android) {
     changes.push(...planAndroidVersion(rootDir, parsedVersion.baseVersion));
   }
@@ -179,33 +175,6 @@ function planPackageJson(rootDir: string, version: string): ReleaseVersionChange
   };
 }
 
-function planMacosInfoPlist(
-  rootDir: string,
-  releaseVersion: NonNullable<ReturnType<typeof parseReleaseVersion>>,
-): ReleaseVersionChange {
-  const filePath = path.join(rootDir, MACOS_INFO_PLIST);
-  const currentContent = fs.readFileSync(filePath, "utf8");
-  const buildVersion = [
-    String(releaseVersion.year),
-    String(releaseVersion.month).padStart(2, "0"),
-    String(releaseVersion.patch).padStart(2, "0"),
-    "00",
-  ].join("");
-  const shortVersionContent = replacePlistString(
-    currentContent,
-    "CFBundleShortVersionString",
-    releaseVersion.baseVersion,
-    MACOS_INFO_PLIST,
-  );
-  const nextContent = replacePlistString(
-    shortVersionContent,
-    "CFBundleVersion",
-    buildVersion,
-    MACOS_INFO_PLIST,
-  );
-  return { currentContent, nextContent, path: filePath };
-}
-
 function planAndroidVersion(rootDir: string, baseVersion: string): ReleaseVersionChange[] {
   const versionPath = path.join(rootDir, ANDROID_VERSION_FILE);
   const propertiesPath = path.join(rootDir, ANDROID_VERSION_PROPERTIES_FILE);
@@ -251,19 +220,6 @@ function planAndroidVersion(rootDir: string, baseVersion: string): ReleaseVersio
       path: releaseNotesPath,
     },
   ];
-}
-
-function replacePlistString(content: string, key: string, value: string, filePath: string): string {
-  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `(<key>\\s*${escapedKey}\\s*</key>\\s*<string>)([^<]*)(</string>)`,
-    "gu",
-  );
-  const matches = [...content.matchAll(pattern)];
-  if (matches.length !== 1) {
-    throw new Error(`${filePath} must contain exactly one string value for ${key}.`);
-  }
-  return content.replace(pattern, `$1${value}$3`);
 }
 
 function printUsage(): void {

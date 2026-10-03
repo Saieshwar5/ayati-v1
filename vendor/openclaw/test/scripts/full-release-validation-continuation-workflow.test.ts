@@ -137,7 +137,7 @@ describe("full release metadata checkouts", () => {
     },
   );
 
-  it("keeps target metadata narrow and runs the macOS preflight from the tooling tree", () => {
+  it("keeps target core metadata narrow and readable without native desktop source", () => {
     const root = mkdtempSync(join(tmpdir(), "openclaw-release-sparse-"));
     try {
       const targetCheckouts = [
@@ -148,7 +148,7 @@ describe("full release metadata checkouts", () => {
         const checkout = step(job, name).with as Record<string, unknown>;
         expect(checkout["sparse-checkout-cone-mode"]).toBe(false);
         const paths = sparsePaths(checkout);
-        expect(paths).not.toContain("scripts");
+        expect(paths).toEqual(["package.json"]);
         for (const path of paths) {
           const destination = join(root, checkoutPath(checkout), path);
           mkdirSync(dirname(destination), { recursive: true });
@@ -171,38 +171,26 @@ describe("full release metadata checkouts", () => {
         steps.indexOf(step("evidence_reuse", "Find reusable validation evidence")),
       );
       expect(setup.env).toMatchObject({ REQUESTED_NODE_VERSION: "24.x" });
-      const setupPath = `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}`;
-      const activeNodeVersion = execFileSync("node", ["-p", "process.versions.node"], {
-        cwd: root,
-        encoding: "utf8",
-        env: { ...process.env, PATH: setupPath, NODE_OPTIONS: "", NODE_PATH: "" },
-      }).trim();
-      execFileSync("bash", ["-c", String(setup.run)], {
-        cwd: root,
-        encoding: "utf8",
-        timeout: 10_000,
-        env: {
-          ...process.env,
-          ...(setup.env as Record<string, string>),
-          // Keep this sparse-checkout proof offline on every supported test runtime.
-          REQUESTED_NODE_VERSION: activeNodeVersion,
-          PATH: setupPath,
-          NODE_OPTIONS: "",
-          GITHUB_PATH: join(root, "github-path"),
-        },
-      });
       expect(
         execFileSync(
           process.execPath,
-          [join(root, "workflow/scripts/release-preflight.mjs"), "--macos-versions-only"],
+          [
+            "--input-type=module",
+            "-e",
+            `import { readFileSync } from "node:fs";
+import { parseReleaseVersion } from "./scripts/lib/release-version.mjs";
+const version = JSON.parse(readFileSync("../target/package.json", "utf8")).version;
+if (!parseReleaseVersion(version)) throw new Error("Invalid release package version.");
+console.log(version);`,
+          ],
           {
-            cwd: join(root, "target"),
+            cwd: join(root, "workflow"),
             encoding: "utf8",
             timeout: 10_000,
             env: { ...process.env, NODE_OPTIONS: "", NODE_PATH: "" },
           },
         ),
-      ).toContain("macOS app version metadata OK");
+      ).toBe(`${JSON.parse(readFileSync("package.json", "utf8")).version}\n`);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

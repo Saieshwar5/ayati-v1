@@ -69,6 +69,13 @@ Add browser/channel and tenant-routing checks as those features are implemented.
 Measure affected resource use against the previous baseline. A successful build
 is not production readiness.
 
+Desktop applications are excluded from Ayati. `pnpm check` enforces the recorded
+source scope and checks emitted GUI installer artifacts. Run it before and after
+building, and review new upstream packaging paths and commands even when it
+passes. See [desktop removal](desktop-removal.md) for retained mobile dependencies,
+generator rules and conflict handling. Keep the selected upstream tree in the
+pin; our desktop deletion patch does not change that imported identity.
+
 Test state migrations on a protected copy. Verify backups and restoration with
 the matching old release. Reverting a Git commit or image alone cannot reverse
 a storage migration or completed external effects.

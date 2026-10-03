@@ -13,7 +13,7 @@
     "init": "node bin/ayati.mjs init",
     "start": "node bin/ayati.mjs start",
     "openclaw": "node bin/ayati.mjs openclaw",
-    "check": "node bin/check-baseline.mjs",
+    "check": "node bin/check-baseline.mjs && node bin/check-source-scope.mjs",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
     "test:gateway": "node tests/gateway-smoke.mjs"
   }

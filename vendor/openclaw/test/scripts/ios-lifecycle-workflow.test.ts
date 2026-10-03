@@ -527,7 +527,7 @@ describe("iOS simulator owner selection", () => {
     ["apps/ios/Tests/RootTabsNavigationTests.swift", false, false],
     ["apps/shared/OpenClawKit/Tests/OpenClawKitTests/ChatViewModelTests.swift", false, false],
     ["apps/shared/OpenClawKit/Sources/OpenClawNativeState/NativeState.swift", true, true],
-    ["apps/macos/Tests/OpenClawIPCTests/GatewayWebSocketTestSupport.swift", true, true],
+    ["apps/ios/Tests/GatewayWebSocketTestSupport.swift", true, true],
     ["apps/swabble/Sources/SwabbleKit/Speech.swift", true, true],
     ["apps/swabble/Sources/swabble/main.swift", false, false],
     ["apps/ios/fastlane/Fastfile", false, false],

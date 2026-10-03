@@ -12,7 +12,6 @@ import { PACKAGE_DIST_INVENTORY_RELATIVE_PATH } from "../scripts/lib/package-dis
 import { createWorkspaceBootstrapSmokeEnv } from "../scripts/lib/workspace-bootstrap-smoke.mts";
 import { collectInstalledBundledRuntimeSidecarPaths } from "../scripts/openclaw-npm-postpublish-verify.ts";
 import {
-  collectAppcastSparkleVersionErrors,
   collectCriticalPluginSdkEntrypointSizeFindings,
   collectForbiddenPackContentPaths,
   collectForbiddenPackPaths,
@@ -33,11 +32,6 @@ import { COMPLETION_SKIP_PLUGIN_COMMANDS_ENV } from "../src/cli/completion-runti
 import { resolveNpmJsonEntries as resolveRuntimeNpmJsonEntries } from "../src/infra/npm-registry-spec.js";
 import { withEnv } from "../src/test-utils/env.js";
 
-function makeItem(shortVersion: string, sparkleVersion: string, channel?: string): string {
-  const channelElement = channel ? `<sparkle:channel>${channel}</sparkle:channel>` : "";
-  return `<item><title>${shortVersion}</title><sparkle:shortVersionString>${shortVersion}</sparkle:shortVersionString><sparkle:version>${sparkleVersion}</sparkle:version>${channelElement}</item>`;
-}
-
 function makePackResult(filename: string, unpackedSize: number) {
   return { filename, unpackedSize };
 }
@@ -50,50 +44,6 @@ const requiredBundledPluginPackPaths = listBundledPluginPackArtifacts();
 
 // Prepare the public SDK graph through the test runner before the consumer test deadline.
 await import("openclaw/plugin-sdk/channel-outbound");
-
-describe("collectAppcastSparkleVersionErrors", () => {
-  it("accepts legacy 9-digit calver builds before lane-floor cutover", () => {
-    const xml = `<rss><channel>${makeItem("2026.2.26", "202602260")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toStrictEqual([]);
-  });
-
-  it("requires lane-floor builds on and after lane-floor cutover", () => {
-    const xml = `<rss><channel>${makeItem("2026.3.1", "202603010")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toEqual([
-      "appcast item '2026.3.1' has sparkle:version 202603010 below lane floor 2026030190.",
-    ]);
-  });
-
-  it("accepts canonical stable lane builds on and after lane-floor cutover", () => {
-    const xml = `<rss><channel>${makeItem("2026.3.1", "2026030190")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toStrictEqual([]);
-  });
-
-  it("accepts canonical beta lane builds", () => {
-    const xml = `<rss><channel>${makeItem("2026.6.5-beta.2", "2606000502", "beta")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toStrictEqual([]);
-  });
-
-  it("rejects beta builds on the default channel", () => {
-    const xml = `<rss><channel>${makeItem("2026.6.5-beta.2", "2606000502")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toEqual([
-      "appcast item '2026.6.5-beta.2' must set sparkle:channel to 'beta'.",
-    ]);
-  });
-
-  it("rejects appcast entries with invalid prerelease lanes", () => {
-    const xml = `<rss><channel>${makeItem("2026.6.5-beta.0", "2606000500", "beta")}</channel></rss>`;
-
-    expect(collectAppcastSparkleVersionErrors(xml)).toEqual([
-      "appcast item '2026.6.5-beta.0' has invalid sparkle:shortVersionString '2026.6.5-beta.0'.",
-    ]);
-  });
-});
 
 describe("packed CLI smoke", () => {
   it("keeps generated dynamic imports opaque to tsx's source lexer", () => {

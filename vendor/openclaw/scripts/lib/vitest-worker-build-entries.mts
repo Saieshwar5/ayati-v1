@@ -145,7 +145,6 @@ export const preservedModuleBuildSources = [
   "scripts/lib/vitest-build-prerequisites.mts",
   "scripts/lib/vitest-batch-runner.mts",
   "scripts/check-memory-fd-repro.mts",
-  "scripts/sparkle-build.ts",
   "scripts/crabbox-wrapper.mts",
   "scripts/crabbox-source-capsule.mts",
   "scripts/crabbox-staging.mts",

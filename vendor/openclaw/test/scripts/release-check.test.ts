@@ -137,7 +137,7 @@ describe("release-check", () => {
       diagnostics.stage("sparse-inventory");
       const tracked = await command.run(
         "git",
-        ["ls-files", "-z", "--", ":(top,glob)*", ...sparseRoots],
+        ["ls-files", "-z", "--", ":(glob)*", ...sparseRoots],
         { maxBuffer: 10 * 1024 * 1024 },
       );
       expect(tracked.error, "sparse tooling file inventory").toBeUndefined();
@@ -248,7 +248,6 @@ require("node:module").syncBuiltinESMExports();
       });
 
       diagnostics.stage("packed-fixture-setup");
-      copyFileSync("appcast.xml", join(root, "appcast.xml"));
       writeFileSync(join(root, "src/shared/worker-bundle-hash.ts"), launcherWorkerContract);
       writeWorkerArtifacts(packedRoot, legacyArtifacts);
       const tarball = join(root, "target.tgz");
@@ -310,12 +309,11 @@ require("node:module").syncBuiltinESMExports();
       });
       writeFileSync(
         join(root, "pnpm-workspace.yaml"),
-        "nodeLinker: isolated\nverifyDepsBeforeRun: false\n",
+        "packages:\n  - .\nnodeLinker: isolated\nverifyDepsBeforeRun: false\n",
       );
       const changelog =
         "# Changelog\n\n## 2026.9.1\n\n- Preserve the prepared bundled runtime package and source files.\n";
       writeFileSync(join(root, "CHANGELOG.md"), changelog);
-      copyFileSync("appcast.xml", join(root, "appcast.xml"));
       mkdirSync(join(root, "extensions"));
       mkdirSync(join(root, "node_modules/fixture-runtime"), { recursive: true });
       writeFileSync(

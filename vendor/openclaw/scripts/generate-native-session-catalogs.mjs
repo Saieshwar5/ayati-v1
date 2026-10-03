@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Projects native catalog declarations into fresh-config defaults and the macOS resource.
+// Projects native catalog declarations into fresh-config defaults and the shared catalog.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,7 +60,6 @@ for (const name of ["plugin", "provider", "channel"]) {
 }
 const rendered = `${JSON.stringify(catalogs, null, 2)}\n`;
 outputs.set("scripts/lib/native-session-catalogs.json", rendered);
-outputs.set("apps/macos/Sources/OpenClaw/Resources/NativeSessionCatalogs.json", rendered);
 for (const [relative, text] of outputs) {
   const file = path.join(root, relative);
   const current = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : undefined;

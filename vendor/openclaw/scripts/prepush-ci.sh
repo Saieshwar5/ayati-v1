@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 
 log_step() {
@@ -19,7 +19,7 @@ changed_paths_need_apple_build() {
     import { readFileSync } from "node:fs";
     import { detectChangedScope } from "./scripts/ci-changed-scope.mjs";
     const scope = detectChangedScope(readFileSync(0, "utf8").split("\n"));
-    process.exit(scope.runMacos || scope.runIosBuild ? 0 : 1);
+    process.exit(scope.runIosBuild ? 0 : 1);
   '
 }
 
@@ -54,34 +54,33 @@ run_linux_ci_mirror() {
     pnpm test
 }
 
-run_macos_ci_mirror() {
+run_ios_ci_mirror() {
   if [[ "${OPENCLAW_PREPUSH_SKIP_MACOS:-0}" == "1" ]]; then
-    log_step "Skipping macOS mirror because OPENCLAW_PREPUSH_SKIP_MACOS=1"
+    log_step "Skipping iOS checks because OPENCLAW_PREPUSH_SKIP_MACOS=1"
     return 0
   fi
 
   if [[ "$(uname -s)" != "Darwin" ]]; then
-    log_step "Skipping macOS mirror on non-Darwin host"
+    log_step "Skipping iOS checks on non-Darwin host"
     return 0
   fi
 
   if ! has_native_swift_changes; then
-    log_step "Skipping macOS mirror because no native Swift paths changed"
+    log_step "Skipping iOS checks because no retained native Swift paths changed"
     return 0
   fi
 
   run_step pnpm lint:swift
   run_step pnpm format:swift
   run_step node scripts/prepare-apple-mermaid.mjs
-  run_step swift build --package-path apps/macos --configuration release
-  echo "Native tests were NOT run: use the disposable macos-swift GitHub CI job for this exact commit." >&2
-  echo "Local lint/build passed; prepush cannot certify the native suite on an operator desktop." >&2
+  echo "Native tests were NOT run: use a disposable iOS CI runner for this exact commit." >&2
+  echo "Local Swift lint passed; prepush cannot certify the retained native suite." >&2
   return 1
 }
 
 main() {
   run_linux_ci_mirror
-  run_macos_ci_mirror
+  run_ios_ci_mirror
 }
 
 main "$@"

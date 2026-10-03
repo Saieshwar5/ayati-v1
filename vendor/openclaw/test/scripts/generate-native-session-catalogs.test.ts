@@ -60,12 +60,7 @@ it("checks generated drift and removes retired local declarations without changi
         await fs.readFile(path.join(root, "scripts/lib/native-session-catalogs.json"), "utf8"),
       ),
     ).toEqual([]);
-    expect(
-      await fs.readFile(
-        path.join(root, "apps/macos/Sources/OpenClaw/Resources/NativeSessionCatalogs.json"),
-        "utf8",
-      ),
-    ).toBe("[]\n");
+    await expect(fs.stat(path.join(root, "apps/macos"))).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

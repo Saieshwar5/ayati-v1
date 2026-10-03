@@ -4,7 +4,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expectDefined } from "@openclaw/normalization-core";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildMacosCatalog } from "../../scripts/apple-app-i18n.ts";
+import { buildIosCatalog } from "../../scripts/apple-app-i18n.ts";
 import {
   assignNativeI18nIds,
   collectNativeI18nEntries,
@@ -161,7 +161,7 @@ describe("native app i18n inventory", () => {
 
   it("merges independent source-file edits into a fresh combined baseline", async () => {
     const sourceFile = (name: string, strings: string[]) => ({
-      repoPath: `apps/macos/Sources/OpenClaw/${name}.swift`,
+      repoPath: `apps/ios/Sources/${name}.swift`,
       surface: "apple" as const,
       source: strings.map((source) => `Text(${JSON.stringify(source)})`).join("\n"),
     });
@@ -367,11 +367,11 @@ describe("native app i18n inventory", () => {
     },
   );
 
-  it("preserves the typed expiry key from Swift extraction through macOS catalog projection", () => {
+  it("preserves the typed expiry key from Swift extraction through iOS catalog projection", () => {
     const entries = assignNativeI18nIds(
       extractNativeI18nCandidates(
         "apple",
-        "apps/macos/Sources/OpenClaw/Expiry.swift",
+        "apps/ios/Sources/Expiry.swift",
         [
           "let minutes: Int = 3",
           'Label(String(format: String(localized: "Expires in %lld minutes"), minutes), systemImage: "clock")',
@@ -379,7 +379,7 @@ describe("native app i18n inventory", () => {
         ].join("\n"),
       ),
     );
-    const { catalog } = buildMacosCatalog({}, entries, []);
+    const { catalog } = buildIosCatalog({}, entries, []);
     expect(Object.keys(catalog.strings ?? {})).toEqual(["Expires in %lld minutes"]);
     expect(catalog.strings?.["Expires in %lld minutes"]?.localizations?.en?.stringUnit?.value).toBe(
       "Expires in %lld minutes",
@@ -389,7 +389,7 @@ describe("native app i18n inventory", () => {
   it("inventories SwiftUI Tab titles as UI calls", () => {
     const sources = extractNativeI18nCandidates(
       "apple",
-      "apps/macos/Fixture.swift",
+      "apps/ios/Fixture.swift",
       `Tab("Connection", systemImage: "network", value: FixtureTab.connection) { EmptyView() }`,
     ).map((entry) => entry.source);
 
@@ -605,7 +605,7 @@ describe("native app i18n inventory", () => {
       },
       {
         surface: "apple",
-        repoPath: "apps/macos/Sources/Screen.swift",
+        repoPath: "apps/ios/Sources/Screen.swift",
         source: 'header("macOS heading")',
       },
       {
@@ -688,19 +688,14 @@ describe("native app i18n inventory", () => {
         "Help me start a realtime voice session from this phone.",
         "DIARY",
         "ask OpenClaw $prompt",
-        "OpenClaw is paused",
         "No threads yet",
         "Don't show this again",
         "Use Manual Gateway",
         "Session target",
         'OpenClaw uses ${labels.joinToString(", ")} permissions for features that need this access.',
         "Some channel status checks did not complete.",
-        "Use the credential for this destination. Leave both fields empty only if this route already has device pairing or does not require a shared credential. Changing the destination clears this form's saved credentials.",
         "Cron changes require operator.admin. Setup codes intentionally do not grant it. Reconnect with the gateway's shared token or password to request admin access. If this device still lacks it, approve the pending scope upgrade from an existing admin client.",
-        "Writes a rotating, local-only log under ~/Library/Logs/OpenClaw/. Enable only while actively debugging.",
-        "A setup code supplies the address and available certificate information automatically. For token or password authentication, enter the ordinary Gateway credential below.",
         "Approve this device on the gateway.\n1) `%1$@`\n2) `/pair approve` in your OpenClaw chat\n%2$@\nOpenClaw will also retry automatically when you return to this app.",
-        "The Gateway can capture your screen and interact with apps on this Mac, including clicking and typing, subject to macOS permissions.",
       ]),
     );
     for (const source of [
@@ -743,9 +738,7 @@ describe("native app i18n inventory", () => {
         .filter((entry) => entry.surface === "apple")
         .every((entry) =>
           entry.sites.every((site) =>
-            /^(?:apps\/ios|apps\/macos\/Sources|apps\/shared\/OpenClawKit\/Sources)\//u.test(
-              site.path,
-            ),
+            /^(?:apps\/ios|apps\/shared\/OpenClawKit\/Sources)\//u.test(site.path),
           ),
         ),
     ).toBe(true);
@@ -835,13 +828,8 @@ describe("native app i18n inventory", () => {
       ]),
     );
     expect(
-      entries.some(
-        (entry) =>
-          entry.surface === "apple" &&
-          entry.source === "Connection…" &&
-          hasSite(entry, (site) => site.path === "apps/macos/Sources/OpenClaw/MenuBar.swift"),
-      ),
-    ).toBe(true);
+      entries.some((entry) => hasSite(entry, (site) => site.path.startsWith("apps/macos/"))),
+    ).toBe(false);
     expect(
       entries.some((entry) => entry.surface === "android" && entry.source === "Search OpenClaw"),
     ).toBe(true);
@@ -992,19 +980,6 @@ describe("native app i18n inventory", () => {
           ) &&
           entry.source ===
             "The watch receives a one-time pairing code and its own device credentials. Voice is included with read and Talk access, without admin access. The microphone starts only when you tap Start on the watch. A reachable secure Gateway URL is required away from the iPhone.",
-      ),
-    ).toBe(true);
-    expect(
-      entries.some(
-        (entry) =>
-          hasSite(
-            entry,
-            (site) =>
-              site.path === "apps/macos/Sources/OpenClaw/OnboardingAISetupView.swift" &&
-              site.kind === "ui-localized-call-multiline",
-          ) &&
-          entry.source ===
-            "Include existing %@ conversations in the sidebar. This discovers them in place; it does not copy transcripts.",
       ),
     ).toBe(true);
     expect(

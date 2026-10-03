@@ -23,7 +23,7 @@ const policyTestWatches: readonly PolicyTestWatch[] = [
       "scripts/lib/ci-ios-smoke-plan.mjs",
       "apps/ios/project.yml",
       "apps/ios/Tests/**",
-      "apps/macos/Tests/OpenClawIPCTests/GatewayWebSocketTestSupport.swift",
+      "apps/ios/Tests/GatewayWebSocketTestSupport.swift",
       "apps/shared/OpenClawKit/Tests/OpenClawKitTests/NativeGatewayWebSocketFixture.swift",
     ],
   },

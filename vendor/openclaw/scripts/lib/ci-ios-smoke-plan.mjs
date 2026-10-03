@@ -10,7 +10,7 @@ const sharedOwners = [
   /^packages\/mermaid-renderer\//u,
   /^apps\/ios\/(?:project\.yml|[^/]+\.plist|[^/]+\.xcconfig|Config\/|Tests\/Info\.plist)/u,
   /^apps\/(?:shared\/OpenClawKit|swabble)\/Package\.(?:swift|resolved)$/u,
-  /^apps\/macos\/Tests\/OpenClawIPCTests\/GatewayWebSocketTestSupport\.swift$/u,
+  /^apps\/ios\/Tests\/GatewayWebSocketTestSupport\.swift$/u,
   /^apps\/shared\/OpenClawKit\/Tests\/OpenClawKitTests\/(?:NativeGatewayWebSocketFixture|ChatMermaidRenderModelTests|ChatSelectableTextViewTests|ChatPasteboardTests)\.swift$/u,
 ];
 

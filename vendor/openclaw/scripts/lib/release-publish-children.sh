@@ -908,95 +908,16 @@ verify_android_release_asset_contract() {
   echo "- Android APK asset contract: verified" >> "${GITHUB_STEP_SUMMARY}"
 }
 
+# Ayati excludes installed desktop applications. Keep generic publication helpers,
+# but reject desktop dispatch before any GitHub action or release mutation.
 dispatch_linux_mirror() {
-  local parent_ref="$1" parent_full_ref="$2" parent_sha="$3" parent_run="$4" parent_attempt="$5"
-  local mirror_run_id
-  jq -n --arg tag "$RELEASE_TAG" --arg sha "$TARGET_SHA" \
-    '{tag: $tag, sourceSha: $sha, state: "dispatch-unconfirmed", mirrorVerified: false}' \
-    > "$RUNNER_TEMP/linux-mirror-dispatch.json"
-  [[ "$parent_full_ref" == "refs/tags/$parent_ref" ]] || return 1
-  verify_release_tag_target || return 1
-  node "${BASH_SOURCE[0]%/*}/../release-tooling-identity.mjs" verify \
-    --repository "$GITHUB_REPOSITORY" \
-    --workflow-ref "$parent_ref" --workflow-full-ref "$parent_full_ref" --workflow-sha "$parent_sha" \
-    --release-publish-run-id "$parent_run" --release-publish-run-attempt "$parent_attempt" \
-    --release-publish-ref "$parent_ref" --release-publish-full-ref "$parent_full_ref" \
-    --release-publish-parent-state-policy active-or-success || return 1
-  mirror_run_id="$(dispatch_workflow_at_ref "$parent_ref" "$parent_sha" linux-app-release.yml \
-    -f release_tag="$RELEASE_TAG" -f source_sha="$TARGET_SHA" -f tooling_sha="$parent_sha" \
-    -f release_publish_run_id="$parent_run" -f release_publish_run_attempt="$parent_attempt")" || return 1
-  jq --arg runId "$mirror_run_id" '. + {state: "dispatched", childRunId: $runId}' \
-    "$RUNNER_TEMP/linux-mirror-dispatch.json" > "$RUNNER_TEMP/linux-mirror-dispatch.next.json" || return 1
-  mv "$RUNNER_TEMP/linux-mirror-dispatch.next.json" "$RUNNER_TEMP/linux-mirror-dispatch.json" || return 1
-  echo "- Legacy Linux bridge: dispatched, not yet verified. Follow https://github.com/${GITHUB_REPOSITORY}/actions/runs/${mirror_run_id}; cancellation, queue overflow, timeout, or failed readback requires reconciliation." >> "$GITHUB_STEP_SUMMARY"
+  echo "Desktop app releases are disabled in Ayati." >&2
+  return 1
 }
 
 dispatch_linux_release_assets() {
-  local release_train release_json workflow_sha request_run_id publication_state
-  local request_page requests existing_request
-  release_train="$(node --input-type=module - "${BASH_SOURCE[0]%/*}/release-version.mjs" "${RELEASE_TAG}" <<'NODE'
-import { pathToFileURL } from "node:url";
-const { parseReleaseVersion, classifyReleaseTrain } = await import(pathToFileURL(process.argv[2]).href);
-const tag = process.argv[3];
-const parsed = tag.startsWith("v") ? parseReleaseVersion(tag.slice(1)) : null;
-console.log(parsed && tag === `v${parsed.version}` ? classifyReleaseTrain(parsed) : "invalid");
-NODE
-  )" || return 1
-  if [[ "${release_train}" != "stable" || "${RELEASE_NPM_DIST_TAG}" == "extended-stable" ]]; then
-    return 0
-  fi
-  jq -n --arg tag "$RELEASE_TAG" '{tag: $tag, state: "dispatch-unconfirmed"}' \
-    > "$RUNNER_TEMP/linux-dispatch.json"
-  release_json="$(gh_read release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)" || return 1
-  if ! jq -e '.isDraft == false and .isPrerelease == false' <<< "$release_json" >/dev/null; then
-    echo "Linux release requests require a published stable GitHub release." >&2
-    return 1
-  fi
-  verify_release_tag_target || return 1
-  publication_state="$(node "${BASH_SOURCE[0]%/*}/../linux-updater-manifest.mjs" status \
-    --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" \
-    --output "$RUNNER_TEMP/linux-release-completion")" || return 1
-  if [[ "$(jq -er '.state' <<< "$publication_state")" == published &&
-        "$(jq -r '.needsUpdaterPublication' <<< "$publication_state")" != true &&
-        "$(jq -r '.needsChannelPublication' <<< "$publication_state")" == false ]]; then
-    jq -n --arg tag "$RELEASE_TAG" '{tag: $tag, state: "published-assets-reused"}' \
-      > "$RUNNER_TEMP/linux-dispatch.json"
-    echo "- Linux: existing same-tag AppImage, Debian package, signed updater manifest, and checksums verified; no build requested." >> "$GITHUB_STEP_SUMMARY"
-    return 0
-  fi
-  # A successful request hands ownership to the independent Linux builder.
-  # Search every page without API filters, whose results stop at 1,000 runs.
-  for ((request_page=1; ; request_page++)); do
-    requests="$(gh_read api "repos/${GITHUB_REPOSITORY}/actions/workflows/linux-app-release-request.yml/runs?per_page=100&page=${request_page}")" || return 1
-    existing_request="$(jq -c --arg title "Linux App Release Request [${RELEASE_TAG}] desktop=" '
-      first(.workflow_runs[] | select(
-        .head_branch == "main" and .event == "workflow_dispatch" and
-        (.display_title == ($title + "false") or .display_title == ($title + "true")) and
-        (.status != "completed" or .conclusion == "success")
-      )) // empty' <<< "$requests")" || return 1
-    if [[ -n "$existing_request" || "$(jq '.workflow_runs | length' <<< "$requests")" -lt 100 ]]; then
-      break
-    fi
-  done
-  if [[ -n "$existing_request" ]]; then
-    request_run_id="$(jq -r '.id' <<< "$existing_request")"
-    jq --arg tag "$RELEASE_TAG" \
-      '{tag: $tag, state: "request-reused", requestRunId: (.id | tostring), workflowSha: .head_sha}' \
-      <<< "$existing_request" > "$RUNNER_TEMP/linux-dispatch.json"
-    echo "- Linux: existing same-tag request reused; no duplicate build requested. Request: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${request_run_id}; inspect Linux App Release for publication status and recovery." >> "$GITHUB_STEP_SUMMARY"
-    return 0
-  fi
-  workflow_sha="$(gh_read api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
-    --jq '.object.sha | select(test("^[a-f0-9]{40}$"))')" || return 1
-  verify_release_tag_target || return 1
-  # The request belongs to current main; its existing workflow_run builder
-  # validates the title, exact main SHA, release ancestry, and signing trust.
-  request_run_id="$(dispatch_workflow_at_ref main "$workflow_sha" linux-app-release-request.yml \
-    -f tag="$RELEASE_TAG" -f desktop-test-bundles=false)" || return 1
-  jq -n --arg tag "$RELEASE_TAG" --arg requestRunId "$request_run_id" --arg workflowSha "$workflow_sha" \
-    '{tag: $tag, state: "request-dispatched", requestRunId: $requestRunId, workflowSha: $workflowSha}' \
-    > "$RUNNER_TEMP/linux-dispatch.json"
-  echo "- Linux: request dispatched; release processing is pending and verified existing bundles will be reused. Request: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${request_run_id}; publication: https://github.com/${GITHUB_REPOSITORY}/actions/workflows/linux-app-release.yml" >> "$GITHUB_STEP_SUMMARY"
+  echo "Desktop app releases are disabled in Ayati." >&2
+  return 1
 }
 
 promote_windows_release_assets() {
