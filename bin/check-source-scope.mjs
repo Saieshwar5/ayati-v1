@@ -10,4 +10,4 @@ if (failures.length) {
   for (const message of failures) console.error(message);
   process.exit(1);
 }
-console.log('Desktop/plugin exclusions and retained mobile/web inputs verified.');
+console.log('Desktop/plugin/skill exclusions and retained mobile/web inputs verified.');

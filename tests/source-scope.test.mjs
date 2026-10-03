@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -14,7 +14,7 @@ const policy = {
   forbiddenCommands: ['mac:package'],
 };
 
-function fixture(t) {
+function fixture(t, fixturePolicy = policy) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'ayati-source-scope-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const write = (relative, content = '') => {
@@ -22,8 +22,10 @@ function fixture(t) {
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, content);
   };
-  for (const file of policy.requiredFiles) write(file);
-  mkdirSync(path.join(root, 'apps/shared'));
+  for (const file of fixturePolicy.requiredFiles) write(file);
+  for (const name of fixturePolicy.allowedAppDirectories) {
+    mkdirSync(path.join(root, 'apps', name), { recursive: true });
+  }
   write('package.json', JSON.stringify({ scripts: { build: 'node scripts/build.mjs' } }));
   return { root, write };
 }
@@ -79,4 +81,19 @@ test('rejects retired plugin source, stale output and fallback install entries',
   const failures = checkSourceScope(root, policy);
   assert.equal(failures.length, 4);
   assert(failures.some((failure) => failure.includes('Retired plugin advertised')));
+});
+
+test('Ayati policy rejects restored Mac-only bundled skills and permits retained skills', (t) => {
+  const productPolicy = JSON.parse(readFileSync(
+    new URL('../config/source-scope.json', import.meta.url), 'utf8',
+  ));
+  const { root, write } = fixture(t, productPolicy);
+  write('skills/tmux/SKILL.md');
+  assert.deepEqual(checkSourceScope(root, productPolicy), []);
+
+  const retired = ['apple-notes', 'apple-reminders', 'bear-notes', 'things-mac', 'peekaboo'];
+  for (const name of retired) write(`skills/${name}/SKILL.md`);
+  assert.deepEqual(checkSourceScope(root, productPolicy).sort(), retired.map(
+    (name) => `Retired source path returned: skills/${name}`,
+  ).sort());
 });
