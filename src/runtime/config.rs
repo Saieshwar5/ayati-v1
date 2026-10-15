@@ -10,6 +10,7 @@ pub const GOOSE_VERSION: &str = "1.54.0";
 #[derive(Clone)]
 pub struct GooseConfig {
     pub binary: PathBuf,
+    pub vm_manifest: Option<PathBuf>,
     pub root: PathBuf,
     pub workspace: PathBuf,
     pub provider: String,
@@ -20,6 +21,11 @@ pub struct GooseConfig {
 impl GooseConfig {
     pub fn from_env(data: &Path, model: &str) -> Self {
         Self {
+            vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
+                std::env::var_os("AYATI_VM_MANIFEST")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| PathBuf::from(".ayati-local/vms/local-agent/vm.json"))
+            }),
             binary: std::env::var_os("AYATI_GOOSE_BIN")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0/goose")),
@@ -30,6 +36,19 @@ impl GooseConfig {
             model: model.into(),
             proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
         }
+    }
+
+    pub fn configured(&self) -> bool {
+        let key = if self.provider == "openai" {
+            "OPENAI_API_KEY"
+        } else {
+            "FIREWORKS_API_KEY"
+        };
+        let installed = self
+            .vm_manifest
+            .as_ref()
+            .map_or_else(|| self.binary.is_file(), |p| p.is_file());
+        installed && std::env::var(key).is_ok_and(|s| !s.trim().is_empty())
     }
 
     pub async fn command(&self) -> Result<Command> {
@@ -95,7 +114,7 @@ impl GooseConfig {
     pub fn session_meta(&self) -> Result<serde_json::Map<String, serde_json::Value>> {
         let extensions = if self.proof_tool {
             serde_json::json!([{"type":"mcp","server": {
-                "name":"ayati_proof", "command":std::env::current_exe()?,
+                "name":"ayati_proof", "command":if self.vm_manifest.is_some() { PathBuf::from("/usr/local/bin/ayati-guest") } else { std::env::current_exe()? },
                 "args":["mcp"], "env":[]
             }}])
         } else {

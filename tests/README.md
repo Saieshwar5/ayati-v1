@@ -5,7 +5,25 @@ They are regression evidence for that harness. The new Goose path is tested with
 `cargo build` then `node --test --test-concurrency=1 tests/goose_integration.mjs`.
 That suite runs pinned real Goose with a local model fixture, including MCP
 approvals, session loading, Stop and web interaction; it makes no paid model calls.
-Neither suite validates a local VM or cloud deployment.
+Without a VM manifest, that suite tests the host adapter. To test the actual
+QEMU/KVM guest, prepare a **disposable** VM using [the setup guide](../README.md),
+then run:
+
+```sh
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs
+```
+
+The manifest must identify `local-agent`. This explicitly opts into writing
+synthetic Goose sessions and a storage marker on that guest disk; use no owner
+data. The fixture creates its own host database/provider, boots and stops the VM,
+and uses real Goose, MCP and the web app. The nine VM scenarios also check disk
+persistence, forced-command/identity/key rejection, blocked host/metadata network
+access, resource observations, provider-error redaction/recovery, and host-crash
+termination/recovery without prompt replay. The host-only selection runs six
+scenarios. Missing VM prerequisites fail;
+there is no automatic substitution. `AYATI_TEST_BIN` can select a release binary.
+Both use a scripted model and make no paid requests. Neither validates cloud
+deployment or general multi-tenant security; see [the VM record](../runtime/local-vm.md).
 
 The browser tests operate Ayati through its real interface: opening the page,
 choosing attachments, typing messages, clicking buttons and downloading files.

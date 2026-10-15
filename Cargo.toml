@@ -1,3 +1,8 @@
+[workspace]
+members = ["crates/guest"]
+default-members = ["."]
+resolver = "3"
+
 [package]
 name = "ayati"
 version = "0.1.0"
@@ -6,6 +11,7 @@ description = "A local-first business agent service powered by Goose"
 publish = false
 
 [dependencies]
+ayati-guest = { path = "crates/guest" }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anyhow = "1"
 axum = { version = "0.8", features = ["multipart"] }
@@ -13,7 +19,6 @@ dotenvy = "0.15"
 futures-util = "0.3"
 libc = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
-rmcp = { version = "=3.4.1", default-features = false, features = ["server", "transport-io"] }
 rusqlite = { version = "0.38", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

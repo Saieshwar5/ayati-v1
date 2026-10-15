@@ -6,3 +6,4 @@ pub mod runtime;
 pub mod server;
 pub mod storage;
 pub mod tools;
+pub mod vm;

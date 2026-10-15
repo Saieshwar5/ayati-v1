@@ -19,6 +19,15 @@ impl Config {
             matches!(runtime.as_str(), "goose" | "prototype"),
             "AYATI_RUNTIME must be goose or prototype"
         );
+        let execution = env::var("AYATI_EXECUTION").unwrap_or_else(|_| "host".into());
+        ensure!(
+            matches!(execution.as_str(), "host" | "vm"),
+            "AYATI_EXECUTION must be host or vm"
+        );
+        ensure!(
+            runtime != "prototype" || execution == "host",
+            "VM execution requires AYATI_RUNTIME=goose; the prototype only supports host execution"
+        );
         let config = Self {
             prototype: runtime == "prototype",
             data_dir: env::var_os("AYATI_DATA_DIR")
