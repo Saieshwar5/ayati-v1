@@ -74,6 +74,16 @@ impl Drop for ProcessResources {
 }
 
 impl GooseRuntime {
+    pub fn is_vm(&self) -> bool {
+        self.vm.is_some()
+    }
+
+    pub fn request_vm_stop(&self) {
+        if let Some(vm) = &self.vm {
+            vm.request_stop();
+        }
+    }
+
     pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
         let proof_tool = config.proof_tool;
         let vm = config.vm_manifest.as_ref().map(|path| {

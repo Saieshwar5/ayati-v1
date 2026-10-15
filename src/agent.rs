@@ -1,3 +1,6 @@
+mod environment;
+mod intake;
+mod leases;
 mod worker;
 
 use crate::{
@@ -36,6 +39,11 @@ pub struct Agent {
     shell: Shell,
     wake: Notify,
     closing: AtomicBool,
+    environment_stopping: AtomicBool,
+    environment: tokio::sync::Mutex<()>,
+    leases: leases::Leases,
+    idle_timeout: Option<std::time::Duration>,
+    shutdown: CancellationToken,
     owner_id: String,
     cancellation: Mutex<HashMap<String, CancellationToken>>,
     context_bytes: usize,
@@ -48,15 +56,16 @@ impl Agent {
         model: Arc<dyn Model>,
         context_bytes: usize,
     ) -> Arc<Self> {
-        Self::start_inner(store, files, Some(model), None, context_bytes)
+        Self::start_inner(store, files, Some(model), None, context_bytes, None)
     }
 
     pub fn start_goose(
         store: Arc<Store>,
         files: Arc<Files>,
         config: crate::runtime::config::GooseConfig,
+        idle_timeout: Option<std::time::Duration>,
     ) -> Arc<Self> {
-        Self::start_inner(store, files, None, Some(config), 0)
+        Self::start_inner(store, files, None, Some(config), 0, idle_timeout)
     }
 
     fn start_inner(
@@ -65,6 +74,7 @@ impl Agent {
         model: Option<Arc<dyn Model>>,
         config: Option<crate::runtime::config::GooseConfig>,
         context_bytes: usize,
+        idle_timeout: Option<std::time::Duration>,
     ) -> Arc<Self> {
         let (events, _) = broadcast::channel(512);
         let runnable = config.as_ref().is_none_or(|config| config.configured());
@@ -79,12 +89,20 @@ impl Agent {
             model,
             wake: Notify::new(),
             closing: AtomicBool::new(false),
+            environment_stopping: AtomicBool::new(false),
+            environment: tokio::sync::Mutex::new(()),
+            leases: leases::Leases::new(),
+            idle_timeout,
+            shutdown: CancellationToken::new(),
             owner_id: uuid::Uuid::new_v4().to_string(),
             cancellation: Mutex::new(HashMap::new()),
             context_bytes,
         });
         if runnable {
             Self::start_worker(agent.clone());
+            if agent.goose.is_some() {
+                Self::start_intake(agent.clone());
+            }
         }
         agent
     }
@@ -105,28 +123,6 @@ impl Agent {
         } else {
             "prototype"
         }
-    }
-
-    pub async fn environment_status(&self) -> serde_json::Value {
-        match &self.goose {
-            Some(goose) => goose.environment_status().await,
-            None => json!({"execution":"prototype"}),
-        }
-    }
-
-    pub async fn start_environment(&self) -> Result<serde_json::Value> {
-        self.goose
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("VM execution requires Goose"))?
-            .start_vm()
-            .await
-    }
-
-    pub async fn shutdown_runtime(&self) -> Result<()> {
-        if let Some(goose) = &self.goose {
-            goose.shutdown().await?;
-        }
-        Ok(())
     }
 
     async fn run(&self, claim: &RunClaim, cancel: CancellationToken) -> Result<()> {

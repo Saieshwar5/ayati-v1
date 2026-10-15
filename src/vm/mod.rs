@@ -48,6 +48,10 @@ impl Drop for VmProcess {
 }
 
 impl VmManager {
+    pub fn request_stop(&self) {
+        self.stop_requested.store(true, Ordering::SeqCst);
+    }
+
     pub fn new(path: PathBuf, provider: String, model: String) -> Self {
         Self {
             path,

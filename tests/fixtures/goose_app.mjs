@@ -21,7 +21,7 @@ export async function until(check, message, timeout = vmManifest ? 45000 : 20000
   throw new Error(message);
 }
 
-export async function setup(t, proofTool = false) {
+export async function setup(t, proofTool = false, overrides = {}) {
   const data = await mkdtemp(join(tmpdir(), 'ayati-goose-test-'));
   const provider = await fixtureProvider();
   const portServer = createServer();
@@ -37,10 +37,13 @@ export async function setup(t, proofTool = false) {
     OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url,
     AYATI_PROOF_TOOL: proofTool ? '1' : '0',
     AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
-    RUST_LOG: 'ayati=info' };
+    AYATI_VM_IDLE_SECONDS: '0', RUST_LOG: 'ayati=info', ...overrides };
   async function request(path, body) {
-    const response = await fetch(base + path, body === undefined ? undefined : {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    // The fixture deliberately restarts different processes on the same port.
+    // Do not reuse an HTTP socket belonging to the previous daemon or retry
+    // arbitrary POSTs to hide transport errors. Browser tests keep real pooling.
+    const response = await fetch(base + path, body === undefined ? { headers: { Connection: 'close' } } : {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Connection: 'close' }, body: JSON.stringify(body),
     });
     assert.equal(response.ok, true, await response.clone().text());
     return response.json();
@@ -51,7 +54,7 @@ export async function setup(t, proofTool = false) {
     child.stderr.on('data', (v) => { logs += v; });
     await until(async () => {
       if (child.exitCode !== null) throw new Error(`Daemon exited: ${logs}`);
-      try { return (await fetch(base + '/health')).ok; } catch { return false; }
+      try { return (await fetch(base + '/health', { headers: { Connection: 'close' } })).ok; } catch { return false; }
     }, 'Daemon did not start');
   }
   async function stop() {

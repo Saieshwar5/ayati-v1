@@ -18,16 +18,21 @@ export async function fixtureProvider() {
     requests.push(input);
     const messages = input.messages ?? [];
     const lastUser = messages.findLastIndex((message) => message.role === 'user');
-    const prompt = JSON.stringify(messages[lastUser]?.content);
+    const content = messages[lastUser]?.content;
+    const textContent = typeof content === 'string' ? content
+      : (content ?? []).filter((part) => part.type === 'text').map((part) => part.text).join('\n');
+    // Goose may merge consecutive user inputs after a cancelled turn. Match
+    // the latest fixture command, not an old "stall" still in that history.
+    const prompt = textContent.replace(/<turn-context>[\s\S]*?<\/turn-context>/g, '').trim().split('\n').at(-1);
     if (unavailable) {
       response.writeHead(403, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
       return;
     }
-    if (prompt?.includes('stall') && !prompt.includes('continue')) return; // Deliberately interrupted by Stop.
+    if (prompt === 'stall') return; // Deliberately interrupted by Stop.
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
-    if (prompt?.includes('tool') && !prompt.includes('continue')) {
+    if (/^tool\b/.test(prompt ?? '')) {
       const result = messages.slice(lastUser + 1).find((message) => message.role === 'tool');
       if (result) text = `TOOL_RESULT ${JSON.stringify(result.content)}`;
       else tool = { id: 'fixture-call', type: 'function', function: { name: 'ayati_proof__get_demo_business', arguments: '{}' } };

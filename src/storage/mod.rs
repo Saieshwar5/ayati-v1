@@ -1,5 +1,6 @@
 pub mod actions;
 mod claim_updates;
+pub mod intake;
 pub mod runtime;
 pub mod work;
 use crate::model::Message as ModelMessage;
@@ -48,7 +49,7 @@ impl Store {
         let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 3,
+            version <= 4,
             "Database is newer than this Ayati version; do not downgrade"
         );
         connection.pragma_update(None, "synchronous", "FULL")?;
@@ -58,6 +59,11 @@ impl Store {
             Self::migrate_runtime(&mut connection)?;
         }
         Self::migrate_work(&mut connection, version)?;
+        if version < 4 {
+            let tx = connection.transaction()?;
+            tx.execute_batch(include_str!("intake.sql"))?;
+            tx.commit()?;
+        }
         Ok(Self {
             connection: Mutex::new(connection),
         })
