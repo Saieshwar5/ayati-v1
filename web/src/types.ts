@@ -27,6 +27,7 @@ export interface Snapshot {
   messages: ChatMessage[];
   tasks: Task[];
   artifacts: Artifact[];
+  permissions?: { id: string; task_id: string; title: string; action: unknown }[];
 }
 
 export interface AgentEvent {

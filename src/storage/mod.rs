@@ -1,3 +1,4 @@
+pub mod runtime;
 use crate::model::Message as ModelMessage;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
@@ -41,14 +42,15 @@ pub struct Store {
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
-        let connection = Connection::open(path).context("Could not open Ayati database")?;
+        let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 1,
+            version <= 2,
             "Database is newer than this Ayati version; do not downgrade"
         );
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.execute_batch(include_str!("schema.sql"))?;
+        Self::migrate_runtime(&mut connection)?;
         // Never replay uncertain side effects automatically in this first increment.
         connection.execute("UPDATE tasks SET status='interrupted', detail='Ayati restarted; send a message to continue.' WHERE status IN ('queued','running')", [])?;
         connection.execute(
@@ -80,6 +82,10 @@ impl Store {
         )?;
         tx.execute("INSERT INTO messages (id,task_id,role,content,state) VALUES (?1,?2,'user',?3,'complete')",
             params![Uuid::new_v4().to_string(), id, text])?;
+        tx.execute(
+            "INSERT INTO run_scopes(task_id,conversation_id) VALUES (?1,?2)",
+            params![id, runtime::LOCAL_CONVERSATION],
+        )?;
         tx.commit()?;
         drop(connection);
         self.task(&id)?.context("Task was not saved")

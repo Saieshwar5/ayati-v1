@@ -12,6 +12,9 @@ use tokio_util::sync::CancellationToken;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("mcp") {
+        return ayati::runtime::proof_tool::serve().await;
+    }
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -67,16 +70,31 @@ async fn serve(config: Config) -> Result<()> {
         .context("Another Ayati daemon is using this data directory")?;
     let store = Arc::new(Store::open(&data.join("ayati.sqlite"))?);
     let files = Arc::new(Files::new(&data, store.clone())?);
-    let model = Arc::new(CompatibleModel::new(
-        &config.model_base_url,
-        config.api_key.clone(),
-        config.model.clone(),
-    )?);
-    let agent = Agent::start(store, files, model, config.context_bytes);
+    let (agent, model_ready) = if config.prototype {
+        let model = Arc::new(CompatibleModel::new(
+            &config.model_base_url,
+            config.api_key.clone(),
+            config.model.clone(),
+        )?);
+        (
+            Agent::start(store, files, model, config.context_bytes),
+            config.api_key.is_some(),
+        )
+    } else {
+        let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
+        let key = if runtime.provider == "openai" {
+            "OPENAI_API_KEY"
+        } else {
+            "FIREWORKS_API_KEY"
+        };
+        let ready =
+            runtime.binary.is_file() && std::env::var(key).is_ok_and(|s| !s.trim().is_empty());
+        (Agent::start_goose(store, files, runtime), ready)
+    };
     let shutdown = CancellationToken::new();
     let state = WebState {
         agent: agent.clone(),
-        model_ready: config.api_key.is_some(),
+        model_ready,
         model_name: config.model,
         port: config.port,
         shutdown: shutdown.clone(),
@@ -87,7 +105,9 @@ async fn serve(config: Config) -> Result<()> {
         config.port
     );
     if !state.model_ready {
-        tracing::info!("Model not configured; add FIREWORKS_API_KEY to .env and restart");
+        tracing::info!(
+            "Runtime not configured; install pinned Goose and configure the selected provider locally"
+        );
     }
     let signal = shutdown.clone();
     tokio::spawn(async move {
@@ -105,5 +125,6 @@ async fn serve(config: Config) -> Result<()> {
         })
         .await?;
     stopping_agent.wait_until_idle().await;
+    stopping_agent.shutdown_runtime().await;
     Ok(())
 }

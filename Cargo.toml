@@ -2,22 +2,24 @@
 name = "ayati"
 version = "0.1.0"
 edition = "2024"
-description = "A small local personal-agent daemon"
+description = "A local-first business agent service powered by Goose"
 publish = false
 
 [dependencies]
+agent-client-protocol = { version = "=2.2.0", default-features = false }
 anyhow = "1"
 axum = { version = "0.8", features = ["multipart"] }
 dotenvy = "0.15"
 futures-util = "0.3"
 libc = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+rmcp = { version = "=3.4.1", default-features = false, features = ["server", "transport-io"] }
 rusqlite = { version = "0.38", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
-tokio-util = { version = "0.7", features = ["io"] }
+tokio-util = { version = "0.7", features = ["compat", "io"] }
 tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

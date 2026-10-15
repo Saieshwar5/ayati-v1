@@ -30,7 +30,8 @@ pub struct Agent {
     pub store: Arc<Store>,
     pub files: Arc<Files>,
     pub events: broadcast::Sender<Event>,
-    model: Arc<dyn Model>,
+    model: Option<Arc<dyn Model>>,
+    goose: Option<crate::runtime::GooseRuntime>,
     shell: Shell,
     queue: mpsc::Sender<String>,
     cancellation: Mutex<HashMap<String, CancellationToken>>,
@@ -44,9 +45,30 @@ impl Agent {
         model: Arc<dyn Model>,
         context_bytes: usize,
     ) -> Arc<Self> {
+        Self::start_inner(store, files, Some(model), None, context_bytes)
+    }
+
+    pub fn start_goose(
+        store: Arc<Store>,
+        files: Arc<Files>,
+        config: crate::runtime::config::GooseConfig,
+    ) -> Arc<Self> {
+        Self::start_inner(store, files, None, Some(config), 0)
+    }
+
+    fn start_inner(
+        store: Arc<Store>,
+        files: Arc<Files>,
+        model: Option<Arc<dyn Model>>,
+        config: Option<crate::runtime::config::GooseConfig>,
+        context_bytes: usize,
+    ) -> Arc<Self> {
         let (queue, mut receiver) = mpsc::channel(32);
         let (events, _) = broadcast::channel(512);
+        let goose = config
+            .map(|config| crate::runtime::GooseRuntime::new(config, store.clone(), events.clone()));
         let agent = Arc::new(Self {
+            goose,
             store,
             shell: Shell::new(files.clone()),
             files,
@@ -115,7 +137,13 @@ impl Agent {
     }
 
     pub fn stop(&self, id: &str) -> Result<()> {
-        ensure!(self.store.task(id)?.is_some(), "Request does not exist");
+        let task = self
+            .store
+            .task(id)?
+            .ok_or_else(|| anyhow::anyhow!("Request does not exist"))?;
+        if !matches!(task.status.as_str(), "queued" | "running") {
+            return Ok(());
+        }
         let map = self
             .cancellation
             .lock()
@@ -124,6 +152,10 @@ impl Agent {
             token.cancel();
         }
         drop(map);
+        self.store.cancel_permissions(id)?;
+        if self.goose.is_some() {
+            self.store.set_task(id, "stopped", "Stopped by you")?;
+        }
         if self.store.task(id)?.is_some_and(|t| t.status == "queued") {
             self.store
                 .set_task(id, "stopped", "Stopped before work started")?;
@@ -168,10 +200,40 @@ impl Agent {
         });
     }
 
+    pub fn runtime_name(&self) -> &'static str {
+        if self.goose.is_some() {
+            "goose"
+        } else {
+            "prototype"
+        }
+    }
+
+    pub async fn shutdown_runtime(&self) {
+        if let Some(goose) = &self.goose {
+            goose.shutdown().await;
+        }
+    }
+
     async fn run(&self, id: &str, cancel: CancellationToken) -> Result<()> {
         ensure!(!cancel.is_cancelled(), "Stopped before work started");
         self.store.set_task(id, "running", "Thinking")?;
         self.emit("state", id, None, None);
+        if let Some(goose) = &self.goose {
+            let reply = self.store.add_reply(id)?;
+            self.emit("state", id, Some(&reply), None);
+            let result = goose
+                .prompt(id, &reply, self.store.user_text(id)?, cancel.clone())
+                .await;
+            let state = if cancel.is_cancelled() {
+                "stopped"
+            } else if result.is_ok() {
+                "complete"
+            } else {
+                "failed"
+            };
+            self.store.finish_reply(&reply, state)?;
+            return result;
+        }
         let history = self.store.recent_context(self.context_bytes / 2)?;
         let mut current = vec![Message::text("user", self.store.user_text(id)?)];
         self.store.save_context(id, &current)?;
@@ -241,7 +303,11 @@ impl Agent {
         cancel: CancellationToken,
     ) -> Result<Message> {
         let (tx, mut rx) = mpsc::channel(64);
-        let mut completion = self.model.complete(context, tx, cancel.clone());
+        let mut completion =
+            self.model
+                .as_ref()
+                .expect("prototype model")
+                .complete(context, tx, cancel.clone());
         let mut text = String::new();
         let mut checkpoint = Instant::now();
         let mut channel_open = true;
@@ -296,7 +362,7 @@ impl Agent {
     pub fn snapshot(&self) -> Result<serde_json::Value> {
         Ok(
             json!({ "messages": self.store.messages()?, "tasks": self.store.tasks()?,
-            "artifacts": self.store.artifacts()? }),
+            "artifacts": self.store.artifacts()?, "permissions": self.store.permissions()? }),
         )
     }
 }
