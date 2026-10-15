@@ -48,7 +48,7 @@ await once(reservation, 'listening');
 const port = reservation.address().port;
 await new Promise((done) => reservation.close(done));
 const base = `http://127.0.0.1:${port}`;
-const environment = { ...process.env, AYATI_DATA_DIR: data, AYATI_PORT: String(port),
+const environment = { ...process.env, AYATI_RUNTIME: "prototype", AYATI_DATA_DIR: data, AYATI_PORT: String(port),
   AYATI_MODEL_BASE_URL: `http://127.0.0.1:${fixture.address().port}`,
   AYATI_MODEL: 'fixture-only', FIREWORKS_API_KEY: 'fixture-only-placeholder' };
 let child;

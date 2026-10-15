@@ -64,3 +64,7 @@ h2 { font-size: 16px; font-weight: 600; margin: 0; }
   .files-panel { position: fixed; inset: 58px 0 0 auto; width: min(100%, 340px); z-index: 2; box-shadow: -12px 0 36px #25312c15; }
 }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+.permission { margin: 12px 0; padding: 16px; border: 1px solid var(--line, #ddd); border-radius: 12px; }
+.permission-details { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; font-size: 12px; }
+.permission .text-button { margin-right: 16px; }

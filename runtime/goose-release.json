@@ -1,0 +1,14 @@
+{
+  "version": "1.54.0",
+  "source": "https://github.com/aaif-goose/goose",
+  "release": "https://github.com/aaif-goose/goose/releases/tag/v1.54.0",
+  "target": "x86_64-unknown-linux-gnu",
+  "archive": "goose-x86_64-unknown-linux-gnu.tar.gz",
+  "sha256": "ab396c95aebbd28b4d38c175234be8d4a3ea0c96e7ccb24c307e4618c9be57e1",
+  "protocol": 1,
+  "acp_sdk": "2.2.0",
+  "mcp_sdk": "3.4.1",
+  "extensions": "explicit enabledExtensions selection only; none by default",
+  "mode": "approve",
+  "integration": "local host subprocess proof; not VM isolation"
+}

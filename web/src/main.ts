@@ -123,6 +123,13 @@ stop.onclick = () => {
   if (active) void stopTask(active.id);
 };
 conversation.addEventListener('click', (event) => {
+  const decision = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-permission]');
+  if (decision?.dataset.permission) {
+    decision.disabled = true;
+    void post(`/permissions/${decision.dataset.permission}`, { allow: decision.dataset.decision === 'allow' })
+      .then(() => sync()).catch((error: Error) => { tell(error.message); decision.disabled = false; });
+    return;
+  }
   const target = (event.target as HTMLElement).closest<HTMLElement>('[data-stop-task]');
   if (target?.dataset.stopTask) void stopTask(target.dataset.stopTask);
 });
@@ -166,8 +173,9 @@ events.onmessage = (event) => {
   } else { void sync(); }
 };
 
-void api<{ model_ready: boolean }>('/health').then((health) => {
+void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').then((health) => {
   modelReady = health.model_ready;
+  document.querySelector<HTMLButtonElement>('#attach')!.hidden = health.file_uploads_supported === false;
   if (!modelReady) tell('Ayati needs its AI connection. See the project README to configure it on this computer.');
   draw();
 }).catch(() => tell('Ayati is not reachable. Start the local service and reload.'));

@@ -52,6 +52,7 @@ pub fn router(state: WebState) -> Router {
         .route("/api/messages", post(message))
         .route("/api/tasks/{id}/stop", post(stop))
         .route("/api/events", get(events))
+        .route("/api/permissions/{id}", post(permission))
         .route("/api/files", post(upload))
         .route("/api/files/{id}", get(download))
         .route("/api/shutdown", post(shutdown))
@@ -103,7 +104,8 @@ async fn local_request(
 
 async fn health(State(state): State<WebState>) -> Json<Value> {
     Json(json!({ "status": "ready", "model_ready": state.model_ready,
-        "model": state.model_name, "version": env!("CARGO_PKG_VERSION") }))
+        "model": state.model_name, "runtime": state.agent.runtime_name(),
+        "file_uploads_supported": state.agent.runtime_name() == "prototype", "version": env!("CARGO_PKG_VERSION") }))
 }
 
 async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {
@@ -120,7 +122,7 @@ async fn message(
     Json(input): Json<NewMessage>,
 ) -> ApiResult<Json<Value>> {
     if !state.model_ready {
-        return Err(anyhow::anyhow!("Configure FIREWORKS_API_KEY in your local .env and restart Ayati before sending a request").into());
+        return Err(anyhow::anyhow!("Configure the selected runtime/provider locally and restart Ayati before sending a request").into());
     }
     Ok(Json(json!(state.agent.submit(&input.content)?)))
 }
@@ -128,6 +130,21 @@ async fn message(
 async fn stop(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
     state.agent.stop(&id)?;
     Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PermissionDecision {
+    allow: bool,
+}
+
+async fn permission(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Json(input): Json<PermissionDecision>,
+) -> ApiResult<Json<Value>> {
+    state.agent.store.decide_permission(&id, input.allow)?;
+    Ok(Json(json!({"ok":true})))
 }
 
 async fn events(
@@ -144,6 +161,11 @@ async fn events(
 }
 
 async fn upload(State(state): State<WebState>, mut multipart: Multipart) -> ApiResult<Json<Value>> {
+    if state.agent.runtime_name() == "goose" {
+        return Err(
+            anyhow::anyhow!("File input for Goose is planned in a later local increment").into(),
+        );
+    }
     let field = multipart
         .next_field()
         .await?

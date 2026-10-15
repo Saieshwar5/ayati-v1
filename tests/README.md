@@ -1,5 +1,12 @@
 # Browser testing and agent feedback
 
+The existing journeys below explicitly select the preserved prototype runtime.
+They are regression evidence for that harness. The new Goose path is tested with
+`cargo build` then `node --test --test-concurrency=1 tests/goose_integration.mjs`.
+That suite runs pinned real Goose with a local model fixture, including MCP
+approvals, session loading, Stop and web interaction; it makes no paid model calls.
+Neither suite validates a local VM or cloud deployment.
+
 The browser tests operate Ayati through its real interface: opening the page,
 choosing attachments, typing messages, clicking buttons and downloading files.
 They start their own release daemon, SQLite database, workspace and port for

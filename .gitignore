@@ -27,6 +27,7 @@ __pycache__/
 /target/
 /web/dist/
 /.ayati/
+/.ayati-local/
 /.test-runs/
 /web/test-results/
 /web/playwright-report/
