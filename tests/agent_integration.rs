@@ -70,7 +70,7 @@ struct Fixture {
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        self.agent.stop_all();
+        let _ = self.agent.stop_all();
         self.server.abort();
     }
 }

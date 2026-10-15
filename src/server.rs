@@ -37,11 +37,12 @@ impl<E: Into<anyhow::Error>> From<E> for ApiError {
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": format!("{:#}", self.0) })),
-        )
-            .into_response()
+        let status = match self.0.downcast_ref::<crate::storage::work::IntakeError>() {
+            Some(crate::storage::work::IntakeError::Conflict) => StatusCode::CONFLICT,
+            Some(crate::storage::work::IntakeError::Full) => StatusCode::TOO_MANY_REQUESTS,
+            None => StatusCode::BAD_REQUEST,
+        };
+        (status, Json(json!({ "error": format!("{:#}", self.0) }))).into_response()
     }
 }
 
@@ -51,6 +52,7 @@ pub fn router(state: WebState) -> Router {
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
         .route("/api/tasks/{id}/stop", post(stop))
+        .route("/api/tasks/{id}/actions", get(actions))
         .route("/api/events", get(events))
         .route("/api/permissions/{id}", post(permission))
         .route("/api/vm/status", get(vm_status))
@@ -128,7 +130,7 @@ async fn vm_stop(State(state): State<WebState>) -> ApiResult<Json<Value>> {
     {
         return Err(anyhow::anyhow!("Select VM execution before stopping an agent VM").into());
     }
-    state.agent.stop_all();
+    state.agent.stop_all()?;
     state.agent.wait_until_idle().await;
     state.agent.shutdown_runtime().await?;
     Ok(Json(state.agent.environment_status().await))
@@ -142,6 +144,7 @@ async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {
 #[serde(deny_unknown_fields)]
 struct NewMessage {
     content: String,
+    request_id: Option<String>,
 }
 async fn message(
     State(state): State<WebState>,
@@ -150,7 +153,14 @@ async fn message(
     if !state.model_ready {
         return Err(anyhow::anyhow!("Configure the selected runtime/provider locally and restart Ayati before sending a request").into());
     }
-    Ok(Json(json!(state.agent.submit(&input.content)?)))
+    Ok(Json(json!(state.agent.submit_once(
+        &input.content,
+        input.request_id.as_deref()
+    )?)))
+}
+
+async fn actions(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
+    Ok(Json(json!({"actions":state.agent.store.actions(&id)?})))
 }
 
 async fn stop(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
@@ -226,7 +236,7 @@ async fn download(State(state): State<WebState>, Path(id): Path<String>) -> ApiR
 }
 
 async fn shutdown(State(state): State<WebState>) -> Json<Value> {
-    state.agent.stop_all();
+    state.agent.begin_shutdown();
     state.shutdown.cancel();
     Json(json!({ "ok": true }))
 }

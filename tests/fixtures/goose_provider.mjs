@@ -27,7 +27,7 @@ export async function fixtureProvider() {
     if (prompt?.includes('stall') && !prompt.includes('continue')) return; // Deliberately interrupted by Stop.
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
-    if (prompt?.includes('tool')) {
+    if (prompt?.includes('tool') && !prompt.includes('continue')) {
       const result = messages.slice(lastUser + 1).find((message) => message.role === 'tool');
       if (result) text = `TOOL_RESULT ${JSON.stringify(result.content)}`;
       else tool = { id: 'fixture-call', type: 'function', function: { name: 'ayati_proof__get_demo_business', arguments: '{}' } };

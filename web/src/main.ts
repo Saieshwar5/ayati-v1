@@ -2,6 +2,7 @@ import './style.css';
 import { api, post, type AgentEvent, type Artifact, type Snapshot } from './types';
 import { element, renderConversation, renderFiles } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
+import { PendingSubmission } from './submission';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -49,6 +50,10 @@ let sending = false;
 let syncing = false;
 let syncAgain = false;
 let attachments: { name: string; path: string }[] = [];
+let browserStorage: Storage | undefined;
+try { browserStorage = window.sessionStorage; } catch { /* Private browser modes may restrict it. */ }
+const pendingSubmission = new PendingSubmission(browserStorage);
+input.value = pendingSubmission.draft();
 
 function tell(text: string): void { notice.textContent = text; notice.hidden = !text; }
 
@@ -91,15 +96,21 @@ document.querySelector('#composer')!.addEventListener('submit', async (event) =>
   sending = true;
   draw();
   const content = input.value.trim() + attachments.map((f) => `\n\nAttached file: ${f.path}`).join('');
+  const submission = pendingSubmission.prepare(content);
   try {
-    await post('/messages', { content });
+    await post('/messages', submission);
+    pendingSubmission.acknowledge(submission.request_id);
     input.value = '';
     input.style.height = '';
     attachments = [];
     showAttachments();
     tell('');
     await sync();
-  } catch (error) { tell((error as Error).message); }
+  } catch (error) {
+    tell(error instanceof TypeError
+      ? 'The connection was lost while sending. Your draft is saved; retry the same message safely.'
+      : (error as Error).message);
+  }
   finally { sending = false; draw(); input.focus(); }
 });
 
@@ -177,6 +188,7 @@ void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').
   modelReady = health.model_ready;
   document.querySelector<HTMLButtonElement>('#attach')!.hidden = health.file_uploads_supported === false;
   if (!modelReady) tell('Ayati needs its AI connection. See the project README to configure it on this computer.');
+  else if (pendingSubmission.draft()) tell('Your last message is saved here. You can retry the same message safely.');
   draw();
 }).catch(() => tell('Ayati is not reachable. Start the local service and reload.'));
 void sync();

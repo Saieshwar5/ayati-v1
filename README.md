@@ -51,8 +51,37 @@ cargo build --release
 ```
 
 `serve`/`start` run in the foreground. Closing the browser does not stop a run.
-The UI's Stop cancels a request; the CLI's stop shuts down the service and its
-owned runtime. Completed external actions cannot be undone by cancellation.
+The UI's Stop cancels a request. The CLI's stop shuts down the service and its
+owned runtime, preserving queued jobs for the next configured startup. Started
+jobs become interrupted. Completed external actions cannot be undone by cancellation.
+
+## Durable jobs and recovery
+
+SQLite now owns the bounded queue (32 pending jobs), input receipts, execution
+claims and state transitions. New queued jobs recover automatically after a crash
+or service restart when the runtime is configured. Startup can therefore boot the
+VM and call the model for accepted work without a new chat message. Jobs that had
+already started remain interrupted; they are never automatically submitted again.
+Stop stays final across restarts. VM Stop explicitly cancels queued jobs too.
+
+The web composer keeps a request ID for an unacknowledged message. Retrying the
+same draft, including after a reload when tab storage is available, returns its
+existing job instead of creating another. Editing the content creates a new ID.
+API clients can supply a UUID `request_id` to `POST /api/messages`; the same ID
+with different content returns 409, and a full queue rejects new work with 429.
+Clients omitting an ID create a new job on each request.
+
+Goose tool observations, owner decisions and bounded results are recorded at
+`GET /api/tasks/{id}/actions`. Unconfirmed outcomes stay uncertain; an assistant's
+success text cannot override an unresolved action. These are runtime observations,
+not authoritative receipts from business services. A lost-reply write is tested
+with an independent synthetic service record; live connectors and automated
+reconciliation are later work. See [the recovery contract](runtime/durable-work.md).
+
+Ayati database schema is now version 3. History and saved Goose mappings are
+preserved; legacy queued jobs from earlier schemas become interrupted rather than
+being replayed. Older binaries must not open the upgraded database. Automatic
+scheduling, idle leases and VM sleep/wake are the next L3 increment.
 
 ## Run the agent in its own VM
 
@@ -93,7 +122,8 @@ cargo run -- vm stop
 VM Stop cancels current/queued work and requests guest shutdown. A later message
 boots it again and loads its saved Goose session. The disk preserves the guest
 workspace and runtime state. Automatic idle release and scheduled wake are later
-work. Starting Ayati alone does not boot a VM or replay an interrupted prompt.
+work. Starting Ayati can boot the VM for accepted queued work; it never replays
+an interrupted prompt automatically.
 An unexpected host crash terminates the owned VM; interrupted work needs deliberate
 follow-up. Forced termination is reported when clean guest shutdown fails.
 
@@ -136,7 +166,7 @@ provider. Guided reconfiguration is later work.
 - Execution supports one explicitly configured real local VM or the host adapter
   mode. This is not a production multi-tenant service or a complete VM fleet manager.
 - Session loading is supported; interrupted prompts and approvals are not replayed
-  automatically. Starting the daemon does not call the model to resume old work.
+  automatically. Previously queued work is dispatched after a configured restart.
 - The prompt has a three-minute limit and text output is bounded to 1 MiB. A
   waiting approval can expire. Failures preserve text and require deliberate follow-up.
 - Goose owns working context and private runtime sessions. Ayati owns run records,
@@ -161,9 +191,9 @@ npm test --prefix web
 npm run check:e2e --prefix web
 npm run build --prefix web
 cargo build
-node --test --test-concurrency=1 tests/goose_integration.mjs
+node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs
 # Explicit real-VM suite: use a disposable, prepared VM; it modifies its guest state.
-AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs
 ./scripts/check-file-lines.sh  # local ignored helper, when present
 ```
 
@@ -181,8 +211,11 @@ select it. See [test details](tests/README.md); their live suite tests the proto
 
 ## Development sequence
 
-`feat/02-local-agent-vm` follows `feat/01-goose-local-foundation`. Finish, verify
-and commit each increment before creating the next numbered branch from that completed tip.
+`feat/03-durable-execution` follows the combined published Goose/VM history.
+GitHub PRs #10/#11 were merged into the restoration branch after #9 merged into
+main; this branch includes that combined tip and current main. Promote the complete
+milestones to main when publishing. Original checkpoint branches remain preserved.
+Finish, verify and commit each increment before creating the next numbered branch from that completed tip.
 Do not develop several independent copies of the same planned files. Once a
 parent branch is merged, align the next branch with its merged history before
 publishing it; numbering alone does not prevent conflicts. Push/PR only when asked.

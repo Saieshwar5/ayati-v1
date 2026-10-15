@@ -2,7 +2,10 @@ pub mod config;
 mod events;
 pub mod proof_tool;
 
-use crate::{agent::Event, storage::Store};
+use crate::{
+    agent::Event,
+    storage::{Store, work::RunClaim},
+};
 use agent_client_protocol::{
     Agent, ByteStreams, Client, ConnectionTo,
     schema::{ProtocolVersion, v1::*},
@@ -12,7 +15,10 @@ use config::GooseConfig;
 use events::RuntimeEvents;
 use std::{
     process::Stdio,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 use tokio::{
@@ -34,7 +40,9 @@ pub struct GooseRuntime {
 
 struct Turn {
     tools: Mutex<std::collections::HashMap<String, serde_json::Value>>,
-    task: String,
+    claim: RunClaim,
+    connection_id: String,
+    journal_failed: AtomicBool,
     reply: String,
     session: SessionId,
     cancel: CancellationToken,
@@ -42,6 +50,7 @@ struct Turn {
 }
 
 struct Process {
+    connection_id: String,
     connection: ConnectionTo<Agent>,
     session: SessionId,
     resources: ProcessResources,
@@ -106,6 +115,9 @@ impl GooseRuntime {
             child.stdin.take().unwrap().compat_write(),
             child.stdout.take().unwrap().compat(),
         );
+        let connection_id = uuid::Uuid::new_v4().to_string();
+        let notification_id = connection_id.clone();
+        let permission_id = connection_id.clone();
         let shared = self.shared.clone();
         let permissions = self.shared.clone();
         let (ready, receive) = oneshot::channel();
@@ -115,15 +127,17 @@ impl GooseRuntime {
                 .name("ayati")
                 .on_receive_notification(
                     async move |notification: SessionNotification, _cx| {
-                        shared
-                            .notification(notification)
-                            .map_err(|_| agent_client_protocol::Error::internal_error())
+                        if shared.notification(&notification_id, notification).is_err() {
+                            shared.journal_failed(&notification_id);
+                            return Err(agent_client_protocol::Error::internal_error());
+                        }
+                        Ok(())
                     },
                     agent_client_protocol::on_receive_notification!(),
                 )
                 .on_receive_request(
                     async move |request: RequestPermissionRequest, responder, _cx| {
-                        responder.respond(permissions.permission(request).await)
+                        responder.respond(permissions.permission(&permission_id, request).await)
                     },
                     agent_client_protocol::on_receive_request!(),
                 )
@@ -193,6 +207,7 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
+                connection_id,
                 connection,
                 session,
                 resources,
@@ -209,11 +224,12 @@ impl GooseRuntime {
 
     pub async fn prompt(
         &self,
-        task: &str,
+        claim: &RunClaim,
         reply: &str,
         text: String,
         cancel: CancellationToken,
     ) -> Result<()> {
+        let task = &claim.task_id;
         let mut process = self.process.lock().await;
         if process.as_mut().is_some_and(|p| {
             p.resources.driver.is_finished()
@@ -228,11 +244,16 @@ impl GooseRuntime {
                 result = self.connect() => *process = Some(result?),
             }
         }
-        ensure!(!cancel.is_cancelled(), "Stopped before prompt submission");
+        ensure!(
+            !cancel.is_cancelled() && self.shared.store.claim_active(claim)?,
+            "Stopped before prompt submission"
+        );
         let p = process.as_ref().unwrap();
         let turn = Arc::new(Turn {
             tools: Mutex::new(std::collections::HashMap::new()),
-            task: task.into(),
+            claim: claim.clone(),
+            connection_id: p.connection_id.clone(),
+            journal_failed: AtomicBool::new(false),
             reply: reply.into(),
             session: p.session.clone(),
             cancel: cancel.clone(),
@@ -270,6 +291,11 @@ impl GooseRuntime {
                 "Model service failed; no automatic prompt replay was made"
             ));
         }
+        if turn.journal_failed.load(Ordering::SeqCst) {
+            result = Err(anyhow::anyhow!(
+                "Runtime action records could not be verified; no automatic retry was made"
+            ));
+        }
         *self.shared.active.lock().unwrap() = None;
         self.shared.store.cancel_permissions(task)?;
         let status = if cancel.is_cancelled() {
@@ -281,7 +307,7 @@ impl GooseRuntime {
         };
         self.shared
             .store
-            .save_reply(reply, &turn.text.lock().unwrap(), status)?;
+            .save_claim_reply(claim, reply, &turn.text.lock().unwrap(), status)?;
         if result.is_err() {
             process.take();
         }

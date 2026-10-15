@@ -14,7 +14,10 @@ export function mergeSnapshot(local: Snapshot, incoming: Snapshot): Snapshot {
 // Return false for a gap so the caller reloads persisted state rather than inventing text.
 export function applyDelta(state: Snapshot, update: AgentEvent): boolean {
   if (!update.message_id || !update.task_id || update.text === undefined || update.offset === undefined) return false;
+  const task = state.tasks.find((t) => t.id === update.task_id);
+  if (task && !['queued', 'running'].includes(task.status)) return true;
   let message = state.messages.find((m) => m.id === update.message_id);
+  if (message && message.state !== 'streaming') return true;
   if (!message) {
     if (update.offset !== 0) return false;
     message = { id: update.message_id, task_id: update.task_id, role: 'assistant',

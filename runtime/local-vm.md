@@ -73,7 +73,9 @@ First provisioning took about 42 seconds. These observations vary with caching,
 boot activity and hardware; they are not capacity, uptime or pricing guarantees.
 The test suite prints current measurements. No live provider/account was tested.
 
-Safe automatic sleep/wake, durable work leases, schedules, uncertain external
+The first durable queue/ownership/action-observation increment is now described
+in [the recovery contract](durable-work.md). Safe automatic sleep/wake, active-work
+leases, schedules, uncertain external
 action recovery, general tools, browser networking/takeover, multi-agent routing,
 central connector credentials, live model acceptance, backup/restore and tested
 next-release upgrades remain later work. The guest OS and Goose are pinned;

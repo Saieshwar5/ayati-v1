@@ -127,7 +127,7 @@ async fn serve(config: Config) -> Result<()> {
     axum::serve(listener, router(state))
         .with_graceful_shutdown(async move {
             shutdown.cancelled().await;
-            agent.stop_all();
+            agent.begin_shutdown();
         })
         .await?;
     stopping_agent.wait_until_idle().await;

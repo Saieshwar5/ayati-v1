@@ -116,14 +116,21 @@ impl Store {
     }
 
     pub fn decide_permission(&self, id: &str, allow: bool) -> Result<()> {
-        let changed = self.connection()?.execute(
-            "UPDATE permissions SET decision=?2 WHERE id=?1 AND decision='pending' AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=permissions.task_id AND tasks.status='running')",
+        let mut connection = self.connection()?;
+        let tx = connection.transaction()?;
+        let changed = tx.execute(
+            "UPDATE permissions SET decision=?2 WHERE id=?1 AND decision='pending' AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=permissions.task_id AND tasks.status='running') AND (run_token IS NULL OR EXISTS(SELECT 1 FROM run_claims c WHERE c.task_id=permissions.task_id AND c.token=permissions.run_token))",
             params![id, if allow { "allowed" } else { "denied" }],
         )?;
         ensure!(
             changed == 1,
             "This action is no longer waiting for a decision"
         );
+        tx.execute(
+            "UPDATE tool_attempts SET status=?2 WHERE permission_id=?1 AND status='pending'",
+            params![id, if allow { "authorized" } else { "denied" }],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
