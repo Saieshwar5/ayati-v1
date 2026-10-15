@@ -115,7 +115,7 @@ Verified locally on 2026-10-16: 40 Rust tests, 10 web tests, 13 release Goose ho
 scenarios, all 22 release real-KVM scenarios, 8 prototype browser journeys and
 HTTP smoke pass. Formatting, clippy with warnings denied, production web/release
 builds, e2e types and the 80-file source-length check pass. The model is scripted;
-the Goose process, MCP, guest, disk, browser and shutdown/wake paths are real.
+Goose, MCP, the guest/disk, web-app browser tests and shutdown/wake paths are real.
 
 One laptop observation with the one-second test grace: QEMU RSS before release
 515172 KiB (about 503 MiB); host daemon idle RSS 15424 KiB (about 15 MiB); guest
@@ -125,7 +125,7 @@ the host remained available without extra model requests. These uncontrolled
 samples depend on hardware, boot/cache activity and measurement resolution;
 they are not production capacity, cost or latency guarantees.
 
-No real seller accounts, live inference, browser, external writes, production
+No real seller accounts, live inference, agent browsing, external writes, production
 authentication/isolation, cloud billing savings or uptime SLA are established.
 Receipts/history have no retention policy or disk quota yet. Cloud readiness,
 backup/restore, guest/runtime upgrade rehearsal and live-provider acceptance
