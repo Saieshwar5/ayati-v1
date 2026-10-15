@@ -1,10 +1,10 @@
 # Ayati
 
 Ayati is becoming a local-first business agent workspace powered by Goose, with
-Rust control services and a small TypeScript web app. This branch implements the
-first Goose/ACP slice: one local conversation, streaming, a saved runtime session,
-Stop, and owner decisions for a synthetic MCP tool. The full workspace is still
-being built; cloud deployment comes after local stabilization.
+Rust control services and a small TypeScript web app. One local agent can now run
+inside a real QEMU/KVM Linux VM, with streaming chat, saved sessions, Stop, and
+owner decisions for a synthetic MCP tool. The full workspace is still being built;
+cloud deployment comes after local stabilization.
 
 ## Run the Goose-backed chat
 
@@ -34,6 +34,7 @@ retain applicable notices when packaging/distributing them.
 Other providers have not been wired into this initial configuration boundary.
 `OPENAI_HOST`/`OPENAI_BASE_PATH` can explicitly select an OpenAI-compatible test
 endpoint; the integration tests use a loopback fixture with a placeholder key.
+`OPENAI_BASE_PATH` is the complete path, such as `v1/chat/completions`.
 Legacy `AYATI_MODEL_BASE_URL` affects only the prototype runtime.
 
 The default data directory is **.ayati-local**, separate from preserved `.ayati`
@@ -52,6 +53,63 @@ cargo build --release
 `serve`/`start` run in the foreground. Closing the browser does not stop a run.
 The UI's Stop cancels a request; the CLI's stop shuts down the service and its
 owned runtime. Completed external actions cannot be undone by cancellation.
+
+## Run the agent in its own VM
+
+The reproducible setup currently targets Linux x86_64 on Arch/Omarchy, with usable
+`/dev/kvm`, Python 3.11+, `bsdtar`, `ssh`, `ssh-keygen`, and `/usr/bin/socat`.
+It downloads pinned artifacts into the project cache without installing system
+packages or changing host services. Other distributions have not been validated.
+Allow disk space for the downloads/build and an 8 GiB sparse guest disk; the VM
+uses one vCPU and 768 MiB RAM. No software-emulation fallback is selected.
+
+After installing Goose with the command above:
+
+```sh
+python3 tools/install-local-vm.py
+RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked -p ayati-guest --target x86_64-unknown-linux-gnu --release -j 2
+# Preparation creates a NEW private directory; it refuses to overwrite an old VM.
+python3 tools/prepare-local-vm.py --directory .ayati-local/vms/local-agent
+```
+
+Configure these values in your local `.env`, keeping the provider key there:
+
+```dotenv
+AYATI_EXECUTION=vm
+AYATI_VM_MANIFEST=.ayati-local/vms/local-agent/vm.json
+# Use a fresh control database when switching from an existing host session.
+AYATI_DATA_DIR=.ayati-local/vm-control
+```
+
+Run `cargo run -- serve`, then open the same web chat. Sending the first message
+boots the guest. From another terminal, with the daemon running:
+
+```sh
+cargo run -- vm status
+cargo run -- vm start
+cargo run -- vm stop
+```
+
+VM Stop cancels current/queued work and requests guest shutdown. A later message
+boots it again and loads its saved Goose session. The disk preserves the guest
+workspace and runtime state. Automatic idle release and scheduled wake are later
+work. Starting Ayati alone does not boot a VM or replay an interrupted prompt.
+An unexpected host crash terminates the owned VM; interrupted work needs deliberate
+follow-up. Forced termination is reported when clean guest shutdown fails.
+
+The bridge accepts authenticated, fixed operations through SSH with pinned host
+keys; it exposes no remote shell or selectable host paths. QEMU has no host-folder
+mounts, and restricted networking permits only the private SSH and model gateway
+forwards. The guest receives an ephemeral gateway token; the real model API key
+stays on the host. General Internet/browser access is not enabled in this proof.
+The gateway supports the configured Fireworks/OpenAI chat-compatible provider and
+one selected model. Business connector credentials are not implemented yet.
+
+Leaving `AYATI_EXECUTION` unset (or setting `host`) retains the supervised host
+mode for adapter development. VM errors never fall back to host execution.
+Provider/model/tool/execution changes cannot reuse an incompatible saved session;
+there is no automatic host-to-guest session migration. See the
+[VM integration record](runtime/local-vm.md) for pins, checks and limits.
 
 ## Tool approval demonstration
 
@@ -75,8 +133,8 @@ provider. Guided reconfiguration is later work.
 
 - One local business/agent/conversation, with one running request and a bounded
   queue. Scoped identities are persisted; multi-user authentication is not built.
-- Goose runs as a supervised **host subprocess** in this slice. A private working
-  directory is not a sandbox or real VM. Local VM integration is the next stage.
+- Execution supports one explicitly configured real local VM or the host adapter
+  mode. This is not a production multi-tenant service or a complete VM fleet manager.
 - Session loading is supported; interrupted prompts and approvals are not replayed
   automatically. Starting the daemon does not call the model to resume old work.
 - The prompt has a three-minute limit and text output is bounded to 1 MiB. A
@@ -91,19 +149,21 @@ provider. Guided reconfiguration is later work.
 
 There is no provider key in this checkout. Automated Goose checks use real Goose
 with a local scripted model; they do not establish live account access, model
-quality, or cloud/VM reliability. Never put credentials in chat or workspaces.
+quality, or cloud reliability. Never put credentials in chat or workspaces.
 
 ## Verification
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
+cargo fmt --all --check
+cargo clippy --workspace --locked --all-targets -- -D warnings
+cargo test --workspace --locked
 npm test --prefix web
 npm run check:e2e --prefix web
 npm run build --prefix web
 cargo build
 node --test --test-concurrency=1 tests/goose_integration.mjs
+# Explicit real-VM suite: use a disposable, prepared VM; it modifies its guest state.
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs
 ./scripts/check-file-lines.sh  # local ignored helper, when present
 ```
 
@@ -121,8 +181,8 @@ select it. See [test details](tests/README.md); their live suite tests the proto
 
 ## Development sequence
 
-Start from `feat/01-goose-local-foundation`. Finish, verify and commit each
-increment before creating the next numbered branch from that completed tip.
+`feat/02-local-agent-vm` follows `feat/01-goose-local-foundation`. Finish, verify
+and commit each increment before creating the next numbered branch from that completed tip.
 Do not develop several independent copies of the same planned files. Once a
 parent branch is merged, align the next branch with its merged history before
 publishing it; numbering alone does not prevent conflicts. Push/PR only when asked.

@@ -5,6 +5,7 @@ import { once } from 'node:events';
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
 export async function fixtureProvider() {
   const requests = [];
+  let unavailable = false;
   const server = createServer(async (request, response) => {
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'application/json');
@@ -18,6 +19,11 @@ export async function fixtureProvider() {
     const messages = input.messages ?? [];
     const lastUser = messages.findLastIndex((message) => message.role === 'user');
     const prompt = JSON.stringify(messages[lastUser]?.content);
+    if (unavailable) {
+      response.writeHead(403, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
+      return;
+    }
     if (prompt?.includes('stall') && !prompt.includes('continue')) return; // Deliberately interrupted by Stop.
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
@@ -48,6 +54,7 @@ export async function fixtureProvider() {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
+    setUnavailable: (value) => { unavailable = value; },
     close: () => { server.closeAllConnections(); server.close(); },
   };
 }

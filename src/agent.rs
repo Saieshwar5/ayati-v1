@@ -208,10 +208,26 @@ impl Agent {
         }
     }
 
-    pub async fn shutdown_runtime(&self) {
-        if let Some(goose) = &self.goose {
-            goose.shutdown().await;
+    pub async fn environment_status(&self) -> serde_json::Value {
+        match &self.goose {
+            Some(goose) => goose.environment_status().await,
+            None => json!({"execution":"prototype"}),
         }
+    }
+
+    pub async fn start_environment(&self) -> Result<serde_json::Value> {
+        self.goose
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("VM execution requires Goose"))?
+            .start_vm()
+            .await
+    }
+
+    pub async fn shutdown_runtime(&self) -> Result<()> {
+        if let Some(goose) = &self.goose {
+            goose.shutdown().await?;
+        }
+        Ok(())
     }
 
     async fn run(&self, id: &str, cancel: CancellationToken) -> Result<()> {

@@ -53,6 +53,9 @@ pub fn router(state: WebState) -> Router {
         .route("/api/tasks/{id}/stop", post(stop))
         .route("/api/events", get(events))
         .route("/api/permissions/{id}", post(permission))
+        .route("/api/vm/status", get(vm_status))
+        .route("/api/vm/start", post(vm_start))
+        .route("/api/vm/stop", post(vm_stop))
         .route("/api/files", post(upload))
         .route("/api/files/{id}", get(download))
         .route("/api/shutdown", post(shutdown))
@@ -106,6 +109,29 @@ async fn health(State(state): State<WebState>) -> Json<Value> {
     Json(json!({ "status": "ready", "model_ready": state.model_ready,
         "model": state.model_name, "runtime": state.agent.runtime_name(),
         "file_uploads_supported": state.agent.runtime_name() == "prototype", "version": env!("CARGO_PKG_VERSION") }))
+}
+
+async fn vm_status(State(state): State<WebState>) -> Json<Value> {
+    Json(state.agent.environment_status().await)
+}
+async fn vm_start(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+    Ok(Json(state.agent.start_environment().await?))
+}
+async fn vm_stop(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+    if state
+        .agent
+        .environment_status()
+        .await
+        .get("execution")
+        .and_then(Value::as_str)
+        != Some("vm")
+    {
+        return Err(anyhow::anyhow!("Select VM execution before stopping an agent VM").into());
+    }
+    state.agent.stop_all();
+    state.agent.wait_until_idle().await;
+    state.agent.shutdown_runtime().await?;
+    Ok(Json(state.agent.environment_status().await))
 }
 
 async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {

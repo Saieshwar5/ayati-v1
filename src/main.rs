@@ -42,9 +42,21 @@ async fn main() -> Result<()> {
             println!("Ayati is stopping.");
             Ok(())
         }
+        "vm" => {
+            let action = std::env::args().nth(2).unwrap_or_else(|| "status".into());
+            let url = format!("http://127.0.0.1:{}/api/vm/{action}", config.port);
+            let client = reqwest::Client::new();
+            let response = match action.as_str() {
+                "status" => client.get(url).send().await?,
+                "start" | "stop" => client.post(url).send().await?,
+                _ => bail!("Use ayati vm start, stop or status"),
+            };
+            println!("{}", response.error_for_status()?.text().await?);
+            Ok(())
+        }
         "help" | "--help" | "-h" => {
             println!(
-                "Ayati — local personal assistant\n\nayati serve   Start the local daemon\nayati status  Check the running daemon\nayati stop    Stop the daemon and its current work\n\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }
@@ -82,13 +94,7 @@ async fn serve(config: Config) -> Result<()> {
         )
     } else {
         let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
-        let key = if runtime.provider == "openai" {
-            "OPENAI_API_KEY"
-        } else {
-            "FIREWORKS_API_KEY"
-        };
-        let ready =
-            runtime.binary.is_file() && std::env::var(key).is_ok_and(|s| !s.trim().is_empty());
+        let ready = runtime.configured();
         (Agent::start_goose(store, files, runtime), ready)
     };
     let shutdown = CancellationToken::new();
@@ -125,6 +131,6 @@ async fn serve(config: Config) -> Result<()> {
         })
         .await?;
     stopping_agent.wait_until_idle().await;
-    stopping_agent.shutdown_runtime().await;
+    stopping_agent.shutdown_runtime().await?;
     Ok(())
 }
