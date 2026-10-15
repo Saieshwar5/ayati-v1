@@ -5,6 +5,7 @@ use std::{env, path::PathBuf};
 pub struct Config {
     pub data_dir: PathBuf,
     pub port: u16,
+    pub prototype: bool,
     pub api_key: Option<String>,
     pub model: String,
     pub model_base_url: String,
@@ -13,10 +14,25 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
+        let runtime = env::var("AYATI_RUNTIME").unwrap_or_else(|_| "goose".into());
+        ensure!(
+            matches!(runtime.as_str(), "goose" | "prototype"),
+            "AYATI_RUNTIME must be goose or prototype"
+        );
+        let execution = env::var("AYATI_EXECUTION").unwrap_or_else(|_| "host".into());
+        ensure!(
+            matches!(execution.as_str(), "host" | "vm"),
+            "AYATI_EXECUTION must be host or vm"
+        );
+        ensure!(
+            runtime != "prototype" || execution == "host",
+            "VM execution requires AYATI_RUNTIME=goose; the prototype only supports host execution"
+        );
         let config = Self {
+            prototype: runtime == "prototype",
             data_dir: env::var_os("AYATI_DATA_DIR")
                 .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(".ayati")),
+                .unwrap_or_else(|| PathBuf::from(".ayati-local")),
             port: env::var("AYATI_PORT")
                 .unwrap_or_else(|_| "8765".into())
                 .parse()

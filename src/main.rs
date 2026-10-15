@@ -12,6 +12,9 @@ use tokio_util::sync::CancellationToken;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("mcp") {
+        return ayati::runtime::proof_tool::serve().await;
+    }
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -39,9 +42,21 @@ async fn main() -> Result<()> {
             println!("Ayati is stopping.");
             Ok(())
         }
+        "vm" => {
+            let action = std::env::args().nth(2).unwrap_or_else(|| "status".into());
+            let url = format!("http://127.0.0.1:{}/api/vm/{action}", config.port);
+            let client = reqwest::Client::new();
+            let response = match action.as_str() {
+                "status" => client.get(url).send().await?,
+                "start" | "stop" => client.post(url).send().await?,
+                _ => bail!("Use ayati vm start, stop or status"),
+            };
+            println!("{}", response.error_for_status()?.text().await?);
+            Ok(())
+        }
         "help" | "--help" | "-h" => {
             println!(
-                "Ayati — local personal assistant\n\nayati serve   Start the local daemon\nayati status  Check the running daemon\nayati stop    Stop the daemon and its current work\n\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }
@@ -67,16 +82,25 @@ async fn serve(config: Config) -> Result<()> {
         .context("Another Ayati daemon is using this data directory")?;
     let store = Arc::new(Store::open(&data.join("ayati.sqlite"))?);
     let files = Arc::new(Files::new(&data, store.clone())?);
-    let model = Arc::new(CompatibleModel::new(
-        &config.model_base_url,
-        config.api_key.clone(),
-        config.model.clone(),
-    )?);
-    let agent = Agent::start(store, files, model, config.context_bytes);
+    let (agent, model_ready) = if config.prototype {
+        let model = Arc::new(CompatibleModel::new(
+            &config.model_base_url,
+            config.api_key.clone(),
+            config.model.clone(),
+        )?);
+        (
+            Agent::start(store, files, model, config.context_bytes),
+            config.api_key.is_some(),
+        )
+    } else {
+        let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
+        let ready = runtime.configured();
+        (Agent::start_goose(store, files, runtime), ready)
+    };
     let shutdown = CancellationToken::new();
     let state = WebState {
         agent: agent.clone(),
-        model_ready: config.api_key.is_some(),
+        model_ready,
         model_name: config.model,
         port: config.port,
         shutdown: shutdown.clone(),
@@ -87,7 +111,9 @@ async fn serve(config: Config) -> Result<()> {
         config.port
     );
     if !state.model_ready {
-        tracing::info!("Model not configured; add FIREWORKS_API_KEY to .env and restart");
+        tracing::info!(
+            "Runtime not configured; install pinned Goose and configure the selected provider locally"
+        );
     }
     let signal = shutdown.clone();
     tokio::spawn(async move {
@@ -101,9 +127,10 @@ async fn serve(config: Config) -> Result<()> {
     axum::serve(listener, router(state))
         .with_graceful_shutdown(async move {
             shutdown.cancelled().await;
-            agent.stop_all();
+            agent.begin_shutdown();
         })
         .await?;
     stopping_agent.wait_until_idle().await;
+    stopping_agent.shutdown_runtime().await?;
     Ok(())
 }

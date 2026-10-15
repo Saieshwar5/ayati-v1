@@ -39,6 +39,20 @@ export function renderConversation(container: HTMLElement, state: Snapshot): voi
     working.append(element('span', 'pulse'), element('span', '', active.detail || 'Working on it…'));
     nodes.push(working);
   }
+  for (const permission of state.permissions ?? []) {
+    const card = element('section', 'permission');
+    card.setAttribute('aria-label', 'Action approval');
+    card.append(element('strong', '', permission.title));
+    const details = element('pre', 'permission-details', JSON.stringify(permission.action, null, 2));
+    card.append(details);
+    for (const [label, decision] of [['Allow once', 'allow'], ['Deny', 'deny']]) {
+      const button = element('button', 'text-button', label);
+      button.dataset.permission = permission.id;
+      button.dataset.decision = decision;
+      card.append(button);
+    }
+    nodes.push(card);
+  }
   const queued = state.tasks.filter((task) => task.status === 'queued');
   for (const task of queued) nodes.push(queuedView(task));
   container.replaceChildren(...nodes);

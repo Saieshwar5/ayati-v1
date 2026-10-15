@@ -33,6 +33,17 @@ test('stream gaps trigger resync and non-BMP characters use correct offsets', ()
   assert.equal(applyDelta({ messages: [], tasks: [], artifacts: [] }, delta(5, 'missing')), false);
 });
 
+test('late stream events cannot change stopped or interrupted work', () => {
+  for (const status of ['stopped', 'interrupted', 'completed', 'failed']) {
+    const state = snapshot('Saved text', status === 'completed' ? 'complete' : status);
+    state.tasks.push({ id: 'task', status, detail: '', created_at: '' });
+    assert.equal(applyDelta(state, delta(10, ' late')), true);
+    assert.equal(state.messages[0].content, 'Saved text');
+    assert.equal(applyDelta(state, { ...delta(0, 'new late reply'), message_id: 'missing' }), true);
+    assert.equal(state.messages.length, 1);
+  }
+});
+
 test('stored message and filename markup is rendered as text, never executable HTML', () => {
   const dom = new JSDOM('<div id="chat"></div><div id="files"></div>');
   globalThis.document = dom.window.document;

@@ -26,7 +26,7 @@ export class TestDaemon {
     await mkdir(this.data, { recursive: true, mode: 0o700 });
     if (!this.port) this.port = await availablePort();
     this.base = `http://127.0.0.1:${this.port}`;
-    const env = { ...process.env, AYATI_DATA_DIR: this.data, AYATI_PORT: String(this.port) };
+    const env = { ...process.env, AYATI_RUNTIME: "prototype", AYATI_EXECUTION: "host", AYATI_DATA_DIR: this.data, AYATI_PORT: String(this.port) };
     if (this.providerURL) Object.assign(env, {
       AYATI_MODEL_BASE_URL: this.providerURL, AYATI_MODEL: 'scripted-fixture',
       FIREWORKS_API_KEY: 'fixture-only-placeholder', AYATI_CONTEXT_BYTES: '96000',

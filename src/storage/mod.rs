@@ -1,3 +1,7 @@
+pub mod actions;
+mod claim_updates;
+pub mod runtime;
+pub mod work;
 use crate::model::Message as ModelMessage;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
@@ -41,24 +45,19 @@ pub struct Store {
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
-        let connection = Connection::open(path).context("Could not open Ayati database")?;
+        let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 1,
+            version <= 3,
             "Database is newer than this Ayati version; do not downgrade"
         );
+        connection.pragma_update(None, "synchronous", "FULL")?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.execute_batch(include_str!("schema.sql"))?;
-        // Never replay uncertain side effects automatically in this first increment.
-        connection.execute("UPDATE tasks SET status='interrupted', detail='Ayati restarted; send a message to continue.' WHERE status IN ('queued','running')", [])?;
-        connection.execute(
-            "UPDATE messages SET state='interrupted' WHERE state='streaming'",
-            [],
-        )?;
-        connection.execute(
-            "UPDATE tool_attempts SET status='interrupted' WHERE status='running'",
-            [],
-        )?;
+        if version < 2 {
+            Self::migrate_runtime(&mut connection)?;
+        }
+        Self::migrate_work(&mut connection, version)?;
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -68,21 +67,6 @@ impl Store {
         self.connection
             .lock()
             .map_err(|_| anyhow::anyhow!("Database lock unavailable"))
-    }
-
-    pub fn enqueue(&self, text: &str) -> Result<Task> {
-        let id = Uuid::new_v4().to_string();
-        let mut connection = self.connection()?;
-        let tx = connection.transaction()?;
-        tx.execute(
-            "INSERT INTO tasks (id,status,context) VALUES (?1,'queued','[]')",
-            [&id],
-        )?;
-        tx.execute("INSERT INTO messages (id,task_id,role,content,state) VALUES (?1,?2,'user',?3,'complete')",
-            params![Uuid::new_v4().to_string(), id, text])?;
-        tx.commit()?;
-        drop(connection);
-        self.task(&id)?.context("Task was not saved")
     }
 
     pub fn user_text(&self, task_id: &str) -> Result<String> {
@@ -101,7 +85,7 @@ impl Store {
 
     pub fn save_reply(&self, id: &str, text: &str, state: &str) -> Result<()> {
         self.connection()?.execute(
-            "UPDATE messages SET content=?2,state=?3 WHERE id=?1",
+            "UPDATE messages SET content=?2,state=?3 WHERE id=?1 AND state='streaming'",
             params![id, text, state],
         )?;
         Ok(())
@@ -109,7 +93,7 @@ impl Store {
 
     pub fn set_task(&self, id: &str, status: &str, detail: &str) -> Result<()> {
         self.connection()?.execute(
-            "UPDATE tasks SET status=?2,detail=?3 WHERE id=?1",
+            "UPDATE tasks SET status=?2,detail=?3 WHERE id=?1 AND ((status='queued' AND ?2 IN ('running','failed','stopped')) OR (status='running' AND ?2 IN ('running','completed','failed','stopped','interrupted')))",
             params![id, status, detail],
         )?;
         Ok(())
@@ -212,7 +196,7 @@ impl Store {
 
     pub fn tool_finished(&self, id: &str, status: &str, result: &str) -> Result<()> {
         self.connection()?.execute(
-            "UPDATE tool_attempts SET status=?2,result=?3 WHERE id=?1",
+            "UPDATE tool_attempts SET status=?2,result=?3 WHERE id=?1 AND status='running'",
             params![id, status, result],
         )?;
         Ok(())

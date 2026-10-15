@@ -37,11 +37,12 @@ impl<E: Into<anyhow::Error>> From<E> for ApiError {
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": format!("{:#}", self.0) })),
-        )
-            .into_response()
+        let status = match self.0.downcast_ref::<crate::storage::work::IntakeError>() {
+            Some(crate::storage::work::IntakeError::Conflict) => StatusCode::CONFLICT,
+            Some(crate::storage::work::IntakeError::Full) => StatusCode::TOO_MANY_REQUESTS,
+            None => StatusCode::BAD_REQUEST,
+        };
+        (status, Json(json!({ "error": format!("{:#}", self.0) }))).into_response()
     }
 }
 
@@ -51,7 +52,12 @@ pub fn router(state: WebState) -> Router {
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
         .route("/api/tasks/{id}/stop", post(stop))
+        .route("/api/tasks/{id}/actions", get(actions))
         .route("/api/events", get(events))
+        .route("/api/permissions/{id}", post(permission))
+        .route("/api/vm/status", get(vm_status))
+        .route("/api/vm/start", post(vm_start))
+        .route("/api/vm/stop", post(vm_stop))
         .route("/api/files", post(upload))
         .route("/api/files/{id}", get(download))
         .route("/api/shutdown", post(shutdown))
@@ -103,7 +109,31 @@ async fn local_request(
 
 async fn health(State(state): State<WebState>) -> Json<Value> {
     Json(json!({ "status": "ready", "model_ready": state.model_ready,
-        "model": state.model_name, "version": env!("CARGO_PKG_VERSION") }))
+        "model": state.model_name, "runtime": state.agent.runtime_name(),
+        "file_uploads_supported": state.agent.runtime_name() == "prototype", "version": env!("CARGO_PKG_VERSION") }))
+}
+
+async fn vm_status(State(state): State<WebState>) -> Json<Value> {
+    Json(state.agent.environment_status().await)
+}
+async fn vm_start(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+    Ok(Json(state.agent.start_environment().await?))
+}
+async fn vm_stop(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+    if state
+        .agent
+        .environment_status()
+        .await
+        .get("execution")
+        .and_then(Value::as_str)
+        != Some("vm")
+    {
+        return Err(anyhow::anyhow!("Select VM execution before stopping an agent VM").into());
+    }
+    state.agent.stop_all()?;
+    state.agent.wait_until_idle().await;
+    state.agent.shutdown_runtime().await?;
+    Ok(Json(state.agent.environment_status().await))
 }
 
 async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {
@@ -114,20 +144,43 @@ async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {
 #[serde(deny_unknown_fields)]
 struct NewMessage {
     content: String,
+    request_id: Option<String>,
 }
 async fn message(
     State(state): State<WebState>,
     Json(input): Json<NewMessage>,
 ) -> ApiResult<Json<Value>> {
     if !state.model_ready {
-        return Err(anyhow::anyhow!("Configure FIREWORKS_API_KEY in your local .env and restart Ayati before sending a request").into());
+        return Err(anyhow::anyhow!("Configure the selected runtime/provider locally and restart Ayati before sending a request").into());
     }
-    Ok(Json(json!(state.agent.submit(&input.content)?)))
+    Ok(Json(json!(state.agent.submit_once(
+        &input.content,
+        input.request_id.as_deref()
+    )?)))
+}
+
+async fn actions(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
+    Ok(Json(json!({"actions":state.agent.store.actions(&id)?})))
 }
 
 async fn stop(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
     state.agent.stop(&id)?;
     Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PermissionDecision {
+    allow: bool,
+}
+
+async fn permission(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Json(input): Json<PermissionDecision>,
+) -> ApiResult<Json<Value>> {
+    state.agent.store.decide_permission(&id, input.allow)?;
+    Ok(Json(json!({"ok":true})))
 }
 
 async fn events(
@@ -144,6 +197,11 @@ async fn events(
 }
 
 async fn upload(State(state): State<WebState>, mut multipart: Multipart) -> ApiResult<Json<Value>> {
+    if state.agent.runtime_name() == "goose" {
+        return Err(
+            anyhow::anyhow!("File input for Goose is planned in a later local increment").into(),
+        );
+    }
     let field = multipart
         .next_field()
         .await?
@@ -178,7 +236,7 @@ async fn download(State(state): State<WebState>, Path(id): Path<String>) -> ApiR
 }
 
 async fn shutdown(State(state): State<WebState>) -> Json<Value> {
-    state.agent.stop_all();
+    state.agent.begin_shutdown();
     state.shutdown.cancel();
     Json(json!({ "ok": true }))
 }
