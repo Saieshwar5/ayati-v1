@@ -52,10 +52,7 @@ impl Store {
     }
 
     pub fn accept_input(&self, text: &str, request_id: Option<&str>) -> Result<Task> {
-        ensure!(
-            !text.trim().is_empty() && text.len() <= 16000,
-            "Message must contain 1–16000 bytes"
-        );
+        Self::validate_input(text)?;
         let request = request_id
             .map(Uuid::parse_str)
             .transpose()
@@ -64,6 +61,28 @@ impl Store {
             .to_string();
         let mut connection = self.connection()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let id = Self::accept_input_in(&tx, text, &request)?;
+        // Deliberate chat resumes a paused agent, but retrying a terminal job
+        // cannot undo VM Stop or resurrect its dispatch.
+        tx.execute("UPDATE dispatch_control SET paused=0 WHERE EXISTS(SELECT 1 FROM tasks WHERE id=?1 AND status='queued')", [&id])?;
+        tx.commit()?;
+        drop(connection);
+        self.task(&id)?.context("Task was not saved")
+    }
+
+    pub(super) fn validate_input(text: &str) -> Result<()> {
+        ensure!(
+            !text.trim().is_empty() && text.len() <= 16000,
+            "Message must contain 1–16000 bytes"
+        );
+        Ok(())
+    }
+
+    pub(super) fn accept_input_in(
+        tx: &rusqlite::Transaction<'_>,
+        text: &str,
+        request: &str,
+    ) -> Result<String> {
         let previous: Option<(String, String)> = tx.query_row(
             "SELECT r.task_id,m.content FROM input_receipts r JOIN messages m ON m.task_id=r.task_id AND m.role='user' WHERE r.conversation_id=?1 AND r.request_id=?2",
             params![LOCAL_CONVERSATION, request], |r| Ok((r.get(0)?,r.get(1)?)),
@@ -99,16 +118,14 @@ impl Store {
             tx.execute("INSERT INTO work_transitions(task_id,to_status,detail) VALUES(?1,'queued','Durably accepted')", [&id])?;
             id
         };
-        tx.commit()?;
-        drop(connection);
-        self.task(&id)?.context("Task was not saved")
+        Ok(id)
     }
 
     pub fn claim_next(&self, owner: &str) -> Result<Option<RunClaim>> {
         let mut connection = self.connection()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let id: Option<String> = tx.query_row(
-            "SELECT t.id FROM tasks t JOIN input_receipts r ON r.task_id=t.id WHERE t.status='queued' AND NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') ORDER BY t.rowid LIMIT 1",
+            "SELECT t.id FROM tasks t JOIN input_receipts r ON r.task_id=t.id WHERE t.status='queued' AND (SELECT paused FROM dispatch_control WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') ORDER BY t.rowid LIMIT 1",
             [], |r| r.get(0),
         ).optional()?;
         let Some(id) = id else {
@@ -215,6 +232,7 @@ impl Store {
     pub fn stop_all_work(&self) -> Result<()> {
         let mut connection = self.connection()?;
         let tx = connection.transaction()?;
+        tx.execute("UPDATE dispatch_control SET paused=1 WHERE id=1", [])?;
         tx.execute("UPDATE tasks SET status='stopped',detail='Agent VM stopped by you' WHERE status IN ('queued','running')", [])?;
         tx.execute(
             "UPDATE permissions SET decision='cancelled' WHERE decision='pending'",

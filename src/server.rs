@@ -1,4 +1,5 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
+mod intake;
 use axum::{
     Json, Router,
     body::Body,
@@ -48,6 +49,7 @@ impl IntoResponse for ApiError {
 
 pub fn router(state: WebState) -> Router {
     Router::new()
+        .merge(intake::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
@@ -120,20 +122,7 @@ async fn vm_start(State(state): State<WebState>) -> ApiResult<Json<Value>> {
     Ok(Json(state.agent.start_environment().await?))
 }
 async fn vm_stop(State(state): State<WebState>) -> ApiResult<Json<Value>> {
-    if state
-        .agent
-        .environment_status()
-        .await
-        .get("execution")
-        .and_then(Value::as_str)
-        != Some("vm")
-    {
-        return Err(anyhow::anyhow!("Select VM execution before stopping an agent VM").into());
-    }
-    state.agent.stop_all()?;
-    state.agent.wait_until_idle().await;
-    state.agent.shutdown_runtime().await?;
-    Ok(Json(state.agent.environment_status().await))
+    Ok(Json(state.agent.stop_environment().await?))
 }
 
 async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {

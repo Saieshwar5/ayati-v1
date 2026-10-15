@@ -2,7 +2,7 @@
 
 The existing journeys below explicitly select the preserved prototype runtime.
 They are regression evidence for that harness. The new Goose path is tested with
-`cargo build` then `node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs`.
+`cargo build` then `node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs`.
 That suite runs pinned real Goose with a local model fixture, including MCP
 approvals, session loading, Stop and web interaction; it makes no paid model calls.
 Without a VM manifest, that suite tests the host adapter. To test the actual
@@ -10,22 +10,30 @@ QEMU/KVM guest, prepare a **disposable** VM using [the setup guide](../README.md
 then run:
 
 ```sh
-AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs tests/vm_idle.mjs
 ```
 
 The manifest must identify `local-agent`. This explicitly opts into writing
 synthetic Goose sessions and a storage marker on that guest disk; use no owner
 data. The fixture creates its own host database/provider, boots and stops the VM,
-and uses real Goose, MCP and the web app. The thirteen VM scenarios also check disk
+and uses real Goose, MCP and the web app. The original thirteen VM scenarios also check disk
 persistence, forced-command/identity/key rejection, blocked host/metadata network
 access, resource observations, provider-error redaction/recovery, and host-crash
-termination/recovery without prompt replay. The host-only selection runs ten
-scenarios. Missing VM prerequisites fail; there is no automatic substitution. `AYATI_TEST_BIN` can select a release binary.
+termination/recovery without prompt replay. The three scheduling cases bring the
+host selection to thirteen and the original VM selection to sixteen. Six further
+VM-only cases cover idle release/wake, model/approval leases, off-state Stop,
+event arrival during shutdown, Stop during boot and failed boot configuration.
+The full real-VM selection therefore has twenty-two scenarios.
+Missing VM prerequisites fail; there is no automatic substitution. `AYATI_TEST_BIN` can select a release binary.
 The durability scenarios add concurrent receipt retries/conflicts, queued recovery
 after crashes/service shutdown, invalidated approvals, unconfigured queue parking,
 and a browser reload/retry after a lost HTTP acknowledgement. The MCP scenarios
 also assert the recorded tool output and decision. Both use a scripted model and
 make no paid requests. Neither validates cloud deployment or general multi-tenant security; see [the VM record](../runtime/local-vm.md).
+The default fixture disables idle shutdown; tests/vm_idle.mjs explicitly selects
+a one-second grace to exercise transitions. The real product default is 300
+seconds. Schedule/event contracts and clock/backpressure policies are documented
+in [scheduled work](../runtime/scheduled-work.md).
 
 The browser tests operate Ayati through its real interface: opening the page,
 choosing attachments, typing messages, clicking buttons and downloading files.

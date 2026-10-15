@@ -95,7 +95,16 @@ async fn serve(config: Config) -> Result<()> {
     } else {
         let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
         let ready = runtime.configured();
-        (Agent::start_goose(store, files, runtime), ready)
+        (
+            Agent::start_goose(
+                store,
+                files,
+                runtime,
+                (config.vm_idle_seconds > 0)
+                    .then(|| std::time::Duration::from_secs(config.vm_idle_seconds)),
+            ),
+            ready,
+        )
     };
     let shutdown = CancellationToken::new();
     let state = WebState {

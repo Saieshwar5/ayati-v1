@@ -36,12 +36,12 @@ the worker and rejects further submissions until restart instead of risking new 
 
 | Situation | Result |
 | --- | --- |
-| Accepted but never claimed | Remains queued and dispatches after configured restart |
+| Accepted but never claimed | Remains queued and dispatches after configured restart unless explicitly paused |
 | Runtime/provider unconfigured | Queue stays parked; no model call or VM boot |
 | Claimed job interrupted by crash/shutdown | Marked interrupted; no automatic prompt replay |
 | Owner stops a queued/running job | Stopped permanently; late results cannot revive it |
 | Service shutdown or SIGTERM | Interrupt active work, invalidate pending approval, preserve queue |
-| Explicit agent VM Stop | Stop both active and queued work, then shut down the VM |
+| Explicit agent VM Stop | Stop both active and queued work, persist dispatch pause, then shut down the VM |
 | Legacy queue from schema 1/2 | Mark interrupted during migration; no new automatic replay |
 
 Queued work may now boot the guest and make billed model calls at startup.
@@ -87,8 +87,10 @@ VM path all pass. The 8 existing prototype browser journeys and HTTP smoke pass,
 as do fmt, clippy, web/e2e type/build and source-length checks. These are local
 fixture checks, not live AI/business or hosted CI results.
 
+The following L3 increment adds [scheduler/event receipts, local active-work
+leases and safe idle release](scheduled-work.md), upgrading the database to schema 4.
+The counts above record the first L3 increment, before that addition.
 No live provider quality, multi-user access, production isolation, power-loss
-hardware durability or cloud failover is established. Scheduler/event receipts,
-active-work leases, safe idle release, browser ownership and connector reconciliation
-remain later increments. Schema 3 rejects newer databases; use backups and a tested
+hardware durability or cloud failover is established. Browser ownership and
+connector reconciliation remain later increments. Schema 4 rejects newer databases; use backups and a tested
 migration process rather than opening upgraded state with older binaries.

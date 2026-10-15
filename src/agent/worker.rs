@@ -1,6 +1,6 @@
 use super::Agent;
 use crate::storage::Task;
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use std::sync::{Arc, atomic::Ordering};
 use tokio_util::sync::CancellationToken;
 
@@ -9,6 +9,7 @@ impl Agent {
         tokio::spawn(async move {
             loop {
                 let notified = agent.wake.notified();
+                let environment = agent.environment.lock().await;
                 // Claim and register cancellation under the same local lock as
                 // Stop/shutdown. SQLite, not Notify, owns accepted work.
                 let next = (|| -> Result<_> {
@@ -16,7 +17,9 @@ impl Agent {
                         .cancellation
                         .lock()
                         .map_err(|_| anyhow::anyhow!("Agent state unavailable"))?;
-                    if agent.closing.load(Ordering::SeqCst) {
+                    if agent.closing.load(Ordering::SeqCst)
+                        || agent.environment_stopping.load(Ordering::SeqCst)
+                    {
                         return Ok(None);
                     }
                     let claim = agent.store.claim_next(&agent.owner_id)?;
@@ -39,8 +42,24 @@ impl Agent {
                     break;
                 }
                 let Some((claim, cancel)) = next else {
-                    notified.await;
+                    if let Err(error) = agent.release_idle_environment().await {
+                        tracing::warn!(%error, "Idle VM release failed");
+                    }
+                    drop(environment);
+                    tokio::select! {
+                        _ = notified => {},
+                        _ = agent.shutdown.cancelled() => {},
+                        _ = tokio::time::sleep(std::time::Duration::from_secs(1)), if agent.idle_timeout.is_some() && agent.goose.as_ref().is_some_and(|g| g.is_vm()) => {},
+                    }
                     continue;
+                };
+                let lease = match agent.leases.acquire("run", &claim.task_id) {
+                    Ok(lease) => lease,
+                    Err(error) => {
+                        tracing::error!(%error, "Could not acquire environment ownership");
+                        agent.begin_shutdown();
+                        break;
+                    }
                 };
                 let result = agent.run(&claim, cancel.clone()).await;
                 let status = if cancel.is_cancelled() {
@@ -63,6 +82,8 @@ impl Agent {
                     active.remove(&claim.task_id);
                 }
                 agent.emit("state", &claim.task_id, None, None);
+                drop(lease);
+                drop(environment);
             }
         });
     }
@@ -76,10 +97,7 @@ impl Agent {
             .cancellation
             .lock()
             .map_err(|_| anyhow::anyhow!("Agent state unavailable"))?;
-        ensure!(
-            !self.closing.load(Ordering::SeqCst),
-            "Ayati is stopping; retry this request after restart"
-        );
+        self.ensure_accepting()?;
         let task = self.store.accept_input(text, request_id)?;
         self.wake.notify_one();
         self.emit("state", &task.id, None, None);
@@ -119,6 +137,10 @@ impl Agent {
 
     pub fn begin_shutdown(&self) {
         self.closing.store(true, Ordering::SeqCst);
+        self.shutdown.cancel();
+        if let Some(goose) = &self.goose {
+            goose.request_vm_stop();
+        }
         if let Ok(active) = self.cancellation.lock() {
             if let Err(error) = self.store.interrupt_active_work() {
                 tracing::error!(%error,"Could not record service interruption");

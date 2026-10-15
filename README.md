@@ -78,10 +78,29 @@ not authoritative receipts from business services. A lost-reply write is tested
 with an independent synthetic service record; live connectors and automated
 reconciliation are later work. See [the recovery contract](runtime/durable-work.md).
 
-Ayati database schema is now version 3. History and saved Goose mappings are
+Ayati database schema is now version 4. History and saved Goose mappings are
 preserved; legacy queued jobs from earlier schemas become interrupted rather than
 being replayed. Older binaries must not open the upgraded database. Automatic
-scheduling, idle leases and VM sleep/wake are the next L3 increment.
+scheduling and idle VM shutdown/wake are implemented in the next section.
+
+## Scheduled work and idle VMs
+
+The host daemon accepts deduplicated local events and saves one-time/fixed-interval
+schedules outside the VM. Missed intervals coalesce to one catch-up job, with at
+most one pending occurrence per routine. Queue acceptance and occurrence cursor
+advancement are transactional. This first version provides developer APIs; the
+guided schedule interface and public business connectors come later.
+Configured schedules/events can make billed model calls without an open chat page.
+
+In VM mode, `AYATI_VM_IDLE_SECONDS=300` releases an idle guest after five minutes;
+0 disables automatic shutdown. Active model/tool work and pending approvals keep
+their VM lease. New work wakes the guest and loads its saved Goose session. Intake
+during shutdown stays queued until it can boot again. The host must remain on.
+
+Explicit VM Stop also persists a dispatch pause, preventing timers/events from
+immediately waking it. Events remain accepted while paused; schedules remain due.
+Owner VM Start or a new accepted chat resumes dispatch. A retry of an old terminal
+chat cannot undo Stop. See [the schedule/event API and lifecycle contract](runtime/scheduled-work.md).
 
 ## Run the agent in its own VM
 
@@ -121,8 +140,9 @@ cargo run -- vm stop
 
 VM Stop cancels current/queued work and requests guest shutdown. A later message
 boots it again and loads its saved Goose session. The disk preserves the guest
-workspace and runtime state. Automatic idle release and scheduled wake are later
-work. Starting Ayati can boot the VM for accepted queued work; it never replays
+workspace and runtime state. Idle shutdown, event wake and scheduled wake are
+supported. Starting Ayati can boot the VM for accepted queued work when dispatch
+is not paused; it never replays
 an interrupted prompt automatically.
 An unexpected host crash terminates the owned VM; interrupted work needs deliberate
 follow-up. Forced termination is reported when clean guest shutdown fails.
@@ -172,7 +192,8 @@ provider. Guided reconfiguration is later work.
 - Goose owns working context and private runtime sessions. Ayati owns run records,
   pending decisions and UI history. Long-term sourced memory is not implemented.
 - agent-browser, live browser takeover, guided multi-agent setup, connections,
-  schedules, generated apps and multimodal processing are planned later slices.
+  generated apps and multimodal processing are planned later slices. Basic
+  schedules and local event intake are available through the developer APIs.
   File input is unavailable on this Goose path until its integration is implemented.
 - The service binds to loopback with same-origin guards. It is a local development
   proof, not a production tenant/security boundary. Keep the machine running for work.
@@ -191,9 +212,9 @@ npm test --prefix web
 npm run check:e2e --prefix web
 npm run build --prefix web
 cargo build
-node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs
+node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs
 # Explicit real-VM suite: use a disposable, prepared VM; it modifies its guest state.
-AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs tests/vm_idle.mjs
 ./scripts/check-file-lines.sh  # local ignored helper, when present
 ```
 
@@ -211,10 +232,10 @@ select it. See [test details](tests/README.md); their live suite tests the proto
 
 ## Development sequence
 
-`feat/03-durable-execution` follows the combined published Goose/VM history.
-GitHub PRs #10/#11 were merged into the restoration branch after #9 merged into
-main; this branch includes that combined tip and current main. Promote the complete
-milestones to main when publishing. Original checkpoint branches remain preserved.
+`feat/04-scheduled-work-and-vm-idle` follows merged PR #12 on main, including the
+earlier Goose/VM milestones and durable queue. This increment adds schedules,
+local events and lease-aware idle shutdown/wake. Original checkpoint branches
+remain preserved.
 Finish, verify and commit each increment before creating the next numbered branch from that completed tip.
 Do not develop several independent copies of the same planned files. Once a
 parent branch is merged, align the next branch with its merged history before

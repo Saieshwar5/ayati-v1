@@ -74,9 +74,9 @@ boot activity and hardware; they are not capacity, uptime or pricing guarantees.
 The test suite prints current measurements. No live provider/account was tested.
 
 The first durable queue/ownership/action-observation increment is now described
-in [the recovery contract](durable-work.md). Safe automatic sleep/wake, active-work
-leases, schedules, uncertain external
-action recovery, general tools, browser networking/takeover, multi-agent routing,
+in [the recovery contract](durable-work.md). The following L3 increment adds
+[local events, schedules and lease-aware idle shutdown/wake](scheduled-work.md).
+Uncertain external action reconciliation, general tools, browser networking/takeover, multi-agent routing,
 central connector credentials, live model acceptance, backup/restore and tested
 next-release upgrades remain later work. The guest OS and Goose are pinned;
 updates require a rebuilt/revalidated guest and a separate state migration or

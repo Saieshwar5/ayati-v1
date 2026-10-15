@@ -10,6 +10,7 @@ pub struct Config {
     pub model: String,
     pub model_base_url: String,
     pub context_bytes: usize,
+    pub vm_idle_seconds: u64,
 }
 
 impl Config {
@@ -48,8 +49,16 @@ impl Config {
                 .unwrap_or_else(|_| "96000".into())
                 .parse()
                 .context("AYATI_CONTEXT_BYTES must be a number")?,
+            vm_idle_seconds: env::var("AYATI_VM_IDLE_SECONDS")
+                .unwrap_or_else(|_| "300".into())
+                .parse()
+                .context("AYATI_VM_IDLE_SECONDS must be 0–86400")?,
         };
         ensure!(config.port != 0, "AYATI_PORT cannot be zero");
+        ensure!(
+            config.vm_idle_seconds <= 86400,
+            "AYATI_VM_IDLE_SECONDS must be 0–86400"
+        );
         ensure!(
             config.context_bytes >= 16000,
             "AYATI_CONTEXT_BYTES must be at least 16000"
