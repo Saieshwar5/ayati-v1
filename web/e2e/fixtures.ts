@@ -31,7 +31,7 @@ export const test = base.extend<{ ayati: Harness }>({
     };
     try {
       await daemon.start();
-      await page.goto(daemon.base);
+      await page.goto(daemon.base + "/?agent=local-agent");
       await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled();
       await use({
         daemon, provider, evidence, check,

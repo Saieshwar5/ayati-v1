@@ -5,6 +5,7 @@ type Status = { configured: boolean; owner: boolean; vm?: { state?: string }; gu
 
 export function installBrowser(): void {
   const button = document.querySelector<HTMLButtonElement>('#browser-button')!;
+  const focusLauncher = (): void => { (button.getClientRects().length ? button : document.querySelector<HTMLButtonElement>('#details-button'))?.focus(); };
   const panel = document.querySelector<HTMLElement>('#browser-panel')!;
   const canvas = document.querySelector<HTMLCanvasElement>('#browser-canvas')!;
   const message = document.querySelector<HTMLElement>('#browser-message')!;
@@ -71,7 +72,7 @@ export function installBrowser(): void {
     panel.hidden = true;
     frameEpoch++;
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-    privateText.value = ''; button.focus();
+    privateText.value = ''; focusLauncher();
   };
   take.onclick = async () => {
     if (!token) { token = crypto.randomUUID(); try { sessionStorage.setItem(storageKey, token); } catch { /* Memory token remains valid. */ } }
@@ -90,7 +91,7 @@ export function installBrowser(): void {
       await control('finish');
       panel.hidden = true;
       canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-      await status(); button.focus();
+      await status(); focusLauncher();
     } catch (error) { say((error as Error).message); }
     finally { handingBack = false; }
   };

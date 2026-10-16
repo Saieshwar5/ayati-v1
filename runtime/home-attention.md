@@ -1,13 +1,14 @@
 # Home and owner attention
 
-Start Ayati normally, then choose **Home** in the chat header or open
+Start Ayati normally, then choose **Home** in the left rail or open
 `http://127.0.0.1:8765/?view=home` (use your configured port). **Agents** returns
-to chat and agent creation. The original root URL still opens chat.
+to chat and agent creation. The root URL opens Home; `/?agent=local-agent` opens chat.
 
 Home shows every registered agent, including preparation failures, and combines:
 
 - Active and queued requests, with Stop or Cancel for the exact request.
-- Pending approvals with their original title and complete action payload.
+- Pending approvals with their original title. Expand Review action to see the
+  complete payload and decision controls.
   Allow once and Deny use the existing single-use server decision boundary.
 - Failed and interrupted requests until the owner chooses **Mark reviewed**.
   Reviewing only clears attention; it never changes the task outcome, deletes
@@ -58,7 +59,8 @@ View request provides the saved full messages. Active work retains the existing
 
 ## Limits
 
-Home does not yet include provider settings, staff access, connected apps,
-automatic retries, all-history pagination, or a structured question/answer inbox.
+Settings now shows appearance and local configuration status. Credential editing,
+staff access, connected apps, automatic retries, all-history pagination and a
+structured question/answer inbox remain future work.
 Approvals still display the exact runtime JSON; friendly tool-specific summaries
 can be added while preserving the complete payload and decision identity.

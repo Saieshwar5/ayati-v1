@@ -137,7 +137,7 @@ test('web owner panel maps input to the guest and preserves browser profile thro
   const { chromium } = createRequire(new URL('../web/package.json', import.meta.url))('@playwright/test');
   const browser = await chromium.launch(); t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-  await page.goto(app.base.replace('/api',''));
+  await page.goto(app.base.replace('/api','/?agent=local-agent'));
   await page.getByRole('button',{name:'Browser',exact:true}).click();
   await page.getByRole('button',{name:'Take control',exact:true}).click();
   await page.getByText('You control the browser.',{exact:false}).waitFor();

@@ -14,6 +14,7 @@ pub struct AttentionTask {
 #[derive(Serialize)]
 pub struct Attention {
     pub active: Vec<AttentionTask>,
+    pub recent: Vec<AttentionTask>,
     pub outcomes: Vec<AttentionTask>,
     pub outcome_count: usize,
     pub permissions: Vec<PendingPermission>,
@@ -54,6 +55,9 @@ impl Store {
                 .collect::<Result<_, _>>()?)
         };
         let active = read_tasks("t.status IN ('queued','running')")?;
+        let recent = read_tasks(
+            "t.id IN (SELECT id FROM tasks WHERE status IN ('completed','failed','interrupted','stopped') ORDER BY rowid DESC LIMIT 6)",
+        )?;
         let outstanding = "t.status IN ('failed','interrupted') AND NOT EXISTS(SELECT 1 FROM attention_reviews a WHERE a.task_id=t.id)";
         let outcome_count = tx.query_row(
             &format!("SELECT COUNT(*) FROM tasks t WHERE {outstanding}"),
@@ -83,6 +87,7 @@ impl Store {
         tx.commit()?;
         Ok(Attention {
             active,
+            recent,
             outcomes,
             outcome_count: outcome_count as usize,
             permissions,

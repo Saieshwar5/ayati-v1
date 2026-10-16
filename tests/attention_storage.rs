@@ -21,6 +21,13 @@ fn attention_survives_recent_history_limits_and_reviews_persist() {
     }
     assert!(!store.tasks().unwrap().iter().any(|t| t.id == failures[0]));
     let attention = store.attention().unwrap();
+    assert_eq!(attention.recent.len(), 6);
+    assert!(
+        attention
+            .recent
+            .iter()
+            .all(|t| t.task.status == "completed")
+    );
     assert_eq!(attention.outcome_count, 23);
     assert_eq!(attention.outcomes.len(), 20);
     assert_eq!(attention.outcomes[0].task.id, failures[0]);

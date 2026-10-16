@@ -6,6 +6,7 @@ import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
 import { installBrowser } from './browser';
 import { installMemory } from './memory';
+import { installAgentDetails } from './agent-details';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -13,7 +14,7 @@ app.innerHTML = `
     <div class="identity"><span class="avatar" aria-hidden="true">a</span>
       <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
-    <a class="files-button" href="/?view=home">Home</a>
+    <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent">Agents</button>
     <button class="files-button" id="browser-button" hidden>Browser</button>
     <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Files <span id="file-count">0</span></button>
   </header>
@@ -51,6 +52,7 @@ app.innerHTML = `
     </div>
   </section>
   <input id="file-input" type="file" hidden />`;
+document.querySelector('.chat')!.prepend(document.querySelector('.header')!);
 installBrowser();
 installMemory();
 
@@ -75,7 +77,7 @@ const pendingSubmission = new PendingSubmission(browserStorage, selectedAgent);
 const draftKey = `ayati.draft.${selectedAgent}`;
 try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
 catch { input.value = pendingSubmission.draft(); }
-installAgents();
+installAgents(installAgentDetails());
 
 function tell(text: string): void { notice.textContent = text; notice.hidden = !text; }
 
@@ -143,11 +145,16 @@ input.addEventListener('keydown', (event) => {
     document.querySelector<HTMLFormElement>('#composer')!.requestSubmit();
   }
 });
-input.addEventListener('input', () => {
-  try { browserStorage?.setItem(draftKey, input.value); } catch { /* Storage is optional. */ }
+function resizeComposer(): void {
   input.style.height = 'auto';
   input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
+}
+input.addEventListener('input', () => {
+  try { browserStorage?.setItem(draftKey, input.value); } catch { /* Storage is optional. */ }
+  resizeComposer();
 });
+window.addEventListener('resize', resizeComposer);
+requestAnimationFrame(resizeComposer);
 
 async function stopTask(id: string): Promise<void> {
   try { await post(`/tasks/${id}/stop`); await sync(); }

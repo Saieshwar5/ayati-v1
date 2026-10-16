@@ -229,3 +229,12 @@ The existing `tests/independent_agents.mjs` VM test also exercises Home with two
 simultaneous independent-agent approvals. It allows one, verifies the other stays
 pending, stops the second and rejects its obsolete decision. These tests do not
 use a live provider or establish model quality.
+
+## Compact workspace UI
+
+After rebuilding the web app and daemon, run `node --test tests/workspace_ui.mjs`.
+It checks root Home navigation, explicit agent routes, review expansion across
+updates, agent search, details/draft preservation, theme persistence, mobile
+modal drawers, Escape/focus return and composer bounds. Screenshots are saved to
+`.test-runs/workspace/`. Existing chat journeys now use `/?agent=local-agent`;
+the root URL intentionally opens Home. No live provider is used by this test.

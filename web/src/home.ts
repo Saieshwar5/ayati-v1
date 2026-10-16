@@ -6,20 +6,19 @@ type Work = Task & { request: string };
 type Permission = { id: string; task_id: string; title: string; action: unknown };
 type Entry = {
   profile: { id: string; name: string; state: string; detail: string };
-  attention: null | { active: Work[]; outcomes: Work[]; outcome_count: number; permissions: Permission[] };
+  attention: null | { active: Work[]; recent: Work[]; outcomes: Work[]; outcome_count: number; permissions: Permission[] };
 };
 type Home = { agents: Entry[] };
 
 export function installHome(): void {
   document.title = 'Home · Ayati';
   const app = document.querySelector<HTMLDivElement>('#app')!;
-  app.innerHTML = `<header class="header"><div class="identity"><span class="avatar" aria-hidden="true">a</span><strong>Ayati</strong></div>
-    <nav aria-label="Workspace"><a href="/?view=home" aria-current="page">Home</a><a href="/?agent=local-agent">Agents</a></nav></header>
-    <main class="home"><div class="home-heading"><div><h1>Your workspace</h1><p>See what is happening and what needs your decision.</p></div><button id="home-refresh" class="files-button">Refresh</button></div>
+  app.innerHTML = `<main class="home"><div class="home-heading"><div><h1>Home</h1><p>A clear place to start your day.</p></div><button id="home-refresh" class="files-button">Refresh</button></div>
     <p id="home-connection" role="status">Connecting…</p><p id="home-error" role="alert"></p>
-    <section aria-labelledby="overview-title"><h2 id="overview-title">Agents at a glance</h2><div id="home-agents" class="home-agents"></div></section>
-    <section aria-labelledby="attention-title"><h2 id="attention-title">Needs your attention</h2><div id="home-attention" class="home-grid"></div></section>
-    <section aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-grid"></div></section></main>`;
+    <div class="home-columns"><section aria-labelledby="attention-title"><div class="home-section-heading"><h2 id="attention-title">Needs you</h2><span id="attention-count" class="attention-count"></span></div><div id="home-attention" class="home-list"></div></section>
+    <section aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div>
+    <section aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
+    <section aria-labelledby="overview-title"><div class="home-section-heading"><h2 id="overview-title">Your agents</h2><a href="/?agent=local-agent">All agents →</a></div><div id="home-agents" class="home-agents"></div></section></main>`;
   const status = document.querySelector<HTMLElement>('#home-connection')!;
   const error = document.querySelector<HTMLElement>('#home-error')!;
   const refreshButton = document.querySelector<HTMLButtonElement>('#home-refresh')!;
@@ -110,7 +109,10 @@ export function installHome(): void {
     return node;
   }
   function draw(data: Home): void {
+    const opened = new Set(Array.from(app.querySelectorAll<HTMLElement>('[data-permission]')).filter(node => node.querySelector('details')?.open).map(node => node.dataset.permission));
     const overview: HTMLElement[] = [], attention: HTMLElement[] = [], work: HTMLElement[] = [];
+    const recent: { entry: Entry; task: Work }[] = [];
+    let attentionCount = 0;
     for (const entry of data.agents) {
       const { profile, attention: state } = entry;
       const summary = card(entry);
@@ -123,15 +125,21 @@ export function installHome(): void {
       }
       overview.push(summary);
       if (!state) continue;
+      attentionCount += state.permissions.length + state.outcome_count;
+      recent.push(...state.recent.map(task => ({ entry, task })));
       for (const permission of state.permissions) {
         const node = card(entry, state.active.find(task => task.id === permission.task_id));
-        node.dataset.permission = permission.id;
-        node.append(element('h3', '', permission.title), element('pre', 'permission-details', JSON.stringify(permission.action, null, 2)));
+        node.dataset.permission = permission.id; node.classList.add('approval-row');
+        node.prepend(element('h3', '', permission.title));
+        const review = element('details', 'home-review');
+        review.open = opened.has(permission.id);
+        review.append(element('summary', '', 'Review action'), element('pre', 'permission-details', JSON.stringify(permission.action, null, 2)));
+        for (const context of node.querySelectorAll('.home-request, .home-detail, button')) review.append(context);
         const controls = element('div', 'home-controls');
         controls.append(action('Allow once', profile.id, `/permissions/${encodeURIComponent(permission.id)}`, { allow: true }),
           action('Deny', profile.id, `/permissions/${encodeURIComponent(permission.id)}`, { allow: false }),
           action('Stop request', profile.id, `/tasks/${encodeURIComponent(permission.task_id)}/stop`), conversation(entry));
-        node.append(controls); attention.push(node);
+        review.append(controls); node.append(review); attention.push(node);
       }
       for (const outcome of state.outcomes) {
         const node = card(entry, outcome);
@@ -142,15 +150,22 @@ export function installHome(): void {
       if (state.outcome_count > state.outcomes.length) attention.push(element('p', 'home-detail',
         `${profile.name}: showing ${state.outcomes.length} of ${state.outcome_count} outcomes. Review these to see the next ones.`));
       for (const task of state.active) {
+        if (state.permissions.some(permission => permission.task_id === task.id)) continue;
         const node = card(entry, task);
         const controls = element('div', 'home-controls');
         controls.append(action(task.status === 'queued' ? 'Cancel request' : 'Stop request', profile.id, `/tasks/${encodeURIComponent(task.id)}/stop`), conversation(entry));
         node.append(controls); work.push(node);
       }
     }
+    document.querySelector('#attention-count')!.textContent = `${attentionCount} ${attentionCount === 1 ? 'item' : 'items'}`;
+    document.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
+      const row = element('article', 'home-feed-item');
+      row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${new Date(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString()}`), requestHistory(entry, task));
+      return row;
+    }) : [element('p', 'home-empty', 'Completed work will appear here.')]));
     document.querySelector('#home-agents')!.replaceChildren(...overview);
     document.querySelector('#home-attention')!.replaceChildren(...(attention.length ? attention : [element('p', 'home-empty', 'You are all caught up.')]));
-    document.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No work is running or queued. Open an agent to start a conversation.')]));
+    document.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No other work is running or queued.')]));
   }
   refreshButton.onclick = () => { void refresh(); };
   window.addEventListener('focus', () => { freshAt = 0; disableActions(true); void refresh(); });

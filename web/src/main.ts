@@ -1,7 +1,16 @@
 import './style.css';
+import './workspace.css';
+import { installWorkspace, type WorkspacePage } from './workspace';
 
-if (new URLSearchParams(location.search).get('view') === 'home') {
+const params = new URLSearchParams(location.search);
+const requested = params.get('view');
+const page: WorkspacePage = params.has('agent') ? 'agents'
+  : requested === 'agents' || requested === 'apps' || requested === 'settings' ? requested : 'home';
+installWorkspace(page);
+if (page === 'home') {
   void import('./home').then(({ installHome }) => installHome());
-} else {
+} else if (page === 'agents') {
   void import('./chat');
+} else {
+  void import('./workspace-pages').then(({ installWorkspacePage }) => installWorkspacePage(page));
 }

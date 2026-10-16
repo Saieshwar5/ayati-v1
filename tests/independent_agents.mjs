@@ -36,7 +36,7 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
   const browser = await chromium.launch(); t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1280, height: 850 } });
-  await page.goto(app.base.replace('/api', ''));
+  await page.goto(app.base.replace('/api', '/?agent=local-agent'));
   await page.locator('#new-agent').click();
   await page.locator('[name=name]').fill('Operations');
   await page.locator('[name=role]').fill('Prepare daily operations reports. Keep customer records separate.');
@@ -105,10 +105,12 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   assert.equal(permissionA.task_id, homeA.id); assert.equal(permissionB.task_id, homeB.id);
   const homePage = await browser.newPage();
   await homePage.goto(app.base.replace('/api', '/?view=home'));
+  await homePage.locator(`[data-permission="${permissionA.id}"] summary`).click();
   await homePage.locator(`[data-permission="${permissionA.id}"]`).getByRole('button', { name: 'Allow once' }).click();
   await until(async () => !(await first.request('/state')).permissions.some(p => p.id === permissionA.id), 'Home Allow did not decide the first approval');
   await first.finish(homeA.id);
   assert.equal((await second.request('/state')).permissions[0].id, permissionB.id);
+  await homePage.locator(`[data-permission="${permissionB.id}"] summary`).click();
   await homePage.locator(`[data-permission="${permissionB.id}"]`).getByRole('button', { name: 'Stop request', exact: true }).click();
   await until(async () => (await second.request('/state')).tasks.find(t => t.id === homeB.id)?.status === 'stopped', 'Home Stop did not stop the selected agent');
   assert.equal((await second.raw(`/permissions/${permissionB.id}`, { allow: true })).status, 400);

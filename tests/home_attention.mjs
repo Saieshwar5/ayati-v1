@@ -21,11 +21,13 @@ test('Home handles exact decisions, stale tabs, offline recovery and durable int
   await stale.route('**/api/home', route => route.fulfill({ json: frozen }));
   await stale.getByRole('button', { name: 'Refresh', exact: true }).click();
   const selector = `[data-permission="${pending.id}"]`;
+  await page.locator(`${selector} summary`).click();
   await page.locator(selector).getByRole('button', { name: 'View request' }).click();
   await until(async () => (await page.locator('dialog').textContent()).includes('tool approval'), 'Request history did not load');
   await page.locator('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator(selector).getByRole('button', { name: 'Allow once' }).click();
   assert.equal((await app.done(input.id)).task.status, 'completed');
+  await stale.locator(`${selector} summary`).click();
   await stale.locator(selector).getByRole('button', { name: 'Deny', exact: true }).click();
   await until(async () => (await stale.locator('#home-error').textContent()).includes('no longer waiting'), 'Stale decision not rejected');
   await stale.unroute('**/api/home');
@@ -33,12 +35,14 @@ test('Home handles exact decisions, stale tabs, offline recovery and durable int
   await until(async () => await stale.locator(selector).count() === 0, 'Stale card not removed');
   const denied = await app.submit('tool deny');
   const deniedPermission = await until(async () => (await app.request('/home')).agents[0].attention.permissions[0], 'No denial approval');
+  await page.locator(`[data-permission="${deniedPermission.id}"] summary`).click();
   await page.locator(`[data-permission="${deniedPermission.id}"]`).getByRole('button', { name: 'Deny', exact: true }).click();
   await app.done(denied.id);
   assert.equal((await app.request(`/tasks/${denied.id}/actions`)).actions[0].decision, 'denied');
   const interrupted = await app.submit('tool interrupt');
   const permission = await until(async () => (await app.request('/home')).agents[0].attention.permissions[0], 'No restart approval');
   await until(async () => await page.locator(`[data-permission="${permission.id}"]`).count() === 1, 'No approval card');
+  await page.locator(`[data-permission="${permission.id}"] summary`).click();
   await context.setOffline(true);
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await until(async () => await page.getByRole('button', { name: 'Allow once' }).isDisabled(), 'Offline decisions enabled');
