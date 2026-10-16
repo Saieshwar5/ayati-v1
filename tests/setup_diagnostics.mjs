@@ -15,7 +15,7 @@ test('setup guide requires explicit testing, protects history, and sanitizes fai
   assert(status.checks.every(check => check.ok));
   assert(!JSON.stringify(status).includes('fixture-not-a-secret'));
   assert.equal(app.provider.requests.length, 0);
-  for (const body of [{ confirm: false }, {}, { confirm: true, model: 'other' }]) {
+  for (const body of [{ confirm: false }, {}, { confirm: true, tools: [] }]) {
     const response = await fetch(app.base + '/setup/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     assert(!response.ok);
   }

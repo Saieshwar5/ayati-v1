@@ -5,8 +5,9 @@ use std::time::Duration;
 
 impl Workspace {
     // Read-only checks: never boot a guest or open a saved conversation.
-    pub async fn setup_status(&self) -> Value {
-        let config = &self.template;
+    pub async fn setup_status(&self) -> Result<Value> {
+        let mut config = self.template.clone();
+        config.model = self.agent("local-agent")?.1;
         let key_name = match config.provider.as_str() {
             "fireworks-ai" => "FIREWORKS_API_KEY",
             "openai" => "OPENAI_API_KEY",
@@ -40,11 +41,18 @@ impl Workspace {
             let valid = matches!(version, Ok(Ok(output)) if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == crate::runtime::config::GOOSE_VERSION);
             checks.push(json!({"label":"Goose 1.54.0","ok":valid,"help":"Run ./tools/install-goose.sh, then restart Ayati."}));
         }
-        json!({"provider":config.provider,"model":config.model,"execution":if config.vm_manifest.is_some(){"vm"}else{"host"},
-            "supported":!self.config.prototype,"can_test":!self.config.prototype && credential && endpoint && !config.model.trim().is_empty(),"checks":checks})
+        Ok(
+            json!({"provider":config.provider,"model":config.model,"execution":if config.vm_manifest.is_some(){"vm"}else{"host"},
+            "supported":!self.config.prototype,"can_test":!self.config.prototype && credential && endpoint && !config.model.trim().is_empty(),"checks":checks}),
+        )
     }
 
-    pub async fn test_provider(&self) -> Result<Value> {
+    pub async fn test_provider(&self, candidate: Option<&str>) -> Result<Value> {
+        let model = match candidate {
+            Some(model) => model.to_owned(),
+            None => self.agent("local-agent")?.1,
+        };
+        crate::storage::profile::validate_model(&model)?;
         ensure!(
             !self.config.prototype,
             "Connection testing is available for the Goose runtime only"
@@ -59,7 +67,7 @@ impl Workspace {
             "Configure the provider credential locally and restart Ayati"
         );
         ensure!(
-            !self.template.model.trim().is_empty(),
+            !model.trim().is_empty(),
             "Configure a model and restart Ayati"
         );
         // Fixed synthetic input, no tools, no history, no automatic retry or redirects.
@@ -69,7 +77,7 @@ impl Workspace {
             .build()?;
         let request = async {
             let response = client.post(url).bearer_auth(key).json(&json!({
-                "model":self.template.model,"messages":[{"role":"user","content":"Reply with OK."}],
+                "model":model,"messages":[{"role":"user","content":"Reply with OK."}],
                 "stream":false,"max_tokens":64
             })).send().await.map_err(|_| anyhow::anyhow!("Connection failed or timed out. Check network and provider endpoint; the request may have been received."))?;
             ensure!(
@@ -99,7 +107,7 @@ impl Workspace {
                 "Provider returned no text. This limited test may be insufficient for a reasoning model; no retry was sent."
             );
             Ok(
-                json!({"ok":true,"message":"Provider returned text for the configured model. This checks the connection only; agent tools, saved sessions and VM execution were not exercised."}),
+                json!({"ok":true,"message":"Provider returned text for the selected model. This checks the connection only; agent tools, saved sessions and VM execution were not exercised."}),
             )
         };
         tokio::select! {

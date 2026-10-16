@@ -148,10 +148,15 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   await page.screenshot({ path: join(root, '.test-runs/agents/desktop.png') });
   await page.close();
   const updatedRole = 'PROFILE_EDIT_VM_MARKER: prepare concise operations reports.';
-  await app.request(`/agents/${ready.id}/profile`, { name: 'Operations updated', role: updatedRole, expected_revision: 0 });
+  await app.request(`/agents/${ready.id}/profile`, { name: 'Operations updated', role: updatedRole, model: 'fixture-vm-next', expected_revision: 0 });
   const profilesAfterEdit = (await app.request('/agents')).agents;
   assert.equal(profilesAfterEdit.find(a => a.profile.id === 'local-agent').profile.role, '');
   assert.equal(profilesAfterEdit.find(a => a.profile.id === ready.id).profile.role, updatedRole);
+  const newModelRun = await second.run('Verify changed model before restart');
+  assert.equal(newModelRun.task.status, 'completed', newModelRun.task.detail);
+  assert.equal(app.provider.requests.at(-1).model, 'fixture-vm-next');
+  assert.equal((await first.request('/health')).model, 'fixture');
+  assert.equal((await second.request('/health')).model, 'fixture-vm-next');
   await app.stop(); await app.start();
   assert.equal((await app.request('/agents')).agents.find(a => a.profile.id === ready.id).profile.name, 'Operations updated');
   assert.equal((await second.request('/memory')).memories[0].content, secondFact.content);
@@ -159,6 +164,7 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   assert.ok(!(await first.request('/state')).messages.some(m => m.task_id === secondRead.task.id));
   const again = await second.run(memorySearch);
   assert.equal(again.task.status, 'completed', again.task.detail); assert.match(again.output, /English/); assert.doesNotMatch(again.output, /Telugu/);
+  assert.equal(app.provider.requests.at(-1).model, 'fixture-vm-next');
   assert.ok(JSON.stringify(app.provider.requests.at(-1).messages).includes('PROFILE_EDIT_VM_MARKER'));
   assert.ok(!JSON.stringify(app.provider.requests.at(-1).messages).includes('Prepare daily operations reports.'));
   assert.equal((await first.raw('/agents', duplicateInput, { Origin: 'https://untrusted.example' })).status, 403);

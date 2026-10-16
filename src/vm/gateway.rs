@@ -9,22 +9,26 @@ use axum::{
 };
 use serde_json::{Value, json};
 use std::sync::{
-    Arc,
+    Arc, RwLock,
     atomic::{AtomicBool, Ordering},
 };
+
+struct ModelAccess {
+    token: String,
+    model: String,
+}
 
 struct Provider {
     url: reqwest::Url,
     key: String,
-    token: String,
-    model: String,
+    access: Arc<RwLock<ModelAccess>>,
     client: reqwest::Client,
     failed: Arc<AtomicBool>,
 }
 
 pub struct ModelGateway {
     pub port: u16,
-    pub token: String,
+    access: Arc<RwLock<ModelAccess>>,
     pub failed: Arc<AtomicBool>,
     task: tokio::task::JoinHandle<()>,
 }
@@ -36,6 +40,24 @@ impl Drop for ModelGateway {
 }
 
 impl ModelGateway {
+    // Called only while the agent lifecycle gate is held and no prompt is active.
+    // Keep the guest-forwarded port, but revoke the previous model's credential.
+    pub fn select_model(&self, model: &str) -> Result<String> {
+        let mut access = self
+            .access
+            .write()
+            .map_err(|_| anyhow::anyhow!("Model gateway unavailable"))?;
+        if access.model != model {
+            access.model = model.into();
+            access.token = format!(
+                "{}{}",
+                uuid::Uuid::new_v4().simple(),
+                uuid::Uuid::new_v4().simple()
+            );
+        }
+        Ok(access.token.clone())
+    }
+
     pub async fn start_with_memory(
         provider: &str,
         model: &str,
@@ -53,13 +75,16 @@ impl ModelGateway {
             uuid::Uuid::new_v4().simple(),
             uuid::Uuid::new_v4().simple()
         );
+        let access = Arc::new(RwLock::new(ModelAccess {
+            token,
+            model: model.into(),
+        }));
         let failed = Arc::new(AtomicBool::new(false));
         let provider = Arc::new(Provider {
             failed: failed.clone(),
             url,
             key,
-            token: token.clone(),
-            model: model.into(),
+            access: access.clone(),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(std::time::Duration::from_secs(120))
@@ -76,7 +101,7 @@ impl ModelGateway {
         });
         Ok(Self {
             port,
-            token,
+            access,
             task,
             failed,
         })
@@ -91,21 +116,23 @@ fn router(provider: Arc<Provider>) -> Router {
         .with_state(provider)
 }
 
-fn authorized(headers: &HeaderMap, provider: &Provider) -> bool {
+fn authorized_model(headers: &HeaderMap, provider: &Provider) -> Option<String> {
+    let access = provider.access.read().ok()?;
     headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v == format!("Bearer {}", provider.token))
+        .filter(|v| *v == format!("Bearer {}", access.token))
+        .map(|_| access.model.clone())
 }
 
 async fn models(
     State(provider): State<Arc<Provider>>,
     headers: HeaderMap,
 ) -> axum::response::Response {
-    if !authorized(&headers, &provider) {
+    let Some(model) = authorized_model(&headers, &provider) else {
         return StatusCode::UNAUTHORIZED.into_response();
-    }
-    Json(json!({"object":"list","data":[{"id":provider.model,"object":"model","owned_by":"configured-provider"}]})).into_response()
+    };
+    Json(json!({"object":"list","data":[{"id":model,"object":"model","owned_by":"configured-provider"}]})).into_response()
 }
 
 async fn completion(
@@ -113,11 +140,11 @@ async fn completion(
     headers: HeaderMap,
     Json(input): Json<Value>,
 ) -> axum::response::Response {
-    if !authorized(&headers, &provider) {
+    let Some(model) = authorized_model(&headers, &provider) else {
         return StatusCode::UNAUTHORIZED.into_response();
-    }
+    };
     provider.failed.store(false, Ordering::SeqCst);
-    if input.get("model").and_then(Value::as_str) != Some(&provider.model) {
+    if input.get("model").and_then(Value::as_str) != Some(model.as_str()) {
         provider.failed.store(true, Ordering::SeqCst);
         return StatusCode::FORBIDDEN.into_response();
     }

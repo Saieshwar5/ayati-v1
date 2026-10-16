@@ -224,10 +224,10 @@ extension selection, validates the observed tool identity/arguments before askin
 for approval, and never offers an always-allow option. Unknown requests fail closed.
 Pending approvals are cancelled on Stop/restart; used decisions cannot be replayed.
 The harmless proof server is not a general authorization broker for future tools.
-Provider/model/tool settings are fixed for a saved proof session. To change them,
-use a fresh explicit AYATI_DATA_DIR or restore the old settings; the adapter fails
-clearly rather than silently loading a session with different tools or a different
-provider. Guided reconfiguration is later work.
+Use Agent Details to change models safely with fresh context. Provider/tool
+changes outside the editor still require restoring the original settings or a
+fresh explicit AYATI_DATA_DIR; incompatible saved sessions fail closed. Guided
+tool reconfiguration remains future work.
 
 ## Current limits
 
@@ -322,8 +322,9 @@ and failure behavior. Restart after local configuration changes.
 
 ### Edit an agent
 
-Use **Agents → Details → Edit name and responsibilities** while the agent is
-idle. Name changes preserve context; changed responsibilities start fresh model
+Use **Agents → Details → Edit agent settings** while the agent is
+idle. Name changes preserve context; changed responsibilities or models start fresh model
 context on the next request while keeping saved chat, files and memory. Finish
-or stop active/queued work first. Model and tool editing remain future work.
+or stop active/queued work first. Optional model tests require explicit consent and may incur charges. Tool editing
+remains future work.
 See [profile editing](runtime/agent-profile-editing.md) for restart and stale-tab behavior.

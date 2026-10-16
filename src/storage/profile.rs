@@ -5,14 +5,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize)]
 pub struct ProfileEdit {
+    pub model: Option<String>,
     pub name: String,
     pub role: String,
     pub revision: i64,
+    // Persisted field name retained from schema 7; now tracks role or model changes.
     pub role_revision: i64,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateProfile {
+    pub model: Option<String>,
     pub name: String,
     pub role: String,
     pub expected_revision: i64,
@@ -33,18 +36,31 @@ impl UpdateProfile {
                 "{label} contains control characters"
             );
         }
+        if let Some(model) = &self.model {
+            validate_model(model)?;
+        }
         Ok(())
     }
+}
+pub fn validate_model(model: &str) -> Result<()> {
+    ensure!(
+        !model.is_empty()
+            && model.len() <= 200
+            && !model.chars().any(|c| c.is_whitespace() || c.is_control()),
+        "Model must be 1–200 bytes with no whitespace or control characters"
+    );
+    Ok(())
 }
 impl Store {
     pub fn profile_edit(&self) -> Result<Option<ProfileEdit>> {
         Ok(self
             .connection()?
             .query_row(
-                "SELECT name,role,revision,role_revision FROM profile_edit WHERE id=1",
+                "SELECT name,role,revision,role_revision,model FROM profile_edit WHERE id=1",
                 [],
                 |r| {
                     Ok(ProfileEdit {
+                        model: r.get(4)?,
                         name: r.get(0)?,
                         role: r.get(1)?,
                         revision: r.get(2)?,
@@ -60,18 +76,20 @@ impl Store {
         &self,
         input: &UpdateProfile,
         original_role: &str,
+        original_model: &str,
     ) -> Result<ProfileEdit> {
         input.validate()?;
         let mut connection = self.connection()?;
         let tx = connection.transaction()?;
-        let previous: Option<(String, i64, i64)> = tx
+        let previous: Option<(String, i64, i64, Option<String>)> = tx
             .query_row(
-                "SELECT role,revision,role_revision FROM profile_edit WHERE id=1",
+                "SELECT role,revision,role_revision,model FROM profile_edit WHERE id=1",
                 [],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .optional()?;
-        let (role, revision, role_revision) = previous.unwrap_or((original_role.into(), 0, 0));
+        let (role, revision, role_revision, previous_model) =
+            previous.unwrap_or((original_role.into(), 0, 0, None));
         ensure!(
             revision == input.expected_revision,
             "Settings changed in another tab. Reopen the editor and review the latest settings."
@@ -82,14 +100,18 @@ impl Store {
             "Finish or stop all active and queued work before editing this agent"
         );
         let changed_role = role != input.role.trim();
+        let model = input.model.clone().or(previous_model.clone());
+        let changed_model = model.as_deref().unwrap_or(original_model)
+            != previous_model.as_deref().unwrap_or(original_model);
         let result = ProfileEdit {
+            model,
             name: input.name.trim().into(),
             role: input.role.trim().into(),
             revision: revision + 1,
-            role_revision: role_revision + i64::from(changed_role),
+            role_revision: role_revision + i64::from(changed_role || changed_model),
         };
-        tx.execute("INSERT INTO profile_edit(id,name,role,revision,role_revision) VALUES(1,?1,?2,?3,?4) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,revision=excluded.revision,role_revision=excluded.role_revision", params![result.name,result.role,result.revision,result.role_revision])?;
-        if changed_role {
+        tx.execute("INSERT INTO profile_edit(id,name,role,revision,role_revision,model) VALUES(1,?1,?2,?3,?4,?5) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,revision=excluded.revision,role_revision=excluded.role_revision,model=excluded.model", params![result.name,result.role,result.revision,result.role_revision,result.model])?;
+        if changed_role || changed_model {
             tx.execute("DELETE FROM runtime_sessions", [])?;
         }
         tx.commit()?;

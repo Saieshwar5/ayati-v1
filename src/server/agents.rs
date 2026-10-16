@@ -28,7 +28,11 @@ async fn edit_profile(
         .into_iter()
         .find(|p| p.id == id)
         .context("Unknown agent")?;
-    Ok(Json(json!(agent.edit_profile(&input, &original.role)?)))
+    Ok(Json(json!(agent.edit_profile(
+        &input,
+        &original.role,
+        &original.model
+    )?)))
 }
 // These routes manage the local owner's whole workspace, independent of selection.
 async fn list(State(state): State<WebState>) -> ApiResult<Json<Value>> {

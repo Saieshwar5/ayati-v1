@@ -14,7 +14,8 @@ No secret values are returned to the browser. Follow README.md for host/VM setup
 preserve old VM disks and agent data when repairing setup.
 
 The checkbox and **Test provider connection** explicitly authorize one external
-request. `POST /api/setup/test` requires exactly `{"confirm":true}`. It sends
+request. `POST /api/setup/test` requires `{"confirm":true}` and accepts an optional `model` candidate. Without
+a candidate it uses the default agent's current saved model. It sends
 only `Reply with OK.` to the default configured model, with no tools/history,
 `stream:false`, and a 64-token output limit. Normal API charges may apply.
 A successful response must contain nonempty text. Reasoning models can exhaust
@@ -31,7 +32,7 @@ Shutdown cancels the request; upstream cancellation is not guaranteed.
 
 Results are shown only in the current page and are not stored as agent work.
 Tests do not run Goose, validate its sessions/tool loop, or exercise the VM.
-Agent model and tool settings remain immutable. Names and responsibilities
+Agent tool settings remain immutable. Names, responsibilities and models
 can be changed through the [profile editor](agent-profile-editing.md). Settings remains a local single-owner page,
 protected by the existing loopback Host/same-origin checks and no-store headers.
 

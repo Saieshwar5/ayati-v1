@@ -247,3 +247,7 @@ overlap rejection, redirects and sanitized errors against local synthetic provid
 a synthetic provider, including saved-session replacement, preserved history,
 name-only continuity, stale/busy rejection and restart. `profile_storage` covers
 transactional validation, private stores and migration/session compatibility.
+
+`node --test tests/agent_model.mjs` verifies candidate testing without saving,
+selected-model execution, context separation, restart and busy rejection. The
+two-agent KVM scenario also verifies model changes before and after restart.

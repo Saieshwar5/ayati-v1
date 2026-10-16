@@ -109,6 +109,9 @@ impl Workspace {
             {
                 profile.name = edit.name;
                 profile.role = edit.role;
+                if let Some(model) = edit.model {
+                    profile.model = model;
+                }
             }
         }
         Ok(profiles)
@@ -134,6 +137,9 @@ impl Workspace {
                 profile_json["name"] = json!(edit.name);
                 profile_json["role"] = json!(edit.role);
                 profile_json["revision"] = json!(edit.revision);
+                if let Some(model) = edit.model {
+                    profile_json["model"] = json!(model);
+                }
             }
             profile_json["editable"] = json!(
                 agents
