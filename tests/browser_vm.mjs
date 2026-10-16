@@ -141,6 +141,17 @@ test('web owner panel maps input to the guest and preserves browser profile thro
   await page.getByRole('button',{name:'Browser',exact:true}).click();
   await page.getByRole('button',{name:'Take control',exact:true}).click();
   await page.getByText('You control the browser.',{exact:false}).waitFor();
+  await page.locator('#input').fill('Keep this browser-work draft');
+  await page.locator('#browser-private-text').fill('UNSENT_PRIVATE_FIXTURE_TEXT');
+  await page.locator('#automation-button').click();
+  assert.equal(await page.locator('#browser-panel').isHidden(), true);
+  assert.equal(await page.locator('#browser-private-text').inputValue(), '');
+  assert.equal((await app.request('/browser/status')).owner, true, 'Changing panels cannot hand back control');
+  await page.locator('#browser-button').click();
+  await page.locator('#browser-panel-expand').click();
+  assert.equal(await page.locator('.chat').isVisible(), false);
+  await page.getByRole('button', { name: 'Restore chat', exact: true }).click();
+  assert.equal(await page.locator('#input').inputValue(), 'Keep this browser-work draft');
   await until(() => page.locator('#browser-canvas').evaluate((canvas) => canvas.getContext('2d').getImageData(60,60,1,1).data[3] > 0),'No guest frame');
   // Focus a real guest input using mapped pointer coordinates (fixture layout).
   const canvas = page.locator('#browser-canvas');

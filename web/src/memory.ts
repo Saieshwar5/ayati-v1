@@ -1,8 +1,9 @@
+import { workPanels } from './work-panels';
 import { api, post } from './types';
 import { element } from './view';
 interface Memory { id: string; key: string; content: string; quote: string; source_kind: string; source_date: string; source_id: string }
 export function installMemory(): void {
-  const panel = element('section', 'memory-panel');
+  const panel = element('dialog', 'memory-panel');
   panel.hidden = true; panel.setAttribute('aria-label', 'Agent memory'); panel.id = 'memory-panel';
   panel.innerHTML = `<div class="panel-header"><h2>Agent memory</h2><button class="icon-button" id="memory-close" aria-label="Close memory">×</button></div>
     <p>Facts your agent can use in future work. Saving or forgetting stops current work; send a follow-up to continue.</p>
@@ -14,7 +15,7 @@ export function installMemory(): void {
   document.querySelector('#app')!.append(panel);
   const button = element('button', 'files-button', 'Memory');
   button.hidden = true; button.id = 'memory-button'; button.setAttribute('aria-controls', panel.id); button.setAttribute('aria-expanded', 'false');
-  document.querySelector('.header')!.append(button);
+  document.querySelector('.chat-tool-links')!.append(button);
   const status = panel.querySelector<HTMLElement>('#memory-status')!;
   const form = panel.querySelector<HTMLFormElement>('#memory-note')!;
   const key = form.elements.namedItem('key') as HTMLInputElement;
@@ -38,8 +39,8 @@ export function installMemory(): void {
     }
     status.textContent = data.memories.length ? 'Up to eight relevant facts shown.' : 'No matching facts.';
   }
-  button.onclick = () => { panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) void load().catch((e: Error) => { status.textContent = e.message; }); };
-  panel.querySelector<HTMLButtonElement>('#memory-close')!.onclick = () => { panel.hidden = true; button.setAttribute('aria-expanded', 'false'); (button.getClientRects().length ? button : document.querySelector<HTMLButtonElement>('#details-button'))?.focus(); };
+  const work = workPanels.register(panel, button, { open: () => { void load().catch((e: Error) => { status.textContent = e.message; }); } });
+  panel.querySelector<HTMLButtonElement>('#memory-close')!.onclick = () => work.close();
   panel.querySelector<HTMLButtonElement>('#memory-new')!.onclick = clear;
   panel.querySelector<HTMLFormElement>('#memory-search')!.onsubmit = (e) => { e.preventDefault(); void load().catch((error: Error) => { status.textContent = error.message; }); };
   form.onsubmit = (e) => { e.preventDefault(); const save = form.querySelector<HTMLButtonElement>('button')!; save.disabled = true;

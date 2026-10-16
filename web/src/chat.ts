@@ -4,9 +4,11 @@ import { api, post, apiUrl, selectedAgent, type AgentEvent, type Artifact, type 
 import { element, renderConversation, renderFiles } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
+import { workPanels } from './work-panels';
 import { installBrowser } from './browser';
 import { installMemory } from './memory';
 import { installAgentDetails } from './agent-details';
+import './agent-workspace.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -14,9 +16,12 @@ app.innerHTML = `
     <div class="identity"><span class="avatar" aria-hidden="true">a</span>
       <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
+    <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true">Agents</button>
     <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent">Agents</button>
     <button class="files-button" id="browser-button" hidden>Browser</button>
+    <div class="chat-tool-links">
     <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Files <span id="file-count">0</span></button>
+    </div>
   </header>
   <main class="main">
     <section class="chat" aria-label="Conversation with Ayati">
@@ -33,13 +38,13 @@ app.innerHTML = `
         <p class="composer-note">Each agent has its own conversation and memory.</p>
       </div>
     </section>
-    <aside class="files-panel" id="files-panel" aria-label="Your files" hidden>
+    <dialog class="files-panel" id="files-panel" aria-label="Your files" hidden>
       <div class="panel-header"><h2>Your files</h2><button class="icon-button" id="close-files" aria-label="Close files">×</button></div>
       <p class="panel-description">Originals and new versions, ready to download.</p>
       <div id="files-list" class="files-list"></div>
-    </aside>
+    </dialog>
   </main>
-  <section id="browser-panel" class="browser-panel" aria-label="Agent browser" hidden>
+  <dialog id="browser-panel" class="browser-panel" aria-label="Agent browser" hidden>
     <div class="panel-header"><h2>Agent browser</h2><button id="browser-close" class="icon-button" aria-label="Close browser panel">×</button></div>
     <p id="browser-message" role="status"></p>
     <div class="browser-controls"><button id="browser-take" class="text-button">Take control</button><button id="browser-resume" class="text-button" disabled>Hand back to agent</button><button id="browser-finish" class="text-button" disabled>Close browser session</button></div>
@@ -50,7 +55,7 @@ app.innerHTML = `
       <form id="browser-text"><label>Type into the selected browser field <input id="browser-private-text" type="password" autocomplete="off"></label><button>Send text</button></form>
       <p>Use the browser view to select a field first. This text is sent only to your browser session.</p>
     </div>
-  </section>
+  </dialog>
   <input id="file-input" type="file" hidden />`;
 document.querySelector('.chat')!.prepend(document.querySelector('.header')!);
 installBrowser();
@@ -63,10 +68,11 @@ const connection = document.querySelector<HTMLSpanElement>('#connection')!;
 const send = document.querySelector<HTMLButtonElement>('#send')!;
 const stop = document.querySelector<HTMLButtonElement>('#stop')!;
 const filesButton = document.querySelector<HTMLButtonElement>('#files-button')!;
-const filesPanel = document.querySelector<HTMLElement>('#files-panel')!;
+const filesPanel = document.querySelector<HTMLDialogElement>('#files-panel')!;
 const fileInput = document.querySelector<HTMLInputElement>('#file-input')!;
 let state: Snapshot = { messages: [], tasks: [], artifacts: [] };
 let modelReady = false;
+let connected = false;
 let sending = false;
 let syncing = false;
 let syncAgain = false;
@@ -78,6 +84,12 @@ const draftKey = `ayati.draft.${selectedAgent}`;
 try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
 catch { input.value = pendingSubmission.draft(); }
 installAgents(installAgentDetails());
+document.querySelector<HTMLButtonElement>('#agent-sidebar-toggle')!.onclick = event => {
+  const hidden = document.querySelector('.main')!.classList.toggle('agent-list-collapsed');
+  const button = event.currentTarget as HTMLButtonElement;
+  button.setAttribute('aria-expanded', String(!hidden));
+  button.setAttribute('aria-label', hidden ? 'Show agent list' : 'Hide agent list');
+};
 
 function tell(text: string): void { notice.textContent = text; notice.hidden = !text; }
 
@@ -85,7 +97,9 @@ function draw(): void {
   renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
   renderFiles(document.querySelector('#files-list')!, state.artifacts, selectedAgent);
   document.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
-  stop.hidden = !state.tasks.some((task) => task.status === 'running');
+  const active = state.tasks.find(task => task.status === 'running');
+  stop.hidden = !active;
+  if (connected) connection.textContent = state.permissions?.length ? 'Waiting for your approval' : active?.detail || (active ? 'Working…' : 'Ready');
   send.disabled = !modelReady || sending;
 }
 
@@ -176,15 +190,8 @@ conversation.addEventListener('click', (event) => {
   if (target?.dataset.stopTask) void stopTask(target.dataset.stopTask);
 });
 
-function toggleFiles(open: boolean): void {
-  filesPanel.hidden = !open;
-  filesButton.setAttribute('aria-expanded', String(open));
-  if (open) document.querySelector<HTMLButtonElement>('#close-files')!.focus();
-  else filesButton.focus();
-}
-filesButton.onclick = () => toggleFiles(Boolean(filesPanel.hidden));
-document.querySelector<HTMLButtonElement>('#close-files')!.onclick = () => toggleFiles(false);
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !filesPanel.hidden) toggleFiles(false); });
+const filesWork = workPanels.register(filesPanel, filesButton);
+document.querySelector<HTMLButtonElement>('#close-files')!.onclick = () => filesWork.close();
 document.querySelector<HTMLButtonElement>('#attach')!.onclick = () => fileInput.click();
 fileInput.onchange = async () => {
   const file = fileInput.files?.[0];
@@ -205,8 +212,8 @@ fileInput.onchange = async () => {
 };
 
 const events = new EventSource(apiUrl('/events'));
-events.onopen = () => { connection.textContent = 'Here to help'; void sync(); };
-events.onerror = () => { connection.textContent = 'Reconnecting…'; };
+events.onopen = () => { connected = true; draw(); void sync(); };
+events.onerror = () => { connected = false; connection.textContent = 'Reconnecting…'; };
 events.onmessage = (event) => {
   const update = JSON.parse(event.data) as AgentEvent;
   if (update.kind === 'delta' && update.message_id && update.text) {

@@ -263,3 +263,9 @@ recovery across reload, disconnected controls, mobile layout and restart.
 `cargo test --test schedule_history` checks bounded/scoped durable run history.
 The owner-creation case in `independent_agents.mjs` checks two-VM schedule
 isolation with identical rule IDs and history persistence.
+
+`node --test tests/agents_workspace.mjs` verifies the graphite workspace,
+exclusive work panels, Automation tabs, responsive modal/focus behavior, draft
+and reading-position retention, theme persistence and 320/390px layouts. The
+web-owner case in `browser_vm.mjs` covers real browser authority and input after
+panel switching/expansion. `attention_storage` checks private bounded previews.

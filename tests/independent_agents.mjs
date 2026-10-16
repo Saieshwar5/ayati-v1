@@ -78,6 +78,13 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   assert.equal(secondRead.task.status, 'completed', secondRead.task.detail);
   assert.match(secondRead.output, /English/); assert.doesNotMatch(secondRead.output, /Telugu/);
   assert.ok(app.provider.requests.some(r => JSON.stringify(r.messages).includes(ready.role)), 'Configured role reaches Goose');
+  const previewSnapshot = await app.request('/agents');
+  for (const [id, owner] of [['local-agent', first], [ready.id, second]]) {
+    const messages = (await owner.request('/state')).messages.filter(m => m.content);
+    const latest = previewSnapshot.agents.find(a => a.profile.id === id).activity.latest;
+    assert.equal(latest.text, [...messages.at(-1).content].slice(0, 160).join(''));
+  }
+
   const tools = app.provider.requests.at(-1).tools.map(tool => tool.function.name);
   assert.ok(tools.includes('ayati_memory__memory_search') && tools.includes('ayati_browser__agent_browser_open'));
   assert.ok(!tools.some(name => /shell|developer|recall/.test(name)));

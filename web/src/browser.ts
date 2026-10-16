@@ -1,3 +1,4 @@
+import { workPanels } from './work-panels';
 import { api, post, selectedAgent } from './types';
 
 type Result = { isError?: boolean; content?: { type: string; data?: string; mimeType?: string }[] };
@@ -5,8 +6,7 @@ type Status = { configured: boolean; owner: boolean; vm?: { state?: string }; gu
 
 export function installBrowser(): void {
   const button = document.querySelector<HTMLButtonElement>('#browser-button')!;
-  const focusLauncher = (): void => { (button.getClientRects().length ? button : document.querySelector<HTMLButtonElement>('#details-button'))?.focus(); };
-  const panel = document.querySelector<HTMLElement>('#browser-panel')!;
+  const panel = document.querySelector<HTMLDialogElement>('#browser-panel')!;
   const canvas = document.querySelector<HTMLCanvasElement>('#browser-canvas')!;
   const message = document.querySelector<HTMLElement>('#browser-message')!;
   const take = document.querySelector<HTMLButtonElement>('#browser-take')!;
@@ -57,6 +57,7 @@ export function installBrowser(): void {
     try {
       const state = await api<Status>('/browser/status');
       button.hidden = !state.configured;
+      if (!state.configured) work.close(false);
       if (!state.owner) owns = false;
       resume.disabled = !state.owner || !token;
       finish.disabled = !owns;
@@ -67,13 +68,15 @@ export function installBrowser(): void {
     } catch { /* Chat presents daemon connection state. */ }
   }
 
-  button.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) { void status(); void frame(); } };
-  document.querySelector<HTMLButtonElement>('#browser-close')!.onclick = () => {
-    panel.hidden = true;
-    frameEpoch++;
-    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-    privateText.value = ''; focusLauncher();
-  };
+  const work = workPanels.register(panel, button, {
+    expand: true,
+    open: () => { void status(); void frame(); },
+    close: () => {
+      frameEpoch++; canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
+      privateText.value = '';
+    },
+  });
+  document.querySelector<HTMLButtonElement>('#browser-close')!.onclick = () => work.close();
   take.onclick = async () => {
     if (!token) { token = crypto.randomUUID(); try { sessionStorage.setItem(storageKey, token); } catch { /* Memory token remains valid. */ } }
     take.disabled = true; say('Waiting for the agent browser to pause…');
@@ -81,7 +84,7 @@ export function installBrowser(): void {
       await control('take'); owns = true;
       say('You control the browser. Agent captures and actions are paused. Hand back explicitly when finished.');
       document.querySelector<HTMLElement>('#browser-owner-input')!.hidden = false;
-      resume.disabled = false; finish.disabled = false; await frame(); canvas.focus();
+      resume.disabled = false; finish.disabled = false; await frame(); if (work.isOpen()) canvas.focus();
     } catch (error) { take.disabled = false; say((error as Error).message); }
   };
   finish.onclick = async () => {
@@ -89,9 +92,9 @@ export function installBrowser(): void {
     try {
       await inputQueue; owns = false; privateText.value = '';
       await control('finish');
-      panel.hidden = true;
+      work.close();
       canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
-      await status(); focusLauncher();
+      await status();
     } catch (error) { say((error as Error).message); }
     finally { handingBack = false; }
   };
@@ -121,7 +124,7 @@ export function installBrowser(): void {
   canvas.onpointercancel = () => { if (owns) input('mouse_up', { button: 'left' }); };
   canvas.onwheel = (event) => { if (owns) { event.preventDefault(); input('mouse_wheel', { dy: Math.max(-1200, Math.min(1200, Math.round(event.deltaY))) }); } };
   canvas.onkeydown = (event) => {
-    if (!owns || event.isComposing) return;
+    if (!owns || event.isComposing || event.key === 'Escape') return;
     if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) return;
     event.preventDefault();
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) input('keyboard_insert_text', { text: event.key });
