@@ -34,9 +34,9 @@ impl GooseConfig {
                 manifest.browser_version.as_deref() == Some("0.39.1"),
                 "Prepare a new VM with --browser; existing VMs are preserved"
             );
-            super::browser::BrowserControl::load(self.root.parent().unwrap_or(&self.root))
-                .context("Invalid saved browser ownership; existing state was preserved")?;
         }
+        super::browser::BrowserControl::load(self.root.parent().unwrap_or(&self.root))
+            .context("Invalid saved browser ownership; existing state was preserved")?;
         Ok(())
     }
     pub fn from_env(data: &Path, model: &str) -> Self {

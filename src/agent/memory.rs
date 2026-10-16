@@ -49,6 +49,7 @@ impl Agent {
         };
         let _environment = self.environment.lock().await;
         self.ensure_accepting()?;
+        ensure!(self.memory_enabled(), "Memory is disabled");
         let scope = MemoryScope::local();
         let value = if let Some(id) = forget {
             self.store.forget_memory(&scope, id)?;

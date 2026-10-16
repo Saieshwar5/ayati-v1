@@ -5,10 +5,11 @@ ready Goose agent, including the original local agent. Empty responsibilities
 mean a general assistant. Names must contain text. Byte limits are 80 for names
 and 4000 for responsibilities; control characters other than newline are rejected.
 Model IDs must be 1–200 bytes without whitespace or control characters.
-Tools, provider credentials and VM settings are not editable in this increment.
+Optional browser/memory controls are described in [tool controls](agent-tool-controls.md).
+Provider credentials and VM settings remain outside this editor.
 
 `POST /api/agents/{id}/profile` accepts `name`, `role`, `expected_revision`, and
-optional `model`. Omitting the model preserves the existing choice. `/api/agents` exposes each profile's current `revision` and
+optional `model`, `memory` and `browser`. Omitting the model preserves the existing choice. `/api/agents` exposes each profile's current `revision` and
 `editable` flag. The endpoint is a whole-workspace local-owner operation, like
 agent creation; the path identifies the target. Selection is not authentication.
 Existing same-origin/loopback checks apply. Unknown/not-ready agents fail closed.
@@ -20,16 +21,16 @@ The database transaction checks accepted work; requests arriving after commit
 use the new settings. Future schedules retain their definitions and use the new
 responsibilities and model, as disclosed in the editor.
 
-Schema 8 extends the per-agent `profile_edit` record with an optional model
-override. Name, role, model, revision, context generation and removal of an obsolete runtime-session mapping
+Schema 9 extends the per-agent `profile_edit` record with optional model
+and tool overrides. Name, role, model, revision, context generation and removal of an obsolete runtime-session mapping
 are committed together. The registry's original creation receipt remains
 unchanged, so retrying agent creation still compares the original request.
 Profile overrides are read from each agent's private database for display and
-runtime use. Older binaries reject schema 8 instead of ignoring edited models. Existing schema-7
+runtime use. Older binaries reject schema 9 instead of ignoring edited models. Existing schema-7
 profiles and sessions migrate unchanged; a null override uses the original model.
 Once explicitly saved, the model override takes precedence over startup defaults.
 
-A name-only edit preserves model context. A changed role or model increments its context generation
+A name-only edit preserves model context. A changed role, model or tool setting increments its context generation
 and removes the current session mapping; the next request drops any cached
 process with the old generation and creates a new Goose session. Visible chat,
 files, durable memory and task outcomes remain intact. Old conversation turns

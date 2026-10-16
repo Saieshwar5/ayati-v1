@@ -28,7 +28,7 @@ and prototype modes cannot create additional agents.
 No new dependency, database service, cloud resource or paid model is required for
 setup. Model calls still require a configured provider account. Setup does not test
 whether that provider supports the entered model; an invalid model can fail at the
-first request. Tools remain fixed at creation. Names, responsibilities and models use the
+first request. Names, responsibilities, models and compatible tool controls use the
 [profile editor](agent-profile-editing.md). Deleting
 roles, archiving agents and reclaiming failed setup disks are later work.
 

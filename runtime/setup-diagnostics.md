@@ -32,7 +32,7 @@ Shutdown cancels the request; upstream cancellation is not guaranteed.
 
 Results are shown only in the current page and are not stored as agent work.
 Tests do not run Goose, validate its sessions/tool loop, or exercise the VM.
-Agent tool settings remain immutable. Names, responsibilities and models
+Names, responsibilities, models and compatible tool controls
 can be changed through the [profile editor](agent-profile-editing.md). Settings remains a local single-owner page,
 protected by the existing loopback Host/same-origin checks and no-store headers.
 

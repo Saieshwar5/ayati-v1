@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct MemoryAccess {
     pub store: Arc<Store>,
+    default_enabled: bool,
     active: Mutex<Option<(String, RunClaim, tokio_util::sync::CancellationToken)>>,
 }
 #[derive(Deserialize)]
@@ -24,8 +25,13 @@ impl MemoryAccess {
     pub fn new(store: Arc<Store>) -> Self {
         Self {
             store,
+            default_enabled: true,
             active: Mutex::new(None),
         }
+    }
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.default_enabled = enabled;
+        self
     }
     pub fn arm(&self, token: &str, claim: &RunClaim, cancel: tokio_util::sync::CancellationToken) {
         *self.active.lock().unwrap() = Some((token.into(), claim.clone(), cancel));
@@ -42,6 +48,13 @@ impl MemoryAccess {
         ensure!(
             !cancel.is_cancelled() && token == &request.token,
             "Stale or unauthorized memory run"
+        );
+        ensure!(
+            self.store
+                .profile_edit()?
+                .and_then(|p| p.memory)
+                .unwrap_or(self.default_enabled),
+            "Memory is disabled"
         );
         let scope = self.store.memory_scope(claim)?;
         match request.tool.as_str() {
@@ -149,5 +162,39 @@ mod tests {
         access.arm("next", &claim, tokio_util::sync::CancellationToken::new());
         store.finish_work(&claim, "completed", "").unwrap();
         assert!(access.call(request("next")).is_err());
+    }
+    #[test]
+    fn disabled_memory_rejects_even_a_valid_active_run_token() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(Store::open(&dir.path().join("state.sqlite")).unwrap());
+        let input = crate::storage::profile::UpdateProfile {
+            name: "Agent".into(),
+            role: String::new(),
+            model: None,
+            memory: Some(false),
+            browser: None,
+            expected_revision: 0,
+        };
+        store
+            .update_profile(&input, "", "fixture", true, false)
+            .unwrap();
+        store.enqueue("Owner input").unwrap();
+        let claim = store.claim_next("test").unwrap().unwrap();
+        let access = MemoryAccess::new(store);
+        access.arm("valid", &claim, tokio_util::sync::CancellationToken::new());
+        for (tool, arguments) in [
+            ("memory_source", json!({})),
+            ("memory_search", json!({"query":"report"})),
+            ("memory_remember", json!({})),
+        ] {
+            let error = access
+                .call(Request {
+                    token: "valid".into(),
+                    tool: tool.into(),
+                    arguments,
+                })
+                .unwrap_err();
+            assert!(error.to_string().contains("disabled"));
+        }
     }
 }

@@ -12,7 +12,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     <section><h3>Authority</h3><p>Tool actions follow the runtime’s approval checks. An approval applies only to its original request.</p></section>
     <section><h3>Tools and knowledge</h3><p id="details-tools"></p><div id="details-links"></div></section>
     <section><h3>Connections</h3><p>Business account connections and per-agent grants are still being built.</p></section>
-    <p class="details-note">Enabled tools remain fixed. Name, responsibilities and model can be edited when this agent is idle.</p>`;
+    <p class="details-note">Settings can be edited when this agent is idle. Browser access requires a compatible VM.</p>`;
   document.querySelector('.main')!.append(panel);
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
   toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');
@@ -31,6 +31,15 @@ export function installAgentDetails(): (profile: Profile) => void {
   const updateEditor = installProfileEditor(panel);
   let previous = '';
   return profile => {
+    for (const [tool, enabled] of [['memory', profile.memory], ['browser', profile.browser]] as const) {
+      const button = document.querySelector<HTMLButtonElement>(`#${tool}-button`);
+      if (button) button.hidden = !enabled;
+      if (!enabled) {
+        const toolPanel = document.querySelector<HTMLElement>(`#${tool}-panel`);
+        if (toolPanel) toolPanel.hidden = true;
+        button?.setAttribute('aria-expanded', 'false');
+      }
+    }
     const fingerprint = JSON.stringify(profile);
     if (previous === fingerprint) return;
     previous = fingerprint;

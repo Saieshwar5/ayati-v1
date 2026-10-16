@@ -251,3 +251,8 @@ transactional validation, private stores and migration/session compatibility.
 `node --test tests/agent_model.mjs` verifies candidate testing without saving,
 selected-model execution, context separation, restart and busy rejection. The
 two-agent KVM scenario also verifies model changes before and after restart.
+
+`node --test tests/agent_tools.mjs` checks host tool controls. With
+`AYATI_VM_TEST_MANIFEST`, its compatible-VM case verifies enabling tools that
+started disabled. The independent-agent VM scenario covers off/on, browser owner
+control, restart, preserved memory and isolation from the neighboring agent.

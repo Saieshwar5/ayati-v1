@@ -6,7 +6,7 @@ use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Mutex};
 pub(super) struct BrowserControl {
     path: PathBuf,
     owner: Mutex<Option<String>>,
-    gate: tokio::sync::Mutex<()>,
+    pub(super) gate: tokio::sync::Mutex<()>,
 }
 
 impl BrowserControl {
@@ -51,6 +51,7 @@ impl GooseRuntime {
     pub async fn prepare_browser_take(&self, token: &str) -> Result<()> {
         let control = self.browser.as_ref().context("Browser is not enabled")?;
         let _gate = control.gate.lock().await;
+        ensure!(self.shared.browser_enabled(), "Browser is disabled");
         self.prepare_take(control, token)
     }
 
@@ -84,7 +85,7 @@ impl GooseRuntime {
     }
     pub async fn browser_status(&self) -> Value {
         let vm = self.environment_status().await;
-        let guest = if self.config.browser && vm["state"] == "ready" {
+        let guest = if self.shared.browser_enabled() && vm["state"] == "ready" {
             match &self.vm {
                 Some(vm) => vm.browser(json!({"op":"status"})).await.ok(),
                 None => None,
@@ -92,10 +93,10 @@ impl GooseRuntime {
         } else {
             None
         };
-        json!({"configured":self.config.browser,"owner":self.browser_owned(),"vm":vm,"guest":guest})
+        json!({"configured":self.shared.browser_enabled(),"owner":self.browser_owned(),"vm":vm,"guest":guest})
     }
     pub async fn browser_idle_safe(&self) -> Result<bool> {
-        if !self.config.browser {
+        if !self.browser_capable() {
             return Ok(true);
         }
         let state = self
@@ -115,6 +116,7 @@ impl GooseRuntime {
             .as_ref()
             .context("Enable AYATI_BROWSER=1 with a browser-enabled VM")?;
         let _gate = control.gate.lock().await;
+        ensure!(self.shared.browser_enabled(), "Browser is disabled");
         let vm = self
             .vm
             .as_ref()
@@ -154,7 +156,7 @@ impl GooseRuntime {
         Ok(result)
     }
     pub(super) async fn arm_browser(&self, run: &str) -> Result<()> {
-        if self.config.browser {
+        if self.shared.browser_enabled() {
             ensure!(!self.browser_owned(), "Waiting for owner browser control");
             self.vm
                 .as_ref()
@@ -165,7 +167,7 @@ impl GooseRuntime {
         Ok(())
     }
     pub(super) async fn disarm_browser(&self) -> Result<()> {
-        if self.config.browser {
+        if self.shared.browser_enabled() {
             self.vm
                 .as_ref()
                 .context("Browser requires VM execution")?

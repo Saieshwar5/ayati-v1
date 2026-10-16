@@ -3,6 +3,7 @@ pub mod config;
 mod events;
 pub mod proof_tool;
 pub mod provider;
+mod tool_settings;
 
 use crate::{
     agent::Event,
@@ -81,7 +82,7 @@ impl Drop for ProcessResources {
 
 impl GooseRuntime {
     pub fn memory_enabled(&self) -> bool {
-        self.memory.is_some()
+        self.shared.memory_enabled()
     }
     pub fn is_vm(&self) -> bool {
         self.vm.is_some()
@@ -97,9 +98,9 @@ impl GooseRuntime {
         let proof_tool = config.proof_tool;
         let browser_enabled = config.browser;
         let memory_enabled = config.memory;
-        let memory = config
-            .memory
-            .then(|| Arc::new(crate::memory::MemoryAccess::new(store.clone())));
+        let memory = Some(Arc::new(
+            crate::memory::MemoryAccess::new(store.clone()).with_enabled(config.memory),
+        ));
         let vm = config.vm_manifest.as_ref().map(|path| {
             Arc::new(
                 crate::vm::VmManager::new(
@@ -112,7 +113,7 @@ impl GooseRuntime {
             )
         });
         Self {
-            browser: config.browser.then(|| {
+            browser: Some({
                 browser::BrowserControl::load(config.root.parent().unwrap_or(&config.root))
                     .expect("Invalid persisted browser ownership")
             }),
@@ -132,6 +133,10 @@ impl GooseRuntime {
     }
 
     async fn connect(&self) -> Result<Process> {
+        let mut effective = self.config.clone();
+        effective.memory = self.shared.memory_enabled();
+        effective.browser = self.shared.browser_enabled();
+        effective.validate_browser()?;
         let profile = self.shared.store.profile_edit()?;
         let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
         let model = profile
@@ -140,7 +145,9 @@ impl GooseRuntime {
             .unwrap_or(&self.config.model);
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (memory_server, memory_port) = if self.vm.is_none() {
-            if let Some(memory) = &self.memory {
+            if let Some(memory) = &self.memory
+                && effective.memory
+            {
                 let (server, port) = crate::memory::HostMemoryServer::start(memory.clone()).await?;
                 (Some(server), port)
             } else {
@@ -152,10 +159,10 @@ impl GooseRuntime {
         let mut child = if let Some(vm) = &self.vm {
             vm.connect(&connection_id, model).await?
         } else {
-            let mut config = self.config.clone();
+            let mut config = effective.clone();
             config.model = model.into();
             let mut command = config.command().await?;
-            if self.memory.is_some() {
+            if effective.memory {
                 command
                     .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
                     .env("AYATI_MEMORY_TOKEN", &connection_id);
@@ -230,15 +237,15 @@ impl GooseRuntime {
             } else {
                 self.config.workspace.canonicalize()?
             };
-            let meta = self.config.session_meta()?;
+            let meta = effective.session_meta()?;
             let mut settings = serde_json::json!({"provider":self.config.provider,"model":model,"proof_tool":self.config.proof_tool,"adapter":1});
             if role_revision > 0 {
                 settings["role_revision"] = serde_json::json!(role_revision);
             }
-            if self.config.memory {
+            if effective.memory {
                 settings["memory_adapter"] = serde_json::json!(1);
             }
-            if self.config.browser {
+            if effective.browser {
                 settings["browser_adapter"] = serde_json::json!(1);
             }
             if let Some(path) = &self.config.vm_manifest {
@@ -324,7 +331,9 @@ impl GooseRuntime {
         );
         let p = process.as_ref().unwrap();
         self.arm_browser(&p.connection_id).await?;
-        if let Some(memory) = &self.memory {
+        if let Some(memory) = &self.memory
+            && self.memory_enabled()
+        {
             memory.arm(&p.connection_id, claim, cancel.clone());
         }
         let turn = Arc::new(Turn {
@@ -394,7 +403,7 @@ impl GooseRuntime {
         self.shared
             .store
             .save_claim_reply(claim, reply, &turn.text.lock().unwrap(), status)?;
-        if result.is_err() || self.config.browser || self.config.memory {
+        if result.is_err() || self.shared.browser_enabled() || self.memory_enabled() {
             process.take();
         }
         result
