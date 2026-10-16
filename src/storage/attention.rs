@@ -1,7 +1,7 @@
 //! Durable owner attention, independent of the recent conversation window.
 use super::{ChatMessage, Store, Task, runtime::PendingPermission};
 use anyhow::{Result, ensure};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -20,7 +20,21 @@ pub struct Attention {
     pub permissions: Vec<PendingPermission>,
 }
 
+#[derive(Serialize)]
+pub struct ActivityPreview {
+    pub text: String,
+    pub status: String,
+    pub created_at: String,
+}
+
 impl Store {
+    pub fn activity_preview(&self) -> Result<Option<ActivityPreview>> {
+        Ok(self.connection()?.query_row(
+            "SELECT substr(m.content,1,160),t.status,m.created_at FROM messages m JOIN tasks t ON t.id=m.task_id WHERE length(m.content)>0 ORDER BY m.rowid DESC LIMIT 1",
+            [], |r| Ok(ActivityPreview { text:r.get(0)?, status:r.get(1)?, created_at:r.get(2)? }),
+        ).optional()?)
+    }
+
     pub fn task_messages(&self, id: &str) -> Result<Vec<ChatMessage>> {
         let connection = self.connection()?;
         let mut stmt = connection.prepare("SELECT id,task_id,role,content,state,created_at FROM messages WHERE task_id=?1 ORDER BY rowid")?;

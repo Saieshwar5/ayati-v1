@@ -1,3 +1,4 @@
+import { workPanels } from './work-panels';
 import { installSchedules } from './schedules';
 import { installProfileEditor } from './agent-profile-editor';
 import { element } from './view';
@@ -18,19 +19,11 @@ export function installAgentDetails(): (profile: Profile) => void {
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
   toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');
   document.querySelector('.header')!.append(toggle);
-  const mobile = matchMedia('(max-width: 1000px)');
-  function close(): void { panel.close(); toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); }
-  toggle.onclick = () => {
-    if (panel.open) { close(); return; }
-    if (mobile.matches) panel.showModal(); else panel.show();
-    toggle.setAttribute('aria-expanded', 'true'); panel.querySelector('button')!.focus();
-  };
+  const work = workPanels.register(panel, toggle);
+  const close = (): void => work.close();
   panel.querySelector('button')!.onclick = close;
-  panel.addEventListener('close', () => { toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); });
-  panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); close(); } });
-  mobile.addEventListener('change', () => { if (panel.open) close(); });
   const updateEditor = installProfileEditor(panel);
-  const updateSchedules = installSchedules(panel, close);
+  const updateSchedules = installSchedules(panel);
   let previous = '';
   return profile => {
     for (const [tool, enabled] of [['memory', profile.memory], ['browser', profile.browser]] as const) {
@@ -38,13 +31,14 @@ export function installAgentDetails(): (profile: Profile) => void {
       if (button) button.hidden = !enabled;
       if (!enabled) {
         const toolPanel = document.querySelector<HTMLElement>(`#${tool}-panel`);
-        if (toolPanel) toolPanel.hidden = true;
+        if (toolPanel) workPanels.close(toolPanel.id);
         button?.setAttribute('aria-expanded', 'false');
       }
     }
     const fingerprint = JSON.stringify(profile);
     if (previous === fingerprint) return;
     previous = fingerprint;
+    document.querySelectorAll('.work-panel-owner').forEach(node => { node.textContent = profile.name; });
     updateEditor(profile);
     updateSchedules(profile);
     panel.querySelector('#details-role')!.textContent = profile.role || 'A general assistant for your everyday work.';

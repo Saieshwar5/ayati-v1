@@ -1,4 +1,5 @@
 import './schedules.css';
+import { workPanels } from './work-panels';
 import { api, post, type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installScheduleForm } from './schedule-form';
@@ -8,21 +9,26 @@ type Schedule = { id: string; content: string; run_at_ms: number; interval_secon
 type Run = { due_at_ms: number; task: Task };
 type Schedules = { schedules: Schedule[]; available: boolean; dispatch_paused: boolean };
 
-export function installSchedules(details: HTMLDialogElement, closeDetails: () => void): (profile: Profile) => void {
+export function installSchedules(details: HTMLDialogElement): (profile: Profile) => void {
   const section = element('section');
   section.innerHTML = '<h3>Schedules</h3><p>Run this agent’s work once or at a fixed interval.</p>';
   const launch = element('button', 'files-button', 'Manage schedules'); launch.disabled = true;
   section.append(launch); details.querySelector('.details-note')!.before(section);
   const dialog = document.createElement('dialog'); dialog.id = 'agent-schedules'; dialog.className = 'agent-setup schedule-dialog';
   dialog.setAttribute('aria-labelledby', 'schedules-title');
-  dialog.innerHTML = `<div class="panel-header"><h2 id="schedules-title">Agent schedules</h2><button class="icon-button" aria-label="Close schedules">×</button></div>
+  dialog.innerHTML = `<div class="panel-header"><h2 id="schedules-title">Automation</h2><button class="icon-button" aria-label="Close automation">×</button></div>
+    <div class="automation-tabs" role="tablist" aria-label="Automation type"><button id="schedules-tab" role="tab" aria-controls="schedules-content" aria-selected="true">Schedules</button><button id="triggers-tab" role="tab" aria-controls="triggers-content" aria-selected="false" tabindex="-1">Triggers</button></div>
+    <section id="schedules-content" role="tabpanel" aria-labelledby="schedules-tab">
     <p id="schedules-agent"></p><p>Pausing stops queued occurrences. Active work keeps running; use its Stop control. After downtime, missed intervals coalesce to the latest due occurrence.</p>
     <p>To change a schedule’s instructions or timing, pause it and create another. Existing runs remain available.</p>
     <div class="schedule-toolbar"><button class="files-button" id="schedules-refresh">Refresh</button><p id="schedules-status" role="status"></p></div>
     <p id="schedules-dispatch" hidden>Agent dispatch is paused. Schedules stay saved. Use Start in the agent browser/environment controls or send a new message to resume dispatch.</p>
     <div id="schedules-list"></div><section id="schedule-history" hidden aria-labelledby="schedule-history-title"><h3 id="schedule-history-title">Recent runs</h3><p>Up to 20 occurrences, newest first. Use Refresh to update run statuses. A one-time schedule being “completed” means its work was accepted; inspect the run outcome below.</p><div id="schedule-runs"></div><div id="schedule-result" role="status"></div></section>
-    <section id="schedule-create"></section>`;
-  document.body.append(dialog);
+    <section id="schedule-create"></section></section>
+    <section id="triggers-content" role="tabpanel" aria-labelledby="triggers-tab" hidden><h3>Event triggers</h3><p>Triggers will start this agent’s work when an event occurs, such as a new customer query. Event sources and trigger management are not available yet.</p></section>`;
+  const toggle = element('button', 'files-button', 'Automation'); toggle.id = 'automation-button'; toggle.disabled = true;
+  document.querySelector('.header')!.append(toggle);
+  const work = workPanels.register(dialog, toggle);
   const list = dialog.querySelector<HTMLElement>('#schedules-list')!;
   const status = dialog.querySelector('#schedules-status')!;
   const refreshButton = dialog.querySelector<HTMLButtonElement>('#schedules-refresh')!;
@@ -113,17 +119,33 @@ export function installSchedules(details: HTMLDialogElement, closeDetails: () =>
       status.textContent = `Could not refresh: ${(error as Error).message} Controls are disabled until reconnected.`;
     } finally { busy = false; controls(); }
   }
-  launch.onclick = () => {
-    closeDetails(); dialog.querySelector('#schedules-agent')!.textContent = `Schedules for ${current?.name ?? 'this agent'}`;
-    dialog.showModal(); refreshButton.focus(); void refresh();
-    poll = setInterval(() => { if (dialog.open && !document.hidden) void refresh(); }, 5000);
-  };
-  function close(): void { dialog.close(); }
-  dialog.querySelector<HTMLButtonElement>('[aria-label="Close schedules"]')!.onclick = close;
-  dialog.addEventListener('close', () => {
+  function selectTab(id: string): void {
+    for (const name of ['schedules', 'triggers']) {
+      const active = name === id;
+      const tab = dialog.querySelector<HTMLButtonElement>(`#${name}-tab`)!;
+      tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+      dialog.querySelector<HTMLElement>(`#${name}-content`)!.hidden = !active;
+    }
+  }
+  const tabs = dialog.querySelectorAll<HTMLButtonElement>('[role=tab]');
+  tabs.forEach((tab, index) => {
+    tab.onclick = () => selectTab(index === 0 ? 'schedules' : 'triggers');
+    tab.onkeydown = event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index;
+      tabs[next].click(); tabs[next].focus();
+    };
+  });
+  launch.onclick = () => { selectTab('schedules'); work.open(); };
+  dialog.addEventListener('workpanelopen', () => {
+    dialog.querySelector('#schedules-agent')!.textContent = `Schedules for ${current?.name ?? 'this agent'}`;
+    void refresh();
+    poll = setInterval(() => { if (work.isOpen() && !document.hidden) void refresh(); }, 5000);
+  });
+  dialog.querySelector<HTMLButtonElement>('[aria-label="Close automation"]')!.onclick = () => work.close();
+  dialog.addEventListener('workpanelclose', () => {
     clearInterval(poll); ++historyVersion; historyId = undefined; history.hidden = true;
-    document.querySelector<HTMLButtonElement>('#details-button')?.focus();
   });
   refreshButton.onclick = async () => { await refresh(); if (historyId) await showRuns(historyId); };
-  return profile => { current = profile; launch.disabled = !profile.editable; };
+  return profile => { current = profile; launch.disabled = !profile.editable; toggle.disabled = !profile.editable; };
 }

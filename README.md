@@ -333,3 +333,8 @@ Per-agent schedules: open **Agents → Details → Manage schedules** to create
 one-time or fixed-interval work, pause/resume it and inspect run outcomes.
 The host and Ayati must stay on; scheduled model calls can incur normal charges.
 See [schedule controls](runtime/agent-schedules.md) for timing and recovery limits.
+
+The [Agents workspace](runtime/agents-workspace.md) uses Crisp Graphite light/dark
+colors, a collapsible agent list, floating composer and contextual work panels.
+Use **Automation → Schedules** for timed work, **Browser** for the guest view,
+and **Details** for settings, memory and files.

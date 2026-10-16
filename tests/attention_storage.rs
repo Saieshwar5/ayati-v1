@@ -80,3 +80,18 @@ fn approvals_are_scoped_single_use_and_become_interrupted_attention_on_restart()
     assert_eq!(attention.outcomes[0].task.status, "interrupted");
     assert!(a.decide_permission(&pending, true).is_err());
 }
+
+#[test]
+fn activity_previews_are_bounded_local_and_follow_latest_saved_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = Store::open(&dir.path().join("a.sqlite")).unwrap();
+    let b = Store::open(&dir.path().join("b.sqlite")).unwrap();
+    assert!(a.activity_preview().unwrap().is_none());
+    let task = a.enqueue(&"🌱".repeat(200)).unwrap();
+    let preview = a.activity_preview().unwrap().unwrap();
+    assert_eq!(preview.text.chars().count(), 160);
+    assert_eq!(preview.status, "queued");
+    a.set_task(&task.id, "stopped", "Stopped").unwrap();
+    assert_eq!(a.activity_preview().unwrap().unwrap().status, "stopped");
+    assert!(b.activity_preview().unwrap().is_none());
+}

@@ -1,6 +1,6 @@
 # Per-agent schedule management
 
-Open Agents → Details → Manage schedules. The dialog belongs to the selected
+Open Agents → Automation → Schedules (or Details → Manage schedules). The work panel belongs to the selected
 agent and names that agent. It supports one-time work and fixed intervals using
 the existing host-side durable scheduler. No new service or dependency is added.
 
@@ -56,3 +56,7 @@ Checks: `cargo test --test schedule_history --test scheduled_intake`,
 `node --test tests/agent_schedules.mjs tests/workspace_ui.mjs`, and the selected
 owner-creation scenario in `tests/independent_agents.mjs` with a disposable VM
 manifest. Tests use a synthetic provider and temporary data; no paid inference.
+
+Schedule controls now use the shared [Agents work panel](agents-workspace.md):
+beside chat on desktop and full-screen on narrow displays. The Triggers tab is
+an explicit unavailable state, not a working event-rule editor.

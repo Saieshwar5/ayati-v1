@@ -128,7 +128,7 @@ impl Workspace {
         for profile in profiles {
             let attention = match agents.get(&profile.id) {
                 Some(agent) => json!({"pending_approvals":agent.store.permissions()?.len(),
-                    "pending_tasks":agent.store.pending_count()?}),
+                    "pending_tasks":agent.store.pending_count()?,"latest":agent.store.activity_preview()?}),
                 None => json!({"pending_approvals":0,"pending_tasks":0}),
             };
             let mut profile_json = json!(profile);

@@ -1,0 +1,66 @@
+/* A single inspector, beside chat on desktop and a focus-trapped sheet on mobile. */
+.main { overflow: hidden; }
+.work-panel { position: static; inset: auto; margin: 0; padding: 20px; width: 380px; min-width: 0; max-width: none; max-height: none; height: 100%; flex: 0 0 380px; border: 0; border-left: 1px solid var(--border); border-radius: 0; background: var(--surface); color: var(--text); overflow: auto; box-shadow: none; }
+.work-panel::backdrop { background: #0006; }
+.work-panel .panel-header { position: sticky; top: -20px; background: var(--surface); padding: 12px 0; z-index: 1; display: flex; gap: 8px; flex-wrap: wrap; }
+.work-panel .panel-header h2 { flex: 1; min-width: 120px; }
+.work-panel p { font-size: .8125rem; line-height: 1.6; overflow-wrap: anywhere; }
+.work-panel .panel-header .icon-button { order: 2; }
+.work-panel section { margin: 20px 0; }
+.work-panel .panel-header .files-button { font-size: .75rem; }
+.work-panel#browser-panel { width: 48%; flex: 0 0 48%; }
+.work-panel #browser-canvas { background: var(--canvas); border-color: var(--border); }
+.work-panel #browser-owner-input form { flex-wrap: wrap; }
+.work-panel #browser-owner-input input { min-width: 0; background: var(--canvas); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.work-panel #browser-owner-input button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--soft); color: var(--text); }
+.main.work-expanded > .chat, .main.work-expanded > .agents-list { display: none; }
+.main.work-expanded > .work-panel { flex: 1; width: 100%; border-left: 0; }
+.main.agent-list-collapsed > .agents-list { display: none; }
+.chat-tool-links { display: none; }
+.automation-tabs { display: flex; border-bottom: 1px solid var(--border); gap: 8px; margin: 8px 0 18px; }
+.automation-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: .8125rem; padding: 10px; }
+.automation-tabs button[aria-selected=true] { color: var(--text); border-color: var(--accent); }
+.work-panel .schedule-toolbar { align-items: flex-start; }
+#schedules-status { margin: 0; }
+#triggers-content { border: 1px dashed var(--border); padding: 16px; border-radius: 8px; }
+.agent-tools-title { margin: 0; font-size: .75rem; color: var(--muted); }
+[data-page=agents] .workspace-header { display: none; }
+[data-page=agents] .header { min-height: 76px; height: auto; padding: 16px 22px; flex-wrap: wrap; gap: 8px; }
+[data-page=agents] .identity { min-width: min(100%, 180px); }
+[data-page=agents] .identity .avatar { font: 500 .8125rem/1 ui-sans-serif, system-ui, sans-serif; background: var(--soft); color: var(--accent); }
+[data-page=agents] .header > .files-button { font-size: .75rem; gap: 5px; }
+[data-page=agents] .header > .files-button[aria-expanded=true] { background: var(--selection); border-color: var(--accent); }
+[data-page=agents] #agent-sidebar-toggle { order: -1; padding: 7px 9px; }
+[data-page=agents] .conversation { padding: 28px max(24px, calc((100% - 760px) / 2)); scrollbar-gutter: stable; }
+[data-page=agents] .composer-area { width: min(100%, 820px); padding: 12px 22px 16px; flex-shrink: 0; }
+[data-page=agents] .composer { padding: 12px; border-radius: 18px; box-shadow: 0 6px 24px #00000009; }
+[data-page=agents] .composer-note { margin-bottom: 0; }
+[data-page=agents] .welcome { min-height: 140px; padding: 15px 0; }
+[data-page=agents] .welcome h1 { font-size: clamp(22px, 2vw, 29px); }
+[data-page=agents] .welcome-mark { width: 40px; height: 40px; font-size: 28px; margin-bottom: 16px; }
+[data-page=agents] .header strong { overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+  .work-panel, .work-panel#browser-panel { position: fixed; inset: 0; margin: 0; width: 100%; height: 100dvh; max-width: 100%; max-height: 100dvh; padding: 20px; border: 0; border-radius: 0; }
+  .work-panel .panel-header { top: -20px; }
+}
+@media (max-width: 760px) {
+  [data-page=agents] #agent-sidebar-toggle { display: none; }
+  [data-page=agents] .header > #browser-button { display: flex; }
+  [data-page=agents] .header .identity { flex: 1; flex-basis: calc(100% - 80px); }
+  [data-page=agents] .header { padding: 12px 14px; }
+  [data-page=agents] .conversation { padding: 20px 16px; }
+  [data-page=agents] .composer-area { padding: 10px 12px; }
+  [data-page=agents] .composer-note { font-size: .6875rem; }
+  .main.work-expanded > .chat { display: flex; }
+}
+@media (max-height: 550px) {
+  [data-page=agents] .header { min-height: 54px; padding-top: 6px; padding-bottom: 6px; }
+  [data-page=agents] .composer-area { padding-top: 4px; padding-bottom: 4px; }
+  [data-page=agents] .composer-note { display: none; }
+}
+
+[data-page=agents] #browser-button { order: 1; }
+[data-page=agents] #automation-button { order: 2; }
+[data-page=agents] #details-button { order: 3; margin-left: 0; }
+
+.work-panel-owner { color: var(--muted); margin: 0 0 12px; font-size: .75rem; }

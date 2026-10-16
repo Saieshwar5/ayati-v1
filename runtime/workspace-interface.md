@@ -5,8 +5,8 @@ and Settings. `/?agent=local-agent` and `/?agent=<saved-id>` still open the sele
 conversation directly; `/?view=agents` also opens the default agent.
 
 This implements the saved compact-rail layout direction, the contact-list and
-optional details-panel interaction pattern, and a pale yellow-to-blue-gray shell
-around opaque content surfaces. It uses the existing TypeScript/Vite frontend,
+optional work-panel interaction pattern, with Crisp Graphite neutral light/dark
+surfaces replacing the original gradient shell. It uses the existing TypeScript/Vite frontend,
 with no new package dependency or copied third-party branding/assets.
 
 ## Pages
@@ -19,10 +19,10 @@ with no new package dependency or copied third-party branding/assets.
   eight across the workspace, sorted by request creation time; timestamps are
   labeled Requested rather than claiming an unrecorded completion time.
 - **Agents:** searchable contact-style list, selected conversation, streaming
-  replies, fixed composer and optional Details. Details shows saved responsibility,
-  model, enabled browser/memory and links to existing tools. Role/model/tool editing
-  and business connector grants remain unavailable. Opening the panel does not
-  change the agent, submit a message or discard the draft.
+  replies, floating bottom composer and optional Browser/Automation/Details work
+  panels. Details shows responsibilities, model, tools and settings editing.
+  Automation exposes schedules; event triggers and business connector grants
+  remain unavailable. Opening a panel preserves the selected agent and draft.
 - **Apps:** an explicit empty state. App creation, installed business records and
   connectors are not simulated as working features.
 - **Settings:** System/Light/Dark appearance, saved in this browser when local
@@ -36,8 +36,8 @@ with no new package dependency or copied third-party branding/assets.
 The rail remains visible with short labels. Below 760 px, agent selection opens
 in a modal drawer; Escape and Back to conversation restore focus. Details is a
 nonmodal side panel on wide desktops and a modal at 1000 px or narrower. Resize
-closes an open panel when its display mode changes. Files remains a direct chat
-control; mobile Memory/Browser controls are reached through Details.
+retains an open panel and its content while changing its display mode. Browser
+and Automation remain header actions; Memory and Files are reached through Details.
 
 Native dialogs provide modal focus containment. Navigation has an accessible name
 and current-page indication; search has a label. All status text is retained rather
@@ -69,3 +69,9 @@ See [tool controls](agent-tool-controls.md) for enforcement and preserved-data b
 Agent Details includes [Manage schedules](agent-schedules.md) for the selected
 agent: create one-time/fixed-interval work, pause/resume and inspect saved run
 outcomes. It does not create trigger rules or calendar recurrence.
+
+The [Crisp Graphite Agents workspace](agents-workspace.md) replaces the earlier
+gradient palette, adds a collapsible agent list and floating composer, and uses
+one contextual Browser/Automation/Details/Memory/Files panel at a time. Existing
+controls and per-agent drafts remain. Automation exposes Schedules and a clearly
+labeled Triggers placeholder.

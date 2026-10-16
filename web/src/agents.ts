@@ -3,12 +3,13 @@ import { api, selectedAgent } from './types';
 import { element } from './view';
 
 export type Profile = { browser_available: boolean; revision: number; editable: boolean; id: string; name: string; role: string; model: string; memory: boolean; browser: boolean; state: string; detail: string };
-type Workspace = { agents: { profile: Profile; activity: { pending_approvals: number; pending_tasks: number } }[]; creation_available: boolean; memory_available: boolean; browser_available: boolean; default_model: string; limit: number };
+type Workspace = { agents: { profile: Profile; activity: { pending_approvals: number; pending_tasks: number; latest?: { text: string; status: string; created_at: string } } }[]; creation_available: boolean; memory_available: boolean; browser_available: boolean; default_model: string; limit: number };
 
 export function installAgents(updateDetails: (profile: Profile) => void): void {
   const main = document.querySelector<HTMLElement>('.main')!;
   const panel = element('aside', 'agents-list');
-  panel.setAttribute('aria-label', 'Agents');
+  panel.setAttribute('aria-label', 'Agents'); panel.id = 'agents-sidebar';
+  document.querySelector('#agent-sidebar-toggle')!.setAttribute('aria-controls', panel.id);
   panel.innerHTML = `<div class="agents-heading"><h2>Agents</h2><button id="new-agent" class="files-button">New agent</button></div>
     <label class="agent-search-label">Search agents<input id="agent-search" type="search" placeholder="Search agents…"></label><div id="agent-cards"></div><p id="agents-status" role="status"></p>`;
   main.prepend(panel);
@@ -82,6 +83,8 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
       if (current) {
         updateDetails(current);
         document.querySelector('.identity strong')!.textContent = current.name;
+        document.querySelector('.identity .avatar')!.textContent = current.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
+        document.querySelector('#input')!.setAttribute('aria-label', `Message ${current.name}`);
         document.title = `${current.name} · Ayati`;
         const input = document.querySelector<HTMLTextAreaElement>('#input')!;
         input.placeholder = `Message ${current.name}…`;
@@ -94,7 +97,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
         const card = element('div', 'agent-card');
         card.dataset.search = `${profile.name} ${profile.role}`.toLocaleLowerCase();
         if (profile.id === selectedAgent) card.classList.add('selected');
-        const avatar = element('span', 'agent-avatar', profile.name.slice(0, 1).toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
+        const avatar = element('span', 'agent-avatar', profile.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
         card.append(avatar);
         const link = element('a', 'agent-link', profile.name);
         link.href = `/?agent=${encodeURIComponent(profile.id)}`;
@@ -105,7 +108,16 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
             : activity.pending_tasks ? `${activity.pending_tasks} active or queued` : 'Ready'
           : profile.detail);
         card.append(link, detail);
-        if (profile.role) card.append(element('p', 'agent-role', profile.role));
+        if (activity.latest && profile.state === 'ready') {
+          const preview = element('p', 'agent-preview', activity.latest.text.replace(/\s+/g, ' '));
+          preview.title = activity.latest.text;
+          card.append(preview);
+        }
+        if (activity.pending_approvals) {
+          const badge = element('span', 'agent-attention', String(activity.pending_approvals));
+          badge.setAttribute('aria-label', `${activity.pending_approvals} approvals need attention`); card.append(badge);
+        }
+        if (profile.role && !activity.latest) card.append(element('p', 'agent-role', profile.role));
         if (profile.state === 'failed') {
           const retry = element('button', 'text-button', 'Retry setup');
           retry.onclick = async () => {
