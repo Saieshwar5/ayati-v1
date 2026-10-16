@@ -58,3 +58,7 @@ tests. Native mobile keyboards and a full screen-reader audit remain unverified.
 Settings now includes read-only setup diagnostics and an explicitly consented
 provider connection test. See [setup diagnostics](setup-diagnostics.md) for the
 request limit, error behavior and distinction from agent/VM execution.
+
+Agent Details now opens an editor for names and responsibilities. Edits require
+an idle agent; role changes start fresh model context while preserving saved
+history. See [profile editing](agent-profile-editing.md).

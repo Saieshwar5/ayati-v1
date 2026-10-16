@@ -14,6 +14,21 @@ pub(super) fn routes() -> Router<WebState> {
     Router::new()
         .route("/api/agents", get(list).post(create))
         .route("/api/agents/{id}/retry", post(retry))
+        .route("/api/agents/{id}/profile", post(edit_profile))
+}
+async fn edit_profile(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Json(input): Json<crate::storage::profile::UpdateProfile>,
+) -> ApiResult<Json<Value>> {
+    let workspace = state.workspace.context("Workspace unavailable")?;
+    let (agent, _, _) = workspace.agent(&id)?;
+    let original = workspace
+        .profiles()?
+        .into_iter()
+        .find(|p| p.id == id)
+        .context("Unknown agent")?;
+    Ok(Json(json!(agent.edit_profile(&input, &original.role)?)))
 }
 // These routes manage the local owner's whole workspace, independent of selection.
 async fn list(State(state): State<WebState>) -> ApiResult<Json<Value>> {

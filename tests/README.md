@@ -242,3 +242,8 @@ the root URL intentionally opens Home. No live provider is used by this test.
 `node --test tests/setup_diagnostics.mjs` checks the Settings guide, explicit
 provider-test consent, missing runtime/credentials/VM files, unchanged history,
 overlap rejection, redirects and sanitized errors against local synthetic providers.
+
+`node --test tests/agent_profile.mjs` covers profile editing with real Goose and
+a synthetic provider, including saved-session replacement, preserved history,
+name-only continuity, stale/busy rejection and restart. `profile_storage` covers
+transactional validation, private stores and migration/session compatibility.

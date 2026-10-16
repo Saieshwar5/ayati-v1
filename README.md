@@ -319,3 +319,11 @@ The optional **Test provider connection** sends one small synthetic prompt after
 explicit consent and may incur provider charges. It never sends agent history
 or invokes tools. See [setup diagnostics](runtime/setup-diagnostics.md) for scope
 and failure behavior. Restart after local configuration changes.
+
+### Edit an agent
+
+Use **Agents → Details → Edit name and responsibilities** while the agent is
+idle. Name changes preserve context; changed responsibilities start fresh model
+context on the next request while keeping saved chat, files and memory. Finish
+or stop active/queued work first. Model and tool editing remain future work.
+See [profile editing](runtime/agent-profile-editing.md) for restart and stale-tab behavior.

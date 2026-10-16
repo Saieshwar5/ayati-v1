@@ -31,8 +31,8 @@ Shutdown cancels the request; upstream cancellation is not guaranteed.
 
 Results are shown only in the current page and are not stored as agent work.
 Tests do not run Goose, validate its sessions/tool loop, or exercise the VM.
-Agent model, role and tool settings remain immutable. Safe editing and session
-migration are a separate increment. Settings remains a local single-owner page,
+Agent model and tool settings remain immutable. Names and responsibilities
+can be changed through the [profile editor](agent-profile-editing.md). Settings remains a local single-owner page,
 protected by the existing loopback Host/same-origin checks and no-store headers.
 
 Verification: `node --test tests/setup_diagnostics.mjs` uses disposable data and

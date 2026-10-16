@@ -1,3 +1,4 @@
+import { installProfileEditor } from './agent-profile-editor';
 import { element } from './view';
 import type { Profile } from './agents';
 
@@ -11,7 +12,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     <section><h3>Authority</h3><p>Tool actions follow the runtime’s approval checks. An approval applies only to its original request.</p></section>
     <section><h3>Tools and knowledge</h3><p id="details-tools"></p><div id="details-links"></div></section>
     <section><h3>Connections</h3><p>Business account connections and per-agent grants are still being built.</p></section>
-    <p class="details-note">Role, model and enabled tools are fixed at creation in this version.</p>`;
+    <p class="details-note">Model and enabled tools remain fixed. Name and responsibilities can be edited when this agent is idle.</p>`;
   document.querySelector('.main')!.append(panel);
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
   toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');
@@ -27,11 +28,13 @@ export function installAgentDetails(): (profile: Profile) => void {
   panel.addEventListener('close', () => { toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); });
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); close(); } });
   mobile.addEventListener('change', () => { if (panel.open) close(); });
+  const updateEditor = installProfileEditor(panel);
   let previous = '';
   return profile => {
     const fingerprint = JSON.stringify(profile);
     if (previous === fingerprint) return;
     previous = fingerprint;
+    updateEditor(profile);
     panel.querySelector('#details-role')!.textContent = profile.role || 'A general assistant for your everyday work.';
     panel.querySelector('#details-model')!.textContent = profile.model;
     panel.querySelector('#details-tools')!.textContent = `${profile.memory ? 'Sourced memory enabled' : 'Sourced memory disabled'} · ${profile.browser ? 'Browser enabled' : 'Browser disabled'}`;

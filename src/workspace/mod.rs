@@ -99,6 +99,18 @@ impl Workspace {
     pub fn profiles(&self) -> Result<Vec<AgentProfile>> {
         let mut profiles = vec![self.default.clone()];
         profiles.extend(self.registry.list()?);
+        let agents = self
+            .agents
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Workspace unavailable"))?;
+        for profile in &mut profiles {
+            if let Some(agent) = agents.get(&profile.id)
+                && let Some(edit) = agent.store.profile_edit()?
+            {
+                profile.name = edit.name;
+                profile.role = edit.role;
+            }
+        }
         Ok(profiles)
     }
     pub fn snapshot(&self) -> Result<Value> {
@@ -114,7 +126,21 @@ impl Workspace {
                     "pending_tasks":agent.store.pending_count()?}),
                 None => json!({"pending_approvals":0,"pending_tasks":0}),
             };
-            result.push(json!({"profile":profile,"activity":attention}));
+            let mut profile_json = json!(profile);
+            profile_json["revision"] = json!(0);
+            if let Some(agent) = agents.get(&profile.id)
+                && let Some(edit) = agent.store.profile_edit()?
+            {
+                profile_json["name"] = json!(edit.name);
+                profile_json["role"] = json!(edit.role);
+                profile_json["revision"] = json!(edit.revision);
+            }
+            profile_json["editable"] = json!(
+                agents
+                    .get(&profile.id)
+                    .is_some_and(|a| a.runtime_name() == "goose")
+            );
+            result.push(json!({"profile":profile_json,"activity":attention}));
         }
         Ok(
             json!({"agents":result,"creation_available":!self.config.prototype && self.template.vm_manifest.is_some(),
