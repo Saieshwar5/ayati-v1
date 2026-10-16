@@ -24,6 +24,7 @@ use tokio::{
 
 pub struct VmManager {
     path: PathBuf,
+    agent_id: String,
     provider: String,
     model: String,
     memory: Option<std::sync::Arc<crate::memory::MemoryAccess>>,
@@ -59,12 +60,18 @@ impl VmManager {
     pub fn new(path: PathBuf, provider: String, model: String) -> Self {
         Self {
             path,
+            agent_id: "local-agent".into(),
             provider,
             model,
             memory: None,
             process: Mutex::new(None),
             stop_requested: AtomicBool::new(false),
         }
+    }
+
+    pub fn with_identity(mut self, agent_id: String) -> Self {
+        self.agent_id = agent_id;
+        self
     }
 
     pub fn with_memory(
@@ -120,7 +127,7 @@ impl VmManager {
             process.take();
         }
         self.stop_requested.store(false, Ordering::SeqCst);
-        let config = VmConfig::load(&self.path)?;
+        let config = VmConfig::load_for(&self.path, &self.agent_id)?;
         let lock = OpenOptions::new()
             .create(true)
             .truncate(false)

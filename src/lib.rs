@@ -9,3 +9,5 @@ pub mod tools;
 pub mod vm;
 
 pub mod memory;
+
+pub mod workspace;

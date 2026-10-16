@@ -2,7 +2,7 @@ use super::{ApiResult, WebState};
 use crate::storage::memory::MemoryScope;
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, Query},
     routing::{get, post},
 };
 use serde::Deserialize;
@@ -20,7 +20,7 @@ struct Search {
     query: String,
 }
 async fn search(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Query(input): Query<Search>,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(
@@ -34,7 +34,10 @@ struct Note {
     content: String,
     replaces: Option<String>,
 }
-async fn save(State(state): State<WebState>, Json(input): Json<Note>) -> ApiResult<Json<Value>> {
+async fn save(
+    axum::Extension(state): axum::Extension<WebState>,
+    Json(input): Json<Note>,
+) -> ApiResult<Json<Value>> {
     Ok(Json(
         state
             .agent
@@ -43,7 +46,7 @@ async fn save(State(state): State<WebState>, Json(input): Json<Note>) -> ApiResu
     ))
 }
 async fn forget(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Path(id): Path<String>,
     Json(input): Json<serde_json::Map<String, Value>>,
 ) -> ApiResult<Json<Value>> {

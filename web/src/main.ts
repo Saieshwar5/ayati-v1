@@ -1,5 +1,6 @@
 import './style.css';
-import { api, post, type AgentEvent, type Artifact, type Snapshot } from './types';
+import { installAgents } from './agents';
+import { api, post, apiUrl, selectedAgent, type AgentEvent, type Artifact, type Snapshot } from './types';
 import { element, renderConversation, renderFiles } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
@@ -27,7 +28,7 @@ app.innerHTML = `
           <button type="button" class="stop-button" id="stop" hidden>Stop</button>
           <button type="submit" class="send-button" id="send" aria-label="Send message">↑</button>
         </form>
-        <p class="composer-note">Your assistant, one conversation.</p>
+        <p class="composer-note">Each agent has its own conversation and memory.</p>
       </div>
     </section>
     <aside class="files-panel" id="files-panel" aria-label="Your files" hidden>
@@ -69,14 +70,17 @@ let syncAgain = false;
 let attachments: { name: string; path: string }[] = [];
 let browserStorage: Storage | undefined;
 try { browserStorage = window.sessionStorage; } catch { /* Private browser modes may restrict it. */ }
-const pendingSubmission = new PendingSubmission(browserStorage);
-input.value = pendingSubmission.draft();
+const pendingSubmission = new PendingSubmission(browserStorage, selectedAgent);
+const draftKey = `ayati.draft.${selectedAgent}`;
+try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
+catch { input.value = pendingSubmission.draft(); }
+installAgents();
 
 function tell(text: string): void { notice.textContent = text; notice.hidden = !text; }
 
 function draw(): void {
-  renderConversation(conversation, state);
-  renderFiles(document.querySelector('#files-list')!, state.artifacts);
+  renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
+  renderFiles(document.querySelector('#files-list')!, state.artifacts, selectedAgent);
   document.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
   stop.hidden = !state.tasks.some((task) => task.status === 'running');
   send.disabled = !modelReady || sending;
@@ -118,6 +122,7 @@ document.querySelector('#composer')!.addEventListener('submit', async (event) =>
     await post('/messages', submission);
     pendingSubmission.acknowledge(submission.request_id);
     input.value = '';
+    try { browserStorage?.removeItem(draftKey); } catch { /* Storage is optional. */ }
     input.style.height = '';
     attachments = [];
     showAttachments();
@@ -138,6 +143,7 @@ input.addEventListener('keydown', (event) => {
   }
 });
 input.addEventListener('input', () => {
+  try { browserStorage?.setItem(draftKey, input.value); } catch { /* Storage is optional. */ }
   input.style.height = 'auto';
   input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
 });
@@ -190,14 +196,14 @@ fileInput.onchange = async () => {
   finally { fileInput.value = ''; }
 };
 
-const events = new EventSource('/api/events');
+const events = new EventSource(apiUrl('/events'));
 events.onopen = () => { connection.textContent = 'Here to help'; void sync(); };
 events.onerror = () => { connection.textContent = 'Reconnecting…'; };
 events.onmessage = (event) => {
   const update = JSON.parse(event.data) as AgentEvent;
   if (update.kind === 'delta' && update.message_id && update.text) {
     if (!applyDelta(state, update)) { void sync(); return; }
-    renderConversation(conversation, state);
+    renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
   } else { void sync(); }
 };
 

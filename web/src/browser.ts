@@ -1,4 +1,4 @@
-import { api, post } from './types';
+import { api, post, selectedAgent } from './types';
 
 type Result = { isError?: boolean; content?: { type: string; data?: string; mimeType?: string }[] };
 type Status = { configured: boolean; owner: boolean; vm?: { state?: string }; guest?: { interaction_pending: boolean } };
@@ -13,8 +13,9 @@ export function installBrowser(): void {
   const finish = document.querySelector<HTMLButtonElement>('#browser-finish')!;
   const address = document.querySelector<HTMLInputElement>('#browser-address')!;
   const privateText = document.querySelector<HTMLInputElement>('#browser-private-text')!;
+  const storageKey = selectedAgent === 'local-agent' ? 'ayati-browser-controller' : `ayati-browser-controller.${selectedAgent}`;
   let token: string | undefined;
-  try { token = sessionStorage.getItem('ayati-browser-controller') ?? undefined; } catch { /* In-memory fallback. */ }
+  try { token = sessionStorage.getItem(storageKey) ?? undefined; } catch { /* In-memory fallback. */ }
   let owns = false;
   let busyFrame = false;
   let frameEpoch = 0;
@@ -73,7 +74,7 @@ export function installBrowser(): void {
     privateText.value = ''; button.focus();
   };
   take.onclick = async () => {
-    if (!token) { token = crypto.randomUUID(); try { sessionStorage.setItem('ayati-browser-controller', token); } catch { /* Memory token remains valid. */ } }
+    if (!token) { token = crypto.randomUUID(); try { sessionStorage.setItem(storageKey, token); } catch { /* Memory token remains valid. */ } }
     take.disabled = true; say('Waiting for the agent browser to pause…');
     try {
       await control('take'); owns = true;

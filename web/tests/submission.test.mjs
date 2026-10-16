@@ -26,3 +26,16 @@ test('edited content gets a new identity and storage failure still permits stabl
   pending.acknowledge(first.request_id);
   assert.equal(pending.draft(), 'Changed');
 });
+
+test('pending messages remain separate when switching agents', () => {
+  const values = new Map();
+  const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) };
+  const first = new PendingSubmission(storage);
+  const second = new PendingSubmission(storage, 'second-agent');
+  const a = first.prepare('Private task A');
+  const b = second.prepare('Private task B');
+  assert.equal(new PendingSubmission(storage).draft(), a.content);
+  assert.equal(new PendingSubmission(storage, 'second-agent').draft(), b.content);
+  second.acknowledge(b.request_id);
+  assert.equal(new PendingSubmission(storage).draft(), a.content);
+});

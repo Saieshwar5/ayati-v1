@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import signal
 import subprocess
 import threading
 import time
@@ -232,6 +233,9 @@ subprocess.run(['systemctl','restart','ssh'],check=True)
 
 
 if __name__ == '__main__':
+    def interrupted(_signum, _frame):
+        raise RuntimeError('VM preparation interrupted')
+    signal.signal(signal.SIGTERM, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', required=True)
     parser.add_argument('--agent-id', default='local-agent')

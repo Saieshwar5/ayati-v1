@@ -10,6 +10,8 @@ pub const GOOSE_VERSION: &str = "1.54.0";
 #[derive(Clone)]
 pub struct GooseConfig {
     pub binary: PathBuf,
+    pub agent_id: String,
+    pub role: String,
     pub vm_manifest: Option<PathBuf>,
     pub root: PathBuf,
     pub workspace: PathBuf,
@@ -27,7 +29,7 @@ impl GooseConfig {
                 .vm_manifest
                 .as_ref()
                 .context("Browser requires VM execution")?;
-            let manifest = crate::vm::config::VmConfig::load(path)?;
+            let manifest = crate::vm::config::VmConfig::load_for(path, &self.agent_id)?;
             ensure!(
                 manifest.browser_version.as_deref() == Some("0.39.1"),
                 "Prepare a new VM with --browser; existing VMs are preserved"
@@ -39,6 +41,8 @@ impl GooseConfig {
     }
     pub fn from_env(data: &Path, model: &str) -> Self {
         Self {
+            agent_id: "local-agent".into(),
+            role: String::new(),
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
                 std::env::var_os("AYATI_VM_MANIFEST")
                     .map(PathBuf::from)

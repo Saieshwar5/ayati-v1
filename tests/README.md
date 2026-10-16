@@ -201,3 +201,14 @@ and a scripted provider, including owner UI and actual Goose compaction. For VM
 checks, set `AYATI_VM_TEST_MANIFEST` to a freshly prepared current guest. The
 compaction-config test is host-only and explicitly skipped on the VM path.
 See [the contract and limits](../runtime/memory.md).
+
+## Independent agents
+
+`cargo test --locked --test agent_registry` checks durable setup recovery and input
+boundaries. VM config unit tests check exact selected-agent identity.
+`tests/independent_agents.mjs` requires `AYATI_VM_TEST_MANIFEST` pointing to a fresh
+current browser-enabled guest. It creates a second actual VM from the UI, exercises
+Goose with memory and browser together, checks cross-agent denials and independent
+Stop, then verifies persistence, drafts, mobile layout and interrupted setup/retry.
+The provider/site are synthetic; this does not establish live-model quality.
+See [the local agent contract](../runtime/independent-agents.md).

@@ -27,13 +27,15 @@ pub struct VmConfig {
 
 impl VmConfig {
     pub fn load(path: &Path) -> Result<Self> {
+        Self::load_for(path, "local-agent")
+    }
+
+    pub fn load_for(path: &Path, agent_id: &str) -> Result<Self> {
         let config: Self = serde_json::from_slice(
             &std::fs::read(path).context("Prepare a local VM before selecting VM execution")?,
         )?;
         ensure!(
-            config.version == 1
-                && config.agent_id == "local-agent"
-                && config.goose_version == "1.54.0",
+            config.version == 1 && config.agent_id == agent_id && config.goose_version == "1.54.0",
             "VM manifest identity or version does not match this local agent"
         );
         ensure!(

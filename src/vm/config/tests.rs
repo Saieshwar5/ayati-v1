@@ -45,3 +45,13 @@ fn shared_vm_directory_is_rejected_before_reading_credentials() {
             .contains("private")
     );
 }
+
+#[test]
+fn agent_manifest_is_checked_against_the_selected_identity() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = manifest(directory.path(), "operations-agent");
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(VmConfig::load_for(&path, "operations-agent").is_ok());
+    assert!(VmConfig::load_for(&path, "sales-agent").is_err());
+    assert!(VmConfig::load(&path).is_err());
+}

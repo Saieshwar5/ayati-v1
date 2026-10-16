@@ -238,6 +238,7 @@ async fn local_api_rejects_cross_origin_requests_and_serves_safe_downloads() {
         .await
         .unwrap();
     let app = router(WebState {
+        workspace: None,
         agent: fixture.agent.clone(),
         model_ready: true,
         model_name: "fixture".into(),
