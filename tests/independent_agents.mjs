@@ -93,6 +93,27 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   assert.equal((await first.raw(`/permissions/${permission.id}`, { allow: true })).status, 400);
   assert.equal((await first.request('/state')).permissions.length, 0);
   await second.finish(waiting.id);
+  // Central Home must preserve the identity of two simultaneous approvals.
+  const homeA = await first.request('/messages', { content: memorySearch });
+  const homeB = await second.request('/messages', { content: 'memory ' + JSON.stringify({ tool: 'search', arguments: { query: 'English' } }) });
+  const home = await until(async () => {
+    const snapshot = await app.request('/home');
+    return snapshot.agents.every(a => a.attention?.permissions.length === 1) && snapshot;
+  }, 'Home must show both agents waiting');
+  const permissionA = home.agents.find(a => a.profile.id === 'local-agent').attention.permissions[0];
+  const permissionB = home.agents.find(a => a.profile.id === ready.id).attention.permissions[0];
+  assert.equal(permissionA.task_id, homeA.id); assert.equal(permissionB.task_id, homeB.id);
+  const homePage = await browser.newPage();
+  await homePage.goto(app.base.replace('/api', '/?view=home'));
+  await homePage.locator(`[data-permission="${permissionA.id}"]`).getByRole('button', { name: 'Allow once' }).click();
+  await until(async () => !(await first.request('/state')).permissions.some(p => p.id === permissionA.id), 'Home Allow did not decide the first approval');
+  await first.finish(homeA.id);
+  assert.equal((await second.request('/state')).permissions[0].id, permissionB.id);
+  await homePage.locator(`[data-permission="${permissionB.id}"]`).getByRole('button', { name: 'Stop request', exact: true }).click();
+  await until(async () => (await second.request('/state')).tasks.find(t => t.id === homeB.id)?.status === 'stopped', 'Home Stop did not stop the selected agent');
+  assert.equal((await second.raw(`/permissions/${permissionB.id}`, { allow: true })).status, 400);
+  assert.equal((await first.raw(`/tasks/${homeB.id}/history`)).status, 400);
+  await homePage.close();
   const stalledA = await first.request('/messages', { content: 'stall' });
   const stalledB = await second.request('/messages', { content: 'stall' });
   await until(async () => (await first.request('/state')).tasks.find(t => t.id === stalledA.id)?.status === 'running'

@@ -1,6 +1,7 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
 mod agents;
 mod browser;
+mod home;
 mod intake;
 mod memory;
 use axum::{
@@ -54,6 +55,7 @@ impl IntoResponse for ApiError {
 pub fn router(state: WebState) -> Router {
     Router::new()
         .merge(agents::routes())
+        .merge(home::routes())
         .merge(intake::routes())
         .merge(browser::routes())
         .merge(memory::routes())

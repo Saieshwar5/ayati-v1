@@ -1,0 +1,25 @@
+.header nav { display: flex; gap: 20px; }
+.header a { color: inherit; text-decoration: none; }
+.header nav [aria-current] { font-weight: 700; }
+.home { overflow-y: auto; padding: 28px max(20px, calc((100% - 1120px) / 2)); flex: 1; background: linear-gradient(135deg, #faf7ff, #f5faf9); }
+.home-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.home h1 { font-size: 28px; margin: 0 0 8px; }
+.home h2 { font-size: 19px; margin: 28px 0 14px; }
+.home h3 { font-size: 16px; }
+.home-heading p, #home-connection, .home-detail { color: #666475; font-size: 13px; }
+#home-error { color: #a12c36; }
+.home-agents, .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.home-card { border: 1px solid #e5e0ec; border-radius: 16px; background: #fff; padding: 20px; min-width: 0; overflow-wrap: anywhere; }
+.home-card p { margin: 0 0 12px; }
+.home-agent-name { font-weight: 700; color: #67558b; }
+.home-request { white-space: pre-wrap; }
+.home-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.home-controls a, .home-card > a { text-decoration: none; display: inline-block; }
+.home-empty { color: #666475; padding: 12px 0; }
+.home .permission-details { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .home { padding: 20px 16px; } .home-heading { align-items: flex-start; } .home h1 { font-size: 24px; } }
+
+.home-history { width: min(720px, calc(100% - 32px)); max-height: 85dvh; border: 1px solid #e5e0ec; border-radius: 16px; padding: 24px; overflow-wrap: anywhere; }
+.home-history::backdrop { background: #20183166; }
+.home-history > button { margin-left: auto; }
+.home-history h3 { font-size: 13px; color: #67558b; }

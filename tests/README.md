@@ -212,3 +212,20 @@ Goose with memory and browser together, checks cross-agent denials and independe
 Stop, then verifies persistence, drafts, mobile layout and interrupted setup/retry.
 The provider/site are synthetic; this does not establish live-model quality.
 See [the local agent contract](../runtime/independent-agents.md).
+
+## Home and attention
+
+`cargo test --locked --test attention_storage --test runtime_storage` checks
+schema-6 migration, durable/idempotent outcome reviews, old failures beyond the
+recent-history window, scope rejection, and restart invalidation.
+
+After `cargo build` and `npm run build --prefix web`, run
+`node --test tests/home_attention.mjs`. This uses real pinned Goose and Playwright
+with a synthetic provider to check Allow/Deny, stale tabs, offline recovery,
+request inspection, interrupted work/review persistence and mobile layout.
+Screenshots are written to `.test-runs/home/`.
+
+The existing `tests/independent_agents.mjs` VM test also exercises Home with two
+simultaneous independent-agent approvals. It allows one, verifies the other stays
+pending, stops the second and rejects its obsolete decision. These tests do not
+use a live provider or establish model quality.
