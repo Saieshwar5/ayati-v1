@@ -62,3 +62,6 @@ request limit, error behavior and distinction from agent/VM execution.
 Agent Details now opens an editor for names, responsibilities and models. Edits require
 an idle agent; role/model changes start fresh model context while preserving saved
 history. See [profile editing](agent-profile-editing.md).
+
+Agent settings now includes browser and memory switches for compatible environments.
+See [tool controls](agent-tool-controls.md) for enforcement and preserved-data behavior.

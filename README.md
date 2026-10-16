@@ -226,8 +226,8 @@ Pending approvals are cancelled on Stop/restart; used decisions cannot be replay
 The harmless proof server is not a general authorization broker for future tools.
 Use Agent Details to change models safely with fresh context. Provider/tool
 changes outside the editor still require restoring the original settings or a
-fresh explicit AYATI_DATA_DIR; incompatible saved sessions fail closed. Guided
-tool reconfiguration remains future work.
+fresh explicit AYATI_DATA_DIR; incompatible saved sessions fail closed. Compatible tool controls are available in Agent Details; guided preparation of
+incompatible environments remains future work.
 
 ## Current limits
 
@@ -325,6 +325,6 @@ and failure behavior. Restart after local configuration changes.
 Use **Agents → Details → Edit agent settings** while the agent is
 idle. Name changes preserve context; changed responsibilities or models start fresh model
 context on the next request while keeping saved chat, files and memory. Finish
-or stop active/queued work first. Optional model tests require explicit consent and may incur charges. Tool editing
-remains future work.
+or stop active/queued work first. Optional model tests require explicit consent and may incur charges. Browser/memory switches enforce access while preserving saved data; browser
+enablement requires a compatible VM. See [tool controls](runtime/agent-tool-controls.md).
 See [profile editing](runtime/agent-profile-editing.md) for restart and stale-tab behavior.

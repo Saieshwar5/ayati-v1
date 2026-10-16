@@ -116,3 +116,62 @@ fn only_structured_browser_outcomes_can_make_an_action_uncertain() {
         );
     }
 }
+
+#[tokio::test]
+async fn disabled_tools_cannot_create_an_approval_even_when_reported_by_goose() {
+    for tool in [
+        "ayati_memory__memory_source",
+        "ayati_browser__agent_browser_snapshot",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(Store::open(&dir.path().join("state.sqlite")).unwrap());
+        let input = crate::storage::profile::UpdateProfile {
+            name: "Agent".into(),
+            role: String::new(),
+            model: None,
+            memory: Some(false),
+            browser: Some(false),
+            expected_revision: 0,
+        };
+        store
+            .update_profile(&input, "", "fixture", true, true)
+            .unwrap();
+        store.enqueue("Request").unwrap();
+        let claim = store.claim_next("owner").unwrap().unwrap();
+        let reply = store.add_claim_reply(&claim).unwrap();
+        let (events, _) = broadcast::channel(8);
+        let runtime = RuntimeEvents {
+            active: Mutex::new(Some(Arc::new(Turn {
+                claim,
+                connection_id: "connection".into(),
+                reply,
+                session: SessionId::from("session"),
+                journal_failed: AtomicBool::new(false),
+                tools: Mutex::new(HashMap::from([(
+                    "call".into(),
+                    serde_json::json!({"rawInput":{},"_meta":{"goose":{"toolCall":{"toolName":tool}}}}),
+                )])),
+                text: Mutex::new(String::new()),
+                cancel: CancellationToken::new(),
+            }))),
+            store: store.clone(),
+            events,
+            proof_tool: false,
+            browser: true,
+            memory: true,
+        };
+        let request = serde_json::from_value(serde_json::json!({"sessionId":"session","toolCall":{"toolCallId":"call","title":"Use tool","rawInput":{}},"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]})).unwrap();
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            runtime.permission("connection", request),
+        )
+        .await
+        .unwrap();
+        assert!(
+            serde_json::to_string(&result)
+                .unwrap()
+                .contains("cancelled")
+        );
+        assert!(store.permissions().unwrap().is_empty());
+    }
+}

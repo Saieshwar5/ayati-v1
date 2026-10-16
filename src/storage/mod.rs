@@ -52,7 +52,7 @@ impl Store {
         let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 8,
+            version <= 9,
             "Database is newer than this Ayati version; do not downgrade"
         );
         connection.pragma_update(None, "synchronous", "FULL")?;
@@ -87,6 +87,11 @@ impl Store {
             tx.execute_batch(
                 "ALTER TABLE profile_edit ADD COLUMN model TEXT; PRAGMA user_version=8;",
             )?;
+            tx.commit()?;
+        }
+        if version < 9 {
+            let tx = connection.transaction()?;
+            tx.execute_batch("ALTER TABLE profile_edit ADD COLUMN memory INTEGER; ALTER TABLE profile_edit ADD COLUMN browser INTEGER; PRAGMA user_version=9;")?;
             tx.commit()?;
         }
         Ok(Self {

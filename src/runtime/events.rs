@@ -14,6 +14,19 @@ pub struct RuntimeEvents {
 }
 
 impl RuntimeEvents {
+    pub fn browser_enabled(&self) -> bool {
+        self.store
+            .profile_edit()
+            .map(|p| p.and_then(|p| p.browser).unwrap_or(self.browser))
+            .unwrap_or(false)
+    }
+    pub fn memory_enabled(&self) -> bool {
+        self.store
+            .profile_edit()
+            .map(|p| p.and_then(|p| p.memory).unwrap_or(self.memory))
+            .unwrap_or(false)
+    }
+
     pub fn state(&self, task: &str) {
         let _ = self.events.send(Event {
             kind: "state".into(),
@@ -114,7 +127,7 @@ impl RuntimeEvents {
                         _ => return Ok(()),
                     };
                     let output = serde_json::json!({"content":value.get("content"),"rawOutput":value.get("rawOutput")});
-                    let browser_call = self.browser
+                    let browser_call = self.browser_enabled()
                         && turn
                             .tools
                             .lock()
@@ -185,7 +198,7 @@ impl RuntimeEvents {
         let tool = observed
             .pointer("/_meta/goose/toolCall/toolName")
             .and_then(|v| v.as_str());
-        let browser_allowed = self.browser
+        let browser_allowed = self.browser_enabled()
             && tool.is_some_and(|name| {
                 ayati_guest::browser_policy::observed_operation(
                     name,
@@ -193,7 +206,7 @@ impl RuntimeEvents {
                 )
             });
         let proof_allowed = self.proof_tool && tool == Some("ayati_proof__get_demo_business");
-        let memory_allowed = self.memory
+        let memory_allowed = self.memory_enabled()
             && tool.is_some_and(|name| {
                 ayati_guest::memory_mcp::observed(
                     name,

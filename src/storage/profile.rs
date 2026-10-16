@@ -6,16 +6,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize)]
 pub struct ProfileEdit {
     pub model: Option<String>,
+    pub memory: Option<bool>,
+    pub browser: Option<bool>,
     pub name: String,
     pub role: String,
     pub revision: i64,
-    // Persisted field name retained from schema 7; now tracks role or model changes.
+    // Persisted field name retained from schema 7; now tracks role, model or tool changes.
     pub role_revision: i64,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateProfile {
     pub model: Option<String>,
+    pub memory: Option<bool>,
+    pub browser: Option<bool>,
     pub name: String,
     pub role: String,
     pub expected_revision: i64,
@@ -51,24 +55,15 @@ pub fn validate_model(model: &str) -> Result<()> {
     );
     Ok(())
 }
+fn read_profile(connection: &rusqlite::Connection) -> Result<Option<ProfileEdit>> {
+    Ok(connection.query_row("SELECT name,role,revision,role_revision,model,memory,browser FROM profile_edit WHERE id=1", [], |r| Ok(ProfileEdit {
+        name:r.get(0)?, role:r.get(1)?, revision:r.get(2)?, role_revision:r.get(3)?, model:r.get(4)?, memory:r.get(5)?, browser:r.get(6)?
+    })).optional()?)
+}
 impl Store {
     pub fn profile_edit(&self) -> Result<Option<ProfileEdit>> {
-        Ok(self
-            .connection()?
-            .query_row(
-                "SELECT name,role,revision,role_revision,model FROM profile_edit WHERE id=1",
-                [],
-                |r| {
-                    Ok(ProfileEdit {
-                        model: r.get(4)?,
-                        name: r.get(0)?,
-                        role: r.get(1)?,
-                        revision: r.get(2)?,
-                        role_revision: r.get(3)?,
-                    })
-                },
-            )
-            .optional()?)
+        let connection = self.connection()?;
+        read_profile(&connection)
     }
     // Called with the agent lifecycle gate held. Intake is serialized by this transaction:
     // already accepted work prevents editing; work accepted afterwards uses the new role.
@@ -77,19 +72,29 @@ impl Store {
         input: &UpdateProfile,
         original_role: &str,
         original_model: &str,
+        original_memory: bool,
+        original_browser: bool,
     ) -> Result<ProfileEdit> {
         input.validate()?;
         let mut connection = self.connection()?;
         let tx = connection.transaction()?;
-        let previous: Option<(String, i64, i64, Option<String>)> = tx
-            .query_row(
-                "SELECT role,revision,role_revision,model FROM profile_edit WHERE id=1",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-            )
-            .optional()?;
-        let (role, revision, role_revision, previous_model) =
-            previous.unwrap_or((original_role.into(), 0, 0, None));
+        let ProfileEdit {
+            role,
+            revision,
+            role_revision,
+            model: previous_model,
+            memory: previous_memory,
+            browser: previous_browser,
+            ..
+        } = read_profile(&tx)?.unwrap_or(ProfileEdit {
+            name: String::new(),
+            role: original_role.into(),
+            revision: 0,
+            role_revision: 0,
+            model: None,
+            memory: None,
+            browser: None,
+        });
         ensure!(
             revision == input.expected_revision,
             "Settings changed in another tab. Reopen the editor and review the latest settings."
@@ -103,15 +108,23 @@ impl Store {
         let model = input.model.clone().or(previous_model.clone());
         let changed_model = model.as_deref().unwrap_or(original_model)
             != previous_model.as_deref().unwrap_or(original_model);
+        let memory = input.memory.or(previous_memory);
+        let browser = input.browser.or(previous_browser);
+        let changed_tools = memory.unwrap_or(original_memory)
+            != previous_memory.unwrap_or(original_memory)
+            || browser.unwrap_or(original_browser) != previous_browser.unwrap_or(original_browser);
         let result = ProfileEdit {
+            memory,
+            browser,
             model,
             name: input.name.trim().into(),
             role: input.role.trim().into(),
             revision: revision + 1,
-            role_revision: role_revision + i64::from(changed_role || changed_model),
+            role_revision: role_revision
+                + i64::from(changed_role || changed_model || changed_tools),
         };
-        tx.execute("INSERT INTO profile_edit(id,name,role,revision,role_revision,model) VALUES(1,?1,?2,?3,?4,?5) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,revision=excluded.revision,role_revision=excluded.role_revision,model=excluded.model", params![result.name,result.role,result.revision,result.role_revision,result.model])?;
-        if changed_role || changed_model {
+        tx.execute("INSERT INTO profile_edit(id,name,role,revision,role_revision,model,memory,browser) VALUES(1,?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,revision=excluded.revision,role_revision=excluded.role_revision,model=excluded.model,memory=excluded.memory,browser=excluded.browser", params![result.name,result.role,result.revision,result.role_revision,result.model,result.memory,result.browser])?;
+        if changed_role || changed_model || changed_tools {
             tx.execute("DELETE FROM runtime_sessions", [])?;
         }
         tx.commit()?;

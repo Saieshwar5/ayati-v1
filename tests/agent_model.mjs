@@ -24,7 +24,7 @@ test('model editing and optional candidate test use selected model without repla
   await model.fill('fixture-next');
   assert(await testButton.isDisabled());
   const count = app.provider.requests.length;
-  await dialog.getByRole('checkbox').check(); await testButton.click();
+  await dialog.locator('#model-test-consent').check(); await testButton.click();
   await dialog.getByText('Settings have not been saved.', { exact: false }).waitFor();
   assert.equal(app.provider.requests.length, count + 1);
   assert.equal(app.provider.requests.at(-1).model, 'fixture-next');
@@ -50,7 +50,7 @@ test('model editing and optional candidate test use selected model without repla
   await page.screenshot({ path: join(root, '.test-runs/model/mobile.png') });
   app.provider.setUnavailable(true);
   await model.fill('unavailable-model');
-  await dialog.getByRole('checkbox').check(); await testButton.click();
+  await dialog.locator('#model-test-consent').check(); await testButton.click();
   await dialog.getByText('HTTP 403', { exact: false }).waitFor();
   assert.equal((await app.request('/health')).model, 'fixture-next', 'Failed candidate test cannot change saved model');
   app.provider.setUnavailable(false);

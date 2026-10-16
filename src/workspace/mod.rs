@@ -109,6 +109,8 @@ impl Workspace {
             {
                 profile.name = edit.name;
                 profile.role = edit.role;
+                profile.memory = edit.memory.unwrap_or(profile.memory);
+                profile.browser = edit.browser.unwrap_or(profile.browser);
                 if let Some(model) = edit.model {
                     profile.model = model;
                 }
@@ -137,6 +139,12 @@ impl Workspace {
                 profile_json["name"] = json!(edit.name);
                 profile_json["role"] = json!(edit.role);
                 profile_json["revision"] = json!(edit.revision);
+                if let Some(memory) = edit.memory {
+                    profile_json["memory"] = json!(memory);
+                }
+                if let Some(browser) = edit.browser {
+                    profile_json["browser"] = json!(browser);
+                }
                 if let Some(model) = edit.model {
                     profile_json["model"] = json!(model);
                 }
@@ -146,6 +154,8 @@ impl Workspace {
                     .get(&profile.id)
                     .is_some_and(|a| a.runtime_name() == "goose")
             );
+            profile_json["browser_available"] =
+                json!(agents.get(&profile.id).is_some_and(|a| a.browser_capable()));
             result.push(json!({"profile":profile_json,"activity":attention}));
         }
         Ok(
