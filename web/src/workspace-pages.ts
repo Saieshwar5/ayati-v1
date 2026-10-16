@@ -1,5 +1,4 @@
-import { api } from './types';
-import { element } from './view';
+import { installSetup } from './setup';
 
 export function installWorkspacePage(page: 'apps' | 'settings'): void {
   document.title = `${page === 'apps' ? 'Apps' : 'Settings'} · Ayati`;
@@ -21,11 +20,5 @@ export function installWorkspacePage(page: 'apps' | 'settings'): void {
     else document.documentElement.dataset.theme = theme.value;
     try { localStorage.setItem('ayati.theme', theme.value); } catch { /* Preference still works for this page. */ }
   };
-  void api<{ model_ready: boolean; model: string; runtime: string }>('/health', { headers: { 'X-Ayati-Agent': 'local-agent' } }).then(health => {
-    document.querySelector('#setup-status')!.textContent = health.model_ready ? 'Provider configuration detected. Availability is checked when a request runs.' : 'AI setup is incomplete. Configure a provider and the selected runtime locally.';
-    const facts = document.querySelector('#setup-facts')!;
-    for (const [label, value] of [['Model', health.model], ['Runtime', health.runtime]]) {
-      const row = element('div', 'settings-row'); row.append(element('span', '', label), element('span', '', value)); facts.append(row);
-    }
-  }).catch(() => { document.querySelector('#setup-status')!.textContent = 'Ayati is not reachable. Start the local service and reload.'; });
+  installSetup();
 }

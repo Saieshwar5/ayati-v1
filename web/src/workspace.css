@@ -74,3 +74,8 @@ a { color: var(--accent); }
   .settings-row { flex-wrap: wrap; gap: 10px; }
 }
 @media (pointer: coarse) { .files-button, .text-button, .icon-button { min-height: 44px; } }
+
+.setup-check { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.setup-consent { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0; line-height: 1.5; }
+.setup-consent input { flex: 0 0 auto; margin-top: 5px; }
+#setup-facts .settings-row { overflow-wrap: anywhere; gap: 16px; }

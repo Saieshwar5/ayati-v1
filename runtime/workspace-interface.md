@@ -54,3 +54,7 @@ search, theme persistence, narrow drawers and keyboard focus. Screenshots go to
 `.test-runs/workspace/`. Existing Home recovery, two-agent VM and chat journeys
 cover the retained runtime behavior. These are not paid-inference or hosted access
 tests. Native mobile keyboards and a full screen-reader audit remain unverified.
+
+Settings now includes read-only setup diagnostics and an explicitly consented
+provider connection test. See [setup diagnostics](setup-diagnostics.md) for the
+request limit, error behavior and distinction from agent/VM execution.
