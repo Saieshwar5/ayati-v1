@@ -25,6 +25,7 @@ fn old_connections_cannot_attach_events_to_a_new_claim_in_the_same_session() {
         events,
         proof_tool: false,
         browser: false,
+        memory: false,
     };
     let update = || {
         serde_json::from_value(serde_json::json!({
@@ -96,6 +97,7 @@ fn only_structured_browser_outcomes_can_make_an_action_uncertain() {
             events,
             proof_tool: false,
             browser: true,
+            memory: false,
         };
         let update = serde_json::from_value(serde_json::json!({"sessionId":"session","update":{"sessionUpdate":"tool_call_update","toolCallId":"call","status":"completed","rawOutput":output}})).unwrap();
         runtime.notification("connection", update).unwrap();

@@ -7,3 +7,5 @@ pub mod server;
 pub mod storage;
 pub mod tools;
 pub mod vm;
+
+pub mod memory;

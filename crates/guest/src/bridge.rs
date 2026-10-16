@@ -21,6 +21,7 @@ struct Request {
     port: Option<u16>,
     browser: Option<serde_json::Value>,
     run: Option<String>,
+    memory_token: Option<String>,
 }
 
 pub async fn serve() -> Result<()> {
@@ -144,7 +145,8 @@ async fn run_goose(request: Request, mut input: BufReader<tokio::io::Stdin>) -> 
     );
     let mut hangup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup())?;
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
-    let mut child = Command::new("/opt/ayati/goose")
+    let mut command = Command::new("/opt/ayati/goose");
+    command
         .arg("acp")
         .current_dir(format!("{ROOT}/workspace"))
         .env_clear()
@@ -164,8 +166,17 @@ async fn run_goose(request: Request, mut input: BufReader<tokio::io::Stdin>) -> 
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true)
-        .process_group(0)
-        .spawn()?;
+        .process_group(0);
+    if let Some(token) = request.memory_token {
+        ensure!(
+            token.len() == 36 && token.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-'),
+            "Invalid memory run token"
+        );
+        command
+            .env("AYATI_MEMORY_TOKEN", token)
+            .env("AYATI_MEMORY_ADDRESS", "10.0.2.100:8080");
+    }
+    let mut child = command.spawn()?;
     let mut sink = child.stdin.take().unwrap();
     let mut source = child.stdout.take().unwrap();
     let mut owned = OwnedGoose(child, 0);

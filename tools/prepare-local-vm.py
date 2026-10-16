@@ -153,10 +153,19 @@ def prepare(directory, agent_id, browser=False):
             print(json.dumps({'guest': ready, 'fresh_workspace': True, 'rejects_other_identity': True, 'first_boot_seconds': round(time.monotonic() - start, 2)}), flush=True)
             with socket.socket(socket.AF_UNIX) as q:
                 q.connect(str(qmp))
-                q.recv(4096)
-                q.sendall(b'{"execute":"qmp_capabilities"}\n')
-                q.recv(4096)
-                q.sendall(b'{"execute":"system_powerdown"}\n')
+                q.settimeout(3)
+                with q.makefile('rwb') as protocol:
+                    require('QMP' in json.loads(protocol.readline(65536)), 'Missing QMP greeting')
+                    for request_id, command in enumerate(['qmp_capabilities', 'system_powerdown'], 1):
+                        protocol.write((json.dumps({'execute': command, 'id': request_id}) + '\n').encode())
+                        protocol.flush()
+                        deadline = time.monotonic() + 3
+                        while True:
+                            require(time.monotonic() < deadline, 'QMP acknowledgment timed out')
+                            reply = json.loads(protocol.readline(65536))
+                            if reply.get('id') == request_id:
+                                require('error' not in reply, f'QMP {command} failed')
+                                break
             try:
                 require(process.wait(timeout=20) == 0, 'Guest VM exited unsuccessfully during shutdown')
             except subprocess.TimeoutExpired:

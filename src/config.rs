@@ -38,6 +38,15 @@ impl Config {
             browser == "0" || (runtime == "goose" && execution == "vm"),
             "Browser execution requires AYATI_RUNTIME=goose and AYATI_EXECUTION=vm"
         );
+        let memory = env::var("AYATI_MEMORY").unwrap_or_else(|_| "0".into());
+        ensure!(
+            ["0", "1"].contains(&memory.as_str()),
+            "AYATI_MEMORY must be 0 or 1"
+        );
+        ensure!(
+            memory == "0" || runtime == "goose",
+            "Memory requires AYATI_RUNTIME=goose"
+        );
         let config = Self {
             prototype: runtime == "prototype",
             data_dir: env::var_os("AYATI_DATA_DIR")

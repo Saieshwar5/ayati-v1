@@ -191,3 +191,13 @@ The run root is private (mode 0700). At completion the runner retains the latest
 are not deleted. Generated reports can contain full task/file contents; the shipped
 scenarios use invented data. Review and redact any custom-data report before sharing
 it. This setup does not automatically upload evidence or add a telemetry service.
+
+## Sourced memory
+
+`cargo test --locked --test sourced_memory` covers evidence validation, corrections,
+forgetting, persistence, retrieval bounds and foreign business/agent/customer denials.
+`node --test --test-concurrency=1 tests/goose_memory.mjs` uses real pinned Goose/MCP
+and a scripted provider, including owner UI and actual Goose compaction. For VM
+checks, set `AYATI_VM_TEST_MANIFEST` to a freshly prepared current guest. The
+compaction-config test is host-only and explicitly skipped on the VM path.
+See [the contract and limits](../runtime/memory.md).

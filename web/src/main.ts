@@ -4,6 +4,7 @@ import { element, renderConversation, renderFiles } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
 import { installBrowser } from './browser';
+import { installMemory } from './memory';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -49,6 +50,7 @@ app.innerHTML = `
   </section>
   <input id="file-input" type="file" hidden />`;
 installBrowser();
+installMemory();
 
 const conversation = document.querySelector<HTMLDivElement>('#conversation')!;
 const input = document.querySelector<HTMLTextAreaElement>('#input')!;
