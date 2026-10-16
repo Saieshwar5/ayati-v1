@@ -38,8 +38,8 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   const page = await browser.newPage({ viewport: { width: 1280, height: 850 } });
   await page.goto(app.base.replace('/api', '/?agent=local-agent'));
   await page.locator('#new-agent').click();
-  await page.locator('[name=name]').fill('Operations');
-  await page.locator('[name=role]').fill('Prepare daily operations reports. Keep customer records separate.');
+  await page.locator('#agent-setup-form [name=name]').fill('Operations');
+  await page.locator('#agent-setup-form [name=role]').fill('Prepare daily operations reports. Keep customer records separate.');
   await page.locator('#setup-submit').click();
   const created = await until(async () => (await app.request('/agents')).agents.find(a => a.profile.name === 'Operations')?.profile, 'No durable agent receipt');
   assert.equal(created.state, 'preparing');
@@ -147,12 +147,20 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   await page.setViewportSize({ width: 1280, height: 850 });
   await page.screenshot({ path: join(root, '.test-runs/agents/desktop.png') });
   await page.close();
+  const updatedRole = 'PROFILE_EDIT_VM_MARKER: prepare concise operations reports.';
+  await app.request(`/agents/${ready.id}/profile`, { name: 'Operations updated', role: updatedRole, expected_revision: 0 });
+  const profilesAfterEdit = (await app.request('/agents')).agents;
+  assert.equal(profilesAfterEdit.find(a => a.profile.id === 'local-agent').profile.role, '');
+  assert.equal(profilesAfterEdit.find(a => a.profile.id === ready.id).profile.role, updatedRole);
   await app.stop(); await app.start();
+  assert.equal((await app.request('/agents')).agents.find(a => a.profile.id === ready.id).profile.name, 'Operations updated');
   assert.equal((await second.request('/memory')).memories[0].content, secondFact.content);
   assert.ok((await second.request('/state')).messages.some(m => m.task_id === secondRead.task.id));
   assert.ok(!(await first.request('/state')).messages.some(m => m.task_id === secondRead.task.id));
   const again = await second.run(memorySearch);
   assert.equal(again.task.status, 'completed', again.task.detail); assert.match(again.output, /English/); assert.doesNotMatch(again.output, /Telugu/);
+  assert.ok(JSON.stringify(app.provider.requests.at(-1).messages).includes('PROFILE_EDIT_VM_MARKER'));
+  assert.ok(!JSON.stringify(app.provider.requests.at(-1).messages).includes('Prepare daily operations reports.'));
   assert.equal((await first.raw('/agents', duplicateInput, { Origin: 'https://untrusted.example' })).status, 403);
 });
 

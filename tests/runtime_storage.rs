@@ -20,7 +20,7 @@ fn version_one_history_survives_migration_and_new_runs_have_scope() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        6
+        7
     );
     let scope: (String, String) = connection.query_row(
         "SELECT a.business_id,a.id FROM run_scopes s JOIN conversations c ON c.id=s.conversation_id JOIN agents a ON a.id=c.agent_id WHERE s.task_id=?1",
@@ -58,13 +58,13 @@ fn newer_database_is_rejected_without_modification() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("state.sqlite");
     let connection = Connection::open(&path).unwrap();
-    connection.execute_batch("PRAGMA user_version=7").unwrap();
+    connection.execute_batch("PRAGMA user_version=8").unwrap();
     assert!(Store::open(&path).is_err());
     assert_eq!(
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        7
+        8
     );
 }
 

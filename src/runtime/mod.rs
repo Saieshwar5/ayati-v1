@@ -54,6 +54,7 @@ struct Turn {
 }
 
 struct Process {
+    role_revision: i64,
     connection_id: String,
     connection: ConnectionTo<Agent>,
     session: SessionId,
@@ -131,6 +132,11 @@ impl GooseRuntime {
     }
 
     async fn connect(&self) -> Result<Process> {
+        let role_revision = self
+            .shared
+            .store
+            .profile_edit()?
+            .map_or(0, |p| p.role_revision);
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (memory_server, memory_port) = if self.vm.is_none() {
             if let Some(memory) = &self.memory {
@@ -223,6 +229,9 @@ impl GooseRuntime {
             };
             let meta = self.config.session_meta()?;
             let mut settings = serde_json::json!({"provider":self.config.provider,"model":self.config.model,"proof_tool":self.config.proof_tool,"adapter":1});
+            if role_revision > 0 {
+                settings["role_revision"] = serde_json::json!(role_revision);
+            }
             if self.config.memory {
                 settings["memory_adapter"] = serde_json::json!(1);
             }
@@ -262,6 +271,7 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
+                role_revision,
                 connection_id,
                 connection,
                 session,
@@ -285,9 +295,15 @@ impl GooseRuntime {
         cancel: CancellationToken,
     ) -> Result<()> {
         let task = &claim.task_id;
+        let profile = self.shared.store.profile_edit()?;
+        let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
+        let role = profile
+            .as_ref()
+            .map_or(self.config.role.as_str(), |p| p.role.as_str());
         let mut process = self.process.lock().await;
         if process.as_mut().is_some_and(|p| {
-            p.resources.driver.is_finished()
+            p.role_revision != role_revision
+                || p.resources.driver.is_finished()
                 || p.resources.child.try_wait().ok().flatten().is_some()
         }) {
             process.take();
@@ -323,8 +339,8 @@ impl GooseRuntime {
             .connection
             .send_request(PromptRequest::new(
                 p.session.clone(),
-                vec![ContentBlock::Text(TextContent::new(if self.config.role.is_empty() { text } else {
-                    format!("Owner-configured role:\n{}\n\nFollow this role within your available tools and approvals.\nCurrent request:\n{}", self.config.role, text)
+                vec![ContentBlock::Text(TextContent::new(if role.is_empty() { text } else {
+                    format!("Owner-configured role:\n{}\n\nFollow this role within your available tools and approvals.\nCurrent request:\n{}", role, text)
                 }))],
             ))
             .block_task();

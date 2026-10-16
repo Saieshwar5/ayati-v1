@@ -3,6 +3,7 @@ mod environment;
 mod intake;
 mod leases;
 mod memory;
+mod profile;
 mod worker;
 
 use crate::{

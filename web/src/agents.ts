@@ -2,7 +2,7 @@ import './agents.css';
 import { api, selectedAgent } from './types';
 import { element } from './view';
 
-export type Profile = { id: string; name: string; role: string; model: string; memory: boolean; browser: boolean; state: string; detail: string };
+export type Profile = { revision: number; editable: boolean; id: string; name: string; role: string; model: string; memory: boolean; browser: boolean; state: string; detail: string };
 type Workspace = { agents: { profile: Profile; activity: { pending_approvals: number; pending_tasks: number } }[]; creation_available: boolean; memory_available: boolean; browser_available: boolean; default_model: string; limit: number };
 
 export function installAgents(updateDetails: (profile: Profile) => void): void {
