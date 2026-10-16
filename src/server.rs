@@ -4,6 +4,7 @@ mod browser;
 mod home;
 mod intake;
 mod memory;
+mod setup;
 use axum::{
     Json, Router,
     body::Body,
@@ -59,6 +60,7 @@ pub fn router(state: WebState) -> Router {
         .merge(intake::routes())
         .merge(browser::routes())
         .merge(memory::routes())
+        .merge(setup::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))

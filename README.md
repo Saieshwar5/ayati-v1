@@ -311,3 +311,11 @@ customer/staff authentication or shared app access.
 
 See [independent agents](runtime/independent-agents.md) for prerequisites, API scope,
 restart/Stop behavior, private setup logs, browser recovery and remaining limits.
+
+### Guided setup checks
+
+Open **Settings → Local setup** for credential-presence and runtime checks.
+The optional **Test provider connection** sends one small synthetic prompt after
+explicit consent and may incur provider charges. It never sends agent history
+or invokes tools. See [setup diagnostics](runtime/setup-diagnostics.md) for scope
+and failure behavior. Restart after local configuration changes.

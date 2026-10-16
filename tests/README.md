@@ -238,3 +238,7 @@ updates, agent search, details/draft preservation, theme persistence, mobile
 modal drawers, Escape/focus return and composer bounds. Screenshots are saved to
 `.test-runs/workspace/`. Existing chat journeys now use `/?agent=local-agent`;
 the root URL intentionally opens Home. No live provider is used by this test.
+
+`node --test tests/setup_diagnostics.mjs` checks the Settings guide, explicit
+provider-test consent, missing runtime/credentials/VM files, unchanged history,
+overlap rejection, redirects and sanitized errors against local synthetic providers.

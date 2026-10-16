@@ -1,6 +1,7 @@
 //! Local-owner registry. Each agent has a separate database, runtime and guest.
 mod provision;
 pub mod registry;
+mod setup;
 
 use crate::{
     agent::Agent, config::Config, files::Files, runtime::config::GooseConfig, storage::Store,
@@ -19,6 +20,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 pub struct Workspace {
+    setup_test: tokio::sync::Mutex<()>,
     registry: Registry,
     agents: Mutex<HashMap<String, Arc<Agent>>>,
     default: AgentProfile,
@@ -36,6 +38,7 @@ impl Workspace {
         let template = GooseConfig::from_env(data, &config.model);
         let registry = Registry::open(&data.join("agents.sqlite"))?;
         let workspace = Arc::new(Self {
+            setup_test: tokio::sync::Mutex::new(()),
             default: AgentProfile {
                 id: "local-agent".into(),
                 name: "Ayati".into(),

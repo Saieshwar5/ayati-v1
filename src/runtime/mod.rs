@@ -2,6 +2,7 @@ mod browser;
 pub mod config;
 mod events;
 pub mod proof_tool;
+pub mod provider;
 
 use crate::{
     agent::Event,
