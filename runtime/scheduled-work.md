@@ -3,7 +3,10 @@
 The second L3 increment keeps intake in the Linux host daemon, outside the agent
 VM. It reuses Tokio and the existing SQLite queue; no new dependency or service
 is introduced. The current scope remains one local Goose agent and one active job.
-This is a developer API proof; guided schedule controls are later workspace work.
+This record describes the original developer API proof. The later
+[per-agent schedule interface](agent-schedules.md) exposes creation, pause/resume
+and run outcomes in Agents → Details → Manage schedules. Multi-agent routing now
+selects private agent stores; the original single-agent scope above is historical.
 
 ## Local events
 

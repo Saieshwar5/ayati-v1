@@ -328,3 +328,8 @@ context on the next request while keeping saved chat, files and memory. Finish
 or stop active/queued work first. Optional model tests require explicit consent and may incur charges. Browser/memory switches enforce access while preserving saved data; browser
 enablement requires a compatible VM. See [tool controls](runtime/agent-tool-controls.md).
 See [profile editing](runtime/agent-profile-editing.md) for restart and stale-tab behavior.
+
+Per-agent schedules: open **Agents → Details → Manage schedules** to create
+one-time or fixed-interval work, pause/resume it and inspect run outcomes.
+The host and Ayati must stay on; scheduled model calls can incur normal charges.
+See [schedule controls](runtime/agent-schedules.md) for timing and recovery limits.
