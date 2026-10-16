@@ -6,8 +6,10 @@ fn provider(url: String) -> Arc<Provider> {
     Arc::new(Provider {
         url: reqwest::Url::parse(&url).unwrap(),
         key: "host-provider-key".into(),
-        token: "guest-token".into(),
-        model: "fixture".into(),
+        access: Arc::new(RwLock::new(ModelAccess {
+            token: "guest-token".into(),
+            model: "fixture".into(),
+        })),
         failed: Arc::new(AtomicBool::new(false)),
         client: reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -76,4 +78,47 @@ async fn replaces_guest_token_and_redacts_provider_errors() {
     assert!(!body.contains("host-provider-key"));
     assert!(p.failed.load(Ordering::SeqCst));
     task.abort();
+}
+
+#[tokio::test]
+async fn selecting_a_new_model_revokes_the_old_token_and_rejects_old_model() {
+    let p = provider("http://127.0.0.1:9/unreachable".into());
+    let gateway = ModelGateway {
+        port: 0,
+        access: p.access.clone(),
+        failed: p.failed.clone(),
+        task: tokio::spawn(async {}),
+    };
+    let token = gateway.select_model("new-model").unwrap();
+    assert_ne!(token, "guest-token");
+    assert_eq!(gateway.select_model("new-model").unwrap(), token);
+    assert_eq!(
+        router(p.clone())
+            .oneshot(request("guest-token", "fixture"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        router(p.clone())
+            .oneshot(request(&token, "fixture"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let response = router(p.clone())
+        .oneshot(
+            Request::builder()
+                .uri("/v1/models")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), 4096).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("new-model"));
 }

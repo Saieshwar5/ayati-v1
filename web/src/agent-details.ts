@@ -12,7 +12,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     <section><h3>Authority</h3><p>Tool actions follow the runtime’s approval checks. An approval applies only to its original request.</p></section>
     <section><h3>Tools and knowledge</h3><p id="details-tools"></p><div id="details-links"></div></section>
     <section><h3>Connections</h3><p>Business account connections and per-agent grants are still being built.</p></section>
-    <p class="details-note">Model and enabled tools remain fixed. Name and responsibilities can be edited when this agent is idle.</p>`;
+    <p class="details-note">Enabled tools remain fixed. Name, responsibilities and model can be edited when this agent is idle.</p>`;
   document.querySelector('.main')!.append(panel);
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
   toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');

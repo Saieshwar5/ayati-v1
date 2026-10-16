@@ -230,10 +230,11 @@ impl VmManager {
         anyhow::bail!("VM boot timed out; inspect its private console.log")
     }
 
-    pub async fn connect(&self, run: &str) -> Result<Child> {
+    pub async fn connect(&self, run: &str, model: &str) -> Result<Child> {
         self.start().await?;
         let process = self.process.lock().await;
         let p = process.as_ref().context("VM stopped before connection")?;
+        let token = p.gateway.select_model(model)?;
         let mut command = p.config.ssh(p.ssh_port);
         command.env_clear().env("PATH", "/usr/bin:/bin");
         let mut child = command
@@ -243,7 +244,7 @@ impl VmManager {
             .kill_on_drop(true)
             .process_group(0)
             .spawn()?;
-        let mut config = json!({"version":1,"op":"acp","agent_id":p.config.agent_id,"model":self.model,"token":p.gateway.token});
+        let mut config = json!({"version":1,"op":"acp","agent_id":p.config.agent_id,"model":model,"token":token});
         if self.memory.is_some() {
             config["memory_token"] = json!(run);
         }

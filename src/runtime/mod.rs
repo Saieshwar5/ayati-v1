@@ -132,11 +132,12 @@ impl GooseRuntime {
     }
 
     async fn connect(&self) -> Result<Process> {
-        let role_revision = self
-            .shared
-            .store
-            .profile_edit()?
-            .map_or(0, |p| p.role_revision);
+        let profile = self.shared.store.profile_edit()?;
+        let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
+        let model = profile
+            .as_ref()
+            .and_then(|p| p.model.as_deref())
+            .unwrap_or(&self.config.model);
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (memory_server, memory_port) = if self.vm.is_none() {
             if let Some(memory) = &self.memory {
@@ -149,9 +150,11 @@ impl GooseRuntime {
             (None, 0)
         };
         let mut child = if let Some(vm) = &self.vm {
-            vm.connect(&connection_id).await?
+            vm.connect(&connection_id, model).await?
         } else {
-            let mut command = self.config.command().await?;
+            let mut config = self.config.clone();
+            config.model = model.into();
+            let mut command = config.command().await?;
             if self.memory.is_some() {
                 command
                     .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
@@ -228,7 +231,7 @@ impl GooseRuntime {
                 self.config.workspace.canonicalize()?
             };
             let meta = self.config.session_meta()?;
-            let mut settings = serde_json::json!({"provider":self.config.provider,"model":self.config.model,"proof_tool":self.config.proof_tool,"adapter":1});
+            let mut settings = serde_json::json!({"provider":self.config.provider,"model":model,"proof_tool":self.config.proof_tool,"adapter":1});
             if role_revision > 0 {
                 settings["role_revision"] = serde_json::json!(role_revision);
             }

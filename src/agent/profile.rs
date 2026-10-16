@@ -3,7 +3,12 @@ use crate::storage::profile::{ProfileEdit, UpdateProfile};
 use anyhow::{Context, Result, ensure};
 
 impl Agent {
-    pub fn edit_profile(&self, input: &UpdateProfile, original_role: &str) -> Result<ProfileEdit> {
+    pub fn edit_profile(
+        &self,
+        input: &UpdateProfile,
+        original_role: &str,
+        original_model: &str,
+    ) -> Result<ProfileEdit> {
         let _environment = self
             .environment
             .try_lock()
@@ -21,7 +26,9 @@ impl Agent {
             !goose.browser_owned(),
             "Return browser control before editing this agent"
         );
-        let profile = self.store.update_profile(input, original_role)?;
+        let profile = self
+            .store
+            .update_profile(input, original_role, original_model)?;
         self.emit("state", "", None, None);
         Ok(profile)
     }

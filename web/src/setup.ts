@@ -14,7 +14,7 @@ export function installSetup(): void {
   label.append(consent, document.createTextNode('Send “Reply with OK.” to the configured provider and model. This may incur normal API charges. No conversations, files or tools are sent.'));
   const test = element('button', 'files-button', 'Test provider connection'); test.disabled = true;
   const result = element('p'); result.setAttribute('role', 'status');
-  const scope = element('p', 'page-subtitle', 'These checks describe the default agent. A connection test does not run Goose, boot a VM or validate agent tools. Edit names and responsibilities from Agent details. Model and tool settings remain read-only.');
+  const scope = element('p', 'page-subtitle', 'These checks describe the default agent. A connection test does not run Goose, boot a VM or validate agent tools. Edit names, responsibilities and models from Agent details. Tool settings remain read-only.');
   root.append(details, refresh, scope, label, test, result);
   let ready = false; let busy = false;
   consent.onchange = () => { test.disabled = busy || !ready || !consent.checked; };

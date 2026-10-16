@@ -17,12 +17,13 @@ async fn status(State(state): State<WebState>) -> ApiResult<Json<Value>> {
         .workspace
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("Workspace unavailable"))?;
-    Ok(Json(workspace.setup_status().await))
+    Ok(Json(workspace.setup_status().await?))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TestRequest {
     confirm: bool,
+    model: Option<String>,
 }
 async fn test(
     State(state): State<WebState>,
@@ -35,5 +36,5 @@ async fn test(
         .workspace
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("Workspace unavailable"))?;
-    Ok(Json(workspace.test_provider().await?))
+    Ok(Json(workspace.test_provider(input.model.as_deref()).await?))
 }

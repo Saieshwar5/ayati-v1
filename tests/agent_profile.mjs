@@ -24,7 +24,7 @@ test('profile editing preserves history, resets role context, rejects busy/stale
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(app.base.replace('/api', '/?agent=local-agent'));
   await page.getByRole('button', { name: 'Details', exact: true }).click();
-  await page.getByRole('button', { name: 'Edit name and responsibilities' }).click();
+  await page.getByRole('button', { name: 'Edit agent settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit agent', exact: true });
   await dialog.getByLabel('Name', { exact: true }).fill('Inventory helper');
   await dialog.getByLabel('Responsibilities').fill('NEW_ROLE_MARKER: help with inventory.');
@@ -44,7 +44,7 @@ test('profile editing preserves history, resets role context, rejects busy/stale
   assert((await app.state()).messages.some(m => m.content.includes('OLD_CONTEXT_MARKER')));
   const badPost = async body => fetch(app.base + '/agents/local-agent/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   assert.equal((await badPost({ name: 'stale', role: 'old', expected_revision: 1 })).status, 400);
-  assert.equal((await badPost({ name: 'bad', role: 'old', model: 'different', expected_revision: 2 })).ok, false);
+  assert.equal((await badPost({ name: 'bad', role: 'old', browser: true, expected_revision: 2 })).ok, false);
   const task = await app.submit('tool Check stock');
   await until(async () => (await app.state()).permissions.length, 'No pending approval');
   assert.equal((await badPost({ name: 'busy', role: 'old', expected_revision: 2 })).status, 400);
