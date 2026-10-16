@@ -1,3 +1,5 @@
+mod browser;
+mod browser_network;
 pub mod config;
 mod gateway;
 mod qmp;
@@ -32,6 +34,7 @@ struct VmProcess {
     config: VmConfig,
     child: Child,
     gateway: ModelGateway,
+    _browser_network: Option<browser_network::BrowserNetwork>,
     ssh_port: u16,
     group: i32,
     boot_seconds: f64,
@@ -117,6 +120,20 @@ impl VmManager {
         lock.try_lock()
             .context("This VM is already owned by another Ayati process")?;
         let gateway = ModelGateway::start(&self.provider, &self.model).await?;
+        let browser_network = if config.browser_version.is_some() {
+            Some(browser_network::BrowserNetwork::start().await?)
+        } else {
+            None
+        };
+        let browser_forward = browser_network
+            .as_ref()
+            .map(|n| {
+                format!(
+                    ",guestfwd=tcp:10.0.2.101:8081-cmd:/usr/bin/socat - TCP:127.0.0.1:{}",
+                    n.port
+                )
+            })
+            .unwrap_or_default();
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
         let port = listener.local_addr()?.port();
         drop(listener);
@@ -137,7 +154,7 @@ impl VmManager {
             .arg("-drive").arg(format!("if=pflash,format=raw,readonly=on,file={}",qemu_path(&config.firmware_code)))
             .arg("-drive").arg(format!("if=pflash,format=raw,file={}",qemu_path(&config.directory.join("vars.fd"))))
             .arg("-drive").arg(format!("file={},if=virtio,format=qcow2",qemu_path(&config.directory.join("disk.qcow2"))))
-            .arg("-netdev").arg(format!("user,id=n1,restrict=on,ipv6=off,hostfwd=tcp:127.0.0.1:{port}-:22,guestfwd=tcp:10.0.2.100:8080-cmd:/usr/bin/socat - TCP:127.0.0.1:{}",gateway.port))
+            .arg("-netdev").arg(format!("user,id=n1,restrict=on,ipv6=off,hostfwd=tcp:127.0.0.1:{port}-:22,guestfwd=tcp:10.0.2.100:8080-cmd:/usr/bin/socat - TCP:127.0.0.1:{}{browser_forward}",gateway.port))
             .args(["-device","virtio-net-pci,netdev=n1,romfile="])
             .stdin(Stdio::null()).stdout(Stdio::null())
             .stderr(OpenOptions::new().create(true).truncate(true).write(true).mode(0o600).open(config.directory.join("qemu.log"))?)
@@ -162,6 +179,7 @@ impl VmManager {
             config,
             child,
             gateway,
+            _browser_network: browser_network,
             ssh_port: port,
             group,
             boot_seconds: 0.0,
@@ -193,7 +211,7 @@ impl VmManager {
         anyhow::bail!("VM boot timed out; inspect its private console.log")
     }
 
-    pub async fn connect(&self) -> Result<Child> {
+    pub async fn connect(&self, run: &str) -> Result<Child> {
         self.start().await?;
         let process = self.process.lock().await;
         let p = process.as_ref().context("VM stopped before connection")?;
@@ -206,7 +224,10 @@ impl VmManager {
             .kill_on_drop(true)
             .process_group(0)
             .spawn()?;
-        let config = json!({"version":1,"op":"acp","agent_id":p.config.agent_id,"model":self.model,"token":p.gateway.token});
+        let mut config = json!({"version":1,"op":"acp","agent_id":p.config.agent_id,"model":self.model,"token":p.gateway.token});
+        if p.config.browser_version.is_some() {
+            config["run"] = json!(run);
+        }
         child
             .stdin
             .as_mut()
@@ -249,6 +270,17 @@ impl VmManager {
 
     pub async fn stop(&self) -> Result<()> {
         self.stop_requested.store(true, Ordering::SeqCst);
+        let browser = self
+            .process
+            .lock()
+            .await
+            .as_ref()
+            .is_some_and(|p| p.config.browser_version.is_some());
+        let parked = if browser {
+            self.browser(json!({"op":"park"})).await.map(|_| ())
+        } else {
+            Ok(())
+        };
         if let Some(mut p) = self.process.lock().await.take() {
             let requested = qmp::power_down(&p.config.directory.join("qmp.sock")).await;
             if requested.is_ok()
@@ -257,7 +289,7 @@ impl VmManager {
                     Ok(Ok(status)) if status.success()
                 )
             {
-                return Ok(());
+                return parked.context("VM stopped but browser profile flush was not confirmed");
             }
             drop(p);
             anyhow::bail!("VM required forced termination; its interrupted work was not replayed")

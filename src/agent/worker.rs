@@ -19,6 +19,7 @@ impl Agent {
                         .map_err(|_| anyhow::anyhow!("Agent state unavailable"))?;
                     if agent.closing.load(Ordering::SeqCst)
                         || agent.environment_stopping.load(Ordering::SeqCst)
+                        || agent.goose.as_ref().is_some_and(|g| g.browser_owned())
                     {
                         return Ok(None);
                     }

@@ -1,3 +1,4 @@
+mod browser;
 mod environment;
 mod intake;
 mod leases;
@@ -40,6 +41,7 @@ pub struct Agent {
     wake: Notify,
     closing: AtomicBool,
     environment_stopping: AtomicBool,
+    environment_generation: std::sync::atomic::AtomicU64,
     environment: tokio::sync::Mutex<()>,
     leases: leases::Leases,
     idle_timeout: Option<std::time::Duration>,
@@ -90,6 +92,7 @@ impl Agent {
             wake: Notify::new(),
             closing: AtomicBool::new(false),
             environment_stopping: AtomicBool::new(false),
+            environment_generation: std::sync::atomic::AtomicU64::new(0),
             environment: tokio::sync::Mutex::new(()),
             leases: leases::Leases::new(),
             idle_timeout,

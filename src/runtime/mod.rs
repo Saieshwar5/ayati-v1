@@ -1,3 +1,4 @@
+mod browser;
 pub mod config;
 mod events;
 pub mod proof_tool;
@@ -32,6 +33,7 @@ use tokio_util::{
 };
 
 pub struct GooseRuntime {
+    browser: Option<browser::BrowserControl>,
     config: GooseConfig,
     vm: Option<Arc<crate::vm::VmManager>>,
     shared: Arc<RuntimeEvents>,
@@ -86,6 +88,7 @@ impl GooseRuntime {
 
     pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
         let proof_tool = config.proof_tool;
+        let browser_enabled = config.browser;
         let vm = config.vm_manifest.as_ref().map(|path| {
             Arc::new(crate::vm::VmManager::new(
                 path.clone(),
@@ -94,6 +97,10 @@ impl GooseRuntime {
             ))
         });
         Self {
+            browser: config.browser.then(|| {
+                browser::BrowserControl::load(config.root.parent().unwrap_or(&config.root))
+                    .expect("Invalid persisted browser ownership")
+            }),
             vm,
             config,
             shared: Arc::new(RuntimeEvents {
@@ -101,14 +108,16 @@ impl GooseRuntime {
                 store,
                 events,
                 proof_tool,
+                browser: browser_enabled,
             }),
             process: tokio::sync::Mutex::new(None),
         }
     }
 
     async fn connect(&self) -> Result<Process> {
+        let connection_id = uuid::Uuid::new_v4().to_string();
         let mut child = if let Some(vm) = &self.vm {
-            vm.connect().await?
+            vm.connect(&connection_id).await?
         } else {
             self.config
                 .command()
@@ -125,7 +134,6 @@ impl GooseRuntime {
             child.stdin.take().unwrap().compat_write(),
             child.stdout.take().unwrap().compat(),
         );
-        let connection_id = uuid::Uuid::new_v4().to_string();
         let notification_id = connection_id.clone();
         let permission_id = connection_id.clone();
         let shared = self.shared.clone();
@@ -184,6 +192,9 @@ impl GooseRuntime {
             };
             let meta = self.config.session_meta()?;
             let mut settings = serde_json::json!({"provider":self.config.provider,"model":self.config.model,"proof_tool":self.config.proof_tool,"adapter":1});
+            if self.config.browser {
+                settings["browser_adapter"] = serde_json::json!(1);
+            }
             if let Some(path) = &self.config.vm_manifest {
                 settings["vm_manifest"] = serde_json::json!(path);
             }
@@ -259,6 +270,7 @@ impl GooseRuntime {
             "Stopped before prompt submission"
         );
         let p = process.as_ref().unwrap();
+        self.arm_browser(&p.connection_id).await?;
         let turn = Arc::new(Turn {
             tools: Mutex::new(std::collections::HashMap::new()),
             claim: claim.clone(),
@@ -306,6 +318,9 @@ impl GooseRuntime {
                 "Runtime action records could not be verified; no automatic retry was made"
             ));
         }
+        if let Err(error) = self.disarm_browser().await {
+            result = Err(error);
+        }
         *self.shared.active.lock().unwrap() = None;
         self.shared.store.cancel_permissions(task)?;
         let status = if cancel.is_cancelled() {
@@ -318,7 +333,7 @@ impl GooseRuntime {
         self.shared
             .store
             .save_claim_reply(claim, reply, &turn.text.lock().unwrap(), status)?;
-        if result.is_err() {
+        if result.is_err() || self.config.browser {
             process.take();
         }
         result

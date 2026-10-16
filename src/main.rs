@@ -9,6 +9,7 @@ use ayati::{
 };
 use std::{os::unix::fs::PermissionsExt, sync::Arc};
 use tokio_util::sync::CancellationToken;
+mod browser_cli;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
@@ -54,9 +55,12 @@ async fn main() -> Result<()> {
             println!("{}", response.error_for_status()?.text().await?);
             Ok(())
         }
+        "browser" if std::env::args().nth(2).as_deref() == Some("release") => {
+            browser_cli::release(&config).await
+        }
         "help" | "--help" | "-h" => {
             println!(
-                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }
@@ -94,6 +98,7 @@ async fn serve(config: Config) -> Result<()> {
         )
     } else {
         let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
+        runtime.validate_browser()?;
         let ready = runtime.configured();
         (
             Agent::start_goose(

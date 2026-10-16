@@ -74,7 +74,10 @@ impl Store {
         output: Option<&Value>,
     ) -> Result<()> {
         ensure!(
-            matches!(status, "pending" | "running" | "completed" | "failed"),
+            matches!(
+                status,
+                "pending" | "running" | "completed" | "failed" | "uncertain"
+            ),
             "Invalid observed tool status"
         );
         let output = output.map(|v| {

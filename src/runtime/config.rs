@@ -16,9 +16,26 @@ pub struct GooseConfig {
     pub provider: String,
     pub model: String,
     pub proof_tool: bool,
+    pub browser: bool,
 }
 
 impl GooseConfig {
+    pub fn validate_browser(&self) -> Result<()> {
+        if self.browser {
+            let path = self
+                .vm_manifest
+                .as_ref()
+                .context("Browser requires VM execution")?;
+            let manifest = crate::vm::config::VmConfig::load(path)?;
+            ensure!(
+                manifest.browser_version.as_deref() == Some("0.39.1"),
+                "Prepare a new VM with --browser; existing VMs are preserved"
+            );
+            super::browser::BrowserControl::load(self.root.parent().unwrap_or(&self.root))
+                .context("Invalid saved browser ownership; existing state was preserved")?;
+        }
+        Ok(())
+    }
     pub fn from_env(data: &Path, model: &str) -> Self {
         Self {
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
@@ -35,6 +52,7 @@ impl GooseConfig {
                 .unwrap_or_else(|_| "fireworks-ai".into()),
             model: model.into(),
             proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
+            browser: std::env::var("AYATI_BROWSER").as_deref() == Ok("1"),
         }
     }
 
@@ -112,7 +130,7 @@ impl GooseConfig {
     // Goose 1.54 treats this explicit selection as authoritative. Omitting it
     // can enable default developer/configured tools; isolate it for upgrade tests.
     pub fn session_meta(&self) -> Result<serde_json::Map<String, serde_json::Value>> {
-        let extensions = if self.proof_tool {
+        let mut extensions = if self.proof_tool {
             serde_json::json!([{"type":"mcp","server": {
                 "name":"ayati_proof", "command":if self.vm_manifest.is_some() { PathBuf::from("/usr/local/bin/ayati-guest") } else { std::env::current_exe()? },
                 "args":["mcp"], "env":[]
@@ -120,6 +138,15 @@ impl GooseConfig {
         } else {
             serde_json::json!([])
         };
+        if self.browser {
+            ensure!(
+                self.vm_manifest.is_some(),
+                "Browser execution requires AYATI_EXECUTION=vm"
+            );
+            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
+                "name":"ayati_browser","command":"/usr/local/bin/ayati-guest","args":["browser-mcp"],"env":[]
+            }}));
+        }
         Ok(
             serde_json::json!({"enabledExtensions":extensions,"sessionTitle":"Ayati local agent"})
                 .as_object()

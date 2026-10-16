@@ -19,14 +19,19 @@ struct Request {
     token: Option<String>,
     value: Option<String>,
     port: Option<u16>,
+    browser: Option<serde_json::Value>,
+    run: Option<String>,
 }
 
 pub async fn serve() -> Result<()> {
     let mut input = BufReader::new(tokio::io::stdin());
     let mut line = Vec::new();
-    (&mut input).take(8193).read_until(b'\n', &mut line).await?;
+    (&mut input)
+        .take(super::browser_mcp::LIMIT + 1)
+        .read_until(b'\n', &mut line)
+        .await?;
     ensure!(
-        line.len() <= 8192 && line.ends_with(b"\n"),
+        line.len() as u64 <= super::browser_mcp::LIMIT && line.ends_with(b"\n"),
         "Invalid bridge initialization"
     );
     let request: Request = serde_json::from_slice(&line).context("Invalid bridge request shape")?;
@@ -78,6 +83,23 @@ pub async fn serve() -> Result<()> {
             Ok(())
         }
         "acp" => run_goose(request, input).await,
+        "browser_probe" => {
+            let release: serde_json::Value =
+                serde_json::from_slice(&std::fs::read("/opt/ayati/browser/release.json")?)?;
+            println!(
+                "{}",
+                json!({"runtime_cannot_list_profile":std::fs::read_dir("/var/lib/ayati-browser/profile").is_err(),"runtime_cannot_list_private_sockets":std::fs::read_dir("/run/ayati-browser/private").is_err(),"agent_browser_version":release["agent_browser"]["version"],"chrome_version":release["chrome"]["version"]})
+            );
+            Ok(())
+        }
+        "browser" => {
+            println!(
+                "{}",
+                super::browser_mcp::exchange(&request.browser.context("Missing browser request")?)
+                    .await?
+            );
+            Ok(())
+        }
         _ => anyhow::bail!("Unsupported bridge operation"),
     }
 }
@@ -93,6 +115,11 @@ impl Drop for OwnedGoose {
 }
 
 async fn run_goose(request: Request, mut input: BufReader<tokio::io::Stdin>) -> Result<()> {
+    let run = request.run.unwrap_or_default();
+    ensure!(
+        run.len() <= 64 && run.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-'),
+        "Invalid run identity"
+    );
     let model = request.model.context("Model is required")?;
     let token = request.token.context("Model access token is required")?;
     ensure!(
@@ -124,6 +151,7 @@ async fn run_goose(request: Request, mut input: BufReader<tokio::io::Stdin>) -> 
         .env("PATH", "/usr/local/bin:/usr/bin:/bin")
         .env("GOOSE_PATH_ROOT", format!("{ROOT}/goose"))
         .env("GOOSE_PROVIDER", "openai")
+        .env("AYATI_BROWSER_RUN", run)
         .env("GOOSE_MODEL", model)
         .env("OPENAI_HOST", "http://10.0.2.100:8080")
         .env("OPENAI_BASE_PATH", "v1/chat/completions")

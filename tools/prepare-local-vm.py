@@ -14,6 +14,7 @@ import subprocess
 import threading
 import time
 import sys
+from browser_guest import browser_files, browser_setup
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / '.cache/vm-python'))
@@ -42,7 +43,7 @@ def ssh_args(directory, port, agent_id):
             '-p', str(port), 'ayati@127.0.0.1']
 
 
-def prepare(directory, agent_id):
+def prepare(directory, agent_id, browser=False):
     require(re.fullmatch(r'[a-z0-9-]{1,48}', agent_id), 'Invalid agent identity')
     require(',' not in str(directory) and len(os.fsencode(directory / 'qmp.sock')) < 104,
             'VM directory must fit a private socket path and cannot contain commas')
@@ -74,8 +75,12 @@ def prepare(directory, agent_id):
     shutil.copyfile(firmware / 'OVMF_VARS.4m.fd', directory / 'vars.fd')
     subprocess.run([str(qemu_img), 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', str(IMAGE), str(directory / 'disk.qcow2'), '8G'], env=env, check=True)
     binaries = {'goose': goose, 'ayati-guest': guest}
+    if browser:
+        bundle = ROOT / '.cache/browser/v0.39.1/browser.tar.gz'
+        require(bundle.is_file(), 'Run tools/install-browser.py before preparing a browser VM')
+        binaries['browser.tar.gz'] = bundle
     hashes = {name: digest(path) for name, path in binaries.items()}
-    seed = build_seed(agent_id, public, (directory / 'host_key').read_text(), host_public, hashes)
+    seed = build_seed(agent_id, public, (directory / 'host_key').read_text(), host_public, hashes, browser)
 
     class Bootstrap(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -110,7 +115,7 @@ def prepare(directory, agent_id):
         port = sock.getsockname()[1]
     qmp = directory / 'qmp.sock'
     args = [str(qemu), '-machine', 'q35,accel=kvm,dump-guest-core=off,mem-merge=off', '-cpu', 'host',
-            '-m', '768', '-smp', '1', '-nodefaults', '-no-user-config', '-display', 'none', '-monitor', 'none',
+            '-m', '1536' if browser else '768', '-smp', '1', '-nodefaults', '-no-user-config', '-display', 'none', '-monitor', 'none',
             '-serial', f'file:{directory / "console.log"}', '-qmp', f'unix:{qmp},server=on,wait=off',
             '-L', str(qemu_root / 'usr/share/qemu'),
             '-drive', f'if=pflash,format=raw,readonly=on,file={firmware / "OVMF_CODE.4m.fd"}',
@@ -129,6 +134,14 @@ def prepare(directory, agent_id):
                     raise RuntimeError('QEMU exited; inspect the private qemu.log')
                 result = subprocess.run(ssh_args(directory, port, agent_id), input=json.dumps({'version': 1, 'agent_id': agent_id, 'op': 'probe'}) + '\n', capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
+                    if browser:
+                        status = subprocess.run(ssh_args(directory, port, agent_id), input=json.dumps({'version':1,'agent_id':agent_id,'op':'browser','browser':{'op':'status'}})+'\n', capture_output=True, text=True, timeout=5)
+                        if status.returncode != 0:
+                            time.sleep(1)
+                            continue
+                        require(json.loads(status.stdout).get('profile_initialized') is False, 'Fresh VM inherited browser profile data')
+                        private = subprocess.run(ssh_args(directory, port, agent_id), input=json.dumps({'version':1,'agent_id':agent_id,'op':'browser_probe'})+'\n', capture_output=True, text=True, timeout=5)
+                        require(private.returncode == 0 and json.loads(private.stdout)['runtime_cannot_list_profile'] and json.loads(private.stdout)['runtime_cannot_list_private_sockets'], 'Browser credentials are visible to the runtime')
                     ready = json.loads(result.stdout)
                     break
                 time.sleep(1)
@@ -164,21 +177,23 @@ def prepare(directory, agent_id):
     manifest = {'version': 1, 'agent_id': agent_id, 'qemu': str(qemu), 'qemu_img': str(qemu_img),
                 'library_path': library, 'firmware_code': str(firmware / 'OVMF_CODE.4m.fd'),
                 'firmware_data': str(qemu_root / 'usr/share/qemu'),
-                'directory': str(directory), 'memory_mib': 768, 'vcpus': 1,
+                'directory': str(directory), 'memory_mib': 1536 if browser else 768, 'vcpus': 1,
                 'base_sha256': IMAGE_SHA, 'guest_sha256': hashes['ayati-guest'], 'goose_version': '1.54.0'}
     path = directory / 'vm.json'
+    if browser:
+        manifest['browser_version'] = '0.39.1'
     path.write_text(json.dumps(manifest, indent=2) + '\n')
     path.chmod(0o600)
     print(f'Ready VM manifest: {path}', flush=True)
 
 
-def build_seed(agent_id, public, host_key, host_public, hashes):
+def build_seed(agent_id, public, host_key, host_public, hashes, browser=False):
     setup = f'''
 import hashlib,pathlib,urllib.request,os,pwd,subprocess
 for name,digest in {hashes!r}.items():
     blob=urllib.request.urlopen('http://10.0.2.100/'+name,timeout=30).read()
     if hashlib.sha256(blob).hexdigest()!=digest:raise RuntimeError('Guest artifact checksum mismatch')
-    path=pathlib.Path('/opt/ayati/goose' if name=='goose' else '/usr/local/bin/ayati-guest')
+    path=pathlib.Path('/opt/ayati/'+name if name in ['goose','browser.tar.gz'] else '/usr/local/bin/ayati-guest')
     path.parent.mkdir(parents=True,exist_ok=True)
     path.write_bytes(blob);path.chmod(0o755)
 u=pwd.getpwnam('ayati')
@@ -190,6 +205,8 @@ subprocess.run(['systemctl','daemon-reexec'],check=True)
 subprocess.run(['systemctl','mask','--now','snapd.service','snapd.socket','snapd.seeded.service','apt-daily.timer','apt-daily-upgrade.timer','unattended-upgrades.service'],check=False)
 subprocess.run(['systemctl','restart','ssh'],check=True)
 '''
+    if browser:
+        setup += browser_setup()
     files = [{'path':'/etc/systemd/system.conf.d/ayati.conf','content':'[Manager]\nDefaultTimeoutStopSec=10s\n','permissions':'0644'}, {'path': '/etc/ayati/agent-id', 'content': agent_id + '\n', 'permissions': '0644'},
              {'path': '/etc/ssh/ssh_host_ed25519_key', 'content': host_key, 'permissions': '0600'},
              {'path': '/etc/ssh/ssh_host_ed25519_key.pub', 'content': host_public + '\n', 'permissions': '0644'},
@@ -198,6 +215,9 @@ subprocess.run(['systemctl','restart','ssh'],check=True)
                         'ssh_authorized_keys': [f'restrict,command="/usr/local/bin/ayati-guest bridge" {public}']}],
               'ssh_pwauth': False, 'disable_root': True, 'ssh_deletekeys': False,
               'ssh_genkeytypes': [], 'write_files': files, 'runcmd': [['python3', '-c', setup]]}
+    if browser:
+        config['users'].append({'name':'ayati-browser','shell':'/usr/sbin/nologin','lock_passwd':True,'primary_group':'ayati'})
+        files.extend(browser_files())
     return {'/meta-data': json.dumps({'instance-id': f'ayati-{agent_id}', 'local-hostname': f'ayati-{agent_id}'}),
             '/user-data': '#cloud-config\n' + json.dumps(config), '/vendor-data': '{}'}
 
@@ -206,7 +226,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', required=True)
     parser.add_argument('--agent-id', default='local-agent')
+    parser.add_argument('--browser', action='store_true', help='Install the pinned browser under its own guest account')
     args = parser.parse_args()
     directory = Path(args.directory).resolve()
     # Use a stable final directory component as the host-key alias.
-    prepare(directory, args.agent_id)
+    prepare(directory, args.agent_id, args.browser)

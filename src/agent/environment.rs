@@ -20,6 +20,7 @@ impl Agent {
         state["dispatch_paused"] = json!(self.store.dispatch_paused().ok());
         state["idle_timeout_seconds"] = json!(self.idle_timeout.map(|d| d.as_secs()));
         state["stopping"] = json!(self.environment_stopping.load(Ordering::SeqCst));
+        state["browser_owner"] = json!(self.goose.as_ref().is_some_and(|g| g.browser_owned()));
         state
     }
 
@@ -64,6 +65,7 @@ impl Agent {
                 "VM is already stopping"
             );
             self.store.stop_all_work()?;
+            self.environment_generation.fetch_add(1, Ordering::SeqCst);
             self.environment_stopping.store(true, Ordering::SeqCst);
             for token in active.values() {
                 token.cancel();
@@ -112,11 +114,13 @@ impl Agent {
             return Ok(());
         };
         if goose.is_vm()
+            && !goose.browser_owned()
             && !self.closing.load(Ordering::SeqCst)
             && !self.environment_stopping.load(Ordering::SeqCst)
             && self.leases.idle_for(timeout)
             && (self.store.pending_count()? == 0 || self.store.dispatch_paused()?)
             && goose.environment_status().await["state"] == "ready"
+            && goose.browser_idle_safe().await?
         {
             tracing::info!("Releasing idle agent VM");
             // Intake can save work during this await. Dispatch is serialized

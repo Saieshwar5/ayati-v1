@@ -37,6 +37,26 @@ export async function fixtureProvider() {
       if (result) text = `TOOL_RESULT ${JSON.stringify(result.content)}`;
       else tool = { id: 'fixture-call', type: 'function', function: { name: 'ayati_proof__get_demo_business', arguments: '{}' } };
     }
+    if (prompt?.startsWith('browser ')) {
+      const command = JSON.parse(prompt.slice(8));
+      const results = messages.slice(lastUser + 1).filter((message) => message.role === 'tool');
+      const steps = command.steps ?? [command];
+      const step = steps[results.length];
+      if (!step) text = `BROWSER_RESULT ${JSON.stringify(results.at(-1)?.content)}`;
+      else {
+        const arguments_ = { ...step.arguments };
+        if (step.refName) {
+          const snapshot = String(results.at(-1)?.content ?? '');
+          const escaped = step.refName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const reference = snapshot.match(new RegExp(`"${escaped}"[^\\n]*?ref=(e[0-9]+)`));
+          if (!reference) throw new Error(`Fixture could not find observed browser reference: ${step.refName}`);
+          arguments_.selector = '@' + reference[1];
+        }
+        tool = { id: `browser-call-${results.length}`, type: 'function', function: {
+          name: `ayati_browser__agent_browser_${step.tool}`, arguments: JSON.stringify(arguments_),
+        } };
+      }
+    }
     const message = tool ? { role: 'assistant', content: null, tool_calls: [tool] } : { role: 'assistant', content: text };
     if (input.stream) {
       response.setHeader('Content-Type', 'text/event-stream');

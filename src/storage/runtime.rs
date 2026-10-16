@@ -14,6 +14,10 @@ pub struct PendingPermission {
 }
 
 impl Store {
+    pub fn cancel_all_browser_permissions(&self) -> Result<()> {
+        self.connection()?.execute("UPDATE permissions SET decision='cancelled' WHERE decision='pending' AND action LIKE '%ayati_browser__%'", [])?;
+        Ok(())
+    }
     pub(super) fn migrate_runtime(connection: &mut rusqlite::Connection) -> Result<()> {
         let tx = connection.transaction()?;
         tx.execute_batch(include_str!("runtime.sql"))?;

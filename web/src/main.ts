@@ -3,6 +3,7 @@ import { api, post, type AgentEvent, type Artifact, type Snapshot } from './type
 import { element, renderConversation, renderFiles } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
+import { installBrowser } from './browser';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -10,6 +11,7 @@ app.innerHTML = `
     <div class="identity"><span class="avatar" aria-hidden="true">a</span>
       <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
+    <button class="files-button" id="browser-button" hidden>Browser</button>
     <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Files <span id="file-count">0</span></button>
   </header>
   <main class="main">
@@ -33,7 +35,20 @@ app.innerHTML = `
       <div id="files-list" class="files-list"></div>
     </aside>
   </main>
+  <section id="browser-panel" class="browser-panel" aria-label="Agent browser" hidden>
+    <div class="panel-header"><h2>Agent browser</h2><button id="browser-close" class="icon-button" aria-label="Close browser panel">×</button></div>
+    <p id="browser-message" role="status"></p>
+    <div class="browser-controls"><button id="browser-take" class="text-button">Take control</button><button id="browser-resume" class="text-button" disabled>Hand back to agent</button><button id="browser-finish" class="text-button" disabled>Close browser session</button></div>
+    <p>Closing the browser session discards unfinished forms. Saved logins remain.</p>
+    <canvas id="browser-canvas" tabindex="0" aria-label="Live agent browser. Take control to interact." width="1280" height="720"></canvas>
+    <div id="browser-owner-input" hidden>
+      <form id="browser-navigate"><label>Website <input id="browser-address" type="url" placeholder="https://example.com" required></label><button>Open</button></form>
+      <form id="browser-text"><label>Type into the selected browser field <input id="browser-private-text" type="password" autocomplete="off"></label><button>Send text</button></form>
+      <p>Use the browser view to select a field first. This text is sent only to your browser session.</p>
+    </div>
+  </section>
   <input id="file-input" type="file" hidden />`;
+installBrowser();
 
 const conversation = document.querySelector<HTMLDivElement>('#conversation')!;
 const input = document.querySelector<HTMLTextAreaElement>('#input')!;

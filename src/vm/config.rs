@@ -21,6 +21,8 @@ pub struct VmConfig {
     pub base_sha256: String,
     pub guest_sha256: String,
     pub goose_version: String,
+    #[serde(default)]
+    pub browser_version: Option<String>,
 }
 
 impl VmConfig {
