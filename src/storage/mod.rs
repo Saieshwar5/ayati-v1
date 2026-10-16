@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod attention;
 mod claim_updates;
 pub mod intake;
 pub mod memory;
@@ -50,7 +51,7 @@ impl Store {
         let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 5,
+            version <= 6,
             "Database is newer than this Ayati version; do not downgrade"
         );
         connection.pragma_update(None, "synchronous", "FULL")?;
@@ -68,6 +69,11 @@ impl Store {
         if version < 5 {
             let tx = connection.transaction()?;
             tx.execute_batch(include_str!("memory.sql"))?;
+            tx.commit()?;
+        }
+        if version < 6 {
+            let tx = connection.transaction()?;
+            tx.execute_batch("CREATE TABLE attention_reviews(task_id TEXT PRIMARY KEY REFERENCES tasks(id), reviewed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); PRAGMA user_version=6;")?;
             tx.commit()?;
         }
         Ok(Self {

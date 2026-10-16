@@ -1,7 +1,7 @@
 # Independent local agents
 
 The local owner can create additional lasting roles through **New agent** in the
-Agents list. Enter a name, responsibility and model supported by the daemon's
+Agents list (choose Agents in the left rail). Enter a name, responsibility and model supported by the daemon's
 configured provider; choose enabled memory/browser tools. Setup runs in the
 background and the original chat remains usable. Open the agent when it is ready.
 
@@ -116,7 +116,8 @@ AYATI_VM_TEST_MANIFEST=/absolute/path/to/vm.json \
 
 This is integration evidence, not live-model quality or hosted tenant isolation.
 Live-provider memory acceptance still needs locally configured credentials.
-Remaining L6 work includes the full Home/Apps/Agents/Settings navigation, explicit
-staff/business access, an attention inbox, editable role settings, history
+The compact Home/Apps/Agents/Settings navigation is implemented; see
+[workspace interface](workspace-interface.md). Remaining L6 work includes explicit
+staff/business access, structured owner questions, editable role settings, history
 pagination and real image/document/audio processing. Shared records and connector
 grants remain separate later milestones.

@@ -65,7 +65,7 @@ test('owner memory edit interrupts active work and the web panel saves, corrects
   const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true }); t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
-  await page.goto(app.base.replace('/api', ''));
+  await page.goto(app.base.replace('/api', '/?agent=local-agent'));
   await page.locator('#memory-button').click();
   await page.locator('#memory-note [name=key]').fill('report.time');
   await page.locator('#memory-note [name=content]').fill('Daily report at 6 PM');

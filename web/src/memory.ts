@@ -39,7 +39,7 @@ export function installMemory(): void {
     status.textContent = data.memories.length ? 'Up to eight relevant facts shown.' : 'No matching facts.';
   }
   button.onclick = () => { panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) void load().catch((e: Error) => { status.textContent = e.message; }); };
-  panel.querySelector<HTMLButtonElement>('#memory-close')!.onclick = () => { panel.hidden = true; button.setAttribute('aria-expanded', 'false'); button.focus(); };
+  panel.querySelector<HTMLButtonElement>('#memory-close')!.onclick = () => { panel.hidden = true; button.setAttribute('aria-expanded', 'false'); (button.getClientRects().length ? button : document.querySelector<HTMLButtonElement>('#details-button'))?.focus(); };
   panel.querySelector<HTMLButtonElement>('#memory-new')!.onclick = clear;
   panel.querySelector<HTMLFormElement>('#memory-search')!.onsubmit = (e) => { e.preventDefault(); void load().catch((error: Error) => { status.textContent = error.message; }); };
   form.onsubmit = (e) => { e.preventDefault(); const save = form.querySelector<HTMLButtonElement>('button')!; save.disabled = true;

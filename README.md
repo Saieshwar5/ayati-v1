@@ -25,8 +25,8 @@ cp -n .env.example .env
 cargo run -- serve
 ```
 
-Open **http://127.0.0.1:8765**. Without provider configuration, the page remains
-available and sending is disabled. Restart the daemon after changing configuration.
+Open **http://127.0.0.1:8765** for Home. Choose **Agents** to chat. Without
+provider configuration, the workspace remains available and sending is disabled. Restart the daemon after changing configuration.
 The binary must match pinned Goose 1.54.0; the installer verifies the release
 archive's SHA-256. Release/source details are in [the runtime manifest](runtime/goose-release.json).
 This is a real upstream runtime through the official ACP Rust SDK, not linked
@@ -59,6 +59,19 @@ The UI's Stop cancels a request. The CLI's stop shuts down the service and its
 owned runtime, preserving queued jobs for the next configured startup. Started
 jobs become interrupted. Completed external actions cannot be undone by cancellation.
 
+## Home and attention
+
+Choose **Home** in the left rail, or open `http://127.0.0.1:8765/?view=home`.
+See active work and approvals across agents, inspect individual requests, approve
+or deny an exact action, and stop work. Failed/interrupted requests remain until
+**Mark reviewed**; their history stays saved. Home refreshes automatically and
+rejects stale decisions. **Agents** returns to conversations and agent creation.
+Home is now the landing page. The compact rail also opens **Apps** (not yet
+implemented) and **Settings**, with theme selection and local setup status.
+Agents has search and an optional details panel; narrow screens use drawers.
+See [the workspace interface](runtime/workspace-interface.md) and
+[Home contract](runtime/home-attention.md) for behavior and recovery details.
+
 ## Durable jobs and recovery
 
 SQLite now owns the bounded queue (32 pending jobs), input receipts, execution
@@ -82,7 +95,7 @@ not authoritative receipts from business services. A lost-reply write is tested
 with an independent synthetic service record; live connectors and automated
 reconciliation are later work. See [the recovery contract](runtime/durable-work.md).
 
-Ayati database schema is now version 4. History and saved Goose mappings are
+Ayati database schema is now version 6. History and saved Goose mappings are
 preserved; legacy queued jobs from earlier schemas become interrupted rather than
 being replayed. Older binaries must not open the upgraded database. Automatic
 scheduling and idle VM shutdown/wake are implemented in the next section.

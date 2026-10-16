@@ -2,16 +2,29 @@ import './agents.css';
 import { api, selectedAgent } from './types';
 import { element } from './view';
 
-type Profile = { id: string; name: string; role: string; model: string; memory: boolean; browser: boolean; state: string; detail: string };
+export type Profile = { id: string; name: string; role: string; model: string; memory: boolean; browser: boolean; state: string; detail: string };
 type Workspace = { agents: { profile: Profile; activity: { pending_approvals: number; pending_tasks: number } }[]; creation_available: boolean; memory_available: boolean; browser_available: boolean; default_model: string; limit: number };
 
-export function installAgents(): void {
+export function installAgents(updateDetails: (profile: Profile) => void): void {
   const main = document.querySelector<HTMLElement>('.main')!;
   const panel = element('aside', 'agents-list');
   panel.setAttribute('aria-label', 'Agents');
   panel.innerHTML = `<div class="agents-heading"><h2>Agents</h2><button id="new-agent" class="files-button">New agent</button></div>
-    <p class="agents-hint">Independent roles. Separate conversations.</p><div id="agent-cards"></div><p id="agents-status" role="status"></p>`;
+    <label class="agent-search-label">Search agents<input id="agent-search" type="search" placeholder="Search agents…"></label><div id="agent-cards"></div><p id="agents-status" role="status"></p>`;
   main.prepend(panel);
+  const chooser = document.createElement('dialog'); chooser.className = 'agent-chooser';
+  chooser.setAttribute('aria-label', 'Choose agent');
+  const closeChooser = element('button', 'files-button', 'Back to conversation');
+  chooser.append(closeChooser); document.body.append(chooser);
+  const toggle = document.querySelector<HTMLButtonElement>('#agent-list-toggle')!;
+  toggle.setAttribute('aria-haspopup', 'dialog');
+  toggle.onclick = () => { chooser.append(panel); chooser.showModal(); panel.querySelector<HTMLInputElement>('#agent-search')!.focus(); };
+  closeChooser.onclick = () => chooser.close();
+  chooser.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); chooser.close(); }
+  });
+  chooser.addEventListener('close', () => { main.prepend(panel); toggle.focus(); });
+  matchMedia('(max-width: 760px)').addEventListener('change', event => { if (!event.matches && chooser.open) chooser.close(); });
   const dialog = document.createElement('dialog');
   dialog.className = 'agent-setup';
   dialog.setAttribute('aria-labelledby', 'setup-title');
@@ -41,6 +54,16 @@ export function installAgents(): void {
     headers: { 'X-Ayati-Agent': 'local-agent', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
   });
+  const search = panel.querySelector<HTMLInputElement>('#agent-search')!;
+  const empty = element('p', 'agent-detail', 'No matching agents.'); empty.hidden = true; panel.append(empty);
+  function filter(): void {
+    const query = search.value.trim().toLocaleLowerCase();
+    const rows = Array.from(cards.children) as HTMLElement[];
+    for (const row of rows) row.hidden = !row.dataset.search?.includes(query);
+    empty.hidden = !rows.length || rows.some(row => !row.hidden);
+  }
+  search.oninput = filter;
+  let refreshing = false;
   let workspace: Workspace | undefined;
   let fingerprint = '';
   let busy = false;
@@ -48,6 +71,8 @@ export function installAgents(): void {
   create.disabled = true;
 
   async function refresh(): Promise<void> {
+    if (refreshing) return;
+    refreshing = true;
     try {
       workspace = await ownerApi<Workspace>('/agents');
       create.disabled = !workspace.creation_available || workspace.agents.length >= workspace.limit || workspace.agents.some(a => a.profile.state === 'preparing');
@@ -55,6 +80,7 @@ export function installAgents(): void {
         : workspace.agents.length >= workspace.limit ? `Local limit: ${workspace.limit} agents.` : '';
       const current = workspace.agents.find(a => a.profile.id === selectedAgent)?.profile;
       if (current) {
+        updateDetails(current);
         document.querySelector('.identity strong')!.textContent = current.name;
         document.title = `${current.name} · Ayati`;
         const input = document.querySelector<HTMLTextAreaElement>('#input')!;
@@ -66,6 +92,10 @@ export function installAgents(): void {
       fingerprint = next;
       cards.replaceChildren(...workspace.agents.map(({ profile, activity }) => {
         const card = element('div', 'agent-card');
+        card.dataset.search = `${profile.name} ${profile.role}`.toLocaleLowerCase();
+        if (profile.id === selectedAgent) card.classList.add('selected');
+        const avatar = element('span', 'agent-avatar', profile.name.slice(0, 1).toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
+        card.append(avatar);
         const link = element('a', 'agent-link', profile.name);
         link.href = `/?agent=${encodeURIComponent(profile.id)}`;
         if (profile.state !== 'ready') { link.removeAttribute('href'); link.setAttribute('aria-disabled', 'true'); }
@@ -87,7 +117,9 @@ export function installAgents(): void {
         }
         return card;
       }));
+      filter();
     } catch { status.textContent = 'Agent list unavailable. Reconnecting…'; }
+    finally { refreshing = false; }
   }
   create.onclick = () => {
     if (!workspace) return;
