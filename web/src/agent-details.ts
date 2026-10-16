@@ -1,3 +1,4 @@
+import { installSchedules } from './schedules';
 import { installProfileEditor } from './agent-profile-editor';
 import { element } from './view';
 import type { Profile } from './agents';
@@ -29,6 +30,7 @@ export function installAgentDetails(): (profile: Profile) => void {
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); close(); } });
   mobile.addEventListener('change', () => { if (panel.open) close(); });
   const updateEditor = installProfileEditor(panel);
+  const updateSchedules = installSchedules(panel, close);
   let previous = '';
   return profile => {
     for (const [tool, enabled] of [['memory', profile.memory], ['browser', profile.browser]] as const) {
@@ -44,6 +46,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     if (previous === fingerprint) return;
     previous = fingerprint;
     updateEditor(profile);
+    updateSchedules(profile);
     panel.querySelector('#details-role')!.textContent = profile.role || 'A general assistant for your everyday work.';
     panel.querySelector('#details-model')!.textContent = profile.model;
     panel.querySelector('#details-tools')!.textContent = `${profile.memory ? 'Sourced memory enabled' : 'Sourced memory disabled'} · ${profile.browser ? 'Browser enabled' : 'Browser disabled'}`;

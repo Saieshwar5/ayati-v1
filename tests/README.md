@@ -256,3 +256,10 @@ two-agent KVM scenario also verifies model changes before and after restart.
 `AYATI_VM_TEST_MANIFEST`, its compatible-VM case verifies enabling tools that
 started disabled. The independent-agent VM scenario covers off/on, browser owner
 control, restart, preserved memory and isolation from the neighboring agent.
+
+`node --test tests/agent_schedules.mjs` covers the per-agent schedule UI,
+one-time/fixed-interval settings, pause/resume, run results, unacknowledged-save
+recovery across reload, disconnected controls, mobile layout and restart.
+`cargo test --test schedule_history` checks bounded/scoped durable run history.
+The owner-creation case in `independent_agents.mjs` checks two-VM schedule
+isolation with identical rule IDs and history persistence.

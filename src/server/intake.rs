@@ -13,6 +13,7 @@ pub(super) fn routes() -> Router<WebState> {
         .route("/api/intake/events", post(event))
         .route("/api/schedules", get(schedules).post(add_schedule))
         .route("/api/schedules/{id}/enabled", post(set_enabled))
+        .route("/api/schedules/{id}/runs", get(runs))
 }
 
 async fn event(
@@ -23,7 +24,11 @@ async fn event(
 }
 
 async fn schedules(axum::Extension(state): axum::Extension<WebState>) -> ApiResult<Json<Value>> {
-    Ok(Json(json!({"schedules":state.agent.store.schedules()?})))
+    Ok(Json(json!({
+        "schedules":state.agent.store.schedules()?,
+        "available":state.agent.runtime_name() == "goose",
+        "dispatch_paused":state.agent.store.dispatch_paused()?
+    })))
 }
 
 async fn add_schedule(
@@ -46,4 +51,11 @@ async fn set_enabled(
 ) -> ApiResult<Json<Value>> {
     state.agent.set_schedule_enabled(&id, input.enabled)?;
     Ok(Json(json!({"ok":true})))
+}
+
+async fn runs(
+    axum::Extension(state): axum::Extension<WebState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    Ok(Json(json!({"runs":state.agent.store.schedule_runs(&id)?})))
 }

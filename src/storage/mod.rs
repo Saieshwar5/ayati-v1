@@ -5,6 +5,7 @@ pub mod intake;
 pub mod memory;
 pub mod profile;
 pub mod runtime;
+pub mod schedule_history;
 pub mod work;
 use crate::model::Message as ModelMessage;
 use anyhow::{Context, Result};

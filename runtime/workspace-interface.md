@@ -65,3 +65,7 @@ history. See [profile editing](agent-profile-editing.md).
 
 Agent settings now includes browser and memory switches for compatible environments.
 See [tool controls](agent-tool-controls.md) for enforcement and preserved-data behavior.
+
+Agent Details includes [Manage schedules](agent-schedules.md) for the selected
+agent: create one-time/fixed-interval work, pause/resume and inspect saved run
+outcomes. It does not create trigger rules or calendar recurrence.

@@ -58,6 +58,20 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   }, 'VM setup did not complete', 180000);
   const second = client(app, ready.id);
   assert.equal((await second.request('/state')).messages.length, 0);
+  // Each selected agent owns schedules and run history, including identical IDs.
+  const scheduleId = randomUUID();
+  const future = { id: scheduleId, content: 'SCHEDULE_FIRST_AGENT', run_at_ms: Date.now() + 3600000, interval_seconds: 3600 };
+  await first.request('/schedules', future);
+  assert.equal((await second.request('/schedules')).schedules.length, 0);
+  assert.equal((await second.raw(`/schedules/${scheduleId}/enabled`, { enabled: false })).status, 400);
+  assert.equal((await second.raw(`/schedules/${scheduleId}/runs`)).status, 400);
+  await second.request('/schedules', { ...future, content: 'SCHEDULE_SECOND_AGENT', run_at_ms: Date.now() - 1000, interval_seconds: null });
+  const scheduled = await until(async () => (await second.request(`/schedules/${scheduleId}/runs`)).runs.find(r => r.task.status === 'completed'), 'Second agent schedule did not complete');
+  assert.equal((await first.request(`/schedules/${scheduleId}/runs`)).runs.length, 0);
+  assert.equal((await first.request('/schedules')).schedules[0].state, 'active');
+  assert.equal((await first.raw(`/tasks/${scheduled.task.id}/history`)).status, 400);
+  await first.request(`/schedules/${scheduleId}/enabled`, { enabled: false });
+
   assert.equal((await second.request('/memory')).memories.length, 0);
   const secondFact = await second.request('/memory', { key: 'report.style', content: 'Second agent reports use English' });
   const secondRead = await second.run(memorySearch);
@@ -158,6 +172,8 @@ test('owner creates a second real guest in the UI; chat, memory, approvals, brow
   assert.equal((await first.request('/health')).model, 'fixture');
   assert.equal((await second.request('/health')).model, 'fixture-vm-next');
   await app.stop(); await app.start();
+  assert.equal((await first.request('/schedules')).schedules[0].state, 'paused');
+  assert.equal((await second.request(`/schedules/${scheduleId}/runs`)).runs[0].task.id, scheduled.task.id);
   assert.equal((await app.request('/agents')).agents.find(a => a.profile.id === ready.id).profile.name, 'Operations updated');
   assert.equal((await second.request('/memory')).memories[0].content, secondFact.content);
   assert.ok((await second.request('/state')).messages.some(m => m.task_id === secondRead.task.id));

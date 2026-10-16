@@ -1,0 +1,14 @@
+.schedule-dialog { width: min(650px, calc(100vw - 24px)); }
+.schedule-dialog section { margin-top: 24px; }
+.schedule-dialog h3 { font-size: .9375rem; }
+.schedule-dialog p, .schedule-dialog h3 { overflow-wrap: anywhere; }
+.schedule-dialog .schedule-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.schedule-dialog select { display: block; width: 100%; margin-top: 6px; padding: 10px; color: var(--text); background: var(--canvas); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.schedule-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 12px 0; }
+.schedule-card h3 { white-space: pre-wrap; }
+.schedule-card p { color: var(--muted); margin: 8px 0; }
+.schedule-run { border-bottom: 1px solid var(--border); padding: 10px 0; }
+.schedule-message { white-space: pre-wrap; }
+#schedules-dispatch { border-left: 3px solid var(--accent); padding-left: 12px; }
+
+.schedule-dialog > .panel-header { position: sticky; top: 0; z-index: 1; padding: 8px 0; background: var(--surface); }
