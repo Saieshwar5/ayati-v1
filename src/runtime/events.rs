@@ -9,6 +9,7 @@ pub struct RuntimeEvents {
     pub store: Arc<Store>,
     pub events: broadcast::Sender<Event>,
     pub proof_tool: bool,
+    pub browser: bool,
 }
 
 impl RuntimeEvents {
@@ -112,6 +113,27 @@ impl RuntimeEvents {
                         _ => return Ok(()),
                     };
                     let output = serde_json::json!({"content":value.get("content"),"rawOutput":value.get("rawOutput")});
+                    let browser_call = self.browser
+                        && turn
+                            .tools
+                            .lock()
+                            .unwrap()
+                            .get(&update.tool_call_id.to_string())
+                            .and_then(|v| v.pointer("/_meta/goose/toolCall/toolName"))
+                            .and_then(|v| v.as_str())
+                            .is_some_and(|name| {
+                                name.starts_with(ayati_guest::browser_policy::PREFIX)
+                            });
+                    let status = if browser_call
+                        && (output.pointer("/rawOutput/response/code")
+                            == Some(&serde_json::json!("outcome_unknown"))
+                            || output.pointer("/rawOutput/ayatiBrowserOutcome")
+                                == Some(&serde_json::json!("uncertain")))
+                    {
+                        "uncertain"
+                    } else {
+                        status
+                    };
                     self.store.observe_tool_status(
                         &turn.claim,
                         &update.tool_call_id.to_string(),
@@ -162,9 +184,15 @@ impl RuntimeEvents {
         let tool = observed
             .pointer("/_meta/goose/toolCall/toolName")
             .and_then(|v| v.as_str());
-        if !self.proof_tool
-            || tool != Some("ayati_proof__get_demo_business")
-            || observed.get("rawInput") != action.get("rawInput")
+        let browser_allowed = self.browser
+            && tool.is_some_and(|name| {
+                ayati_guest::browser_policy::observed_operation(
+                    name,
+                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                )
+            });
+        let proof_allowed = self.proof_tool && tool == Some("ayati_proof__get_demo_business");
+        if !(browser_allowed || proof_allowed) || observed.get("rawInput") != action.get("rawInput")
         {
             return cancelled();
         }
@@ -180,7 +208,11 @@ impl RuntimeEvents {
             .options
             .iter()
             .find(|p| p.kind == PermissionOptionKind::RejectOnce);
-        let title = "Read synthetic demo business data";
+        let title = if browser_allowed {
+            "Use the agent browser"
+        } else {
+            "Read synthetic demo business data"
+        };
         let Ok(id) = self.store.add_claim_permission(
             &turn.claim,
             &request.tool_call.tool_call_id.to_string(),

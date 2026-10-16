@@ -3,7 +3,9 @@
 Ayati is becoming a local-first business agent workspace powered by Goose, with
 Rust control services and a small TypeScript web app. One local agent can now run
 inside a real QEMU/KVM Linux VM, with streaming chat, saved sessions, Stop, and
-owner decisions for a synthetic MCP tool. The full workspace is still being built;
+owner decisions for a synthetic MCP tool. An optional protected browser now adds
+shared viewing, owner takeover and saved login profiles inside that VM.
+The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
 ## Run the Goose-backed chat
@@ -151,7 +153,8 @@ The bridge accepts authenticated, fixed operations through SSH with pinned host
 keys; it exposes no remote shell or selectable host paths. QEMU has no host-folder
 mounts, and restricted networking permits only the private SSH and model gateway
 forwards. The guest receives an ephemeral gateway token; the real model API key
-stays on the host. General Internet/browser access is not enabled in this proof.
+stays on the host. Browser-enabled guests add the filtered HTTP(S) proxy described
+below; ordinary guests retain only SSH/model connectivity.
 The gateway supports the configured Fireworks/OpenAI chat-compatible provider and
 one selected model. Business connector credentials are not implemented yet.
 
@@ -160,6 +163,38 @@ mode for adapter development. VM errors never fall back to host execution.
 Provider/model/tool/execution changes cannot reuse an incompatible saved session;
 there is no automatic host-to-guest session migration. See the
 [VM integration record](runtime/local-vm.md) for pins, checks and limits.
+
+## Browser inside the agent VM
+
+The optional browser slice adds pinned agent-browser/Chrome, a private persistent
+profile under a separate guest account, an allowlisted MCP broker and an owner
+browser panel. Each agent browser call requires Allow once / Deny. Take control
+interrupts the active turn and pauses agent browser actions/captures and queued
+work until explicit handback. Closing the panel does not hand control back.
+Unfinished form/transfer interaction keeps the VM awake. When finished, select
+**Close browser session** or approve the agent's close tool to allow idle release.
+Handback preserves live state; an interrupted task needs a follow-up message.
+
+Prepare a **new** VM with the browser bundle; existing VMs are preserved:
+
+```sh
+/usr/bin/python3 tools/install-browser.py
+RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked -p ayati-guest --target x86_64-unknown-linux-gnu --release -j 2
+/usr/bin/python3 tools/prepare-local-vm.py --directory .ayati-local/vms/browser-agent --browser
+```
+
+Set `AYATI_EXECUTION=vm`, `AYATI_BROWSER=1`, the new `AYATI_VM_MANIFEST`, and a fresh
+`AYATI_DATA_DIR` in local configuration, then build/run normally. This browser VM
+uses 1536 MiB RAM and one vCPU. Browser HTTP(S) uses a filtered outbound proxy;
+private/host/metadata destinations and IPv6 are refused. The model key stays on
+the host. There is no host-browser fallback or exposed CDP/stream port.
+
+The owner panel shows one JPEG frame per second and forwards mapped pointer,
+keyboard and text input to the same guest browser. Use it for login instead of
+putting credentials in chat. Browser cookies persist; temporary transfers do not
+survive VM shutdown. This is a local development viewer, with the existing
+loopback/same-origin protections, not production account authorization or remote
+mobile access. See [setup, ownership, transfer APIs and limits](runtime/browser.md).
 
 ## Tool approval demonstration
 
@@ -191,8 +226,9 @@ provider. Guided reconfiguration is later work.
   waiting approval can expire. Failures preserve text and require deliberate follow-up.
 - Goose owns working context and private runtime sessions. Ayati owns run records,
   pending decisions and UI history. Long-term sourced memory is not implemented.
-- agent-browser, live browser takeover, guided multi-agent setup, connections,
-  generated apps and multimodal processing are planned later slices. Basic
+- The optional browser/owner-control slice is available in browser-enabled VMs.
+  Guided multi-agent setup, connections, generated apps and multimodal processing
+  remain later slices. Basic
   schedules and local event intake are available through the developer APIs.
   File input is unavailable on this Goose path until its integration is implemented.
 - The service binds to loopback with same-origin guards. It is a local development
@@ -215,6 +251,8 @@ cargo build
 node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs
 # Explicit real-VM suite: use a disposable, prepared VM; it modifies its guest state.
 AYATI_VM_TEST_MANIFEST=/absolute/path/to/disposable-vm/vm.json node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs tests/vm_idle.mjs
+# Separate browser-enabled disposable VM; modifies its profile:
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/browser-vm/vm.json node --test --test-concurrency=1 tests/browser_vm.mjs
 ./scripts/check-file-lines.sh  # local ignored helper, when present
 ```
 
@@ -232,10 +270,9 @@ select it. See [test details](tests/README.md); their live suite tests the proto
 
 ## Development sequence
 
-`feat/04-scheduled-work-and-vm-idle` follows merged PR #12 on main, including the
-earlier Goose/VM milestones and durable queue. This increment adds schedules,
-local events and lease-aware idle shutdown/wake. Original checkpoint branches
-remain preserved.
+`codex/05-agent-browser` starts from merged PR #13 on main and adds the first
+local browser/owner-control increment. Earlier Goose/VM, durable work, schedules,
+events and idle wake milestones remain preserved.
 Finish, verify and commit each increment before creating the next numbered branch from that completed tip.
 Do not develop several independent copies of the same planned files. Once a
 parent branch is merged, align the next branch with its merged history before

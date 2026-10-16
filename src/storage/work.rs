@@ -213,9 +213,22 @@ impl Store {
     }
 
     pub fn interrupt_active_work(&self) -> Result<()> {
+        self.interrupt_work(
+            "Service stopped during work; inspect action outcomes before continuing.",
+        )
+    }
+
+    pub fn interrupt_for_owner_browser(&self) -> Result<()> {
+        self.interrupt_work("Waiting for owner browser control; inspect outcomes and send a follow-up after handing back.")
+    }
+
+    fn interrupt_work(&self, detail: &str) -> Result<()> {
         let mut connection = self.connection()?;
         let tx = connection.transaction()?;
-        tx.execute("UPDATE tasks SET status='interrupted',detail='Service stopped during work; inspect action outcomes before continuing.' WHERE status='running'", [])?;
+        tx.execute(
+            "UPDATE tasks SET status='interrupted',detail=?1 WHERE status='running'",
+            [detail],
+        )?;
         tx.execute(
             "UPDATE permissions SET decision='cancelled' WHERE decision='pending'",
             [],

@@ -10,6 +10,51 @@ fn claim(store: &Store) -> RunClaim {
 }
 
 #[test]
+fn owner_takeover_interrupts_work_and_invalidates_approval_without_replaying_or_cancelling_queue() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(&dir.path().join("state.sqlite")).unwrap();
+    let active = store.enqueue("Browse a shop").unwrap();
+    let claim = claim(&store);
+    let queued = store.enqueue("Later work").unwrap();
+    store
+        .observe_tool(
+            &claim,
+            "browser-call",
+            "ayati_browser__agent_browser_click",
+            &json!({"selector":"@e1"}),
+        )
+        .unwrap();
+    let permission = store
+        .add_claim_permission(
+            &claim,
+            "browser-call",
+            "Browser action",
+            &json!({"selector":"@e1"}),
+        )
+        .unwrap();
+    store.interrupt_for_owner_browser().unwrap();
+    assert_eq!(
+        store.task(&active.id).unwrap().unwrap().status,
+        "interrupted"
+    );
+    assert!(
+        store
+            .task(&active.id)
+            .unwrap()
+            .unwrap()
+            .detail
+            .contains("owner browser")
+    );
+    assert_eq!(store.task(&queued.id).unwrap().unwrap().status, "queued");
+    assert!(store.decide_permission(&permission, true).is_err());
+    assert!(
+        !store
+            .finish_work(&claim, "completed", "Late success")
+            .unwrap()
+    );
+}
+
+#[test]
 fn acceptance_is_atomic_idempotent_and_bounded_even_after_restart() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("state.sqlite");

@@ -29,6 +29,15 @@ impl Config {
             runtime != "prototype" || execution == "host",
             "VM execution requires AYATI_RUNTIME=goose; the prototype only supports host execution"
         );
+        let browser = env::var("AYATI_BROWSER").unwrap_or_else(|_| "0".into());
+        ensure!(
+            ["0", "1"].contains(&browser.as_str()),
+            "AYATI_BROWSER must be 0 or 1"
+        );
+        ensure!(
+            browser == "0" || (runtime == "goose" && execution == "vm"),
+            "Browser execution requires AYATI_RUNTIME=goose and AYATI_EXECUTION=vm"
+        );
         let config = Self {
             prototype: runtime == "prototype",
             data_dir: env::var_os("AYATI_DATA_DIR")

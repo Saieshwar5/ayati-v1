@@ -1,4 +1,5 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
+mod browser;
 mod intake;
 use axum::{
     Json, Router,
@@ -50,6 +51,7 @@ impl IntoResponse for ApiError {
 pub fn router(state: WebState) -> Router {
     Router::new()
         .merge(intake::routes())
+        .merge(browser::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
@@ -75,6 +77,7 @@ async fn local_request(
     next: Next,
 ) -> Response {
     let headers = request.headers();
+    let private_browser = request.uri().path().starts_with("/api/browser/");
     // A local daemon still needs protection against websites posting to localhost.
     let hosts = [
         format!("127.0.0.1:{}", state.port),
@@ -103,6 +106,9 @@ async fn local_request(
     }
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
+    if private_browser {
+        headers.insert("cache-control", "no-store".parse().unwrap());
+    }
     headers.insert("x-content-type-options", "nosniff".parse().unwrap());
     headers.insert("referrer-policy", "no-referrer".parse().unwrap());
     headers.insert("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'".parse().unwrap());

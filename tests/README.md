@@ -35,6 +35,29 @@ a one-second grace to exercise transitions. The real product default is 300
 seconds. Schedule/event contracts and clock/backpressure policies are documented
 in [scheduled work](../runtime/scheduled-work.md).
 
+## Agent browser inside a real guest
+
+This is separate from the prototype/web-chat browser journeys below. Prepare a
+fresh disposable VM with `tools/prepare-local-vm.py --browser`, following the
+[browser setup and contract](../runtime/browser.md), then run:
+
+```sh
+AYATI_VM_TEST_MANIFEST=/absolute/path/to/browser-vm/vm.json node --test --test-concurrency=1 tests/browser_vm.mjs
+```
+
+The eight scenarios use actual Goose, MCP, Chrome and KVM. They cover the allowed
+tool surface, a synthetic shop, public HTTPS at example.com, blocked host access,
+tab operations, takeover/boot/Stop races, credential-entry separation, restart,
+saved cookies, owner pointer/text input, file bounds and private paths, closed-tab
+recovery and interaction-aware VM idle release. The provider and shop are scripted;
+no paid inference, live business account or real business write is exercised.
+The HTTPS scenario requires Internet access. Missing prerequisites fail explicitly.
+
+The suite preserves failed private fixtures. Its owner-panel screenshot is saved
+to `.test-runs/browser/owner-panel.png`; it contains only synthetic site data.
+Do not use real owner profiles/data for these checks. The existing 22 VM scenarios
+also run with an ordinary non-browser guest to check backward compatibility.
+
 The browser tests operate Ayati through its real interface: opening the page,
 choosing attachments, typing messages, clicking buttons and downloading files.
 They start their own release daemon, SQLite database, workspace and port for
