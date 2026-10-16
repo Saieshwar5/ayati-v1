@@ -1,6 +1,7 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
 mod browser;
 mod intake;
+mod memory;
 use axum::{
     Json, Router,
     body::Body,
@@ -52,6 +53,7 @@ pub fn router(state: WebState) -> Router {
     Router::new()
         .merge(intake::routes())
         .merge(browser::routes())
+        .merge(memory::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
@@ -77,7 +79,8 @@ async fn local_request(
     next: Next,
 ) -> Response {
     let headers = request.headers();
-    let private_browser = request.uri().path().starts_with("/api/browser/");
+    let private_browser = request.uri().path().starts_with("/api/browser/")
+        || request.uri().path().starts_with("/api/memory");
     // A local daemon still needs protection against websites posting to localhost.
     let hosts = [
         format!("127.0.0.1:{}", state.port),

@@ -26,6 +26,7 @@ pub struct VmManager {
     path: PathBuf,
     provider: String,
     model: String,
+    memory: Option<std::sync::Arc<crate::memory::MemoryAccess>>,
     process: Mutex<Option<VmProcess>>,
     stop_requested: AtomicBool,
 }
@@ -60,9 +61,18 @@ impl VmManager {
             path,
             provider,
             model,
+            memory: None,
             process: Mutex::new(None),
             stop_requested: AtomicBool::new(false),
         }
+    }
+
+    pub fn with_memory(
+        mut self,
+        memory: Option<std::sync::Arc<crate::memory::MemoryAccess>>,
+    ) -> Self {
+        self.memory = memory;
+        self
     }
 
     pub async fn status(&self) -> Value {
@@ -119,7 +129,9 @@ impl VmManager {
             .open(config.directory.join("vm.lock"))?;
         lock.try_lock()
             .context("This VM is already owned by another Ayati process")?;
-        let gateway = ModelGateway::start(&self.provider, &self.model).await?;
+        let gateway =
+            ModelGateway::start_with_memory(&self.provider, &self.model, self.memory.clone())
+                .await?;
         let browser_network = if config.browser_version.is_some() {
             Some(browser_network::BrowserNetwork::start().await?)
         } else {
@@ -225,6 +237,9 @@ impl VmManager {
             .process_group(0)
             .spawn()?;
         let mut config = json!({"version":1,"op":"acp","agent_id":p.config.agent_id,"model":self.model,"token":p.gateway.token});
+        if self.memory.is_some() {
+            config["memory_token"] = json!(run);
+        }
         if p.config.browser_version.is_some() {
             config["run"] = json!(run);
         }

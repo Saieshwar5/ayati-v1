@@ -17,6 +17,7 @@ pub struct GooseConfig {
     pub model: String,
     pub proof_tool: bool,
     pub browser: bool,
+    pub memory: bool,
 }
 
 impl GooseConfig {
@@ -53,6 +54,7 @@ impl GooseConfig {
             model: model.into(),
             proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
             browser: std::env::var("AYATI_BROWSER").as_deref() == Ok("1"),
+            memory: std::env::var("AYATI_MEMORY").as_deref() == Ok("1"),
         }
     }
 
@@ -145,6 +147,11 @@ impl GooseConfig {
             );
             extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
                 "name":"ayati_browser","command":"/usr/local/bin/ayati-guest","args":["browser-mcp"],"env":[]
+            }}));
+        }
+        if self.memory {
+            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
+                "name":"ayati_memory","command":if self.vm_manifest.is_some(){PathBuf::from("/usr/local/bin/ayati-guest")}else{std::env::current_exe()?},"args":["memory-mcp"],"env":[]
             }}));
         }
         Ok(

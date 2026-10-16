@@ -10,6 +10,7 @@ pub struct RuntimeEvents {
     pub events: broadcast::Sender<Event>,
     pub proof_tool: bool,
     pub browser: bool,
+    pub memory: bool,
 }
 
 impl RuntimeEvents {
@@ -192,7 +193,15 @@ impl RuntimeEvents {
                 )
             });
         let proof_allowed = self.proof_tool && tool == Some("ayati_proof__get_demo_business");
-        if !(browser_allowed || proof_allowed) || observed.get("rawInput") != action.get("rawInput")
+        let memory_allowed = self.memory
+            && tool.is_some_and(|name| {
+                ayati_guest::memory_mcp::observed(
+                    name,
+                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                )
+            });
+        if !(browser_allowed || proof_allowed || memory_allowed)
+            || observed.get("rawInput") != action.get("rawInput")
         {
             return cancelled();
         }
@@ -208,7 +217,9 @@ impl RuntimeEvents {
             .options
             .iter()
             .find(|p| p.kind == PermissionOptionKind::RejectOnce);
-        let title = if browser_allowed {
+        let title = if memory_allowed {
+            "Use scoped agent memory"
+        } else if browser_allowed {
             "Use the agent browser"
         } else {
             "Read synthetic demo business data"

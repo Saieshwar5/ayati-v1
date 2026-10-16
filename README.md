@@ -5,6 +5,8 @@ Rust control services and a small TypeScript web app. One local agent can now ru
 inside a real QEMU/KVM Linux VM, with streaming chat, saved sessions, Stop, and
 owner decisions for a synthetic MCP tool. An optional protected browser now adds
 shared viewing, owner takeover and saved login profiles inside that VM.
+Optional [sourced memory](runtime/memory.md) adds scoped facts, source quotes,
+corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
@@ -225,7 +227,9 @@ provider. Guided reconfiguration is later work.
 - The prompt has a three-minute limit and text output is bounded to 1 MiB. A
   waiting approval can expire. Failures preserve text and require deliberate follow-up.
 - Goose owns working context and private runtime sessions. Ayati owns run records,
-  pending decisions and UI history. Long-term sourced memory is not implemented.
+  pending decisions and UI history. Optional sourced memory is available with
+  `AYATI_MEMORY=1`; see [its contract and limits](runtime/memory.md). Owner edits
+  stop active work; corrections/forgetting start a fresh working session.
 - The optional browser/owner-control slice is available in browser-enabled VMs.
   Guided multi-agent setup, connections, generated apps and multimodal processing
   remain later slices. Basic

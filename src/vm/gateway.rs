@@ -36,7 +36,11 @@ impl Drop for ModelGateway {
 }
 
 impl ModelGateway {
-    pub async fn start(provider: &str, model: &str) -> Result<Self> {
+    pub async fn start_with_memory(
+        provider: &str,
+        model: &str,
+        memory: Option<Arc<crate::memory::MemoryAccess>>,
+    ) -> Result<Self> {
         let (url, key_name) = match provider {
             "fireworks-ai" => (
                 "https://api.fireworks.ai/inference/v1/chat/completions".into(),
@@ -93,7 +97,10 @@ impl ModelGateway {
         });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
         let port = listener.local_addr()?.port();
-        let app = router(provider);
+        let mut app = router(provider);
+        if let Some(memory) = memory {
+            app = app.merge(crate::memory::routes(memory));
+        }
         let task = tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
         });

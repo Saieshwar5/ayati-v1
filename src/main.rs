@@ -16,6 +16,9 @@ async fn main() -> Result<()> {
     if std::env::args().nth(1).as_deref() == Some("mcp") {
         return ayati::runtime::proof_tool::serve().await;
     }
+    if std::env::args().nth(1).as_deref() == Some("memory-mcp") {
+        return ayati_guest::memory_mcp::serve().await;
+    }
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_env_filter(

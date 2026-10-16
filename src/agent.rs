@@ -2,6 +2,7 @@ mod browser;
 mod environment;
 mod intake;
 mod leases;
+mod memory;
 mod worker;
 
 use crate::{
@@ -41,6 +42,7 @@ pub struct Agent {
     wake: Notify,
     closing: AtomicBool,
     environment_stopping: AtomicBool,
+    memory_editing: AtomicBool,
     environment_generation: std::sync::atomic::AtomicU64,
     environment: tokio::sync::Mutex<()>,
     leases: leases::Leases,
@@ -92,6 +94,7 @@ impl Agent {
             wake: Notify::new(),
             closing: AtomicBool::new(false),
             environment_stopping: AtomicBool::new(false),
+            memory_editing: AtomicBool::new(false),
             environment_generation: std::sync::atomic::AtomicU64::new(0),
             environment: tokio::sync::Mutex::new(()),
             leases: leases::Leases::new(),

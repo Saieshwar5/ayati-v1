@@ -57,6 +57,24 @@ export async function fixtureProvider() {
         } };
       }
     }
+    if (prompt?.startsWith('memory ')) {
+      const command = JSON.parse(prompt.slice(7));
+      const results = messages.slice(lastUser + 1).filter((message) => message.role === 'tool');
+      const steps = command.steps ?? [command];
+      const step = steps[results.length];
+      if (!step) text = `MEMORY_RESULT ${JSON.stringify(results.at(-1)?.content)}`;
+      else {
+        const args = { ...step.arguments };
+        if (step.useSource) {
+          const sourceText = JSON.stringify(results.at(-1)?.content);
+          const match = sourceText.match(/(?:\\"|")id(?:\\"|"): ?(?:\\"|")([a-f0-9-]{36})/);
+          if (!match) throw new Error('Source result missing id: ' + sourceText);
+          args.source_id = match[1];
+        }
+        tool = { id: `memory-call-${results.length}`, type: 'function', function: { name: `ayati_memory__memory_${step.tool}`, arguments: JSON.stringify(args) } };
+      }
+    }
+    if (prompt === 'Please summarize the conversation history provided in the system prompt.') text = 'COMPACTION_FIXTURE_SUMMARY: Continue preparing the daily owner report. Retrieve report preferences from scoped memory before finishing.';
     const message = tool ? { role: 'assistant', content: null, tool_calls: [tool] } : { role: 'assistant', content: text };
     if (input.stream) {
       response.setHeader('Content-Type', 'text/event-stream');
