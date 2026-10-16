@@ -9,7 +9,7 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function renderConversation(container: HTMLElement, state: Snapshot): void {
+export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Ayati'): void {
   const atEnd = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
   const nodes: HTMLElement[] = [];
   if (!state.messages.length) {
@@ -23,7 +23,7 @@ export function renderConversation(container: HTMLElement, state: Snapshot): voi
   const lastMessage = new Map<string, string>();
   for (const message of state.messages) lastMessage.set(message.task_id, message.id);
   for (const message of state.messages) {
-    if (message.content) nodes.push(messageView(message));
+    if (message.content) nodes.push(messageView(message, agentName));
     if (lastMessage.get(message.task_id) === message.id) {
       const task = tasks.get(message.task_id);
       if (task && ['failed', 'interrupted', 'stopped'].includes(task.status)) {
@@ -67,22 +67,22 @@ function queuedView(task: Task): HTMLElement {
   return row;
 }
 
-function messageView(message: ChatMessage): HTMLElement {
+function messageView(message: ChatMessage, agentName: string): HTMLElement {
   const row = element('article', `message ${message.role}`);
   row.dataset.messageId = message.id;
   const content = element('div', 'message-content', message.content);
-  if (message.role === 'assistant') row.append(element('div', 'speaker', 'Ayati'));
+  if (message.role === 'assistant') row.append(element('div', 'speaker', agentName));
   row.append(content);
   return row;
 }
 
-export function renderFiles(container: HTMLElement, files: Artifact[]): void {
+export function renderFiles(container: HTMLElement, files: Artifact[], agent = 'local-agent'): void {
   const visible = files.filter((file) => file.kind !== 'log');
   const nodes: HTMLElement[] = [];
   if (!visible.length) nodes.push(element('p', 'empty-files', 'Files you share and files Ayati creates will appear here.'));
   for (const file of visible) {
     const link = element('a', 'file-row');
-    link.href = `/api/files/${encodeURIComponent(file.id)}`;
+    link.href = `/api/files/${encodeURIComponent(file.id)}?agent=${encodeURIComponent(agent)}`;
     link.setAttribute('download', file.name);
     const info = element('div', 'file-info');
     info.append(element('span', 'file-name', file.name), element('span', 'file-meta',

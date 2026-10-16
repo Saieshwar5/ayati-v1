@@ -54,7 +54,7 @@ test('stored message and filename markup is rendered as text, never executable H
   assert.equal(document.querySelector('script'), null);
   renderFiles(document.querySelector('#files'), [{ id: 'abc', name: attack, kind: 'output', size: 10 }]);
   assert.equal(document.querySelector('.file-name').textContent, attack);
-  assert.equal(document.querySelector('a').getAttribute('href'), '/api/files/abc');
+  assert.equal(document.querySelector('a').getAttribute('href'), '/api/files/abc?agent=local-agent');
   assert.equal(document.querySelector('img'), null);
   dom.window.close();
 });

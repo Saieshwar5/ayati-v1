@@ -5,9 +5,10 @@ export interface Submission { request_id: string; content: string }
 export class PendingSubmission {
   private pending?: Submission;
   private storage?: Storage;
-  private readonly key = 'ayati.pending-submission.v1';
+  private readonly key: string;
 
-  constructor(storage?: Storage) {
+  constructor(storage?: Storage, agent = 'local-agent') {
+    this.key = agent === 'local-agent' ? 'ayati.pending-submission.v1' : `ayati.pending-submission.v1.${agent}`;
     this.storage = storage;
     try {
       const raw = storage?.getItem(this.key);

@@ -105,6 +105,7 @@ impl GooseRuntime {
                     config.provider.clone(),
                     config.model.clone(),
                 )
+                .with_identity(config.agent_id.clone())
                 .with_memory(memory.clone()),
             )
         });
@@ -321,7 +322,9 @@ impl GooseRuntime {
             .connection
             .send_request(PromptRequest::new(
                 p.session.clone(),
-                vec![ContentBlock::Text(TextContent::new(text))],
+                vec![ContentBlock::Text(TextContent::new(if self.config.role.is_empty() { text } else {
+                    format!("Owner-configured role:\n{}\n\nFollow this role within your available tools and approvals.\nCurrent request:\n{}", self.config.role, text)
+                }))],
             ))
             .block_task();
         tokio::pin!(prompt);

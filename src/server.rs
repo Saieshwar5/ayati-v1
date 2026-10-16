@@ -1,4 +1,5 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
+mod agents;
 mod browser;
 mod intake;
 mod memory;
@@ -25,6 +26,7 @@ use tower_http::services::ServeDir;
 #[derive(Clone)]
 pub struct WebState {
     pub agent: Arc<Agent>,
+    pub workspace: Option<Arc<crate::workspace::Workspace>>,
     pub model_ready: bool,
     pub model_name: String,
     pub port: u16,
@@ -51,6 +53,7 @@ impl IntoResponse for ApiError {
 
 pub fn router(state: WebState) -> Router {
     Router::new()
+        .merge(agents::routes())
         .merge(intake::routes())
         .merge(browser::routes())
         .merge(memory::routes())
@@ -75,12 +78,11 @@ pub fn router(state: WebState) -> Router {
 
 async fn local_request(
     State(state): State<WebState>,
-    request: Request<Body>,
+    mut request: Request<Body>,
     next: Next,
 ) -> Response {
     let headers = request.headers();
-    let private_browser = request.uri().path().starts_with("/api/browser/")
-        || request.uri().path().starts_with("/api/memory");
+    let private_browser = request.uri().path().starts_with("/api/");
     // A local daemon still needs protection against websites posting to localhost.
     let hosts = [
         format!("127.0.0.1:{}", state.port),
@@ -107,6 +109,17 @@ async fn local_request(
         )
             .into_response();
     }
+    let selected = match agents::select(&state, &request) {
+        Ok(selected) => selected,
+        Err(error) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error":error.to_string()})),
+            )
+                .into_response();
+        }
+    };
+    request.extensions_mut().insert(selected);
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     if private_browser {
@@ -118,23 +131,23 @@ async fn local_request(
     response
 }
 
-async fn health(State(state): State<WebState>) -> Json<Value> {
+async fn health(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {
     Json(json!({ "status": "ready", "model_ready": state.model_ready,
         "model": state.model_name, "runtime": state.agent.runtime_name(),
         "file_uploads_supported": state.agent.runtime_name() == "prototype", "version": env!("CARGO_PKG_VERSION") }))
 }
 
-async fn vm_status(State(state): State<WebState>) -> Json<Value> {
+async fn vm_status(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {
     Json(state.agent.environment_status().await)
 }
-async fn vm_start(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+async fn vm_start(axum::Extension(state): axum::Extension<WebState>) -> ApiResult<Json<Value>> {
     Ok(Json(state.agent.start_environment().await?))
 }
-async fn vm_stop(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+async fn vm_stop(axum::Extension(state): axum::Extension<WebState>) -> ApiResult<Json<Value>> {
     Ok(Json(state.agent.stop_environment().await?))
 }
 
-async fn snapshot(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+async fn snapshot(axum::Extension(state): axum::Extension<WebState>) -> ApiResult<Json<Value>> {
     Ok(Json(state.agent.snapshot()?))
 }
 
@@ -145,7 +158,7 @@ struct NewMessage {
     request_id: Option<String>,
 }
 async fn message(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Json(input): Json<NewMessage>,
 ) -> ApiResult<Json<Value>> {
     if !state.model_ready {
@@ -157,11 +170,22 @@ async fn message(
     )?)))
 }
 
-async fn actions(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
+async fn actions(
+    axum::Extension(state): axum::Extension<WebState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    state
+        .agent
+        .store
+        .task(&id)?
+        .ok_or_else(|| anyhow::anyhow!("Request does not exist"))?;
     Ok(Json(json!({"actions":state.agent.store.actions(&id)?})))
 }
 
-async fn stop(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Json<Value>> {
+async fn stop(
+    axum::Extension(state): axum::Extension<WebState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
     state.agent.stop(&id)?;
     Ok(Json(json!({ "ok": true })))
 }
@@ -173,7 +197,7 @@ struct PermissionDecision {
 }
 
 async fn permission(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Path(id): Path<String>,
     Json(input): Json<PermissionDecision>,
 ) -> ApiResult<Json<Value>> {
@@ -182,7 +206,7 @@ async fn permission(
 }
 
 async fn events(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = BroadcastStream::new(state.agent.events.subscribe()).map(|result| {
         let data = match result {
@@ -194,7 +218,10 @@ async fn events(
     Sse::new(stream.take_until(state.shutdown.cancelled_owned())).keep_alive(KeepAlive::default())
 }
 
-async fn upload(State(state): State<WebState>, mut multipart: Multipart) -> ApiResult<Json<Value>> {
+async fn upload(
+    axum::Extension(state): axum::Extension<WebState>,
+    mut multipart: Multipart,
+) -> ApiResult<Json<Value>> {
     if state.agent.runtime_name() == "goose" {
         return Err(
             anyhow::anyhow!("File input for Goose is planned in a later local increment").into(),
@@ -212,7 +239,10 @@ async fn upload(State(state): State<WebState>, mut multipart: Multipart) -> ApiR
     ))
 }
 
-async fn download(State(state): State<WebState>, Path(id): Path<String>) -> ApiResult<Response> {
+async fn download(
+    axum::Extension(state): axum::Extension<WebState>,
+    Path(id): Path<String>,
+) -> ApiResult<Response> {
     let artifact = state
         .agent
         .store
@@ -233,8 +263,12 @@ async fn download(State(state): State<WebState>, Path(id): Path<String>) -> ApiR
     Ok((headers, Body::from_stream(stream)).into_response())
 }
 
-async fn shutdown(State(state): State<WebState>) -> Json<Value> {
-    state.agent.begin_shutdown();
+async fn shutdown(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {
+    if let Some(workspace) = &state.workspace {
+        workspace.begin_shutdown();
+    } else {
+        state.agent.begin_shutdown();
+    }
     state.shutdown.cancel();
     Json(json!({ "ok": true }))
 }

@@ -114,9 +114,11 @@ async fn serve(config: Config) -> Result<()> {
             ready,
         )
     };
+    let workspace = ayati::workspace::Workspace::open(&data, config.clone(), agent.clone())?;
     let shutdown = CancellationToken::new();
     let state = WebState {
         agent: agent.clone(),
+        workspace: Some(workspace.clone()),
         model_ready,
         model_name: config.model,
         port: config.port,
@@ -140,14 +142,13 @@ async fn serve(config: Config) -> Result<()> {
         tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
         signal.cancel();
     });
-    let stopping_agent = agent.clone();
+    let stopping_workspace = workspace.clone();
     axum::serve(listener, router(state))
         .with_graceful_shutdown(async move {
             shutdown.cancelled().await;
-            agent.begin_shutdown();
+            workspace.begin_shutdown();
         })
         .await?;
-    stopping_agent.wait_until_idle().await;
-    stopping_agent.shutdown_runtime().await?;
+    stopping_workspace.shutdown().await?;
     Ok(())
 }

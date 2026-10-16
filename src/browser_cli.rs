@@ -4,7 +4,24 @@ use serde_json::json;
 // The local owner can recover a closed tab using their private control file.
 // The capability is never printed or passed on the command line.
 pub async fn release(config: &ayati::config::Config) -> Result<()> {
-    let path = config.data_dir.join("browser-owner.json");
+    let args: Vec<_> = std::env::args().skip(3).collect();
+    let id = match args.as_slice() {
+        [] => "local-agent",
+        [flag, id] if flag == "--agent" => {
+            anyhow::ensure!(
+                uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == *id),
+                "Agent must be its UUID from /api/agents"
+            );
+            id.as_str()
+        }
+        _ => anyhow::bail!("Use ayati browser release [--agent UUID]"),
+    };
+    let data = if id == "local-agent" {
+        config.data_dir.clone()
+    } else {
+        config.data_dir.join("agents").join(id)
+    };
+    let path = data.join("browser-owner.json");
     let owner: Option<String> = serde_json::from_slice(
         &std::fs::read(path).context("No saved browser controller in this AYATI_DATA_DIR")?,
     )?;
@@ -18,6 +35,7 @@ pub async fn release(config: &ayati::config::Config) -> Result<()> {
     for op in ["take", "resume"] {
         let response = client
             .post(&url)
+            .header("X-Ayati-Agent", id)
             .json(&json!({"op":op,"token":token}))
             .send()
             .await

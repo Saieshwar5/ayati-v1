@@ -1,9 +1,9 @@
 # Ayati
 
 Ayati is becoming a local-first business agent workspace powered by Goose, with
-Rust control services and a small TypeScript web app. One local agent can now run
-inside a real QEMU/KVM Linux VM, with streaming chat, saved sessions, Stop, and
-owner decisions for a synthetic MCP tool. An optional protected browser now adds
+Rust control services and a small TypeScript web app. The owner can create
+independent agents through the UI, each running inside its own real QEMU/KVM
+Linux VM with streaming chat, saved sessions, Stop and exact tool approvals. An optional protected browser now adds
 shared viewing, owner takeover and saved login profiles inside that VM.
 Optional [sourced memory](runtime/memory.md) adds scoped facts, source quotes,
 corrections and forgetting through Goose tools and owner controls.
@@ -286,3 +286,15 @@ Read `AGENTS.md`, `proj-docs/README.md`, the local implementation plan and curre
 status before the next increment. Planning documents and references remain ignored
 and local. Keep each source file at or below 500 lines and keep lockfiles tracked.
 SQLite remains the initial Ayati database; hosting alone does not require replacing it.
+
+### Independent local agents
+
+With Goose VM execution configured, use **New agent** in the web Agents list to
+create another role with its own chat, sourced memory, approvals and private VM.
+Preparation runs in the background; failed setup can be retried explicitly.
+Switching agents preserves separate drafts. The original Ayati conversation stays
+available. This local increment supports four agents total; it does not add hosted
+customer/staff authentication or shared app access.
+
+See [independent agents](runtime/independent-agents.md) for prerequisites, API scope,
+restart/Stop behavior, private setup logs, browser recovery and remaining limits.

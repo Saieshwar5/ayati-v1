@@ -38,8 +38,15 @@ export interface AgentEvent {
   offset?: number;
 }
 
+export const selectedAgent = new URLSearchParams(location.search).get('agent') ?? 'local-agent';
+export function apiUrl(path: string): string {
+  return `/api${path}${path.includes('?') ? '&' : '?'}agent=${encodeURIComponent(selectedAgent)}`;
+}
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, options);
+  const headers = new Headers(options?.headers);
+  if (!headers.has('X-Ayati-Agent')) headers.set('X-Ayati-Agent', selectedAgent);
+  const response = await fetch(`/api${path}`, { ...options, headers });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.');
   return data as T;

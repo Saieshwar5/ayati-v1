@@ -2,7 +2,7 @@ use super::{ApiResult, WebState};
 use crate::storage::intake::{LocalEvent, NewSchedule};
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::Path,
     routing::{get, post},
 };
 use serde::Deserialize;
@@ -16,18 +16,18 @@ pub(super) fn routes() -> Router<WebState> {
 }
 
 async fn event(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Json(event): Json<LocalEvent>,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(json!(state.agent.accept_event(&event)?)))
 }
 
-async fn schedules(State(state): State<WebState>) -> ApiResult<Json<Value>> {
+async fn schedules(axum::Extension(state): axum::Extension<WebState>) -> ApiResult<Json<Value>> {
     Ok(Json(json!({"schedules":state.agent.store.schedules()?})))
 }
 
 async fn add_schedule(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Json(input): Json<NewSchedule>,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(json!(state.agent.add_schedule(&input)?)))
@@ -40,7 +40,7 @@ struct Enabled {
 }
 
 async fn set_enabled(
-    State(state): State<WebState>,
+    axum::Extension(state): axum::Extension<WebState>,
     Path(id): Path<String>,
     Json(input): Json<Enabled>,
 ) -> ApiResult<Json<Value>> {
