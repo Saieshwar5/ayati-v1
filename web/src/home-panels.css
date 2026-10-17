@@ -58,6 +58,8 @@
 @media (prefers-reduced-motion: no-preference) { .home-panel-card { transition: box-shadow .16s ease; } }
 /* Preset heights keep an agent's longer refresh from reshaping the canvas. */
 .home-panels { grid-auto-rows: 112px; }
+/* The welcome view is content, not a preset-size agent panel. */
+.home-panels.is-empty { grid-auto-rows: auto; }
 .home-panel-card { grid-row: span 3; overflow-y: auto; }
 .home-panel-card[data-template=metric], .home-panel-card[data-template=brief] { grid-row: span 2; }
 .home-panel-card[data-template=metric] .panel-purpose { display: none; }

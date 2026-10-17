@@ -32,6 +32,7 @@ export function installHomePanels(container: HTMLElement): void {
   function draw(panels: Panel[]): void {
     const expanded = new Set([...list.querySelectorAll<HTMLDetailsElement>('details[open][data-settings]')].map(d => d.dataset.settings));
     current = panels;
+    list.classList.toggle('is-empty', panels.length === 0);
     list.replaceChildren();
     if (!panels.length) {
       const welcome = element('div', 'home-welcome');
