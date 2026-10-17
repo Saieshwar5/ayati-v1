@@ -1,11 +1,14 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
 mod agents;
+mod apps;
 mod browser;
 mod connections;
 mod home;
 mod intake;
 mod memory;
+mod panels;
 mod setup;
+mod triggers;
 use axum::{
     Json, Router,
     body::Body,
@@ -63,6 +66,9 @@ pub fn router(state: WebState) -> Router {
         .merge(memory::routes())
         .merge(setup::routes())
         .merge(connections::routes())
+        .merge(triggers::routes())
+        .merge(panels::routes())
+        .merge(apps::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
@@ -87,6 +93,11 @@ async fn local_request(
     mut request: Request<Body>,
     next: Next,
 ) -> Response {
+    // This single route uses signed provider bytes, never local-owner authority.
+    // Keep all management/chat endpoints behind the existing loopback guards.
+    if request.uri().path() == "/hooks/composio" {
+        return next.run(request).await;
+    }
     let headers = request.headers();
     let private_browser = request.uri().path().starts_with("/api/");
     // A local daemon still needs protection against websites posting to localhost.
@@ -133,7 +144,13 @@ async fn local_request(
     }
     headers.insert("x-content-type-options", "nosniff".parse().unwrap());
     headers.insert("referrer-policy", "no-referrer".parse().unwrap());
-    headers.insert("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'".parse().unwrap());
+    let generated_document = headers.remove("x-ayati-app-document").is_some();
+    let csp = if generated_document {
+        crate::platform::app_document::CSP
+    } else {
+        "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    };
+    headers.insert("content-security-policy", csp.parse().unwrap());
     response
 }
 

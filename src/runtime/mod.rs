@@ -55,6 +55,7 @@ struct Turn {
 }
 
 struct Process {
+    authority_revision: i64,
     role_revision: i64,
     connection_id: String,
     connection: ConnectionTo<Agent>,
@@ -81,6 +82,9 @@ impl Drop for ProcessResources {
 }
 
 impl GooseRuntime {
+    pub async fn clear_working_context(&self) {
+        self.process.lock().await.take();
+    }
     pub fn platform(&self) -> Option<Arc<crate::platform::Platform>> {
         self.config.platform.clone()
     }
@@ -102,6 +106,10 @@ impl GooseRuntime {
 
     pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
         let platform_enabled = config.platform.is_some();
+        let panel_updates = config
+            .platform
+            .as_ref()
+            .map(|p| (p.clone(), config.agent_id.clone()));
         let proof_tool = config.proof_tool;
         let browser_enabled = config.browser;
         let memory_enabled = config.memory;
@@ -137,12 +145,20 @@ impl GooseRuntime {
                 browser: browser_enabled,
                 memory: memory_enabled,
                 platform: platform_enabled,
+                panel_updates,
             }),
             process: tokio::sync::Mutex::new(None),
         }
     }
 
     async fn connect(&self) -> Result<Process> {
+        let authority_revision = self
+            .config
+            .platform
+            .as_ref()
+            .map(|p| p.authority_revision(&self.config.agent_id))
+            .transpose()?
+            .unwrap_or(0);
         let mut effective = self.config.clone();
         effective.memory = self.shared.memory_enabled();
         effective.browser = self.shared.browser_enabled();
@@ -258,6 +274,9 @@ impl GooseRuntime {
             if effective.platform.is_some() {
                 settings["workspace_adapter"] = serde_json::json!(1);
             }
+            if authority_revision > 0 {
+                settings["authority_revision"] = serde_json::json!(authority_revision);
+            }
             if effective.browser {
                 settings["browser_adapter"] = serde_json::json!(1);
             }
@@ -299,6 +318,7 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
+                authority_revision,
                 role_revision,
                 connection_id,
                 connection,
@@ -329,8 +349,16 @@ impl GooseRuntime {
             .as_ref()
             .map_or(self.config.role.as_str(), |p| p.role.as_str());
         let mut process = self.process.lock().await;
+        let authority_revision = self
+            .config
+            .platform
+            .as_ref()
+            .map(|p| p.authority_revision(&self.config.agent_id))
+            .transpose()?
+            .unwrap_or(0);
         if process.as_mut().is_some_and(|p| {
             p.role_revision != role_revision
+                || p.authority_revision != authority_revision
                 || p.resources.driver.is_finished()
                 || p.resources.child.try_wait().ok().flatten().is_some()
         }) {

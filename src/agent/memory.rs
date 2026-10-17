@@ -2,15 +2,6 @@ use super::Agent;
 use crate::storage::memory::MemoryScope;
 use anyhow::{Result, ensure};
 use serde_json::{Value, json};
-use std::sync::atomic::Ordering;
-
-struct Editing<'a>(&'a Agent);
-impl Drop for Editing<'_> {
-    fn drop(&mut self) {
-        self.0.memory_editing.store(false, Ordering::SeqCst);
-        self.0.wake.notify_one();
-    }
-}
 
 impl Agent {
     pub fn memory_enabled(&self) -> bool {
@@ -30,23 +21,7 @@ impl Agent {
         self.ensure_accepting()?;
         // A correction/forget must not race an agent retaining stale context.
         // Cancellation drains the prompt before the transaction invalidates sessions.
-        let _editing = {
-            let active = self
-                .cancellation
-                .lock()
-                .map_err(|_| anyhow::anyhow!("Agent state unavailable"))?;
-            ensure!(
-                self.memory_editing
-                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok(),
-                "Another memory edit is in progress"
-            );
-            let editing = Editing(self);
-            for cancel in active.values() {
-                cancel.cancel();
-            }
-            editing
-        };
+        let _editing = self.begin_context_edit()?;
         let _environment = self.environment.lock().await;
         self.ensure_accepting()?;
         ensure!(self.memory_enabled(), "Memory is disabled");

@@ -104,6 +104,7 @@ live Rust check is available with
 No live new-account OAuth consent, token expiry/refresh, VM acceptance or external
 event delivery is claimed. The new-account link response path is fixture-tested.
 
+[Signed event triggers](composio-triggers.md) now reuse the same account boundary.
 
 References: [account lifecycle](https://docs.composio.dev/docs/auth-configuration/connected-accounts),
 [Connect Links](https://docs.composio.dev/reference/api-reference/connected-accounts/postConnectedAccountsLink),

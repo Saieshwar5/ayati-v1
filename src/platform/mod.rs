@@ -1,9 +1,17 @@
 //! Trusted local-owner services. Provider credentials never enter agent VMs.
+pub mod app_document;
+pub mod app_records;
+pub mod apps;
 pub mod composio;
 mod composio_catalog;
 mod composio_mcp;
-mod consumer_connections;
 mod connections;
+mod consumer_connections;
+pub mod event_sources;
+pub mod panel_schedules;
+pub mod panels;
+pub mod triggers;
+pub mod webhook;
 use anyhow::{Context, Result, ensure};
 pub use connections::{Connection, Grant};
 use rusqlite::Connection as Database;
@@ -22,6 +30,22 @@ pub struct ExecutionRun<'a> {
     pub cancel: &'a tokio_util::sync::CancellationToken,
 }
 impl Platform {
+    pub fn authority_revision(&self, agent: &str) -> Result<i64> {
+        use rusqlite::OptionalExtension;
+        Ok(self
+            .database()?
+            .query_row(
+                "SELECT revision FROM agent_authority WHERE agent_id=?1",
+                [agent],
+                |r| r.get(0),
+            )
+            .optional()?
+            .unwrap_or(0))
+    }
+    pub(super) fn bump_authority_in(db: &Database, agent: &str) -> Result<()> {
+        db.execute("INSERT INTO agent_authority VALUES(?1,1) ON CONFLICT(agent_id) DO UPDATE SET revision=revision+1",[agent])?;
+        Ok(())
+    }
     pub fn open(path: &Path, client: Option<composio::Composio>) -> Result<Self> {
         use std::os::unix::fs::PermissionsExt;
         std::fs::create_dir_all(path)?;

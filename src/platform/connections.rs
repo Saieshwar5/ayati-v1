@@ -22,6 +22,12 @@ pub struct Grant {
 }
 
 impl Platform {
+    pub fn connection_agents(&self, id: &str) -> Result<Vec<String>> {
+        let db = self.database()?;
+        let mut q=db.prepare("SELECT agent_id FROM grants WHERE connection_id=?1 UNION SELECT agent_id FROM triggers WHERE connection_id=?1")?;
+        Ok(q.query_map([id], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?)
+    }
     pub fn connections(&self) -> Result<Vec<Connection>> {
         let db = self.database()?;
         let mut query =
@@ -116,14 +122,20 @@ impl Platform {
     }
     pub async fn revoke_connection(&self, id: &str) -> Result<()> {
         let _gate = self.gate.write().await;
+        let agents = self.connection_agents(id)?;
+        let mut db = self.database()?;
+        let tx = db.transaction()?;
         // Local revocation is immediate even if Composio/provider is unreachable.
-        let changed = self.database()?.execute(
+        let changed = tx.execute(
             "UPDATE connections SET status='REVOKED',revision=revision+1 WHERE id=?1",
             [id],
         )?;
         ensure!(changed == 1, "Unknown connection");
-        self.database()?
-            .execute("DELETE FROM grants WHERE connection_id=?1", [id])?;
+        tx.execute("DELETE FROM grants WHERE connection_id=?1", [id])?;
+        for agent in agents {
+            Self::bump_authority_in(&tx, &agent)?;
+        }
+        tx.commit()?;
         Ok(())
     }
     pub fn grants(&self, agent: &str) -> Result<Vec<Grant>> {
@@ -159,10 +171,14 @@ impl Platform {
         );
         let _gate = self.gate.write().await;
         if !enabled {
-            self.database()?.execute(
+            let mut db = self.database()?;
+            let tx = db.transaction()?;
+            tx.execute(
                 "DELETE FROM grants WHERE agent_id=?1 AND connection_id=?2 AND tool=?3",
                 params![agent, id, tool],
             )?;
+            Self::bump_authority_in(&tx, agent)?;
+            tx.commit()?;
             return Ok(());
         }
         let (account, toolkit, status) = self.account_for(id)?;

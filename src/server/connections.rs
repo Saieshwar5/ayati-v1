@@ -81,7 +81,18 @@ async fn revoke(
     Path(id): Path<String>,
     Json(_): Json<Empty>,
 ) -> ApiResult<Json<Value>> {
-    platform(&state)?.revoke_connection(&id).await?;
+    let p = platform(&state)?;
+    let agents = p.connection_agents(&id)?;
+    p.revoke_connection(&id).await?;
+    if let Some(workspace) = &state.workspace {
+        for id in agents {
+            if let Ok((agent, _, _)) = workspace.agent(&id) {
+                agent.invalidate_business_context().await?;
+                p.fence_trigger_jobs(&id, &agent.store)?;
+                p.fence_panel_schedules(&id, &agent.store)?;
+            }
+        }
+    }
     Ok(Json(json!({"ok":true})))
 }
 async fn configs(
@@ -159,6 +170,9 @@ async fn grant(
             input.enabled,
         )
         .await?;
+    if !input.enabled {
+        state.agent.invalidate_business_context().await?;
+    }
     Ok(Json(json!({"ok":true})))
 }
 async fn executions(Extension(state): Extension<WebState>) -> ApiResult<Json<Value>> {

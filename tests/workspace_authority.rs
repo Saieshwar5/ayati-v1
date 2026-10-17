@@ -85,6 +85,15 @@ fn adding_workspace_tools_resets_only_an_otherwise_compatible_context() {
         store.workspace_runtime_session(&after).unwrap().as_deref(),
         Some("new")
     );
+    let revoked=json!({"provider":"openai","model":"original","adapter":1,"workspace_adapter":1,"authority_revision":1}).to_string();
+    assert!(store.workspace_runtime_session(&revoked).unwrap().is_none());
+    store
+        .save_runtime_session("after-revocation", &revoked)
+        .unwrap();
+    assert!(
+        store.workspace_runtime_session(&after).is_err(),
+        "Authority revisions must never roll back silently"
+    );
 }
 
 #[test]

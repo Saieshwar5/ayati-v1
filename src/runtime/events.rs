@@ -12,6 +12,7 @@ pub struct RuntimeEvents {
     pub browser: bool,
     pub memory: bool,
     pub platform: bool,
+    pub panel_updates: Option<(Arc<crate::platform::Platform>, String)>,
 }
 
 impl RuntimeEvents {
@@ -226,7 +227,32 @@ impl RuntimeEvents {
         {
             return cancelled();
         }
-        let action = serde_json::json!({ "tool": tool, "request": action });
+        let automatic = workspace_allowed
+            && match tool {
+                Some(
+                    "ayati_workspace__connector_tools"
+                    | "ayati_workspace__panels_list"
+                    | "ayati_workspace__apps_list"
+                    | "ayati_workspace__app_source",
+                ) => true,
+                Some("ayati_workspace__app_records") => {
+                    observed
+                        .pointer("/rawInput/command/action")
+                        .and_then(|v| v.as_str())
+                        == Some("list")
+                }
+                Some("ayati_workspace__panel_write") => {
+                    self.panel_updates.as_ref().is_some_and(|(p, agent)| {
+                        p.automatic_panel_update(
+                            agent,
+                            observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                        )
+                        .unwrap_or(false)
+                    })
+                }
+                _ => false,
+            };
+        let action = serde_json::json!({ "tool": tool, "request": action,"authorization":if automatic {"saved_workspace_policy"}else{"owner_decision"} });
         let Some(allow) = request
             .options
             .iter()
@@ -255,6 +281,17 @@ impl RuntimeEvents {
         ) else {
             return cancelled();
         };
+        if automatic {
+            if self.store.decide_permission(&id, true).is_err()
+                || turn.cancel.is_cancelled()
+                || !self.store.claim_active(&turn.claim).unwrap_or(false)
+            {
+                return cancelled();
+            }
+            return RequestPermissionResponse::new(RequestPermissionOutcome::Selected(
+                SelectedPermissionOutcome::new(allow.option_id.clone()),
+            ));
+        }
         if self
             .store
             .set_claim_detail(&turn.claim, "Waiting for your decision")

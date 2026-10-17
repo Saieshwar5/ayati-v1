@@ -76,6 +76,76 @@ impl MemoryAccess {
             .consume_workspace_permission(&claim, &name, &request.arguments)?;
         let result = match request.tool.as_str() {
             "connector_tools" => Ok(json!({"grants":platform.grants(&self.agent_id)?})),
+            "panels_list" => Ok(json!({"panels":platform.panels(Some(&self.agent_id))?})),
+            "apps_list" => Ok(json!({"apps":platform.apps(Some(&self.agent_id))?})),
+            "app_source" => Ok(platform.app_source(
+                &self.agent_id,
+                request.arguments["app_id"].as_str().unwrap(),
+                request.arguments.get("revision").and_then(|v| v.as_i64()),
+            )?),
+            "app_write" => {
+                let input = serde_json::from_value(request.arguments)?;
+                platform
+                    .write_app(
+                        crate::platform::ExecutionRun {
+                            agent: &self.agent_id,
+                            store: &self.store,
+                            claim: &claim,
+                            cancel: &cancel,
+                        },
+                        &input,
+                    )
+                    .await
+            }
+            "app_records" => {
+                let input: crate::platform::app_records::RecordCommand =
+                    serde_json::from_value(request.arguments["command"].clone())?;
+                platform
+                    .agent_app_records(
+                        crate::platform::ExecutionRun {
+                            agent: &self.agent_id,
+                            store: &self.store,
+                            claim: &claim,
+                            cancel: &cancel,
+                        },
+                        request.arguments["app_id"].as_str().unwrap(),
+                        &input,
+                    )
+                    .await
+            }
+            "panel_write" => {
+                let input = serde_json::from_value(request.arguments)?;
+                platform
+                    .write_panel(
+                        crate::platform::ExecutionRun {
+                            agent: &self.agent_id,
+                            store: &self.store,
+                            claim: &claim,
+                            cancel: &cancel,
+                        },
+                        &input,
+                    )
+                    .await
+            }
+            "schedule_create" => {
+                let input: crate::platform::panel_schedules::PanelSchedule =
+                    serde_json::from_value(request.arguments)?;
+                if let Some(panel) = &input.panel_id {
+                    platform.ensure_panel_owner(&self.agent_id, panel)?;
+                }
+                let schedule = self
+                    .store
+                    .add_schedule(&crate::storage::intake::NewSchedule {
+                        id: input.id,
+                        content: input.content,
+                        run_at_ms: input.run_at_ms,
+                        interval_seconds: input.interval_seconds,
+                    })?;
+                if let Some(panel) = &input.panel_id {
+                    platform.bind_panel_schedule(&self.agent_id, panel, &schedule.id)?;
+                }
+                Ok(json!(schedule))
+            }
             "connector_execute" => {
                 let args = &request.arguments;
                 platform

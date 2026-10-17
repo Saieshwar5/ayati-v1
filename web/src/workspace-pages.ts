@@ -1,13 +1,12 @@
 import { installSetup } from './setup';
 import { installConnections } from './connections';
+import { installApps } from './apps';
 
 export function installWorkspacePage(page: 'apps' | 'settings'): void {
   document.title = `${page === 'apps' ? 'Apps' : 'Settings'} · Ayati`;
   const app = document.querySelector('#app')!;
   if (page === 'apps') {
-    app.innerHTML = `<main class="workspace-page"><h1>Apps</h1><p class="page-subtitle">The tools that keep your business moving.</p>
-      <section class="empty-surface"><span class="empty-mark" aria-hidden="true">▦</span><h2>Your apps will live here</h2>
-      <p>Installed business apps and app creation are still being built. Your agents are available now.</p><a class="files-button" href="/?agent=local-agent">Open Agents</a></section></main>`;
+    installApps();
     return;
   }
   app.innerHTML = `<main class="workspace-page"><h1>Settings</h1><p class="page-subtitle">Your workspace, appearance and setup.</p>

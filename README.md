@@ -14,6 +14,8 @@ Optional [Composio connections](runtime/composio.md) support Connect MCP consume
 keys and Platform project keys, with explicit per-agent operation grants through
 Settings and Agent Details. Live MCP discovery and a bounded Gmail read passed;
 OAuth refresh, new-account consent and VM acceptance remain unverified.
+[Event triggers](runtime/composio-triggers.md) add per-agent rules and a signed
+Composio receiver; live delivery needs an explicitly configured HTTPS endpoint.
 
 ## Run the Goose-backed chat
 

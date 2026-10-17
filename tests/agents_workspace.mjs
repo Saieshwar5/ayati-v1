@@ -40,7 +40,7 @@ test('graphite Agents workspace preserves draft and reading position across excl
   const chat = await page.locator('.chat').boundingBox(), panel = await page.locator('#agent-schedules').boundingBox();
   assert.ok(chat.x + chat.width <= panel.x + 1);
   await page.locator('#triggers-tab').click();
-  await page.getByText('Event sources and trigger management are not available yet.', { exact: false }).waitFor();
+  await page.getByText('No event triggers for this agent.', { exact: true }).waitFor();
   assert.equal(await page.locator('#schedule-form').isVisible(), false);
   await page.keyboard.press('ArrowLeft');
   assert.equal(await page.locator('#schedules-tab').getAttribute('aria-selected'), 'true');

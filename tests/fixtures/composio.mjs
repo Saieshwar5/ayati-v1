@@ -17,6 +17,13 @@ export async function composioFixture() {
       user = body.user_id; data = { connected_account_id: 'ca_fixture', redirect_url: 'https://connect.composio.dev/fixture', link_token: 'DO_NOT_EXPOSE_LINK_TOKEN' };
     } else if (path === '/api/v3.1/connected_accounts/ca_fixture') {
       data = { id: 'ca_fixture', user_id: foreign ? 'foreign-workspace' : user, toolkit: { slug: 'gmail' }, status: active ? 'ACTIVE' : 'EXPIRED', state: { val: { access_token: 'DO_NOT_EXPOSE_GOOGLE_TOKEN' } } };
+    } else if (path === '/api/v3.1/trigger_instances/active') {
+      data = { items: [{ id: 'ti_fixture', connected_account_id: 'ca_fixture', user_id: user, trigger_name: 'GMAIL_NEW_GMAIL_MESSAGE', version: '20261001_00' }] };
+    } else if (path.endsWith('/upsert')) {
+      data = { trigger_id: 'ti_fixture' };
+    } else if (path.includes('/triggers_types')) {
+      const type = { slug: 'GMAIL_NEW_GMAIL_MESSAGE', name: 'New email', toolkit: { slug: 'gmail' }, description: 'Synthetic new Gmail event', version: '20261001_00', config: {} };
+      data = path.endsWith('/triggers_types') ? { items: [type] } : type;
     } else if (path.startsWith('/api/v3.1/tools/execute/')) {
       if (loseReply) { request.socket.destroy(); return; }
       data = { successful: true, error: null, data: { messages: [{ id: 'synthetic-message', subject: 'Synthetic stock update' }] }, log_id: 'log_fixture' };
