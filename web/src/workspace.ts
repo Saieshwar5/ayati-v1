@@ -1,4 +1,5 @@
 import { element } from './view';
+import { openGuide } from './guide';
 
 export type WorkspacePage = 'home' | 'apps' | 'agents' | 'settings';
 const icons: Record<WorkspacePage, string> = {
@@ -9,6 +10,7 @@ const icons: Record<WorkspacePage, string> = {
 };
 
 export function installWorkspace(page: WorkspacePage): void {
+  if (new URLSearchParams(location.search).get('guide') === '1' && window.self !== window.top) document.documentElement.classList.add('guide-mode');
   const app = document.querySelector<HTMLDivElement>('#app')!;
   const shell = element('div', 'workspace-shell');
   const rail = element('aside', 'workspace-rail');
@@ -21,7 +23,8 @@ export function installWorkspace(page: WorkspacePage): void {
     link.title = name[0].toUpperCase() + name.slice(1);
     nav.append(link);
   }
-  rail.append(nav, element('span', 'workspace-owner', 'You'));
+  const help = element('button', 'workspace-help', '?'); help.setAttribute('aria-label', 'Ask Ayati'); help.title = 'Ask Ayati'; help.onclick = openGuide;
+  rail.append(nav, help, element('span', 'workspace-owner', 'You'));
   const body = element('div', 'workspace-body');
   app.before(shell); body.append(app); shell.append(rail, body);
   document.documentElement.dataset.page = page;

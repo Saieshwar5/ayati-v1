@@ -12,7 +12,7 @@ pub fn tools() -> Vec<Value> {
         json!({"name":"app_write","description":"Build or revise a complete local internal app. Supply HTML, CSS, JavaScript and collections mapping lowercase names to fields typed string, number or boolean. Source budget: 12000 bytes. JavaScript uses await ayati.records.list(collection,after?), save(collection,values,id?,expectedRevision?) and remove(collection,id,expectedRevision). List returns records [{id,revision,values}] and next_cursor. Mutations return id/revision. No host access, connector credentials, CDN libraries or custom backend code. Records work without a model. Every release needs isolated owner preview and exact activation. This is not Supabase/Vercel deployment.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"expected_revision":{"type":"integer"},"name":{"type":"string"},"description":{"type":"string"},"html":{"type":"string"},"css":{"type":"string"},"javascript":{"type":"string"},"collections":{"type":"object"}},"required":["id","expected_revision","name","description","html","css","javascript","collections"],"additionalProperties":false}}),
         json!({"name":"app_records","description":"Use explicitly assigned internal app records. command.action: list {collection,after?}, save {collection,id?,expected_revision,values,request_id} or delete {collection,id,expected_revision,request_id}. Mutations require a stable UUID request_id and exact owner approval. Observation IDs can source Home panels.","inputSchema":{"type":"object","properties":{"app_id":{"type":"string"},"command":{"type":"object"}},"required":["app_id","command"],"additionalProperties":false}}),
         json!({"name":"panels_list","description":"Inspect your saved Home panels, revisions and source availability. Cached snapshots are observations, not fresh provider reads.","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}),
-        json!({"name":"panel_write","description":"Create or revise a custom Home panel from the owner's request. Use a UUID and expected_revision=0 for a new panel. Sections support text {heading,body}, metric {label,value}, table {columns,rows}, chart {title,points:[{label,value}]}, each with a kind field. Sources must be successful connector execution IDs assigned to you, or [] for clearly labeled agent findings. Bound the whole view to 12000 bytes. New views/sources need owner review. An owner-enabled update using the same sources can refresh an active panel.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"expected_revision":{"type":"integer"},"title":{"type":"string"},"purpose":{"type":"string"},"sections":{"type":"array","items":{"type":"object"}},"sources":{"type":"array","items":{"type":"string"}}},"required":["id","expected_revision","title","purpose","sections","sources"],"additionalProperties":false}}),
+        json!({"name":"panel_write","description":"Create or revise a custom Home panel from the owner's request. Use a UUID and expected_revision=0 for a new panel. Use exactly one section. Templates are metric (label <=80 bytes, value <=40), list or agenda (table, <=3 columns, <=8 rows, <=160 bytes per cell), chart (<=12 points, labels <=40 bytes), brief (text, body <=800 bytes). Optional template selects the matching preset; omit it to infer the section type. Agents cannot set panel position or dimensions. Sections support text {heading,body}, metric {label,value}, table {columns,rows}, chart {title,points:[{label,value}]}, each with a kind field. Sources must be successful connector execution IDs assigned to you, or [] for clearly labeled agent findings. Bound the whole view to 12000 bytes. For an explicit request to add to Home set publish=true; this exact action needs approval and publishes without a second review. Omit publish for a preview. If the owner explicitly requested recurring updates also set updates_enabled=true with publish=true, then separately propose schedule_create. Otherwise omit updates_enabled. Publishing never creates a schedule. An owner-enabled update using the same sources can refresh an active panel.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"expected_revision":{"type":"integer"},"title":{"type":"string"},"purpose":{"type":"string"},"template":{"type":"string","enum":["metric","list","chart","agenda","brief"]},"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}},"sources":{"type":"array","items":{"type":"string"}},"publish":{"type":"boolean"},"updates_enabled":{"type":"boolean"}},"required":["id","expected_revision","title","purpose","sections","sources"],"additionalProperties":false}}),
         json!({"name":"schedule_create","description":"Create one-time or fixed-interval work for this agent. Reuse the same UUID and payload for an unacknowledged save. Scheduled model use may incur charges; the host must stay on. To maintain a Home panel, instruct the run to inspect its latest revision and refresh it from authorized sources. Calendar recurrence is not supported.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"content":{"type":"string"},"run_at_ms":{"type":"integer"},"panel_id":{"type":"string","description":"Optional owning Home panel UUID; binds update health and pause/removal to this schedule."},"interval_seconds":{"type":["integer","null"]}},"required":["id","content","run_at_ms","interval_seconds"],"additionalProperties":false}}),
     ]
 }
@@ -53,7 +53,29 @@ pub fn observed(name: &str, input: &Value) -> bool {
                 && input.get("arguments").is_some_and(Value::is_object)
         }
         "panel_write" => {
-            input.len() == 6
+            (6..=9).contains(&input.len())
+                && input.keys().all(|key| {
+                    [
+                        "id",
+                        "title",
+                        "purpose",
+                        "expected_revision",
+                        "sections",
+                        "template",
+                        "sources",
+                        "publish",
+                        "updates_enabled",
+                    ]
+                    .contains(&key.as_str())
+                })
+                && input.get("template").is_none_or(|v| {
+                    v.as_str().is_some_and(|s| {
+                        ["metric", "list", "chart", "agenda", "brief"].contains(&s)
+                    })
+                })
+                && ["publish", "updates_enabled"]
+                    .iter()
+                    .all(|key| input.get(*key).is_none_or(Value::is_boolean))
                 && ["id", "title", "purpose"]
                     .iter()
                     .all(|k| input.get(*k).is_some_and(Value::is_string))

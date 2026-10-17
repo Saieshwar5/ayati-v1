@@ -22,12 +22,14 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   assert.equal(await page.locator('.workspace-header').count(), 0);
   await page.locator('#home-agents .home-agent-state').waitFor();
   assert.equal(await nav.getByRole('link').count(), 4);
+  await page.locator('#home-decisions > summary').click();
   await page.locator('#home-attention summary').waitFor();
   assert.equal(await page.getByRole('button', { name: 'Allow once' }).isVisible(), false);
   await page.screenshot({ path: join(dir, 'home-light.png') });
   await page.locator('#home-attention summary').click();
   const queued = await app.submit('Prepare a second report later');
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.locator('#home-history-toggle').click();
   await page.locator(`#home-work [data-task="${queued.id}"]`).waitFor();
   assert.equal(await page.locator('#home-attention details').evaluate(el => el.open), true);
   await app.request(`/tasks/${queued.id}/stop`, {});
@@ -76,6 +78,7 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: join(dir, 'agents-mobile.png') });
   await nav.getByRole('link', { name: 'Home', exact: true }).click();
+  await page.locator('#home-history-toggle').click();
   await page.locator('#home-recent .home-feed-item').first().waitFor();
   await page.screenshot({ path: join(dir, 'home-mobile-dark.png') });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

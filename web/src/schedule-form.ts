@@ -1,4 +1,6 @@
 import { post, selectedAgent } from './types';
+import { loadBusinessClock } from './home-clock';
+import { localMinute, matchingInstants } from './business-time';
 
 export interface ScheduleInput { id: string; content: string; run_at_ms: number; interval_seconds: number | null }
 
@@ -29,17 +31,15 @@ export function installScheduleForm(container: HTMLElement, saved: () => Promise
   const key = `ayati.schedule.pending.${selectedAgent}`;
   let pending: ScheduleInput | undefined;
   let busy = false;
-  let available = false;
-  function localDate(ms: number): string {
-    const date = new Date(ms);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  }
+  let available = false, clockReady = false;
+  let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  function localDate(ms: number): string { return localMinute(ms, timezone); }
   function defaults(): void { form.reset(); start.value = localDate(Date.now() + 3600000); }
   function controls(): void {
-    for (const field of [content, start, repeat, amount, unit]) field.disabled = busy || !!pending || !available;
+    for (const field of [content, start, repeat, amount, unit]) field.disabled = busy || !!pending || !available || !clockReady;
     amount.disabled ||= repeat.value === 'once';
     unit.disabled ||= repeat.value === 'once';
-    submit.disabled = busy || !available;
+    submit.disabled = busy || !available || !clockReady;
     submit.textContent = pending ? 'Retry same save' : 'Create schedule';
     form.querySelector<HTMLElement>('#schedule-interval')!.hidden = repeat.value !== 'interval';
     amount.required = repeat.value === 'interval';
@@ -57,12 +57,19 @@ export function installScheduleForm(container: HTMLElement, saved: () => Promise
       }
     }
   } catch { /* Storage is optional; pending state remains in memory for this page. */ }
-  form.querySelector('#schedule-timezone')!.textContent = `Times use this browser’s timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
+  void loadBusinessClock().then(clock => {
+    timezone = clock.timezone; clockReady = true;
+    form.querySelector('#schedule-timezone')!.textContent = `Times use ${clock.location}: ${timezone}. Repeated daylight-saving hours must be avoided; choose an unambiguous time.`;
+    if (pending) start.value = localDate(pending.run_at_ms); else defaults();
+    controls();
+  }).catch(() => { status.textContent = 'Could not load the business timezone. Reopen this page before creating a schedule.'; });
   repeat.onchange = controls;
   form.onsubmit = async event => {
-    event.preventDefault(); if (busy || !available) return;
+    event.preventDefault(); if (busy || !available || !clockReady) return;
     if (!pending) {
-      const runAt = new Date(start.value).getTime();
+      const matches = matchingInstants(start.value, timezone);
+      if (matches.length !== 1) { status.textContent = 'This local time is missing or repeated by a daylight-saving change. Choose another time.'; return; }
+      const runAt = matches[0];
       const interval = repeat.value === 'once' ? null : Number(amount.value) * Number(unit.value);
       if (!Number.isFinite(runAt) || localDate(runAt) !== start.value || runAt <= Date.now()) {
         status.textContent = 'Choose a valid future local time. Some times do not exist when daylight saving changes.'; return;

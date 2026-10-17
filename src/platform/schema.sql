@@ -55,3 +55,5 @@ CREATE TABLE IF NOT EXISTS app_record_receipts(app_id TEXT NOT NULL,dataset TEXT
 CREATE TABLE IF NOT EXISTS app_record_history(app_id TEXT NOT NULL,dataset TEXT NOT NULL,collection TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,data TEXT NOT NULL,deleted INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(app_id,dataset,collection,id,revision));
 CREATE TABLE IF NOT EXISTS app_grants(app_id TEXT NOT NULL REFERENCES apps(id),agent_id TEXT NOT NULL,collection TEXT NOT NULL,can_write INTEGER NOT NULL,PRIMARY KEY(app_id,agent_id,collection));
 CREATE TABLE IF NOT EXISTS app_observations(id TEXT PRIMARY KEY,agent_id TEXT NOT NULL,task_id TEXT NOT NULL,app_id TEXT NOT NULL,collection TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+
+CREATE TABLE IF NOT EXISTS home_preferences(id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);

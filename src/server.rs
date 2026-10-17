@@ -4,6 +4,7 @@ mod apps;
 mod browser;
 mod connections;
 mod home;
+mod home_preferences;
 mod intake;
 mod memory;
 mod panels;
@@ -61,6 +62,7 @@ pub fn router(state: WebState) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(home::routes())
+        .merge(home_preferences::routes())
         .merge(intake::routes())
         .merge(browser::routes())
         .merge(memory::routes())
@@ -137,6 +139,9 @@ async fn local_request(
         }
     };
     request.extensions_mut().insert(selected);
+    // Only the built-in guide conversation can be embedded by this same-origin UI.
+    let guide_document =
+        request.uri().path() == "/" && request.uri().query() == Some("agent=local-agent&guide=1");
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     if private_browser {
@@ -147,6 +152,8 @@ async fn local_request(
     let generated_document = headers.remove("x-ayati-app-document").is_some();
     let csp = if generated_document {
         crate::platform::app_document::CSP
+    } else if guide_document {
+        "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'none'"
     } else {
         "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     };

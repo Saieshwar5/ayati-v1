@@ -24,18 +24,19 @@ square workspace layouts and the prototype-only status of this direction.
 - Use shared semantic CSS tokens in `web/src/workspace.css`. Keep native controls,
   existing TypeScript modules and the system sans-serif; no new UI framework.
 
-## Home
+## Personal Home — accepted refinement
 
-Put actual agents and their running/approval/ready states near the top. Follow
-with a compact canvas of persistent agent-created panels, Needs you, recent work
-and active/queued requests. On narrow screens attention precedes saved panels.
-Use real saved data, explicit empty states and snapshot provenance. Prototype
-sales totals and sample businesses never become production fixtures.
+The owner approved the [Personal Home experience](personal-home.md) on 2026-10-17.
+It supersedes the earlier agent-card dashboard: saved panels are the main canvas,
+with a compact decision strip, small agent presence row, Ask Ayati drawer and
+progressive history/settings. Use the same soft raised surfaces and plain-language
+conversation-led flows throughout the product. Keep empty states useful, not filled
+with zero metrics. Short charts use restrained violet bars with accessible values.
 
-Approvals stay collapsed until the owner reviews the exact requested action.
-Refreshing preserves open reviews. Offline/stale decisions remain disabled and
-failed external actions are never automatically retried by a visual refresh.
-Panel creation, exact revision review, update policy and removal remain available.
+Add panel and Create app select an existing agent and open an unsent conversation
+starter. Direct chat requests work too. Preserve drafts. A permanent guide stays
+available with ordinary scoped permissions. Panel arrangement persists per browser.
+The linked experience specification defines publishing, review and runtime limits.
 
 ## Agents
 
@@ -64,7 +65,7 @@ active/preview state and a clear Open or Preview action. Keep the maintaining
 agent reachable. Place secondary release review, agent access and archive controls
 under Releases and access, beside their app. Do not bury primary launch actions.
 
-Opening an app gives it a large scoped work surface. A draft is always previewed;
+Opening an app gives it a large scoped work surface. A draft is labeled Ready to try and previewed before Start using this app;
 activation still applies to the exact reviewed release. Preview and active records
 remain separate. Access is explicitly assigned per agent and collection. Styling
 never implies deployment, granted permissions or a service connection.
@@ -79,3 +80,10 @@ Screenshots and fixture providers establish UI behavior, not live-provider proof
 Settings adopts shared tokens and chrome; a dedicated Settings layout redesign is
 outside this increment. Custom panel layouts, generated apps and future screens
 should follow these principles without imposing one fixed business dashboard.
+
+## Organized Home refinement
+
+See [Organized Home](organized-home.md) for fixed panel templates, owner-controlled
+placement, the business clock, grouped attention drawer and highlighted creation
+modes. Agent updates refresh content without changing owner layout. Creation
+intent belongs in the composer chrome, never prefilled message prose.

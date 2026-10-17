@@ -350,3 +350,14 @@ navigation. The [Agents workspace](runtime/agents-workspace.md) has a separate
 contact sidebar, floating bottom composer and contextual work panels.
 Use **Automation → Schedules** for timed work, **Browser** for the guest view,
 and **Details** for settings, memory and files.
+
+### Personal Home
+
+The [Personal Home experience](runtime/personal-home.md) is the default UI: saved
+panels, compact agent presence, expandable decisions and an always-available Ayati
+guide. Add panel/Create app chooses an agent and opens an unsent chat starter;
+requests can also start directly in any conversation. Exact approved publication
+can add panels without a second activation step. Installed VMs need the current
+guest workspace tools for the new optional publishing fields; older guests retain
+the existing preview/review path. See the specification for update and schedule
+permissions, browser-local layout preferences and verification limits.

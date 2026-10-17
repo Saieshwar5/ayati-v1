@@ -98,3 +98,7 @@
   [data-page=agents] .header { min-height: 52px; padding-top: 6px; padding-bottom: 6px; }
   [data-page=agents] .composer-area { padding-top: 5px; padding-bottom: 8px; }
 }
+.agent-creations { margin: 0 24px 4px; color: var(--muted); font-size: .75rem; }
+.agent-creations summary { cursor: pointer; padding: 6px 0; }
+.agent-creations > div { display: flex; flex-direction: column; gap: 8px; max-height: 130px; overflow-y: auto; padding: 8px 0; }
+.agent-creations a { font-size: .75rem; text-decoration: none; }

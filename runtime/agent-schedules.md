@@ -4,12 +4,12 @@ Open Agents → Automation → Schedules (or Details → Manage schedules). The 
 agent and names that agent. It supports one-time work and fixed intervals using
 the existing host-side durable scheduler. No new service or dependency is added.
 
-Create a task instruction and a future first-run time in the browser's displayed
-timezone. A repeating schedule uses elapsed minutes, hours or 24-hour periods;
+Create a task instruction and a future first-run time in the business timezone
+selected on Home (Device time until configured). A repeating schedule uses elapsed minutes, hours or 24-hour periods;
 it is not calendar recurrence and can shift local clock time across daylight
 saving changes. Invalid/nonexistent local times are rejected. Ambiguous repeated
-clock times use the browser's Date interpretation. The UTC instant is saved and
-subsequently displayed in the current browser timezone. API timing semantics are
+clock times are rejected; choose an unambiguous time. The UTC instant is saved and
+subsequently displayed in the selected business timezone. API timing semantics are
 unchanged; see [scheduled intake](scheduled-work.md).
 
 Scheduled work can call the configured provider and incur API charges without
@@ -48,7 +48,7 @@ The form draft is not reset by routine list refreshes.
 
 Schedules retain immutable instructions/timing in this increment. To change them,
 pause the old routine and create another. Editing/removal, calendar/weekday/cron
-recurrence, named timezone selection, trigger rules and connector subscriptions
+recurrence and connector subscriptions
 remain later increments. There are at most 100 stored schedules per agent under
 the existing proof limit. Home panels and Apps are separate future work.
 

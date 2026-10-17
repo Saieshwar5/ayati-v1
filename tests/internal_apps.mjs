@@ -33,7 +33,7 @@ test('Goose writes a working internal app; previews isolate data and activated r
   await frame.getByText('Parent blocked',{exact:true}).waitFor();
   assert(policies[0].includes('sandbox allow-scripts'));
   await frame.getByLabel('Item name',{exact:true}).fill('Preview-only item');await frame.getByRole('button',{name:'Add item',exact:true}).click();await until(async()=>await frame.getByRole('status').textContent(),'No app save outcome');assert.equal(await frame.getByRole('status').textContent(),'Saved');await frame.getByText('Preview-only item · 1',{exact:true}).waitFor();
-  await dialog.getByRole('button',{name:'Activate this release',exact:true}).click();
+  await dialog.getByRole('button',{name:'Start using this app',exact:true}).click();
   await dialog.getByText('This exact release is active.',{exact:false}).waitFor();await dialog.getByRole('button',{name:'Close app',exact:true}).click();
   const calls=app.provider.requests.length;
   await page.getByRole('button',{name:'Open app',exact:true}).click();dialog=page.getByRole('dialog');frame=dialog.frameLocator('iframe');
