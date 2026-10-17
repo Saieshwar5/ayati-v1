@@ -18,7 +18,9 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   const pending = await app.submit('tool Check the available stock');
   await until(async () => (await app.request('/home')).agents[0].attention.permissions.length, 'No approval');
   await page.goto(base);
-  await page.getByRole('heading', { name: 'Home', exact: true }).waitFor();
+  await page.getByRole('main', { name: 'Home', exact: true }).waitFor();
+  assert.equal(await page.locator('.workspace-header').count(), 0);
+  await page.locator('#home-agents .home-agent-state').waitFor();
   assert.equal(await nav.getByRole('link').count(), 4);
   await page.locator('#home-attention summary').waitFor();
   assert.equal(await page.getByRole('button', { name: 'Allow once' }).isVisible(), false);
@@ -32,6 +34,10 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   await page.getByRole('button', { name: 'Allow once' }).click();
   assert.equal((await app.done(pending.id)).task.status, 'completed');
   await nav.getByRole('link', { name: 'Agents', exact: true }).click();
+  assert.equal(await page.locator('.workspace-rail .agent-card').count(), 0);
+  await page.getByRole('button', { name: 'Hide agent list' }).click();
+  await nav.getByRole('link', { name: 'Agents', exact: true }).click();
+  assert.equal(await page.locator('.agents-list').isVisible(), true);
   await page.locator('#input').fill('Keep this draft while I inspect details');
   await page.locator('#details-button').click();
   await page.getByRole('heading', { name: 'Responsibilities' }).waitFor();
@@ -52,7 +58,7 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   assert.equal(await page.locator('#input').inputValue(), 'Keep this draft while I inspect details');
   await page.screenshot({ path: join(dir, 'agents-dark.png') });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Choose agent' }).click();
+  await nav.getByRole('link', { name: 'Agents', exact: true }).click();
   await page.getByRole('dialog', { name: 'Choose agent' }).waitFor();
   await page.locator('#agent-search').fill('Ayati');
   await page.keyboard.press('Escape');
@@ -76,6 +82,17 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   // A short laptop / 200% browser-zoom equivalent must retain navigation and composer.
   await page.setViewportSize({ width: 720, height: 480 });
   await nav.getByRole('link', { name: 'Agents', exact: true }).click();
+  await page.keyboard.press('Escape');
   assert.ok(await page.locator('#composer').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight));
+  for (const width of [1024, 736, 390, 320]) {
+    await page.setViewportSize({ width, height: 700 });
+    for (const section of ['Home', 'Apps', 'Agents']) {
+      if (section === 'Agents') await page.goto(base + '/?agent=local-agent');
+      else await nav.getByRole('link', { name: section, exact: true }).click();
+      await page.locator(section === 'Home' ? '#home-agents .home-card' : section === 'Apps' ? '#app-search' : '#composer').waitFor();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${section} fits ${width}px`);
+      if (section === 'Agents') assert.ok(await page.locator('#composer').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight));
+    }
+  }
   assert.deepEqual(errors, []);
 });

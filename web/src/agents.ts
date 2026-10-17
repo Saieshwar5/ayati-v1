@@ -10,7 +10,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
   const panel = element('aside', 'agents-list');
   panel.setAttribute('aria-label', 'Agents'); panel.id = 'agents-sidebar';
   document.querySelector('#agent-sidebar-toggle')!.setAttribute('aria-controls', panel.id);
-  panel.innerHTML = `<div class="agents-heading"><h2>Agents</h2><button id="new-agent" class="files-button">New agent</button></div>
+  panel.innerHTML = `<div class="agents-heading"><h2>Agents</h2><button id="new-agent" class="files-button" aria-label="New agent" title="New agent">＋</button></div>
     <label class="agent-search-label">Search agents<input id="agent-search" type="search" placeholder="Search agents…"></label><div id="agent-cards"></div><p id="agents-status" role="status"></p>`;
   main.prepend(panel);
   const chooser = document.createElement('dialog'); chooser.className = 'agent-chooser';
@@ -20,6 +20,17 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
   const toggle = document.querySelector<HTMLButtonElement>('#agent-list-toggle')!;
   toggle.setAttribute('aria-haspopup', 'dialog');
   toggle.onclick = () => { chooser.append(panel); chooser.showModal(); panel.querySelector<HTMLInputElement>('#agent-search')!.focus(); };
+  document.querySelector<HTMLAnchorElement>('.nav-agents')!.onclick = event => {
+    event.preventDefault();
+    if (matchMedia('(max-width: 760px)').matches) toggle.click();
+    else {
+      main.classList.remove('agent-list-collapsed');
+      const sidebarToggle = document.querySelector('#agent-sidebar-toggle')!;
+      sidebarToggle.setAttribute('aria-expanded', 'true');
+      sidebarToggle.setAttribute('aria-label', 'Hide agent list');
+      panel.querySelector<HTMLInputElement>('#agent-search')!.focus();
+    }
+  };
   closeChooser.onclick = () => chooser.close();
   chooser.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); chooser.close(); }
@@ -95,6 +106,8 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
       fingerprint = next;
       cards.replaceChildren(...workspace.agents.map(({ profile, activity }) => {
         const card = element('div', 'agent-card');
+        card.dataset.state = profile.state !== 'ready' ? profile.state
+          : activity.pending_approvals ? 'waiting' : activity.pending_tasks ? 'working' : 'ready';
         card.dataset.search = `${profile.name} ${profile.role}`.toLocaleLowerCase();
         if (profile.id === selectedAgent) card.classList.add('selected');
         const avatar = element('span', 'agent-avatar', profile.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
