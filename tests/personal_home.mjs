@@ -64,6 +64,7 @@ test('personal Home routes creation through conversations, preserves drafts and 
   await page.locator('.home-panel-card').getByRole('link', { name: 'Ask its agent ↗' }).click();
   assert.equal(await page.locator('.creation-mode strong').textContent(), 'Updating a panel');
   assert.equal(new URL(page.url()).searchParams.get('item'), definition.id);
+  await page.locator('#files-button').click();
   await page.locator('.agent-creations > summary').click();
   await page.locator('.agent-creations').getByRole('link', { name: /Weekly sales · On Home/ }).click();
   await page.locator('.home-panel-card').waitFor();

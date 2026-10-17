@@ -1,3 +1,11 @@
+# Agent Studio update — 2026-10-17
+
+[Agent Studio](agent-studio.md) supersedes the Agents layout described below: a
+compact tinted contact sidebar, floating tool dock, contextual Artifacts panel
+and bounded text attachments replace the masthead and hidden Files entry point.
+
+---
+
 # Personal Home update — 2026-10-17
 
 The [Personal Home specification](personal-home.md) supersedes the Home hierarchy

@@ -8,7 +8,7 @@ type App = { id: string; agent_id: string; name: string; active_revision: number
 export function installAgentCreations(): void {
   const details = document.createElement('details'); details.className = 'agent-creations'; details.hidden = true;
   const summary = element('summary', '', 'Made with this agent'); const list = element('div'); details.append(summary, list);
-  document.querySelector('.composer-area')!.before(details);
+  document.querySelector('#agent-creations-slot')!.append(details);
   let loading = false, fingerprint = '';
   async function refresh(): Promise<void> {
     if (loading || document.hidden) return; loading = true;

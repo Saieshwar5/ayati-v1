@@ -39,3 +39,12 @@ test('pending messages remain separate when switching agents', () => {
   second.acknowledge(b.request_id);
   assert.equal(new PendingSubmission(storage).draft(), a.content);
 });
+
+test('attachment selection is part of the retry identity', () => {
+  const values = new Map();
+  const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v) };
+  const pending = new PendingSubmission(storage, 'files-agent');
+  const first = pending.prepare('Review', ['file-a']);
+  assert.deepEqual(new PendingSubmission(storage, 'files-agent').prepare('Review', ['file-a']), first);
+  assert.notEqual(pending.prepare('Review', ['file-b']).request_id, first.request_id);
+});

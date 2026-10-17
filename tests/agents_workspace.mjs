@@ -21,10 +21,11 @@ test('graphite Agents workspace preserves draft and reading position across excl
   const dir = join(root, '.test-runs/agents-workspace'); await mkdir(dir, { recursive: true });
   const base = app.base.replace('/api', '');
   await page.goto(base + '/?agent=local-agent');
-  await page.locator('.agent-preview').waitFor();
-  assert.match(await page.locator('.agent-preview').textContent(), /<img src=x/);
-  assert.equal(await page.locator('.agent-preview img').count(), 0);
-  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()), '#3f3f46');
+  await page.locator('.message').last().waitFor();
+  assert.match(await page.locator('.message').last().textContent(), /<img src=x/);
+  assert.equal(await page.locator('.message img').count(), 0);
+  assert.equal(await page.locator('.agent-preview').count(), 0);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()), '#242630');
   await page.locator('#input').fill('Preserve my draft across tools');
   await page.locator('#agent-sidebar-toggle').click();
   assert.equal(await page.locator('.agents-list').isVisible(), false);

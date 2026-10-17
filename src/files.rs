@@ -1,3 +1,4 @@
+mod attachments;
 use crate::storage::{Artifact, Store};
 use anyhow::{Context, Result, ensure};
 use std::{

@@ -113,11 +113,11 @@ test('long replies keep the composer visible on short laptops and mobile layouts
       Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height));
     ayati.check(`No horizontal overflow at ${viewport.width}px`, true,
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-    await page.getByRole('button', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.locator('#agent-details').getByRole('button', { name: 'Files', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Close files' })).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Details', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Artifacts', exact: true })).toBeFocused();
     await ayati.screenshot(`conversation-${viewport.width}x${viewport.height}`);
   }
   await page.getByRole('textbox', { name: 'Message Ayati' }).focus();

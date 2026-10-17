@@ -1,7 +1,7 @@
 import './style.css';
 import { installAgents } from './agents';
 import { api, post, apiUrl, selectedAgent, type AgentEvent, type Artifact, type Snapshot } from './types';
-import { element, renderConversation, renderFiles } from './view';
+import { element, renderConversation } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { PendingSubmission } from './submission';
 import { workPanels } from './work-panels';
@@ -9,22 +9,24 @@ import { installBrowser } from './browser';
 import { installMemory } from './memory';
 import { installAgentDetails } from './agent-details';
 import './agent-workspace.css';
+import './agent-studio.css';
+import { installStudioTools } from './agent-studio';
+import { renderArtifacts } from './agent-artifacts';
 import { installAgentCreations } from './agent-creations';
 import { installConversationIntent } from './conversation-intent';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
-  <header class="header">
+  <div class="header" role="toolbar" aria-label="Agent tools">
     <div class="identity"><span class="avatar" aria-hidden="true">a</span>
       <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
     <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
     <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
     <button class="files-button" id="browser-button" hidden>Browser</button>
-    <div class="chat-tool-links">
-    <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Files <span id="file-count">0</span></button>
-    </div>
-  </header>
+    <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Artifacts <span id="file-count">0</span></button>
+    <div class="chat-tool-links"></div>
+  </div>
   <main class="main">
     <section class="chat" aria-label="Conversation with Ayati">
       <div class="notice" id="notice" role="status" hidden></div>
@@ -39,10 +41,10 @@ app.innerHTML = `
         </form>
       </div>
     </section>
-    <dialog class="files-panel" id="files-panel" aria-label="Your files" hidden>
-      <div class="panel-header"><h2>Your files</h2><button class="icon-button" id="close-files" aria-label="Close files">×</button></div>
-      <p class="panel-description">Originals and new versions, ready to download.</p>
-      <div id="files-list" class="files-list"></div>
+    <dialog class="files-panel" id="files-panel" aria-label="Artifacts" hidden>
+      <div class="panel-header"><h2>Artifacts</h2><button class="icon-button" id="close-files" aria-label="Close files">×</button></div>
+      <p class="panel-description">Created, updated and attached here. Text files can be read; other formats are stored for download.</p>
+      <div id="agent-creations-slot"></div><div id="artifact-preview" hidden></div><div id="files-list" class="files-list"></div>
     </dialog>
   </main>
   <dialog id="browser-panel" class="browser-panel" aria-label="Agent browser" hidden>
@@ -77,14 +79,20 @@ let connected = false;
 let sending = false;
 let syncing = false;
 let syncAgain = false;
-let attachments: { name: string; path: string }[] = [];
+let attachments: { name: string; id: string }[] = [];
+let uploading = false;
 let browserStorage: Storage | undefined;
 try { browserStorage = window.sessionStorage; } catch { /* Private browser modes may restrict it. */ }
 const pendingSubmission = new PendingSubmission(browserStorage, selectedAgent);
 const draftKey = `ayati.draft.${selectedAgent}`;
 try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
 catch { input.value = pendingSubmission.draft(); }
+try {
+  const saved: unknown = JSON.parse(browserStorage?.getItem(`ayati.attachments.${selectedAgent}`) ?? '[]');
+  if (Array.isArray(saved)) attachments = saved.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string').slice(0, 8);
+} catch { attachments = []; }
 installAgents(installAgentDetails());
+installStudioTools();
 document.querySelector<HTMLButtonElement>('#agent-sidebar-toggle')!.onclick = event => {
   const hidden = document.querySelector('.main')!.classList.toggle('agent-list-collapsed');
   const button = event.currentTarget as HTMLButtonElement;
@@ -96,12 +104,13 @@ function tell(text: string): void { notice.textContent = text; notice.hidden = !
 
 function draw(): void {
   renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
-  renderFiles(document.querySelector('#files-list')!, state.artifacts, selectedAgent);
+  renderArtifacts(state.artifacts);
   document.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
   const active = state.tasks.find(task => task.status === 'running');
   stop.hidden = !active;
   if (connected) connection.textContent = state.permissions?.length ? 'Waiting for your approval' : active?.detail || (active ? 'Working…' : 'Ready');
-  send.disabled = !modelReady || sending;
+  send.disabled = !modelReady || sending || uploading;
+  document.querySelector<HTMLButtonElement>('#attach')!.disabled = uploading || sending;
 }
 
 async function sync(): Promise<void> {
@@ -119,6 +128,7 @@ async function sync(): Promise<void> {
 }
 
 function showAttachments(): void {
+  try { browserStorage?.setItem(`ayati.attachments.${selectedAgent}`, JSON.stringify(attachments)); } catch { /* Optional storage. */ }
   const container = document.querySelector<HTMLDivElement>('#attachments')!;
   container.replaceChildren(...attachments.map((attachment, index) => {
     const chip = element('button', 'attachment-chip', `${attachment.name} ×`);
@@ -131,11 +141,11 @@ function showAttachments(): void {
 
 document.querySelector('#composer')!.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (sending || !modelReady || (!input.value.trim() && !attachments.length)) return;
+  if (uploading || sending || !modelReady || (!input.value.trim() && !attachments.length)) return;
   sending = true;
   draw();
-  const content = creationContent(input.value.trim()) + attachments.map((f) => `\n\nAttached file: ${f.path}`).join('');
-  const submission = pendingSubmission.prepare(content);
+  const content = creationContent(input.value.trim());
+  const submission = pendingSubmission.prepare(content, attachments.map(f => f.id));
   try {
     await post('/messages', submission);
     pendingSubmission.acknowledge(submission.request_id);
@@ -197,23 +207,26 @@ const filesWork = workPanels.register(filesPanel, filesButton);
 document.querySelector<HTMLButtonElement>('#close-files')!.onclick = () => filesWork.close();
 document.querySelector<HTMLButtonElement>('#attach')!.onclick = () => fileInput.click();
 fileInput.onchange = async () => {
+  if (attachments.length >= 8) { tell('Send up to 8 files per message.'); return; }
   const file = fileInput.files?.[0];
   if (!file) return;
   if (file.size > 25 * 1024 * 1024) { tell('Please choose a file smaller than 25 MB.'); return; }
   const body = new FormData();
   body.append('file', file);
+  uploading = true; draw();
   tell('Adding your file…');
   try {
     const data = await api<{ artifact: Artifact; workspace_path: string }>('/files', { method: 'POST', body });
-    attachments.push({ name: file.name, path: data.workspace_path });
+    attachments.push({ name: file.name, id: data.artifact.id });
     showAttachments();
     tell('');
     await sync();
     input.focus();
   } catch (error) { tell((error as Error).message); }
-  finally { fileInput.value = ''; }
+  finally { uploading = false; fileInput.value = ''; draw(); }
 };
 
+showAttachments();
 const events = new EventSource(apiUrl('/events'));
 events.onopen = () => { connected = true; draw(); void sync(); };
 events.onerror = () => { connected = false; connection.textContent = 'Reconnecting…'; };
