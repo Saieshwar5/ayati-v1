@@ -118,14 +118,20 @@ impl ConsumerMcp {
             .await?;
             *session = Some(returned);
         }
-        let (result, _) = self
+        let reply = self
             .rpc(
                 session.as_ref().and_then(|s| s.as_deref()),
                 "tools/call",
                 json!({"name":name,"arguments":arguments}),
                 Some(2),
             )
-            .await?;
+            .await;
+        if reply.is_err() {
+            // Never repeat this operation. A later deliberate request may
+            // establish a fresh transport session after expiry or network loss.
+            *session = None;
+        }
+        let (result, _) = reply?;
         ensure!(
             result["isError"] != true,
             "Composio MCP tool failed; inspect account health before retrying"

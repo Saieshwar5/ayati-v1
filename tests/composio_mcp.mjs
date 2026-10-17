@@ -40,6 +40,10 @@ test('consumer MCP keeps discovery, account selection and execution behind exact
   remote.loseReply(true); const uncertain = await run(); remote.loseReply(false);
   assert.notEqual(uncertain.task.status, 'completed'); assert.equal(executions().length, 2);
   assert.equal((await app.request('/connector-executions')).executions[0].status, 'uncertain');
+  const initialized = remote.calls.filter(c => c.method === 'initialize').length;
+  await app.request(`/connections/${linked.id}/refresh`, {});
+  assert.equal(remote.calls.filter(c => c.method === 'initialize').length, initialized + 1);
+  assert.equal(executions().length, 2, 'Transport recovery cannot repeat the uncertain operation');
   await app.stop(); await app.start(); assert.equal(executions().length, 2);
   await app.request(`/connections/${linked.id}/revoke`, {}); await run(); assert.equal(executions().length, 2);
   const added = await app.request('/connections', { toolkit: 'gmail', auth_config_id: 'consumer_mcp', label: 'Another Gmail' });
