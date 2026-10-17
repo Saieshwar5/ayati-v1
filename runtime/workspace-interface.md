@@ -1,12 +1,13 @@
-# Compact workspace interface
+# Floating Canvas workspace interface
 
 The root URL now opens Home. Use the persistent left rail for Home, Apps, Agents
 and Settings. `/?agent=local-agent` and `/?agent=<saved-id>` still open the selected
 conversation directly; `/?view=agents` also opens the default agent.
 
-This implements the saved compact-rail layout direction, the contact-list and
-optional work-panel interaction pattern, with Crisp Graphite neutral light/dark
-surfaces replacing the original gradient shell. It uses the existing TypeScript/Vite frontend,
+This implements the accepted [Floating Canvas design](design-system.md): compact
+global navigation, a separate contact sidebar, raised Home/App surfaces and a
+floating composer using neutral Graphite light/dark tokens. The workspace masthead
+and redundant Home/Apps headings are removed. It uses the existing TypeScript/Vite frontend,
 with no new package dependency or copied third-party branding/assets.
 
 ## Pages
@@ -21,20 +22,25 @@ with no new package dependency or copied third-party branding/assets.
 - **Agents:** searchable contact-style list, selected conversation, streaming
   replies, floating bottom composer and optional Browser/Automation/Details work
   panels. Details shows responsibilities, model, tools and settings editing.
-  Automation exposes schedules; event triggers and business connector grants
-  remain unavailable. Opening a panel preserves the selected agent and draft.
-- **Apps:** an explicit empty state. App creation, installed business records and
-  connectors are not simulated as working features.
+  Automation exposes schedules and event rules; Details exposes explicit business
+  connector grants. See the capability documents for provider verification limits.
+  Opening a panel preserves the selected agent and draft.
+- **Apps:** searchable app launcher with active/preview state. Releases and access
+  reveals preview, explicit record grants and archive controls. Scoped app previews,
+  exact activation and ordinary records use the existing local Apps implementation;
+  cloud hosting remains unimplemented. See [internal Apps](internal-apps.md).
 - **Settings:** System/Light/Dark appearance, saved in this browser when local
   storage is available, plus the default agent's model/runtime and configuration
   readiness. Readiness is not proof of provider validity or a successful inference
   call. Credentials stay in local configuration; this UI never reads or edits them.
-  Staff access, business connections and spending controls remain future work.
+  Business connection controls use the current Composio integration. Staff access
+  and spending controls remain future work.
 
 ## Narrow screens and accessibility
 
-The rail remains visible with short labels. Below 760 px, agent selection opens
-in a modal drawer; Escape and Back to conversation restore focus. Details is a
+The narrow icon rail remains visible with accessible labels and hover titles.
+Clicking Agents restores its separate contact sidebar. Below 760 px, agent
+selection opens in a modal drawer; Escape and Back to conversation restore focus. Details is a
 nonmodal side panel on wide desktops and a modal at 1000 px or narrower. Resize
 retains an open panel and its content while changing its display mode. Browser
 and Automation remain header actions; Memory and Files are reached through Details.

@@ -48,3 +48,30 @@
 .agent-preview { color: var(--muted); font-size: .75rem; line-height: 1.5; margin: 5px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .agent-attention { position: absolute; top: 14px; right: 6px; min-width: 16px; text-align: center; border-radius: 5px; padding: 1px 4px; background: var(--accent); color: var(--on-accent); font-size: .6875rem; }
 .agent-link { padding-right: 6px; }
+
+/* A separate contact sidebar: soft rows rather than a stack of square cards. */
+.agents-list { width: 212px; flex: 0 0 212px; padding: 13px 10px; background: var(--canvas); border-right: 0; }
+.agents-heading { margin: 0 7px 12px; min-height: 35px; }
+.agents-heading h2 { font-weight: 500; }
+#new-agent { border: 0; background: transparent; padding: 4px 8px; font-size: 1.125rem; }
+.agent-search-label { margin: 0 4px 12px; }
+#agent-search { border-radius: 18px; padding: 8px 11px; background: var(--surface); font-size: .75rem; }
+.agent-card { padding: 12px 22px 12px 52px; min-height: 72px; margin: 5px 0; border-radius: 23px; transition: background 180ms, box-shadow 180ms; }
+.agent-card:hover { background: var(--surface); }
+.agent-card.selected { background: var(--surface); box-shadow: 0 5px 16px var(--shadow); }
+.agent-avatar { left: 10px; top: 15px; width: 32px; height: 32px; border-radius: 50%; background: var(--soft); color: var(--text); font-size: .75rem; }
+.agent-avatar::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); border: 2px solid var(--canvas); }
+.agent-card[data-state=waiting] .agent-avatar::after { background: var(--warning); }
+.agent-card[data-state=working] .agent-avatar::after { background: var(--working); }
+.agent-card[data-state=failed] .agent-avatar::after { background: var(--danger); }
+.agent-card[data-state=preparing] .agent-avatar::after { background: var(--muted); }
+.agent-link { font-weight: 500; font-size: .8125rem; }
+.agent-link::after { border-radius: 23px; }
+.agent-detail { font-size: .6875rem; margin: 3px 0 0; }
+.agent-card[data-state=waiting] .agent-detail { color: var(--warning); }
+.agent-card[data-state=working] .agent-detail { color: var(--working); }
+.agent-preview, .agent-role { font-size: .6875rem; -webkit-line-clamp: 1; margin-top: 4px; }
+.agent-attention { border-radius: 50%; background: var(--warning-bg); color: var(--warning); font-size: .6875rem; right: 7px; }
+.agent-chooser { margin: 0 auto 0 48px; height: 100dvh; max-height: 100dvh; width: min(290px, calc(100vw - 48px)); border: 0; border-radius: 0 24px 24px 0; box-shadow: 15px 0 35px var(--shadow-deep); }
+.agent-chooser .agents-list { background: var(--surface); }
+.agent-chooser .agent-card.selected { background: var(--soft); }

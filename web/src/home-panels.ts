@@ -55,7 +55,7 @@ export function installHomePanels(container: HTMLElement): void {
     try {
       const data = await api<{ panels: Panel[]; available: boolean }>('/panels');
       const next = JSON.stringify(data.panels); if (next !== fingerprint) { fingerprint = next; draw(data.panels); }
-      status.textContent = data.available ? 'Saved views · no model call is made to display Home.' : 'Agent-created panels require Goose execution.';
+      status.textContent = data.available ? '' : 'Agent-created panels require Goose execution.';
       list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = false; });
     } catch { status.textContent = 'Panel connection lost. Saved views may be stale; decisions are disabled until reconnected.'; list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true; }); }
     finally { loading = false; }

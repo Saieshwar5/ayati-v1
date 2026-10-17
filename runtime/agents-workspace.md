@@ -1,14 +1,15 @@
-# Crisp Graphite Agents workspace
+# Floating Canvas Agents workspace
 
-The workspace uses shared neutral light/dark tokens: white/near-black/graphite
-in light mode and neutral charcoal surfaces in dark mode. Existing theme choice
-and system preference remain supported. Home, Apps and Settings receive these
-shared colors; their feature layouts are unchanged by this increment.
+The accepted [design system](design-system.md) uses neutral light/dark tokens, a
+separate compact contact sidebar, soft selected rows and a floating bottom
+composer. Home and Apps share these tokens and raised surfaces. The global
+workspace masthead is removed.
 
 Agents has a contact-style sidebar with initials avatars, selected state,
 approval counts, current task counts and a bounded saved-message preview. Search
 and New agent remain visible. Desktop Agents can collapse the list using the
-header control; mobile opens the existing chooser. Avatars are generated initials,
+header control; clicking Agents on the global rail restores it. On mobile,
+the same navigation opens the contact drawer. Avatars are generated initials,
 not uploaded images. Approval counts are not unread-message tracking.
 
 `GET /api/agents` adds optional `activity.latest` with text (up to 160 Unicode

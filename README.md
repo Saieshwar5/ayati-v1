@@ -344,7 +344,9 @@ one-time or fixed-interval work, pause/resume it and inspect run outcomes.
 The host and Ayati must stay on; scheduled model calls can incur normal charges.
 See [schedule controls](runtime/agent-schedules.md) for timing and recovery limits.
 
-The [Agents workspace](runtime/agents-workspace.md) uses Crisp Graphite light/dark
-colors, a collapsible agent list, floating composer and contextual work panels.
+The accepted [Floating Canvas design](runtime/design-system.md) styles Home,
+Agents and Apps with neutral light/dark colors, raised surfaces and compact
+navigation. The [Agents workspace](runtime/agents-workspace.md) has a separate
+contact sidebar, floating bottom composer and contextual work panels.
 Use **Automation → Schedules** for timed work, **Browser** for the guest view,
 and **Details** for settings, memory and files.

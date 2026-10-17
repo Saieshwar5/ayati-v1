@@ -10,12 +10,22 @@ type Grant = { agent_id: string; collection: string; can_write: boolean };
 export function installApps(): void {
   document.title = 'Apps · Ayati';
   const root = document.querySelector<HTMLElement>('#app')!;
-  root.innerHTML = `<main class="workspace-page apps-page"><div class="home-section-heading"><h1>Apps</h1><button class="files-button" id="ask-app">Ask an agent to build an app</button></div>
-    <p>Local internal tools with saved records. Review each release before activation. Cloud hosting is not connected.</p><p id="apps-status" role="status"></p>
+  root.innerHTML = `<main class="workspace-page apps-page" aria-label="Apps"><div class="apps-toolbar"><label class="app-search-label">Find an app<input type="search" id="app-search" placeholder="Find an app…"></label><button class="files-button" id="ask-app">Ask an agent to build an app</button></div>
+    <p id="apps-status" role="status"></p>
     <div id="app-request" hidden></div><div id="apps-list"></div></main>`;
   installAppRequest(root);
   const list = root.querySelector<HTMLElement>('#apps-list')!;
   const status = root.querySelector<HTMLElement>('#apps-status')!;
+  const search = root.querySelector<HTMLInputElement>('#app-search')!;
+  const noMatch = element('p', 'apps-empty', 'No apps match your search.');
+  noMatch.hidden = true; list.after(noMatch);
+  function filter(): void {
+    const query = search.value.trim().toLocaleLowerCase();
+    const cards = [...list.querySelectorAll<HTMLElement>('.app-card')];
+    cards.forEach(card => { card.hidden = !card.dataset.search?.includes(query); });
+    noMatch.hidden = !cards.length || cards.some(card => !card.hidden);
+  }
+  search.oninput = filter;
   let busy = false;
   function action(label: string, perform: () => Promise<void>): HTMLButtonElement {
     const button = element('button', 'files-button', label); button.onclick = async () => {
@@ -66,18 +76,27 @@ export function installApps(): void {
   async function refresh(): Promise<void> {
     try {
       const data = await api<{ apps: App[]; available: boolean }>('/apps'); list.replaceChildren();
-      status.textContent = data.available ? 'Saved apps · ordinary record operations do not call a model.' : 'Apps require Goose execution.';
+      status.textContent = data.available ? '' : 'Apps require Goose execution.';
       if (!data.apps.length) list.append(element('p', 'home-empty', 'Ask an agent to build the internal tool your work needs.'));
       for (const app of data.apps) {
         const card = element('article', 'app-card'); card.dataset.app = app.id;
-        card.append(element('h2', '', app.name), element('p', '', app.description), element('small', '', `Latest release ${app.revision} · ${app.active_revision === null ? 'not activated' : `active release ${app.active_revision}`}`));
-        if (app.active_revision !== null) card.append(action('Open app', () => open(app, false)));
-        card.append(action('Preview latest release', () => open(app, true)));
+        card.dataset.search = `${app.name} ${app.description}`.toLocaleLowerCase();
+        const heading = element('div', 'app-card-heading');
+        const mark = element('span', 'app-mark', app.name.slice(0, 2).toUpperCase()); mark.setAttribute('aria-hidden', 'true');
+        heading.append(mark, element('h2', '', app.name), element('span', 'app-release-state', app.active_revision === null ? 'Preview' : 'Active'));
+        card.append(heading, element('p', 'app-description', app.description));
+        const launch = action(app.active_revision !== null ? 'Open app' : 'Preview latest release', () => open(app, app.active_revision === null));
+        launch.classList.add('app-launch'); card.append(launch);
+        const management = document.createElement('details'); management.className = 'app-management';
+        management.append(element('summary', '', 'Releases and access'), element('small', '', `Latest release ${app.revision} · ${app.active_revision === null ? 'not activated' : `active release ${app.active_revision}`}`));
+        if (app.active_revision !== null) management.append(action('Preview latest release', () => open(app, true)));
         const agent = element('a', 'text-button', 'Open maintaining agent'); agent.href = `/?agent=${encodeURIComponent(app.agent_id)}`; card.append(agent);
         const permissions = element('div');
-        if (app.active_revision !== null) card.append(action('Manage agent access', () => access(app, permissions)));
-        card.append(action('Archive app', async () => { await post(`/apps/${app.id}/archive`, { revision: app.revision }); await refresh(); }), permissions); list.append(card);
+        if (app.active_revision !== null) management.append(action('Manage agent access', () => access(app, permissions)));
+        management.append(action('Archive app', async () => { await post(`/apps/${app.id}/archive`, { revision: app.revision }); await refresh(); }), permissions);
+        card.append(management); list.append(card);
       }
+      filter();
     } catch (e) { status.textContent = (e as Error).message; }
   }
   window.addEventListener('focus', () => { if (!busy) void refresh(); }); void refresh();

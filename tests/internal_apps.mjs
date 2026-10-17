@@ -24,6 +24,10 @@ test('Goose writes a working internal app; previews isolate data and activated r
   const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage({viewport:{width:390,height:844}});
   const policies=[];page.on('response',response=>{if(response.url().includes('/document/'))policies.push(response.headers()['content-security-policy']);});
   await page.goto(app.base.replace('/api','/?view=apps'));
+  await page.getByRole('searchbox', {name:'Find an app'}).fill('No matching app');
+  await page.getByText('No apps match your search.', {exact:true}).waitFor();
+  await page.getByRole('searchbox', {name:'Find an app'}).fill('Inventory');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.getByRole('button',{name:'Preview latest release',exact:true}).click();
   let dialog=page.getByRole('dialog');let frame=dialog.frameLocator('iframe');
   await frame.getByText('Parent blocked',{exact:true}).waitFor();
@@ -39,6 +43,7 @@ test('Goose writes a working internal app; previews isolate data and activated r
   const denied=await page.frames().find(f=>f.url().includes('/document/')).evaluate(async()=>{try{await fetch('/api/health');return false}catch{return true}});assert.equal(denied,true);
   await mkdir(join(root,'.test-runs/apps'),{recursive:true});await page.screenshot({path:join(root,'.test-runs/apps/mobile.png'),fullPage:true});
   await dialog.getByRole('button',{name:'Close app',exact:true}).click();
+  await page.getByText('Releases and access',{exact:true}).click();
   await page.getByRole('button',{name:'Manage agent access',exact:true}).click();await page.getByRole('button',{name:'Assign record access',exact:true}).click();
   const read=await app.submit('workspace '+JSON.stringify({tool:'app_records',arguments:{app_id:draft.id,command:{action:'list',collection:'items'}}}));
   assert.equal((await app.done(read.id)).task.status,'completed');assert((await app.state()).messages.some(m=>m.task_id===read.id&&m.content.includes('Private live item')));

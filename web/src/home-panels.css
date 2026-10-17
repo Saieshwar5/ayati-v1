@@ -13,3 +13,18 @@
 .panel-chart svg { width: 100%; height: auto; color: var(--accent); }
 [data-panel-request] form { display: grid; gap: 12px; max-width: 650px; margin-bottom: 24px; }
 [data-panel-request] select, [data-panel-request] textarea { width: 100%; padding: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+
+/* Saved views are the main floating surfaces; provenance stays with each view. */
+.home-panels { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; margin: 0; }
+.home-panel-card { padding: 20px; border-radius: var(--radius); box-shadow: 0 3px 5px var(--shadow), 0 14px 30px var(--shadow); }
+.home-panel-card small, .panel-update-note { font-size: .75rem; line-height: 1.5; }
+[data-panel-status] { font-size: .75rem; color: var(--muted); margin: 0 0 10px; }
+[data-panel-status]:empty { display: none; }
+.home-panel-card .panel-block { margin: 14px 0; }
+.home-panel-card .panel-metric-value { letter-spacing: -.04em; }
+.panel-table-scroll { max-width: 100%; }
+.home-panels > .home-empty { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow); padding: 24px; }
+.home-panel-card { font-size: .8125rem; line-height: 1.6; }
+.home-panel-card > small { display: block; margin-top: 12px; }
+.home-panel-card h4 { font-size: .8125rem; font-weight: 500; margin: 0 0 8px; }
+.home-panel-card .panel-purpose { margin: 8px 0; }

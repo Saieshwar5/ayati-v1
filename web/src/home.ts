@@ -14,13 +14,13 @@ type Home = { agents: Entry[] };
 export function installHome(): void {
   document.title = 'Home · Ayati';
   const app = document.querySelector<HTMLDivElement>('#app')!;
-  app.innerHTML = `<main class="home"><div class="home-heading"><div><h1>Home</h1><p>A clear place to start your day.</p></div><button id="home-refresh" class="files-button">Refresh</button></div>
-    <p id="home-connection" role="status">Connecting…</p><p id="home-error" role="alert"></p>
-    <section id="home-panels"></section>
-    <div class="home-columns"><section aria-labelledby="attention-title"><div class="home-section-heading"><h2 id="attention-title">Needs you</h2><span id="attention-count" class="attention-count"></span></div><div id="home-attention" class="home-list"></div></section>
-    <section aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div>
-    <section aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
-    <section aria-labelledby="overview-title"><div class="home-section-heading"><h2 id="overview-title">Your agents</h2><a href="/?agent=local-agent">All agents →</a></div><div id="home-agents" class="home-agents"></div></section></main>`;
+  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="files-button">Refresh</button></div>
+    <p id="home-error" role="alert"></p>
+    <section class="home-team" aria-labelledby="overview-title"><div class="home-section-heading"><h2 id="overview-title">Your agents</h2><a href="/?agent=local-agent">All agents →</a></div><div id="home-agents" class="home-agents"></div></section>
+    <div class="home-canvas"><div class="home-primary"><section id="home-panels"></section>
+    <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div>
+    <div class="home-secondary"><section class="home-surface" aria-labelledby="attention-title"><div class="home-section-heading"><h2 id="attention-title">Needs you</h2><span id="attention-count" class="attention-count"></span></div><div id="home-attention" class="home-list"></div></section>
+    <section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section></div></div></main>`;
   installHomePanels(document.querySelector('#home-panels')!);
   const status = document.querySelector<HTMLElement>('#home-connection')!;
   const error = document.querySelector<HTMLElement>('#home-error')!;
@@ -119,9 +119,13 @@ export function installHome(): void {
     for (const entry of data.agents) {
       const { profile, attention: state } = entry;
       const summary = card(entry);
-      summary.append(element('p', '', state
-        ? `${state.active.length} active or queued · ${state.permissions.length} approvals · ${state.outcome_count} to review`
-        : profile.detail));
+      const initials = profile.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
+      summary.prepend(element('span', 'home-agent-avatar', initials));
+      const agentState = !state ? profile.state : state.permissions.length ? 'waiting' : state.active.length ? 'working' : 'ready';
+      summary.dataset.state = agentState;
+      summary.append(element('p', 'home-agent-state', !state ? profile.detail : state.permissions.length
+        ? `${state.permissions.length} awaiting approval` : state.active.length ? `${state.active.length} active or queued` : 'Ready'),
+      element('p', 'home-agent-outcomes', state?.outcome_count ? `${state.outcome_count} outcomes to review` : ''));
       if (profile.state === 'ready') summary.append(conversation(entry));
       else {
         const link = element('a', 'text-button', 'Manage agent setup'); link.href = '/?agent=local-agent'; summary.append(link);

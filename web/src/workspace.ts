@@ -12,20 +12,18 @@ export function installWorkspace(page: WorkspacePage): void {
   const app = document.querySelector<HTMLDivElement>('#app')!;
   const shell = element('div', 'workspace-shell');
   const rail = element('aside', 'workspace-rail');
-  rail.innerHTML = '<a class="workspace-logo" href="/?view=home" aria-label="Ayati Home">a</a>';
   const nav = element('nav'); nav.setAttribute('aria-label', 'Workspace');
   for (const name of ['home', 'apps', 'agents', 'settings'] as const) {
     const link = element('a', `workspace-nav nav-${name}`);
     link.href = name === 'agents' ? '/?agent=local-agent' : `/?view=${name}`;
     link.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">${icons[name]}</svg><span>${name[0].toUpperCase() + name.slice(1)}</span>`;
     if (name === page) link.setAttribute('aria-current', 'page');
+    link.title = name[0].toUpperCase() + name.slice(1);
     nav.append(link);
   }
   rail.append(nav, element('span', 'workspace-owner', 'You'));
   const body = element('div', 'workspace-body');
-  const header = element('header', 'workspace-header');
-  header.append(element('strong', '', 'Ayati workspace'), element('span', '', 'Local workspace · Owner'));
-  app.before(shell); body.append(header, app); shell.append(rail, body);
+  app.before(shell); body.append(app); shell.append(rail, body);
   document.documentElement.dataset.page = page;
   try {
     const preference = localStorage.getItem('ayati.theme');

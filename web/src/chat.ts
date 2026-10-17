@@ -16,8 +16,8 @@ app.innerHTML = `
     <div class="identity"><span class="avatar" aria-hidden="true">a</span>
       <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
-    <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true">Agents</button>
-    <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent">Agents</button>
+    <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
+    <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
     <button class="files-button" id="browser-button" hidden>Browser</button>
     <div class="chat-tool-links">
     <button class="files-button" id="files-button" aria-expanded="false" aria-controls="files-panel">Files <span id="file-count">0</span></button>
@@ -35,7 +35,6 @@ app.innerHTML = `
           <button type="button" class="stop-button" id="stop" hidden>Stop</button>
           <button type="submit" class="send-button" id="send" aria-label="Send message">↑</button>
         </form>
-        <p class="composer-note">Each agent has its own conversation and memory.</p>
       </div>
     </section>
     <dialog class="files-panel" id="files-panel" aria-label="Your files" hidden>

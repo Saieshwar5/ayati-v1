@@ -64,3 +64,37 @@
 [data-page=agents] #details-button { order: 3; margin-left: 0; }
 
 .work-panel-owner { color: var(--muted); margin: 0 0 12px; font-size: .75rem; }
+
+/* Accepted Floating Canvas work surface; the transcript owns scrolling. */
+[data-page=agents] .header { min-height: 66px; padding: 11px 16px; background: var(--canvas); gap: 7px; }
+[data-page=agents] .identity { min-width: min(100%, 140px); gap: 8px; }
+[data-page=agents] .identity .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--surface); }
+[data-page=agents] .identity strong { font-size: .9375rem; font-weight: 500; }
+[data-page=agents] .connection { font-size: .6875rem; }
+[data-page=agents] .header > .files-button { border-color: transparent; background: transparent; padding: 6px 8px; }
+[data-page=agents] .header > .files-button:hover { background: var(--surface); }
+[data-page=agents] .header > .files-button[aria-expanded=true] { background: var(--surface); border-color: var(--border); }
+[data-page=agents] .conversation { padding: 24px max(16px, calc((100% - 740px) / 2)); }
+[data-page=agents] .message { font-size: .875rem; margin-bottom: 22px; }
+[data-page=agents] .message.user { background: var(--surface); border-radius: 20px 20px 5px 20px; box-shadow: 0 3px 12px var(--shadow); }
+[data-page=agents] .speaker { font-weight: 500; }
+[data-page=agents] .permission { background: var(--surface); border-radius: 19px; box-shadow: 0 6px 20px var(--shadow); }
+[data-page=agents] .composer-area { width: min(100%, 800px); padding: 10px 18px 20px; background: transparent; }
+[data-page=agents] .composer { padding: 10px 12px; border-radius: 26px; box-shadow: 0 5px 12px var(--shadow), 0 18px 42px var(--shadow-deep); }
+[data-page=agents] .send-button { border-radius: 50%; flex-shrink: 0; }
+[data-page=agents] .welcome-mark { border-radius: 50%; background: var(--surface); color: var(--text); }
+.work-panel, .work-panel#browser-panel { margin: 10px 12px 10px 0; height: calc(100% - 20px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 28px var(--shadow); }
+@media (max-width: 1000px) {
+  .work-panel, .work-panel#browser-panel { margin: 0; height: 100dvh; border-radius: 0; border: 0; }
+}
+@media (max-width: 760px) {
+  [data-page=agents] .header { padding: 10px 12px; }
+  [data-page=agents] .conversation { padding: 20px 14px; }
+  [data-page=agents] .composer-area { padding: 8px 10px 14px; }
+  [data-page=agents] .header .identity { flex-basis: calc(100% - 80px); }
+  [data-page=agents] .composer textarea { font-size: 1rem; }
+}
+@media (max-height: 550px) {
+  [data-page=agents] .header { min-height: 52px; padding-top: 6px; padding-bottom: 6px; }
+  [data-page=agents] .composer-area { padding-top: 5px; padding-bottom: 8px; }
+}
