@@ -4,6 +4,7 @@ mod apps;
 mod browser;
 mod connections;
 mod home;
+mod home_preferences;
 mod intake;
 mod memory;
 mod panels;
@@ -61,6 +62,7 @@ pub fn router(state: WebState) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(home::routes())
+        .merge(home_preferences::routes())
         .merge(intake::routes())
         .merge(browser::routes())
         .merge(memory::routes())

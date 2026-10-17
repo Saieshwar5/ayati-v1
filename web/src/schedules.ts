@@ -1,4 +1,5 @@
 import './schedules.css';
+import { businessDate } from './home-clock';
 import { workPanels } from './work-panels';
 import { api, post, type Task, type ChatMessage } from './types';
 import { element } from './view';
@@ -45,7 +46,7 @@ export function installSchedules(details: HTMLDialogElement): (profile: Profile)
   let fingerprint = '';
   let poll: ReturnType<typeof setInterval> | undefined;
   const enableForm = installScheduleForm(dialog.querySelector('#schedule-create')!, refresh);
-  const when = (ms: number): string => new Date(ms).toLocaleString();
+  const when = (ms: number): string => businessDate(ms);
   function controls(): void {
     refreshButton.disabled = busy;
     list.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = busy || !fresh; });

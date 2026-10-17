@@ -14,6 +14,7 @@ fn draft() -> PanelDraft {
         expected_revision: 0,
         title: "Stock forecast".into(),
         purpose: "Agent findings from supplied sample data, not a live forecast".into(),
+        template: None,
         sections: vec![Section::Metric {
             label: "Sample risk".into(),
             value: "7".into(),

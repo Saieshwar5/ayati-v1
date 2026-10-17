@@ -1,6 +1,6 @@
 import { element } from './view';
 export type Section = { kind: 'text'; heading: string; body: string } | { kind: 'metric'; label: string; value: string } | { kind: 'table'; columns: string[]; rows: string[][] } | { kind: 'chart'; title: string; points: { label: string; value: number }[] };
-export type PanelDefinition = { title: string; purpose: string; sections: Section[] };
+export type PanelDefinition = { title: string; purpose: string; template?: 'metric' | 'list' | 'chart' | 'agenda' | 'brief'; sections: Section[] };
 
 // Agent content becomes text and bounded chart coordinates, never executable HTML.
 export function renderPanel(definition: PanelDefinition): HTMLElement {

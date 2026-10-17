@@ -398,11 +398,14 @@ impl GooseRuntime {
             .connection
             .send_request(PromptRequest::new(
                 p.session.clone(),
-                vec![ContentBlock::Text(TextContent::new(guidance::prompt(
-                    &self.config.agent_id,
-                    role,
-                    &text,
-                )))],
+                vec![ContentBlock::Text(TextContent::new(
+                    guidance::workspace_prompt(
+                        &self.config.agent_id,
+                        role,
+                        &text,
+                        self.config.platform.as_deref(),
+                    ),
+                ))],
             ))
             .block_task();
         tokio::pin!(prompt);

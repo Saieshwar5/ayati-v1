@@ -80,3 +80,10 @@ Screenshots and fixture providers establish UI behavior, not live-provider proof
 Settings adopts shared tokens and chrome; a dedicated Settings layout redesign is
 outside this increment. Custom panel layouts, generated apps and future screens
 should follow these principles without imposing one fixed business dashboard.
+
+## Organized Home refinement
+
+See [Organized Home](organized-home.md) for fixed panel templates, owner-controlled
+placement, the business clock, grouped attention drawer and highlighted creation
+modes. Agent updates refresh content without changing owner layout. Creation
+intent belongs in the composer chrome, never prefilled message prose.

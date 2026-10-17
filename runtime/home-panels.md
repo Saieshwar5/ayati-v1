@@ -1,3 +1,6 @@
+The [Organized Home refinement](organized-home.md) supersedes the older section
+counts below with fixed, single-section templates for new writes and revisions.
+
 # Agent-created Home panels
 
 Home can submit a real request to an agent to create a persistent view. The

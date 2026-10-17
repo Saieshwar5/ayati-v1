@@ -12,6 +12,8 @@ pub struct PanelDraft {
     pub title: String,
     pub purpose: String,
     pub sections: Vec<Section>,
+    #[serde(default)]
+    pub template: Option<super::panel_templates::Template>,
     pub sources: Vec<String>,
     #[serde(default)]
     pub publish: bool,
@@ -57,6 +59,7 @@ struct SavedPanel {
 }
 impl PanelDraft {
     fn validate(&self) -> Result<()> {
+        self.template()?;
         ensure!(
             !self.updates_enabled || self.publish,
             "An update policy must be approved with publication"
@@ -110,7 +113,7 @@ impl PanelDraft {
         Ok(())
     }
     fn definition(&self) -> Value {
-        json!({"title":self.title,"purpose":self.purpose,"sections":self.sections})
+        json!({"title":self.title,"purpose":self.purpose,"sections":self.sections,"template":self.template().ok()})
     }
 }
 impl Platform {
@@ -125,7 +128,18 @@ impl Platform {
             return Ok(false);
         };
         let definition: Value = serde_json::from_str(&definition)?;
-        if definition["title"] != input.title || definition["purpose"] != input.purpose {
+        if definition["title"] != input.title
+            || definition["purpose"] != input.purpose
+            || (definition.get("template").is_some()
+                && definition["template"] != json!(input.template()?))
+        {
+            return Ok(false);
+        }
+        if definition["sections"]
+            .as_array()
+            .is_none_or(|s| s.len() != 1)
+            || definition["sections"][0]["kind"] != json!(input.sections)[0]["kind"]
+        {
             return Ok(false);
         }
         let original: Vec<String> = serde_json::from_str(&sources)?;

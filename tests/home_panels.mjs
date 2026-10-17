@@ -8,8 +8,8 @@ import { setup,until,root } from './fixtures/goose_app.mjs';
 const { chromium } = createRequire(join(root,'web/package.json'))('playwright');
 
 test('Goose creates a custom panel, owner keeps it, and scheduled updates use the saved policy', {timeout:60000},async t=>{
-  const app=await setup(t);
-  const panel={id:randomUUID(),expected_revision:0,title:'Sample stock outlook',purpose:'Synthetic agent findings; no live account data',sources:[],sections:[{kind:'metric',label:'At risk',value:'7'},{kind:'text',heading:'Assumption',body:'<img src=x onerror=alert(1)> is untrusted text'},{kind:'chart',title:'Sample trend',points:[{label:'Mon',value:2},{label:'Tue',value:7}]}]};
+  const app=await setup(t,false,{AYATI_BROWSER:'0'});
+  const panel={id:randomUUID(),expected_revision:0,title:'Sample stock outlook',purpose:'Synthetic agent findings; no live account data',sources:[],sections:[{kind:'metric',label:'<img src=x onerror=alert(1)>',value:'7'}]};
   const command=(tool,args)=>'workspace '+JSON.stringify({tool,arguments:args});
   async function approved(tool,args){
     const task=await app.submit(command(tool,args));
@@ -23,7 +23,7 @@ test('Goose creates a custom panel, owner keeps it, and scheduled updates use th
   await page.goto(app.base.replace('/api','/?view=home'));
   await page.getByRole('heading',{name:panel.title,exact:true}).waitFor();
   assert.equal(await page.locator('.panel-snapshot img').count(),0);
-  assert.equal(await page.locator('.panel-snapshot .panel-bar').count(),2);
+  assert.equal(await page.locator('.panel-snapshot .panel-metric-value').textContent(),'7');
   await page.getByLabel('Allow this agent to refresh this panel using these same sources',{exact:false}).check();
   await page.getByRole('button',{name:'Keep on Home',exact:true}).click();
   await page.locator('.panel-settings > summary').click();

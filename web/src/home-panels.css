@@ -40,3 +40,30 @@
 .panel-bar { width: 100%; background: color-mix(in srgb, var(--working) 18%, var(--surface)); border-radius: 7px 7px 3px 3px; }
 .panel-bar-column:last-child .panel-bar { background: var(--working); }
 .panel-bar-column span { display: block; margin-top: 6px; font-size: .6875rem; color: var(--muted); overflow-wrap: anywhere; }
+/* Auto-placement follows owner order. Avoid dense packing, which can visually
+   lift lower-priority cards ahead of higher-priority cards. */
+.home-panels { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-flow: row; gap: 14px; align-items: stretch; }
+.home-panel-card { grid-column: span 2; display: flex; flex-direction: column; }
+.home-panel-card[data-template=metric] { grid-column: span 1; }
+.home-panel-card .panel-footer { margin-top: auto; }
+.home-panel-card > .panel-snapshot { flex: 1; }
+.home-panel-card[data-template=metric] .panel-purpose { font-size: .75rem; }
+.home-panel-card .panel-snapshot { max-height: 340px; overflow-y: auto; }
+.panel-arrange { flex-wrap: wrap; gap: 8px; }
+.panel-arrange button { font-size: .6875rem; }
+.panel-drag { cursor: grab; }
+.panel-drop-target { box-shadow: 0 0 0 2px var(--working), 0 8px 24px var(--shadow); }
+@media (max-width: 1050px) { .home-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .home-panels { grid-template-columns: 1fr; } .home-panel-card, .home-panel-card[data-template=metric] { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: no-preference) { .home-panel-card { transition: box-shadow .16s ease; } }
+/* Preset heights keep an agent's longer refresh from reshaping the canvas. */
+.home-panels { grid-auto-rows: 112px; }
+.home-panel-card { grid-row: span 3; overflow-y: auto; }
+.home-panel-card[data-template=metric], .home-panel-card[data-template=brief] { grid-row: span 2; }
+.home-panel-card[data-template=metric] .panel-purpose { display: none; }
+.home-panel-card[data-template=metric] .panel-block { margin: 8px 0; }
+.home-panel-card[data-template=metric] .panel-footer { gap: 4px; padding-top: 7px; }
+.home-panel-card[data-template=metric] .panel-settings { margin-top: 7px; }
+.home-panel-card[data-template=legacy] { grid-row: span 4; }
+.home-panels.is-arranging .home-panel-card { grid-row: span 4; }
+@media (max-width: 560px) { .home-panels { grid-auto-rows: auto; } .home-panel-card, .home-panel-card[data-template=metric], .home-panel-card[data-template=brief], .home-panel-card[data-template=legacy], .home-panels.is-arranging .home-panel-card { grid-row: auto; max-height: 420px; } }

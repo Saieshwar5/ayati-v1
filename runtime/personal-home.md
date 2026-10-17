@@ -4,6 +4,9 @@ Accepted by the owner on 2026-10-17. The Personal Floating Canvas prototype is t
 default product direction: useful saved views, restrained depth, compact contact
 presence and plain language. Prototype business totals are never production data.
 
+The [Organized Home refinement](organized-home.md) supersedes the starter-text,
+expand-in-place attention and free-form panel details below.
+
 ## Everyday flow
 
 Home starts with a compact decision strip only when attention is required. Open it

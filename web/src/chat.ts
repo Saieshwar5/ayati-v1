@@ -134,7 +134,7 @@ document.querySelector('#composer')!.addEventListener('submit', async (event) =>
   if (sending || !modelReady || (!input.value.trim() && !attachments.length)) return;
   sending = true;
   draw();
-  const content = input.value.trim() + attachments.map((f) => `\n\nAttached file: ${f.path}`).join('');
+  const content = creationContent(input.value.trim()) + attachments.map((f) => `\n\nAttached file: ${f.path}`).join('');
   const submission = pendingSubmission.prepare(content);
   try {
     await post('/messages', submission);
@@ -170,7 +170,7 @@ input.addEventListener('input', () => {
 });
 window.addEventListener('resize', resizeComposer);
 requestAnimationFrame(resizeComposer);
-installConversationIntent(input);
+const creationContent = installConversationIntent(input);
 installAgentCreations();
 
 async function stopTask(id: string): Promise<void> {

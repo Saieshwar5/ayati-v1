@@ -1,0 +1,75 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { setup, until, root } from './fixtures/goose_app.mjs';
+const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
+
+test('business clock, user arrangement and creation mode survive navigation and agent updates', {timeout: 120000}, async t => {
+  const app = await setup(t, false, {AYATI_BROWSER:'0'});
+  const browser = await chromium.launch(); t.after(() => browser.close());
+  const page = await browser.newPage({viewport:{width:1280,height:900}, timezoneId:'America/Los_Angeles'});
+  const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+  const base=app.base.replace('/api','');
+  await page.goto(base);
+  await page.locator('.home-location').click();
+  await page.getByLabel('City or location').fill('Hyderabad');
+  await page.getByLabel('Timezone',{exact:true}).fill('Asia/Kolkata');
+  await page.getByRole('button',{name:'Save location'}).click();
+  await until(async()=> !(await page.locator('.clock-dialog').count()),'Location not saved');
+  assert.equal((await app.request('/home/preferences')).preferences.timezone,'Asia/Kolkata');
+  const forbidden=await fetch(app.base+'/home/preferences',{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:JSON.stringify({location:'Other',timezone:'UTC',hour12:false})});
+  assert.equal(forbidden.status,403);
+  const panels=[];
+  for(const [title,section] of [['Orders',{kind:'metric',label:'Today',value:'24'}],['Stock',{kind:'table',columns:['Product','Remaining'],rows:[['Everyday tote','2'],['Ceramic mug','4']]}],['Sales',{kind:'chart',title:'This week',points:[{label:'Mon',value:3},{label:'Tue',value:8}]}]]) {
+    const draft={id:randomUUID(),expected_revision:0,title,purpose:'Fixture data',template:section.kind==='table'?'list':section.kind,sections:[section],sources:[],publish:true};
+    const task=await app.submit('workspace '+JSON.stringify({tool:'panel_write',arguments:draft}));
+    const permission=await until(async()=>(await app.state()).permissions[0],'Panel approval missing');
+    await app.request('/permissions/'+permission.id,{allow:true}); assert.equal((await app.done(task.id)).task.status,'completed'); panels.push(draft);
+  }
+  await until(async()=>await page.locator('.home-panel-card').count()===3,'Panels did not load');
+  await page.getByRole('button',{name:'Arrange',exact:true}).click();
+  const orders=page.locator(`[data-panel="${panels[0].id}"]`);
+  await orders.getByRole('button',{name:'Top',exact:true}).click();
+  assert.equal(await page.locator('.home-panel-card').first().getAttribute('data-panel'),panels[0].id);
+  assert.equal(await orders.getByRole('button',{name:'Make wider'}).count(),0,'Metric has a fixed size');
+  const stock=page.locator(`[data-panel="${panels[1].id}"]`), sales=page.locator(`[data-panel="${panels[2].id}"]`);
+  await stock.getByRole('button',{name:'Drag panel to reorder'}).dragTo(orders);
+  assert.equal(await page.locator('.home-panel-card').first().getAttribute('data-panel'),panels[1].id);
+  await sales.getByRole('button',{name:'Make wider'}).click();
+  const order=await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel));
+  await page.reload(); await page.locator('.home-panel-card.panel-wide').waitFor();
+  assert.deepEqual(await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel)),order);
+  assert.equal(await page.locator('.home-location').textContent(),'Hyderabad ⌄');
+  const update = {...panels[0], expected_revision:1, sections:[{kind:'metric',label:'Today',value:'31'}]};
+  const updateTask = await app.submit('workspace '+JSON.stringify({tool:'panel_write',arguments:update}));
+  const updatePermission = await until(async()=>(await app.state()).permissions[0], 'Update review missing');
+  await app.request('/permissions/'+updatePermission.id,{allow:true}); await app.done(updateTask.id);
+  await until(async()=> (await orders.locator('.panel-metric-value').textContent())==='31', 'Panel did not refresh');
+  assert.deepEqual(await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel)),order,'Agent update preserves owner order');
+
+  await page.getByRole('button',{name:'Add panel',exact:false}).click(); await page.getByRole('dialog').getByRole('link',{name:/Ayati/}).click();
+  assert.equal(await page.locator('#input').inputValue(),'');
+  await page.getByLabel('Panel template').selectOption('agenda');
+  await page.locator('#input').fill('My appointments'); await page.reload();
+  assert.equal(await page.locator('#input').inputValue(),'My appointments');
+  assert.equal(await page.getByLabel('Panel template').inputValue(),'agenda');
+  await page.getByRole('button',{name:'Send message'}).click();
+  await until(async()=>JSON.stringify(app.provider.requests.at(-1)).includes('My appointments'),'Creation request not submitted');
+  const request=JSON.stringify(app.provider.requests.at(-1)); assert(request.includes('agenda template')); assert(request.includes('Asia/Kolkata'));
+  await page.getByRole('button',{name:'Automation',exact:true}).click();
+  await page.locator('#schedule-form [name=content]').fill('Check orders tomorrow');
+  await page.getByLabel('First run',{exact:true}).fill('2027-01-20T09:00');
+  await page.getByRole('button',{name:'Create schedule',exact:true}).click();
+  const saved = await until(async()=> (await app.request('/schedules')).schedules[0], 'Schedule not saved');
+  assert.equal(saved.run_at_ms,Date.parse('2027-01-20T03:30:00Z'), 'Schedule uses Hyderabad, not the Los Angeles browser');
+  await page.goto(base); await page.locator('.home-panel-card').first().waitFor();
+  await mkdir(join(root,'.test-runs/organized-home'),{recursive:true});
+  await page.screenshot({path:join(root,'.test-runs/organized-home/desktop.png')});
+  for(const width of [1024,736,390,320]) { await page.setViewportSize({width,height:850}); assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)); }
+  await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'}); await page.screenshot({path:join(root,'.test-runs/organized-home/mobile.png')});
+  await app.stop();await app.start();assert.equal((await app.request('/home/preferences')).preferences.location,'Hyderabad');
+  assert.deepEqual(errors,[]);
+});

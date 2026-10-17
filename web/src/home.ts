@@ -3,6 +3,8 @@ import { api, type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installHomePanels } from './home-panels';
 import { openGuide } from './guide';
+import { installHomeClock, businessDate } from './home-clock';
+import { installAttentionInbox } from './attention-inbox';
 
 type Work = Task & { request: string };
 type Permission = { id: string; task_id: string; title: string; action: unknown };
@@ -17,13 +19,14 @@ export function installHome(): void {
   const app = document.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
     <p id="home-error" role="alert"></p>
-    <details class="home-attention-surface" id="home-decisions"><summary><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Take a look ↗</span></summary><div id="home-attention" class="home-list"></div></details>
+    <button class="home-attention-surface" id="home-decisions" aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Take a look ↗</span></button>
     <section id="home-panels"></section>
     <section class="home-team" aria-label="Your agents"><div id="home-agents" class="home-agents"></div></section>
     <div class="home-footer"><button id="home-guide" class="home-ask">✧ What would you like help with?</button><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">See what happened ↗</button></div>
     <div id="home-activity" hidden><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
-  document.querySelector('#home-date')!.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  installHomeClock(document.querySelector('#home-date')!);
+  const drawInbox = installAttentionInbox(app);
   document.querySelector<HTMLButtonElement>('#home-guide')!.onclick = openGuide;
   document.querySelector<HTMLButtonElement>('#home-history-toggle')!.onclick = event => {
     const activity = document.querySelector<HTMLElement>('#home-activity')!;
@@ -33,6 +36,7 @@ export function installHome(): void {
   installHomePanels(document.querySelector('#home-panels')!);
   const status = document.querySelector<HTMLElement>('#home-connection')!;
   const error = document.querySelector<HTMLElement>('#home-error')!;
+  const connectionStatus = (message: string): void => { status.textContent = message; document.querySelector('#inbox-connection')!.textContent = message; };
   const refreshButton = document.querySelector<HTMLButtonElement>('#home-refresh')!;
   const dialog = document.createElement('dialog');
   dialog.className = 'home-history';
@@ -62,10 +66,10 @@ export function installHome(): void {
       const next = JSON.stringify(data);
       if (next !== fingerprint) { draw(data); fingerprint = next; }
       disableActions(false);
-      status.textContent = ''; status.dataset.connected = 'true';
+      connectionStatus(''); status.dataset.connected = 'true';
     } catch {
       freshAt = 0; disableActions(true); delete status.dataset.connected;
-      status.textContent = 'Connection lost. Decisions are disabled until the workspace refreshes.';
+      connectionStatus('Connection lost. Decisions are disabled until the workspace refreshes.');
     } finally {
       loading = false;
       if (refreshAgain) { refreshAgain = false; void refresh(); }
@@ -145,7 +149,7 @@ export function installHome(): void {
       recent.push(...state.recent.map(task => ({ entry, task })));
       for (const permission of state.permissions) {
         const node = card(entry, state.active.find(task => task.id === permission.task_id));
-        node.dataset.permission = permission.id; node.classList.add('approval-row');
+        node.dataset.category = 'Decisions'; node.dataset.permission = permission.id; node.classList.add('approval-row');
         node.prepend(element('h3', '', permission.title));
         const review = element('details', 'home-review');
         review.open = opened.has(permission.id);
@@ -159,6 +163,7 @@ export function installHome(): void {
       }
       for (const outcome of state.outcomes) {
         const node = card(entry, outcome);
+        node.dataset.category = ['failed', 'interrupted'].includes(outcome.status) ? 'Problems' : 'Updates';
         const controls = element('div', 'home-controls');
         controls.append(action('Mark reviewed', profile.id, `/tasks/${encodeURIComponent(outcome.id)}/review`), conversation(entry));
         node.append(controls); attention.push(node);
@@ -175,23 +180,24 @@ export function installHome(): void {
     }
     document.querySelector<HTMLElement>('#home-decisions')!.hidden = attentionCount === 0;
     document.querySelector('#attention-title')!.textContent = attentionCount === 1 ? 'One thing needs your say.' : `${attentionCount} things need your say.`;
-    document.querySelector('#attention-count')!.textContent = 'Review decisions and outcomes from your agents.';
+    document.querySelector('#attention-count')!.textContent = `${data.agents.reduce((n, a) => n + (a.attention?.permissions.length ?? 0), 0)} decisions · ${data.agents.reduce((n, a) => n + (a.attention?.outcome_count ?? 0), 0)} outcomes`;
     document.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
       const row = element('article', 'home-feed-item');
-      row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${new Date(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString()}`), requestHistory(entry, task));
+      row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${businessDate(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z'))}`), requestHistory(entry, task));
       return row;
     }) : [element('p', 'home-empty', 'Completed work will appear here.')]));
     document.querySelector('#home-agents')!.replaceChildren(...overview);
-    document.querySelector('#home-attention')!.replaceChildren(...(attention.length ? attention : [element('p', 'home-empty', 'You are all caught up.')]));
+    drawInbox(attention);
     document.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No other work is running or queued.')]));
   }
   refreshButton.onclick = () => { void refresh(); };
+  window.addEventListener('business-clock-changed', () => { fingerprint = ''; void refresh(); });
   window.addEventListener('focus', () => { freshAt = 0; disableActions(true); void refresh(); });
   document.addEventListener('visibilitychange', () => {
     freshAt = 0; disableActions(true);
     if (!document.hidden) void refresh();
   });
-  window.addEventListener('offline', () => { freshAt = 0; disableActions(true); status.textContent = 'Offline. Waiting to reconnect…'; });
+  window.addEventListener('offline', () => { freshAt = 0; disableActions(true); connectionStatus('Offline. Waiting to reconnect…'); });
   window.addEventListener('online', () => { void refresh(); });
   window.setInterval(() => { if (!document.hidden) void refresh(); }, 2500);
   void refresh();
