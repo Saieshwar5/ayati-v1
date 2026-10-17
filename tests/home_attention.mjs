@@ -20,6 +20,8 @@ test('Home handles exact decisions, stale tabs, offline recovery and durable int
   const frozen = await app.request('/home');
   await stale.route('**/api/home', route => route.fulfill({ json: frozen }));
   await stale.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.locator('#home-decisions > summary').click();
+  await stale.locator('#home-decisions > summary').click();
   const selector = `[data-permission="${pending.id}"]`;
   await page.locator(`${selector} summary`).click();
   await page.locator(selector).getByRole('button', { name: 'View request' }).click();

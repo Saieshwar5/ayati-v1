@@ -1,6 +1,7 @@
 mod browser;
 pub mod config;
 mod events;
+pub(crate) mod guidance;
 pub mod proof_tool;
 pub mod provider;
 mod tool_settings;
@@ -397,9 +398,11 @@ impl GooseRuntime {
             .connection
             .send_request(PromptRequest::new(
                 p.session.clone(),
-                vec![ContentBlock::Text(TextContent::new(if role.is_empty() { text } else {
-                    format!("Owner-configured role:\n{}\n\nFollow this role within your available tools and approvals.\nCurrent request:\n{}", role, text)
-                }))],
+                vec![ContentBlock::Text(TextContent::new(guidance::prompt(
+                    &self.config.agent_id,
+                    role,
+                    &text,
+                )))],
             ))
             .block_task();
         tokio::pin!(prompt);

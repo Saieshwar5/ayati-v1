@@ -19,6 +19,8 @@ fn draft() -> PanelDraft {
             value: "7".into(),
         }],
         sources: vec![],
+        publish: false,
+        updates_enabled: false,
     }
 }
 
@@ -175,4 +177,39 @@ async fn observed_connector_sources_cannot_be_omitted_from_a_panel_snapshot() {
     assert_eq!(p.authority_revision("sales").unwrap(), 1);
     p.fence_panel_schedules("sales", &s).unwrap();
     assert_eq!(s.schedules().unwrap()[0].state, "paused");
+}
+
+#[tokio::test]
+async fn explicit_publication_activates_without_granting_refresh_or_foreign_sources() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = Platform::open(&dir.path().join("business"), None).unwrap();
+    let s = Store::open(&dir.path().join("agent.sqlite")).unwrap();
+    s.enqueue("Add a panel to Home").unwrap();
+    let claim = s.claim_next("worker").unwrap().unwrap();
+    let cancel = CancellationToken::new();
+    let run = || ExecutionRun {
+        agent: "sales",
+        store: &s,
+        claim: &claim,
+        cancel: &cancel,
+    };
+    let mut input = draft();
+    input.publish = true;
+    assert!(!p.automatic_panel_update("sales", &json!(input)).unwrap());
+    p.write_panel(run(), &input).await.unwrap();
+    let saved = p.panels(None).unwrap();
+    assert_eq!(saved[0]["state"], "active");
+    assert_eq!(saved[0]["updates_enabled"], false);
+    input.expected_revision = 1;
+    input.sources = vec!["foreign-source".into()];
+    assert!(p.write_panel(run(), &input).await.is_err());
+    input.sources.clear();
+    input.updates_enabled = true;
+    p.write_panel(run(), &input).await.unwrap();
+    assert_eq!(p.panels(None).unwrap()[0]["updates_enabled"], true);
+    input.updates_enabled = false;
+    p.write_panel(run(), &input).await.unwrap();
+    assert_eq!(p.panels(None).unwrap()[0]["updates_enabled"], false);
+    cancel.cancel();
+    assert!(p.write_panel(run(), &input).await.is_err());
 }

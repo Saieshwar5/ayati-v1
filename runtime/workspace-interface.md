@@ -1,3 +1,14 @@
+# Personal Home update — 2026-10-17
+
+The [Personal Home specification](personal-home.md) supersedes the Home hierarchy
+and creation entry points described below. Panels come first; attention expands
+from a compact strip, agents appear as contacts, and history is secondary. Home's
+Ask Ayati drawer uses the real conversation. Panel/app creation chooses an agent
+and opens an unsent chat starter. Apps activation is labeled Start using this app.
+Existing permissions, private data and exact app preview isolation remain intact.
+
+---
+
 # Floating Canvas workspace interface
 
 The root URL now opens Home. Use the persistent left rail for Home, Apps, Agents

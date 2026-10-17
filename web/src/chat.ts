@@ -9,6 +9,8 @@ import { installBrowser } from './browser';
 import { installMemory } from './memory';
 import { installAgentDetails } from './agent-details';
 import './agent-workspace.css';
+import { installAgentCreations } from './agent-creations';
+import { installConversationIntent } from './conversation-intent';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -168,6 +170,8 @@ input.addEventListener('input', () => {
 });
 window.addEventListener('resize', resizeComposer);
 requestAnimationFrame(resizeComposer);
+installConversationIntent(input);
+installAgentCreations();
 
 async function stopTask(id: string): Promise<void> {
   try { await post(`/tasks/${id}/stop`); await sync(); }

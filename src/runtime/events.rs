@@ -264,7 +264,14 @@ impl RuntimeEvents {
             .options
             .iter()
             .find(|p| p.kind == PermissionOptionKind::RejectOnce);
-        let title = if workspace_allowed {
+        let title = if tool == Some("ayati_workspace__panel_write")
+            && observed
+                .pointer("/rawInput/publish")
+                .and_then(|v| v.as_bool())
+                == Some(true)
+        {
+            "Add this panel to Home"
+        } else if workspace_allowed {
             "Use this agent’s business tools"
         } else if memory_allowed {
             "Use scoped agent memory"

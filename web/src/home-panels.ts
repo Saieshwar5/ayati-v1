@@ -3,16 +3,28 @@ import { element } from './view';
 import { renderPanel, type PanelDefinition } from './panel-renderer';
 import { installPanelRequest } from './panel-request';
 import './home-panels.css';
+import { chooseAgent, conversationUrl } from './agent-request';
+import { openGuide } from './guide';
 
 type Panel = { id: string; agent_id: string; revision: number; active_revision: number | null; updates_enabled: boolean; draft: PanelDefinition | null; active: { definition: PanelDefinition; updated_at: string } | null; state: string; source_executions: string[]; updated_at: string; maintenance?: { schedule: { state: string; next_run_ms: number | null } | null; latest_run: { task: { status: string; detail: string } } | null }[] };
 
 export function installHomePanels(container: HTMLElement): void {
-  container.innerHTML = `<div class="home-section-heading"><h2>Your panels</h2><button class="files-button" data-request-panel>Ask for a panel</button></div>
+  container.innerHTML = `<div class="home-section-heading"><h2>Your everyday view</h2><div class="panel-heading-actions"><button class="text-button" data-arrange>Arrange</button><button class="text-button" data-request-panel>＋ Add panel</button></div></div>
     <p data-panel-status role="status"></p><div class="home-panels" data-panel-list></div><div data-panel-request hidden></div>`;
   const status = container.querySelector<HTMLElement>('[data-panel-status]')!;
   const list = container.querySelector<HTMLElement>('[data-panel-list]')!;
   installPanelRequest(container);
-  let busy = false, loading = false, fingerprint = '';
+  let busy = false, loading = false, fingerprint = '', arranging = false;
+  let current: Panel[] = [];
+  let layout: { order: string[]; wide: string[] } = { order: [], wide: [] };
+  try {
+    const saved = JSON.parse(localStorage.getItem('ayati.home.layout') ?? 'null');
+    if (saved && Array.isArray(saved.order) && Array.isArray(saved.wide)) layout = saved;
+  } catch { /* The default layout works without browser storage. */ }
+  const saveLayout = (): void => { try { localStorage.setItem('ayati.home.layout', JSON.stringify(layout)); } catch { /* Keep this session's layout. */ } };
+  container.querySelector<HTMLButtonElement>('[data-arrange]')!.onclick = event => {
+    arranging = !arranging; (event.currentTarget as HTMLElement).textContent = arranging ? 'Done arranging' : 'Arrange'; draw(current);
+  };
   async function act(action: () => Promise<unknown>): Promise<void> {
     if (busy) return; busy = true;
     list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true; });
@@ -21,16 +33,43 @@ export function installHomePanels(container: HTMLElement): void {
     finally { busy = false; await refresh(); }
   }
   function draw(panels: Panel[]): void {
+    const expanded = new Set([...list.querySelectorAll<HTMLDetailsElement>('details[open][data-settings]')].map(d => d.dataset.settings));
+    current = panels;
     list.replaceChildren();
-    if (!panels.length) list.append(element('p', 'home-empty', 'Ask an agent to create a panel for information you want to keep visible.'));
-    for (const panel of panels) {
+    if (!panels.length) {
+      const welcome = element('div', 'home-welcome');
+      welcome.append(element('span', 'welcome-mark', '✧'), element('h3', '', 'What would you like help keeping track of?'), element('p', '', 'Ask an agent to make a useful view for your day.'));
+      const suggestions = element('div', 'welcome-suggestions');
+      for (const label of ['Orders', 'Stock', 'Appointments']) {
+        const button = element('button', 'files-button', label); button.onclick = () => chooseAgent('panel', label.toLowerCase()); suggestions.append(button);
+      }
+      const guide = element('button', 'text-button', 'Ask Ayati'); guide.onclick = openGuide;
+      welcome.append(suggestions, guide); list.append(welcome);
+    }
+    const ordered = [...panels].sort((a, b) => {
+      const rank = (id: string): number => { const index = layout.order.indexOf(id); return index < 0 ? 10000 : index; };
+      return rank(a.id) - rank(b.id);
+    });
+    for (const [index, panel] of ordered.entries()) {
       const card = element('article', 'home-panel-card'); card.dataset.panel = panel.id;
+      card.classList.toggle('panel-wide', layout.wide.includes(panel.id));
+      if (arranging) {
+        const controls = element('div', 'panel-arrange');
+        const move = element('button', 'text-button', 'Move earlier'); move.disabled = index === 0; if (index === 0) move.dataset.noEnable = 'true';
+        move.onclick = () => { const ids = ordered.map(p => p.id); [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]]; layout.order = ids; saveLayout(); draw(current); };
+        const size = element('button', 'text-button', layout.wide.includes(panel.id) ? 'Standard width' : 'Make wider');
+        size.onclick = () => { layout.wide = layout.wide.includes(panel.id) ? layout.wide.filter(id => id !== panel.id) : [...layout.wide, panel.id]; saveLayout(); draw(current); };
+        controls.append(move, size); card.append(controls);
+      }
       if (panel.active) card.append(renderPanel(panel.active.definition));
       else if (panel.draft) card.append(renderPanel(panel.draft));
       else card.append(element('h3', '', 'Panel source unavailable'), element('p', '', 'Saved content is hidden because its account or operation grant is no longer available.'));
       const date = panel.active?.updated_at ?? panel.updated_at;
-      card.append(element('small', '', `Saved snapshot · ${new Date(date.replace(' ', 'T') + 'Z').toLocaleString()}`));
-      const agent = element('a', 'text-button', 'Open maintaining agent'); agent.href = `/?agent=${encodeURIComponent(panel.agent_id)}`; card.append(agent);
+      const footer = element('div', 'panel-footer');
+      footer.append(element('small', '', `Updated ${new Date(date.replace(' ', 'T') + (date.endsWith('Z') ? '' : 'Z')).toLocaleString()}`));
+      const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(panel.agent_id, 'edit-panel', panel.id); footer.append(agent); card.append(footer);
+      const settings = document.createElement('details'); settings.className = 'panel-settings'; settings.dataset.settings = panel.id; settings.open = expanded.has(panel.id);
+      settings.append(element('summary', '', 'Updates and details'));
       if (panel.state === 'awaiting_review' && panel.draft) {
         const proposal = document.createElement('details'); proposal.open = !panel.active;
         proposal.append(element('summary', '', `Review revision ${panel.revision}`));
@@ -43,11 +82,11 @@ export function installHomePanels(container: HTMLElement): void {
       }
       if (panel.state === 'active') {
         const updates = element('button', 'text-button', panel.updates_enabled ? 'Pause panel updates' : 'Allow panel updates');
-        updates.onclick = () => void act(() => post(`/panels/${panel.id}/updates`, { revision: panel.revision, updates_enabled: !panel.updates_enabled })); card.append(updates);
-        card.append(element('p', 'panel-update-note', panel.maintenance?.length ? 'Bound schedules pause when updates are paused or this panel is removed. Active work retains its Stop control.' : 'Ask the maintaining agent to schedule updates for this panel. Update permission alone does not create a schedule.'));
+        updates.onclick = () => void act(() => post(`/panels/${panel.id}/updates`, { revision: panel.revision, updates_enabled: !panel.updates_enabled })); settings.append(updates);
+        settings.append(element('p', 'panel-update-note', panel.maintenance?.length ? 'Bound schedules pause when updates are paused or this panel is removed. Active work retains its Stop control.' : 'Ask the maintaining agent to schedule updates for this panel. Update permission alone does not create a schedule.'));
       }
-      for (const maintenance of panel.maintenance ?? []) card.append(element('p', 'panel-update-note', `Maintenance: ${maintenance.schedule?.state ?? 'unavailable'}${maintenance.latest_run ? ` · last run ${maintenance.latest_run.task.status}: ${maintenance.latest_run.task.detail}` : ' · no runs yet'}${maintenance.schedule?.next_run_ms ? ` · next due ${new Date(maintenance.schedule.next_run_ms).toLocaleString()}` : ''}`));
-      const remove = element('button', 'text-button', 'Remove panel'); remove.onclick = () => void act(() => post(`/panels/${panel.id}/remove`, { revision: panel.revision })); card.append(remove); list.append(card);
+      for (const maintenance of panel.maintenance ?? []) settings.append(element('p', 'panel-update-note', `Maintenance: ${maintenance.schedule?.state ?? 'unavailable'}${maintenance.latest_run ? ` · last run ${maintenance.latest_run.task.status}: ${maintenance.latest_run.task.detail}` : ' · no runs yet'}${maintenance.schedule?.next_run_ms ? ` · next due ${new Date(maintenance.schedule.next_run_ms).toLocaleString()}` : ''}`));
+      const remove = element('button', 'text-button', 'Remove panel'); remove.onclick = () => void act(() => post(`/panels/${panel.id}/remove`, { revision: panel.revision })); settings.append(remove); card.append(settings); list.append(card);
     }
   }
   async function refresh(): Promise<void> {
@@ -56,7 +95,7 @@ export function installHomePanels(container: HTMLElement): void {
       const data = await api<{ panels: Panel[]; available: boolean }>('/panels');
       const next = JSON.stringify(data.panels); if (next !== fingerprint) { fingerprint = next; draw(data.panels); }
       status.textContent = data.available ? '' : 'Agent-created panels require Goose execution.';
-      list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = false; });
+      list.querySelectorAll<HTMLButtonElement>('button:not([data-no-enable])').forEach(b => { b.disabled = false; });
     } catch { status.textContent = 'Panel connection lost. Saved views may be stale; decisions are disabled until reconnected.'; list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true; }); }
     finally { loading = false; }
   }

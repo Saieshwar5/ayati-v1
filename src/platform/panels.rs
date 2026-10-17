@@ -13,6 +13,10 @@ pub struct PanelDraft {
     pub purpose: String,
     pub sections: Vec<Section>,
     pub sources: Vec<String>,
+    #[serde(default)]
+    pub publish: bool,
+    #[serde(default)]
+    pub updates_enabled: bool,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -53,6 +57,10 @@ struct SavedPanel {
 }
 impl PanelDraft {
     fn validate(&self) -> Result<()> {
+        ensure!(
+            !self.updates_enabled || self.publish,
+            "An update policy must be approved with publication"
+        );
         ensure!(
             uuid::Uuid::parse_str(&self.id).is_ok_and(|id| id.to_string() == self.id),
             "Panel ID must be a canonical UUID"
@@ -109,6 +117,9 @@ impl Platform {
     pub fn automatic_panel_update(&self, agent: &str, input: &Value) -> Result<bool> {
         let input: PanelDraft = serde_json::from_value(input.clone())?;
         input.validate()?;
+        if input.publish {
+            return Ok(false);
+        }
         let previous:Option<(String,String)>=self.database()?.query_row("SELECT v.definition,v.sources FROM panels p JOIN panel_versions v ON v.panel_id=p.id AND v.revision=p.active_revision WHERE p.id=?1 AND p.agent_id=?2 AND p.state='saved' AND p.updates_enabled=1 AND p.active_revision=p.revision AND p.revision=?3",params![input.id,agent,input.expected_revision],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
         let Some((definition, sources)) = previous else {
             return Ok(false);
@@ -190,6 +201,17 @@ impl Platform {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )?;
             if old_definition == definition && old_sources == sources {
+                if input.publish {
+                    ensure!(
+                        revision == input.expected_revision,
+                        "Panel changed; review its current revision"
+                    );
+                    tx.execute(
+                        "UPDATE panels SET active_revision=?2,updates_enabled=?3 WHERE id=?1",
+                        params![input.id, revision, input.updates_enabled],
+                    )?;
+                    tx.commit()?;
+                }
                 return Ok(json!({"id":input.id,"revision":revision,"unchanged":true}));
             }
             ensure!(
@@ -219,15 +241,21 @@ impl Platform {
             "UPDATE panels SET revision=?2 WHERE id=?1",
             params![input.id, revision],
         )?;
-        if automatic {
+        if automatic || input.publish {
             tx.execute(
                 "UPDATE panels SET active_revision=?2 WHERE id=?1",
                 params![input.id, revision],
             )?;
         }
+        if input.publish {
+            tx.execute(
+                "UPDATE panels SET updates_enabled=?2 WHERE id=?1",
+                params![input.id, input.updates_enabled],
+            )?;
+        }
         tx.commit()?;
         Ok(
-            json!({"id":input.id,"revision":revision,"state":if automatic {"active"}else{"awaiting_owner_review"}}),
+            json!({"id":input.id,"revision":revision,"state":if automatic || input.publish {"active"}else{"awaiting_owner_review"}}),
         )
     }
     pub fn panels(&self, agent: Option<&str>) -> Result<Value> {

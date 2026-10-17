@@ -15,7 +15,7 @@ test('profile editing preserves history, resets role context, rejects busy/stale
   const edit = (name, role, revision) => app.request('/agents/local-agent/profile', { name, role, expected_revision: revision });
   const originalTask = await app.submit('OLD_CONTEXT_MARKER'); assert.equal((await app.done(originalTask.id)).task.status, 'completed');
   const originalSession = session();
-  await edit('Renamed agent', '', 0);
+  await edit('Renamed agent', (await profile()).role, 0);
   assert.equal(session(), originalSession);
   await app.done((await app.submit('Name-only check')).id);
   assert.equal(session(), originalSession);

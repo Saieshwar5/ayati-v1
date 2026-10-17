@@ -2,6 +2,7 @@ import './home.css';
 import { api, type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installHomePanels } from './home-panels';
+import { openGuide } from './guide';
 
 type Work = Task & { request: string };
 type Permission = { id: string; task_id: string; title: string; action: unknown };
@@ -14,13 +15,21 @@ type Home = { agents: Entry[] };
 export function installHome(): void {
   document.title = 'Home · Ayati';
   const app = document.querySelector<HTMLDivElement>('#app')!;
-  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="files-button">Refresh</button></div>
+  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
     <p id="home-error" role="alert"></p>
-    <section class="home-team" aria-labelledby="overview-title"><div class="home-section-heading"><h2 id="overview-title">Your agents</h2><a href="/?agent=local-agent">All agents →</a></div><div id="home-agents" class="home-agents"></div></section>
-    <div class="home-canvas"><div class="home-primary"><section id="home-panels"></section>
-    <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div>
-    <div class="home-secondary"><section class="home-surface" aria-labelledby="attention-title"><div class="home-section-heading"><h2 id="attention-title">Needs you</h2><span id="attention-count" class="attention-count"></span></div><div id="home-attention" class="home-list"></div></section>
-    <section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section></div></div></main>`;
+    <details class="home-attention-surface" id="home-decisions"><summary><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Take a look ↗</span></summary><div id="home-attention" class="home-list"></div></details>
+    <section id="home-panels"></section>
+    <section class="home-team" aria-label="Your agents"><div id="home-agents" class="home-agents"></div></section>
+    <div class="home-footer"><button id="home-guide" class="home-ask">✧ What would you like help with?</button><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">See what happened ↗</button></div>
+    <div id="home-activity" hidden><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
+    <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
+  document.querySelector('#home-date')!.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  document.querySelector<HTMLButtonElement>('#home-guide')!.onclick = openGuide;
+  document.querySelector<HTMLButtonElement>('#home-history-toggle')!.onclick = event => {
+    const activity = document.querySelector<HTMLElement>('#home-activity')!;
+    activity.hidden = !activity.hidden;
+    (event.currentTarget as HTMLElement).setAttribute('aria-expanded', String(!activity.hidden));
+  };
   installHomePanels(document.querySelector('#home-panels')!);
   const status = document.querySelector<HTMLElement>('#home-connection')!;
   const error = document.querySelector<HTMLElement>('#home-error')!;
@@ -53,9 +62,9 @@ export function installHome(): void {
       const next = JSON.stringify(data);
       if (next !== fingerprint) { draw(data); fingerprint = next; }
       disableActions(false);
-      status.textContent = 'Connected · updates automatically';
+      status.textContent = ''; status.dataset.connected = 'true';
     } catch {
-      freshAt = 0; disableActions(true);
+      freshAt = 0; disableActions(true); delete status.dataset.connected;
       status.textContent = 'Connection lost. Decisions are disabled until the workspace refreshes.';
     } finally {
       loading = false;
@@ -124,7 +133,7 @@ export function installHome(): void {
       const agentState = !state ? profile.state : state.permissions.length ? 'waiting' : state.active.length ? 'working' : 'ready';
       summary.dataset.state = agentState;
       summary.append(element('p', 'home-agent-state', !state ? profile.detail : state.permissions.length
-        ? `${state.permissions.length} awaiting approval` : state.active.length ? `${state.active.length} active or queued` : 'Ready'),
+        ? `${state.permissions.length} awaiting approval` : state.active.length ? `${state.active.length} active or queued` : profile.id === 'local-agent' ? 'Your guide · Always here' : 'Ready'),
       element('p', 'home-agent-outcomes', state?.outcome_count ? `${state.outcome_count} outcomes to review` : ''));
       if (profile.state === 'ready') summary.append(conversation(entry));
       else {
@@ -164,7 +173,9 @@ export function installHome(): void {
         node.append(controls); work.push(node);
       }
     }
-    document.querySelector('#attention-count')!.textContent = `${attentionCount} ${attentionCount === 1 ? 'item' : 'items'}`;
+    document.querySelector<HTMLElement>('#home-decisions')!.hidden = attentionCount === 0;
+    document.querySelector('#attention-title')!.textContent = attentionCount === 1 ? 'One thing needs your say.' : `${attentionCount} things need your say.`;
+    document.querySelector('#attention-count')!.textContent = 'Review decisions and outcomes from your agents.';
     document.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
       const row = element('article', 'home-feed-item');
       row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${new Date(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z')).toLocaleString()}`), requestHistory(entry, task));

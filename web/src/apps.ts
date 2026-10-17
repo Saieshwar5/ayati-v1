@@ -3,6 +3,7 @@ import { element } from './view';
 import { mountAppFrame, type AppSession } from './app-frame';
 import { installAppRequest } from './app-request';
 import './apps.css';
+import { conversationUrl } from './agent-request';
 
 type App = { id: string; agent_id: string; revision: number; active_revision: number | null; name: string; description: string; collections: Record<string, Record<string, string>> };
 type Grant = { agent_id: string; collection: string; can_write: boolean };
@@ -10,7 +11,7 @@ type Grant = { agent_id: string; collection: string; can_write: boolean };
 export function installApps(): void {
   document.title = 'Apps · Ayati';
   const root = document.querySelector<HTMLElement>('#app')!;
-  root.innerHTML = `<main class="workspace-page apps-page" aria-label="Apps"><div class="apps-toolbar"><label class="app-search-label">Find an app<input type="search" id="app-search" placeholder="Find an app…"></label><button class="files-button" id="ask-app">Ask an agent to build an app</button></div>
+  root.innerHTML = `<main class="workspace-page apps-page" aria-label="Apps"><div class="apps-toolbar"><label class="app-search-label">Find an app<input type="search" id="app-search" placeholder="Find an app…"></label><button class="files-button" id="ask-app">＋ Create app</button></div>
     <p id="apps-status" role="status"></p>
     <div id="app-request" hidden></div><div id="apps-list"></div></main>`;
   installAppRequest(root);
@@ -26,7 +27,7 @@ export function installApps(): void {
     noMatch.hidden = !cards.length || cards.some(card => !card.hidden);
   }
   search.oninput = filter;
-  let busy = false;
+  let busy = false, loading = false, fingerprint = '';
   function action(label: string, perform: () => Promise<void>): HTMLButtonElement {
     const button = element('button', 'files-button', label); button.onclick = async () => {
       if (busy) return; busy = true; button.disabled = true; status.textContent = '';
@@ -40,7 +41,7 @@ export function installApps(): void {
     const session = await post<AppSession>(`/apps/${app.id}/session`, { revision: version, preview });
     const dialog = document.createElement('dialog'); dialog.className = 'app-viewer';
     dialog.setAttribute('aria-label', `${preview ? 'Preview' : 'Open'} ${app.name}`);
-    const heading = element('div', 'panel-header'); heading.append(element('h2', '', `${app.name} · ${preview ? 'Preview' : 'Active'} revision ${version}`));
+    const heading = element('div', 'panel-header'); heading.append(element('h2', '', `${app.name} · ${preview ? 'Ready to try' : 'Active'} revision ${version}`));
     const close = element('button', 'files-button', 'Close app'); heading.append(close);
     const state = element('p'); state.setAttribute('role', 'status'); state.textContent = 'Opening scoped app…';
     const source = document.createElement('details'); source.append(element('summary', '', 'Review source and records'));
@@ -49,7 +50,7 @@ export function installApps(): void {
     const mounted = mountAppFrame(surface, app.id, session, state);
     close.onclick = () => dialog.close(); dialog.onclose = () => { mounted.dispose(); dialog.remove(); };
     if (preview) {
-      const activate = action('Activate this release', async () => {
+      const activate = action('Start using this app', async () => {
         await post(`/apps/${app.id}/activate`, { revision: version, preview_session: session.session, expected_active: app.active_revision });
         state.textContent = 'This exact release is active. Preview records remain separate; open the active app from Apps.'; activate.remove(); await refresh();
       }); activate.disabled = true;
@@ -74,8 +75,11 @@ export function installApps(): void {
     container.replaceChildren(editor);
   }
   async function refresh(): Promise<void> {
+    if (loading || document.hidden) return; loading = true;
     try {
-      const data = await api<{ apps: App[]; available: boolean }>('/apps'); list.replaceChildren();
+      const data = await api<{ apps: App[]; available: boolean }>('/apps');
+      const next = JSON.stringify(data); if (next === fingerprint) return; fingerprint = next;
+      list.replaceChildren();
       status.textContent = data.available ? '' : 'Apps require Goose execution.';
       if (!data.apps.length) list.append(element('p', 'home-empty', 'Ask an agent to build the internal tool your work needs.'));
       for (const app of data.apps) {
@@ -83,14 +87,14 @@ export function installApps(): void {
         card.dataset.search = `${app.name} ${app.description}`.toLocaleLowerCase();
         const heading = element('div', 'app-card-heading');
         const mark = element('span', 'app-mark', app.name.slice(0, 2).toUpperCase()); mark.setAttribute('aria-hidden', 'true');
-        heading.append(mark, element('h2', '', app.name), element('span', 'app-release-state', app.active_revision === null ? 'Preview' : 'Active'));
+        heading.append(mark, element('h2', '', app.name), element('span', 'app-release-state', app.active_revision === null ? 'Ready to try' : 'Active'));
         card.append(heading, element('p', 'app-description', app.description));
         const launch = action(app.active_revision !== null ? 'Open app' : 'Preview latest release', () => open(app, app.active_revision === null));
         launch.classList.add('app-launch'); card.append(launch);
         const management = document.createElement('details'); management.className = 'app-management';
         management.append(element('summary', '', 'Releases and access'), element('small', '', `Latest release ${app.revision} · ${app.active_revision === null ? 'not activated' : `active release ${app.active_revision}`}`));
         if (app.active_revision !== null) management.append(action('Preview latest release', () => open(app, true)));
-        const agent = element('a', 'text-button', 'Open maintaining agent'); agent.href = `/?agent=${encodeURIComponent(app.agent_id)}`; card.append(agent);
+        const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(app.agent_id, 'edit-app', app.id); card.append(agent);
         const permissions = element('div');
         if (app.active_revision !== null) management.append(action('Manage agent access', () => access(app, permissions)));
         management.append(action('Archive app', async () => { await post(`/apps/${app.id}/archive`, { revision: app.revision }); await refresh(); }), permissions);
@@ -98,6 +102,8 @@ export function installApps(): void {
       }
       filter();
     } catch (e) { status.textContent = (e as Error).message; }
+    finally { loading = false; }
   }
+  window.setInterval(() => { if (!busy && !root.querySelector('dialog[open]')) void refresh(); }, 5000);
   window.addEventListener('focus', () => { if (!busy) void refresh(); }); void refresh();
 }

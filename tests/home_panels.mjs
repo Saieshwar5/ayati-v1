@@ -23,9 +23,10 @@ test('Goose creates a custom panel, owner keeps it, and scheduled updates use th
   await page.goto(app.base.replace('/api','/?view=home'));
   await page.getByRole('heading',{name:panel.title,exact:true}).waitFor();
   assert.equal(await page.locator('.panel-snapshot img').count(),0);
-  assert.equal(await page.locator('.panel-snapshot svg').count(),1);
+  assert.equal(await page.locator('.panel-snapshot .panel-bar').count(),2);
   await page.getByLabel('Allow this agent to refresh this panel using these same sources',{exact:false}).check();
   await page.getByRole('button',{name:'Keep on Home',exact:true}).click();
+  await page.locator('.panel-settings > summary').click();
   await page.getByRole('button',{name:'Pause panel updates',exact:true}).waitFor();
   assert.equal(app.provider.requests.length,calls,'Displaying/activating Home must not call the model');
   await mkdir(join(root,'.test-runs/panels'),{recursive:true});await page.screenshot({path:join(root,'.test-runs/panels/mobile.png'),fullPage:true});
@@ -36,7 +37,7 @@ test('Goose creates a custom panel, owner keeps it, and scheduled updates use th
   const active=(await app.request('/panels')).panels[0];assert.equal(active.active.definition.sections[0].value,'8');
   await app.stop();await app.start();
   assert.equal((await app.request('/panels')).panels[0].active_revision,2);
-  await page.reload();await page.getByRole('button',{name:'Pause panel updates',exact:true}).waitFor();
+  await page.reload();await page.locator('.panel-settings > summary').click();await page.getByRole('button',{name:'Pause panel updates',exact:true}).waitFor();
   await page.getByRole('button',{name:'Pause panel updates',exact:true}).click();
   await page.getByRole('button',{name:'Allow panel updates',exact:true}).waitFor();
   assert.equal((await app.request('/panels')).panels[0].updates_enabled,false);

@@ -130,7 +130,8 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
           const badge = element('span', 'agent-attention', String(activity.pending_approvals));
           badge.setAttribute('aria-label', `${activity.pending_approvals} approvals need attention`); card.append(badge);
         }
-        if (profile.role && !activity.latest) card.append(element('p', 'agent-role', profile.role));
+        if (profile.id === 'local-agent') card.append(element('p', 'agent-role', 'Your guide · Always here'));
+        else if (profile.role && !activity.latest) card.append(element('p', 'agent-role', profile.role));
         if (profile.state === 'failed') {
           const retry = element('button', 'text-button', 'Retry setup');
           retry.onclick = async () => {

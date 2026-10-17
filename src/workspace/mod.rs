@@ -43,7 +43,7 @@ impl Workspace {
             default: AgentProfile {
                 id: "local-agent".into(),
                 name: "Ayati".into(),
-                role: String::new(),
+                role: crate::runtime::guidance::GUIDE_ROLE.into(),
                 model: config.model.clone(),
                 memory: template.memory,
                 browser: template.browser,
@@ -134,6 +134,8 @@ impl Workspace {
             };
             let mut profile_json = json!(profile);
             profile_json["revision"] = json!(0);
+            profile_json["is_default"] = json!(profile.id == "local-agent");
+            profile_json["can_delete"] = json!(false);
             if let Some(agent) = agents.get(&profile.id)
                 && let Some(edit) = agent.store.profile_edit()?
             {
