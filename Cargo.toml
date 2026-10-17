@@ -14,6 +14,7 @@ publish = false
 ayati-guest = { path = "crates/guest" }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anyhow = "1"
+ring = "=0.17.14"
 axum = { version = "0.8", features = ["multipart"] }
 dotenvy = "0.15"
 futures-util = "0.3"

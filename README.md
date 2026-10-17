@@ -10,9 +10,10 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
-Optional [Composio connections](runtime/composio.md) provide Google account linking
-and explicit per-agent operation grants through Settings and Agent Details.
-Live Google acceptance is pending; integration checks use synthetic accounts.
+Optional [Composio connections](runtime/composio.md) support Connect MCP consumer
+keys and Platform project keys, with explicit per-agent operation grants through
+Settings and Agent Details. Live MCP discovery and a bounded Gmail read passed;
+OAuth refresh, new-account consent and VM acceptance remain unverified.
 
 ## Run the Goose-backed chat
 

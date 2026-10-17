@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS grants(
  tool TEXT NOT NULL, version TEXT NOT NULL, definition TEXT NOT NULL,
  PRIMARY KEY(agent_id,connection_id,tool)
 );
+CREATE TABLE IF NOT EXISTS consumer_tools(connection_id TEXT NOT NULL REFERENCES connections(id),tool TEXT NOT NULL,version TEXT NOT NULL,PRIMARY KEY(connection_id,tool));
 CREATE TABLE IF NOT EXISTS executions(
  id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, task_id TEXT NOT NULL,
  connection_id TEXT NOT NULL, tool TEXT NOT NULL, status TEXT NOT NULL,

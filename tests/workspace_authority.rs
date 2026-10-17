@@ -98,4 +98,8 @@ fn composio_does_not_allow_keys_to_be_redirected_to_arbitrary_endpoints() {
     ] {
         assert!(Composio::new(endpoint, "fixture".into()).is_err());
     }
+    let consumer =
+        Composio::new("http://127.0.0.1:1/", "ck_synthetic_not_a_real_key".into()).unwrap();
+    assert!(consumer.configuration_error().is_none());
+    assert!(consumer.is_consumer());
 }

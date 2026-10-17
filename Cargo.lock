@@ -259,6 +259,7 @@ dependencies = [
  "futures-util",
  "libc",
  "reqwest",
+ "ring",
  "rusqlite",
  "serde",
  "serde_json",

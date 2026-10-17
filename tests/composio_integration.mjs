@@ -24,7 +24,7 @@ test('Composio grants fence actual Goose/MCP execution, lost replies and restart
     const task = await app.submit('workspace ' + JSON.stringify({ tool: 'connector_execute', arguments: arguments_ }));
     const pending = await until(async () => (await app.state()).permissions?.[0], 'Business approval missing');
     await beforeApprove();
-    await app.request(`/permissions/${pending.id}`, { allow: true });
+    if ((await app.state()).permissions.some(p => p.id === pending.id)) await app.request(`/permissions/${pending.id}`, { allow: true });
     return app.done(task.id);
   }
   let outcome = await run(args);
@@ -60,10 +60,10 @@ test('owner can link an account and grant an operation through the responsive UI
   const browser = await chromium.launch(); t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(app.base.replace('/api', '/?view=settings'));
-  await page.getByRole('button', { name: 'Connect Google account', exact: true }).click();
+  await page.getByRole('button', { name: 'Connect an account', exact: true }).click();
   await page.getByRole('textbox', { name: 'Account label', exact: true }).fill('Owner Gmail fixture');
   await page.getByRole('button', { name: 'Create sign-in link', exact: true }).click();
-  await page.getByRole('link', { name: 'Continue to Google sign-in', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Continue to service sign-in', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Refresh account', exact: true }).click();
   await page.getByText('gmail · ACTIVE', { exact: true }).waitFor();
   assert(!(await page.content()).includes('DO_NOT_EXPOSE'));

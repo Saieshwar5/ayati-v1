@@ -39,10 +39,7 @@ impl Platform {
             .collect::<rusqlite::Result<_>>()?)
     }
     pub async fn link(&self, toolkit: &str, auth_config: &str, label: &str) -> Result<Value> {
-        ensure!(
-            ["gmail", "googledrive", "googlecalendar"].contains(&toolkit),
-            "Choose Gmail, Google Drive or Google Calendar"
-        );
+        identifier(toolkit)?;
         identifier(auth_config)?;
         ensure!(
             !label.trim().is_empty() && label.len() <= 100 && !label.chars().any(char::is_control),
@@ -81,7 +78,16 @@ impl Platform {
         // Never return the link token or the account credential state.
         Ok(json!({"id":id,"redirect_url":url}))
     }
-    fn account_for(&self, id: &str) -> Result<(String, String, String)> {
+    pub(super) fn account_for(&self, id: &str) -> Result<(String, String, String)> {
+        let consumer: bool = self.database()?.query_row(
+            "SELECT auth_config_id='consumer_mcp' FROM connections WHERE id=?1",
+            [id],
+            |r| r.get(0),
+        )?;
+        ensure!(
+            consumer == self.client()?.is_consumer(),
+            "Connection belongs to a different Composio authentication mode; select an account for the configured key"
+        );
         self.database()?
             .query_row(
                 "SELECT account_id,toolkit,status FROM connections WHERE id=?1",
@@ -171,14 +177,14 @@ impl Platform {
                 == "ACTIVE",
             "Account is not active"
         );
-        let definition = self
-            .client()?
-            .request(
-                Method::GET,
-                &format!("tools/{tool}?version={version}"),
-                None,
-            )
-            .await?;
+        if self.client()?.is_consumer() {
+            let discovered: bool=self.database()?.query_row("SELECT EXISTS(SELECT 1 FROM consumer_tools WHERE connection_id=?1 AND tool=?2 AND version=?3)",params![id,tool,version],|r|r.get(0))?;
+            ensure!(
+                discovered,
+                "Discover this operation through Composio MCP before granting it"
+            );
+        }
+        let definition = self.client()?.tool_definition(tool, version).await?;
         ensure!(
             definition["toolkit"]["slug"] == toolkit && definition["slug"] == tool,
             "Tool does not belong to this connection"
@@ -246,6 +252,17 @@ impl Platform {
                     == "ACTIVE",
             "Connected account is unavailable; reconnect through Settings"
         );
+        ensure!(
+            !cancel.is_cancelled() && store.claim_active(claim)?,
+            "Work was stopped before external execution"
+        );
+        if self.client()?.is_consumer() {
+            let current = self.client()?.tool_definition(tool, &grant.version).await?;
+            ensure!(
+                current["version"] == grant.version,
+                "Composio MCP operation schema changed; review and renew the grant before execution"
+            );
+        }
         ensure!(
             !cancel.is_cancelled() && store.claim_active(claim)?,
             "Work was stopped before external execution"

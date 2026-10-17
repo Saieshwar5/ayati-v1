@@ -1,5 +1,8 @@
 //! Trusted local-owner services. Provider credentials never enter agent VMs.
 pub mod composio;
+mod composio_catalog;
+mod composio_mcp;
+mod consumer_connections;
 mod connections;
 use anyhow::{Context, Result, ensure};
 pub use connections::{Connection, Grant};
