@@ -53,7 +53,7 @@ impl Store {
         let mut connection = Connection::open(path).context("Could not open Ayati database")?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
         anyhow::ensure!(
-            version <= 9,
+            version <= 10,
             "Database is newer than this Ayati version; do not downgrade"
         );
         connection.pragma_update(None, "synchronous", "FULL")?;
@@ -93,6 +93,11 @@ impl Store {
         if version < 9 {
             let tx = connection.transaction()?;
             tx.execute_batch("ALTER TABLE profile_edit ADD COLUMN memory INTEGER; ALTER TABLE profile_edit ADD COLUMN browser INTEGER; PRAGMA user_version=9;")?;
+            tx.commit()?;
+        }
+        if version < 10 {
+            let tx = connection.transaction()?;
+            tx.execute_batch("CREATE TABLE permission_uses(permission_id TEXT PRIMARY KEY REFERENCES permissions(id)); PRAGMA user_version=10;")?;
             tx.commit()?;
         }
         Ok(Self {

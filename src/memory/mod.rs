@@ -12,6 +12,8 @@ use std::sync::{Arc, Mutex};
 pub struct MemoryAccess {
     pub store: Arc<Store>,
     default_enabled: bool,
+    platform: Option<Arc<crate::platform::Platform>>,
+    agent_id: String,
     active: Mutex<Option<(String, RunClaim, tokio_util::sync::CancellationToken)>>,
 }
 #[derive(Deserialize)]
@@ -26,12 +28,80 @@ impl MemoryAccess {
         Self {
             store,
             default_enabled: true,
+            platform: None,
+            agent_id: String::new(),
             active: Mutex::new(None),
         }
     }
     pub fn with_enabled(mut self, enabled: bool) -> Self {
         self.default_enabled = enabled;
         self
+    }
+    pub fn with_platform(
+        mut self,
+        platform: Option<Arc<crate::platform::Platform>>,
+        agent: &str,
+    ) -> Self {
+        self.platform = platform;
+        self.agent_id = agent.into();
+        self
+    }
+    async fn workspace_call(&self, request: Request) -> Result<Value> {
+        let (claim, cancel) = {
+            let active = self
+                .active
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Runtime unavailable"))?;
+            let (token, claim, cancel) = active
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("No active business run"))?;
+            ensure!(
+                token == &request.token && !cancel.is_cancelled(),
+                "Stale business run"
+            );
+            (claim.clone(), cancel.clone())
+        };
+        ensure!(self.store.claim_active(&claim)?, "Inactive business run");
+        let platform = self
+            .platform
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Business tools are unavailable"))?;
+        let name = format!("{}{}", ayati_guest::workspace_mcp::PREFIX, request.tool);
+        ensure!(
+            ayati_guest::workspace_mcp::observed(&name, &request.arguments),
+            "Invalid business operation"
+        );
+        let call = self
+            .store
+            .consume_workspace_permission(&claim, &name, &request.arguments)?;
+        let result = match request.tool.as_str() {
+            "connector_tools" => Ok(json!({"grants":platform.grants(&self.agent_id)?})),
+            "connector_execute" => {
+                let args = &request.arguments;
+                platform
+                    .execute_connector(
+                        crate::platform::ExecutionRun {
+                            agent: &self.agent_id,
+                            store: &self.store,
+                            claim: &claim,
+                            cancel: &cancel,
+                        },
+                        args["connection_id"].as_str().unwrap(),
+                        args["tool"].as_str().unwrap(),
+                        &args["arguments"],
+                    )
+                    .await
+            }
+            _ => anyhow::bail!("Unknown business operation"),
+        };
+        let status = if result.as_ref().is_ok_and(|v| v["outcome"] != "uncertain") {
+            "completed"
+        } else {
+            "uncertain"
+        };
+        self.store
+            .observe_tool_status(&claim, &call, status, None)?;
+        result
     }
     pub fn arm(&self, token: &str, claim: &RunClaim, cancel: tokio_util::sync::CancellationToken) {
         *self.active.lock().unwrap() = Some((token.into(), claim.clone(), cancel));
@@ -92,14 +162,22 @@ impl MemoryAccess {
 pub fn routes(access: Arc<MemoryAccess>) -> Router {
     Router::new()
         .route("/memory", post(call))
-        .layer(DefaultBodyLimit::max(12000))
+        .layer(DefaultBodyLimit::max(16000))
         .with_state(access)
 }
 async fn call(
     State(access): State<Arc<MemoryAccess>>,
     Json(request): Json<Request>,
 ) -> Json<Value> {
-    Json(match access.call(request) {
+    let result = if ayati_guest::workspace_mcp::tools()
+        .iter()
+        .any(|t| t["name"] == request.tool)
+    {
+        access.workspace_call(request).await
+    } else {
+        access.call(request)
+    };
+    Json(match result {
         Ok(value) => json!({"result":value}),
         Err(_) => {
             json!({"error":"Memory request denied: invalid scope, source, stale run, conflicting revision or forgotten evidence. Inspect current memory and source before retrying."})

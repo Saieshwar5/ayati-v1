@@ -198,7 +198,7 @@ fn schema_seven_profile_and_session_survive_model_migration() {
     drop(store);
     let connection = rusqlite::Connection::open(&path).unwrap();
     connection
-        .execute_batch("ALTER TABLE profile_edit DROP COLUMN model; ALTER TABLE profile_edit DROP COLUMN memory; ALTER TABLE profile_edit DROP COLUMN browser; PRAGMA user_version=7")
+        .execute_batch("ALTER TABLE profile_edit DROP COLUMN model; ALTER TABLE profile_edit DROP COLUMN memory; ALTER TABLE profile_edit DROP COLUMN browser; DROP TABLE permission_uses; PRAGMA user_version=7")
         .unwrap();
     drop(connection);
     let store = Store::open(&path).unwrap();
@@ -262,7 +262,7 @@ fn schema_eight_model_override_survives_tool_migration() {
         .unwrap();
     drop(store);
     let connection = rusqlite::Connection::open(&path).unwrap();
-    connection.execute_batch("ALTER TABLE profile_edit DROP COLUMN memory; ALTER TABLE profile_edit DROP COLUMN browser; PRAGMA user_version=8").unwrap();
+    connection.execute_batch("ALTER TABLE profile_edit DROP COLUMN memory; ALTER TABLE profile_edit DROP COLUMN browser; DROP TABLE permission_uses; PRAGMA user_version=8").unwrap();
     drop(connection);
     let store = Store::open(&path).unwrap();
     let profile = store.profile_edit().unwrap().unwrap();

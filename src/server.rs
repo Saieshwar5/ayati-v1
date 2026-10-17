@@ -1,6 +1,7 @@
 use crate::{agent::Agent, files::MAX_FILE_BYTES};
 mod agents;
 mod browser;
+mod connections;
 mod home;
 mod intake;
 mod memory;
@@ -61,6 +62,7 @@ pub fn router(state: WebState) -> Router {
         .merge(browser::routes())
         .merge(memory::routes())
         .merge(setup::routes())
+        .merge(connections::routes())
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))

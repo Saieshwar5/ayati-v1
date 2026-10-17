@@ -10,6 +10,10 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
+Optional [Composio connections](runtime/composio.md) provide Google account linking
+and explicit per-agent operation grants through Settings and Agent Details.
+Live Google acceptance is pending; integration checks use synthetic accounts.
+
 ## Run the Goose-backed chat
 
 Requirements: Linux x86_64, Rust/Cargo, Node.js 26, curl, tar, and sha256sum.
@@ -95,7 +99,7 @@ not authoritative receipts from business services. A lost-reply write is tested
 with an independent synthetic service record; live connectors and automated
 reconciliation are later work. See [the recovery contract](runtime/durable-work.md).
 
-Ayati database schema is now version 6. History and saved Goose mappings are
+Ayati database schema is now version 10. History and saved Goose mappings are
 preserved; legacy queued jobs from earlier schemas become interrupted rather than
 being replayed. Older binaries must not open the upgraded database. Automatic
 scheduling and idle VM shutdown/wake are implemented in the next section.

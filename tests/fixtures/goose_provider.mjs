@@ -32,6 +32,12 @@ export async function fixtureProvider() {
     if (prompt === 'stall') return; // Deliberately interrupted by Stop.
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
+    if (prompt?.startsWith('workspace ')) {
+      const command = JSON.parse(prompt.slice(10));
+      const result = messages.slice(lastUser + 1).find(message => message.role === 'tool');
+      if (result) text = `WORKSPACE_RESULT ${JSON.stringify(result.content)}`;
+      else tool = { id: 'workspace-call', type: 'function', function: { name: `ayati_workspace__${command.tool}`, arguments: JSON.stringify(command.arguments) } };
+    }
     if (/^tool\b/.test(prompt ?? '')) {
       const result = messages.slice(lastUser + 1).find((message) => message.role === 'tool');
       if (result) text = `TOOL_RESULT ${JSON.stringify(result.content)}`;

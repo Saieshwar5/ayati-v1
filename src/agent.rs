@@ -55,6 +55,12 @@ pub struct Agent {
 }
 
 impl Agent {
+    pub fn platform(&self) -> Option<Arc<crate::platform::Platform>> {
+        self.goose.as_ref().and_then(|g| g.platform())
+    }
+    pub fn identity(&self) -> &str {
+        self.goose.as_ref().map_or("local-agent", |g| g.identity())
+    }
     pub fn start(
         store: Arc<Store>,
         files: Arc<Files>,

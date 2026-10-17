@@ -11,6 +11,7 @@ pub struct RuntimeEvents {
     pub proof_tool: bool,
     pub browser: bool,
     pub memory: bool,
+    pub platform: bool,
 }
 
 impl RuntimeEvents {
@@ -213,7 +214,14 @@ impl RuntimeEvents {
                     observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
                 )
             });
-        if !(browser_allowed || proof_allowed || memory_allowed)
+        let workspace_allowed = self.platform
+            && tool.is_some_and(|name| {
+                ayati_guest::workspace_mcp::observed(
+                    name,
+                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                )
+            });
+        if !(browser_allowed || proof_allowed || memory_allowed || workspace_allowed)
             || observed.get("rawInput") != action.get("rawInput")
         {
             return cancelled();
@@ -230,7 +238,9 @@ impl RuntimeEvents {
             .options
             .iter()
             .find(|p| p.kind == PermissionOptionKind::RejectOnce);
-        let title = if memory_allowed {
+        let title = if workspace_allowed {
+            "Use this agent’s business tools"
+        } else if memory_allowed {
             "Use scoped agent memory"
         } else if browser_allowed {
             "Use the agent browser"

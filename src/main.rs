@@ -19,6 +19,9 @@ async fn main() -> Result<()> {
     if std::env::args().nth(1).as_deref() == Some("memory-mcp") {
         return ayati_guest::memory_mcp::serve().await;
     }
+    if std::env::args().nth(1).as_deref() == Some("workspace-mcp") {
+        return ayati_guest::workspace_mcp::serve().await;
+    }
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -100,7 +103,11 @@ async fn serve(config: Config) -> Result<()> {
             config.api_key.is_some(),
         )
     } else {
-        let runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
+        let mut runtime = ayati::runtime::config::GooseConfig::from_env(&data, &config.model);
+        runtime.platform = Some(Arc::new(ayati::platform::Platform::open(
+            &data.join("business"),
+            ayati::platform::composio::Composio::from_env()?,
+        )?));
         runtime.validate_browser()?;
         let ready = runtime.configured();
         (

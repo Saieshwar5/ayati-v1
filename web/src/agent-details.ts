@@ -1,5 +1,6 @@
 import { workPanels } from './work-panels';
 import { installSchedules } from './schedules';
+import { installConnections } from './connections';
 import { installProfileEditor } from './agent-profile-editor';
 import { element } from './view';
 import type { Profile } from './agents';
@@ -13,7 +14,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     <section><h3>Model</h3><p id="details-model"></p></section>
     <section><h3>Authority</h3><p>Tool actions follow the runtime’s approval checks. An approval applies only to its original request.</p></section>
     <section><h3>Tools and knowledge</h3><p id="details-tools"></p><div id="details-links"></div></section>
-    <section><h3>Connections</h3><p>Business account connections and per-agent grants are still being built.</p></section>
+    <section id="agent-connections"></section>
     <p class="details-note">Settings can be edited when this agent is idle. Browser access requires a compatible VM.</p>`;
   document.querySelector('.main')!.append(panel);
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
@@ -24,6 +25,7 @@ export function installAgentDetails(): (profile: Profile) => void {
   panel.querySelector('button')!.onclick = close;
   const updateEditor = installProfileEditor(panel);
   const updateSchedules = installSchedules(panel);
+  installConnections(panel.querySelector('#agent-connections')!, true);
   let previous = '';
   return profile => {
     for (const [tool, enabled] of [['memory', profile.memory], ['browser', profile.browser]] as const) {
