@@ -23,7 +23,7 @@ test('profile editing preserves history, resets role context, rejects busy/stale
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(app.base.replace('/api', '/?agent=local-agent'));
-  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Edit agent settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit agent', exact: true });
   await dialog.getByLabel('Name', { exact: true }).fill('Inventory helper');

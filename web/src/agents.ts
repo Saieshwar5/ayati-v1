@@ -116,22 +116,12 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
         link.href = `/?agent=${encodeURIComponent(profile.id)}`;
         if (profile.state !== 'ready') { link.removeAttribute('href'); link.setAttribute('aria-disabled', 'true'); }
         if (profile.id === selectedAgent) link.setAttribute('aria-current', 'page');
-        const detail = element('p', 'agent-detail', profile.state === 'ready'
-          ? activity.pending_approvals ? `${activity.pending_approvals} awaiting approval`
-            : activity.pending_tasks ? `${activity.pending_tasks} active or queued` : 'Ready'
-          : profile.detail);
-        card.append(link, detail);
-        if (activity.latest && profile.state === 'ready') {
-          const preview = element('p', 'agent-preview', activity.latest.text.replace(/\s+/g, ' '));
-          preview.title = activity.latest.text;
-          card.append(preview);
-        }
+        card.append(link);
+        card.title = profile.state === 'ready' ? profile.name : profile.detail;
         if (activity.pending_approvals) {
           const badge = element('span', 'agent-attention', String(activity.pending_approvals));
           badge.setAttribute('aria-label', `${activity.pending_approvals} approvals need attention`); card.append(badge);
         }
-        if (profile.id === 'local-agent') card.append(element('p', 'agent-role', 'Your guide · Always here'));
-        else if (profile.role && !activity.latest) card.append(element('p', 'agent-role', profile.role));
         if (profile.state === 'failed') {
           const retry = element('button', 'text-button', 'Retry setup');
           retry.onclick = async () => {

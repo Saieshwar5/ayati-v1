@@ -70,7 +70,20 @@ function queuedView(task: Task): HTMLElement {
 function messageView(message: ChatMessage, agentName: string): HTMLElement {
   const row = element('article', `message ${message.role}`);
   row.dataset.messageId = message.id;
-  const content = element('div', 'message-content', message.content);
+  let body = message.content;
+  const attachments: string[] = [];
+  const marker = '\n\n<ayati-attachments>\n';
+  const start = body.lastIndexOf(marker);
+  if (message.role === 'user' && start >= 0 && body.endsWith('\n</ayati-attachments>')) {
+    try {
+      const files = JSON.parse(body.slice(start + marker.length, -'\n</ayati-attachments>'.length));
+      if (Array.isArray(files) && files.every(f => typeof f.name === 'string' && typeof f.id === 'string')) {
+        attachments.push(...files.map(f => f.name)); body = body.slice(0, start);
+      }
+    } catch { /* Preserve ordinary messages that happen to include the marker. */ }
+  }
+  const content = element('div', 'message-content', body);
+  for (const name of attachments) content.append(element('span', 'sent-attachment', `↧ ${name}`));
   if (message.role === 'assistant') row.append(element('div', 'speaker', agentName));
   row.append(content);
   return row;

@@ -83,6 +83,7 @@ pub fn router(state: WebState) -> Router {
         .route("/api/vm/stop", post(vm_stop))
         .route("/api/files", post(upload))
         .route("/api/files/{id}", get(download))
+        .route("/api/files/{id}/preview", get(file_preview))
         .route("/api/shutdown", post(shutdown))
         .fallback_service(ServeDir::new("web/dist").append_index_html_on_directories(true))
         .layer(DefaultBodyLimit::max(MAX_FILE_BYTES as usize + 64 * 1024))
@@ -164,7 +165,7 @@ async fn local_request(
 async fn health(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {
     Json(json!({ "status": "ready", "model_ready": state.model_ready,
         "model": state.model_name, "runtime": state.agent.runtime_name(),
-        "file_uploads_supported": state.agent.runtime_name() == "prototype", "version": env!("CARGO_PKG_VERSION") }))
+        "file_uploads_supported": true, "version": env!("CARGO_PKG_VERSION") }))
 }
 
 async fn vm_status(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {
@@ -186,6 +187,8 @@ async fn snapshot(axum::Extension(state): axum::Extension<WebState>) -> ApiResul
 struct NewMessage {
     content: String,
     request_id: Option<String>,
+    #[serde(default)]
+    attachments: Vec<String>,
 }
 async fn message(
     axum::Extension(state): axum::Extension<WebState>,
@@ -194,10 +197,16 @@ async fn message(
     if !state.model_ready {
         return Err(anyhow::anyhow!("Configure the selected runtime/provider locally and restart Ayati before sending a request").into());
     }
-    Ok(Json(json!(state.agent.submit_once(
-        &input.content,
-        input.request_id.as_deref()
-    )?)))
+    let content = state
+        .agent
+        .files
+        .attach_to_message(&input.content, &input.attachments)
+        .await?;
+    Ok(Json(json!(
+        state
+            .agent
+            .submit_once(&content, input.request_id.as_deref())?
+    )))
 }
 
 async fn actions(
@@ -252,11 +261,6 @@ async fn upload(
     axum::Extension(state): axum::Extension<WebState>,
     mut multipart: Multipart,
 ) -> ApiResult<Json<Value>> {
-    if state.agent.runtime_name() == "goose" {
-        return Err(
-            anyhow::anyhow!("File input for Goose is planned in a later local increment").into(),
-        );
-    }
     let field = multipart
         .next_field()
         .await?
@@ -267,6 +271,13 @@ async fn upload(
     Ok(Json(
         json!({ "artifact": artifact, "workspace_path": workspace_path }),
     ))
+}
+
+async fn file_preview(
+    axum::Extension(state): axum::Extension<WebState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    Ok(Json(json!(state.agent.files.preview(&id).await?)))
 }
 
 async fn download(

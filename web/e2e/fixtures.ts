@@ -54,9 +54,9 @@ export const test = base.extend<{ ayati: Harness }>({
           evidence.record('attachment', { name });
         },
         download: async (name) => {
-          const panel = page.getByRole('complementary', { name: 'Your files' });
-          if (!await panel.isVisible()) await page.getByRole('button', { name: /^Files/ }).click();
-          const link = panel.getByRole('link').filter({ has: page.getByText(name, { exact: true }) });
+          const panel = page.getByRole('dialog', { name: 'Artifacts', exact: true });
+          if (!await panel.isVisible()) await page.getByRole('button', { name: 'Artifacts', exact: true }).click();
+          const link = panel.getByRole('link', { name: `Download ${name}`, exact: true });
           await expect(link).toHaveCount(1);
           const pending = page.waitForEvent('download');
           await link.click();
