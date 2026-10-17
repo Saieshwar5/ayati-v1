@@ -20,7 +20,7 @@ fn version_one_history_survives_migration_and_new_runs_have_scope() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        9
+        10
     );
     let scope: (String, String) = connection.query_row(
         "SELECT a.business_id,a.id FROM run_scopes s JOIN conversations c ON c.id=s.conversation_id JOIN agents a ON a.id=c.agent_id WHERE s.task_id=?1",

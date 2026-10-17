@@ -6,3 +6,4 @@ mod browser_upstream;
 pub mod proof_tool;
 
 pub mod memory_mcp;
+pub mod workspace_mcp;

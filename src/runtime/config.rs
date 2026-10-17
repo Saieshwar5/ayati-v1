@@ -9,6 +9,7 @@ pub const GOOSE_VERSION: &str = "1.54.0";
 
 #[derive(Clone)]
 pub struct GooseConfig {
+    pub platform: Option<std::sync::Arc<crate::platform::Platform>>,
     pub binary: PathBuf,
     pub agent_id: String,
     pub role: String,
@@ -41,6 +42,7 @@ impl GooseConfig {
     }
     pub fn from_env(data: &Path, model: &str) -> Self {
         Self {
+            platform: None,
             agent_id: "local-agent".into(),
             role: String::new(),
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
@@ -156,6 +158,11 @@ impl GooseConfig {
         if self.memory {
             extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
                 "name":"ayati_memory","command":if self.vm_manifest.is_some(){PathBuf::from("/usr/local/bin/ayati-guest")}else{std::env::current_exe()?},"args":["memory-mcp"],"env":[]
+            }}));
+        }
+        if self.platform.is_some() {
+            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
+                "name":"ayati_workspace","command":if self.vm_manifest.is_some(){PathBuf::from("/usr/local/bin/ayati-guest")}else{std::env::current_exe()?},"args":["workspace-mcp"],"env":[]
             }}));
         }
         Ok(

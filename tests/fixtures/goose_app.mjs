@@ -37,7 +37,7 @@ export async function setup(t, proofTool = false, overrides = {}) {
     OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url,
     AYATI_PROOF_TOOL: proofTool ? '1' : '0',
     AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
-    AYATI_VM_IDLE_SECONDS: '0', RUST_LOG: 'ayati=info', ...overrides };
+    AYATI_VM_IDLE_SECONDS: '0', COMPOSIO_API_KEY: '', RUST_LOG: 'ayati=info', ...overrides };
   async function request(path, body) {
     // The fixture deliberately restarts different processes on the same port.
     // Do not reuse an HTTP socket belonging to the previous daemon or retry

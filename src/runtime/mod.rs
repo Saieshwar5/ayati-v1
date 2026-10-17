@@ -55,6 +55,7 @@ struct Turn {
 }
 
 struct Process {
+    authority_revision: i64,
     role_revision: i64,
     connection_id: String,
     connection: ConnectionTo<Agent>,
@@ -81,6 +82,15 @@ impl Drop for ProcessResources {
 }
 
 impl GooseRuntime {
+    pub async fn clear_working_context(&self) {
+        self.process.lock().await.take();
+    }
+    pub fn platform(&self) -> Option<Arc<crate::platform::Platform>> {
+        self.config.platform.clone()
+    }
+    pub fn identity(&self) -> &str {
+        &self.config.agent_id
+    }
     pub fn memory_enabled(&self) -> bool {
         self.shared.memory_enabled()
     }
@@ -95,11 +105,18 @@ impl GooseRuntime {
     }
 
     pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
+        let platform_enabled = config.platform.is_some();
+        let panel_updates = config
+            .platform
+            .as_ref()
+            .map(|p| (p.clone(), config.agent_id.clone()));
         let proof_tool = config.proof_tool;
         let browser_enabled = config.browser;
         let memory_enabled = config.memory;
         let memory = Some(Arc::new(
-            crate::memory::MemoryAccess::new(store.clone()).with_enabled(config.memory),
+            crate::memory::MemoryAccess::new(store.clone())
+                .with_enabled(config.memory)
+                .with_platform(config.platform.clone(), &config.agent_id),
         ));
         let vm = config.vm_manifest.as_ref().map(|path| {
             Arc::new(
@@ -127,12 +144,21 @@ impl GooseRuntime {
                 proof_tool,
                 browser: browser_enabled,
                 memory: memory_enabled,
+                platform: platform_enabled,
+                panel_updates,
             }),
             process: tokio::sync::Mutex::new(None),
         }
     }
 
     async fn connect(&self) -> Result<Process> {
+        let authority_revision = self
+            .config
+            .platform
+            .as_ref()
+            .map(|p| p.authority_revision(&self.config.agent_id))
+            .transpose()?
+            .unwrap_or(0);
         let mut effective = self.config.clone();
         effective.memory = self.shared.memory_enabled();
         effective.browser = self.shared.browser_enabled();
@@ -146,7 +172,7 @@ impl GooseRuntime {
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (memory_server, memory_port) = if self.vm.is_none() {
             if let Some(memory) = &self.memory
-                && effective.memory
+                && (effective.memory || effective.platform.is_some())
             {
                 let (server, port) = crate::memory::HostMemoryServer::start(memory.clone()).await?;
                 (Some(server), port)
@@ -162,7 +188,7 @@ impl GooseRuntime {
             let mut config = effective.clone();
             config.model = model.into();
             let mut command = config.command().await?;
-            if effective.memory {
+            if effective.memory || effective.platform.is_some() {
                 command
                     .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
                     .env("AYATI_MEMORY_TOKEN", &connection_id);
@@ -245,6 +271,12 @@ impl GooseRuntime {
             if effective.memory {
                 settings["memory_adapter"] = serde_json::json!(1);
             }
+            if effective.platform.is_some() {
+                settings["workspace_adapter"] = serde_json::json!(1);
+            }
+            if authority_revision > 0 {
+                settings["authority_revision"] = serde_json::json!(authority_revision);
+            }
             if effective.browser {
                 settings["browser_adapter"] = serde_json::json!(1);
             }
@@ -252,7 +284,12 @@ impl GooseRuntime {
                 settings["vm_manifest"] = serde_json::json!(path);
             }
             let settings = settings.to_string();
-            let session = if let Some(saved) = self.shared.store.runtime_session(&settings)? {
+            let saved = if effective.platform.is_some() {
+                self.shared.store.workspace_runtime_session(&settings)?
+            } else {
+                self.shared.store.runtime_session(&settings)?
+            };
+            let session = if let Some(saved) = saved {
                 let id = SessionId::from(saved);
                 connection
                     .send_request(LoadSessionRequest::new(id.clone(), cwd).meta(meta))
@@ -281,6 +318,7 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
+                authority_revision,
                 role_revision,
                 connection_id,
                 connection,
@@ -311,8 +349,16 @@ impl GooseRuntime {
             .as_ref()
             .map_or(self.config.role.as_str(), |p| p.role.as_str());
         let mut process = self.process.lock().await;
+        let authority_revision = self
+            .config
+            .platform
+            .as_ref()
+            .map(|p| p.authority_revision(&self.config.agent_id))
+            .transpose()?
+            .unwrap_or(0);
         if process.as_mut().is_some_and(|p| {
             p.role_revision != role_revision
+                || p.authority_revision != authority_revision
                 || p.resources.driver.is_finished()
                 || p.resources.child.try_wait().ok().flatten().is_some()
         }) {
@@ -332,7 +378,7 @@ impl GooseRuntime {
         let p = process.as_ref().unwrap();
         self.arm_browser(&p.connection_id).await?;
         if let Some(memory) = &self.memory
-            && self.memory_enabled()
+            && (self.memory_enabled() || self.config.platform.is_some())
         {
             memory.arm(&p.connection_id, claim, cancel.clone());
         }

@@ -1,6 +1,7 @@
 import './home.css';
 import { api, type Task, type ChatMessage } from './types';
 import { element } from './view';
+import { installHomePanels } from './home-panels';
 
 type Work = Task & { request: string };
 type Permission = { id: string; task_id: string; title: string; action: unknown };
@@ -15,10 +16,12 @@ export function installHome(): void {
   const app = document.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home"><div class="home-heading"><div><h1>Home</h1><p>A clear place to start your day.</p></div><button id="home-refresh" class="files-button">Refresh</button></div>
     <p id="home-connection" role="status">Connecting…</p><p id="home-error" role="alert"></p>
+    <section id="home-panels"></section>
     <div class="home-columns"><section aria-labelledby="attention-title"><div class="home-section-heading"><h2 id="attention-title">Needs you</h2><span id="attention-count" class="attention-count"></span></div><div id="home-attention" class="home-list"></div></section>
     <section aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div>
     <section aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section aria-labelledby="overview-title"><div class="home-section-heading"><h2 id="overview-title">Your agents</h2><a href="/?agent=local-agent">All agents →</a></div><div id="home-agents" class="home-agents"></div></section></main>`;
+  installHomePanels(document.querySelector('#home-panels')!);
   const status = document.querySelector<HTMLElement>('#home-connection')!;
   const error = document.querySelector<HTMLElement>('#home-error')!;
   const refreshButton = document.querySelector<HTMLButtonElement>('#home-refresh')!;

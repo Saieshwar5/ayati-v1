@@ -46,7 +46,7 @@ test('compact workspace navigation, review, details, drafts, search, themes and 
   await nav.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.locator('#theme').selectOption('dark');
   await nav.getByRole('link', { name: 'Apps', exact: true }).click();
-  await page.getByRole('heading', { name: 'Your apps will live here' }).waitFor();
+  await page.getByText('Ask an agent to build the internal tool your work needs.', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
   await nav.getByRole('link', { name: 'Agents', exact: true }).click();
   assert.equal(await page.locator('#input').inputValue(), 'Keep this draft while I inspect details');

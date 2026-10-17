@@ -1,0 +1,15 @@
+.home-panels { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,340px),1fr)); gap: 18px; margin: 16px 0 28px; }
+.home-panel-card { padding: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); min-width: 0; overflow-wrap: anywhere; }
+.home-panel-card > a, .home-panel-card > button { display: inline-block; margin: 8px 12px 8px 0; }
+.home-panel-card small, .panel-purpose, .panel-update-note { color: var(--muted); }
+.home-panel-card details { margin: 16px 0; }
+.home-panel-card label { display: block; margin: 14px 0; }
+.panel-block { margin: 18px 0; }
+.panel-text { white-space: pre-wrap; }
+.panel-metric-value { font-size: 2rem; }
+.panel-table-scroll { overflow-x: auto; }
+.panel-table-scroll table { border-collapse: collapse; width: 100%; text-align: left; }
+.panel-table-scroll td, .panel-table-scroll th { padding: 8px; border-bottom: 1px solid var(--border); }
+.panel-chart svg { width: 100%; height: auto; color: var(--accent); }
+[data-panel-request] form { display: grid; gap: 12px; max-width: 650px; margin-bottom: 24px; }
+[data-panel-request] select, [data-panel-request] textarea { width: 100%; padding: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font: inherit; }

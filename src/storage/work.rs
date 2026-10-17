@@ -26,6 +26,13 @@ impl std::fmt::Display for IntakeError {
 impl std::error::Error for IntakeError {}
 
 impl Store {
+    pub fn stop_queued_work(&self, id: &str, detail: &str) -> Result<()> {
+        self.connection()?.execute(
+            "UPDATE tasks SET status='stopped',detail=?2 WHERE id=?1 AND status='queued'",
+            params![id, detail],
+        )?;
+        Ok(())
+    }
     pub(super) fn migrate_work(connection: &mut rusqlite::Connection, version: i64) -> Result<()> {
         if version < 3 {
             let tx = connection.transaction()?;

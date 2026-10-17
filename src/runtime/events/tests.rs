@@ -26,6 +26,8 @@ fn old_connections_cannot_attach_events_to_a_new_claim_in_the_same_session() {
         proof_tool: false,
         browser: false,
         memory: false,
+        platform: false,
+        panel_updates: None,
     };
     let update = || {
         serde_json::from_value(serde_json::json!({
@@ -98,6 +100,8 @@ fn only_structured_browser_outcomes_can_make_an_action_uncertain() {
             proof_tool: false,
             browser: true,
             memory: false,
+            platform: false,
+            panel_updates: None,
         };
         let update = serde_json::from_value(serde_json::json!({"sessionId":"session","update":{"sessionUpdate":"tool_call_update","toolCallId":"call","status":"completed","rawOutput":output}})).unwrap();
         runtime.notification("connection", update).unwrap();
@@ -159,6 +163,8 @@ async fn disabled_tools_cannot_create_an_approval_even_when_reported_by_goose() 
             proof_tool: false,
             browser: true,
             memory: true,
+            platform: false,
+            panel_updates: None,
         };
         let request = serde_json::from_value(serde_json::json!({"sessionId":"session","toolCall":{"toolCallId":"call","title":"Use tool","rawInput":{}},"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]})).unwrap();
         let result = tokio::time::timeout(

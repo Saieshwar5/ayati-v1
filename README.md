@@ -10,6 +10,13 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
+Optional [Composio connections](runtime/composio.md) support Connect MCP consumer
+keys and Platform project keys, with explicit per-agent operation grants through
+Settings and Agent Details. Live MCP discovery and a bounded Gmail read passed;
+OAuth refresh, new-account consent and VM acceptance remain unverified.
+[Event triggers](runtime/composio-triggers.md) add per-agent rules and a signed
+Composio receiver; live delivery needs an explicitly configured HTTPS endpoint.
+
 ## Run the Goose-backed chat
 
 Requirements: Linux x86_64, Rust/Cargo, Node.js 26, curl, tar, and sha256sum.
@@ -95,7 +102,7 @@ not authoritative receipts from business services. A lost-reply write is tested
 with an independent synthetic service record; live connectors and automated
 reconciliation are later work. See [the recovery contract](runtime/durable-work.md).
 
-Ayati database schema is now version 6. History and saved Goose mappings are
+Ayati database schema is now version 10. History and saved Goose mappings are
 preserved; legacy queued jobs from earlier schemas become interrupted rather than
 being replayed. Older binaries must not open the upgraded database. Automatic
 scheduling and idle VM shutdown/wake are implemented in the next section.
@@ -170,8 +177,9 @@ mounts, and restricted networking permits only the private SSH and model gateway
 forwards. The guest receives an ephemeral gateway token; the real model API key
 stays on the host. Browser-enabled guests add the filtered HTTP(S) proxy described
 below; ordinary guests retain only SSH/model connectivity.
-The gateway supports the configured Fireworks/OpenAI chat-compatible provider and
-one selected model. Business connector credentials are not implemented yet.
+The model gateway supports the configured Fireworks/OpenAI chat-compatible
+provider and one selected model. Business connector credentials stay in the
+separate host-only [Composio integration](runtime/composio.md).
 
 Leaving `AYATI_EXECUTION` unset (or setting `host`) retains the supervised host
 mode for adapter development. VM errors never fall back to host execution.
@@ -231,10 +239,10 @@ incompatible environments remains future work.
 
 ## Current limits
 
-- One local business/agent/conversation, with one running request and a bounded
-  queue. Scoped identities are persisted; multi-user authentication is not built.
-- Execution supports one explicitly configured real local VM or the host adapter
-  mode. This is not a production multi-tenant service or a complete VM fleet manager.
+- One local business with independent agents, each with its own conversation,
+  bounded queue and one running request. Multi-user authentication is not built.
+- Agents can use separate real local VMs. The host adapter remains available for
+  development; production multi-tenant hosting and fleet operations are unfinished.
 - Session loading is supported; interrupted prompts and approvals are not replayed
   automatically. Previously queued work is dispatched after a configured restart.
 - The prompt has a three-minute limit and text output is bounded to 1 MiB. A
@@ -243,17 +251,19 @@ incompatible environments remains future work.
   pending decisions and UI history. Optional sourced memory is available with
   `AYATI_MEMORY=1`; see [its contract and limits](runtime/memory.md). Owner edits
   stop active work; corrections/forgetting start a fresh working session.
-- The optional browser/owner-control slice is available in browser-enabled VMs.
-  Guided multi-agent setup, connections, generated apps and multimodal processing
-  remain later slices. Basic
-  schedules and local event intake are available through the developer APIs.
-  File input is unavailable on this Goose path until its integration is implemented.
+- Browser-enabled VMs support agent browsing and owner takeover. Guided agent
+  setup, per-agent schedules, Composio grants, reviewed Home panels and local
+  generated Apps have UI controls. External trigger infrastructure is implemented;
+  live delivery needs separate provider/HTTPS setup, and Connect MCP does not
+  expose its subscription-management controls. Supabase/Vercel hosting, media
+  input, agent archive/delete and backup/restore remain unfinished.
 - The service binds to loopback with same-origin guards. It is a local development
   proof, not a production tenant/security boundary. Keep the machine running for work.
 
-There is no provider key in this checkout. Automated Goose checks use real Goose
-with a local scripted model; they do not establish live account access, model
-quality, or cloud reliability. Never put credentials in chat or workspaces.
+Provider keys and local state are ignored by Git. Automated Goose checks use real
+Goose with a local scripted model; they do not establish model quality or cloud
+reliability. Separate live Composio MCP checks verified metadata and a bounded
+Gmail read. Never put credentials in chat or agent workspaces.
 
 ## Verification
 

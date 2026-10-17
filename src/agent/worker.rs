@@ -24,6 +24,9 @@ impl Agent {
                     {
                         return Ok(None);
                     }
+                    if let Some(platform) = agent.platform() {
+                        platform.fence_trigger_jobs(agent.identity(), &agent.store)?;
+                    }
                     let claim = agent.store.claim_next(&agent.owner_id)?;
                     Ok(claim.map(|claim| {
                         let cancel = CancellationToken::new();

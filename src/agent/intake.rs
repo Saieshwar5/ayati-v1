@@ -25,7 +25,15 @@ impl Agent {
                     if agent.closing.load(Ordering::SeqCst) {
                         return Ok(vec![]);
                     }
-                    agent.store.dispatch_due_schedules(now_ms())
+                    if let Some(platform) = agent.platform() {
+                        platform.fence_panel_schedules(agent.identity(), &agent.store)?;
+                    }
+                    let mut tasks = agent.store.dispatch_due_schedules(now_ms())?;
+                    if let Some(platform) = agent.platform() {
+                        platform.fence_trigger_jobs(agent.identity(), &agent.store)?;
+                        tasks.extend(platform.dispatch_triggers(agent.identity(), &agent.store)?);
+                    }
+                    Ok(tasks)
                 })();
                 match result {
                     Ok(tasks) if !tasks.is_empty() => {

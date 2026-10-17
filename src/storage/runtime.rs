@@ -14,6 +14,64 @@ pub struct PendingPermission {
 }
 
 impl Store {
+    pub fn clear_runtime_session(&self) -> Result<()> {
+        self.connection()?
+            .execute("DELETE FROM runtime_sessions", [])?;
+        Ok(())
+    }
+    /// Adding the trusted workspace extension starts fresh context once. Other
+    /// provider/model/tool mismatches continue to fail closed.
+    pub fn workspace_runtime_session(&self, settings: &str) -> Result<Option<String>> {
+        let mut connection = self.connection()?;
+        let tx = connection.transaction()?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT settings FROM runtime_sessions WHERE conversation_id=?1",
+                [LOCAL_CONVERSATION],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(previous) = previous {
+            let previous: serde_json::Value = serde_json::from_str(&previous)?;
+            let mut effective: serde_json::Value = serde_json::from_str(settings)?;
+            let added_workspace = previous.get("workspace_adapter").is_none()
+                && effective.get("workspace_adapter") == Some(&serde_json::json!(1));
+            let changed_authority = previous
+                .get("authority_revision")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0)
+                < effective
+                    .get("authority_revision")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+            if added_workspace {
+                effective
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("workspace_adapter");
+            }
+            let mut comparable = previous;
+            if changed_authority {
+                effective
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("authority_revision");
+                comparable
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("authority_revision");
+            }
+            if (added_workspace || changed_authority) && effective == comparable {
+                tx.execute(
+                    "DELETE FROM runtime_sessions WHERE conversation_id=?1",
+                    [LOCAL_CONVERSATION],
+                )?;
+            }
+        }
+        tx.commit()?;
+        drop(connection);
+        self.runtime_session(settings)
+    }
     pub fn cancel_all_browser_permissions(&self) -> Result<()> {
         self.connection()?.execute("UPDATE permissions SET decision='cancelled' WHERE decision='pending' AND action LIKE '%ayati_browser__%'", [])?;
         Ok(())

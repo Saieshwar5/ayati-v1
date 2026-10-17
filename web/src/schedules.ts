@@ -3,6 +3,7 @@ import { workPanels } from './work-panels';
 import { api, post, type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installScheduleForm } from './schedule-form';
+import { installTriggers } from './triggers';
 import type { Profile } from './agents';
 
 type Schedule = { id: string; content: string; run_at_ms: number; interval_seconds: number | null; next_run_ms: number | null; state: string; last_task_id: string | null };
@@ -25,7 +26,8 @@ export function installSchedules(details: HTMLDialogElement): (profile: Profile)
     <p id="schedules-dispatch" hidden>Agent dispatch is paused. Schedules stay saved. Use Start in the agent browser/environment controls or send a new message to resume dispatch.</p>
     <div id="schedules-list"></div><section id="schedule-history" hidden aria-labelledby="schedule-history-title"><h3 id="schedule-history-title">Recent runs</h3><p>Up to 20 occurrences, newest first. Use Refresh to update run statuses. A one-time schedule being “completed” means its work was accepted; inspect the run outcome below.</p><div id="schedule-runs"></div><div id="schedule-result" role="status"></div></section>
     <section id="schedule-create"></section></section>
-    <section id="triggers-content" role="tabpanel" aria-labelledby="triggers-tab" hidden><h3>Event triggers</h3><p>Triggers will start this agent’s work when an event occurs, such as a new customer query. Event sources and trigger management are not available yet.</p></section>`;
+    <section id="triggers-content" role="tabpanel" aria-labelledby="triggers-tab" hidden></section>`;
+  const refreshTriggers = installTriggers(dialog.querySelector('#triggers-content')!);
   const toggle = element('button', 'files-button', 'Automation'); toggle.id = 'automation-button'; toggle.disabled = true;
   document.querySelector('.header')!.append(toggle);
   const work = workPanels.register(dialog, toggle);
@@ -120,6 +122,7 @@ export function installSchedules(details: HTMLDialogElement): (profile: Profile)
     } finally { busy = false; controls(); }
   }
   function selectTab(id: string): void {
+    if (id === 'triggers') void refreshTriggers();
     for (const name of ['schedules', 'triggers']) {
       const active = name === id;
       const tab = dialog.querySelector<HTMLButtonElement>(`#${name}-tab`)!;
