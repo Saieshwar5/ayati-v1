@@ -2,28 +2,38 @@ import { workspaceId, workspaceUrl, canManageResources } from './workspace-conte
 import { installSetup } from './setup';
 import { installConnections } from './connections';
 import { installApps } from './apps';
+import { element } from './view';
+import { installTabs } from './app-ui';
 
 export function installWorkspacePage(page: 'apps' | 'settings'): void {
   document.title = `${page === 'apps' ? 'Apps' : 'Settings'} · Relay`;
+  if (page === 'apps') { installApps(); return; }
   const app = document.querySelector('#app')!;
-  if (page === 'apps') {
-    installApps();
-    return;
+  app.innerHTML = `<main class="desk-page settings-page"><header class="desk-toolbar"><div class="desk-title"><h1>Settings</h1><p>Make Relay work the way you do.</p></div></header><div class="desk-content settings-content"></div></main>`;
+  const content = app.querySelector<HTMLElement>('.settings-content')!;
+  const appearance = element('section', 'settings-section');
+  appearance.innerHTML = `<h2>Appearance</h2><p class="page-subtitle">Choose how Relay looks on this device.</p><label class="settings-row">Theme<select id="theme"><option value="system">Use system setting</option><option value="light">Light</option><option value="dark">Dark</option></select></label>`;
+  const sections = [{ title: 'Appearance', content: appearance }];
+  const connections = element('section', 'settings-section'); connections.id = 'business-connections';
+  const setup = element('section', 'settings-section');
+  if (canManageResources()) {
+    setup.innerHTML = `<h2>Local setup</h2><p id="setup-status" class="ui-help" role="status">Checking connection…</p><div id="setup-facts"></div><p class="ui-help">Provider credentials are configured locally. Restart Relay after changing configuration.</p>`;
+    sections.push({ title: 'Connections', content: connections }, { title: 'Local setup', content: setup });
   }
-  app.innerHTML = `<main class="workspace-page"><h1>Settings</h1><p class="page-subtitle">Your workspace, appearance and setup.</p>
-    <section class="settings-section"><h2>Appearance</h2><label class="settings-row">Theme<select id="theme"><option value="system">Use system setting</option><option value="light">Light</option><option value="dark">Dark</option></select></label></section>
-    <section class="settings-section"><h2>Local setup</h2><p id="setup-status" role="status">Checking connection…</p><div id="setup-facts"></div><p class="page-subtitle">Provider credentials are configured locally. Restart Relay after changing configuration.</p></section>
-    <section class="settings-section" id="business-connections"></section>
-    <section class="settings-section"><h2>People</h2><p class="page-subtitle">${workspaceId ? "Manage the people who belong to this workspace. Business-resource access remains owner-controlled." : "Explore workspaces and invitations using separate demo data."}</p><a href="${workspaceId ? workspaceUrl('/?view=people') : '/?view=access-preview'}">${workspaceId ? "Open People" : "Try the workspace access preview"}</a></section></main>`;
-  const theme = document.querySelector<HTMLSelectElement>('#theme')!;
+  const people = element('section', 'settings-section');
+  people.innerHTML = `<h2>Workspace access</h2><p class="page-subtitle">Manage membership and resource access from Users. Switch workspaces from your account menu.</p><a class="ui-button" href="${workspaceId ? workspaceUrl('/?view=people') : '/?view=access-preview'}">${workspaceId ? 'Open Users' : 'Explore access preview'}</a>`;
+  sections.push({ title: 'Workspace', content: people });
+  installTabs(content, sections);
+  const theme = app.querySelector<HTMLSelectElement>('#theme')!;
   theme.value = document.documentElement.dataset.theme ?? 'system';
   theme.onchange = () => {
     if (theme.value === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme.value;
     try { localStorage.setItem('ayati.theme', theme.value); } catch { /* Preference still works for this page. */ }
   };
-  if (!canManageResources()) { document.querySelector('#setup-status')!.closest('section')!.remove(); document.querySelector('#business-connections')!.remove(); return; }
+  if (!canManageResources()) return;
   installSetup();
-  if (workspaceId) document.querySelector('#business-connections')!.textContent = 'Account connections will need workspace-specific setup. Existing local connections have not been shared here.';
-  else installConnections(document.querySelector('#business-connections')!);
+  if (workspaceId) {
+    connections.append(element('h2', '', 'Business connections'), element('p', 'page-subtitle', 'Workspace connections are not set up yet. Local account connections are kept separate.'));
+  } else installConnections(connections);
 }

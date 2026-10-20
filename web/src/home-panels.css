@@ -27,9 +27,9 @@
 [data-panel-status]:empty { display: none; }
 .home-panel-card h4 { font-size: .8125rem; font-weight: 500; margin: 0 0 8px; }
 .home-panel-card .panel-purpose { margin: 8px 0; }
-.home-welcome { grid-column: 1 / -1; padding: 32px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow); }
-.home-welcome .welcome-mark { font-size: 1.6rem; color: var(--working); }
-.home-welcome h3 { font-size: 1.25rem; margin: 12px 0; letter-spacing: -.025em; }
+.home-welcome { grid-column: 1 / -1; padding: 24px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow); }
+.home-welcome .welcome-mark { display: none; }
+.home-welcome h3 { font-size: 1.125rem; margin: 0 0 8px; letter-spacing: -.025em; }
 .home-welcome p { color: var(--muted); font-size: .875rem; }
 .welcome-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
 .welcome-suggestions button { border-radius: 13px; }

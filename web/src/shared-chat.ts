@@ -23,6 +23,11 @@ export async function installSharedChat(): Promise<void> {
   form.append(target,input,send); form.hidden = true; main.append(heading,messages,status,form); root.append(sidebar,main);
   let directory = await identityRequest<Directory>(`${base()}/chat-directory`);
   let selected = new URLSearchParams(location.search).get('conversation') ?? '';
+  root.dataset.conversation = selected ? 'selected' : 'none';
+  const back = element('button', 'ui-button shared-back', '‹ Conversations');
+  back.setAttribute('aria-expanded', 'false');
+  back.onclick = () => { const shown = root.classList.toggle('show-conversations'); back.setAttribute('aria-expanded', String(shown)); };
+  heading.prepend(back);
   let conversations: Conversation[] = []; let fingerprint = ''; let polling = false; let sending = false;
   let attempt: {id:string;content:string;agent?:string} | undefined;
   const request = <T>(path:string,body?:unknown) => identityRequest<T>(`${base()}/chats${path}`,body);

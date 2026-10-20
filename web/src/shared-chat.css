@@ -1,5 +1,5 @@
-#app.shared-chat { display:flex; flex-direction:row; min-height:0; overflow:hidden; padding:16px 24px 24px; gap:16px; }
-.shared-sidebar { width:240px; flex-shrink:0; padding:22px 14px; overflow:auto; background:var(--surface); border-radius:var(--radius); box-shadow:0 2px 5px var(--shadow); }
+#app.shared-chat { display:flex; flex-direction:row; min-height:0; overflow:hidden; padding:12px 12px 0; gap:12px; }
+.shared-sidebar { width:260px; flex-shrink:0; padding:20px 14px; overflow:auto; background:var(--surface); border-radius:var(--radius); box-shadow:0 2px 5px var(--shadow); }
 .shared-sidebar h1 { font-size:20px; margin:0 0 18px; }
 .shared-sidebar h2 { font-size:12px; color:var(--muted); margin:24px 8px 10px; }
 .shared-sidebar input { width:100%; margin:18px 0; padding:10px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:12px; }
@@ -17,6 +17,15 @@
 .shared-composer[hidden] { display:none; }.shared-composer textarea { flex:1; min-width:0; min-height:50px; max-height:180px; resize:vertical; background:transparent; border:0; color:var(--text); padding:10px; }.shared-composer select { max-width:170px; background:var(--soft); color:var(--text); border:0; border-radius:9px; padding:8px; font-size:12px; }
 .shared-status { margin:0 24px; color:var(--muted); font-size:12px; }
 .shared-new { max-width:500px; width:calc(100% - 32px); max-height:85dvh; overflow:auto; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:22px; padding:24px; }.shared-new::backdrop { background:#0006; }.shared-new label { display:block; margin:12px 0; }.shared-new label>input:not([type=checkbox]) { display:block; width:100%; padding:10px; background:var(--soft); color:var(--text); border:1px solid var(--border); border-radius:8px; }.shared-choice { font-size:14px; }.shared-choice input { margin-right:10px; }
+.shared-back { display:none; }
 @media(max-width:760px) { #app.shared-chat { padding:8px 10px 12px; gap:10px; } .shared-sidebar { width:120px; padding:15px 8px; }.shared-heading { padding:18px 14px 5px; }.shared-composer { margin:8px; flex-wrap:wrap; }.shared-composer select { max-width:100%; width:100%; }.shared-messages { padding:12px; }.shared-contact { padding:12px 5px; font-size:12px; } }
 
-@media(max-width:480px) { #app.shared-chat { flex-direction:column; overflow:auto; } .shared-sidebar { width:100%; max-height:190px; flex-shrink:0; } .shared-sidebar h1 { margin-bottom:10px; } .shared-sidebar input { margin:10px 0; } .shared-main { flex:1 0 420px; } }
+@media(max-width:600px) {
+  #app.shared-chat { padding:8px 2px 0; }
+  .shared-back { display:inline-flex; margin-bottom:12px; }
+  .shared-sidebar { width:100%; }
+  #app.shared-chat:not(.show-conversations)[data-conversation=selected] .shared-sidebar { display:none; }
+  #app.shared-chat.show-conversations .shared-main, #app.shared-chat[data-conversation=none] .shared-main { display:none; }
+  .shared-main { min-height:0; }
+  .shared-composer textarea { min-height:44px; }
+}

@@ -102,3 +102,23 @@ existing memberships and the new access controls. No employee permissions were
 changed for verification, and no new invitations were sent. The final library
 suite passed 44 tests, with 23 focused existing feature tests and six client test
 files also passing. Desktop and narrow Chat layout checks were performed.
+
+## Compact management interface
+
+The detached navigation dock and account menu wrap the same authenticated client.
+Users now presents members and invitations as separate lists. Invite person opens
+a dialog; Details opens a single person's Membership, Agents and Apps & panels.
+Only the owner sees resource grants; admins retain member invitation/removal and
+members get read-only details. Grant changes save individually with visible status
+and revert visually on error. Inviting or merely opening a drawer grants no App,
+panel or agent access. The backend remains the authority for every request.
+
+Agents uses a list and tabbed configuration drawer, retaining profile revisions,
+create request IDs and capability availability. Apps moves releases and agent
+record grants into Manage while preserving scoped previews and exact-release
+activation. Settings categories are tabbed. See [design system](design-system.md)
+for layout and responsive behavior.
+
+The web test suite includes isolated Users role/grant/invitation failures and agent
+profile revision conflicts. Those tests simulate writes; routine visual verification
+must not invite real people or change live grants just to exercise the layout.

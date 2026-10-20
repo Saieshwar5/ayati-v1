@@ -2,7 +2,7 @@
 .workspace-menu-trigger:hover, .workspace-menu-trigger[aria-expanded=true] { background:var(--selection); }
 .workspace-profile-trigger { display:grid; place-items:center; border:0; background:transparent; width:42px; border-radius:12px; }
 .workspace-profile-avatar { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--border); border-radius:50%; background:var(--surface); }
-.workspace-menu { position:fixed; inset:64px auto auto 66px; margin:0; width:min(300px,calc(100vw - 78px)); max-height:calc(100dvh - 90px); overflow:auto; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
+.workspace-menu { position:fixed; inset:64px auto auto 82px; margin:0; width:min(300px,calc(100vw - 94px)); max-height:calc(100dvh - 90px); overflow:auto; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
 .workspace-profile { top:auto; bottom:12px; }
 .workspace-menu h2 { padding:8px 10px; margin:0; font-size:14px; }
 .workspace-menu-list { display:grid; gap:4px; max-height:40dvh; overflow:auto; }
@@ -12,5 +12,5 @@
 .workspace-menu hr { border:0; border-top:1px solid var(--border); margin:8px 0; }
 .workspace-menu-email, .workspace-menu-role, .workspace-menu-status { margin:0; padding:4px 10px; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
 .workspace-menu-status:empty { display:none; }
-@media(max-width:600px) { .workspace-menu { left:54px; width:min(300px,calc(100vw - 64px)); } }
+@media(max-width:600px) { .workspace-menu { left:62px; width:min(300px,calc(100vw - 70px)); } }
 @media(pointer:coarse) { .workspace-menu-trigger, .workspace-menu-action { min-height:44px; } }

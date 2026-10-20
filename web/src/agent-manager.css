@@ -1,6 +1,3 @@
-.manager-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:18px; max-width:1100px; margin-top:24px; }
-.manager-card { padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
-.manager-card h2 { font-size:18px; }
-.manager-card p { white-space:pre-wrap; overflow-wrap:anywhere; }
-.manager-actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-[data-page=agents] .workspace-page > .files-button { align-self:flex-start; }
+.manager-list { width: 100%; }
+.manager-description { max-width: 700px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; }
+@media(max-width:600px) { .manager-row .ui-row-title { flex-basis: calc(100% - 60px); } }
