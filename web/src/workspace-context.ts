@@ -22,6 +22,21 @@ export async function enterWorkspace(): Promise<boolean> {
   workspaceSession = await identityRequest<Session>('/session');
   if (!workspaceSession.user || !currentWorkspace()) { location.replace('/?view=account&choose=1'); return false; }
   try { localStorage.setItem(`relay.last-workspace.${workspaceSession.user.id}`, workspaceId); } catch { /* Optional preference. */ }
+  // Migrate only the original owner's layout into its explicitly adopted workspace.
+  if (currentWorkspace()?.role === 'Owner') {
+    const response = await fetch(workspaceUrl('/api/context'));
+    if (!response.ok) throw new Error('Workspace context unavailable. Reload to retry.');
+    const context = await response.json();
+    if (context.adopted) {
+      try {
+        const key = storageScope('ayati.home.layout');
+        if (localStorage.getItem(key) === null) {
+          const old = localStorage.getItem('ayati.home.layout');
+          if (old) localStorage.setItem(key, old);
+        }
+      } catch { /* Layout storage is optional. */ }
+    }
+  }
   // A fresh document on every switch discards old streams, drafts and in-flight UI state.
   let checking = false;
   setInterval(async () => {

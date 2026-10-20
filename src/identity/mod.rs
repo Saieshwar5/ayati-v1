@@ -1,5 +1,8 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
+pub mod adoption;
+mod chat;
 mod provider;
+mod resources;
 mod routes;
 pub mod store;
 mod workspaces;
@@ -127,7 +130,9 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
         .await
         .context("Identity port is in use. Stop the other server or choose AYATI_PORT")?;
-    let data = data.join("identity");
+    std::fs::create_dir_all(data)?;
+    let installation = data.canonicalize()?;
+    let data = installation.join("identity");
     std::fs::create_dir_all(&data)?;
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o700))?;
     let lock = std::fs::OpenOptions::new()
@@ -137,12 +142,22 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
+    let store = Store::open(&data.join("identity.sqlite"))?;
+    let bound = adoption::binding(&store)?;
+    // The bound installation must never be opened simultaneously by the old daemon.
+    let _installation_lock = if bound.is_some() {
+        Some(adoption::lock(&installation.join("daemon.lock"))?)
+    } else {
+        None
+    };
+    let mut runtimes = workspaces::Runtimes::new(data.join("workspaces"));
+    runtimes.bound = bound;
     let app = Arc::new(App {
         provider,
-        store: Store::open(&data.join("identity.sqlite"))?,
+        store,
         origin: format!("http://127.0.0.1:{port}"),
         pending: Mutex::new(HashMap::new()),
-        runtimes: workspaces::Runtimes::new(data.join("workspaces")),
+        runtimes,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
     let stopping = app.runtimes.stopping.clone();
@@ -157,6 +172,8 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
 }
 fn router(app: Shared) -> Router {
     Router::new()
+        .merge(chat::routes())
+        .merge(resources::routes())
         .route(
             "/",
             get(|axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>| async move {

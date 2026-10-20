@@ -31,6 +31,39 @@ fn request(method: Method, path: &str) -> Request<Body> {
         .unwrap()
 }
 #[tokio::test]
+async fn forwarded_resource_routes_do_not_inherit_outer_path_parameters() {
+    let temp = tempfile::tempdir().unwrap();
+    let (app, owner, _, first, _) = setup(temp.path());
+    let gateway = axum::Router::new().route(
+        "/w/{workspace}/api/{*rest}",
+        axum::routing::get({
+            let app = app.clone();
+            move |RoutePath((workspace, rest)): RoutePath<(String, String)>,
+                  request: Request<Body>| {
+                dispatch_for(app.clone(), owner.clone(), workspace, rest, request)
+            }
+        }),
+    );
+    for route in ["apps/missing/grants", "apps/missing/document/missing"] {
+        let response = gateway
+            .clone()
+            .oneshot(request(Method::GET, &format!("/w/{first}/api/{route}")))
+            .await
+            .unwrap();
+        // Reach the business handler rather than failing Axum's Path extractor.
+        let bytes = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        if route.ends_with("grants") {
+            assert_eq!(value["grants"], json!([]));
+        } else {
+            assert!(value.get("error").is_some());
+        }
+    }
+    app.runtimes.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn cross_workspace_and_member_requests_cannot_inherit_owner_authority() {
     let temp = tempfile::tempdir().unwrap();
     let (app, owner, other, first, _) = setup(temp.path());

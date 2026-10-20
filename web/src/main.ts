@@ -12,19 +12,21 @@ async function start(): Promise<void> {
   } else if (requested === 'access-preview') {
     await import('./access-preview').then(({ installAccessPreview }) => installAccessPreview());
   } else {
-    const page: WorkspacePage = requested === 'people' || requested === 'account' ? requested : params.has('agent') ? 'agents'
+    const page: WorkspacePage = requested === 'people' || requested === 'users' ? 'people'
+      : requested === 'account' ? 'account' : params.has('agent') || requested === 'chat' ? 'chat'
       : requested === 'agents' || requested === 'apps' || requested === 'settings' ? requested : 'home';
     installWorkspace(page);
     if (page === 'people' || page === 'account') {
       await import('./account').then(({ installAccount }) => installAccount(page));
-    } else if (workspaceId && currentWorkspace()?.role !== 'Owner' && page === 'agents') {
-      const app = document.querySelector<HTMLDivElement>('#app')!;
-      const title = document.createElement('h1'); title.textContent = 'Chat & agents';
-      const detail = document.createElement('p'); detail.textContent = 'You’re in the right workspace. Business resources and agent actions are currently available to the workspace owner. You can view your team in People.';
-      app.className = 'workspace-page'; app.append(title, detail);
+    } else if (page === 'agents') {
+      await import('./agent-manager').then(({ installAgentManager }) => installAgentManager());
+    } else if (page === 'chat' && workspaceId && !params.has('agent')) {
+      await import('./shared-chat').then(({ installSharedChat }) => installSharedChat());
+    } else if (page === 'chat' && workspaceId && currentWorkspace()?.role !== 'Owner') {
+      location.replace(`/w/${workspaceId}/?view=chat`);
     } else if (page === 'home') {
       await import('./home').then(({ installHome }) => installHome());
-    } else if (page === 'agents') {
+    } else if (page === 'chat') {
       await import('./chat');
     } else {
       await import('./workspace-pages').then(({ installWorkspacePage }) => installWorkspacePage(page));

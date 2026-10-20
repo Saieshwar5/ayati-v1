@@ -12,7 +12,7 @@ type People = { role: string; members: { id: string; email: string; role: string
 export async function installAccount(embedded?: 'people' | 'account'): Promise<void> {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = embedded === 'people' ? 'People · Relay' : embedded === 'account' ? 'My account · Relay' : 'Your workspaces · Relay';
+  document.title = embedded === 'people' ? 'Users · Relay' : embedded === 'account' ? 'My account · Relay' : 'Your workspaces · Relay';
   let session: Session = { user: null };
   let selected = embedded ? workspaceId : '';
   let screen: 'home' | 'people' | 'create' | 'choose' | 'account' = embedded ?? 'home';
@@ -133,7 +133,7 @@ export async function installAccount(embedded?: 'people' | 'account'): Promise<v
     location.assign(`/w/${selected}/`);
   }
   async function people(root: HTMLElement, workspace: Workspace): Promise<void> {
-    heading(root, 'People', 'Workspace membership is separate from access to business resources.');
+    heading(root, 'Users', 'Workspace membership is separate from access to business resources.');
     const data = await api<People>(`/workspaces/${workspace.id}/people`);
     if (data.role !== 'Member') {
       const form = element('form', 'access-panel');
@@ -186,6 +186,10 @@ export async function installAccount(embedded?: 'people' | 'account'): Promise<v
       list.append(row);
     }
     root.append(list);
+    if (data.role === 'Owner') {
+      try { await import('./user-agent-access').then(m => m.installUserAgentAccess(root)); await import('./user-resource-access').then(m => m.installResourceAccess(root)); }
+      catch { root.append(element('p', 'access-help', 'Agent access settings are unavailable. Reload to retry.')); }
+    }
   }
   root.append(element('p', 'access-subtitle', 'Checking your session…'));
   try {

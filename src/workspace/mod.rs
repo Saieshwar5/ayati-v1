@@ -1,4 +1,5 @@
 //! Local-owner registry. Each agent has a separate database, runtime and guest.
+mod lifecycle;
 mod provision;
 pub mod registry;
 mod setup;
@@ -31,6 +32,7 @@ pub struct Workspace {
     closing: AtomicBool,
     cancelled: CancellationToken,
     preparation: tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
+    lifecycle: tokio::sync::Mutex<()>,
 }
 
 impl Workspace {
@@ -51,7 +53,7 @@ impl Workspace {
             setup_test: tokio::sync::Mutex::new(()),
             default: AgentProfile {
                 id: "local-agent".into(),
-                name: "Ayati".into(),
+                name: "Relay".into(),
                 role: crate::runtime::guidance::GUIDE_ROLE.into(),
                 model: config.model.clone(),
                 memory: template.memory,
@@ -69,6 +71,7 @@ impl Workspace {
             closing: AtomicBool::new(false),
             cancelled: CancellationToken::new(),
             preparation: tokio::sync::Mutex::new(None),
+            lifecycle: tokio::sync::Mutex::new(()),
         });
         for profile in workspace.registry.list()? {
             if profile.state == "ready" {
@@ -108,7 +111,12 @@ impl Workspace {
 
     pub fn profiles(&self) -> Result<Vec<AgentProfile>> {
         let mut profiles = vec![self.default.clone()];
-        profiles.extend(self.registry.list()?);
+        profiles.extend(
+            self.registry
+                .list()?
+                .into_iter()
+                .filter(|p| p.state != "deleted"),
+        );
         let agents = self
             .agents
             .lock()
@@ -203,7 +211,7 @@ impl Workspace {
         self.ensure_creation()?;
         ensure!(
             self.registry.list()?.len() < 3,
-            "This local workspace supports four agents including Ayati"
+            "This local workspace supports four agents including Relay"
         );
         ensure!(
             !input.browser || self.template.browser,

@@ -32,11 +32,23 @@ async fn main() -> Result<()> {
     let config = Config::from_env()?;
     match std::env::args().nth(1).as_deref().unwrap_or("serve") {
         "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
+        "adopt-workspace" => {
+            let id = std::env::args()
+                .nth(2)
+                .context("Specify the existing workspace ID")?;
+            ayati::identity::adoption::adopt(&config.data_dir, &id)
+        }
+        "release-workspace" => {
+            let id = std::env::args()
+                .nth(2)
+                .context("Specify the bound workspace ID")?;
+            ayati::identity::adoption::release(&config.data_dir, &id)
+        }
         "serve" | "start" => serve(config).await,
         "status" => {
             let response = reqwest::get(format!("http://127.0.0.1:{}/api/health", config.port))
                 .await
-                .context("Ayati is not reachable; start it with `ayati serve`")?;
+                .context("Relay is not reachable; start it with `ayati serve`")?;
             println!("{}", response.error_for_status()?.text().await?);
             Ok(())
         }
@@ -45,9 +57,9 @@ async fn main() -> Result<()> {
                 .post(format!("http://127.0.0.1:{}/api/shutdown", config.port))
                 .send()
                 .await
-                .context("Ayati is not reachable")?
+                .context("Relay is not reachable")?
                 .error_for_status()?;
-            println!("Ayati is stopping.");
+            println!("Relay is stopping.");
             Ok(())
         }
         "vm" => {
@@ -67,7 +79,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the isolated WorkOS identity workspace\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Relay — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Relay workspaces\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }
@@ -79,7 +91,7 @@ async fn serve(config: Config) -> Result<()> {
     // Bind before opening the database: a second daemon must not interrupt the first one's tasks.
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, config.port))
         .await
-        .context("Could not bind the local port; another Ayati instance may be running")?;
+        .context("Could not bind the local port; another Relay instance may be running")?;
     std::fs::create_dir_all(&config.data_dir)?;
     std::fs::set_permissions(&config.data_dir, std::fs::Permissions::from_mode(0o700))?;
     let data = config.data_dir.canonicalize()?;
@@ -90,7 +102,11 @@ async fn serve(config: Config) -> Result<()> {
         .open(data.join("daemon.lock"))?;
     lock_file
         .try_lock()
-        .context("Another Ayati daemon is using this data directory")?;
+        .context("Another Relay daemon is using this data directory")?;
+    anyhow::ensure!(
+        !ayati::identity::adoption::has_binding(&data)?,
+        "This installation belongs to an authenticated workspace. Start `ayati identity`."
+    );
     let store = Arc::new(Store::open(&data.join("ayati.sqlite"))?);
     let files = Arc::new(Files::new(&data, store.clone())?);
     let (agent, model_ready) = if config.prototype {
@@ -134,7 +150,7 @@ async fn serve(config: Config) -> Result<()> {
     };
     tracing::info!(
         port = config.port,
-        "Ayati ready at http://127.0.0.1:{}",
+        "Relay ready at http://127.0.0.1:{}",
         config.port
     );
     if !state.model_ready {
