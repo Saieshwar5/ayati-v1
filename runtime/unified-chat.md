@@ -6,9 +6,10 @@ search field and conversation list remain mounted. Existing owner-only agent cha
 keep their history, streaming, approvals, attachments and tools inside this shell.
 Local installations without a workspace retain their private-agent view.
 
-The quiet workspace rail sits outside the shared rounded workspace frame. Chat's softly
-tinted directory and white conversation surface share a second divider rather
-than a floating conversation card. The pencil action starts a New message;
+The quiet workspace rail sits outside the shared rounded workspace frame. Chat's
+directory and conversation use the same surface color (white in light mode),
+separated by a thin divider. Selection and hover highlights remain grey.
+The pencil action starts a New message;
 the plus beside Channels creates a channel. Both have accessible labels and
 hover titles. On narrow screens, the list and conversation alternate as before.
 
