@@ -15,6 +15,24 @@ pub(super) fn routes() -> Router<WebState> {
         .route("/api/agents", get(list).post(create))
         .route("/api/agents/{id}/retry", post(retry))
         .route("/api/agents/{id}/profile", post(edit_profile))
+        .route("/api/agents/{id}/lifecycle", post(lifecycle))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Lifecycle {
+    action: String,
+}
+async fn lifecycle(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Json(input): Json<Lifecycle>,
+) -> ApiResult<Json<Value>> {
+    state
+        .workspace
+        .context("Workspace unavailable")?
+        .lifecycle(&id, &input.action)
+        .await?;
+    Ok(Json(json!({"ok": true})))
 }
 async fn edit_profile(
     State(state): State<WebState>,

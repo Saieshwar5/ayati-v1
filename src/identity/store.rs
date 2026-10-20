@@ -55,6 +55,9 @@ impl Store {
                 status TEXT NOT NULL, provider TEXT);
             CREATE UNIQUE INDEX IF NOT EXISTS pending_invite ON invitations(workspace,email) WHERE status='pending';
             CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor TEXT, workspace TEXT, action TEXT, target TEXT, at INTEGER);")?;
+        super::chat::schema(&db)?;
+        super::resources::schema(&db)?;
+        db.execute("UPDATE chat_messages SET state='failed',content='Request interrupted by a server restart. Send a new request to retry.' WHERE kind='agent' AND state='queued'", [])?;
         Ok(Self(Mutex::new(db)))
     }
     pub fn login(&self, provider: &str, email: &str, hash: &str, sid: &str) -> Result<User> {
@@ -282,6 +285,19 @@ impl Store {
                 params![workspace, target, assigned],
             )?;
         } else {
+            tx.execute(
+                "DELETE FROM chat_access WHERE workspace=?1 AND user=?2",
+                params![workspace, target],
+            )?;
+            tx.execute(
+                "DELETE FROM resource_grants WHERE workspace=?1 AND user=?2",
+                params![workspace, target],
+            )?;
+            tx.execute(
+                "DELETE FROM member_app_sessions WHERE workspace=?1 AND user=?2",
+                params![workspace, target],
+            )?;
+            tx.execute("DELETE FROM chat_people WHERE user=?2 AND chat IN (SELECT id FROM chats WHERE workspace=?1)", params![workspace,target])?;
             tx.execute(
                 "DELETE FROM members WHERE workspace=?1 AND user=?2",
                 params![workspace, target],

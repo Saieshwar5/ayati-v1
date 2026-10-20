@@ -7,6 +7,9 @@ use tower::ServiceExt;
 
 pub(super) struct Runtimes {
     root: PathBuf,
+    pub chat_slots: tokio::sync::Semaphore,
+    pub access_gate: tokio::sync::RwLock<()>,
+    pub bound: Option<(String, String)>,
     pub stopping: tokio_util::sync::CancellationToken,
     states: tokio::sync::Mutex<HashMap<String, crate::server::WebState>>,
 }
@@ -14,9 +17,15 @@ impl Runtimes {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
+            bound: None,
+            access_gate: tokio::sync::RwLock::new(()),
+            chat_slots: tokio::sync::Semaphore::new(4),
             stopping: tokio_util::sync::CancellationToken::new(),
             states: tokio::sync::Mutex::new(HashMap::new()),
         }
+    }
+    pub fn chat_root(&self, id: &str) -> PathBuf {
+        self.root.join(id).join("shared-chat")
     }
     pub async fn get(&self, id: &str, port: u16) -> Result<crate::server::WebState> {
         anyhow::ensure!(uuid::Uuid::parse_str(id).is_ok(), "Invalid workspace");
@@ -29,7 +38,11 @@ impl Runtimes {
             return Ok(state.clone());
         }
         use std::os::unix::fs::PermissionsExt;
-        let data = self.root.join(id);
+        let adopted = self
+            .bound
+            .as_ref()
+            .is_some_and(|(workspace, _)| workspace == id);
+        let data = adoption::resolve(&self.root, &self.bound, id);
         std::fs::create_dir_all(&data)?;
         std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o700))?;
         let mut config = crate::config::Config::from_env()?;
@@ -39,13 +52,20 @@ impl Runtimes {
         let files = Arc::new(crate::files::Files::new(&data, store.clone())?);
         let mut runtime = crate::runtime::config::GooseConfig::from_env(&data, &config.model);
         // Never inherit the legacy installation's VM, browser or proof-tool authority.
-        runtime.vm_manifest = Some(data.join("vms/local-agent/vm.json"));
-        runtime.browser = false;
-        runtime.proof_tool = false;
+        if !adopted {
+            runtime.vm_manifest = Some(data.join("vms/local-agent/vm.json"));
+            runtime.browser = false;
+            runtime.proof_tool = false;
+        }
         runtime.platform = Some(Arc::new(crate::platform::Platform::open(
             &data.join("business"),
-            None,
+            if adopted {
+                crate::platform::composio::Composio::from_env()?
+            } else {
+                None
+            },
         )?));
+        runtime.validate_browser()?;
         let ready = runtime.configured();
         let agent = crate::agent::Agent::start_goose(
             store,
@@ -143,19 +163,31 @@ async fn dispatch_for(
         Err(e) => return e.into_response(),
     };
     let path = format!("/api/{rest}");
+    let adopted = app
+        .runtimes
+        .bound
+        .as_ref()
+        .is_some_and(|(id, _)| id == &workspace);
+    if adopted
+        && role == "Owner"
+        && !app
+            .runtimes
+            .bound
+            .as_ref()
+            .is_some_and(|(_, owner)| owner == &user.id)
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
     if path == "/api/context" {
-        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner"})).into_response();
+        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner","adopted":adopted && role == "Owner"})).into_response();
     }
     if role != "Owner" {
-        return match member_view(&path, request.method()) {
-            Some(value) => Json(value).into_response(),
-            None => (StatusCode::FORBIDDEN, Json(json!({"error":"This resource requires workspace owner access. Membership alone does not grant business-resource access."}))).into_response(),
-        };
+        return resources::member(app, user, workspace, path, request).await;
     }
     // Host-level shutdown and legacy external-connector identity are never tenant APIs.
     if path == "/api/shutdown"
-        || path.starts_with("/api/connections")
-        || path.starts_with("/api/event-sources")
+        || (!adopted
+            && (path.starts_with("/api/connections") || path.starts_with("/api/event-sources")))
     {
         return (StatusCode::FORBIDDEN, Json(json!({"error":"This service needs workspace-specific configuration before it can be used."}))).into_response();
     }
@@ -189,6 +221,9 @@ async fn dispatch_for(
         Err(_) => return StatusCode::BAD_REQUEST.into_response(),
     };
     let session_headers = request.headers().clone();
+    // The outer wildcard router has already attached workspace/rest Path values.
+    // The business router must extract only its own resource parameters.
+    request.extensions_mut().clear();
     let response = crate::server::router(state).oneshot(request).await.unwrap();
     if path == "/api/events" {
         return guarded_stream(app, user, workspace, session_headers, response);

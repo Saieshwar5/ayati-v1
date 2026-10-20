@@ -25,7 +25,7 @@ Use `127.0.0.1` consistently. `localhost` is intentionally not an alternate host
 
 ## Implemented boundary
 
-Hosted AuthKit performs authentication. Ayati exchanges a code using server-held
+Hosted AuthKit performs authentication. Relay exchanges a code using server-held
 credentials and PKCE, with an expiring, single-use state bound to an HttpOnly
 cookie. Only verified email identities are admitted. Internal users are keyed by
 provider user ID, never automatically merged by email.
@@ -44,10 +44,10 @@ Members cannot administer people; admins cannot appoint admins or alter owners.
 The owner cannot be removed/demoted in this milestone.
 
 Invitations are application-level WorkOS emails, not WorkOS organization grants.
-After authenticating, a recipient explicitly accepts a pending Ayati workspace
+After authenticating, a recipient explicitly accepts a pending Relay workspace
 invitation. Acceptance requires the verified matching email, a confirmed delivery
 response, an unexpired pending invitation, and still-valid inviter authority.
-Ayati membership is authoritative. Cancelling locally prevents acceptance even if
+Relay membership is authoritative. Cancelling locally prevents acceptance even if
 provider revocation fails. A removed member cannot replay an accepted invitation.
 No workspace is auto-created for invited employees.
 
@@ -69,7 +69,7 @@ or background email reconciliation yet. Invitation emails are generic applicatio
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.
 
-Existing installation data is not automatically imported. Each workspace has a separate runtime and business store under `identity/workspaces/<id>`. See [workspace client integration](workspace-client-integration.md) for the request boundary and remaining sharing/execution limits.
+Existing installation data is not automatically imported. An explicit offline `adopt-workspace <id>` command backs up and binds the installation to one owner workspace. Other workspaces keep separate runtimes and business stores under `identity/workspaces/<id>`. See [workspace client integration](workspace-client-integration.md) for the request boundary and remaining sharing/execution limits.
 The original browser-only preview remains at `?view=access-preview` in the
 regular client and is not used as authentication by this server.
 

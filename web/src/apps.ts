@@ -96,11 +96,11 @@ export function installApps(): void {
         const management = document.createElement('details'); management.className = 'app-management';
         management.append(element('summary', '', 'Releases and access'), element('small', '', `Latest release ${app.revision} · ${app.active_revision === null ? 'not activated' : `active release ${app.active_revision}`}`));
         if (app.active_revision !== null) management.append(action('Preview latest release', () => open(app, true)));
-        const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(app.agent_id, 'edit-app', app.id); card.append(agent);
+        const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(app.agent_id, 'edit-app', app.id); if (canManageResources()) card.append(agent);
         const permissions = element('div');
         if (app.active_revision !== null) management.append(action('Manage agent access', () => access(app, permissions)));
         management.append(action('Archive app', async () => { await post(`/apps/${app.id}/archive`, { revision: app.revision }); await refresh(); }), permissions);
-        card.append(management); list.append(card);
+        if (canManageResources()) card.append(management); list.append(card);
       }
       filter();
     } catch (e) { status.textContent = (e as Error).message; }

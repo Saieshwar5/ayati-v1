@@ -38,7 +38,7 @@ export function installHomePanels(container: HTMLElement): void {
     list.replaceChildren();
     if (!panels.length && !canManageResources()) {
       const welcome = element('div', 'home-welcome');
-      welcome.append(element('h3', '', 'Welcome to your workspace'), element('p', '', 'Your team is in People. Business panels and agent actions are currently owner-controlled.'));
+      welcome.append(element('h3', '', 'Welcome to your workspace'), element('p', '', 'Your team is in Chat and Users. Panels shared with you will appear here.'));
       list.append(welcome); return;
     }
     if (!panels.length) {
@@ -67,7 +67,8 @@ export function installHomePanels(container: HTMLElement): void {
       const date = panel.active?.updated_at ?? panel.updated_at;
       const footer = element('div', 'panel-footer');
       footer.append(element('small', '', `Updated ${businessDate(date.replace(' ', 'T') + (date.endsWith('Z') ? '' : 'Z'))}`));
-      const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(panel.agent_id, 'edit-panel', panel.id); footer.append(agent); card.append(footer);
+      const agent = element('a', 'text-button', 'Ask its agent ↗'); agent.href = conversationUrl(panel.agent_id, 'edit-panel', panel.id); if (canManageResources()) footer.append(agent); card.append(footer);
+      if (!canManageResources()) { list.append(card); continue; }
       const settings = document.createElement('details'); settings.className = 'panel-settings'; settings.dataset.settings = panel.id; settings.open = expanded.has(panel.id);
       settings.append(element('summary', '', 'Updates and details'));
       if (template === 'metric') settings.append(element('p', 'panel-purpose', (panel.active?.definition ?? panel.draft)?.purpose ?? ''));

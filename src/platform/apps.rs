@@ -72,6 +72,27 @@ impl AppDraft {
     }
 }
 impl Platform {
+    /// Human sharing exposes only the published release, never the builder's draft.
+    pub fn published_apps(&self) -> Result<Vec<Value>> {
+        let db = self.database()?;
+        let mut q = db.prepare("SELECT a.id,a.agent_id,a.active_revision,v.definition FROM apps a JOIN app_versions v ON v.app_id=a.id AND v.revision=a.active_revision WHERE a.state='saved' ORDER BY a.rowid DESC LIMIT 100")?;
+        let rows = q.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        })?;
+        let mut result = Vec::new();
+        for row in rows {
+            let (id, agent, revision, text) = row?;
+            let definition: AppDraft = serde_json::from_str(&text)?;
+            result.push(json!({"id":id,"agent_id":agent,"revision":revision,"active_revision":revision,
+                "name":definition.name,"description":definition.description,"collections":definition.collections}));
+        }
+        Ok(result)
+    }
     pub fn app_source(&self, agent: &str, id: &str, revision: Option<i64>) -> Result<Value> {
         let db = self.database()?;
         let current: i64 = db

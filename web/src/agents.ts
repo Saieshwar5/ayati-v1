@@ -11,9 +11,10 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
   const panel = element('aside', 'agents-list');
   panel.setAttribute('aria-label', 'Agents'); panel.id = 'agents-sidebar';
   document.querySelector('#agent-sidebar-toggle')!.setAttribute('aria-controls', panel.id);
-  panel.innerHTML = `<div class="agents-heading"><h2>Agents</h2><button id="new-agent" class="files-button" aria-label="New agent" title="New agent">＋</button></div>
+  panel.innerHTML = `<div class="agents-heading"><h2>Chat</h2><button id="new-agent" class="files-button" aria-label="New agent" title="New agent">＋</button></div>
     <label class="agent-search-label">Search agents<input id="agent-search" type="search" placeholder="Search agents…"></label><div id="agent-cards"></div><p id="agents-status" role="status"></p>`;
   main.prepend(panel);
+  const all = element('a', 'files-button', 'People & group chats'); all.href = workspaceUrl('/?view=chat'); panel.prepend(all);
   const chooser = document.createElement('dialog'); chooser.className = 'agent-chooser';
   chooser.setAttribute('aria-label', 'Choose agent');
   const closeChooser = element('button', 'files-button', 'Back to conversation');
@@ -21,52 +22,18 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
   const toggle = document.querySelector<HTMLButtonElement>('#agent-list-toggle')!;
   toggle.setAttribute('aria-haspopup', 'dialog');
   toggle.onclick = () => { chooser.append(panel); chooser.showModal(); panel.querySelector<HTMLInputElement>('#agent-search')!.focus(); };
-  document.querySelector<HTMLAnchorElement>('.nav-agents')!.onclick = event => {
-    event.preventDefault();
-    if (matchMedia('(max-width: 760px)').matches) toggle.click();
-    else {
-      main.classList.remove('agent-list-collapsed');
-      const sidebarToggle = document.querySelector('#agent-sidebar-toggle')!;
-      sidebarToggle.setAttribute('aria-expanded', 'true');
-      sidebarToggle.setAttribute('aria-label', 'Hide agent list');
-      panel.querySelector<HTMLInputElement>('#agent-search')!.focus();
-    }
-  };
   closeChooser.onclick = () => chooser.close();
   chooser.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); chooser.close(); }
   });
   chooser.addEventListener('close', () => { main.prepend(panel); toggle.focus(); });
   matchMedia('(max-width: 760px)').addEventListener('change', event => { if (!event.matches && chooser.open) chooser.close(); });
-  const dialog = document.createElement('dialog');
-  dialog.className = 'agent-setup';
-  dialog.setAttribute('aria-labelledby', 'setup-title');
-  dialog.innerHTML = `<form id="agent-setup-form">
-    <div class="panel-header"><h2 id="setup-title">Create an agent</h2><button type="button" id="setup-close" class="icon-button" aria-label="Close agent setup">×</button></div>
-    <p>Give this agent a lasting responsibility. It gets its own conversation, memory and private environment.</p>
-    <label>Name<input name="name" required maxlength="80" placeholder="e.g. Operations assistant"></label>
-    <label>Role<textarea name="role" required maxlength="4000" placeholder="What should this agent help you accomplish?"></textarea></label>
-    <label>Model<input name="model" required maxlength="200"></label>
-    <p class="setup-help">Use a model supported by your configured AI provider.</p>
-    <fieldset><legend>Tools</legend>
-      <label><input name="memory" type="checkbox"> Sourced memory</label>
-      <label><input name="browser" type="checkbox"> Browser</label>
-      <p class="setup-help">Available tools need your approval for each action. Disabled options need local setup first.</p>
-    </fieldset>
-    <p>Preparation can take several minutes. You can continue using your other agents while it runs.</p>
-    <p id="setup-error" role="alert"></p><button id="setup-submit" class="files-button">Create agent</button>
-  </form>`;
-  document.body.append(dialog);
-  const form = dialog.querySelector<HTMLFormElement>('form')!;
+  const ownerApi = <T>(path: string): Promise<T> => api<T>(path, { headers: { 'X-Ayati-Agent': 'local-agent' } });
   const create = panel.querySelector<HTMLButtonElement>('#new-agent')!;
-  const submit = dialog.querySelector<HTMLButtonElement>('#setup-submit')!;
+  create.textContent = 'Manage'; create.setAttribute('aria-label', 'Manage agents'); create.title = 'Manage agents';
+  create.onclick = () => location.assign(workspaceUrl('/?view=agents'));
   const status = panel.querySelector<HTMLElement>('#agents-status')!;
-  const error = dialog.querySelector<HTMLElement>('#setup-error')!;
   const cards = panel.querySelector<HTMLElement>('#agent-cards')!;
-  const ownerApi = <T>(path: string, body?: unknown): Promise<T> => api<T>(path, {
-    headers: { 'X-Ayati-Agent': 'local-agent', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-    ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
-  });
   const search = panel.querySelector<HTMLInputElement>('#agent-search')!;
   const empty = element('p', 'agent-detail', 'No matching agents.'); empty.hidden = true; panel.append(empty);
   function filter(): void {
@@ -79,9 +46,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
   let refreshing = false;
   let workspace: Workspace | undefined;
   let fingerprint = '';
-  let busy = false;
-  let requestId = crypto.randomUUID();
-  create.disabled = true;
+
 
   async function refresh(): Promise<void> {
     if (refreshing) return;
@@ -89,9 +54,9 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
     try {
       workspace = await ownerApi<Workspace>('/agents');
       // Present the built-in guide under the product name without changing saved profiles.
-      workspace.agents = workspace.agents.map(agent => agent.profile.id === 'local-agent' && agent.profile.name === 'Ayati'
+      workspace.agents = workspace.agents.filter(a => a.profile.state !== 'archived').map(agent => agent.profile.id === 'local-agent' && agent.profile.name === 'Ayati'
         ? { ...agent, profile: { ...agent.profile, name: 'Relay' } } : agent);
-      create.disabled = !workspace.creation_available || workspace.agents.length >= workspace.limit || workspace.agents.some(a => a.profile.state === 'preparing');
+
       status.textContent = !workspace.creation_available ? 'Creating agents requires local VM setup.'
         : workspace.agents.length >= workspace.limit ? `Local limit: ${workspace.limit} agents.` : '';
       const current = workspace.agents.find(a => a.profile.id === selectedAgent)?.profile;
@@ -126,43 +91,12 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
           const badge = element('span', 'agent-attention', String(activity.pending_approvals));
           badge.setAttribute('aria-label', `${activity.pending_approvals} approvals need attention`); card.append(badge);
         }
-        if (profile.state === 'failed') {
-          const retry = element('button', 'text-button', 'Retry setup');
-          retry.onclick = async () => {
-            retry.disabled = true;
-            try { await ownerApi(`/agents/${profile.id}/retry`, {}); await refresh(); }
-            catch (e) { status.textContent = (e as Error).message; retry.disabled = false; }
-          };
-          card.append(retry);
-        }
         return card;
       }));
       filter();
     } catch { status.textContent = 'Agent list unavailable. Reconnecting…'; }
     finally { refreshing = false; }
   }
-  create.onclick = () => {
-    if (!workspace) return;
-    form.reset(); error.textContent = ''; requestId = crypto.randomUUID();
-    (form.elements.namedItem('model') as HTMLInputElement).value = workspace.default_model;
-    for (const name of ['memory', 'browser'] as const) {
-      const field = form.elements.namedItem(name) as HTMLInputElement;
-      field.disabled = !workspace[`${name}_available`]; field.checked = !field.disabled;
-    }
-    dialog.showModal(); (form.elements.namedItem('name') as HTMLInputElement).focus();
-  };
-  dialog.querySelector<HTMLButtonElement>('#setup-close')!.onclick = () => dialog.close();
-  form.onsubmit = async event => {
-    event.preventDefault();
-    if (busy) return;
-    busy = true; submit.disabled = true; error.textContent = '';
-    const data = new FormData(form);
-    try {
-      await ownerApi('/agents', { request_id: requestId, name: data.get('name'), role: data.get('role'), model: data.get('model'), memory: data.has('memory'), browser: data.has('browser') });
-      dialog.close(); await refresh();
-    } catch (e) { error.textContent = (e as Error).message; }
-    finally { busy = false; submit.disabled = false; }
-  };
   void refresh();
   window.setInterval(() => { if (!document.hidden) void refresh(); }, 2500);
 }

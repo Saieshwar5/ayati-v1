@@ -1,68 +1,98 @@
 # Authenticated Relay client
 
-`ayati identity` now serves the existing Home, Apps, conversations/agents and
-Settings client at `/w/<workspace-id>/`. Sign-in, creation and invitation
-acceptance lead to that client. People and My account are embedded in its shared
-navigation. The old limited post-login dashboard is removed.
+`ayati identity` serves the original Home panels, Apps, private agent conversations
+and Settings behind `/w/<workspace-id>/`. The black Relay branding and shared
+navigation now expose Home, Apps, Chat, Agents, Users and Settings. Sign-in and
+workspace selection open this client, not a replacement dashboard.
 
-The workspace picker performs a full document navigation: previous subscriptions,
-frames and in-memory state are discarded. The last workspace is remembered per
-user. Drafts, attachments, pending submissions, browser controller tokens,
-schedule/trigger receipts and Home arrangements are namespaced by user and
-workspace. Global appearance preference remains device-wide.
+## Existing installation and isolated workspaces
+
+New workspaces have independent stores under
+`AYATI_DATA_DIR/identity/workspaces/<id>`. They do not inherit the original owner's
+VM, browser, files, tools or connectors. To attach an existing installation to its
+owner's workspace, stop both server modes and run:
+
+```
+ayati adopt-workspace <workspace-id>
+ayati identity
+```
+
+Adoption requires a single owner, an empty destination business store, no running
+or queued work, no active schedules and exclusive daemon/VM locks. It makes a
+private full installation backup with SQLite integrity checks before recording a
+singleton binding. Data and absolute VM paths stay in place. That owner's private
+client keeps the original agents, history, Apps, panels and execution settings.
+Only the bound owner receives this legacy authority. Other workspaces remain
+separate. `ayati serve` refuses to bypass the binding. With servers stopped,
+`ayati release-workspace <workspace-id>` removes the binding without deleting data.
+Backups retain credentials/private data and must never be committed or shared.
+
+Workspace switching performs a full document navigation. Drafts, uploads,
+controller tokens, receipts and Home layouts are scoped by user and workspace.
+Only the adopted owner's old Home layout is copied into its new scoped key.
+
+## Chat, Agents and Users
+
+Chat keeps the original owner-only agent conversations accessible as private
+chats. New conversations can include workspace people and explicitly permitted
+agents. They have persistent membership and messages, idempotent sends and local
+per-conversation drafts. Sending to everyone does not wake an agent; selecting
+an agent explicitly asks it to reply.
+
+Shared replies use the existing Goose runtime in a fresh, conversation-only
+context. They receive only bounded shared transcript history, never private
+agent history, memory, files, tools or the owner's VM. Agent access is checked
+before dispatch, during execution and before publication. Revocation cancels
+publication; removal clears conversation membership and grants. Pending replies
+are marked failed after restart rather than replayed. Agent requests are bounded
+and timed out. Tool-enabled shared work, editable group membership, unread counts,
+notifications, attachments and threads are not implemented yet.
+
+Agents provides creation, configuration, retry, archive, restore and removal.
+The built-in guide cannot be removed. Archive stops its runtime. Removal is a
+retained tombstone; files, conversations and App data are not erased. The existing
+local four-agent registry limit still applies, including retained agents. Agent
+creation requires the existing VM setup. Only owners manage agent configuration.
+
+Users retains invitation and role management and adds explicit agent-chat, App
+and panel access. Owners have implicit management authority. Other people receive
+only granted published Apps and active panels. App access can be read-only or
+read/write/delete records; neither permits code or schema changes. App document
+and record sessions are bound to the authenticated member, workspace and App.
+Private agent conversations, files, approvals and connectors remain owner-only.
 
 ## Request boundary
 
-All business API requests, event streams, downloads and generated app documents
-use `/w/<id>/api/...`. Every request validates the WorkOS-backed session and the
-current local membership before routing to the existing handlers. A workspace ID
-or agent ID alone never authorizes access. State and runtime registries are separate
-for each workspace, including the default guide whose local ID remains
-`local-agent`. Unscoped `/api/...` routes are still denied in identity mode.
+Every business request uses `/w/<id>/api/...` and validates the authenticated
+session and current membership. A workspace or agent ID is never authorization.
+Mutations require same-origin Origin and `X-Ayati-Request: identity`. Resource
+grants are checked on each request; revocation and member record operations use
+a shared lock. The inner business router receives fresh route parameters so
+workspace wildcard parameters cannot break App or agent handlers.
 
-Every mutation requires the same-origin Origin and `X-Ayati-Request: identity`.
-Existing handler guards still apply. SSE streams recheck local session and
-membership at most one second apart and provider status every 15 seconds. Logout,
-session expiry and membership loss close streams. The client also rechecks account
-and membership periodically and reloads on a change.
+SSE streams recheck local session/membership at most one second apart and provider
+status every 15 seconds. Logout and access loss close streams. Unscoped business
+APIs and host shutdown remain unavailable. Legacy connectors are available only
+to the explicitly bound owner; fresh workspaces need provider-specific setup.
 
-The owner can use the existing resource-management APIs within their own workspace.
-Admins can manage ordinary members; Members can see People. Admins and Members
-receive the same navigation, empty business-resource lists and owner-access
-messages. They cannot inherit the original local owner's agent, file, app,
-connector or approval authority. Granular human resource sharing and employee
-agent dispatch are not implemented in this increment. No shared chat channels
-are implied: Chat & agents is the existing agent-conversation interface.
+## Validation and limits
 
-## Storage and execution
+Rust fixture checks cover adoption/backup reopening, independent storage,
+cross-workspace denial, shared conversation membership and deduplication,
+revocation, restart recovery, published-only App access, member-bound App sessions,
+read/write restrictions and retained agent removal. Existing App, Home panel,
+profile, registry and durable-work regression suites also pass. Client unit tests,
+production build and browser-test type checking pass.
 
-Runtimes live under `AYATI_DATA_DIR/identity/workspaces/<id>` with private directory
-permissions. They never reuse the legacy database, default VM, proof-tool grants,
-browser configuration or external connector account. Existing installation data
-is preserved outside this hierarchy; no implicit import into sai-store occurs.
+This remains a local pilot. Automated fixtures do not prove VM provisioning,
+backup VM boot recovery or production tenancy. See `identity-workspaces.md` for
+hosted deployment requirements. Preserve the distinction between working private
+agent tools and conversation-only shared agent replies.
 
-A fresh workspace has empty business data and an unconfigured guide environment.
-Its owner can create agents through the existing agent-creation workflow, which
-prepares dedicated VM environments under that workspace. The default guide needs
-its own VM manifest at `identity/workspaces/<id>/vms/local-agent/vm.json`; the
-legacy global `AYATI_VM_MANIFEST` is deliberately ignored. Model provider settings
-are host configuration, and model calls can incur the existing provider charges.
-
-External connectors remain disabled in this mode until workspace-specific provider
-configuration is implemented. Host-level shutdown is not a workspace API. Existing
-Apps and Home panels operate against the workspace's own Platform store. This is
-still a local pilot, not a hosted multi-tenant production deployment.
-
-## Verification
-
-- All 32 Rust library tests pass, including 11 identity/gateway tests.
-- Tests cover membership and cross-workspace denial, member resource restrictions,
-  separate persisted business data, non-reuse of legacy runtime configuration,
-  missing sessions, mutation guards and open-stream closure on logout.
-- Six client test files pass, including account/workspace draft separation and
-  access-loss routing. Client build and browser-test type checking pass.
-- Real owner session opened sai-store in the original Home client. Existing Owner
-  and Member records appeared in the embedded People screen. Apps and Chat links
-  retained workspace scope.
-- No model execution, new VM provisioning, external connector operation or shared
-  employee resource access was claimed by these checks.
+Live local verification on 2026-10-20: the bound owner opened the original Diet
+Tracker App and ramesh's saved private conversation. A new owner-only Chat received
+a real Goose reply and retained the exchange after reload. Users showed both
+existing memberships and the new access controls. No employee permissions were
+changed for verification, and no new invitations were sent. The final library
+suite passed 44 tests, with 23 focused existing feature tests and six client test
+files also passing. Desktop and narrow Chat layout checks were performed.
