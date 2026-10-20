@@ -57,6 +57,8 @@
   .desk-toolbar { gap: 10px; }
   .desk-toolbar .ui-search { order: 3; width: 100%; }
   .ui-row { padding: 14px 12px; flex-wrap: wrap; gap: 10px; }
+  .ui-row-title { flex-basis: calc(100% - 60px); }
+  .ui-row:has(> .ui-avatar) > .ui-badge { margin-left: 50px; }
   .ui-dialog-header, .ui-dialog-body, .ui-dialog-footer { padding: 16px; }
   .ui-drawer { margin: 6px; width: calc(100vw - 12px); height: calc(100dvh - 12px); }
 }
