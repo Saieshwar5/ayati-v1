@@ -104,6 +104,7 @@ impl PgStore {
             input.users.len() <= 30 && input.agents.len() <= 5,
             "Too many participants"
         );
+        let direct_key = input.direct_key(&user.id)?;
         let tx = self.workspace_tx(workspace).await?;
         role(&tx, workspace, &user.id).await?;
         for member in &input.users {
@@ -115,14 +116,42 @@ impl PgStore {
                 "Agent is not shared with you"
             );
         }
+        if let Some(key) = &direct_key {
+            if let Some(row) = query(
+                &tx,
+                "SELECT id FROM relay_chats WHERE workspace=$1 AND direct_key=$2",
+                vec![workspace.into(), key.clone().into()],
+            )
+            .await?
+            {
+                let id: String = row.try_get("", "id")?;
+                access(&tx, user, workspace, &id).await?;
+                for member in &input.users {
+                    access(
+                        &tx,
+                        &User {
+                            id: member.clone(),
+                            email: String::new(),
+                        },
+                        workspace,
+                        &id,
+                    )
+                    .await?;
+                }
+                return Ok(id);
+            }
+        }
         execute(
             &tx,
-            "INSERT INTO relay_chats(id,workspace,name,creator) VALUES($1,$2,$3,$4)",
+            "INSERT INTO relay_chats(id,workspace,name,creator,kind,description,direct_key) VALUES($1,$2,$3,$4,$5,$6,$7)",
             vec![
                 input.id.clone().into(),
                 workspace.into(),
                 input.name.trim().into(),
                 user.id.clone().into(),
+                input.kind.clone().into(),
+                input.description.trim().into(),
+                direct_key.into(),
             ],
         )
         .await?;
@@ -138,14 +167,14 @@ impl PgStore {
     pub async fn chats(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         role(&tx, workspace, &user.id).await?;
-        let chats=json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'name',c.name) AS data FROM relay_chats c JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id WHERE c.workspace=$1 AND p.user_id=$2 ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into()]).await?;
+        let chats=json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id WHERE c.workspace=$1 AND p.user_id=$2 ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into()]).await?;
         tx.commit().await?;
         Ok(json!({"chats":chats}))
     }
     pub async fn chat_messages(&self, user: &User, workspace: &str, chat: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         access(&tx, user, workspace, chat).await?;
-        let messages=json_rows(&tx,"SELECT jsonb_build_object('id',m.id,'author',m.author,'kind',m.kind,'content',m.content,'state',m.state,'at',m.at,'name',u.email) AS data FROM (SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 ORDER BY sequence DESC LIMIT 200) m LEFT JOIN relay_users u ON u.id=m.author ORDER BY m.sequence",vec![workspace.into(),chat.into()]).await?;
+        let messages=json_rows(&tx,"WITH recent AS (SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 ORDER BY sequence DESC LIMIT 200) SELECT jsonb_build_object('id',m.id,'author',m.author,'kind',m.kind,'content',m.content,'state',m.state,'at',m.at,'name',u.email,'thread',m.thread) AS data FROM (SELECT * FROM recent UNION SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id IN (SELECT thread FROM recent)) m LEFT JOIN relay_users u ON u.id=m.author ORDER BY m.sequence",vec![workspace.into(),chat.into()]).await?;
         let agents = rows(
             &tx,
             "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2",
@@ -177,7 +206,7 @@ impl PgStore {
         access(&tx, user, workspace, chat).await?;
         if let Some(row) = query(
             &tx,
-            "SELECT chat,author,content,target FROM relay_chat_messages WHERE id=$1",
+            "SELECT chat,author,content,target,thread FROM relay_chat_messages WHERE id=$1",
             vec![input.id.clone().into()],
         )
         .await?
@@ -186,10 +215,14 @@ impl PgStore {
                 row.try_get::<String>("", "chat")? == chat
                     && row.try_get::<String>("", "author")? == user.id
                     && row.try_get::<String>("", "content")? == input.content
-                    && row.try_get::<Option<String>>("", "target")? == input.agent,
+                    && row.try_get::<Option<String>>("", "target")? == input.agent
+                    && row.try_get::<Option<String>>("", "thread")? == input.thread,
                 "Message ID already used"
             );
             return Ok(None);
+        }
+        if let Some(thread) = &input.thread {
+            ensure!(query(&tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3 AND thread IS NULL",vec![workspace.into(),chat.into(),thread.clone().into()]).await?.is_some(),"Thread is not in this conversation");
         }
         if let Some(agent) = &input.agent {
             let pending:i64=query(&tx,"SELECT count(*) AS total FROM relay_chat_messages WHERE workspace=$1 AND kind='agent' AND state='queued'",vec![workspace.into()]).await?.context("Missing count")?.try_get("","total")?;
@@ -203,14 +236,26 @@ impl PgStore {
             );
             ensure!(query(&tx,"SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",vec![workspace.into(),chat.into(),agent.clone().into()]).await?.is_some(),"Agent is not in this conversation");
         }
-        execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7)",vec![input.id.clone().into(),workspace.into(),chat.into(),user.id.clone().into(),input.content.clone().into(),now().into(),input.agent.clone().into()]).await?;
+        execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7,$8)",vec![input.id.clone().into(),workspace.into(),chat.into(),user.id.clone().into(),input.content.clone().into(),now().into(),input.agent.clone().into(),input.thread.clone().into()]).await?;
         let job = if let Some(agent) = &input.agent {
             let reply = uuid::Uuid::new_v4().to_string();
-            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT 30) m ORDER BY sequence",vec![workspace.into(),chat.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
+            let kind: String = query(
+                &tx,
+                "SELECT kind FROM relay_chats WHERE workspace=$1 AND id=$2",
+                vec![workspace.into(), chat.into()],
+            )
+            .await?
+            .context("Conversation missing")?
+            .try_get("", "kind")?;
+            let thread = input
+                .thread
+                .as_deref()
+                .or_else(|| (kind != "direct").then_some(input.id.as_str()));
+            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT 30) m ORDER BY sequence",vec![workspace.into(),chat.into(),thread.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }
-            execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.clone().into(),now().into(),user.id.clone().into()]).await?;
+            execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.clone().into(),now().into(),user.id.clone().into(),thread.into()]).await?;
             Some(Job {
                 claim: None,
                 reply,

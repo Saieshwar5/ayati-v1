@@ -3,20 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { HomeToolbar } from './home-toolbar';
 import { ViewLifetime, setViewLifetime } from '../view-lifetime';
-import { workspaceId } from '../workspace-context';
 import type { Profile } from '../agents';
 import type { WorkspacePage } from './workspace-shell';
 
 type Controller = { profile?: (profile: Profile) => void; navigate?: (url: URL) => void };
 
 async function install(page: WorkspacePage, view: ViewLifetime, onNotifications: (data: HomeNotificationsState) => void): Promise<Controller | void> {
-  const url = view.url;
   if (page === 'agents') {
     const module = await import('../agent-manager');
     if (view.active) { setViewLifetime(view); await module.installAgentManager(); }
-  } else if (page === 'chat' && workspaceId && !url.searchParams.has('agent')) {
-    const module = await import('../shared-chat');
-    if (view.active) { setViewLifetime(view); return { navigate: await module.installSharedChat() }; }
   } else if (page === 'home') {
     const module = await import('../home');
     if (view.active) { setViewLifetime(view); module.installHome(onNotifications); }
@@ -37,7 +32,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const [homeActions, setHomeActions] = useState<HTMLElement | null>(null);
   const controller = useRef<Controller | void>(undefined);
   const latestHref = useRef(href); latestHref.current = href;
-  const mountKey = page === 'chat' && workspaceId && !new URL(href).searchParams.has('agent') ? 'shared-chat' : href;
+  const mountKey = href;
   useEffect(() => { controller.current?.navigate?.(new URL(href)); }, [href]);
   const latestProfile = useRef(profile); latestProfile.current = profile;
   useEffect(() => { if (profile) controller.current?.profile?.(profile); }, [profile]);

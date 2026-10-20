@@ -12,6 +12,27 @@ pub fn schema(db: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS chat_messages(id TEXT PRIMARY KEY, chat TEXT NOT NULL, author TEXT NOT NULL, kind TEXT NOT NULL,
             content TEXT NOT NULL, state TEXT NOT NULL, at INTEGER NOT NULL, target TEXT, requester TEXT);
         CREATE INDEX IF NOT EXISTS messages_by_chat ON chat_messages(chat,at);")?;
+    let columns = db
+        .prepare("PRAGMA table_info(chats)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (name, definition) in [
+        ("kind", "TEXT NOT NULL DEFAULT 'group'"),
+        ("description", "TEXT NOT NULL DEFAULT ''"),
+        ("direct_key", "TEXT"),
+    ] {
+        if !columns.iter().any(|c| c == name) {
+            db.execute_batch(&format!("ALTER TABLE chats ADD COLUMN {name} {definition}"))?;
+        }
+    }
+    let message_columns = db
+        .prepare("PRAGMA table_info(chat_messages)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !message_columns.iter().any(|c| c == "thread") {
+        db.execute_batch("ALTER TABLE chat_messages ADD COLUMN thread TEXT")?;
+    }
+    db.execute_batch("CREATE INDEX IF NOT EXISTS messages_by_thread ON chat_messages(chat,thread); CREATE UNIQUE INDEX IF NOT EXISTS chat_direct_pair ON chats(workspace,direct_key)")?;
     Ok(())
 }
 #[derive(Deserialize)]
@@ -21,6 +42,46 @@ pub struct NewChat {
     pub name: String,
     pub users: Vec<String>,
     pub agents: Vec<String>,
+    #[serde(default = "group_kind")]
+    pub kind: String,
+    #[serde(default)]
+    pub description: String,
+}
+fn group_kind() -> String {
+    "group".into()
+}
+impl NewChat {
+    pub fn direct_key(&self, actor: &str) -> Result<Option<String>> {
+        ensure!(
+            ["group", "channel", "direct"].contains(&self.kind.as_str()),
+            "Invalid conversation type"
+        );
+        ensure!(self.description.len() <= 300, "Purpose is too long");
+        let others: std::collections::BTreeSet<_> = self
+            .users
+            .iter()
+            .filter(|id| id.as_str() != actor)
+            .collect();
+        let agents: std::collections::BTreeSet<_> = self.agents.iter().collect();
+        if self.kind != "group" {
+            ensure!(
+                others.len() + agents.len() >= 1,
+                "Add at least one other person or agent"
+            );
+        }
+        if self.kind != "direct" {
+            return Ok(None);
+        }
+        ensure!(
+            others.len() + agents.len() == 1,
+            "Direct messages require exactly two participants"
+        );
+        let mut participants = vec![format!("user:{actor}")];
+        participants.extend(others.iter().map(|id| format!("user:{id}")));
+        participants.extend(agents.iter().map(|id| format!("agent:{id}")));
+        participants.sort();
+        Ok(Some(serde_json::to_string(&participants)?))
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,6 +89,8 @@ pub struct NewMessage {
     pub id: String,
     pub content: String,
     pub agent: Option<String>,
+    #[serde(default)]
+    pub thread: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Job {
@@ -109,17 +172,10 @@ impl Store {
             input.users.len() <= 30 && input.agents.len() <= 5,
             "Too many participants"
         );
+        let direct_key = input.direct_key(&user.id)?;
         let mut db = self.0.lock().unwrap();
         let tx = db.transaction()?;
         role(&tx, workspace, &user.id)?;
-        ensure!(
-            !tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM chats WHERE id=?1)",
-                [&input.id],
-                |r| r.get::<_, bool>(0)
-            )?,
-            "Conversation already exists; refresh the list"
-        );
         for member in &input.users {
             role(&tx, workspace, member)?;
         }
@@ -129,9 +185,41 @@ impl Store {
                 "Agent is not shared with you"
             );
         }
+        if let Some(key) = &direct_key {
+            if let Some(id) = tx
+                .query_row(
+                    "SELECT id FROM chats WHERE workspace=?1 AND direct_key=?2",
+                    params![workspace, key],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+            {
+                access(&tx, user, workspace, &id)?;
+                for member in &input.users {
+                    access(
+                        &tx,
+                        &User {
+                            id: member.clone(),
+                            email: String::new(),
+                        },
+                        workspace,
+                        &id,
+                    )?;
+                }
+                return Ok(id);
+            }
+        }
+        ensure!(
+            !tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM chats WHERE id=?1)",
+                [&input.id],
+                |r| r.get::<_, bool>(0)
+            )?,
+            "Conversation already exists; refresh the list"
+        );
         tx.execute(
-            "INSERT INTO chats VALUES(?1,?2,?3,?4)",
-            params![input.id, workspace, input.name.trim(), user.id],
+            "INSERT INTO chats(id,workspace,name,creator,kind,description,direct_key) VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![input.id, workspace, input.name.trim(), user.id, input.kind, input.description.trim(), direct_key],
         )?;
         for member in input.users.iter().chain(std::iter::once(&user.id)) {
             tx.execute(
@@ -151,19 +239,33 @@ impl Store {
     pub fn chats(&self, user: &User, workspace: &str) -> Result<Value> {
         let db = self.0.lock().unwrap();
         role(&db, workspace, &user.id)?;
-        let mut q = db.prepare("SELECT c.id,c.name FROM chats c JOIN chat_people p ON p.chat=c.id WHERE c.workspace=?1 AND p.user=?2 ORDER BY c.rowid DESC")?;
+        let mut q = db.prepare("SELECT c.id,c.name,c.kind,c.description FROM chats c JOIN chat_people p ON p.chat=c.id WHERE c.workspace=?1 AND p.user=?2 ORDER BY c.rowid DESC")?;
         let rows = q
             .query_map(params![workspace, user.id], |r| {
-                Ok(json!({"id":r.get::<_,String>(0)?,"name":r.get::<_,String>(1)?}))
+                Ok(json!({"id":r.get::<_,String>(0)?,"name":r.get::<_,String>(1)?,"kind":r.get::<_,String>(2)?,"description":r.get::<_,String>(3)?}))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        Ok(json!({"chats":rows}))
+        let mut chats = rows;
+        for chat in &mut chats {
+            let id = chat["id"].as_str().unwrap().to_owned();
+            let users = db
+                .prepare("SELECT user FROM chat_people WHERE chat=?1")?
+                .query_map([&id], |r| r.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            let agents = db
+                .prepare("SELECT agent FROM chat_agents WHERE chat=?1")?
+                .query_map([&id], |r| r.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            chat["users"] = json!(users);
+            chat["agents"] = json!(agents);
+        }
+        Ok(json!({"chats":chats}))
     }
     pub fn chat_messages(&self, user: &User, workspace: &str, chat: &str) -> Result<Value> {
         let db = self.0.lock().unwrap();
         access(&db, user, workspace, chat)?;
-        let mut q=db.prepare("SELECT m.id,m.author,m.kind,m.content,m.state,m.at,u.email FROM (SELECT rowid,* FROM chat_messages WHERE chat=?1 ORDER BY rowid DESC LIMIT 200) m LEFT JOIN users u ON u.id=m.author ORDER BY m.rowid")?;
-        let rows=q.query_map([chat],|r|Ok(json!({"id":r.get::<_,String>(0)?,"author":r.get::<_,String>(1)?,"kind":r.get::<_,String>(2)?,"content":r.get::<_,String>(3)?,"state":r.get::<_,String>(4)?,"at":r.get::<_,i64>(5)?,"name":r.get::<_,Option<String>>(6)?})))?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut q=db.prepare("WITH recent AS (SELECT rowid,* FROM chat_messages WHERE chat=?1 ORDER BY rowid DESC LIMIT 200) SELECT m.id,m.author,m.kind,m.content,m.state,m.at,u.email,m.thread FROM (SELECT * FROM recent UNION SELECT rowid,* FROM chat_messages WHERE chat=?1 AND id IN (SELECT thread FROM recent)) m LEFT JOIN users u ON u.id=m.author ORDER BY m.rowid")?;
+        let rows=q.query_map([chat],|r|Ok(json!({"id":r.get::<_,String>(0)?,"author":r.get::<_,String>(1)?,"kind":r.get::<_,String>(2)?,"content":r.get::<_,String>(3)?,"state":r.get::<_,String>(4)?,"at":r.get::<_,i64>(5)?,"name":r.get::<_,Option<String>>(6)?,"thread":r.get::<_,Option<String>>(7)?})))?.collect::<rusqlite::Result<Vec<_>>>()?;
         let agents = db
             .prepare("SELECT agent FROM chat_agents WHERE chat=?1")?
             .query_map([chat], |r| r.get::<_, String>(0))?
@@ -188,19 +290,26 @@ impl Store {
         let mut db = self.0.lock().unwrap();
         let tx = db.transaction()?;
         access(&tx, user, workspace, chat)?;
-        let existing: Option<(String, String, String, Option<String>)> = tx
+        let existing: Option<(String, String, String, Option<String>, Option<String>)> = tx
             .query_row(
-                "SELECT chat,author,content,target FROM chat_messages WHERE id=?1",
+                "SELECT chat,author,content,target,thread FROM chat_messages WHERE id=?1",
                 [&input.id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
             .optional()?;
-        if let Some((c, a, text, target)) = existing {
+        if let Some((c, a, text, target, thread)) = existing {
             ensure!(
-                c == chat && a == user.id && text == input.content && target == input.agent,
+                c == chat
+                    && a == user.id
+                    && text == input.content
+                    && target == input.agent
+                    && thread == input.thread,
                 "Message ID already used"
             );
             return Ok(None);
+        }
+        if let Some(thread) = &input.thread {
+            ensure!(tx.query_row("SELECT EXISTS(SELECT 1 FROM chat_messages WHERE id=?1 AND chat=?2 AND thread IS NULL)", params![thread,chat], |r| r.get::<_,bool>(0))?, "Thread is not in this conversation");
         }
         if input.agent.is_some() {
             let pending: i64 = tx.query_row("SELECT count(*) FROM chat_messages m JOIN chats c ON c.id=m.chat WHERE c.workspace=?1 AND m.kind='agent' AND m.state='queued'", [workspace], |r| r.get(0))?;
@@ -224,20 +333,26 @@ impl Store {
             );
         }
         tx.execute(
-            "INSERT INTO chat_messages VALUES(?1,?2,?3,'user',?4,'sent',?5,?6,NULL)",
-            params![input.id, chat, user.id, input.content, now(), input.agent],
+            "INSERT INTO chat_messages(id,chat,author,kind,content,state,at,target,requester,thread) VALUES(?1,?2,?3,'user',?4,'sent',?5,?6,NULL,?7)",
+            params![input.id, chat, user.id, input.content, now(), input.agent, input.thread],
         )?;
         let job = if let Some(agent) = &input.agent {
             let reply = uuid::Uuid::new_v4().to_string();
-            // The shared transcript is the only source of conversation history.
-            let mut lines=tx.prepare("SELECT kind,content FROM (SELECT rowid,kind,content FROM chat_messages WHERE chat=?1 AND state IN ('sent','complete') ORDER BY rowid DESC LIMIT 30) ORDER BY rowid")?
-                .query_map([chat],|r|Ok(format!("{}: {}",r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+            let kind: String =
+                tx.query_row("SELECT kind FROM chats WHERE id=?1", [chat], |r| r.get(0))?;
+            let thread = input
+                .thread
+                .as_deref()
+                .or_else(|| (kind != "direct").then_some(input.id.as_str()));
+            // Explicit agent requests use only their root and replies, never other threads.
+            let mut lines=tx.prepare("SELECT kind,content FROM (SELECT rowid,kind,content FROM chat_messages WHERE chat=?1 AND (?2 IS NULL OR id=?2 OR thread=?2) AND state IN ('sent','complete') ORDER BY rowid DESC LIMIT 30) ORDER BY rowid")?
+                .query_map(params![chat,thread],|r|Ok(format!("{}: {}",r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }
             tx.execute(
-                "INSERT INTO chat_messages VALUES(?1,?2,?3,'agent','','queued',?4,NULL,?5)",
-                params![reply, chat, agent, now(), user.id],
+                "INSERT INTO chat_messages(id,chat,author,kind,content,state,at,target,requester,thread) VALUES(?1,?2,?3,'agent','','queued',?4,NULL,?5,?6)",
+                params![reply, chat, agent, now(), user.id, thread],
             )?;
             Some(Job {
                 claim: None,

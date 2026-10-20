@@ -27,6 +27,8 @@ fn conversation(
         owner,
         workspace,
         &NewChat {
+            kind: "group".into(),
+            description: String::new(),
             id: uuid::Uuid::new_v4().to_string(),
             name: "Operations".into(),
             users,
@@ -37,6 +39,7 @@ fn conversation(
 }
 fn message(agent: Option<&str>) -> NewMessage {
     NewMessage {
+        thread: None,
         id: uuid::Uuid::new_v4().to_string(),
         content: "Check the shared plan".into(),
         agent: agent.map(str::to_owned),
@@ -128,6 +131,8 @@ fn foreign_workspace_members_cannot_be_added_or_read_conversations() {
     let other = uuid::Uuid::new_v4().to_string();
     db.create(&outsider, "Other", &other).unwrap();
     let invalid = NewChat {
+        kind: "group".into(),
+        description: String::new(),
         id: uuid::Uuid::new_v4().to_string(),
         name: "Bad".into(),
         users: vec![outsider.id.clone()],
@@ -153,4 +158,87 @@ fn restart_keeps_messages_but_does_not_repeat_agent_calls() {
     let messages = reopened.chat_messages(&owner, &w, &chat).unwrap();
     assert_eq!(messages["messages"].as_array().unwrap().len(), 2);
     assert_eq!(messages["messages"][1]["state"], "failed");
+}
+
+#[test]
+fn typed_conversations_validate_members_and_reuse_direct_messages() {
+    let (db, owner, member, outsider, w) = setup();
+    let mut input = NewChat {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "Inventory".into(),
+        kind: "channel".into(),
+        description: "Stock and suppliers".into(),
+        users: vec![owner.id.clone()],
+        agents: vec![],
+    };
+    assert!(db.chat_create(&owner, &w, &input).is_err());
+    input.users = vec![member.id.clone()];
+    let channel = db.chat_create(&owner, &w, &input).unwrap();
+    let list = db.chats(&member, &w).unwrap();
+    assert_eq!(list["chats"][0]["kind"], "channel");
+    assert_eq!(list["chats"][0]["description"], "Stock and suppliers");
+    assert_eq!(list["chats"][0]["users"].as_array().unwrap().len(), 2);
+    assert!(db.chat_messages(&outsider, &w, &channel).is_err());
+    input.id = uuid::Uuid::new_v4().to_string();
+    input.kind = "direct".into();
+    let direct = db.chat_create(&owner, &w, &input).unwrap();
+    input.id = uuid::Uuid::new_v4().to_string();
+    input.users = vec![owner.id.clone()];
+    assert_eq!(db.chat_create(&member, &w, &input).unwrap(), direct);
+    assert_ne!(direct, channel);
+    input.agents = vec!["local-agent".into()];
+    assert!(db.chat_create(&member, &w, &input).is_err());
+    input.kind = "public".into();
+    assert!(db.chat_create(&owner, &w, &input).is_err());
+}
+
+#[test]
+fn threads_reject_foreign_roots_and_isolate_agent_context() {
+    let (db, owner, member, _, w) = setup();
+    let chat = conversation(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec!["local-agent".into()],
+    );
+    let other = conversation(&db, &owner, &w, vec![member.id.clone()], vec![]);
+    let mut unrelated = message(None);
+    unrelated.content = "OTHER-THREAD-SECRET".into();
+    db.chat_send(&owner, &w, &chat, &unrelated).unwrap();
+    let root = message(None);
+    db.chat_send(&owner, &w, &chat, &root).unwrap();
+    let mut reply = message(Some("local-agent"));
+    reply.thread = Some(root.id.clone());
+    assert!(db.chat_send(&owner, &w, &other, &reply).is_err());
+    let job = db.chat_send(&owner, &w, &chat, &reply).unwrap().unwrap();
+    assert!(!job.prompt.contains("OTHER-THREAD-SECRET"));
+    assert!(job.prompt.contains(&root.content));
+    assert!(db.chat_send(&owner, &w, &chat, &reply).unwrap().is_none());
+    reply.thread = Some(unrelated.id);
+    assert!(db.chat_send(&owner, &w, &chat, &reply).is_err());
+    let history = db.chat_messages(&owner, &w, &chat).unwrap();
+    assert_eq!(history["messages"][3]["thread"], root.id);
+}
+
+#[test]
+fn recent_thread_replies_keep_their_older_root_visible() {
+    let (db, owner, member, _, w) = setup();
+    let chat = conversation(&db, &owner, &w, vec![member.id.clone()], vec![]);
+    let root = message(None);
+    db.chat_send(&owner, &w, &chat, &root).unwrap();
+    for _ in 0..201 {
+        db.chat_send(&owner, &w, &chat, &message(None)).unwrap();
+    }
+    let mut reply = message(None);
+    reply.thread = Some(root.id.clone());
+    db.chat_send(&owner, &w, &chat, &reply).unwrap();
+    let history = db.chat_messages(&owner, &w, &chat).unwrap();
+    assert!(
+        history["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == root.id)
+    );
 }

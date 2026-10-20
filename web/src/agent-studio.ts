@@ -1,3 +1,4 @@
+import { workspaceId } from './workspace-context';
 import { currentView } from './view-lifetime';
 const paths: Record<string, string> = {
   browser: '<rect x="3" y="4" width="18" height="16" rx="4"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>',
@@ -16,5 +17,17 @@ export function installStudioTools(): void {
   }
   view.querySelector('#agent-details h2')!.textContent = 'Agent settings';
   const identity = view.querySelector<HTMLElement>('.identity')!;
-  view.querySelector('.composer-area')!.append(identity);
+  if (!workspaceId) view.querySelector('.composer-area')!.append(identity);
+  else {
+    const back = view.querySelector<HTMLButtonElement>('#agent-list-toggle')!;
+    back.textContent = '‹ Chats';
+    back.setAttribute('aria-label', 'Back to conversations');
+    const tools = document.createElement('details'); tools.className = 'chat-agent-tools';
+    const summary = document.createElement('summary'); summary.textContent = '•••'; summary.setAttribute('aria-label', 'Agent tools menu'); summary.title = 'Agent tools';
+    const actions = document.createElement('div');
+    for (const id of ['browser', 'files', 'automation', 'details']) actions.append(view.querySelector(`#${id}-button`)!);
+    actions.addEventListener('click', event => { if ((event.target as Element).closest('button')) tools.open = false; });
+    tools.addEventListener('focusout', event => { if (!tools.contains(event.relatedTarget as Node | null)) tools.open = false; });
+    tools.append(summary, actions); view.querySelector('.header')!.append(tools);
+  }
 }

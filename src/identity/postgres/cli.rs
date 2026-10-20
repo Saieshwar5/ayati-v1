@@ -65,10 +65,12 @@ impl PgStore {
             anyhow::anyhow!("Run workspace-db migrate before starting Relay PostgreSQL")
         })?;
         ensure!(
-            applied.len() == 1
+            applied.len() == 2
                 && applied[0].try_get::<String>("", "version")?
-                    == "m20261020_000001_workspace_foundation",
-            "Unsupported workspace schema version"
+                    == "m20261020_000001_workspace_foundation"
+                && applied[1].try_get::<String>("", "version")?
+                    == "m20261020_000002_conversation_kinds",
+            "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())
     }

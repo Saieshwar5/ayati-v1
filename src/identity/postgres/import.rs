@@ -42,7 +42,15 @@ const TABLES: &[Table] = &[
     Table {
         source: "chats",
         target: "relay_chats",
-        columns: &["id", "workspace", "name", "creator"],
+        columns: &[
+            "id",
+            "workspace",
+            "name",
+            "creator",
+            "kind",
+            "description",
+            "direct_key",
+        ],
     },
     Table {
         source: "chat_people",
@@ -73,6 +81,7 @@ const TABLES: &[Table] = &[
             "at",
             "target",
             "requester",
+            "thread",
         ],
     },
     Table {
@@ -104,12 +113,38 @@ impl PgStore {
                 .try_get("", "total")?;
             ensure!(count == 0, "PostgreSQL target is not empty; import refused");
         }
+        let has_chat_kinds = source
+            .prepare("PRAGMA table_info(chats)")?
+            .query_map([], |r| r.get::<_, String>(1))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .iter()
+            .any(|c| c == "kind");
+        let has_threads = source
+            .prepare("PRAGMA table_info(chat_messages)")?
+            .query_map([], |r| r.get::<_, String>(1))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .iter()
+            .any(|c| c == "thread");
         let mut counts = serde_json::Map::new();
         for table in TABLES {
-            let select=match table.source {
-                "chat_people"|"chat_agents"=>format!("SELECT c.workspace,s.* FROM {} s JOIN chats c ON c.id=s.chat ORDER BY s.rowid",table.source),
-                "chat_messages"=>"SELECT s.id,c.workspace,s.chat,s.author,s.kind,s.content,s.state,s.at,s.target,s.requester FROM chat_messages s JOIN chats c ON c.id=s.chat ORDER BY s.rowid".into(),
-                _=>format!("SELECT {} FROM {} ORDER BY rowid",table.columns.join(","),table.source),
+            let select = match table.source {
+                "chats" if !has_chat_kinds => {
+                    "SELECT id,workspace,name,creator,'group','',NULL FROM chats ORDER BY rowid"
+                        .into()
+                }
+                "chat_people" | "chat_agents" => format!(
+                    "SELECT c.workspace,s.* FROM {} s JOIN chats c ON c.id=s.chat ORDER BY s.rowid",
+                    table.source
+                ),
+                "chat_messages" => format!(
+                    "SELECT s.id,c.workspace,s.chat,s.author,s.kind,s.content,s.state,s.at,s.target,s.requester,{} FROM chat_messages s JOIN chats c ON c.id=s.chat ORDER BY s.rowid",
+                    if has_threads { "s.thread" } else { "NULL" }
+                ),
+                _ => format!(
+                    "SELECT {} FROM {} ORDER BY rowid",
+                    table.columns.join(","),
+                    table.source
+                ),
             };
             let mut statement = source.prepare(&select)?;
             let mut records = statement.query([])?;

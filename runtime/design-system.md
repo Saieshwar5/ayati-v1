@@ -91,6 +91,13 @@ intent belongs in the composer chrome, never prefilled message prose.
 
 ## App layout refinement — 2026-10-20
 
+The shared workspace content frame now has one continuous thin border and rounded
+corners: 18 px on desktop, 14 px on phones. The existing shell inset leaves a
+small gap along the top, right and bottom edges. Home, Apps, Chat, Agents, Users
+and Settings all use this same frame; the persistent quiet rail stays outside it.
+Chat keeps only its internal directory divider, avoiding a doubled left border.
+Content retains its existing local scrolling and surface colors inside the frame.
+
 Relay uses a quiet navigation rail that blends into the light gray canvas, with
 no enclosing surface, border, rounded capsule or shadow. Spacing separates
 navigation from the white working surfaces. Inactive icons use muted ink; the
