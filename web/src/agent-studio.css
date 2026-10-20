@@ -6,12 +6,12 @@
 [data-page=chat] #details-button { order: 4; }
 #file-count { display: none; }
 [data-page=chat] .conversation { padding-top: 80px; scroll-padding-top: 80px; }
-[data-page=chat] .agents-list { width: 174px; flex: 0 0 174px; padding: 16px 10px; background: color-mix(in srgb, var(--accent) 6%, var(--canvas)); border-right: 1px solid var(--border); }
+[data-page=chat] .agents-list { width: 174px; flex: 0 0 174px; padding: 16px 10px; background: var(--surface); border-right: 0; border-radius: var(--radius); }
 [data-page=chat] .agent-card { min-height: 44px; padding: 7px 9px; gap: 8px; border-radius: 15px; display: flex; align-items: center; position: relative; }
 [data-page=chat] .agent-avatar { width: 29px; height: 29px; flex: 0 0 29px; font-size: 10px; }
 [data-page=chat] .agent-avatar::after { display: none; }
 [data-page=chat] .agent-link { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-[data-page=chat] .agent-card.selected { background: var(--surface); box-shadow: 0 3px 12px var(--shadow); }
+[data-page=chat] .agent-card.selected { background: var(--selection); box-shadow: none; }
 [data-page=chat] .agent-card.selected::before { content: ''; position: absolute; width: 3px; height: 15px; left: 0; border-radius: 4px; background: var(--accent); }
 [data-page=chat] .agent-attention { position: static; min-width: 18px; height: 18px; padding: 2px 5px; font-size: 10px; }
 [data-page=chat] .agent-card[data-state=failed] { flex-wrap: wrap; }
@@ -32,3 +32,10 @@
 @media (max-width: 760px) { [data-page=chat] .chat > .header { right: 10px; top: 10px; } [data-page=chat] .conversation { padding-top: 72px; } }
 [data-page=chat] .agent-avatar { position: relative; left: auto; top: auto; }
 .sent-attachment { display: block; font-size: 12px; margin-top: 12px; color: var(--muted); }
+
+/* White working surfaces sit on the shared light-gray canvas. */
+[data-page=chat] .main { padding: 16px 24px 24px; gap: 16px; }
+[data-page=chat] .chat { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+[data-page=chat] .message.user { background: var(--soft); box-shadow: none; border-radius: 12px; }
+[data-page=chat] .composer { border-radius: 12px; box-shadow: none; }
+@media(max-width:760px) { [data-page=chat] .main { padding: 8px 10px 12px; gap: 10px; } }

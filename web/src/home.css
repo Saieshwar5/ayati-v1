@@ -15,7 +15,7 @@
 .home-attention-surface small { display: block; color: var(--muted); font-size: .75rem; margin-top: 3px; }
 .home-review-link { margin-left: auto; white-space: nowrap; padding: 8px 13px; border-radius: 13px; background: var(--surface); font-size: .8125rem; }
 .home-attention-surface[open] > .home-list { margin-top: 14px; padding: 8px 20px; background: var(--surface); border-radius: 22px; box-shadow: 0 8px 24px var(--shadow); }
-.home-surface { padding: 20px; background: var(--surface); border-radius: 23px; box-shadow: 0 8px 24px var(--shadow); }
+.home-surface { padding: 20px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow); }
 .home-section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .home-section-heading h2 { font-size: .75rem; color: var(--muted); margin: 0; }
 .home-card { padding: 14px 0; min-width: 0; overflow-wrap: anywhere; }
