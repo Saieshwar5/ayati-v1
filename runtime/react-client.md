@@ -71,3 +71,30 @@ and logout failure. Live UI checks are recorded in the implementation commit.
 
 Sources: [incremental adoption](https://react.dev/learn/add-react-to-an-existing-project),
 [effects and cleanup](https://react.dev/reference/react/useEffect).
+
+## Navigation performance — 2026-10-20
+
+A live Apps navigation measured approximately 1,084 ms in authenticated startup,
+followed by a 551 ms Apps request. Startup made `/session` and `/api/context` in
+sequence; both repeated sequential WorkOS session/profile checks. The identity
+gateway also forced all built JavaScript and CSS to download on every navigation.
+
+The session snapshot now includes an `adopted` hint on the explicitly bound
+owner's membership, removing the context request for layout migration. Both live
+WorkOS checks run concurrently on every protected request. This introduces no
+authentication-result cache or relaxation of membership/resource authorization.
+Only successful `/assets/<name>-<eight-character-hash>.js` and `.css` responses
+receive private immutable caching. HTML, API responses and App documents retain
+`no-store`. Changed builds use different asset URLs. Startup shows an accessible
+status in place of an empty root, using the saved theme.
+
+A subsequent live Apps navigation measured 324 ms in authenticated startup and
+322 ms for its Apps request. These are local observations with network-dependent
+provider timing, not latency guarantees. Temporary console timing instrumentation
+was removed. Full document navigation remains until legacy installers have tested
+teardown; this change does not introduce a client router or share identity state
+between workspaces.
+
+Regression coverage verifies concurrent provider checks, fresh revocation/email
+validation, provider failures, cache-policy boundaries, one-request startup and
+owner-only layout migration without overwriting existing layouts.

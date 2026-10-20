@@ -246,3 +246,64 @@ async fn postgres_errors_do_not_expose_database_values() {
         .unwrap();
     assert!(!String::from_utf8_lossy(&bytes).contains("private row value"));
 }
+
+#[tokio::test]
+async fn only_versioned_static_code_can_be_cached() {
+    use axum::http::Method;
+    for path in ["/assets/index-Abcd1234.js", "/assets/home-aBc_12-4.css"] {
+        assert!(cacheable_asset(&Method::GET, path));
+        assert!(cacheable_asset(&Method::HEAD, path));
+        assert!(!cacheable_asset(&Method::POST, path));
+    }
+    for path in [
+        "/index.html",
+        "/assets/index.html",
+        "/assets/app.js",
+        "/assets/file-Abcd1234.json",
+        "/assets/nested/file-Abcd1234.js",
+        "/api/identity/session",
+        "/w/tenant/api/apps/file-Abcd1234.js",
+    ] {
+        assert!(!cacheable_asset(&Method::GET, path));
+    }
+    let app = Arc::new(App {
+        provider: Provider::test_provider(),
+        store: Store::open(Path::new(":memory:")).unwrap().into(),
+        origin: "http://127.0.0.1:8765".into(),
+        pending: Mutex::new(HashMap::new()),
+        runtimes: workspaces::Runtimes::new(
+            std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
+        ),
+    });
+    let routes = Router::new()
+        .route("/assets/entry-Abcd1234.js", get(|| async { "export {}" }))
+        .route("/index.html", get(|| async { "<html></html>" }))
+        .route(
+            "/api/identity/session",
+            get(|| async { "private identity" }),
+        )
+        .layer(middleware::from_fn_with_state(app, guard));
+    for (path, expected) in [
+        (
+            "/assets/entry-Abcd1234.js",
+            "private, max-age=31536000, immutable",
+        ),
+        ("/assets/missing-Abcd1234.js", "no-store"),
+        ("/api/identity/session", "no-store"),
+        ("/index.html", "no-store"),
+    ] {
+        let response = routes
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("host", "127.0.0.1:8765")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.headers()[header::CACHE_CONTROL], expected);
+        assert!(response.headers().contains_key("content-security-policy"));
+    }
+}

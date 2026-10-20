@@ -113,25 +113,9 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
         .ok_or_else(Error::unauthorized)?;
     if !app
         .provider
-        .session_active(&provider, &sid)
+        .identity_valid(&provider, &sid, &user.email)
         .await
         .map_err(Error::unavailable)?
-    {
-        return Err(Error::unauthorized());
-    }
-    let current = app
-        .provider
-        .request(
-            reqwest::Method::GET,
-            &format!("/user_management/users/{provider}"),
-            None,
-        )
-        .await
-        .map_err(Error::unavailable)?;
-    if !(current["email_verified"] == true
-        && current["email"]
-            .as_str()
-            .is_some_and(|email| email.to_lowercase() == user.email))
     {
         return Err(Error::unauthorized());
     }
@@ -270,10 +254,21 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     }
     let guide_document =
         path.starts_with("/w/") && request.uri().query() == Some("agent=local-agent&guide=1");
+    let cache_asset = cacheable_asset(request.method(), path);
     let scoped_api = path.starts_with("/w/") && path.contains("/api/");
     let mut response = next.run(request).await;
+    let response_status = response.status();
     let h = response.headers_mut();
-    h.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    h.insert(
+        header::CACHE_CONTROL,
+        if cache_asset && response_status.is_success() {
+            "private, max-age=31536000, immutable"
+        } else {
+            "no-store"
+        }
+        .parse()
+        .unwrap(),
+    );
     h.insert("referrer-policy", "no-referrer".parse().unwrap());
     h.insert("x-content-type-options", "nosniff".parse().unwrap());
     if scoped_api {
@@ -293,4 +288,28 @@ mod tests;
 fn check(condition: bool, message: &str) -> anyhow::Result<()> {
     anyhow::ensure!(condition, "{message}");
     Ok(())
+}
+
+// Only Vite's content-addressed static code is reusable. Documents, API responses,
+// App files and unsuccessful responses must never inherit this cache policy.
+fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
+    if *method != axum::http::Method::GET && *method != axum::http::Method::HEAD {
+        return false;
+    }
+    let Some(name) = path
+        .strip_prefix("/assets/")
+        .filter(|name| !name.contains('/'))
+    else {
+        return false;
+    };
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    let bytes = stem.as_bytes();
+    matches!(extension, "js" | "css")
+        && bytes.len() > 9
+        && bytes[bytes.len() - 9] == b'-'
+        && bytes[bytes.len() - 8..]
+            .iter()
+            .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
 }

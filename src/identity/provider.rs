@@ -8,6 +8,7 @@ pub struct Provider {
     client: Client,
     key: String,
     pub client_id: String,
+    base_url: String,
 }
 
 impl Provider {
@@ -17,6 +18,7 @@ impl Provider {
             client: Client::new(),
             key: String::new(),
             client_id: "client_test".into(),
+            base_url: "https://api.workos.com".into(),
         }
     }
     pub fn from_env() -> Result<Self> {
@@ -37,13 +39,14 @@ impl Provider {
                 .build()?,
             key,
             client_id,
+            base_url: "https://api.workos.com".into(),
         })
     }
 
     pub async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Value> {
         let mut request = self
             .client
-            .request(method, format!("https://api.workos.com{path}"))
+            .request(method, format!("{}{path}", self.base_url))
             .bearer_auth(&self.key);
         if let Some(body) = body {
             request = request.json(&body);
@@ -80,6 +83,21 @@ impl Provider {
         }
         self.request(Method::POST, "/user_management/authenticate", Some(body))
             .await
+    }
+
+    /// Both checks are required on every request, but neither depends on the other.
+    /// Do not cache this result: provider revocation and email changes must remain live.
+    pub async fn identity_valid(&self, user: &str, session: &str, email: &str) -> Result<bool> {
+        let profile_path = format!("/user_management/users/{user}");
+        let (active, current) = tokio::try_join!(
+            self.session_active(user, session),
+            self.request(Method::GET, &profile_path, None),
+        )?;
+        Ok(active
+            && current["email_verified"] == true
+            && current["email"]
+                .as_str()
+                .is_some_and(|value| value.to_lowercase() == email))
     }
 
     pub async fn session_active(&self, user: &str, session: &str) -> Result<bool> {
@@ -143,3 +161,7 @@ pub fn exchanged_session(value: &Value) -> Result<String> {
     );
     Ok(id.into())
 }
+
+#[cfg(test)]
+#[path = "provider_tests.rs"]
+mod tests;

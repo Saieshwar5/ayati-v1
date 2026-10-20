@@ -28,6 +28,11 @@ async function installLegacy(page: WorkspacePage): Promise<void> {
 }
 
 async function start(): Promise<void> {
+  try {
+    const theme = localStorage.getItem('ayati.theme');
+    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+  } catch { /* System preference is the fallback. */ }
+  flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Relay…</main>));
   if (!await enterWorkspace()) return;
   const params = new URLSearchParams(location.search);
   const requested = params.get('view');
@@ -46,10 +51,6 @@ async function start(): Promise<void> {
   }
   document.documentElement.dataset.page = page;
   if (params.get('guide') === '1' && window.self !== window.top) document.documentElement.classList.add('guide-mode');
-  try {
-    const theme = localStorage.getItem('ayati.theme');
-    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-  } catch { /* System preference is the fallback. */ }
   if (page === 'people') document.title = 'Users · Relay';
   flushSync(() => root.render(<StrictMode><WorkspaceShell page={page}>
     {page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded /> : <LegacySurface />}
