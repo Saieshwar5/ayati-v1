@@ -87,11 +87,4 @@ a { color: var(--accent); }
 }
 .workspace-help { align-self: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--soft); color: var(--muted); cursor: pointer; }
 .workspace-help:hover { color: var(--text); background: var(--selection); }
-.workspace-context-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 24px; background: var(--canvas); border-bottom: 0; font-size: 12px; }
-.workspace-picker { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-.workspace-picker select { max-width: 220px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px; }
-.workspace-context-bar a { text-decoration: none; overflow-wrap: anywhere; }
-.workspace-context-bar a:nth-last-of-type(1) { margin-left: auto; }
-.workspace-role { color: var(--muted); }
 .workspace-body > .access-preview { min-height: 0; }
-@media (max-width: 700px) { .workspace-context-bar { padding: 10px; gap: 10px; } .workspace-context-bar a:nth-last-of-type(1) { margin-left: 0; } }
