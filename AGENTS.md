@@ -57,6 +57,97 @@ These instructions apply to the entire Ayati project. Read more specific
 - Reuse existing behavior before duplicating it. Extract shared code when there
   is a concrete shared responsibility, not merely similar-looking lines.
 
+## Build the React client efficiently
+
+### Structure and migration
+
+- Use React with TypeScript and the existing Vite setup for new client UI.
+  Read [the migration boundary](runtime/react-client.md) and
+  [the design system](runtime/design-system.md) before changing a screen.
+- Migrate complete feature slices: components, state, requests and behavior checks.
+  Preserve existing Home panels, Apps, chat tools and API contracts. Remove a
+  replaced DOM implementation once its React replacement is verified.
+- Keep feature components, hooks, types and tests easy to find together. Share
+  established controls and request behavior; avoid a giant page component,
+  catch-all hooks file or premature generic component framework. Write readable
+  JSX rather than compressing complex markup to satisfy the file-length limit.
+- React owns the DOM inside converted screens. Use refs for focus, scrolling,
+  canvas and external integrations; avoid manually replacing React-owned markup.
+  Keep legacy installers inside the documented compatibility subtree, initialized
+  once outside React effects.
+- Keep full document navigation until affected legacy features have explicit
+  teardown. Introduce client-side routing only with tested cleanup and identity
+  isolation; adding React alone does not make legacy screens safe to remount.
+
+### State and server requests
+
+- Keep temporary state local: search text, open dialogs, selected tabs and form
+  drafts. Lift it only to the nearest common owner. Use reducers for coupled state
+  transitions and narrowly scoped context for genuinely shared values; avoid one
+  global context that rerenders the whole workspace on each keystroke or message.
+- Separate server data, UI state and editable drafts. Derive filtered lists,
+  counts and other computed values during rendering instead of duplicating them
+  in state or synchronizing them with effects. Use stable record IDs as list keys.
+- Reuse typed API/request boundaries. Fetch independent data concurrently, avoid
+  duplicate polling and request waterfalls, and cancel or ignore stale reads.
+  A response for an old user, workspace, resource or component must not replace
+  the current view. Include those identities in any server-cache keys.
+- Initiate mutations from explicit user actions, never rendering or mount effects.
+  Guard duplicate submissions synchronously and show pending, success and failure
+  states. Preserve failed form drafts. Reuse an idempotency key only for its exact
+  payload; do not automatically retry uncertain writes without a server contract.
+- Treat client permission checks as presentation. The backend must authorize
+  every operation. Keep provider secrets out of client code and environment
+  variables; use the existing HttpOnly session cookie rather than storing session
+  tokens in JavaScript-readable storage. Handle denied/revoked access by clearing
+  affected views. Discard identity-bound caches and subscriptions when switching
+  accounts/workspaces, and scope persisted drafts by user/workspace.
+- Start with existing hooks. When shared caching, deduplication or invalidation
+  becomes substantial, evaluate a maintained query library rather than building
+  a bespoke cache. Add state, form, routing or UI libraries for demonstrated needs,
+  checking accessibility, compatibility and dependency cost before adoption.
+
+### Effects and performance
+
+- Keep rendering pure. Effects synchronize external systems, such as streams,
+  timers and browser listeners; they are not a default mechanism for computing
+  state or handling a button click. Declare their real dependencies.
+- Every subscription, listener and timer needs cleanup. Abort or invalidate
+  outstanding reads on teardown and identity changes. Keep Strict Mode enabled
+  for converted components and fix duplicate effects instead of masking them
+  with run-once flags. Apply the same ownership rules to portals and dialogs.
+- Isolate frequent chat/stream updates to the affected feature. Preserve input
+  focus, drafts and reading position when data refreshes; avoid remounting a whole
+  screen or rewriting a transcript for each incoming token.
+- Load feature screens and heavy tools on demand when it reduces startup work.
+  Bound large datasets with server pagination or measured list virtualization;
+  do not download/render an entire business history to show its latest entries.
+- Measure an actual slow interaction with React Profiler and browser network/
+  performance tools before optimizing. Use memoization for measured expensive
+  work or required stable identities, not blanket `memo`, `useMemo` or
+  `useCallback`. Check production bundle changes when adding substantial UI.
+
+### Interaction and verification
+
+- Reuse semantic controls, shared CSS tokens and established components. Support
+  keyboard interaction, visible focus, accessible names, modal focus restoration,
+  loading/empty/error states and the existing light/dark themes.
+- Preserve the app layout: quiet rail, bounded work areas and intentional local
+  scrolling. Check narrow and short windows, long labels and useful touch targets;
+  avoid long page-sized forms and competing nested scroll regions.
+- Test user-visible behavior and important request boundaries. Cover role denial,
+  double submission, failed saves, stale responses, unmount cleanup and identity
+  changes where relevant. Use accessible roles/labels and React `act`; do not
+  replace behavior tests with snapshots of component structure.
+- Use the existing web check/build/test commands for implementation changes, then
+  focused live browser checks for the changed journey. Browser-test type checking
+  does not execute browser tests. Documentation-only changes need appropriate
+  diff/link checks rather than rerunning unrelated application suites.
+
+Follow React's guidance on [state structure](https://react.dev/learn/choosing-the-state-structure),
+[effects](https://react.dev/learn/you-might-not-need-an-effect) and
+[effect cleanup](https://react.dev/learn/synchronizing-with-effects).
+
 ## Test according to risk
 
 - Verify changed behavior using the checks appropriate to the project, such as

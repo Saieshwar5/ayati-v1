@@ -1,7 +1,7 @@
 # Ayati
 
 Ayati is becoming a local-first business agent workspace powered by Goose, with
-Rust control services and a small TypeScript web app. The owner can create
+Rust control services and a TypeScript web app undergoing a [staged React migration](runtime/react-client.md). The owner can create
 independent agents through the UI, each running inside its own real QEMU/KVM
 Linux VM with streaming chat, saved sessions, Stop and exact tool approvals. An optional protected browser now adds
 shared viewing, owner takeover and saved login profiles inside that VM.
