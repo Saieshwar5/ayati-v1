@@ -11,7 +11,7 @@ export async function installAgentManager(): Promise<void> {
   const { api, post } = view;
   const root = view.querySelector<HTMLDivElement>('#app')!;
   document.title = 'Agents · Relay';
-  root.innerHTML = `<main class="desk-page" aria-label="Agents"><header class="desk-toolbar"><div class="desk-title"><h1>Agents</h1><p>Your team’s agents. Their conversations live in Chat.</p></div></header><p class="ui-status" role="status"></p><div class="desk-content"><div class="manager-list ui-surface"></div></div></main>`;
+  root.innerHTML = `<main class="desk-page" aria-label="Agents"><header class="desk-toolbar"><div class="desk-title"><h1>Agents</h1><p>Your team’s agents. Their conversations live in Chat.</p></div></header><p class="ui-status" role="status"></p><div class="desk-content"><div class="manager-list ui-directory"></div></div></main>`;
   const toolbar = root.querySelector<HTMLElement>('.desk-toolbar')!;
   const list = root.querySelector<HTMLElement>('.manager-list')!;
   const status = root.querySelector<HTMLElement>('[role=status]')!;

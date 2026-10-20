@@ -91,6 +91,14 @@ intent belongs in the composer chrome, never prefilled message prose.
 
 ## App layout refinement — 2026-10-20
 
+The content frame uses the shared surface token (white in light mode), while the
+outside canvas and quiet rail remain grey. Home retains bordered panels and a
+subtly tinted clock. Apps retains individually bordered tiles. Agents and Users
+use flat directory rows with separators and hover/focus highlights; their existing
+configuration and access drawers remain unchanged. Settings uses spacing and
+dividers instead of an extra enclosing card. Search fields use the soft token,
+and the same hierarchy follows the existing dark palette.
+
 The shared workspace content frame now has one continuous thin border and rounded
 corners: 18 px on desktop, 14 px on phones. The existing shell inset leaves a
 small gap along the top, right and bottom edges. Home, Apps, Chat, Agents, Users
