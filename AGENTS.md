@@ -132,9 +132,15 @@ These instructions apply to the entire Ayati project. Read more specific
 - Reuse semantic controls, shared CSS tokens and established components. Support
   keyboard interaction, visible focus, accessible names, modal focus restoration,
   loading/empty/error states and the existing light/dark themes.
-- Preserve the app layout: quiet rail, bounded work areas and intentional local
-  scrolling. Check narrow and short windows, long labels and useful touch targets;
-  avoid long page-sized forms and competing nested scroll regions.
+- Follow `runtime/design-system.md` as the current visual source of truth; older
+  Floating Canvas prototypes are historical. Keep the grey quiet rail outside one
+  rounded workspace frame and use the shared surface token inside every page.
+  Chat's list and conversation share that surface. Use bordered Home panels/App
+  tiles, flat Agents/Users rows, and spacing/dividers for Settings. Keep workspace
+  switching and sign-out in the account menu; conversations belong in Chat.
+- Preserve bounded work areas and intentional local scrolling. Check narrow and
+  short windows, long labels and useful touch targets; avoid long page-sized forms
+  and competing nested scroll regions. Keep existing theme tokens and features.
 - Test user-visible behavior and important request boundaries. Cover role denial,
   double submission, failed saves, stale responses, unmount cleanup and identity
   changes where relevant. Use accessible roles/labels and React `act`; do not
