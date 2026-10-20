@@ -6,7 +6,6 @@ import { renderPanel, type PanelDefinition } from './panel-renderer';
 import { installPanelRequest } from './panel-request';
 import './home-panels.css';
 import { chooseAgent, conversationUrl } from './agent-request';
-import { openGuide } from './guide';
 import { arrangement, loadLayout, panelTemplate } from './panel-layout';
 import { businessDate } from './home-clock';
 
@@ -15,7 +14,7 @@ type Panel = { id: string; agent_id: string; revision: number; active_revision: 
 export function installHomePanels(container: HTMLElement): void {
   const view = currentView();
   const { api, post } = view;
-  container.innerHTML = `<div class="home-section-heading"><h2>Your everyday view</h2><div class="panel-heading-actions"><button class="text-button" data-arrange>Arrange</button><button class="text-button" data-request-panel>＋ Add panel</button></div></div>
+  container.innerHTML = `<div class="home-section-heading"><h2>Your panels</h2><div data-home-actions></div><div class="panel-heading-actions"><button class="text-button" data-arrange hidden>Done</button><button class="text-button" data-request-panel hidden>＋ Add panel</button></div></div>
     <p data-panel-status role="status"></p><div class="home-panels" data-panel-list></div><div data-panel-request hidden></div>`;
   const status = container.querySelector<HTMLElement>('[data-panel-status]')!;
   const list = container.querySelector<HTMLElement>('[data-panel-list]')!;
@@ -25,7 +24,7 @@ export function installHomePanels(container: HTMLElement): void {
   let current: Panel[] = [];
   const layout = loadLayout();
   container.querySelector<HTMLButtonElement>('[data-arrange]')!.onclick = event => {
-    arranging = !arranging; list.classList.toggle('is-arranging', arranging); (event.currentTarget as HTMLElement).setAttribute('aria-pressed', String(arranging)); (event.currentTarget as HTMLElement).textContent = arranging ? 'Done arranging' : 'Arrange'; draw(current);
+    arranging = !arranging; list.classList.toggle('is-arranging', arranging); (event.currentTarget as HTMLElement).setAttribute('aria-pressed', String(arranging)); (event.currentTarget as HTMLElement).hidden = !arranging; draw(current);
   };
   async function act(action: () => Promise<unknown>): Promise<void> {
     if (busy) return; busy = true;
@@ -46,13 +45,10 @@ export function installHomePanels(container: HTMLElement): void {
     }
     if (!panels.length) {
       const welcome = element('div', 'home-welcome');
-      welcome.append(element('span', 'welcome-mark', '✧'), element('h3', '', 'What would you like help keeping track of?'), element('p', '', 'Ask an agent to make a useful view for your day.'));
-      const suggestions = element('div', 'welcome-suggestions');
-      for (const label of ['Orders', 'Stock', 'Appointments']) {
-        const button = element('button', 'files-button', label); button.onclick = () => chooseAgent('panel', label.toLowerCase()); suggestions.append(button);
-      }
-      const guide = element('button', 'text-button', 'Ask Relay'); guide.onclick = openGuide;
-      welcome.append(suggestions, guide); list.append(welcome);
+      welcome.append(element('h3', '', 'A home for what matters.'), element('p', '', 'Keep the information you use every day close by.'));
+      const add = element('button', 'ui-button primary', 'Add your first panel');
+      add.onclick = () => chooseAgent('panel');
+      welcome.append(add); list.append(welcome);
     }
     const ordered = [...panels].sort((a, b) => {
       const rank = (id: string): number => { const index = layout.order.indexOf(id); return index < 0 ? 10000 : index; };
@@ -95,7 +91,7 @@ export function installHomePanels(container: HTMLElement): void {
     }
   }
   async function refresh(): Promise<void> {
-    if (loading || busy || document.hidden) return; loading = true;
+    if (loading || busy || !view.active) return; loading = true;
     try {
       const data = await api<{ panels: Panel[]; available: boolean }>('/panels');
       const next = JSON.stringify(data.panels); if (next !== fingerprint) { fingerprint = next; draw(data.panels); }
@@ -105,5 +101,5 @@ export function installHomePanels(container: HTMLElement): void {
     finally { loading = false; }
   }
   view.onWindow('business-clock-changed', () => draw(current));
-  view.interval(() => { void refresh(); }, 4000); view.onWindow('focus', () => { void refresh(); }); void refresh();
+  view.interval(() => { if (!document.hidden) void refresh(); }, 4000); view.onWindow('focus', () => { void refresh(); }); void refresh();
 }

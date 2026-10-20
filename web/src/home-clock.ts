@@ -25,8 +25,13 @@ export function installHomeClock(time: HTMLElement): void {
   const button = element('button', 'text-button home-location', 'Choose location');
   time.after(button); button.disabled = !canManageResources();
   const draw = (): void => {
-    time.textContent = new Date().toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: clock.timezone, hour12: clock.hour12 });
-    button.textContent = `${clock.location} ⌄`;
+    const now = new Date();
+    const value = element('span', 'business-clock-value', now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone: clock.timezone, hour12: clock.hour12 }));
+    const date = element('span', 'business-clock-date', now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: clock.timezone }));
+    time.setAttribute('datetime', now.toISOString());
+    time.replaceChildren(value, date);
+    button.textContent = `${clock.location} · ${clock.timezone.replaceAll('_', ' ')}${canManageResources() ? ' ✎' : ''}`;
+    button.setAttribute('aria-label', `Business location: ${clock.location}, ${clock.timezone}${canManageResources() ? '. Edit location' : ''}`);
   };
   draw(); view.interval(draw, 30000);
   void loadBusinessClock().then(draw).catch(() => { button.textContent = 'Set business location'; });

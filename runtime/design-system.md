@@ -124,3 +124,38 @@ This refinement supersedes the earlier placement of release controls inside App
 cards and the earlier combined settings layout. It does not redesign generated
 App contents or change authentication, resource isolation, approval or execution
 policy. The original private chat tools remain available through Chat.
+
+## Calm Home — 2026-10-20
+
+The approved Home prototype replaces the permanent agent presence row with a
+panel-first layout. Home has one compact date/action row without a repeated Home
+heading or tagline, a quiet business clock,
+white bordered panels on the gray canvas, and a short first-panel empty state.
+People and agent directories stay in their dedicated sections. No example
+business metrics are inserted into real workspaces.
+
+Add panel retains the existing agent chooser and unsent conversation intent.
+Customize reveals arrangement controls; Done returns to the reading view.
+Two panel columns use the existing saved order and wide-panel preferences.
+Only permissions and failed/interrupted outcomes appear in the attention strip.
+Completed outcomes remain reviewable through Recent activity, which also retains
+active-work stop controls and request history. Panel revision review, grants,
+maintenance, removal and saved snapshots retain their existing contracts.
+
+The new toolbar is React-owned. Panels, clock and attention/history remain
+explicitly isolated compatibility controllers with their existing lifecycle.
+This is a Home design refinement, not completion of the React migration.
+
+## Standard Home panels — 2026-10-20
+
+A permanent Business clock and Notifications row precedes custom panels. The
+clock uses the saved business timezone and existing owner-only location editor.
+The two standard panels cannot be removed, resized or reordered by Customize;
+custom panels retain their own saved order and controls below this row.
+
+Notifications is a React preview of the existing scoped agent attention data,
+prioritizing approvals, then problems, then results, with at most three rows.
+View all opens the existing categorized inbox; opening it does not approve work
+or mark results reviewed. The count means pending requests/outcomes, not unread
+messages. Empty and connection-failure states remain visible. User mentions and
+chat notifications still require a separate backend source and are not fabricated.
