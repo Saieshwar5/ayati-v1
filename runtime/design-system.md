@@ -90,10 +90,13 @@ intent belongs in the composer chrome, never prefilled message prose.
 
 ## App layout refinement — 2026-10-20
 
-Relay uses a white navigation dock inset from the light gray canvas. A visible
-12–16 px gap separates navigation from the working area. The selected feature
-uses graphite contrast; workspace identity remains inside the bottom account
-menu. The dock keeps the existing Home, Apps, Chat, Agents, Users and Settings.
+Relay uses a quiet navigation rail that blends into the light gray canvas, with
+no enclosing surface, border, rounded capsule or shadow. Spacing separates
+navigation from the white working surfaces. Inactive icons use muted ink; the
+selected feature uses a graphite tile. Workspace identity remains inside the
+bottom account menu. The rail keeps Home, Apps, Chat, Agents, Users and Settings.
+This replaces the earlier floating white dock with the owner's selected quiet
+rail design; dark mode uses the corresponding canvas and contrast tokens.
 
 Management pages use a compact title/action toolbar and a bounded content area.
 Users opens a searchable member list; invitations are a separate tab and sending

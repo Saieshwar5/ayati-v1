@@ -1,4 +1,4 @@
-/* Floating Canvas: neutral depth, compact chrome and meaningful status colors. */
+/* Quiet canvas: neutral depth, compact chrome and meaningful status colors. */
 :root {
   color-scheme: light;
   --surface: #ffffff; --canvas: #f3f4f5; --raised: #ffffff;
@@ -37,12 +37,12 @@ button, input, textarea, select { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 a { color: var(--accent); }
 .workspace-shell { display: flex; height: 100dvh; padding: 12px; gap: 16px; background: var(--canvas); }
-.workspace-rail { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 7px 10px; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 2px 5px var(--shadow); overflow-y: auto; }
+.workspace-rail { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 8px 10px; gap: 12px; background: transparent; overflow-y: auto; }
 .workspace-rail nav { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.workspace-nav { color: var(--text); min-height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: .6875rem; }
+.workspace-nav { color: var(--muted); min-height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: .6875rem; }
 .workspace-nav span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .workspace-nav svg { width: 19px; height: 19px; }
-.workspace-nav:hover { background: var(--soft); }
+.workspace-nav:hover { background: var(--selection); color: var(--text); }
 .workspace-nav[aria-current] { background: var(--accent); color: var(--on-accent); }
 .nav-settings { margin-top: auto; }
 .workspace-owner { align-self: center; font-size: .6875rem; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 50%; width: 30px; height: 30px; display: grid; place-items: center; }
@@ -68,7 +68,7 @@ a { color: var(--accent); }
 .settings-row select { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--surface); color: var(--text); }
 @media (max-width: 600px) {
   .workspace-shell { padding: 6px; gap: 8px; }
-  .workspace-rail { width: 48px; padding: 10px 2px; border-radius: 14px; gap: 8px; }
+  .workspace-rail { width: 48px; padding: 10px 2px; gap: 8px; }
   .workspace-body { border-radius: 0; border-width: 0 0 0 1px; }
   .workspace-page { padding: 22px 16px; }
   .settings-row { flex-wrap: wrap; gap: 10px; }
