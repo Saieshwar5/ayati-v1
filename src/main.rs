@@ -31,6 +31,7 @@ async fn main() -> Result<()> {
         .init();
     let config = Config::from_env()?;
     match std::env::args().nth(1).as_deref().unwrap_or("serve") {
+        "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
         "serve" | "start" => serve(config).await,
         "status" => {
             let response = reqwest::get(format!("http://127.0.0.1:{}/api/health", config.port))
@@ -66,7 +67,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Ayati — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the isolated WorkOS identity workspace\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }

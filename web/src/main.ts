@@ -4,7 +4,9 @@ import { installWorkspace, type WorkspacePage } from './workspace';
 
 const params = new URLSearchParams(location.search);
 const requested = params.get('view');
-if (requested === 'access-preview') {
+if (requested === 'account') {
+  void import('./account').then(({ installAccount }) => installAccount());
+} else if (requested === 'access-preview') {
   void import('./access-preview').then(({ installAccessPreview }) => installAccessPreview());
 } else {
   const page: WorkspacePage = params.has('agent') ? 'agents'

@@ -1,0 +1,92 @@
+# Local identity and workspace server
+
+Run `cargo run -- identity` after building the client with `cd web && npm run build`.
+Open `http://127.0.0.1:8765/`. This is a separate server mode, not the existing
+`serve` mode. It does not start Goose, VMs or the local-owner API. A process already
+using the port must be stopped separately, or choose another `AYATI_PORT` and
+register its corresponding callback with WorkOS.
+
+## Configuration
+
+Set `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` privately in `.env`.
+`WORK_OS_CLIENT_ID` and `WORK_OS_API_KEY` are accepted aliases. No credentials
+belong in frontend variables or source control.
+
+For the default local port, configure WorkOS development:
+
+- Redirect URI: `http://127.0.0.1:8765/auth/callback`
+- Initiate login URI: `http://127.0.0.1:8765/auth/login`
+- Sign-out URI: `http://127.0.0.1:8765/`
+- Enable the desired sign-in methods in AuthKit.
+
+This mode serves its built client on the same origin as its backend; it does not
+use the Vite origin at port 5173. No browser-to-WorkOS CORS permission is needed.
+Use `127.0.0.1` consistently. `localhost` is intentionally not an alternate host.
+
+## Implemented boundary
+
+Hosted AuthKit performs authentication. Ayati exchanges a code using server-held
+credentials and PKCE, with an expiring, single-use state bound to an HttpOnly
+cookie. Only verified email identities are admitted. Internal users are keyed by
+provider user ID, never automatically merged by email.
+
+The browser receives an opaque HttpOnly SameSite=Lax cookie. Only its hash is saved
+in SQLite. Local sessions last one hour; provider sessions are checked on each
+protected request and revoked on logout. Provider access/refresh tokens are not
+persisted. Provider failures deny access; existing cookies are not automatically
+deleted on transient failure. The client can retry by reloading or sign in again.
+
+SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, workspaces,
+memberships, invitations and audit entries. Directory permissions are 0700.
+Workspace creation and owner membership are transactional and request-idempotent.
+Workspace IDs never confer access. Reads and writes check current membership.
+Members cannot administer people; admins cannot appoint admins or alter owners.
+The owner cannot be removed/demoted in this milestone.
+
+Invitations are application-level WorkOS emails, not WorkOS organization grants.
+After authenticating, a recipient explicitly accepts a pending Ayati workspace
+invitation. Acceptance requires the verified matching email, a confirmed delivery
+response, an unexpired pending invitation, and still-valid inviter authority.
+Ayati membership is authoritative. Cancelling locally prevents acceptance even if
+provider revocation fails. A removed member cannot replay an accepted invitation.
+No workspace is auto-created for invited employees.
+
+Uncertain email delivery is recorded as `delivery_unknown`, grants no access and
+is not automatically retried. Cancel before reissuing. Emails may already have
+been sent even when an API timeout occurs. Cancellation results disclose provider
+revocation failure to the caller without restoring local access.
+
+## Limits before a hosted pilot
+
+This is loopback HTTP only. Production requires HTTPS/Secure cookies, deployment
+hardening, appropriate retention and backup/restore, provider recovery and
+step-up authentication acceptance, operational rate limits, and PostgreSQL
+migration. Login attempts have a bounded in-memory pending-flow map; active
+login flows do not survive server restart.
+
+There is no owner-transfer, workspace deletion, session-list UI, automatic refresh,
+or background email reconciliation yet. Invitation emails are generic application
+invitations; the workspace name and offered role are shown after verified login.
+Recipients on another computer cannot reach this localhost instance.
+
+Existing agents, channels, Apps, files and connections are deliberately not
+mounted in this server. Their resource ownership migration and execution-time
+authorization remain required before enabling them for multiple users.
+The original browser-only preview remains at `?view=access-preview` in the
+regular client and is not used as authentication by this server.
+
+## Validation on 2026-10-20
+
+The configured API key returned HTTP 200 for a read-only WorkOS authentication
+check. The hosted Google login completed through the real callback, and the owner
+created a workspace. Its account, session and workspace survived a server restart.
+The authenticated People screen showed the Owner membership. A user-authorized
+invitation was accepted by WorkOS for sending and appeared as pending locally;
+inbox receipt and second-user acceptance are separate verification steps.
+
+All 27 library tests passed with local socket access; six exercise the identity
+module. Client build/type checking, five client test files, Rust library clippy
+and the source line-limit check passed. Fixture tests cover membership denial,
+invitation cancellation/expiry/replay, inviter authority changes, workspace
+creation idempotency, session removal, PKCE/state binding and request guards.
+These results do not establish production readiness or tenant-safe agent execution.

@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod config;
 pub mod files;
+pub mod identity;
 pub mod model;
 pub mod runtime;
 pub mod server;
