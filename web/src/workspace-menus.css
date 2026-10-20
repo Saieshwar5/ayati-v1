@@ -1,0 +1,16 @@
+.workspace-menu-trigger { align-self:center; width:36px; min-height:36px; padding:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
+.workspace-menu-trigger:hover, .workspace-menu-trigger[aria-expanded=true] { background:var(--selection); }
+.workspace-profile-trigger { display:grid; place-items:center; border:0; background:transparent; width:42px; border-radius:12px; }
+.workspace-profile-avatar { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--border); border-radius:50%; background:var(--surface); }
+.workspace-menu { position:fixed; inset:64px auto auto 66px; margin:0; width:min(300px,calc(100vw - 78px)); max-height:calc(100dvh - 90px); overflow:auto; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
+.workspace-profile { top:auto; bottom:12px; }
+.workspace-menu h2 { padding:8px 10px; margin:0; font-size:14px; }
+.workspace-menu-list { display:grid; gap:4px; max-height:40dvh; overflow:auto; }
+.workspace-menu-action { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:40px; padding:10px; border:0; border-radius:8px; background:transparent; color:var(--text); text-decoration:none; font-size:13px; text-align:left; overflow-wrap:anywhere; }
+.workspace-menu-action:hover, .workspace-menu-action[aria-current] { background:var(--soft); }
+.workspace-menu-action small { color:var(--muted); font-size:11px; flex-shrink:0; }
+.workspace-menu hr { border:0; border-top:1px solid var(--border); margin:8px 0; }
+.workspace-menu-email, .workspace-menu-role, .workspace-menu-status { margin:0; padding:4px 10px; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+.workspace-menu-status:empty { display:none; }
+@media(max-width:600px) { .workspace-menu { left:54px; width:min(300px,calc(100vw - 64px)); } }
+@media(pointer:coarse) { .workspace-menu-trigger, .workspace-menu-action { min-height:44px; } }

@@ -1,4 +1,6 @@
-import { workspaceUrl, workspaceId, currentWorkspace, workspaceSession, identityRequest, canManageResources } from './workspace-context';
+import './workspace-menus.css';
+import { installWorkspaceMenus } from './workspace-menus';
+import { workspaceUrl, workspaceId, canManageResources } from './workspace-context';
 import { brand } from './brand';
 import { element } from './view';
 import { openGuide } from './guide';
@@ -32,24 +34,10 @@ export function installWorkspace(page: WorkspacePage): void {
   const help = element('button', 'workspace-help', '?'); help.setAttribute('aria-label', 'Ask Relay'); help.title = 'Ask Relay'; help.onclick = openGuide; help.hidden = !canManageResources();
   const logo = element('a', 'workspace-brand'); logo.href = workspaceUrl('/'); logo.setAttribute('aria-label', 'Relay home');
   logo.append(brand('', true));
-  rail.append(logo, nav, help, element('span', 'workspace-owner', 'You'));
+  rail.append(logo, nav, help);
+  if (workspaceId) installWorkspaceMenus(rail);
+  else rail.append(element('span', 'workspace-owner', 'You'));
   const body = element('div', 'workspace-body');
-  if (workspaceId) {
-    const bar = element('header', 'workspace-context-bar');
-    const label = element('label', 'workspace-picker', 'Workspace');
-    const select = element('select'); select.setAttribute('aria-label', 'Switch workspace');
-    for (const entry of workspaceSession?.workspaces ?? []) select.append(new Option(entry.name, entry.id, false, entry.id === workspaceId));
-    select.onchange = () => location.assign(`/w/${select.value}/`);
-    label.append(select);
-    const manage = element('a', '', 'Manage workspaces'); manage.href = '/?view=account&choose=1';
-    const account = element('a', '', workspaceSession?.user?.email ?? 'My account'); account.href = workspaceUrl('/?view=account');
-    const logout = element('button', 'text-button', 'Sign out'); logout.onclick = async () => {
-      logout.disabled = true;
-      try { await identityRequest('/logout', {}); location.assign('/?view=account'); }
-      catch { logout.textContent = 'Sign-out failed. Retry'; logout.disabled = false; }
-    };
-    bar.append(label, element('span', 'workspace-role', currentWorkspace()?.role ?? ''), manage, account, logout); body.prepend(bar);
-  }
   app.before(shell); body.append(app); shell.append(rail, body);
   document.documentElement.dataset.page = page;
   try {

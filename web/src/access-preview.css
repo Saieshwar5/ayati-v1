@@ -3,7 +3,7 @@
 .access-demo a { color: inherit; }
 .access-error { margin: 0; padding: 0 24px; color: var(--danger); font-size: 14px; }
 .access-error:not(:empty) { padding: 14px 24px; }
-.access-card { width: min(440px, calc(100% - 32px)); margin: 7vh auto; padding: 34px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); box-shadow: 0 15px 60px var(--shadow); }
+.access-card { width: min(440px, calc(100% - 32px)); margin: 7vh auto; padding: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: 0 15px 60px var(--shadow); }
 .access-preview h1 { font-size: clamp(26px, 4vw, 36px); }
 .access-preview h2 { font-size: 20px; font-weight: 550; margin: 0 0 16px; letter-spacing: -.4px; }
 .access-preview h3 { font-size: 16px; margin-top: 28px; }
@@ -23,7 +23,7 @@
 .access-sidebar nav .access-button { justify-content: flex-start; border: 0; }
 .access-sidebar [aria-current=page] { background: var(--selection); font-weight: 600; }
 .access-content { padding: clamp(24px, 5vw, 64px); width: min(100%, 1000px); min-width: 0; }
-.access-panel { background: var(--surface); border: 1px solid var(--border); padding: 26px; border-radius: 20px; margin: 24px 0; }
+.access-panel { background: var(--surface); border: 1px solid var(--border); padding: 26px; border-radius: var(--radius); margin: 24px 0; }
 .access-panel h2, .access-person strong { overflow-wrap: anywhere; }
 .access-welcome { padding: clamp(24px, 4vw, 44px); }
 .access-welcome > p { line-height: 1.7; max-width: 490px; }
