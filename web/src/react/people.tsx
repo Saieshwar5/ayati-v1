@@ -29,12 +29,12 @@ export function PeoplePage() {
     </header><p className="ui-status" role="status">{mutation.status || error || (!data ? 'Loading your team…' : '')}</p>
     {error && <Button onClick={() => void refresh().catch(() => {})}>Retry</Button>}
     <div className="desk-content"><Tabs sections={[
-      { title: 'Members', content: <div className="ui-surface">{members.map(member => <div className="ui-row" key={member.id}>
+      { title: 'Members', content: <div className="ui-directory">{members.map(member => <div className="ui-row" key={member.id}>
         <span className="ui-avatar" aria-hidden="true">{member.email.slice(0, 2).toUpperCase()}</span>
         <div className="ui-row-title"><strong>{member.email}</strong></div><span className="ui-badge">{member.role}</span>
         <Button aria-label={`View ${member.email}`} data-member={member.id} onClick={() => select(member)}>Details</Button>
       </div>)}{data && !members.length && <p className="ui-empty">{query ? 'No members match your search.' : 'No members to show.'}</p>}</div> },
-      { title: 'Invitations', content: <div className="ui-surface">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
+      { title: 'Invitations', content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
         <div className="ui-row-title"><strong>{invitation.email}</strong><small>{invitation.role}</small></div>
         <span className="ui-badge">{invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
         {data?.role !== 'Member' && <Button disabled={mutation.busy} onClick={() => {

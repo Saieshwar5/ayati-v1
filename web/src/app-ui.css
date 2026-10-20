@@ -10,14 +10,17 @@
 .ui-button.danger { color: var(--danger); }
 .ui-button:disabled { opacity: .5; cursor: not-allowed; }
 .ui-icon { width: 36px; padding: 6px; font-size: 20px; flex: 0 0 auto; }
-.ui-search { width: min(280px, 100%); padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font-size: .8125rem; }
-.desk-page { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 12px 12px 0; gap: 16px; overflow: hidden; }
+.ui-search { width: min(280px, 100%); padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--soft); color: var(--text); font-size: .8125rem; }
+.desk-page { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 20px 24px 0; gap: 16px; overflow: hidden; }
 .desk-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex-shrink: 0; min-height: 50px; }
 .desk-title { flex: 1; min-width: 140px; }
 .desk-title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.5px; }
 .desk-title p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 .desk-content { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 2px 12px; }
 .ui-surface { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.ui-directory { background: var(--surface); border-top: 1px solid var(--border); }
+.ui-directory .ui-row { padding-left: 8px; padding-right: 8px; }
+.ui-directory .ui-row:hover, .ui-directory .ui-row:focus-within { background: var(--soft); }
 .ui-status { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0; overflow-wrap: anywhere; }
 .ui-status:empty { display: none; }
 .ui-empty { color: var(--muted); font-size: 14px; padding: 28px; line-height: 1.6; }
@@ -53,7 +56,7 @@
 .ui-dialog [role=tabpanel] > h3 { font-size: 13px; margin: 22px 0 6px; }
 .ui-dialog [hidden], .desk-page [hidden] { display: none !important; }
 @media(max-width:600px) {
-  .desk-page { padding: 8px 2px 0; gap: 12px; }
+  .desk-page { padding: 14px 12px 0; gap: 12px; }
   .desk-toolbar { gap: 10px; }
   .desk-toolbar .ui-search { order: 3; width: 100%; }
   .ui-row { padding: 14px 12px; flex-wrap: wrap; gap: 10px; }
@@ -63,7 +66,7 @@
   .ui-drawer { margin: 6px; width: calc(100vw - 12px); height: calc(100dvh - 12px); }
 }
 @media(pointer:coarse) { .ui-button, .ui-search, .ui-select { min-height: 44px; } }
-.settings-content .settings-section { max-width: 860px; margin: 0; padding: 24px; border: 1px solid var(--border); }
+.settings-content .settings-section { max-width: 860px; margin: 0; padding: 8px 0 24px; border: 0; border-radius: 0; box-shadow: none; }
 .settings-content .settings-row { padding: 14px 0; align-items: center; }
 .ui-member-email { font-size: 14px; overflow-wrap: anywhere; margin: 0 0 20px; }
 .ui-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }

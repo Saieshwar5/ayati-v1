@@ -1,5 +1,6 @@
 #apps-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 14px; align-items: start; }
 .app-card { min-width: 0; border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: var(--surface); overflow-wrap: anywhere; }
+.app-card:focus-within, .app-card:hover { border-color: var(--muted); }
 .app-card-heading { display: flex; align-items: center; gap: 10px; }
 .app-card h2 { font-weight: 500; font-size: 14px; flex: 1; min-width: 0; }
 .app-mark { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--soft); font-size: 12px; flex-shrink: 0; }
