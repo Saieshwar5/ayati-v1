@@ -113,9 +113,11 @@ pub(super) async fn callback(
         let token = random_token();
         // Rotate an existing browser session instead of leaving the old token usable.
         if let Some(old) = cookie(&headers, SESSION) {
-            app.store.logout(&digest(&old))?;
+            app.store.logout(&digest(&old)).await?;
         }
-        app.store.login(provider, &email, &digest(&token), &sid)?;
+        app.store
+            .login(provider, &email, &digest(&token), &sid)
+            .await?;
         Ok(token)
     }
     .await;
@@ -140,7 +142,7 @@ pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Re
         return Json(json!({"user":null})).into_response();
     }
     match identity(&app, &headers).await {
-        Ok(user) => match app.store.snapshot(&user) {
+        Ok(user) => match app.store.snapshot(&user).await {
             Ok(value) => Json(value).into_response(),
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -155,8 +157,8 @@ pub(super) async fn logout(State(app): State<Shared>, headers: HeaderMap) -> Api
     let mut revoked = true;
     if let Some(token) = cookie(&headers, SESSION) {
         let hash = digest(&token);
-        let session = app.store.session(&hash)?;
-        app.store.logout(&hash)?;
+        let session = app.store.session(&hash).await?;
+        app.store.logout(&hash).await?;
         if let Some((_, _, sid)) = session {
             revoked = app
                 .provider
@@ -188,7 +190,7 @@ pub(super) async fn create(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        json!({"id":app.store.create(&user,&input.name,&input.request_id)?}),
+        json!({"id":app.store.create(&user,&input.name,&input.request_id).await?}),
     ))
 }
 pub(super) async fn people(
@@ -197,7 +199,7 @@ pub(super) async fn people(
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.people(&user, &id)?))
+    Ok(Json(app.store.people(&user, &id).await?))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -215,7 +217,8 @@ pub(super) async fn invite(
     let email = input.email.trim().to_lowercase();
     let id = app
         .store
-        .reserve_invite(&user, &workspace, &email, &input.role)?;
+        .reserve_invite(&user, &workspace, &email, &input.role)
+        .await?;
     // WorkOS sends an application invitation. Ayati owns workspace membership;
     // signing in alone never auto-accepts any of the user's workspace invitations.
     let result = app
@@ -227,7 +230,7 @@ pub(super) async fn invite(
         )
         .await;
     let provider_id = result.as_ref().ok().and_then(|v| v["id"].as_str());
-    app.store.delivered(&id, provider_id)?;
+    app.store.delivered(&id, provider_id).await?;
     check(
         provider_id.is_some(),
         "Email delivery could not be confirmed. No access was granted. Cancel this invitation before trying again.",
@@ -240,7 +243,7 @@ pub(super) async fn accept(
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(json!({"id":app.store.accept(&user,&id)?})))
+    Ok(Json(json!({"id":app.store.accept(&user,&id).await?})))
 }
 pub(super) async fn cancel(
     State(app): State<Shared>,
@@ -248,7 +251,7 @@ pub(super) async fn cancel(
     Path((workspace, id)): Path<(String, String)>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let provider = app.store.cancel(&user, &workspace, &id)?;
+    let provider = app.store.cancel(&user, &workspace, &id).await?;
     let mut revoked = true;
     if let Some(provider) = provider {
         revoked = app
@@ -279,6 +282,7 @@ pub(super) async fn change(
     let user = identity(&app, &headers).await?;
     let _access = app.runtimes.access_gate.write().await;
     app.store
-        .change(&user, &workspace, &target, input.role.as_deref())?;
+        .change(&user, &workspace, &target, input.role.as_deref())
+        .await?;
     Ok(Json(json!({"ok":true})))
 }

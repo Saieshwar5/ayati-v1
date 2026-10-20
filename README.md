@@ -361,3 +361,5 @@ can add panels without a second activation step. Installed VMs need the current
 guest workspace tools for the new optional publishing fields; older guests retain
 the existing preview/review path. See the specification for update and schedule
 permissions, browser-local layout preferences and verification limits.
+
+Local PostgreSQL workspace storage and migration: [setup and verification](runtime/postgres-workspaces.md).

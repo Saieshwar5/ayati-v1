@@ -36,7 +36,7 @@ protected request and revoked on logout. Provider access/refresh tokens are not
 persisted. Provider failures deny access; existing cookies are not automatically
 deleted on transient failure. The client can retry by reloading or sign in again.
 
-SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, workspaces,
+By default SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, workspaces,
 memberships, invitations and audit entries. Directory permissions are 0700.
 Workspace creation and owner membership are transactional and request-idempotent.
 Workspace IDs never confer access. Reads and writes check current membership.
@@ -88,3 +88,10 @@ and the source line-limit check passed. Fixture tests cover membership denial,
 invitation cancellation/expiry/replay, inviter authority changes, workspace
 creation idempotency, session removal, PKCE/state binding and request guards.
 These results do not establish production readiness or tenant-safe agent execution.
+
+## PostgreSQL local backend
+
+The existing client can now use PostgreSQL for identity, memberships, shared chat,
+resource grants and durable shared-reply jobs. See [local PostgreSQL setup and
+migration](postgres-workspaces.md). Private agent and App stores remain SQLite;
+this does not establish cloud readiness.

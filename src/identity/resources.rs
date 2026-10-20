@@ -2,7 +2,7 @@
 use super::*;
 use anyhow::ensure;
 use axum::{Json, extract::Path as RoutePath, http::Method};
-use rusqlite::params;
+
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -10,26 +10,6 @@ pub(super) fn schema(db: &rusqlite::Connection) -> Result<()> {
     db.execute_batch("CREATE TABLE IF NOT EXISTS resource_grants(workspace TEXT,user TEXT,kind TEXT,resource TEXT,access TEXT,PRIMARY KEY(workspace,user,kind,resource));
         CREATE TABLE IF NOT EXISTS member_app_sessions(workspace TEXT,user TEXT,app TEXT,hash TEXT,document TEXT,expires INTEGER,PRIMARY KEY(hash));")?;
     Ok(())
-}
-fn allowed(
-    app: &App,
-    user: &User,
-    workspace: &str,
-    kind: &str,
-    id: &str,
-) -> Result<Option<String>> {
-    use rusqlite::OptionalExtension;
-    let db = app.store.0.lock().unwrap();
-    store::role(&db, workspace, &user.id)?;
-    Ok(db.query_row("SELECT access FROM resource_grants WHERE workspace=?1 AND user=?2 AND kind=?3 AND resource=?4",params![workspace,user.id,kind,id],|r|r.get(0)).optional()?)
-}
-fn ids(app: &App, user: &User, workspace: &str, kind: &str) -> Result<Vec<String>> {
-    let db = app.store.0.lock().unwrap();
-    store::role(&db, workspace, &user.id)?;
-    Ok(db
-        .prepare("SELECT resource FROM resource_grants WHERE workspace=?1 AND user=?2 AND kind=?3")?
-        .query_map(params![workspace, user.id, kind], |r| r.get(0))?
-        .collect::<rusqlite::Result<_>>()?)
 }
 async fn platform(app: &App, workspace: &str) -> Result<Arc<crate::platform::Platform>> {
     let port = app.origin.rsplit(':').next().unwrap().parse()?;
@@ -67,7 +47,7 @@ async fn member_inner(
     let method = request.method().clone();
     if method == Method::GET && ["/api/apps", "/api/panels"].contains(&path) {
         let kind = if path == "/api/apps" { "app" } else { "panel" };
-        let permitted = ids(app, user, workspace, kind)?;
+        let permitted = app.store.resource_ids(user, workspace, kind).await?;
         if permitted.is_empty() {
             return Ok(Json(if kind == "app" {
                 json!({"apps":[],"available":true})
@@ -93,11 +73,17 @@ async fn member_inner(
     let parts: Vec<_> = path.trim_start_matches('/').split('/').collect();
     if parts.len() >= 4 && parts[0] == "api" && parts[1] == "apps" {
         let id = parts[2];
-        let permission = allowed(app, user, workspace, "app", id)?.context("No app grant")?;
+        let permission = app
+            .store
+            .resource_allowed(user, workspace, "app", id)
+            .await?
+            .context("No app grant")?;
         let p = platform(app, workspace).await?;
         if parts.len() == 5 && parts[3] == "document" && method == Method::GET {
-            let db = app.store.0.lock().unwrap();
-            let bound:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM member_app_sessions WHERE workspace=?1 AND user=?2 AND app=?3 AND document=?4 AND expires>?5)",params![workspace,user.id,id,parts[4],store::now()],|r|r.get(0))?;
+            let bound = app
+                .store
+                .app_session_bound(user, workspace, id, parts[4], true)
+                .await?;
             ensure!(bound, "Document session belongs to another user");
             let mut response = axum::response::Html(p.app_document(id, parts[4])?).into_response();
             response.headers_mut().insert(
@@ -130,22 +116,9 @@ async fn member_inner(
             let document = session["document_id"]
                 .as_str()
                 .context("Missing app document")?;
-            let db = app.store.0.lock().unwrap();
-            db.execute(
-                "DELETE FROM member_app_sessions WHERE expires<=?1",
-                [store::now()],
-            )?;
-            db.execute(
-                "INSERT INTO member_app_sessions VALUES(?1,?2,?3,?4,?5,?6)",
-                params![
-                    workspace,
-                    user.id,
-                    id,
-                    provider::digest(token),
-                    document,
-                    store::now() + 900
-                ],
-            )?;
+            app.store
+                .app_session_save(user, workspace, id, &provider::digest(token), document)
+                .await?;
             return Ok(Json(session).into_response());
         }
         ensure!(
@@ -154,8 +127,10 @@ async fn member_inner(
         );
         let token = token.context("Missing app session")?;
         {
-            let db = app.store.0.lock().unwrap();
-            let bound:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM member_app_sessions WHERE workspace=?1 AND user=?2 AND app=?3 AND hash=?4 AND expires>?5)",params![workspace,user.id,id,provider::digest(&token),store::now()],|r|r.get(0))?;
+            let bound = app
+                .store
+                .app_session_bound(user, workspace, id, &provider::digest(&token), false)
+                .await?;
             ensure!(bound, "App session belongs to another user");
         }
         let command: crate::platform::app_records::RecordCommand = serde_json::from_slice(&bytes)?;
@@ -187,12 +162,11 @@ async fn list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        workspaces::membership(&app, &user, &workspace)? == "Owner",
+        workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can manage resource access",
     )?;
     let p = platform(&app, &workspace).await?;
-    let db = app.store.0.lock().unwrap();
-    let grants=db.prepare("SELECT user,kind,resource,access FROM resource_grants WHERE workspace=?1")?.query_map([&workspace],|r|Ok(json!({"user":r.get::<_,String>(0)?,"kind":r.get::<_,String>(1)?,"resource":r.get::<_,String>(2)?,"access":r.get::<_,String>(3)?})))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let grants = app.store.resource_grants(&user, &workspace).await?;
     Ok(Json(
         json!({"apps":p.published_apps()?,"panels":p.panels(None)?,"grants":grants}),
     ))
@@ -214,7 +188,7 @@ async fn grant(
     let user = identity(&app, &headers).await?;
     let _access = app.runtimes.access_gate.write().await;
     check(
-        workspaces::membership(&app, &user, &workspace)? == "Owner",
+        workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can share resources",
     )?;
     check(
@@ -241,18 +215,16 @@ async fn grant(
         resources.iter().any(|r| r["id"] == input.resource),
         "Resource not available",
     )?;
-    let db = app.store.0.lock().unwrap();
-    store::role(&db, &workspace, &input.user)?;
-    db.execute(
-        "DELETE FROM member_app_sessions WHERE workspace=?1 AND user=?2 AND app=?3",
-        params![workspace, input.user, input.resource],
-    )?;
-    if let Some(access) = input.access {
-        db.execute("INSERT INTO resource_grants VALUES(?1,?2,?3,?4,?5) ON CONFLICT(workspace,user,kind,resource) DO UPDATE SET access=excluded.access",params![workspace,input.user,input.kind,input.resource,access])?;
-    } else {
-        db.execute("DELETE FROM resource_grants WHERE workspace=?1 AND user=?2 AND kind=?3 AND resource=?4",params![workspace,input.user,input.kind,input.resource])?;
-    }
-    db.execute("INSERT INTO audit(actor,workspace,action,target,at) VALUES(?1,?2,'resource_access_changed',?3,?4)",params![user.id,workspace,format!("{}/{}",input.user,input.resource),store::now()])?;
+    app.store
+        .resource_grant(
+            &user,
+            &workspace,
+            &input.user,
+            &input.kind,
+            &input.resource,
+            input.access.as_deref(),
+        )
+        .await?;
     Ok(Json(json!({"ok":true})))
 }
 

@@ -104,7 +104,7 @@ fn sessions_expire_and_logout_removes_access() {
 async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
     let app = Arc::new(App {
         provider: Provider::test_provider(),
-        store: Store::open(Path::new(":memory:")).unwrap(),
+        store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
         runtimes: workspaces::Runtimes::new(
@@ -156,14 +156,14 @@ async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
             .unwrap()
             .contains("login_error")
     );
-    assert!(app.store.session("fake").unwrap().is_none());
+    assert!(app.store.sqlite().session("fake").unwrap().is_none());
 }
 
 #[tokio::test]
 async fn login_is_pkce_bound_and_callback_state_is_single_use() {
     let app = Arc::new(App {
         provider: Provider::test_provider(),
-        store: Store::open(Path::new(":memory:")).unwrap(),
+        store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
         runtimes: workspaces::Runtimes::new(
@@ -234,4 +234,15 @@ fn duplicate_workspace_request_is_safe_and_cross_owner_reuse_is_denied() {
     );
     assert!(db.create(&other, "Business", &id).is_err());
     assert!(db.create(&owner, "Different", &id).is_err());
+}
+
+#[tokio::test]
+async fn postgres_errors_do_not_expose_database_values() {
+    let error = Error::from(sea_orm::DbErr::Custom("private row value".into()));
+    let response = error.into_response();
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let bytes = axum::body::to_bytes(response.into_body(), 10000)
+        .await
+        .unwrap();
+    assert!(!String::from_utf8_lossy(&bytes).contains("private row value"));
 }

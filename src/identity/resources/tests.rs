@@ -1,4 +1,5 @@
 use super::*;
+use rusqlite::params;
 fn setup(root: &Path) -> (Shared, User, User, User, String) {
     let store = Store::open(&root.join("identity.sqlite")).unwrap();
     let owner = store.login("owner", "owner@example.com", "a", "s").unwrap();
@@ -19,7 +20,7 @@ fn setup(root: &Path) -> (Shared, User, User, User, String) {
     }
     let app = Arc::new(App {
         provider: Provider::test_provider(),
-        store,
+        store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
@@ -65,6 +66,7 @@ async fn fixture(app: &Shared, root: &Path, w: &str) -> String {
 }
 fn give(app: &App, w: &str, user: &User, id: &str, access: &str) {
     app.store
+        .sqlite()
         .0
         .lock()
         .unwrap()
@@ -211,7 +213,10 @@ async fn read_only_and_session_ownership_are_enforced_and_revocation_blocks_reus
         .await
         .is_ok()
     );
-    app.store.change(&owner, &w, &member.id, None).unwrap();
+    app.store
+        .sqlite()
+        .change(&owner, &w, &member.id, None)
+        .unwrap();
     assert!(
         member_inner(
             &app,

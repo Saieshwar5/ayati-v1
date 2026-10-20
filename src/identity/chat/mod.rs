@@ -1,5 +1,5 @@
 mod runner;
-mod store;
+pub(crate) mod store;
 #[cfg(test)]
 mod tests;
 use super::*;
@@ -33,39 +33,25 @@ async fn directory(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let role = workspaces::membership(&app, &user, &workspace)?;
+    let _role = workspaces::membership(&app, &user, &workspace).await?;
     let state = app.runtimes.get(&workspace, port(&app)).await?;
     let profiles = state
         .workspace
         .context("Workspace unavailable")?
         .profiles()?;
-    let db = app.store.0.lock().unwrap();
     let mut agents = Vec::new();
     for profile in profiles.into_iter().filter(|p| p.state == "ready") {
-        if store::agent_access(&db, &user.id, &workspace, &profile.id)? {
+        if app
+            .store
+            .agent_access(&user.id, &workspace, &profile.id)
+            .await?
+        {
             agents.push(json!({"id":profile.id,"name":profile.name}));
         }
     }
-    let users = db
-        .prepare(
-            "SELECT u.id,u.email,m.role FROM users u JOIN members m ON m.user=u.id WHERE m.workspace=?1",
-        )?
-        .query_map([&workspace], |r| {
-            Ok(json!({"id":r.get::<_,String>(0)?,"name":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?}))
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    let grants = if role == "Owner" {
-        db.prepare("SELECT user,agent FROM chat_access WHERE workspace=?1")?
-            .query_map([&workspace], |r| {
-                Ok(json!({"user":r.get::<_,String>(0)?,"agent":r.get::<_,String>(1)?}))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?
-    } else {
-        vec![]
-    };
-    Ok(Json(
-        json!({"users":users,"agents":agents,"grants":grants,"role":role}),
-    ))
+    let mut directory = app.store.directory(&user, &workspace).await?;
+    directory["agents"] = json!(agents);
+    Ok(Json(directory))
 }
 fn port(app: &App) -> u16 {
     app.origin
@@ -89,7 +75,7 @@ async fn grant(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        workspaces::membership(&app, &user, &workspace)? == "Owner",
+        workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can share agents",
     )?;
     let state = app.runtimes.get(&workspace, port(&app)).await?;
@@ -98,7 +84,8 @@ async fn grant(
         .context("Workspace unavailable")?
         .agent(&input.agent)?;
     app.store
-        .chat_grant(&user, &workspace, &input.user, &input.agent, input.allowed)?;
+        .chat_grant(&user, &workspace, &input.user, &input.agent, input.allowed)
+        .await?;
     Ok(Json(json!({"ok":true})))
 }
 async fn list(
@@ -107,7 +94,7 @@ async fn list(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.chats(&user, &workspace)?))
+    Ok(Json(app.store.chats(&user, &workspace).await?))
 }
 async fn create(
     State(app): State<Shared>,
@@ -116,7 +103,7 @@ async fn create(
     Json(input): Json<store::NewChat>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    workspaces::membership(&app, &user, &workspace)?;
+    workspaces::membership(&app, &user, &workspace).await?;
     if !input.agents.is_empty() {
         let state = app.runtimes.get(&workspace, port(&app)).await?;
         let registry = state.workspace.context("Workspace unavailable")?;
@@ -125,7 +112,7 @@ async fn create(
         }
     }
     Ok(Json(
-        json!({"id":app.store.chat_create(&user,&workspace,&input)?}),
+        json!({"id":app.store.chat_create(&user,&workspace,&input).await?}),
     ))
 }
 async fn messages(
@@ -134,7 +121,9 @@ async fn messages(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.chat_messages(&user, &workspace, &chat)?))
+    Ok(Json(
+        app.store.chat_messages(&user, &workspace, &chat).await?,
+    ))
 }
 async fn send(
     State(app): State<Shared>,
@@ -144,7 +133,7 @@ async fn send(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
-    app.store.chat_messages(&user, &workspace, &chat)?;
+    app.store.chat_messages(&user, &workspace, &chat).await?;
     if let Some(id) = &input.agent {
         app.runtimes
             .get(&workspace, port(&app))
@@ -153,8 +142,42 @@ async fn send(
             .context("Workspace unavailable")?
             .agent(id)?;
     }
-    if let Some(job) = app.store.chat_send(&user, &workspace, &chat, &input)? {
+    if let Some(job) = app
+        .store
+        .chat_send(&user, &workspace, &chat, &input)
+        .await?
+        && matches!(app.store, super::database::Database::Sqlite(_))
+    {
         tokio::spawn(runner::run(app.clone(), job));
     }
     Ok(Json(json!({"ok":true})))
+}
+
+/// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.
+pub(super) fn start_dispatcher(app: Shared) {
+    if !matches!(app.store, super::database::Database::Postgres(_)) {
+        return;
+    }
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = app.runtimes.stopping.cancelled() => break,
+                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
+            }
+            if app.runtimes.chat_slots.available_permits() == 0 {
+                continue;
+            }
+            if let super::database::Database::Postgres(pg) = &app.store {
+                match pg.claim_job().await {
+                    Ok(Some(job)) => {
+                        tokio::spawn(runner::run(app.clone(), job));
+                    }
+                    Ok(None) => {}
+                    Err(_) => {
+                        tracing::warn!("Shared work database unavailable; dispatch will retry")
+                    }
+                }
+            }
+        }
+    });
 }

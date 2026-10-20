@@ -29,7 +29,7 @@ pub struct NewMessage {
     pub content: String,
     pub agent: Option<String>,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Job {
     pub reply: String,
     pub chat: String,
@@ -37,6 +37,8 @@ pub struct Job {
     pub requester: String,
     pub agent: String,
     pub prompt: String,
+    #[serde(skip)]
+    pub claim: Option<String>,
 }
 fn access(db: &Connection, user: &User, workspace: &str, chat: &str) -> Result<()> {
     role(db, workspace, &user.id)?;
@@ -238,6 +240,7 @@ impl Store {
                 params![reply, chat, agent, now(), user.id],
             )?;
             Some(Job {
+                claim: None,
                 reply,
                 chat: chat.into(),
                 workspace: workspace.into(),

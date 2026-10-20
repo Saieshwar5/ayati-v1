@@ -1,0 +1,149 @@
+//! PostgreSQL identity storage. All access stays behind the existing Relay API.
+mod accounts;
+mod chat;
+pub mod cli;
+mod entities;
+mod import;
+mod jobs;
+pub mod migration;
+mod people;
+mod resources;
+
+use super::store::{User, now};
+use anyhow::{Context, Result, ensure};
+use sea_orm::{
+    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction,
+    QueryResult, Statement, TransactionTrait, Value as SqlValue,
+};
+use serde_json::Value;
+use std::time::Duration;
+
+pub struct PgStore {
+    db: DatabaseConnection,
+}
+impl PgStore {
+    pub async fn connect(url: &str) -> Result<Self> {
+        ensure!(
+            url.starts_with("postgres://") || url.starts_with("postgresql://"),
+            "Use a PostgreSQL database URL"
+        );
+        let mut options = ConnectOptions::new(url);
+        options
+            .max_connections(10)
+            .min_connections(1)
+            .connect_timeout(Duration::from_secs(10))
+            .acquire_timeout(Duration::from_secs(10))
+            .sqlx_logging(false);
+        // Driver errors may contain connection details. Do not propagate them to logs/UI.
+        let db = Database::connect(options)
+            .await
+            .map_err(|_| anyhow::anyhow!("Cannot connect to Relay PostgreSQL"))?;
+        Ok(Self { db })
+    }
+
+    /// Serialize mutations only within a workspace. Independent businesses use other connections.
+    async fn workspace_tx(&self, workspace: &str) -> Result<DatabaseTransaction> {
+        let tx = self.db.begin().await?;
+        query(
+            &tx,
+            "SELECT id FROM relay_workspaces WHERE id=$1 FOR UPDATE",
+            vec![workspace.into()],
+        )
+        .await?
+        .context("Workspace access denied")?;
+        Ok(tx)
+    }
+
+    async fn read_tx(&self, workspace: &str) -> Result<DatabaseTransaction> {
+        let tx = self.db.begin().await?;
+        query(
+            &tx,
+            "SELECT id FROM relay_workspaces WHERE id=$1 FOR SHARE",
+            vec![workspace.into()],
+        )
+        .await?
+        .context("Workspace access denied")?;
+        Ok(tx)
+    }
+
+    pub async fn role(&self, workspace: &str, actor: &str) -> Result<String> {
+        role(&self.db, workspace, actor).await
+    }
+}
+fn statement(sql: &str, values: Vec<SqlValue>) -> Statement {
+    Statement::from_sql_and_values(sea_orm::DbBackend::Postgres, sql, values)
+}
+async fn execute(db: &impl ConnectionTrait, sql: &str, values: Vec<SqlValue>) -> Result<u64> {
+    Ok(db
+        .execute_raw(statement(sql, values))
+        .await?
+        .rows_affected())
+}
+async fn query(
+    db: &impl ConnectionTrait,
+    sql: &str,
+    values: Vec<SqlValue>,
+) -> Result<Option<QueryResult>> {
+    Ok(db.query_one_raw(statement(sql, values)).await?)
+}
+async fn rows(
+    db: &impl ConnectionTrait,
+    sql: &str,
+    values: Vec<SqlValue>,
+) -> Result<Vec<QueryResult>> {
+    Ok(db.query_all_raw(statement(sql, values)).await?)
+}
+async fn json_rows(
+    db: &impl ConnectionTrait,
+    sql: &str,
+    values: Vec<SqlValue>,
+) -> Result<Vec<Value>> {
+    rows(db, sql, values)
+        .await?
+        .into_iter()
+        .map(|r| Ok(r.try_get("", "data")?))
+        .collect()
+}
+async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
+    query(
+        db,
+        "SELECT role FROM relay_members WHERE workspace=$1 AND user_id=$2",
+        vec![workspace.into(), actor.into()],
+    )
+    .await?
+    .context("Workspace access denied")?
+    .try_get("", "role")
+    .map_err(Into::into)
+}
+async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
+    let role = role(db, workspace, actor).await?;
+    ensure!(
+        role == "Owner" || role == "Admin",
+        "Only owners and admins can manage people"
+    );
+    Ok(role)
+}
+async fn audit(
+    db: &impl ConnectionTrait,
+    actor: &str,
+    workspace: Option<&str>,
+    action: &str,
+    target: &str,
+) -> Result<()> {
+    execute(
+        db,
+        "INSERT INTO relay_audit(actor,workspace,action,target,at) VALUES($1,$2,$3,$4,$5)",
+        vec![
+            actor.into(),
+            workspace.into(),
+            action.into(),
+            target.into(),
+            now().into(),
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests;
