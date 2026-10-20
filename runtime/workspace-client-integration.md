@@ -105,7 +105,7 @@ files also passing. Desktop and narrow Chat layout checks were performed.
 
 ## Compact management interface
 
-The detached navigation dock and account menu wrap the same authenticated client.
+The quiet navigation rail and account menu wrap the same authenticated client.
 Users now presents members and invitations as separate lists. Invite person opens
 a dialog; Details opens a single person's Membership, Agents and Apps & panels.
 Only the owner sees resource grants; admins retain member invitation/removal and
@@ -122,3 +122,7 @@ for layout and responsive behavior.
 The web test suite includes isolated Users role/grant/invitation failures and agent
 profile revision conflicts. Those tests simulate writes; routine visual verification
 must not invite real people or change live grants just to exercise the layout.
+
+The [React migration](react-client.md) now owns the shell, account/workspace flows
+and Users screens. Existing Home, Apps and agent tools remain reachable through
+an explicit compatibility subtree while their interfaces are converted in stages.

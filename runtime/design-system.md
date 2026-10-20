@@ -21,8 +21,9 @@ square workspace layouts and the prototype-only status of this direction.
   Do not turn every paragraph or control into a card.
 - Motion explains a state change: short hover elevation and surface transitions.
   No perpetual bobbing of panels; respect reduced motion and keyboard focus.
-- Use shared semantic CSS tokens in `web/src/workspace.css`. Keep native controls,
-  existing TypeScript modules and the system sans-serif; no new UI framework.
+- Use shared semantic CSS tokens in `web/src/workspace.css`, native controls and
+  the system sans-serif. The owner approved React on 2026-10-20; follow the
+  [staged client migration](react-client.md) while preserving existing features.
 
 ## Personal Home — accepted refinement
 
