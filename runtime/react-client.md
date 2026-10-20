@@ -11,7 +11,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/workspace-shell.tsx`: persistent quiet rail and branding.
 - `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
   feature navigation with browser history and native identity/workspace changes.
-- `web/src/react/private-chat.tsx`: persistent agent contacts and scoped conversation switching.
+- `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,
+  threads and creation dialogs; owner-private transcripts retain the legacy bridge.
+- `web/src/react/private-chat.tsx`: no-workspace private-agent fallback.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
@@ -27,7 +29,7 @@ Existing workspace-bound APIs remain authoritative for every access decision.
 
 ## Temporary boundary and remaining conversion
 
-Home/panels, Apps/record frames, agent management, shared/private Chat, Settings,
+Home/panels, Apps/record frames, agent management, private-agent transcripts, Settings,
 connections, schedules, browser/approvals, memory/files and access-preview demo
 still use their existing TypeScript implementations. `LegacyView` reserves an
 empty `#app` subtree for them. React manages the shell but does not reconcile the

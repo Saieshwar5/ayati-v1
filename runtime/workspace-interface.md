@@ -1,3 +1,10 @@
+> **Current layout — 2026-10-20:** Follow the [Relay design system](design-system.md)
+> for appearance, navigation and page hierarchy. The older visual descriptions
+> below are historical where they conflict: Home has permanent clock/notifications
+> and custom panels; Chat owns conversations; Agents manages configuration. The
+> quiet rail stays outside one rounded white/theme frame. Feature contracts and
+> explicitly unimplemented capabilities below are not changed by this UI update.
+
 # Agent Studio update — 2026-10-17
 
 [Agent Studio](agent-studio.md) supersedes the Agents layout described below: a

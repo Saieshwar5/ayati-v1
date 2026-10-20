@@ -1,11 +1,12 @@
 # Agent Studio
 
-Agents uses a separate tinted contact sidebar, compact avatar/name rows and approval
-count badges. The conversation has no masthead. Browser, Automation, Artifacts and
-Settings live in a floating tool dock. One contextual panel opens at a time; desktop
-panels sit beside chat and narrow screens use focus-trapped native dialog sheets.
-The floating composer and per-agent drafts remain in place. Motion respects reduced
-motion preferences. Browser controls retain existing takeover and permission checks.
+Owner-private agent conversations now live inside the persistent
+[Unified Chat](unified-chat.md) shell. Follow the [Relay design system](design-system.md):
+white/theme conversation list and transcript, a thin divider, slim header/composer,
+and Browser, Automation, Artifacts and Settings in the header overflow menu.
+The separate Agents page manages configuration. The old tinted contact sidebar
+and floating tool dock are superseded. One contextual panel opens at a time;
+existing drafts, attachment handling, browser takeover and permissions remain.
 
 Artifacts contains this agent's stored uploads and outputs, with downloads and safe
 plain-text previews. Multiple saved output records with the same name are labeled

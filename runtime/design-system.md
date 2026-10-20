@@ -1,176 +1,140 @@
-# Floating Canvas
+# Relay workspace design system
 
-Accepted by the owner on 2026-10-17 after interactive Home and Agents prototypes.
-This is Ayati's product design direction. It extends the neutral Graphite palette
-with raised surfaces, compact chrome and softer contact rows. It supersedes older
-square workspace layouts and the prototype-only status of this direction.
+Current accepted direction, 2026-10-20. This is the authoritative visual and
+interaction guide for the existing Relay client. It supersedes the older
+Floating Canvas, floating dock, tinted Chat directory and agent-first Home
+layouts. Historical prototypes explain past choices; they are not current rules.
+Feature specifications still govern permissions, persistence and execution.
 
-## Shared language
+## Shared workspace shell
 
-- A quiet gray canvas, opaque light/dark surfaces and graphite primary actions.
-  Small green, amber and violet indicators mean ready, attention and working;
-  always pair them with readable status text.
-- A narrow persistent global rail: Home, Apps, Agents and Settings. No repeated
-  Ayati/workspace/business-name masthead. Page identity belongs in navigation,
-  document titles and accessible landmark labels rather than redundant headings.
-- Use the vertical space for work. Start content near the top; use 12–24 px gaps,
-  comfortable text and a consistent 20 px surface radius. Round contacts and the
-  composer more generously. Avoid giant empty headers or tiny text to force fit.
-- Depth is selective: panels, selected contacts, composer and contextual tools
-  have restrained shadows. Rows inside those surfaces use spacing and dividers.
-  Do not turn every paragraph or control into a card.
-- Motion explains a state change: short hover elevation and surface transitions.
-  No perpetual bobbing of panels; respect reduced motion and keyboard focus.
-- Use shared semantic CSS tokens in `web/src/workspace.css`, native controls and
-  the system sans-serif. The owner approved React on 2026-10-20; follow the
-  [staged client migration](react-client.md) while preserving existing features.
+- Keep the quiet global navigation rail visible across Home, Apps, Chat, Agents,
+  Users and Settings. It sits on the light grey outer canvas, without its own
+  capsule, enclosing border or shadow. The selected feature uses a graphite tile.
+- Put the entire work area inside one continuous thin rounded frame. Keep a small
+  gap from the top, right and bottom edges. Current geometry is a 12 px desktop
+  shell inset and 18 px frame radius; phones use a 6 px inset and 14 px radius.
+- Use the same white surface inside the frame across pages. Grey outside means
+  global navigation; white inside means the current feature. Do not repeat the
+  outer border inside each feature or add floating page containers.
+- Keep workspace switching, account identity and sign-out inside the bottom
+  account menu. Do not restore a permanent email/workspace/sign-out header.
+- Use Relay's existing name and black logo. Ayati remains an internal repository
+  and runtime name; do not replace internal identifiers as a visual cleanup.
 
-## Personal Home — accepted refinement
+## Color, hierarchy and components
 
-The owner approved the [Personal Home experience](personal-home.md) on 2026-10-17.
-It supersedes the earlier agent-card dashboard: saved panels are the main canvas,
-with a compact decision strip, small agent presence row, Ask Ayati drawer and
-progressive history/settings. Use the same soft raised surfaces and plain-language
-conversation-led flows throughout the product. Keep empty states useful, not filled
-with zero metrics. Short charts use restrained violet bars with accessible values.
+Use semantic tokens from `web/src/workspace.css` rather than hard-coded white or
+new parallel palettes. `--canvas` is the outer background; `--surface` is the main
+work area; `--soft` is a subtle inset/search/hover fill; `--selection` marks selected
+items. Dark mode uses the corresponding existing tokens, not literal white.
 
-Add panel and Create app select an existing agent and open an unsent conversation
-starter. Direct chat requests work too. Preserve drafts. A permanent guide stays
-available with ordinary scoped permissions. Panel arrangement persists per browser.
-The linked experience specification defines publishing, review and runtime limits.
+- Establish hierarchy with spacing, type, alignment and thin dividers first.
+- Keep Home panels and app tiles individually bordered. Use flat rows for people
+  and agent directories; do not wrap every entry in a separate rounded card.
+- Keep selection and hover/focus highlights pale grey. Primary actions are dark.
+  Status colors are small and meaningful, always paired with readable text.
+- Use existing shared buttons, search fields, tabs, drawers and native dialogs.
+  Avoid underlined link-like styling for primary actions and bulky inline forms.
+- Keep title/action rows compact. Home needs no repeated Home heading or tagline;
+  management pages can use a concise title, search and one primary action.
+- Use comfortable text sizes and modest padding. Avoid oversized empty headers,
+  decorative shadows, excessive nesting or shrinking text to make a layout fit.
+- Use shadows sparingly for overlays. Hover and keyboard focus should both reveal
+  useful emphasis; essential actions must remain available on touch screens.
 
-## Agents
+## Home
 
-The global rail and agent contacts are separate sidebars. Clicking Agents on the
-rail opens/restores the contact list while keeping the selected chat. Contacts
-show round initials, a name, actual status, recent activity and attention count.
-Use soft, elongated rows; elevate the selected row rather than boxing every row.
-Search and New agent belong to this sidebar, not the global navigation.
+Saved custom panels are the main content. A permanent Business clock and
+Notifications row precedes them. Both standard panels remain outside Customize:
+they cannot be removed, resized or reordered. The business location/timezone uses
+the existing owner editor. The clock has a subtle soft fill; notifications and
+custom panels use white bordered surfaces with clear titles and consistent gaps.
 
-The selected conversation fills the remaining space. Its compact identity/status
-and Browser, Automation and Details actions stay near the top. The opaque rounded
-composer floats above the bottom edge, separated from the transcript by space and
-shadow. The transcript scrolls independently; messages cannot cover the composer.
-Attachments, Send and active-work Stop remain reachable, including short windows.
+Do not restore the agent/user directory, agent presence row, large prompt hero or
+fictional business metrics. Agents and Users have their own management pages.
+A short first-panel empty state and Add panel are sufficient when no panels exist.
+Customize reveals arrangement controls; Done returns to normal reading.
 
-One contextual tool surface opens at a time. Browser can expand and restore the
-conversation. Closing/switching views never returns browser control or resumes
-work: owner handback remains explicit. Retain each agent's draft, history and
-reading position. On narrow screens use a contact drawer and modal work surfaces,
-with native focus containment, Escape and a predictable return to the conversation.
+Notifications previews existing scoped agent attention: approvals, problems and
+results, with at most three rows. View all opens the existing inbox. Counts are
+pending requests/outcomes, not unread messages. User mentions and chat notification
+sources are not implemented by this styling work. Do not fabricate them.
 
-## Apps
+Preserve saved panels, supported templates, review, grants, maintenance, removal,
+Recent activity and active-work Stop. Add panel chooses an existing agent and opens
+an unsent creation flow. Placement remains browser-local where implemented;
+server-synchronized placement in the Home plan is still future work. See
+[Home panels](home-panels.md), [organized Home](organized-home.md), and
+[Home attention](home-attention.md) for the underlying contracts.
 
-Use a searchable directory of floating app surfaces with name, description,
-active/preview state and a clear Open or Preview action. Keep the maintaining
-agent reachable. Place secondary release review, agent access and archive controls
-under Releases and access, beside their app. Do not bury primary launch actions.
+## Chat
 
-Opening an app gives it a large scoped work surface. A draft is labeled Ready to try and previewed before Start using this app;
-activation still applies to the exact reviewed release. Preview and active records
-remain separate. Access is explicitly assigned per agent and collection. Styling
-never implies deployment, granted permissions or a service connection.
+Use one persistent Chat shell for Channels and Direct messages, including people
+and agents. The conversation list and message area share the same surface color,
+with a thin vertical divider. The global rail remains outside the shared frame.
+Selecting a conversation changes only the right pane; keep the list, search and
+workspace navigation mounted. Preserve scoped drafts and reject stale responses.
 
-## Validation and continued work
+The pencil action means New message. The plus beside Channels means Create
+channel. Both need accessible names and clear hover labels. Do not use two
+indistinguishable plus buttons for these different actions.
 
-Build/type checks, existing web tests and isolated browser journeys cover the
-implementation. Check light/dark, 320 px through desktop, short laptop windows,
-keyboard dialogs, long messages, drafts, approval recovery and app records.
-Screenshots and fixture providers establish UI behavior, not live-provider proof.
+Keep channel, person and agent headers slim. Use a compact composer that grows for
+long messages, reserving transcript space above it. Recipient selection is under
+@; typing an @name alone does not dispatch an agent. Private-agent tools remain
+in the header overflow menu. Do not restore the permanent Create panel button
+above the composer; explicit creation-mode links and Home creation still work.
 
-Settings adopts shared tokens and chrome; a dedicated Settings layout redesign is
-outside this increment. Custom panel layouts, generated apps and future screens
-should follow these principles without imposing one fixed business dashboard.
+At phone widths show either the list or selected conversation with a predictable
+Back action. Preserve attachments, approvals, history, streaming and active-work
+Stop where supported. Closing a tool does not hand back browser control or resume
+work. See [Unified Chat](unified-chat.md) for current channel/thread capabilities,
+access boundaries and remaining work; a visual component grants no authority.
 
-## Organized Home refinement
+## Agents and Users
 
-See [Organized Home](organized-home.md) for fixed panel templates, owner-controlled
-placement, the business clock, grouped attention drawer and highlighted creation
-modes. Agent updates refresh content without changing owner layout. Creation
-intent belongs in the composer chrome, never prefilled message prose.
+Agents manages configuration; conversations live in Chat. Use a searchable flat
+list with avatars, names, roles/descriptions and actual status, separated by thin
+lines. Hover and focus-within give a subtle highlight. Manage opens the existing
+configuration drawer with Overview, Capabilities and Advanced sections.
 
-## App layout refinement — 2026-10-20
+Users uses the same directory language. Members and invitations remain separate
+tabs; inviting opens a focused dialog. Details opens the member drawer. Keep
+workspace membership, roles, agent access and App/panel grants distinct. Preserve
+explicit saves, pending states, validation and confirmation for destructive actions.
 
-The content frame uses the shared surface token (white in light mode), while the
-outside canvas and quiet rail remain grey. Home retains bordered panels and a
-subtly tinted clock. Apps retains individually bordered tiles. Agents and Users
-use flat directory rows with separators and hover/focus highlights; their existing
-configuration and access drawers remain unchanged. Settings uses spacing and
-dividers instead of an extra enclosing card. Search fields use the soft token,
-and the same hierarchy follows the existing dark palette.
+## Apps and Settings
 
-The shared workspace content frame now has one continuous thin border and rounded
-corners: 18 px on desktop, 14 px on phones. The existing shell inset leaves a
-small gap along the top, right and bottom edges. Home, Apps, Chat, Agents, Users
-and Settings all use this same frame; the persistent quiet rail stays outside it.
-Chat keeps only its internal directory divider, avoiding a doubled left border.
-Content retains its existing local scrolling and surface colors inside the frame.
+Apps uses bordered launch tiles: icon, name, short description, actual state and
+an obvious Open or Preview action. Use the app identity rather than unrelated card
+colors to distinguish entries. Give tiles subtle hover/focus border emphasis.
+Manage holds release and access controls. Opening an app retains the existing
+large sandboxed surface; preview and active records stay isolated. Activation
+still applies to the exact reviewed release.
 
-Relay uses a quiet navigation rail that blends into the light gray canvas, with
-no enclosing surface, border, rounded capsule or shadow. Spacing separates
-navigation from the white working surfaces. Inactive icons use muted ink; the
-selected feature uses a graphite tile. Workspace identity remains inside the
-bottom account menu. The rail keeps Home, Apps, Chat, Agents, Users and Settings.
-This replaces the earlier floating white dock with the owner's selected quiet
-rail design; dark mode uses the corresponding canvas and contrast tokens.
+Settings shows one category at a time. Group controls with headings, spacing and
+thin separators rather than another enclosing card. Preserve the existing tab
+navigation, connection/setup flows and theme controls.
 
-Management pages use a compact title/action toolbar and a bounded content area.
-Users opens a searchable member list; invitations are a separate tab and sending
-one uses a focused dialog. A member drawer separates membership from agent and
-App/panel grants. Agent management uses a searchable list and a drawer with
-Overview, Capabilities and Advanced tabs. Explicit saves, revision checks and
-confirmation for removal/archive remain in place.
+## Implementation and verification
 
-Apps keeps its existing launcher and sandboxed runtime. Manage opens release and
-agent-record access separately; Open gives the app most of the available window.
-Settings shows one category at a time. Existing custom Home panels keep their
-layout and data, with a more compact empty state and toolbar. At phone widths,
-Chat alternates between conversations and the selected transcript so the composer
-stays in view instead of stacking two tall scroll regions.
+Follow [React client boundaries](react-client.md) and `AGENTS.md`. Refine the
+existing client instead of rebuilding its features. React owns converted screens;
+legacy controllers remain within their documented compatibility subtrees.
 
-Shared buttons, tabs, search fields and native modal dialogs use the existing
-palette, keyboard focus and reduced-motion support. Dialog controls lock while
-saving; errors remain beside the relevant form and failed access changes restore
-the displayed saved value. Tabs support arrow keys, Home and End. Search, selected
-tabs and the member-list position survive saves within the current page. Navigation
-between workspaces still loads a new document to discard old identity-bound state.
+- Keep the shell stable during feature navigation. Workspace/account changes
+  still discard old identity-bound state through full document navigation.
+- Bound work areas to the viewport and use intentional local scrolling. Avoid
+  document-wide horizontal overflow, stacked full-height lists and hidden composers.
+- Check desktop, short windows and narrow screens down to 320 px, long labels,
+  keyboard focus, touch targets, dialogs and theme tokens. Respect reduced motion.
+- Use native semantics, accessible names, visible focus, Escape dismissal and focus
+  restoration. Preserve failed drafts and explicit loading/empty/error states.
+- Run proportionate build/type and behavior checks. Layout checks do not establish
+  live provider behavior, backend completeness or deployment readiness.
 
-This refinement supersedes the earlier placement of release controls inside App
-cards and the earlier combined settings layout. It does not redesign generated
-App contents or change authentication, resource isolation, approval or execution
-policy. The original private chat tools remain available through Chat.
-
-## Calm Home — 2026-10-20
-
-The approved Home prototype replaces the permanent agent presence row with a
-panel-first layout. Home has one compact date/action row without a repeated Home
-heading or tagline, a quiet business clock,
-white bordered panels on the gray canvas, and a short first-panel empty state.
-People and agent directories stay in their dedicated sections. No example
-business metrics are inserted into real workspaces.
-
-Add panel retains the existing agent chooser and unsent conversation intent.
-Customize reveals arrangement controls; Done returns to the reading view.
-Two panel columns use the existing saved order and wide-panel preferences.
-Only permissions and failed/interrupted outcomes appear in the attention strip.
-Completed outcomes remain reviewable through Recent activity, which also retains
-active-work stop controls and request history. Panel revision review, grants,
-maintenance, removal and saved snapshots retain their existing contracts.
-
-The new toolbar is React-owned. Panels, clock and attention/history remain
-explicitly isolated compatibility controllers with their existing lifecycle.
-This is a Home design refinement, not completion of the React migration.
-
-## Standard Home panels — 2026-10-20
-
-A permanent Business clock and Notifications row precedes custom panels. The
-clock uses the saved business timezone and existing owner-only location editor.
-The two standard panels cannot be removed, resized or reordered by Customize;
-custom panels retain their own saved order and controls below this row.
-
-Notifications is a React preview of the existing scoped agent attention data,
-prioritizing approvals, then problems, then results, with at most three rows.
-View all opens the existing categorized inbox; opening it does not approve work
-or mark results reviewed. The count means pending requests/outcomes, not unread
-messages. Empty and connection-failure states remain visible. User mentions and
-chat notifications still require a separate backend source and are not fabricated.
+The latest white-surface implementation passed the production client build, all
+11 client test files, source line limits and light-mode browser checks across Home,
+Apps, Agents, Users and Settings at desktop, 400 px and 320 px widths. Dark-mode
+tokens remain in use; these checks did not include a full dark-mode visual audit.
