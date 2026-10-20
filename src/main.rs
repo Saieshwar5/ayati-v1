@@ -31,6 +31,13 @@ async fn main() -> Result<()> {
         .init();
     let config = Config::from_env()?;
     match std::env::args().nth(1).as_deref().unwrap_or("serve") {
+        "workspace-db" => {
+            ayati::identity::postgres::cli::run(
+                &config.data_dir,
+                &std::env::args().nth(2).unwrap_or_else(|| "check".into()),
+            )
+            .await
+        }
         "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
         "adopt-workspace" => {
             let id = std::env::args()
@@ -79,7 +86,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Relay — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Relay workspaces\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Relay — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Relay workspaces\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }

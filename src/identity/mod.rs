@@ -1,9 +1,12 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 pub mod adoption;
 mod chat;
+mod database;
+pub mod postgres;
 mod provider;
 mod resources;
 mod routes;
+mod sqlite_access;
 pub mod store;
 mod workspaces;
 
@@ -34,7 +37,7 @@ struct Pending {
 }
 struct App {
     provider: Provider,
-    store: Store,
+    store: database::Database,
     origin: String,
     pending: Mutex<HashMap<String, Pending>>,
     runtimes: workspaces::Runtimes,
@@ -63,6 +66,15 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
 }
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
+        if self.0.downcast_ref::<sea_orm::DbErr>().is_some() {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                axum::Json(
+                    serde_json::json!({"error":"Workspace database unavailable. Retry shortly."}),
+                ),
+            )
+                .into_response();
+        }
         (
             self.1,
             axum::Json(serde_json::json!({"error":self.0.to_string()})),
@@ -96,7 +108,8 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
     let token = cookie(headers, SESSION).ok_or_else(Error::unauthorized)?;
     let (user, provider, sid) = app
         .store
-        .session(&digest(&token))?
+        .session(&digest(&token))
+        .await?
         .ok_or_else(Error::unauthorized)?;
     if !app
         .provider
@@ -142,8 +155,31 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let store = Store::open(&data.join("identity.sqlite"))?;
-    let bound = adoption::binding(&store)?;
+    let (store, bound) = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
+        let pg = postgres::PgStore::connect(&url).await?;
+        pg.verify_schema().await?;
+        if data.join("postgres-identity").exists()
+            || adoption::has_identity_data(&data.join("identity.sqlite"))?
+        {
+            pg.verify_import().await?;
+        }
+        let bound = adoption::read_binding(&data.join("identity.sqlite"))?;
+        if let Some((workspace, owner)) = &bound {
+            anyhow::ensure!(
+                pg.role(workspace, owner).await? == "Owner",
+                "PostgreSQL does not contain this installation's owner; import identity first"
+            );
+        }
+        (database::Database::Postgres(pg), bound)
+    } else {
+        anyhow::ensure!(
+            !data.join("postgres-identity").exists(),
+            "Identity was migrated; configure RELAY_DATABASE_URL to avoid stale SQLite data"
+        );
+        let store = Store::open(&data.join("identity.sqlite"))?;
+        let bound = adoption::binding(&store)?;
+        (store.into(), bound)
+    };
     // The bound installation must never be opened simultaneously by the old daemon.
     let _installation_lock = if bound.is_some() {
         Some(adoption::lock(&installation.join("daemon.lock"))?)
@@ -160,6 +196,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         runtimes,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
+    chat::start_dispatcher(app.clone());
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {

@@ -12,6 +12,38 @@ fn schema(db: &rusqlite::Connection) -> Result<()> {
     )?;
     Ok(())
 }
+pub(super) fn read_binding(path: &Path) -> Result<Option<(String, String)>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let db =
+        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let exists: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='installation_binding')",
+        [],
+        |r| r.get(0),
+    )?;
+    if !exists {
+        return Ok(None);
+    }
+    Ok(db
+        .query_row(
+            "SELECT workspace,owner FROM installation_binding WHERE id=1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?)
+}
+
+pub(super) fn has_identity_data(path: &Path) -> Result<bool> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let db =
+        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    Ok(db.query_row("SELECT EXISTS(SELECT 1 FROM users)", [], |r| r.get(0))?)
+}
+
 pub fn has_binding(data: &Path) -> Result<bool> {
     let path = data.join("identity/identity.sqlite");
     if !path.exists() {
@@ -34,6 +66,10 @@ pub fn has_binding(data: &Path) -> Result<bool> {
 
 pub fn release(data: &Path, workspace: &str) -> Result<()> {
     let data = data.canonicalize()?;
+    ensure!(
+        !data.join("identity/postgres-identity").exists(),
+        "Installation ownership changes after PostgreSQL migration require a migration-aware workflow"
+    );
     let _daemon = lock(&data.join("daemon.lock"))?;
     let _identity = lock(&data.join("identity/server.lock"))?;
     let store = Store::open(&data.join("identity/identity.sqlite"))?;
@@ -81,6 +117,10 @@ pub fn adopt(data: &Path, workspace: &str) -> Result<()> {
         "Invalid workspace ID"
     );
     let data = data.canonicalize()?;
+    ensure!(
+        !data.join("identity/postgres-identity").exists(),
+        "Installation ownership changes after PostgreSQL migration require a migration-aware workflow"
+    );
     let _daemon = lock(&data.join("daemon.lock"))?;
     let _identity = lock(&data.join("identity/server.lock"))?;
     let store = Store::open(&data.join("identity/identity.sqlite"))?;

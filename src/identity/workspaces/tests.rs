@@ -15,7 +15,7 @@ fn setup(root: &std::path::Path) -> (Shared, User, User, String, String) {
     store.create(&other, "Second", &second).unwrap();
     let app = Arc::new(App {
         provider: Provider::test_provider(),
-        store,
+        store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
         runtimes: Runtimes::new(root.join("workspaces")),
@@ -79,10 +79,11 @@ async fn cross_workspace_and_member_requests_cannot_inherit_owner_authority() {
     assert!(app.runtimes.states.lock().await.is_empty());
     let invite = app
         .store
+        .sqlite()
         .reserve_invite(&owner, &first, &other.email, "Member")
         .unwrap();
-    app.store.delivered(&invite, Some("sent")).unwrap();
-    app.store.accept(&other, &invite).unwrap();
+    app.store.sqlite().delivered(&invite, Some("sent")).unwrap();
+    app.store.sqlite().accept(&other, &invite).unwrap();
     for route in [
         "messages",
         "permissions/foreign",
@@ -137,7 +138,10 @@ async fn cross_workspace_and_member_requests_cannot_inherit_owner_authority() {
         serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
         json!({"agents":[]})
     );
-    app.store.change(&owner, &first, &other.id, None).unwrap();
+    app.store
+        .sqlite()
+        .change(&owner, &first, &other.id, None)
+        .unwrap();
     assert_eq!(
         dispatch_for(
             app.clone(),
@@ -244,6 +248,7 @@ async fn logout_closes_an_existing_event_stream() {
     let temp = tempfile::tempdir().unwrap();
     let (app, owner, _, first, _) = setup(temp.path());
     app.store
+        .sqlite()
         .login("owner", "owner@example.com", &digest("token"), "session")
         .unwrap();
     let mut headers = axum::http::HeaderMap::new();
@@ -252,7 +257,7 @@ async fn logout_closes_an_existing_event_stream() {
         Result<axum::body::Bytes, std::io::Error>,
     >());
     let response = guarded_stream(app.clone(), owner, first, headers, Response::new(body));
-    app.store.logout(&digest("token")).unwrap();
+    app.store.sqlite().logout(&digest("token")).unwrap();
     let bytes = tokio::time::timeout(
         std::time::Duration::from_secs(2),
         axum::body::to_bytes(response.into_body(), 100),

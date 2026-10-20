@@ -102,9 +102,8 @@ impl Runtimes {
     }
 }
 
-pub(super) fn membership(app: &App, user: &User, id: &str) -> ApiResult<String> {
-    let db = app.store.0.lock().unwrap();
-    store::role(&db, id, &user.id).map_err(|_| {
+pub(super) async fn membership(app: &App, user: &User, id: &str) -> ApiResult<String> {
+    app.store.role(id, &user.id).await.map_err(|_| {
         Error(
             anyhow::anyhow!("Workspace access denied"),
             StatusCode::FORBIDDEN,
@@ -158,7 +157,7 @@ async fn dispatch_for(
     rest: String,
     mut request: Request<Body>,
 ) -> Response {
-    let role = match membership(&app, &user, &workspace) {
+    let role = match membership(&app, &user, &workspace).await {
         Ok(role) => role,
         Err(e) => return e.into_response(),
     };
@@ -256,10 +255,11 @@ fn guarded_stream(
         |(mut stream, app, user, workspace, headers, token, mut checked)| async move {
             loop {
                 if app.runtimes.stopping.is_cancelled()
-                    || membership(&app, &user, &workspace).ok().as_deref() != Some("Owner")
+                    || membership(&app, &user, &workspace).await.ok().as_deref() != Some("Owner")
                     || !app
                         .store
                         .session(&token)
+                        .await
                         .ok()
                         .flatten()
                         .is_some_and(|(active, _, _)| active.id == user.id)

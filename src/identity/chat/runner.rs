@@ -10,13 +10,16 @@ pub(super) async fn run(app: Shared, job: Job) {
             ("The agent could not complete this request. Check its setup or access and try again.".into(),"failed")
         }
     };
-    if let Err(error) = app.store.chat_finish(&job, &text, state) {
+    if let Err(error) = app.store.chat_finish(&job, &text, state).await {
         tracing::error!(%error,"Could not save shared reply");
     }
 }
 async fn execute(app: &Shared, job: &Job) -> Result<String> {
     let _slot = app.runtimes.chat_slots.acquire().await?;
-    anyhow::ensure!(app.store.chat_job_allowed(job), "Request access changed");
+    anyhow::ensure!(
+        app.store.chat_job_allowed(job).await,
+        "Request access changed"
+    );
     let state = app.runtimes.get(&job.workspace, super::port(app)).await?;
     let registry = state.workspace.context("Workspace unavailable")?;
     let profile = registry
@@ -26,7 +29,11 @@ async fn execute(app: &Shared, job: &Job) -> Result<String> {
         .context("Agent unavailable")?;
     // Each shared request gets a fresh Goose context and no tools, private files,
     // memory or VM. Never point shared execution at the legacy owner's environment.
-    let root = app.runtimes.chat_root(&job.workspace).join(&job.reply);
+    let mut root = app.runtimes.chat_root(&job.workspace).join(&job.reply);
+    if let Some(claim) = &job.claim {
+        // A recovered attempt needs fresh runtime state; stale workers must not share files.
+        root = root.join(claim);
+    }
     std::fs::create_dir_all(&root)?;
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))?;
@@ -50,7 +57,7 @@ async fn execute(app: &Shared, job: &Job) -> Result<String> {
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(180);
         loop {
             anyhow::ensure!(
-                !app.runtimes.stopping.is_cancelled() && app.store.chat_job_allowed(job),
+                !app.runtimes.stopping.is_cancelled() && app.store.chat_job_allowed(job).await,
                 "Request access changed"
             );
             registry.agent(&job.agent)?;
