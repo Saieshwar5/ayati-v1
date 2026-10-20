@@ -1,4 +1,5 @@
-import { api, post } from './types.ts';
+import { currentView } from './view-lifetime';
+
 import { canManageResources, workspaceUrl } from './workspace-context.ts';
 import { element } from './view.ts';
 import { createDialog, installTabs, searchInput, uiButton } from './app-ui.ts';
@@ -6,7 +7,9 @@ import type { Profile } from './agents';
 type Directory = { agents: { profile: Profile; activity: { pending_tasks: number } }[]; creation_available: boolean; default_model: string; memory_available: boolean; browser_available: boolean };
 
 export async function installAgentManager(): Promise<void> {
-  const root = document.querySelector<HTMLDivElement>('#app')!;
+  const view = currentView();
+  const { api, post } = view;
+  const root = view.querySelector<HTMLDivElement>('#app')!;
   document.title = 'Agents · Relay';
   root.innerHTML = `<main class="desk-page" aria-label="Agents"><header class="desk-toolbar"><div class="desk-title"><h1>Agents</h1><p>Your team’s agents. Their conversations live in Chat.</p></div></header><p class="ui-status" role="status"></p><div class="desk-content"><div class="manager-list ui-surface"></div></div></main>`;
   const toolbar = root.querySelector<HTMLElement>('.desk-toolbar')!;
@@ -108,5 +111,5 @@ export async function installAgentManager(): Promise<void> {
     } catch (error) { status.textContent = (error as Error).message; }
     finally { refreshing = false; }
   }
-  await refresh(); window.setInterval(() => { if (!document.hidden && !editing) void refresh(); }, 5000);
+  await refresh(); view.interval(() => { if (!document.hidden && !editing) void refresh(); }, 5000);
 }

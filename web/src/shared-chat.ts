@@ -1,13 +1,17 @@
-import { identityRequest, workspaceId, workspaceUrl, canManageResources, storageScope } from './workspace-context';
+import { navigate } from './navigation';
+import { currentView } from './view-lifetime';
+import { workspaceId, workspaceUrl, canManageResources, storageScope } from './workspace-context';
 import { element } from './view';
 import './shared-chat.css';
 export type Directory = { users: {id:string;name:string;role:string}[]; agents:{id:string;name:string}[]; grants:{user:string;agent:string}[];role:string };
 type Conversation = {id:string;name:string};
 type Message = {id:string;author:string;name:string|null;kind:string;content:string;state:string;at:number};
 const base = () => `/workspaces/${workspaceId}`;
-export async function installSharedChat(): Promise<void> {
+export async function installSharedChat(): Promise<(url: URL) => void> {
+  const view = currentView();
+  const { identityRequest } = view;
   document.title = 'Chat · Relay';
-  const root = document.querySelector<HTMLDivElement>('#app')!; root.className = 'shared-chat';
+  const root = view.querySelector<HTMLDivElement>('#app')!; root.className = 'shared-chat';
   const sidebar = element('aside', 'shared-sidebar'); sidebar.setAttribute('aria-label', 'Conversations');
   const title = element('h1', '', 'Chat'); const add = element('button', 'files-button', 'New chat');
   const search = element('input'); search.type = 'search'; search.placeholder = 'Search conversations'; search.setAttribute('aria-label','Search conversations');
@@ -22,7 +26,9 @@ export async function installSharedChat(): Promise<void> {
   const send = element('button', 'send-button', '↑'); send.setAttribute('aria-label','Send message');
   form.append(target,input,send); form.hidden = true; main.append(heading,messages,status,form); root.append(sidebar,main);
   let directory = await identityRequest<Directory>(`${base()}/chat-directory`);
-  let selected = new URLSearchParams(location.search).get('conversation') ?? '';
+  let selected = view.url.searchParams.get('conversation') ?? '';
+  name.textContent = selected ? 'Loading conversation…' : 'Your team, together';
+  let selectionVersion = 0; let refreshAgain = false;
   root.dataset.conversation = selected ? 'selected' : 'none';
   const back = element('button', 'ui-button shared-back', '‹ Conversations');
   back.setAttribute('aria-expanded', 'false');
@@ -47,12 +53,14 @@ export async function installSharedChat(): Promise<void> {
   try {input.value=sessionStorage.getItem(draftKey())??'';} catch { /* Optional local draft. */ }
   input.oninput=()=>{try{sessionStorage.setItem(draftKey(),input.value);}catch{/* Optional. */}};
   async function refresh():Promise<void> {
-    if(polling)return; polling=true;
+    if(polling){refreshAgain=true;return;} polling=true;
+    const version=selectionVersion; const conversation=selected;
     try {
       conversations=(await request<{chats:Conversation[]}>('')).chats; drawList();
-      if(!selected)return;
-      const current=conversations.find(c=>c.id===selected); if(!current)throw new Error('This conversation is no longer available.');
-      const data=await request<{messages:Message[];agents:string[]}>(`/${selected}/messages`);
+      if(!conversation)return;
+      const current=conversations.find(c=>c.id===conversation); if(!current)throw new Error('This conversation is no longer available.');
+      const data=await request<{messages:Message[];agents:string[]}>(`/${conversation}/messages`);
+      if(version!==selectionVersion)return;
       name.textContent=current.name; hint.textContent='Shared messages only. For business tools, use a private agent chat.';
       form.hidden=false;
       const chosen=target.value; target.replaceChildren(new Option('Message everyone',''));
@@ -71,21 +79,27 @@ export async function installSharedChat(): Promise<void> {
         if(bottom||!fingerprint)messages.scrollTop=messages.scrollHeight; fingerprint=next;
       }
       status.textContent='';
-    }catch(error){status.textContent=(error as Error).message;form.hidden=true;messages.replaceChildren();fingerprint='';}
-    finally{polling=false;}
+    }catch(error){if(version===selectionVersion){status.textContent=(error as Error).message;form.hidden=true;messages.replaceChildren();fingerprint='';}}
+    finally{polling=false;if(refreshAgain&&view.active){refreshAgain=false;void refresh();}}
   }
   form.onsubmit=async event=>{
     event.preventDefault();if(sending||!selected)return;sending=true;send.disabled=true;
     if(!attempt||attempt.content!==input.value||attempt.agent!==(target.value||undefined)) attempt={id:crypto.randomUUID(),content:input.value,agent:target.value||undefined};
-    try{await request(`/${selected}/messages`,attempt);input.value='';input.dispatchEvent(new Event('input'));attempt=undefined;await refresh();}
-    catch(error){status.textContent=(error as Error).message;}
-    finally{sending=false;send.disabled=false;}
+    const version=selectionVersion; const submission=attempt;
+    try{await request(`/${selected}/messages`,submission);
+      if(version===selectionVersion){
+        if(input.value===submission.content){input.value='';input.dispatchEvent(new Event('input'));}
+        attempt=undefined;await refresh();
+      }
+    }
+    catch(error){if(version===selectionVersion)status.textContent=(error as Error).message;}
+    finally{sending=false;if(view.active)send.disabled=false;}
   };
   const dialog=element('dialog','shared-new');dialog.setAttribute('aria-label','New conversation');
   const setup=element('form');const close=element('button','text-button','Cancel');close.type='button';close.onclick=()=>dialog.close();
   const label=element('label','','Conversation name');const chatName=element('input');chatName.required=true;chatName.maxLength=100;label.append(chatName);
   const choices=element('div');const error=element('p');error.setAttribute('role','status');const submit=element('button','files-button','Create conversation');
-  setup.append(element('h2','','New conversation'),label,choices,error,submit,close);dialog.append(setup);document.body.append(dialog);
+  setup.append(element('h2','','New conversation'),label,choices,error,submit,close);dialog.append(setup);view.append(dialog);
   add.onclick=async()=>{
     try{directory=await identityRequest<Directory>(`${base()}/chat-directory`);choices.replaceChildren();
       for(const [kind,items] of [['user',directory.users],['agent',directory.agents]] as const){
@@ -96,8 +110,20 @@ export async function installSharedChat(): Promise<void> {
   };
   setup.onsubmit=async event=>{
     event.preventDefault();submit.disabled=true;const values=new FormData(setup);
-    try{const created=await request<{id:string}>('',{id:crypto.randomUUID(),name:chatName.value,users:values.getAll('user'),agents:values.getAll('agent')});location.assign(workspaceUrl(`/?view=chat&conversation=${created.id}`));}
+    try{const created=await request<{id:string}>('',{id:crypto.randomUUID(),name:chatName.value,users:values.getAll('user'),agents:values.getAll('agent')});dialog.close();setup.reset();submit.disabled=false;navigate(workspaceUrl(`/?view=chat&conversation=${created.id}`));}
     catch(e){error.textContent=(e as Error).message;submit.disabled=false;}
   };
-  await refresh();setInterval(()=>{if(!document.hidden)void refresh();},2500);
+  const update = (url: URL): void => {
+    const next=url.searchParams.get('conversation')??'';
+    if(next===selected)return;
+    selected=next;selectionVersion++;fingerprint='';attempt=undefined;
+    root.dataset.conversation=selected?'selected':'none';
+    messages.replaceChildren();form.hidden=true;send.disabled=sending;
+    target.replaceChildren(new Option('Message everyone',''));
+    input.value='';try{input.value=sessionStorage.getItem(draftKey())??'';}catch{/* Optional. */}
+    name.textContent=selected?'Loading conversation…':'Your team, together';
+    status.textContent='';drawList();void refresh();
+  };
+  void refresh();view.interval(()=>{if(!document.hidden)void refresh();},2500);
+  return update;
 }

@@ -1,4 +1,4 @@
-export type Membership = { id: string; name: string; role: string };
+export type Membership = { id: string; name: string; role: string; adopted?: boolean };
 type Session = { user: { id: string; email: string } | null; workspaces?: Membership[] };
 const match = (typeof location === 'undefined' ? '' : location.pathname).match(/^\/w\/([0-9a-f-]{36})\//);
 export const workspaceId = match?.[1] ?? '';
@@ -8,8 +8,8 @@ export function storageScope(key: string): string {
   return workspaceId ? `${key}.${workspaceSession?.user?.id ?? 'signed-out'}.${workspaceId}` : key;
 }
 export function currentWorkspace(): Membership | undefined { return workspaceSession?.workspaces?.find(w => w.id === workspaceId); }
-export async function identityRequest<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`/api/identity${path}`, { method: body === undefined ? 'GET' : 'POST',
+export async function identityRequest<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`/api/identity${path}`, { method: body === undefined ? 'GET' : 'POST', signal,
     headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Ayati-Request': 'identity' },
     body: body === undefined ? undefined : JSON.stringify(body) });
   if (path === '/session' && response.status === 401) return { user: null } as T;
@@ -23,21 +23,16 @@ export async function enterWorkspace(): Promise<boolean> {
   if (!workspaceSession.user || !currentWorkspace()) { location.replace('/?view=account&choose=1'); return false; }
   try { localStorage.setItem(`relay.last-workspace.${workspaceSession.user.id}`, workspaceId); } catch { /* Optional preference. */ }
   // Migrate only the original owner's layout into its explicitly adopted workspace.
-  if (currentWorkspace()?.role === 'Owner') {
-    const response = await fetch(workspaceUrl('/api/context'));
-    if (!response.ok) throw new Error('Workspace context unavailable. Reload to retry.');
-    const context = await response.json();
-    if (context.adopted) {
-      try {
-        const key = storageScope('ayati.home.layout');
-        if (localStorage.getItem(key) === null) {
-          const old = localStorage.getItem('ayati.home.layout');
-          if (old) localStorage.setItem(key, old);
-        }
-      } catch { /* Layout storage is optional. */ }
-    }
+  if (currentWorkspace()?.role === 'Owner' && currentWorkspace()?.adopted) {
+    try {
+      const key = storageScope('ayati.home.layout');
+      if (localStorage.getItem(key) === null) {
+        const old = localStorage.getItem('ayati.home.layout');
+        if (old) localStorage.setItem(key, old);
+      }
+    } catch { /* Layout storage is optional. */ }
   }
-  // A fresh document on every switch discards old streams, drafts and in-flight UI state.
+  // Workspace/account switches reload the document; feature switches use view lifetimes.
   let checking = false;
   setInterval(async () => {
     if (checking) return; checking = true;

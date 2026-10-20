@@ -1,3 +1,4 @@
+import { currentView } from './view-lifetime';
 import { workspaceId, workspaceUrl, canManageResources } from './workspace-context';
 import { installSetup } from './setup';
 import { installConnections } from './connections';
@@ -6,9 +7,10 @@ import { element } from './view';
 import { installTabs } from './app-ui';
 
 export function installWorkspacePage(page: 'apps' | 'settings'): void {
+  const view = currentView();
   document.title = `${page === 'apps' ? 'Apps' : 'Settings'} · Relay`;
   if (page === 'apps') { installApps(); return; }
-  const app = document.querySelector('#app')!;
+  const app = view.querySelector('#app')!;
   app.innerHTML = `<main class="desk-page settings-page"><header class="desk-toolbar"><div class="desk-title"><h1>Settings</h1><p>Make Relay work the way you do.</p></div></header><div class="desk-content settings-content"></div></main>`;
   const content = app.querySelector<HTMLElement>('.settings-content')!;
   const appearance = element('section', 'settings-section');

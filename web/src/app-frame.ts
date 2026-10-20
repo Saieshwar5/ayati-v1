@@ -1,16 +1,19 @@
+import { currentView } from './view-lifetime';
 import { workspaceUrl } from './workspace-context';
-import { api } from './types';
+
 
 export type AppSession = { session: string; document_id: string; document_url: string; revision: number; preview: boolean; definition: { name: string; description: string; html: string; css: string; javascript: string; collections: Record<string, Record<string, string>> } };
 
 export function mountAppFrame(container: HTMLElement, app: string, session: AppSession, status: HTMLElement): { dispose(): void; ready: Promise<void> } {
+  const view = currentView();
+  const { api } = view;
   const frame = document.createElement('iframe'); frame.title = session.definition.name;
   frame.setAttribute('sandbox', 'allow-scripts allow-forms'); frame.referrerPolicy = 'no-referrer'; frame.className = 'generated-app-frame';
   let disposed = false, port: MessagePort | undefined, loads = 0, count = 0, windowStart = Date.now();
   const pending = new Set<string>(); const abort = new AbortController();
   let acceptReady: () => void;
   const ready = new Promise<void>(resolve => { acceptReady = resolve; });
-  const timeout = setTimeout(() => { if (!port) status.textContent = 'The app did not start. Inspect the source or ask its maintaining agent to fix the preview.'; }, 10000);
+  const timeout = view.timeout(() => { if (!port) status.textContent = 'The app did not start. Inspect the source or ask its maintaining agent to fix the preview.'; }, 10000);
   async function records(command: unknown): Promise<unknown> {
     const options: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Ayati-App-Session': session.session }, body: JSON.stringify(command), signal: abort.signal };
     try { return await api(`/apps/${app}/records`, options); }
@@ -39,7 +42,8 @@ export function mountAppFrame(container: HTMLElement, app: string, session: AppS
     port.start(); status.textContent = session.preview ? 'Isolated preview records · changes here do not affect the active app.' : 'Active app · records are saved without model calls.'; acceptReady();
   };
   const dispose = (): void => { disposed = true; clearTimeout(timeout); abort.abort(); port?.close(); window.removeEventListener('message', receive); frame.remove(); };
-  window.addEventListener('message', receive);
+  view.onWindow('message', receive);
+  view.cleanup(dispose);
   frame.onload = () => { if (++loads > 1) { status.textContent = 'The app navigated away from its reviewed document. Reopen the app to restore scoped record access.'; dispose(); } };
   frame.src = workspaceUrl(session.document_url); container.append(frame);
   return { dispose, ready };

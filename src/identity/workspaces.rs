@@ -111,6 +111,20 @@ pub(super) async fn membership(app: &App, user: &User, id: &str) -> ApiResult<St
     })
 }
 
+// Include the owner's layout-migration hint in the authenticated snapshot so startup
+// does not need a second provider-verified request just to read installation context.
+pub(super) async fn session_snapshot(app: &App, user: &User) -> Result<serde_json::Value> {
+    let mut snapshot = app.store.snapshot(user).await?;
+    if let Some(entries) = snapshot["workspaces"].as_array_mut() {
+        for entry in entries {
+            entry["adopted"] = json!(app.runtimes.bound.as_ref().is_some_and(|(id, owner)| {
+                entry["id"] == *id && owner == &user.id && entry["role"] == "Owner"
+            }));
+        }
+    }
+    Ok(snapshot)
+}
+
 pub(super) async fn client() -> Response {
     match tokio::fs::read("web/dist/index.html").await {
         Ok(html) => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html).into_response(),

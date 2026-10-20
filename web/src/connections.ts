@@ -1,4 +1,5 @@
-import { api, post } from './types';
+import { currentView } from './view-lifetime';
+
 import { element } from './view';
 import './connections.css';
 
@@ -8,6 +9,8 @@ type State = { mode?: string; configured: boolean; setup_error?: string | null; 
 type Tool = { slug: string; name: string; description: string; version: string };
 
 export function installConnections(container: HTMLElement, agentMode = false): void {
+  const view = currentView();
+  const { api, post } = view;
   container.classList.add('connections');
   container.innerHTML = `<h3>${agentMode ? 'Assigned connections' : 'Business connections'}</h3>
     <p>${agentMode ? 'Grant only the operations this agent needs. Every execution still requires an exact approval.' : 'Connect accounts through Composio. Assign operations separately in each agent’s Details.'}</p>

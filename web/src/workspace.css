@@ -88,3 +88,24 @@ a { color: var(--accent); }
 .workspace-help { align-self: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--soft); color: var(--muted); cursor: pointer; }
 .workspace-help:hover { color: var(--text); background: var(--selection); }
 .workspace-body > .access-preview { min-height: 0; }
+
+.workspace-loading { min-height: 100dvh; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+
+.feature-loading { color: var(--muted); padding: 24px; }
+.private-chat-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.private-chat-layout > .feature-host { flex: 1; min-width: 0; height: 100%; }
+.private-chat-layout > .agents-list { display: block; }
+.private-chat-layout.contacts-collapsed > .agents-list { display: none; }
+.mobile-agent-contacts { min-width: 0; }
+@media (max-width: 760px) {
+  .private-chat-layout > .agents-list { display: none; }
+}
+.guide-mode .private-chat-layout > .agents-list { display: none; }
+
+.feature-host { flex: 1; min-width: 0; min-height: 0; display: flex; overflow: hidden; }
+.feature-host > #app { flex: 1; min-width: 0; height: 100%; }
+
+.private-chat-layout #agent-list-toggle { display: none; }
+@media (max-width: 760px) {
+  .private-chat-layout #agent-list-toggle { display: flex; }
+}

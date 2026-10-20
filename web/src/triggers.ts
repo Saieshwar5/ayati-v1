@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { storageScope } from './workspace-context';
-import { api, post, selectedAgent } from './types';
+
 import { element } from './view';
 import { installEventSourceForm } from './event-sources';
 
@@ -7,6 +8,9 @@ type Trigger = { id: string; connection_id: string; name: string; slug: string; 
 type Source = { id: string; slug: string };
 
 export function installTriggers(container: HTMLElement): () => Promise<void> {
+  const view = currentView();
+  const { api, post } = view;
+  const selectedAgent = view.agent;
   container.classList.add('connections');
   container.innerHTML = `<h3>Event triggers</h3><p>Start this agent’s work when a connected account sends a matching event. Model charges and tool approvals still apply. This computer and Relay must stay on.</p>
     <button class="files-button" data-trigger-refresh>Refresh triggers</button><p data-trigger-status role="status"></p>

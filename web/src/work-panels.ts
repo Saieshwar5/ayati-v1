@@ -1,3 +1,4 @@
+import { currentView } from './view-lifetime';
 export interface WorkPanel {
   open(): void;
   close(focus?: boolean): void;
@@ -12,16 +13,17 @@ class WorkPanels {
   private mobile = matchMedia('(max-width: 1000px)');
 
   register(panel: HTMLDialogElement, launcher: HTMLButtonElement, options: { open?: () => void; close?: () => void; expand?: boolean } = {}): WorkPanel {
+    const view = currentView();
     panel.classList.add('work-panel'); panel.hidden = true;
-    document.querySelector('.main')!.append(panel);
+    view.querySelector('.main')!.append(panel);
     launcher.setAttribute('aria-controls', panel.id);
     launcher.setAttribute('aria-expanded', 'false');
-    const main = document.querySelector<HTMLElement>('.main')!;
+    const main = view.querySelector<HTMLElement>('.main')!;
     const owner = document.createElement('p'); owner.className = 'work-panel-owner';
     panel.querySelector('.panel-header')!.after(owner);
     let shown = false;
     const focusLauncher = (): void => {
-      (launcher.getClientRects().length ? launcher : document.querySelector<HTMLButtonElement>('#details-button'))?.focus();
+      (launcher.getClientRects().length ? launcher : view.querySelector<HTMLButtonElement>('#details-button'))?.focus();
     };
     const show = (): void => { if (this.mobile.matches) panel.showModal(); else panel.show(); };
     const close = (focus = true): void => {
@@ -40,7 +42,7 @@ class WorkPanels {
         this.active?.close(false);
         this.active = control; shown = true; panel.hidden = false;
         main.dataset.workPanel = panel.id; launcher.setAttribute('aria-expanded', 'true');
-        owner.textContent = document.querySelector('.identity strong')?.textContent ?? 'Selected agent';
+        owner.textContent = view.querySelector('.identity strong')?.textContent ?? 'Selected agent';
         show(); options.open?.(); panel.dispatchEvent(new Event('workpanelopen'));
         panel.querySelector<HTMLElement>('button, input, textarea')?.focus();
       }, close,
@@ -54,7 +56,7 @@ class WorkPanels {
       // when a nested editor or browser input owns this key.
       if (e.key === 'Escape' && !this.mobile.matches && !e.defaultPrevented) { e.preventDefault(); close(); }
     });
-    this.mobile.addEventListener('change', () => {
+    view.onMedia(this.mobile, () => {
       if (!shown) return;
       const focused = document.activeElement as HTMLElement | null;
       panel.close(); show();
@@ -72,6 +74,10 @@ class WorkPanels {
       panel.addEventListener('workpanelclose', reset);
     }
     this.panels.set(panel.id, control);
+    view.cleanup(() => {
+      close(false);
+      if (this.panels.get(panel.id) === control) this.panels.delete(panel.id);
+    });
     return control;
   }
 

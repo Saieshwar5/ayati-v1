@@ -1,7 +1,8 @@
+import { currentView } from './view-lifetime';
 import './schedules.css';
 import { businessDate } from './home-clock';
 import { workPanels } from './work-panels';
-import { api, post, type Task, type ChatMessage } from './types';
+import { type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installScheduleForm } from './schedule-form';
 import { installTriggers } from './triggers';
@@ -12,6 +13,8 @@ type Run = { due_at_ms: number; task: Task };
 type Schedules = { schedules: Schedule[]; available: boolean; dispatch_paused: boolean };
 
 export function installSchedules(details: HTMLDialogElement): (profile: Profile) => void {
+  const view = currentView();
+  const { api, post } = view;
   const section = element('section');
   section.innerHTML = '<h3>Schedules</h3><p>Run this agent’s work once or at a fixed interval.</p>';
   const launch = element('button', 'files-button', 'Manage schedules'); launch.disabled = true;
@@ -30,7 +33,7 @@ export function installSchedules(details: HTMLDialogElement): (profile: Profile)
     <section id="triggers-content" role="tabpanel" aria-labelledby="triggers-tab" hidden></section>`;
   const refreshTriggers = installTriggers(dialog.querySelector('#triggers-content')!);
   const toggle = element('button', 'files-button', 'Automation'); toggle.id = 'automation-button'; toggle.disabled = true;
-  document.querySelector('.header')!.append(toggle);
+  view.querySelector('.header')!.append(toggle);
   const work = workPanels.register(dialog, toggle);
   const list = dialog.querySelector<HTMLElement>('#schedules-list')!;
   const status = dialog.querySelector('#schedules-status')!;
@@ -144,7 +147,7 @@ export function installSchedules(details: HTMLDialogElement): (profile: Profile)
   dialog.addEventListener('workpanelopen', () => {
     dialog.querySelector('#schedules-agent')!.textContent = `Schedules for ${current?.name ?? 'this agent'}`;
     void refresh();
-    poll = setInterval(() => { if (work.isOpen() && !document.hidden) void refresh(); }, 5000);
+    poll = view.interval(() => { if (work.isOpen() && !document.hidden) void refresh(); }, 5000);
   });
   dialog.querySelector<HTMLButtonElement>('[aria-label="Close automation"]')!.onclick = () => work.close();
   dialog.addEventListener('workpanelclose', () => {

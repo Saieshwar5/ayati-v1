@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { workspaceUrl } from './workspace-context';
-import { api, selectedAgent } from './types';
+
 import { element } from './view';
 
 type Panel = { id: string; agent_id: string; state: string; active: { definition: { title: string } } | null; draft: { title: string } | null };
@@ -7,9 +8,12 @@ type App = { id: string; agent_id: string; name: string; active_revision: number
 
 // Durable creations remain discoverable even if a reply is interrupted or contains no link.
 export function installAgentCreations(): void {
+  const view = currentView();
+  const { api } = view;
+  const selectedAgent = view.agent;
   const details = document.createElement('details'); details.className = 'agent-creations'; details.hidden = true;
   const summary = element('summary', '', 'Made with this agent'); const list = element('div'); details.append(summary, list);
-  document.querySelector('#agent-creations-slot')!.append(details);
+  view.querySelector('#agent-creations-slot')!.append(details);
   let loading = false, fingerprint = '';
   async function refresh(): Promise<void> {
     if (loading || document.hidden) return; loading = true;
@@ -32,5 +36,5 @@ export function installAgentCreations(): void {
     } catch { /* Chat remains available when the creations service is unavailable. */ }
     finally { loading = false; }
   }
-  void refresh(); window.setInterval(() => void refresh(), 5000);
+  void refresh(); view.interval(() => void refresh(), 5000);
 }

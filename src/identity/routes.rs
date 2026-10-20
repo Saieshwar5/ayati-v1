@@ -142,7 +142,7 @@ pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Re
         return Json(json!({"user":null})).into_response();
     }
     match identity(&app, &headers).await {
-        Ok(user) => match app.store.snapshot(&user).await {
+        Ok(user) => match workspaces::session_snapshot(&app, &user).await {
             Ok(value) => Json(value).into_response(),
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

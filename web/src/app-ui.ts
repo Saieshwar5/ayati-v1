@@ -1,3 +1,4 @@
+import { currentView } from './view-lifetime';
 import { element } from './view.ts';
 
 export function uiButton(label: string, action: () => void, primary = false): HTMLButtonElement {
@@ -13,6 +14,7 @@ export function searchInput(label: string): HTMLInputElement {
 }
 
 export function createDialog(title: string, drawer = false) {
+  const view = currentView();
   const dialog = element('dialog', `ui-dialog${drawer ? ' ui-drawer' : ''}`);
   const heading = element('h2', '', title); heading.id = `dialog-${crypto.randomUUID()}`;
   dialog.setAttribute('aria-labelledby', heading.id);
@@ -22,7 +24,7 @@ export function createDialog(title: string, drawer = false) {
   const body = element('div', 'ui-dialog-body');
   const footer = element('footer', 'ui-dialog-footer');
   const status = element('p', 'ui-status'); status.setAttribute('role', 'status');
-  footer.append(status); dialog.append(header, body, footer); document.body.append(dialog);
+  footer.append(status); dialog.append(header, body, footer); view.append(dialog);
   let pending = 0;
   let enabled: (HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[] = [];
   dialog.addEventListener('cancel', event => { if (pending) event.preventDefault(); });

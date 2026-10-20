@@ -8,7 +8,10 @@ server API contracts, authentication, and workspace boundaries.
 ## Converted
 
 - `web/src/main.tsx`: React root, route selection and startup.
-- `web/src/react/workspace-shell.tsx`: quiet rail, branding and feature navigation.
+- `web/src/react/workspace-shell.tsx`: persistent quiet rail and branding.
+- `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
+  feature navigation with browser history and native identity/workspace changes.
+- `web/src/react/private-chat.tsx`: persistent agent contacts and scoped conversation switching.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
@@ -26,16 +29,30 @@ Existing workspace-bound APIs remain authoritative for every access decision.
 
 Home/panels, Apps/record frames, agent management, shared/private Chat, Settings,
 connections, schedules, browser/approvals, memory/files and access-preview demo
-still use their existing TypeScript implementations. `LegacySurface` reserves an
+still use their existing TypeScript implementations. `LegacyView` reserves an
 empty `#app` subtree for them. React manages the shell but does not reconcile the
-contents installed there. Initializers run once after the shell commits, outside
-React effects, so development Strict Mode cannot start duplicate streams/timers.
+contents installed there. Each mount gets a `ViewLifetime` that owns its DOM
+queries, bound agent API,
+abort controller, timers, external listeners, portals and stream cleanup. React
+Strict Mode remains enabled: disposed async imports cannot initialize, aborted
+reads cannot publish into a new view, and remounts close the previous stream.
+Legacy Chat is an explicit installer rather than a module-level side effect.
+Artifact list state belongs to each chat installation rather than a module cache.
 
-Feature and workspace links still perform full document navigation. This is
-intentional: existing installers retain document-scoped subscriptions. Do not add
-client-side route switching until the affected feature has explicit cleanup for
-streams, listeners, timers, dialogs, drafts and pending requests. Workspace changes
-must always discard the previous identity's active state.
+Feature links in the same workspace update browser history and the content area.
+The rail/account shell retains its DOM identity. Private chat retains its React
+agent list; the selected conversation mounts with bound requests and separate
+user/workspace/agent drafts, attachments and reading position. Shared chat retains
+its conversation sidebar and guards results with a selection version. Back/Forward
+uses the same lifecycle boundary. Only same-origin same-workspace document links
+are intercepted; workspace/account changes, downloads, modified clicks, auth URLs
+and external links retain native navigation. Workspace/session revocation polling
+continues and API permission checks remain authoritative.
+
+An unavailable deployment chunk presents an explicit reload action. Keep old
+hashed assets available during production rollouts; replacing local `web/dist`
+while a page is open can require that reload. This does not justify automatic
+reloads on ordinary feature or agent selection.
 
 Next convert Settings and agent management, then Home/panels and Apps, then shared
 and private Chat with their contextual tools. Keep each increment usable and
@@ -71,3 +88,40 @@ and logout failure. Live UI checks are recorded in the implementation commit.
 
 Sources: [incremental adoption](https://react.dev/learn/add-react-to-an-existing-project),
 [effects and cleanup](https://react.dev/reference/react/useEffect).
+
+## Navigation performance — 2026-10-20
+
+A live Apps navigation measured approximately 1,084 ms in authenticated startup,
+followed by a 551 ms Apps request. Startup made `/session` and `/api/context` in
+sequence; both repeated sequential WorkOS session/profile checks. The identity
+gateway also forced all built JavaScript and CSS to download on every navigation.
+
+The session snapshot now includes an `adopted` hint on the explicitly bound
+owner's membership, removing the context request for layout migration. Both live
+WorkOS checks run concurrently on every protected request. This introduces no
+authentication-result cache or relaxation of membership/resource authorization.
+Only successful `/assets/<name>-<eight-character-hash>.js` and `.css` responses
+receive private immutable caching. HTML, API responses and App documents retain
+`no-store`. Changed builds use different asset URLs. Startup shows an accessible
+status in place of an empty root, using the saved theme.
+
+A subsequent live Apps navigation measured 324 ms in authenticated startup and
+322 ms for its Apps request. These are local observations with network-dependent
+provider timing, not latency guarantees. Temporary console timing instrumentation
+was removed. Full document navigation remains until legacy installers have tested
+teardown; this change does not introduce a client router or share identity state
+between workspaces.
+
+Regression coverage verifies concurrent provider checks, fresh revocation/email
+validation, provider failures, cache-policy boundaries, one-request startup and
+owner-only layout migration without overwriting existing layouts.
+
+## Persistent navigation verification — 2026-10-20
+
+Interaction regressions cover retained rail DOM identity, rapid feature changes,
+Back navigation, removed pollers, persistent agent contacts, separate agent drafts,
+closed streams, agent-bound request headers, ignored late replies and shared-chat
+selection/draft isolation. The client suite, production build, browser-test type
+check and source file limit pass. The previous global DOM contact implementation
+was removed. Backend authentication, workspace authorization and runtime ownership
+are unchanged by this client increment.
