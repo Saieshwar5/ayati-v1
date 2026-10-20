@@ -4,7 +4,7 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(Foundation)]
+        vec![Box::new(Foundation), Box::new(ConversationKinds)]
     }
 }
 struct Foundation;
@@ -32,5 +32,24 @@ impl super::PgStore {
     pub async fn migrate(&self) -> anyhow::Result<()> {
         Migrator::up(&self.db, None).await?;
         Ok(())
+    }
+}
+
+struct ConversationKinds;
+impl MigrationName for ConversationKinds {
+    fn name(&self) -> &str {
+        "m20261020_000002_conversation_kinds"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ConversationKinds {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager.get_connection().execute_unprepared("ALTER TABLE relay_chats ADD COLUMN kind TEXT NOT NULL DEFAULT 'group' CHECK(kind IN ('group','channel','direct')), ADD COLUMN description TEXT NOT NULL DEFAULT '', ADD COLUMN direct_key TEXT; ALTER TABLE relay_chat_messages ADD COLUMN thread TEXT; CREATE INDEX relay_messages_by_thread ON relay_chat_messages(workspace,chat,thread); CREATE UNIQUE INDEX relay_chat_direct_pair ON relay_chats(workspace,direct_key);").await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Conversation metadata is durable; use a forward migration".into(),
+        ))
     }
 }

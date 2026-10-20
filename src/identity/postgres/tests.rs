@@ -63,6 +63,8 @@ async fn chat(
         owner,
         w,
         &NewChat {
+            kind: "group".into(),
+            description: String::new(),
             id: uuid::Uuid::new_v4().to_string(),
             name: "Operations".into(),
             users,
@@ -74,6 +76,7 @@ async fn chat(
 }
 fn message(text: &str, agent: Option<&str>) -> NewMessage {
     NewMessage {
+        thread: None,
         id: uuid::Uuid::new_v4().to_string(),
         content: text.into(),
         agent: agent.map(str::to_owned),
@@ -350,6 +353,8 @@ async fn sqlite_import_preserves_ids_and_history_without_sessions() {
             &owner,
             &w,
             &NewChat {
+                kind: "group".into(),
+                description: String::new(),
                 id: uuid::Uuid::new_v4().to_string(),
                 name: "Original chat".into(),
                 users: vec![],
@@ -450,3 +455,6 @@ async fn concurrent_messages_are_saved_once_in_each_workspace() {
         assert_eq!(data["messages"].as_array().unwrap().len(), 16);
     }
 }
+
+#[path = "conversation_tests.rs"]
+mod conversations;

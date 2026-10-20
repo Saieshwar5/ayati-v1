@@ -17,6 +17,8 @@ const response = data => ({ ok: true, status: 200, json: async () => data });
 function dataFor(path) {
   if (path.endsWith('/session')) return session;
   if (path.endsWith('/agents')) return directory;
+  if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Owner' };
+  if (path.endsWith('/chats')) return { chats: [] };
   if (path.endsWith('/home')) return { agents: [] };
   if (path.endsWith('/panels')) return { panels: [], available: true };
   if (path.endsWith('/apps')) return { apps: [], available: true };
@@ -98,21 +100,21 @@ test('agent switching retains contacts, isolates drafts and ignores late agent r
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelector('#input') && document.querySelector('.agent-link'));
+      await until(update, () => document.querySelector('#input') && document.querySelector('.chat-contact'));
       const rail = document.querySelector('.workspace-rail');
-      const contacts = document.querySelector('.persistent-contacts');
+      const contacts = document.querySelector('.chat-directory');
       document.querySelector('#conversation').scrollTop = 123;
       const input = document.querySelector('#input'); input.value = 'Draft for Relay'; input.dispatchEvent(new dom.window.Event('input'));
-      await click([...contacts.querySelectorAll('a')].find(a => a.textContent === 'Ramesh'));
+      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Ramesh')));
       await until(update, () => document.querySelector('#input')?.getAttribute('aria-label') === 'Message Ramesh');
-      assert.equal(document.querySelector('.persistent-contacts'), contacts);
+      assert.equal(document.querySelector('.chat-directory'), contacts);
       assert.equal(document.querySelector('.workspace-rail'), rail);
       assert.equal(document.querySelector('#input').value, '');
       assert.equal(setup.streams.size, 1, 'Previous agent stream must close');
       await update(() => releaseOld?.(response({ messages: [{ id: 'old', role: 'assistant', content: 'STALE RELAY REPLY', state: 'done' }], tasks: [], artifacts: [] })));
       assert.doesNotMatch(document.querySelector('#conversation').textContent, /STALE/);
       document.querySelector('#input').value = 'Draft for Ramesh'; document.querySelector('#input').dispatchEvent(new dom.window.Event('input'));
-      await click([...contacts.querySelectorAll('a')].find(a => a.textContent === 'Relay'));
+      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Relay')));
       await until(update, () => document.querySelector('#input')?.getAttribute('aria-label') === 'Message Relay');
       assert.equal(document.querySelector('#input').value, 'Draft for Relay');
       assert.equal(document.querySelector('#conversation').scrollTop, 123);
@@ -141,31 +143,31 @@ test('navigation interception leaves workspace switches, downloads and other des
 test('shared chat selection retains its sidebar and rejects messages from an old selection', async () => {
   let releaseOld;
   let initial = true;
-  await reactFixture(async ({ dom, render, click, update }) => {
+  await reactFixture(async ({ dom, render, click, update, change }) => {
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
-      await until(update, () => [...document.querySelectorAll('.shared-contact')].some(a => a.textContent === 'Second'));
-      const sidebar = document.querySelector('.shared-sidebar');
+      await until(update, () => [...document.querySelectorAll('.chat-contact')].some(a => a.textContent.includes('Second')));
+      const sidebar = document.querySelector('.chat-directory');
       const rail = document.querySelector('.workspace-rail');
-      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent === 'Second'));
+      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Second')));
       await update(() => releaseOld?.(response({ messages: [{ id: 'old', author: 'owner', name: 'Owner', kind: 'user', content: 'OLD SELECTION', state: 'complete', at: 1 }], agents: [] })));
-      await until(update, () => document.querySelector('.shared-heading h2')?.textContent === 'Second');
-      assert.equal(document.querySelector('.shared-sidebar'), sidebar);
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# Second');
+      assert.equal(document.querySelector('.chat-directory'), sidebar);
       assert.equal(document.querySelector('.workspace-rail'), rail);
-      assert.doesNotMatch(document.querySelector('.shared-messages').textContent, /OLD SELECTION/);
-      const input = document.querySelector('.shared-composer textarea');
-      input.value = 'Second draft'; input.dispatchEvent(new dom.window.Event('input'));
-      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent === 'First'));
-      await until(update, () => document.querySelector('.shared-heading h2')?.textContent === 'First');
-      assert.equal(input.value, '');
-      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent === 'Second'));
-      await until(update, () => document.querySelector('.shared-heading h2')?.textContent === 'Second');
-      assert.equal(input.value, 'Second draft');
+      assert.doesNotMatch(document.querySelector('.chat-message-list').textContent, /OLD SELECTION/);
+      const input = document.querySelector('.chat-compose textarea');
+      await change(input, 'Second draft');
+      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('First')));
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# First');
+      assert.equal(document.querySelector('.chat-compose textarea').value, '');
+      await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Second')));
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# Second');
+      assert.equal(document.querySelector('.chat-compose textarea').value, 'Second draft');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat&conversation=first`, fetch: async path => {
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], grants: [], role: 'Owner' });
-    if (path.endsWith('/chats')) return response({ chats: [{ id: 'first', name: 'First' }, { id: 'second', name: 'Second' }] });
+    if (path.endsWith('/chats')) return response({ chats: [{ id: 'first', name: 'First', kind:'channel', description:'', users:['owner'], agents:[] }, { id: 'second', name: 'Second', kind:'channel', description:'', users:['owner'], agents:[] }] });
     if (path.includes('/chats/') && path.endsWith('/messages')) {
       if (path.includes('/first/') && initial) { initial = false; return new Promise(resolve => { releaseOld = resolve; }); }
       return response({ messages: [], agents: [] });
@@ -175,29 +177,32 @@ test('shared chat selection retains its sidebar and rejects messages from an old
 });
 
 
-test('creating a shared conversation closes and resets its dialog during in-place navigation', async () => {
+test('creating a channel validates membership and resets its dialog', async () => {
   let created = false;
-  await reactFixture(async ({ dom, render, click, update, button }) => {
+  await reactFixture(async ({ dom, render, click, update, button, change, submit }) => {
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelector('.shared-new'));
-      await click(button('New chat'));
-      const dialog = document.querySelector('.shared-new');
-      dialog.querySelector('input').value = 'New team chat';
-      await update(() => { void dialog.querySelector('form').onsubmit(new dom.window.Event('submit')); });
-      await until(update, () => document.querySelector('.shared-heading h2')?.textContent === 'New team chat');
-      assert.equal(dialog.open, false);
-      assert.equal(dialog.querySelector('input').value, '');
-      await click(button('New chat'));
-      assert.equal(dialog.open, true);
-      assert.equal(dialog.querySelector('button[type=submit],button:not([type])')?.disabled ?? false, false);
+      await until(update, () => button('Create channel') && !button('Create channel').disabled);
+      await click(button('Create channel'));
+      const dialog = document.querySelector('dialog');
+      await change(dialog.querySelector('input'), 'New team chat');
+      assert.equal(dialog.querySelector('button[type=submit]').disabled, true);
+      await click(dialog.querySelector('input[type=checkbox]'));
+      await submit(dialog.querySelector('form'));
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# New team chat');
+      assert.equal(document.querySelector('dialog'), null);
+      await click(button('Create channel'));
+      assert.equal(document.querySelector('dialog input').value, '');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat`, fetch: async (path, options = {}) => {
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], grants: [], role: 'Owner' });
+    if (path.endsWith('/chat-directory')) return response({ users: [{id:'member',name:'Priya'}], agents: [], role: 'Owner' });
     if (path.endsWith('/chats')) {
-      if (options.method === 'POST') { created = true; return response({ id: 'created' }); }
-      return response({ chats: created ? [{ id: 'created', name: 'New team chat' }] : [] });
+      if (options.method === 'POST') {
+        const body = JSON.parse(options.body); assert.equal(body.kind,'channel'); assert.deepEqual(body.users,['member']);
+        created = true; return response({ id: 'created' });
+      }
+      return response({ chats: created ? [{ id: 'created', name: 'New team chat', kind:'channel',description:'',users:['owner','member'],agents:[] }] : [] });
     }
     if (path.endsWith('/messages')) return response({ messages: [], agents: [] });
     return response(dataFor(path));
@@ -277,4 +282,41 @@ test('Home keeps saved panels, arrangement order and content on a failed refresh
     if (path.endsWith('/panels')) { if (offline) throw Error('offline'); return response({ panels, available: true }); }
     return response(dataFor(path));
   } });
+});
+
+test('unified Chat keeps its directory across agent, channel, and direct-message navigation', async () => {
+  const chats = [{id:'inventory',name:'Inventory',kind:'channel',description:'Stock',users:['owner','member'],agents:[]}, {id:'priya',name:'Priya',kind:'direct',description:'',users:['owner','member'],agents:[]}];
+  let reply;
+  await reactFixture(async ({dom,render,click,update,change,submit,button}) => {
+    const setup=await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      const sidebar=document.querySelector('.chat-directory');
+      await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
+      await until(update,()=>document.querySelector('.chat-compose textarea'));
+      await change(document.querySelector('.chat-compose textarea'),'Inventory draft');
+      await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Ramesh')));
+      await until(update,()=>document.querySelector('#input'));
+      assert.equal(document.querySelector('.chat-directory'),sidebar);
+      await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Priya')));
+      await until(update,()=>document.querySelector('.chat-pane-header h2')?.textContent==='Priya');
+      assert.equal(document.querySelector('.chat-directory'),sidebar);
+      assert.equal(setup.streams.size,0);
+      await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
+      await until(update,()=>document.querySelector('.chat-compose textarea')?.value==='Inventory draft');
+      await click(button('Reply in thread'));
+      await change(document.querySelector('[aria-label="Reply in thread"]'),'Thread reply');
+      await submit(document.querySelector('.chat-thread-compose'));
+      assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/messages')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true});}
+      return response({agents:[],messages:[{id:'root',author:'member',name:'Priya',kind:'user',content:'Check stock',state:'sent',at:1,thread:null},...(reply?[{id:'reply',author:'owner',name:'Owner',kind:'user',content:reply,state:'sent',at:2,thread:'root'}]:[])]});
+    }
+    return response(dataFor(path));
+  }});
 });
