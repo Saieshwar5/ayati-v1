@@ -35,7 +35,7 @@ export function installWorkspace(page: WorkspacePage): void {
   const logo = element('a', 'workspace-brand'); logo.href = workspaceUrl('/'); logo.setAttribute('aria-label', 'Relay home');
   logo.append(brand('', true));
   rail.append(logo, nav, help);
-  if (workspaceId) installWorkspaceMenus(rail, logo);
+  if (workspaceId) installWorkspaceMenus(rail);
   else rail.append(element('span', 'workspace-owner', 'You'));
   const body = element('div', 'workspace-body');
   app.before(shell); body.append(app); shell.append(rail, body);

@@ -22,12 +22,9 @@ function link(label: string, href: string): HTMLAnchorElement {
   const anchor = element('a', 'workspace-menu-action', label); anchor.href = href; return anchor;
 }
 
-export function installWorkspaceMenus(rail: HTMLElement, logo: HTMLElement): void {
+export function installWorkspaceMenus(rail: HTMLElement): void {
   const workspace = currentWorkspace();
   if (!workspaceId || !workspace) return;
-  const switcher = menu('workspace-switcher', `Switch workspace: ${workspace.name}`, initials(workspace.name));
-  rail.insertBefore(switcher.trigger, logo.nextSibling);
-  switcher.panel.append(element('h2', '', 'Workspaces'));
   const list = element('nav', 'workspace-menu-list'); list.setAttribute('aria-label', 'Choose workspace');
   for (const entry of workspaceSession?.workspaces ?? []) {
     const choice = link(entry.name, `/w/${entry.id}/`);
@@ -37,12 +34,15 @@ export function installWorkspaceMenus(rail: HTMLElement, logo: HTMLElement): voi
     }
     list.append(choice);
   }
-  switcher.panel.append(list, element('hr'), link('Manage or create workspaces', '/?view=account&choose=1'), link('Workspace settings', workspaceUrl('/?view=settings')));
 
   const email = workspaceSession?.user?.email ?? '';
-  const profile = menu('workspace-profile', 'Your account', initials(email || 'You'));
+  const profile = menu('workspace-profile', `${workspace.name} · Your account`, '');
+  const avatar = element('span', 'workspace-profile-avatar', initials(email || 'You'));
+  const indicator = element('span', 'workspace-profile-workspace', initials(workspace.name));
+  avatar.setAttribute('aria-hidden', 'true'); indicator.setAttribute('aria-hidden', 'true');
+  profile.trigger.append(avatar, indicator);
   profile.trigger.classList.add('workspace-profile-trigger'); rail.append(profile.trigger);
-  profile.panel.append(element('h2', '', 'Your account'), element('p', 'workspace-menu-email', email), element('p', 'workspace-menu-role', `${workspace.name} · ${workspace.role}`), element('hr'), link('My account', workspaceUrl('/?view=account')), link('Appearance', workspaceUrl('/?view=settings#theme')));
+  profile.panel.append(element('h2', '', 'Your account'), element('p', 'workspace-menu-email', email), element('p', 'workspace-menu-role', `${workspace.name} · ${workspace.role}`), element('hr'), element('h2', '', 'Workspaces'), list, link('Manage or create workspaces', '/?view=account&choose=1'), element('hr'), link('My account', workspaceUrl('/?view=account')), link('Appearance', workspaceUrl('/?view=settings#theme')));
   const logout = element('button', 'workspace-menu-action', 'Sign out'); logout.type = 'button';
   const status = element('p', 'workspace-menu-status'); status.setAttribute('role', 'status');
   logout.onclick = async () => {

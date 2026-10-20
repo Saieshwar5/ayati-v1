@@ -23,9 +23,12 @@ test('menus keep workspace links scoped, escape identity text and recover from l
     };
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { installWorkspaceMenus } = await import('../src/workspace-menus.ts');
-    installWorkspaceMenus(document.querySelector('aside'), document.querySelector('#logo'));
+    installWorkspaceMenus(document.querySelector('aside'));
+    assert.equal(document.querySelectorAll('aside button').length, 1);
+    assert.equal(document.querySelector('#workspace-switcher'), null);
+    assert.equal(document.querySelector('aside').lastElementChild.classList.contains('workspace-profile-trigger'), true);
     assert.equal(document.querySelector('img,script'), null);
-    const choices = [...document.querySelectorAll('.workspace-menu-list a')];
+    const choices = [...document.querySelectorAll('#workspace-profile .workspace-menu-list a')];
     assert.deepEqual(choices.map(a => a.getAttribute('href')), [`/w/${first}/`, `/w/${second}/`]);
     assert.equal(choices[0].getAttribute('aria-current'), 'true');
     assert.equal(document.querySelector('#workspace-profile').popover, 'auto');

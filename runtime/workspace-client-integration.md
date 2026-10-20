@@ -5,8 +5,9 @@ and Settings behind `/w/<workspace-id>/`. The black Relay branding and shared
 navigation now expose Home, Apps, Chat, Agents, Users and Settings. Sign-in and
 workspace selection open this client, not a replacement dashboard.
 
-Workspace switching is in the initials button below the sidebar logo. The profile
-button at the bottom contains email, account/appearance links and sign-out.
+The single profile button at the bottom combines workspace switching, email,
+account/appearance links and sign-out. Small workspace initials below the avatar
+identify the current business; no workspace button appears beside feature navigation.
 There is no permanent account header. Menus dismiss with Escape or an outside
 click; switching still performs a full document navigation.
 
