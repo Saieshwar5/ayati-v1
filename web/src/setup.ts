@@ -1,12 +1,15 @@
-import { api, post } from './types';
+import { currentView } from './view-lifetime';
+
 import { element } from './view';
 
 type Setup = { provider: string; model: string; execution: string; supported: boolean; can_test: boolean;
   checks: { label: string; ok: boolean; help: string }[] };
 
 export function installSetup(): void {
-  const root = document.querySelector('#setup-facts')!;
-  const status = document.querySelector('#setup-status')!;
+  const view = currentView();
+  const { api, post } = view;
+  const root = view.querySelector('#setup-facts')!;
+  const status = view.querySelector('#setup-status')!;
   const refresh = element('button', 'files-button', 'Refresh setup');
   const details = element('div');
   const consent = document.createElement('input'); consent.type = 'checkbox';

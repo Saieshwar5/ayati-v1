@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { canManageResources } from './workspace-context';
-import { api, post } from './types';
+
 import { element } from './view';
 import { renderPanel, type PanelDefinition } from './panel-renderer';
 import { installPanelRequest } from './panel-request';
@@ -12,6 +13,8 @@ import { businessDate } from './home-clock';
 type Panel = { id: string; agent_id: string; revision: number; active_revision: number | null; updates_enabled: boolean; draft: PanelDefinition | null; active: { definition: PanelDefinition; updated_at: string } | null; state: string; source_executions: string[]; updated_at: string; maintenance?: { schedule: { state: string; next_run_ms: number | null } | null; latest_run: { task: { status: string; detail: string } } | null }[] };
 
 export function installHomePanels(container: HTMLElement): void {
+  const view = currentView();
+  const { api, post } = view;
   container.innerHTML = `<div class="home-section-heading"><h2>Your everyday view</h2><div class="panel-heading-actions"><button class="text-button" data-arrange>Arrange</button><button class="text-button" data-request-panel>＋ Add panel</button></div></div>
     <p data-panel-status role="status"></p><div class="home-panels" data-panel-list></div><div data-panel-request hidden></div>`;
   const status = container.querySelector<HTMLElement>('[data-panel-status]')!;
@@ -101,6 +104,6 @@ export function installHomePanels(container: HTMLElement): void {
     } catch { status.textContent = 'Panel connection lost. Saved views may be stale; decisions are disabled until reconnected.'; list.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true; }); }
     finally { loading = false; }
   }
-  window.addEventListener('business-clock-changed', () => draw(current));
-  window.setInterval(() => { void refresh(); }, 4000); window.addEventListener('focus', () => { void refresh(); }); void refresh();
+  view.onWindow('business-clock-changed', () => draw(current));
+  view.interval(() => { void refresh(); }, 4000); view.onWindow('focus', () => { void refresh(); }); void refresh();
 }

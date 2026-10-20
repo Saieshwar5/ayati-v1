@@ -1,10 +1,13 @@
-import { api, post } from './types';
+import { currentView } from './view-lifetime';
+
 import { element } from './view';
 
 type Field = { type?: string; required?: boolean; default?: unknown; description?: string; options?: string[]; enum?: string[] };
 type EventType = { slug: string; name: string; description: string; version: string; config: Record<string, Field> };
 
 export async function installEventSourceForm(container: HTMLElement, connection: string, saved: () => Promise<void>): Promise<void> {
+  const view = currentView();
+  const { api, post } = view;
   const data = await api<{ types: EventType[] }>(`/connections/${connection}/event-types`);
   container.replaceChildren(element('h3', '', 'Watch an event'));
   if (!data.types.length) { container.append(element('p', '', 'No supported events were returned for this connection.')); return; }

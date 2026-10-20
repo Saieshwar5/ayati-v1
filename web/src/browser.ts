@@ -1,20 +1,24 @@
+import { currentView } from './view-lifetime';
 import { storageScope } from './workspace-context';
 import { workPanels } from './work-panels';
-import { api, post, selectedAgent } from './types';
+
 
 type Result = { isError?: boolean; content?: { type: string; data?: string; mimeType?: string }[] };
 type Status = { configured: boolean; owner: boolean; vm?: { state?: string }; guest?: { interaction_pending: boolean } };
 
 export function installBrowser(): void {
-  const button = document.querySelector<HTMLButtonElement>('#browser-button')!;
-  const panel = document.querySelector<HTMLDialogElement>('#browser-panel')!;
-  const canvas = document.querySelector<HTMLCanvasElement>('#browser-canvas')!;
-  const message = document.querySelector<HTMLElement>('#browser-message')!;
-  const take = document.querySelector<HTMLButtonElement>('#browser-take')!;
-  const resume = document.querySelector<HTMLButtonElement>('#browser-resume')!;
-  const finish = document.querySelector<HTMLButtonElement>('#browser-finish')!;
-  const address = document.querySelector<HTMLInputElement>('#browser-address')!;
-  const privateText = document.querySelector<HTMLInputElement>('#browser-private-text')!;
+  const view = currentView();
+  const { api, post } = view;
+  const selectedAgent = view.agent;
+  const button = view.querySelector<HTMLButtonElement>('#browser-button')!;
+  const panel = view.querySelector<HTMLDialogElement>('#browser-panel')!;
+  const canvas = view.querySelector<HTMLCanvasElement>('#browser-canvas')!;
+  const message = view.querySelector<HTMLElement>('#browser-message')!;
+  const take = view.querySelector<HTMLButtonElement>('#browser-take')!;
+  const resume = view.querySelector<HTMLButtonElement>('#browser-resume')!;
+  const finish = view.querySelector<HTMLButtonElement>('#browser-finish')!;
+  const address = view.querySelector<HTMLInputElement>('#browser-address')!;
+  const privateText = view.querySelector<HTMLInputElement>('#browser-private-text')!;
   const storageKey = storageScope(selectedAgent === 'local-agent' ? 'ayati-browser-controller' : `ayati-browser-controller.${selectedAgent}`);
   let token: string | undefined;
   try { token = sessionStorage.getItem(storageKey) ?? undefined; } catch { /* In-memory fallback. */ }
@@ -63,7 +67,7 @@ export function installBrowser(): void {
       resume.disabled = !state.owner || !token;
       finish.disabled = !owns;
       take.disabled = owns;
-      document.querySelector<HTMLElement>('#browser-owner-input')!.hidden = !owns;
+      view.querySelector<HTMLElement>('#browser-owner-input')!.hidden = !owns;
       canvas.setAttribute('aria-disabled', String(!owns));
       if (!owns) say(state.owner ? 'Owner control is paused. Reconnect from the controlling tab; closing this panel does not resume the agent.' : state.guest?.interaction_pending ? 'The browser is keeping unfinished interaction open. Take control to continue, or close the browser session when finished.' : 'Watch the agent browser or take control to complete login.');
     } catch { /* Chat presents daemon connection state. */ }
@@ -77,14 +81,14 @@ export function installBrowser(): void {
       privateText.value = '';
     },
   });
-  document.querySelector<HTMLButtonElement>('#browser-close')!.onclick = () => work.close();
+  view.querySelector<HTMLButtonElement>('#browser-close')!.onclick = () => work.close();
   take.onclick = async () => {
     if (!token) { token = crypto.randomUUID(); try { sessionStorage.setItem(storageKey, token); } catch { /* Memory token remains valid. */ } }
     take.disabled = true; say('Waiting for the agent browser to pause…');
     try {
       await control('take'); owns = true;
       say('You control the browser. Agent captures and actions are paused. Hand back explicitly when finished.');
-      document.querySelector<HTMLElement>('#browser-owner-input')!.hidden = false;
+      view.querySelector<HTMLElement>('#browser-owner-input')!.hidden = false;
       resume.disabled = false; finish.disabled = false; await frame(); if (work.isOpen()) canvas.focus();
     } catch (error) { take.disabled = false; say((error as Error).message); }
   };
@@ -131,12 +135,12 @@ export function installBrowser(): void {
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) input('keyboard_insert_text', { text: event.key });
     else input('press', { key: `${event.ctrlKey ? 'Control+' : ''}${event.metaKey ? 'Meta+' : ''}${event.altKey ? 'Alt+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.key}` });
   };
-  document.querySelector<HTMLFormElement>('#browser-navigate')!.onsubmit = (event) => { event.preventDefault(); input('open', { url: address.value }); };
-  document.querySelector<HTMLFormElement>('#browser-text')!.onsubmit = (event) => {
+  view.querySelector<HTMLFormElement>('#browser-navigate')!.onsubmit = (event) => { event.preventDefault(); input('open', { url: address.value }); };
+  view.querySelector<HTMLFormElement>('#browser-text')!.onsubmit = (event) => {
     event.preventDefault(); const text = privateText.value; privateText.value = '';
     if (text) input('keyboard_insert_text', { text });
   };
-  window.setInterval(() => { void frame(); }, 1000);
-  window.setInterval(() => { if (!panel.hidden) void status(); }, 3000);
+  view.interval(() => { void frame(); }, 1000);
+  view.interval(() => { if (!panel.hidden) void status(); }, 3000);
   void status();
 }

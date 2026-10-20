@@ -1,15 +1,17 @@
+import { currentView } from './view-lifetime';
 import { element } from './view';
 import './agent-request.css';
 import './creation-mode.css';
 
 // Mode is visible UI state. The message field always remains the owner's draft.
 export function installConversationIntent(input: HTMLTextAreaElement): (content: string) => string {
-  const url = new URL(location.href);
+  const view = currentView();
+  const url = new URL(view.url);
   let intent = url.searchParams.get('intent') ?? '';
   const item = url.searchParams.get('item');
   let reference = item && /^[a-zA-Z0-9-]{1,80}$/.test(item) ? item : '';
-  const form = document.querySelector<HTMLElement>('#composer')!;
-  const area = document.querySelector('.composer-area')!;
+  const form = view.querySelector<HTMLElement>('#composer')!;
+  const area = view.querySelector('.composer-area')!;
   const banner = element('div', 'creation-mode');
   const launch = element('button', 'text-button creation-launch', '＋ Create panel'); launch.type = 'button';
   const label = element('strong');

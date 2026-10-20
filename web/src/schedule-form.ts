@@ -1,11 +1,15 @@
+import { currentView } from './view-lifetime';
 import { storageScope } from './workspace-context';
-import { post, selectedAgent } from './types';
+
 import { loadBusinessClock } from './home-clock';
 import { localMinute, matchingInstants } from './business-time';
 
 export interface ScheduleInput { id: string; content: string; run_at_ms: number; interval_seconds: number | null }
 
 export function installScheduleForm(container: HTMLElement, saved: () => Promise<void>): (available: boolean) => void {
+  const view = currentView();
+  const { post } = view;
+  const selectedAgent = view.agent;
   container.innerHTML = `<form id="schedule-form">
     <h3>Create a schedule</h3>
     <label>Task instructions<textarea name="content" required maxlength="16000" placeholder="What should this agent do?"></textarea></label>

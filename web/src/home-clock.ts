@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { canManageResources } from './workspace-context';
-import { api, post } from './types';
+
 import { element } from './view';
 import type { BusinessClock } from './business-time';
 import './home-clock.css';
@@ -7,6 +8,8 @@ let clock: BusinessClock = { location: 'Device time', timezone: Intl.DateTimeFor
 let loaded: Promise<BusinessClock> | undefined;
 export function businessClock(): BusinessClock { return clock; }
 export function loadBusinessClock(): Promise<BusinessClock> {
+  const view = currentView();
+  const { api } = view;
   return loaded ??= api<{ preferences: BusinessClock | null }>('/home/preferences').then(data => {
     if (data.preferences) clock = data.preferences;
     window.dispatchEvent(new Event('business-clock-changed'));
@@ -17,13 +20,15 @@ export function businessDate(value: number | string): string {
   return new Date(value).toLocaleString(undefined, { timeZone: clock.timezone, hour12: clock.hour12 });
 }
 export function installHomeClock(time: HTMLElement): void {
+  const view = currentView();
+  const { post } = view;
   const button = element('button', 'text-button home-location', 'Choose location');
   time.after(button); button.disabled = !canManageResources();
   const draw = (): void => {
     time.textContent = new Date().toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: clock.timezone, hour12: clock.hour12 });
     button.textContent = `${clock.location} ⌄`;
   };
-  draw(); window.setInterval(draw, 30000);
+  draw(); view.interval(draw, 30000);
   void loadBusinessClock().then(draw).catch(() => { button.textContent = 'Set business location'; });
   button.onclick = () => {
     const dialog = document.createElement('dialog'); dialog.className = 'clock-dialog'; dialog.setAttribute('aria-label', 'Business location and time');
@@ -54,6 +59,6 @@ export function installHomeClock(time: HTMLElement): void {
       finally { submit.disabled = false; }
     };
     dialog.querySelector<HTMLButtonElement>('[type=button]')!.onclick = () => dialog.close();
-    dialog.onclose = () => dialog.remove(); document.body.append(dialog); dialog.showModal();
+    dialog.onclose = () => dialog.remove(); view.append(dialog); dialog.showModal();
   };
 }

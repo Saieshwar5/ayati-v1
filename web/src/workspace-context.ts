@@ -8,8 +8,8 @@ export function storageScope(key: string): string {
   return workspaceId ? `${key}.${workspaceSession?.user?.id ?? 'signed-out'}.${workspaceId}` : key;
 }
 export function currentWorkspace(): Membership | undefined { return workspaceSession?.workspaces?.find(w => w.id === workspaceId); }
-export async function identityRequest<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`/api/identity${path}`, { method: body === undefined ? 'GET' : 'POST',
+export async function identityRequest<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`/api/identity${path}`, { method: body === undefined ? 'GET' : 'POST', signal,
     headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Ayati-Request': 'identity' },
     body: body === undefined ? undefined : JSON.stringify(body) });
   if (path === '/session' && response.status === 401) return { user: null } as T;
@@ -32,7 +32,7 @@ export async function enterWorkspace(): Promise<boolean> {
       }
     } catch { /* Layout storage is optional. */ }
   }
-  // A fresh document on every switch discards old streams, drafts and in-flight UI state.
+  // Workspace/account switches reload the document; feature switches use view lifetimes.
   let checking = false;
   setInterval(async () => {
     if (checking) return; checking = true;

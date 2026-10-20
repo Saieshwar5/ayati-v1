@@ -1,8 +1,11 @@
+import { currentView } from './view-lifetime';
 import { workPanels } from './work-panels';
-import { api, post } from './types';
+
 import { element } from './view';
 interface Memory { id: string; key: string; content: string; quote: string; source_kind: string; source_date: string; source_id: string }
 export function installMemory(): void {
+  const view = currentView();
+  const { api, post } = view;
   const panel = element('dialog', 'memory-panel');
   panel.hidden = true; panel.setAttribute('aria-label', 'Agent memory'); panel.id = 'memory-panel';
   panel.innerHTML = `<div class="panel-header"><h2>Agent memory</h2><button class="icon-button" id="memory-close" aria-label="Close memory">×</button></div>
@@ -12,10 +15,10 @@ export function installMemory(): void {
     <form id="memory-note"><label>Fact key <input name="key" required maxlength="80" pattern="[A-Za-z0-9_.-]+"></label>
     <label>Fact <textarea name="content" required maxlength="2000"></textarea></label><button class="text-button">Save fact</button><button class="text-button" type="button" id="memory-new">New fact</button></form>
     <p>Do not save passwords or secrets. Forgetting also withdraws facts from the same source and blocks automatic relearning. Original history remains.</p>`;
-  document.querySelector('#app')!.append(panel);
+  view.querySelector('#app')!.append(panel);
   const button = element('button', 'files-button', 'Memory');
   button.hidden = true; button.id = 'memory-button'; button.setAttribute('aria-controls', panel.id); button.setAttribute('aria-expanded', 'false');
-  document.querySelector('.chat-tool-links')!.append(button);
+  view.querySelector('.chat-tool-links')!.append(button);
   const status = panel.querySelector<HTMLElement>('#memory-status')!;
   const form = panel.querySelector<HTMLFormElement>('#memory-note')!;
   const key = form.elements.namedItem('key') as HTMLInputElement;

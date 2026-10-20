@@ -1,8 +1,11 @@
-import { api } from './types';
+import { currentView } from './view-lifetime';
+
 import { element } from './view';
 import type { Profile } from './agents';
 
 export function installProfileEditor(panel: HTMLDialogElement): (profile: Profile) => void {
+  const view = currentView();
+  const { api } = view;
   let current: Profile | undefined;
   let opened: Profile | undefined;
   let busy = false;
@@ -27,7 +30,7 @@ export function installProfileEditor(panel: HTMLDialogElement): (profile: Profil
     <label><input id="model-test-consent" type="checkbox"> Send “Reply with OK.” to this model. Normal API charges may apply; no agent history or tools are sent.</label>
     <button class="files-button" id="model-test" type="button" disabled>Test model (optional)</button><p id="model-test-result" role="status"></p>
     <p id="profile-edit-result" role="status"></p><button class="files-button" type="submit">Save changes</button></form>`;
-  document.body.append(dialog);
+  view.append(dialog);
   const form = dialog.querySelector<HTMLFormElement>('form')!;
   const name = form.elements.namedItem('name') as HTMLInputElement;
   const role = form.elements.namedItem('role') as HTMLTextAreaElement;

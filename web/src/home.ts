@@ -1,6 +1,7 @@
+import { currentView } from './view-lifetime';
 import { workspaceUrl, canManageResources } from './workspace-context';
 import './home.css';
-import { api, type Task, type ChatMessage } from './types';
+import { type Task, type ChatMessage } from './types';
 import { element } from './view';
 import { installHomePanels } from './home-panels';
 import { openGuide } from './guide';
@@ -16,8 +17,10 @@ type Entry = {
 type Home = { agents: Entry[] };
 
 export function installHome(): void {
+  const view = currentView();
+  const { api } = view;
   document.title = 'Home · Relay';
-  const app = document.querySelector<HTMLDivElement>('#app')!;
+  const app = view.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
     <p id="home-error" role="alert"></p>
     <button class="home-attention-surface" id="home-decisions" aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Take a look ↗</span></button>
@@ -26,20 +29,20 @@ export function installHome(): void {
     <div class="home-footer"><button id="home-guide" class="home-ask">✧ What would you like help with?</button><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">See what happened ↗</button></div>
     <div id="home-activity" hidden><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
-  document.querySelector<HTMLElement>('#home-guide')!.hidden = !canManageResources();
-  installHomeClock(document.querySelector('#home-date')!);
+  view.querySelector<HTMLElement>('#home-guide')!.hidden = !canManageResources();
+  installHomeClock(view.querySelector('#home-date')!);
   const drawInbox = installAttentionInbox(app);
-  document.querySelector<HTMLButtonElement>('#home-guide')!.onclick = openGuide;
-  document.querySelector<HTMLButtonElement>('#home-history-toggle')!.onclick = event => {
-    const activity = document.querySelector<HTMLElement>('#home-activity')!;
+  view.querySelector<HTMLButtonElement>('#home-guide')!.onclick = openGuide;
+  view.querySelector<HTMLButtonElement>('#home-history-toggle')!.onclick = event => {
+    const activity = view.querySelector<HTMLElement>('#home-activity')!;
     activity.hidden = !activity.hidden;
     (event.currentTarget as HTMLElement).setAttribute('aria-expanded', String(!activity.hidden));
   };
-  installHomePanels(document.querySelector('#home-panels')!);
-  const status = document.querySelector<HTMLElement>('#home-connection')!;
-  const error = document.querySelector<HTMLElement>('#home-error')!;
-  const connectionStatus = (message: string): void => { status.textContent = message; document.querySelector('#inbox-connection')!.textContent = message; };
-  const refreshButton = document.querySelector<HTMLButtonElement>('#home-refresh')!;
+  installHomePanels(view.querySelector('#home-panels')!);
+  const status = view.querySelector<HTMLElement>('#home-connection')!;
+  const error = view.querySelector<HTMLElement>('#home-error')!;
+  const connectionStatus = (message: string): void => { status.textContent = message; view.querySelector('#inbox-connection')!.textContent = message; };
+  const refreshButton = view.querySelector<HTMLButtonElement>('#home-refresh')!;
   const dialog = document.createElement('dialog');
   dialog.className = 'home-history';
   dialog.setAttribute('aria-label', 'Request history');
@@ -181,27 +184,27 @@ export function installHome(): void {
         node.append(controls); work.push(node);
       }
     }
-    document.querySelector<HTMLElement>('#home-decisions')!.hidden = attentionCount === 0;
-    document.querySelector('#attention-title')!.textContent = attentionCount === 1 ? 'One thing needs your say.' : `${attentionCount} things need your say.`;
-    document.querySelector('#attention-count')!.textContent = `${data.agents.reduce((n, a) => n + (a.attention?.permissions.length ?? 0), 0)} decisions · ${data.agents.reduce((n, a) => n + (a.attention?.outcome_count ?? 0), 0)} outcomes`;
-    document.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
+    view.querySelector<HTMLElement>('#home-decisions')!.hidden = attentionCount === 0;
+    view.querySelector('#attention-title')!.textContent = attentionCount === 1 ? 'One thing needs your say.' : `${attentionCount} things need your say.`;
+    view.querySelector('#attention-count')!.textContent = `${data.agents.reduce((n, a) => n + (a.attention?.permissions.length ?? 0), 0)} decisions · ${data.agents.reduce((n, a) => n + (a.attention?.outcome_count ?? 0), 0)} outcomes`;
+    view.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
       const row = element('article', 'home-feed-item');
       row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${businessDate(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z'))}`), requestHistory(entry, task));
       return row;
     }) : [element('p', 'home-empty', 'Completed work will appear here.')]));
-    document.querySelector('#home-agents')!.replaceChildren(...overview);
+    view.querySelector('#home-agents')!.replaceChildren(...overview);
     drawInbox(attention);
-    document.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No other work is running or queued.')]));
+    view.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No other work is running or queued.')]));
   }
   refreshButton.onclick = () => { void refresh(); };
-  window.addEventListener('business-clock-changed', () => { fingerprint = ''; void refresh(); });
-  window.addEventListener('focus', () => { freshAt = 0; disableActions(true); void refresh(); });
-  document.addEventListener('visibilitychange', () => {
+  view.onWindow('business-clock-changed', () => { fingerprint = ''; void refresh(); });
+  view.onWindow('focus', () => { freshAt = 0; disableActions(true); void refresh(); });
+  view.onDocument('visibilitychange', () => {
     freshAt = 0; disableActions(true);
     if (!document.hidden) void refresh();
   });
-  window.addEventListener('offline', () => { freshAt = 0; disableActions(true); connectionStatus('Offline. Waiting to reconnect…'); });
-  window.addEventListener('online', () => { void refresh(); });
-  window.setInterval(() => { if (!document.hidden) void refresh(); }, 2500);
+  view.onWindow('offline', () => { freshAt = 0; disableActions(true); connectionStatus('Offline. Waiting to reconnect…'); });
+  view.onWindow('online', () => { void refresh(); });
+  view.interval(() => { if (!document.hidden) void refresh(); }, 2500);
   void refresh();
 }

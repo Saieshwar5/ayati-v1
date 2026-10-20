@@ -1,3 +1,4 @@
+import { currentView } from './view-lifetime';
 import { workPanels } from './work-panels';
 import { installSchedules } from './schedules';
 import { installConnections } from './connections';
@@ -6,6 +7,7 @@ import { element } from './view';
 import type { Profile } from './agents';
 
 export function installAgentDetails(): (profile: Profile) => void {
+  const view = currentView();
   const panel = document.createElement('dialog');
   panel.className = 'agent-details'; panel.id = 'agent-details';
   panel.setAttribute('aria-labelledby', 'details-title');
@@ -16,10 +18,10 @@ export function installAgentDetails(): (profile: Profile) => void {
     <section><h3>Tools and knowledge</h3><p id="details-tools"></p><div id="details-links"></div></section>
     <section id="agent-connections"></section>
     <p class="details-note">Settings can be edited when this agent is idle. Browser access requires a compatible VM.</p>`;
-  document.querySelector('.main')!.append(panel);
+  view.querySelector('.main')!.append(panel);
   const toggle = element('button', 'files-button', 'Details'); toggle.id = 'details-button';
   toggle.setAttribute('aria-controls', panel.id); toggle.setAttribute('aria-expanded', 'false');
-  document.querySelector('.header')!.append(toggle);
+  view.querySelector('.header')!.append(toggle);
   const work = workPanels.register(panel, toggle);
   const close = (): void => work.close();
   panel.querySelector('button')!.onclick = close;
@@ -29,10 +31,10 @@ export function installAgentDetails(): (profile: Profile) => void {
   let previous = '';
   return profile => {
     for (const [tool, enabled] of [['memory', profile.memory], ['browser', profile.browser]] as const) {
-      const button = document.querySelector<HTMLButtonElement>(`#${tool}-button`);
+      const button = view.querySelector<HTMLButtonElement>(`#${tool}-button`);
       if (button) button.hidden = !enabled;
       if (!enabled) {
-        const toolPanel = document.querySelector<HTMLElement>(`#${tool}-panel`);
+        const toolPanel = view.querySelector<HTMLElement>(`#${tool}-panel`);
         if (toolPanel) workPanels.close(toolPanel.id);
         button?.setAttribute('aria-expanded', 'false');
       }
@@ -40,7 +42,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     const fingerprint = JSON.stringify(profile);
     if (previous === fingerprint) return;
     previous = fingerprint;
-    document.querySelectorAll('.work-panel-owner').forEach(node => { node.textContent = profile.name; });
+    view.querySelectorAll('.work-panel-owner').forEach(node => { node.textContent = profile.name; });
     updateEditor(profile);
     updateSchedules(profile);
     panel.querySelector('#details-role')!.textContent = profile.role || 'A general assistant for your everyday work.';
@@ -50,7 +52,7 @@ export function installAgentDetails(): (profile: Profile) => void {
     for (const [label, id, enabled] of [['Memory', 'memory-button', profile.memory], ['Browser', 'browser-button', profile.browser], ['Files', 'files-button', true]] as const) {
       if (!enabled) continue;
       const button = element('button', 'files-button', label);
-      button.onclick = () => { close(); document.querySelector<HTMLButtonElement>(`#${id}`)?.click(); };
+      button.onclick = () => { close(); view.querySelector<HTMLButtonElement>(`#${id}`)?.click(); };
       links.append(button);
     }
   };

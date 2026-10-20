@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { workspaceUrl } from './workspace-context';
-import { api } from './types';
+
 import { element } from './view';
 import './agent-request.css';
 
@@ -13,6 +14,8 @@ export function conversationUrl(agent: string, intent?: string, id?: string): st
 
 // Selection only navigates: work starts when the owner sends the conversation draft.
 export function chooseAgent(kind: Creation, topic?: string): void {
+  const view = currentView();
+  const { api } = view;
   const dialog = document.createElement('dialog'); dialog.className = 'creation-chooser';
   dialog.setAttribute('aria-labelledby', 'creation-title');
   const header = element('div', 'creation-heading');
@@ -21,7 +24,7 @@ export function chooseAgent(kind: Creation, topic?: string): void {
   header.append(heading, close);
   const status = element('p', 'creation-description', 'Choose an agent. You’ll describe what you need in their conversation.');
   const list = element('div', 'creation-contacts'); list.setAttribute('aria-live', 'polite'); list.textContent = 'Loading agents…';
-  dialog.append(header, status, list); document.body.append(dialog); dialog.showModal();
+  dialog.append(header, status, list); view.append(dialog); dialog.showModal();
   close.onclick = () => dialog.close(); dialog.onclose = () => dialog.remove();
   void api<{ agents: { profile: { id: string; name: string; role: string; state: string } }[] }>('/agents').then(data => {
     if (!dialog.open) return;

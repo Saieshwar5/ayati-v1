@@ -1,5 +1,6 @@
+import { currentView } from './view-lifetime';
 import { canManageResources } from './workspace-context';
-import { api, post } from './types';
+
 import { element } from './view';
 import { mountAppFrame, type AppSession } from './app-frame';
 import { installAppRequest } from './app-request';
@@ -11,8 +12,10 @@ type App = { id: string; agent_id: string; revision: number; active_revision: nu
 type Grant = { agent_id: string; collection: string; can_write: boolean };
 
 export function installApps(): void {
+  const view = currentView();
+  const { api, post } = view;
   document.title = 'Apps · Relay';
-  const root = document.querySelector<HTMLElement>('#app')!;
+  const root = view.querySelector<HTMLElement>('#app')!;
   root.innerHTML = `<main class="desk-page apps-page" aria-label="Apps"><header class="desk-toolbar"><div class="desk-title"><h1>Apps</h1><p>Your everyday tools, ready to open.</p></div><input class="ui-search" type="search" id="app-search" aria-label="Find an app" placeholder="Find an app"><button class="ui-button primary" id="ask-app">＋ Create app</button></header>
     <p id="apps-status" role="status"></p><div class="desk-content"><div id="app-request" hidden></div><div id="apps-list"></div></div></main>`;
   installAppRequest(root);
@@ -128,6 +131,6 @@ export function installApps(): void {
     } catch (e) { status.textContent = (e as Error).message; }
     finally { loading = false; }
   }
-  window.setInterval(() => { if (!busy && !document.querySelector('dialog[open]')) void refresh(); }, 5000);
-  window.addEventListener('focus', () => { if (!busy && !document.querySelector('dialog[open]')) void refresh(); }); void refresh();
+  view.interval(() => { if (!busy && !view.querySelector('dialog[open]')) void refresh(); }, 5000);
+  view.onWindow('focus', () => { if (!busy && !view.querySelector('dialog[open]')) void refresh(); }); void refresh();
 }
