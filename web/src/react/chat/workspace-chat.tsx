@@ -57,9 +57,16 @@ export function WorkspaceChat({ href }: { href: string }) {
     if ((event.target as Element).closest('a.chat-contact')) setShowList(false);
     if ((event.target as Element).closest('#agent-sidebar-toggle, #agent-list-toggle')) setShowList(value => !value);
   }}>
-    <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1><Button className="ui-icon" aria-label="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>
+    <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1>
+      <Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7" />
+          <path d="m16 3 5 5M10 14l-1 4 4-1L22 8a2 2 0 0 0-5-5Z" />
+        </svg>
+      </Button>
+    </header>
       <input type="search" aria-label="Search conversations" placeholder="Find a conversation" value={query} onChange={e => setQuery(e.target.value)} />
-      <div className="chat-directory-scroll"><section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
+      <div className="chat-directory-scroll"><section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
         {chats.filter(chat => chat.kind !== 'direct').map(contact)}
         {!chats.some(chat => chat.kind !== 'direct') && <p className="chat-help">Organize work with your team.</p>}
       </section><section><header><h2>Direct messages</h2></header>{chats.filter(chat => chat.kind === 'direct').map(contact)}

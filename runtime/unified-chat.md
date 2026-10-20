@@ -6,6 +6,12 @@ search field and conversation list remain mounted. Existing owner-only agent cha
 keep their history, streaming, approvals, attachments and tools inside this shell.
 Local installations without a workspace retain their private-agent view.
 
+The quiet workspace rail is separated from Chat by a thin divider. Chat's softly
+tinted directory and white conversation surface share a second divider rather
+than a floating conversation card. The pencil action starts a New message;
+the plus beside Channels creates a channel. Both have accessible labels and
+hover titles. On narrow screens, the list and conversation alternate as before.
+
 New channels are private and require the creator plus at least one other person or
 permitted agent. Existing named shared conversations remain visible as channels;
 their membership and history are unchanged. New message lists workspace people and
