@@ -36,11 +36,10 @@ export function installWorkspaceMenus(rail: HTMLElement): void {
   }
 
   const email = workspaceSession?.user?.email ?? '';
-  const profile = menu('workspace-profile', `${workspace.name} · Your account`, '');
+  const profile = menu('workspace-profile', 'Your account', '');
   const avatar = element('span', 'workspace-profile-avatar', initials(email || 'You'));
-  const indicator = element('span', 'workspace-profile-workspace', initials(workspace.name));
-  avatar.setAttribute('aria-hidden', 'true'); indicator.setAttribute('aria-hidden', 'true');
-  profile.trigger.append(avatar, indicator);
+  avatar.setAttribute('aria-hidden', 'true');
+  profile.trigger.append(avatar);
   profile.trigger.classList.add('workspace-profile-trigger'); rail.append(profile.trigger);
   profile.panel.append(element('h2', '', 'Your account'), element('p', 'workspace-menu-email', email), element('p', 'workspace-menu-role', `${workspace.name} · ${workspace.role}`), element('hr'), element('h2', '', 'Workspaces'), list, link('Manage or create workspaces', '/?view=account&choose=1'), element('hr'), link('My account', workspaceUrl('/?view=account')), link('Appearance', workspaceUrl('/?view=settings#theme')));
   const logout = element('button', 'workspace-menu-action', 'Sign out'); logout.type = 'button';

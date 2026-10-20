@@ -6,8 +6,8 @@ navigation now expose Home, Apps, Chat, Agents, Users and Settings. Sign-in and
 workspace selection open this client, not a replacement dashboard.
 
 The single profile button at the bottom combines workspace switching, email,
-account/appearance links and sign-out. Small workspace initials below the avatar
-identify the current business; no workspace button appears beside feature navigation.
+account/appearance links and sign-out. Only the profile avatar is visible when
+closed; workspace identity and switching appear inside the account menu.
 There is no permanent account header. Menus dismiss with Escape or an outside
 click; switching still performs a full document navigation.
 
