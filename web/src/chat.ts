@@ -108,7 +108,9 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     updateDetails(profile);
     view.querySelector('.identity strong')!.textContent = name;
     view.querySelector('.identity .avatar')!.textContent = name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-    input.setAttribute('aria-label', `Message ${name}`); input.placeholder = `Message ${name}…`;
+    input.setAttribute('aria-label', `Message ${name}`);
+    if (!view.querySelector('#composer')!.classList.contains('is-creating')) input.placeholder = workspaceId ? 'Message…' : `Message ${name}…`;
+    resizeComposer();
     view.querySelector('.chat')!.setAttribute('aria-label', `Conversation with ${name}`);
     document.title = name === 'Relay' ? 'Chat · Relay' : `${name} · Relay`;
   };

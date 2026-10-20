@@ -50,3 +50,11 @@ thread submission. SQLite and real PostgreSQL tests cover membership, duplicate
 messages, concurrent DM creation, foreign thread rejection, thread context isolation,
 revocation and import. Live-provider agent behavior remains separately testable; a
 passing storage test does not claim a new model-provider integration run.
+
+The chat surface uses compact headers and single-row composers. The @ control
+opens recipient selection; typing an @name still does not dispatch an agent.
+Shared-chat scope information lives in Details. The always-visible Create panel
+shortcut above private-agent composers is removed; Home's creation flow and
+explicit creation-mode links remain available.
+
+Agent tools remain available from the compact header overflow menu.

@@ -1,3 +1,4 @@
+import { Recipient } from './recipient';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { storageScope } from '../../workspace-context';
 import { ChatMessage } from './message';
@@ -38,6 +39,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
     return () => { alive.current = false; abort.abort(); window.clearInterval(timer); };
   }, [chat.id]);
   useLayoutEffect(() => { if (bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history]);
+  useLayoutEffect(() => { const node = input.current; if (node) { node.style.height = 'auto'; node.style.height = `${Math.min(node.scrollHeight, 140)}px`; } }, [draft]);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   const send = async () => {
     if (pending.current || !draft.trim() || !history) return;
@@ -54,7 +56,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
   const title = conversationName(chat, directory);
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <section className="chat-conversation" aria-label={`Conversation with ${title}`}>
-    <header className="chat-pane-header"><Button className="chat-back" onClick={back}>‹ Chats</Button><span className="chat-avatar">{chat.kind === 'direct' ? title.slice(0, 1).toUpperCase() : '#'}</span><div><h2>{chat.kind !== 'direct' && '# '}{title}</h2><p>{chat.kind === 'direct' ? 'Direct message · participants only' : chat.description || 'Private channel · invited members only'}</p></div><Button onClick={() => setDetails(true)}>Details</Button></header>
+    <header className="chat-pane-header"><Button className="chat-back" onClick={back}>‹ Chats</Button><span className="chat-avatar">{chat.kind === 'direct' ? title.slice(0, 1).toUpperCase() : '#'}</span><div><h2 title={title}>{chat.kind !== 'direct' && '# '}{title}</h2></div><Button onClick={() => setDetails(true)}>Details</Button></header>
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => { const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }}>
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
@@ -62,11 +64,10 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
     </div>
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     <form className="chat-compose" onSubmit={e => { e.preventDefault(); void send(); }}>
-      <textarea ref={input} aria-label="Message" placeholder={`Message ${chat.kind === 'direct' ? title : '#'+title}…`} maxLength={12000} rows={2} value={draft} disabled={busy} onChange={e => updateDraft(e.target.value)} />
-      <div>{!directAgent && availableAgents.length > 0 ? <label className="chat-target">To<select aria-label="Message everyone or ask an agent" value={target} disabled={busy} onChange={e => setTarget(e.target.value)}><option value="">Everyone</option>{availableAgents.map(agent => <option key={agent.id} value={agent.id}>Ask {agent.name}</option>)}</select></label> : <span className="chat-help">{directAgent ? 'Private conversation with this agent' : 'Only conversation members can read this'}</span>}<Button primary type="submit" aria-label="Send message" disabled={busy || !history || !draft.trim()}>↑</Button></div>
+      <textarea ref={input} aria-label="Message" placeholder="Message…" maxLength={12000} rows={1} value={draft} disabled={busy} onChange={e => updateDraft(e.target.value)} />
+      <div>{!directAgent && availableAgents.length > 0 ? <Recipient agents={availableAgents} value={target} change={setTarget} disabled={busy} /> : null}<Button primary type="submit" aria-label="Send message" disabled={busy || !history || !draft.trim()}>↑</Button></div>
     </form>
-    {availableAgents.length > 0 && <p className="chat-scope-note">Shared agents use this conversation only. Business tools stay in owner-only agent chats.</p>}
     {history && thread && history.messages.some(message => message.id === thread) && <ChatThread key={thread} chat={chat.id} root={history.messages.find(message => message.id === thread)!} history={history} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
-    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || 'Messages are visible only to conversation members.'}</p><h3>Members</h3>{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
+    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || 'Messages are visible only to conversation members.'}</p><p>Only conversation members can read messages. Shared agents use this conversation only; business tools remain in owner-only agent chats.</p><h3>Members</h3>{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
   </section>;
 }

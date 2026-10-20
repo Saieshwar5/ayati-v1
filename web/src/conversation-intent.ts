@@ -13,7 +13,6 @@ export function installConversationIntent(input: HTMLTextAreaElement): (content:
   const form = view.querySelector<HTMLElement>('#composer')!;
   const area = view.querySelector('.composer-area')!;
   const banner = element('div', 'creation-mode');
-  const launch = element('button', 'text-button creation-launch', '＋ Create panel'); launch.type = 'button';
   const label = element('strong');
   const select = document.createElement('select'); select.setAttribute('aria-label', 'Panel template');
   for (const [value, text] of [['auto', 'Choose for me'], ['metric', 'Metric'], ['list', 'List'], ['chart', 'Chart'], ['agenda', 'Agenda'], ['brief', 'Brief']]) {
@@ -22,17 +21,16 @@ export function installConversationIntent(input: HTMLTextAreaElement): (content:
   if (['metric', 'list', 'chart', 'agenda', 'brief'].includes(url.searchParams.get('template') ?? '')) select.value = url.searchParams.get('template')!;
   select.onchange = () => { url.searchParams.set('template', select.value); history.replaceState(null, '', url); };
   const close = element('button', 'icon-button', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Exit creation mode');
-  banner.append(label, select, close); area.prepend(launch, banner);
+  banner.append(label, select, close); area.prepend(banner);
   const supported = ['panel', 'app', 'edit-panel', 'edit-app'];
   const draw = (): void => {
     const active = supported.includes(intent);
-    banner.hidden = !active; launch.hidden = active; form.classList.toggle('is-creating', active);
+    banner.hidden = !active; form.classList.toggle('is-creating', active);
     label.textContent = ({ panel: 'Creating a panel', app: 'Creating an app', 'edit-panel': 'Updating a panel', 'edit-app': 'Updating an app' } as Record<string, string>)[intent] ?? '';
     select.hidden = intent !== 'panel';
-    input.placeholder = active ? 'Describe what you need…' : 'Ask Relay anything…';
+    input.placeholder = active ? 'Describe what you need…' : 'Message…';
   };
   close.onclick = () => { intent = ''; reference = ''; for (const key of ['intent', 'item', 'topic', 'template']) url.searchParams.delete(key); history.replaceState(null, '', url); draw(); input.focus(); };
-  launch.onclick = () => { intent = 'panel'; url.searchParams.set('intent', intent); history.replaceState(null, '', url); draw(); input.focus(); };
   draw();
   return content => {
     if (!supported.includes(intent) || content.startsWith('[Ayati request mode:')) return content;
