@@ -128,7 +128,8 @@ policy. The original private chat tools remain available through Chat.
 ## Calm Home — 2026-10-20
 
 The approved Home prototype replaces the permanent agent presence row with a
-panel-first layout. Home has a compact title/action toolbar, quiet business clock,
+panel-first layout. Home has one compact date/action row without a repeated Home
+heading or tagline, a quiet business clock,
 white bordered panels on the gray canvas, and a short first-panel empty state.
 People and agent directories stay in their dedicated sections. No example
 business metrics are inserted into real workspaces.

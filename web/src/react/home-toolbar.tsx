@@ -5,11 +5,10 @@ import { canManageResources } from '../workspace-context';
 export function HomeToolbar({ ready, arrange, add }: {
   ready: boolean; arrange: () => void; add: () => void;
 }) {
-  return <header className="home-toolbar">
-    <div><p className="home-eyebrow">Your workspace, at a glance</p><h1>Home</h1></div>
+  return <div className="home-toolbar">
     {canManageResources() && <div className="home-toolbar-actions">
       <Button disabled={!ready} onClick={arrange} aria-label="Customize Home">Customize</Button>
       <Button primary disabled={!ready} onClick={add}>＋ Add panel</Button>
     </div>}
-  </header>;
+  </div>;
 }

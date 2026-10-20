@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { HomeToolbar } from './home-toolbar';
 import { ViewLifetime, setViewLifetime } from '../view-lifetime';
 import { workspaceId } from '../workspace-context';
@@ -30,6 +31,7 @@ async function install(page: WorkspacePage, view: ViewLifetime): Promise<Control
 /** React owns the host; the feature owns its subtree and must dispose every effect. */
 export function LegacyView({ page, href, profile }: { page: WorkspacePage; href: string; profile?: Profile }) {
   const [ready, setReady] = useState(false);
+  const [homeActions, setHomeActions] = useState<HTMLElement | null>(null);
   const controller = useRef<Controller | void>(undefined);
   const latestHref = useRef(href); latestHref.current = href;
   const mountKey = page === 'chat' && workspaceId && !new URL(href).searchParams.has('agent') ? 'shared-chat' : href;
@@ -39,6 +41,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setReady(false);
+    setHomeActions(null);
     // Each effect owns a separate subtree, including Strict Mode remounts. Late
     // catch/finally handlers can only touch their detached original nodes.
     const node = document.createElement('div'); node.id = 'app';
@@ -51,6 +54,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
       if (!view.active) return;
       status.remove(); controller.current = consumer;
       setReady(true);
+      if (page === 'home') setHomeActions(node.querySelector('[data-home-actions]'));
       consumer?.navigate?.(new URL(latestHref.current));
       if (latestProfile.current) consumer?.profile?.(latestProfile.current);
     }).catch(error => {
@@ -68,8 +72,8 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const trigger = (selector: string) => host.current?.querySelector<HTMLButtonElement>(selector)?.click();
   if (page !== 'home') return <div className="feature-host" ref={host} />;
   return <div className="feature-host home-feature">
-    <HomeToolbar ready={ready}
-      arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />
+    {homeActions && createPortal(<HomeToolbar ready={ready}
+      arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />, homeActions)}
     <div className="feature-host" ref={host} />
   </div>;
 }

@@ -21,7 +21,7 @@ export function installHome(): void {
   const { api } = view;
   document.title = 'Home · Relay';
   const app = view.querySelector<HTMLDivElement>('#app')!;
-  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
+  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button><div data-home-actions></div></div>
     <p id="home-error" role="alert"></p>
     <button class="home-attention-surface" id="home-decisions" hidden aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Review ↗</span></button>
     <section id="home-panels"></section>
