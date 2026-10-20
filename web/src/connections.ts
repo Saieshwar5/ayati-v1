@@ -28,7 +28,7 @@ export function installConnections(container: HTMLElement, agentMode = false): v
   async function refresh(): Promise<void> {
     try {
       state = await api<State>('/connections');
-      status.textContent = state.setup_error || (state.configured ? 'Connections loaded.' : 'Configure COMPOSIO_API_KEY in local .env and restart Ayati to connect accounts.');
+      status.textContent = state.setup_error || (state.configured ? 'Connections loaded.' : 'Configure COMPOSIO_API_KEY in local .env and restart Relay to connect accounts.');
       draw();
     } catch (e) { state = undefined; list.replaceChildren(); editor.replaceChildren(); status.textContent = (e as Error).message; }
   }

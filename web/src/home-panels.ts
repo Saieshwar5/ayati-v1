@@ -1,3 +1,4 @@
+import { canManageResources } from './workspace-context';
 import { api, post } from './types';
 import { element } from './view';
 import { renderPanel, type PanelDefinition } from './panel-renderer';
@@ -16,6 +17,7 @@ export function installHomePanels(container: HTMLElement): void {
   const status = container.querySelector<HTMLElement>('[data-panel-status]')!;
   const list = container.querySelector<HTMLElement>('[data-panel-list]')!;
   installPanelRequest(container);
+  container.querySelector<HTMLElement>('.panel-heading-actions')!.hidden = !canManageResources();
   let busy = false, loading = false, fingerprint = '', arranging = false;
   let current: Panel[] = [];
   const layout = loadLayout();
@@ -34,6 +36,11 @@ export function installHomePanels(container: HTMLElement): void {
     current = panels;
     list.classList.toggle('is-empty', panels.length === 0);
     list.replaceChildren();
+    if (!panels.length && !canManageResources()) {
+      const welcome = element('div', 'home-welcome');
+      welcome.append(element('h3', '', 'Welcome to your workspace'), element('p', '', 'Your team is in People. Business panels and agent actions are currently owner-controlled.'));
+      list.append(welcome); return;
+    }
     if (!panels.length) {
       const welcome = element('div', 'home-welcome');
       welcome.append(element('span', 'welcome-mark', '✧'), element('h3', '', 'What would you like help keeping track of?'), element('p', '', 'Ask an agent to make a useful view for your day.'));
@@ -41,7 +48,7 @@ export function installHomePanels(container: HTMLElement): void {
       for (const label of ['Orders', 'Stock', 'Appointments']) {
         const button = element('button', 'files-button', label); button.onclick = () => chooseAgent('panel', label.toLowerCase()); suggestions.append(button);
       }
-      const guide = element('button', 'text-button', 'Ask Ayati'); guide.onclick = openGuide;
+      const guide = element('button', 'text-button', 'Ask Relay'); guide.onclick = openGuide;
       welcome.append(suggestions, guide); list.append(welcome);
     }
     const ordered = [...panels].sort((a, b) => {

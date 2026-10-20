@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { api, post, selectedAgent } from './types';
 import { element } from './view';
 import { installEventSourceForm } from './event-sources';
@@ -7,7 +8,7 @@ type Source = { id: string; slug: string };
 
 export function installTriggers(container: HTMLElement): () => Promise<void> {
   container.classList.add('connections');
-  container.innerHTML = `<h3>Event triggers</h3><p>Start this agent’s work when a connected account sends a matching event. Model charges and tool approvals still apply. This computer and Ayati must stay on.</p>
+  container.innerHTML = `<h3>Event triggers</h3><p>Start this agent’s work when a connected account sends a matching event. Model charges and tool approvals still apply. This computer and Relay must stay on.</p>
     <button class="files-button" data-trigger-refresh>Refresh triggers</button><p data-trigger-status role="status"></p>
     <div data-trigger-list></div><div data-trigger-runs></div>
     <form data-trigger-form><h3>Create a trigger</h3>
@@ -32,7 +33,7 @@ export function installTriggers(container: HTMLElement): () => Promise<void> {
   let busy = false, fresh = false, fingerprint = '';
   let sources: Source[] = [];
   let pending: Record<string, unknown> | undefined;
-  const pendingKey = `ayati.trigger.pending.${selectedAgent}`;
+  const pendingKey = storageScope(`ayati.trigger.pending.${selectedAgent}`);
   try { const saved = sessionStorage.getItem(pendingKey); if (saved) pending = JSON.parse(saved) as Record<string, unknown>; } catch { /* Storage is optional. */ }
   function controls(): void {
     container.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = busy || !fresh; });

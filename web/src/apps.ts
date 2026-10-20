@@ -1,3 +1,4 @@
+import { canManageResources } from './workspace-context';
 import { api, post } from './types';
 import { element } from './view';
 import { mountAppFrame, type AppSession } from './app-frame';
@@ -9,12 +10,13 @@ type App = { id: string; agent_id: string; revision: number; active_revision: nu
 type Grant = { agent_id: string; collection: string; can_write: boolean };
 
 export function installApps(): void {
-  document.title = 'Apps · Ayati';
+  document.title = 'Apps · Relay';
   const root = document.querySelector<HTMLElement>('#app')!;
   root.innerHTML = `<main class="workspace-page apps-page" aria-label="Apps"><div class="apps-toolbar"><label class="app-search-label">Find an app<input type="search" id="app-search" placeholder="Find an app…"></label><button class="files-button" id="ask-app">＋ Create app</button></div>
     <p id="apps-status" role="status"></p>
     <div id="app-request" hidden></div><div id="apps-list"></div></main>`;
   installAppRequest(root);
+  root.querySelector<HTMLButtonElement>('#ask-app')!.hidden = !canManageResources();
   const list = root.querySelector<HTMLElement>('#apps-list')!;
   const status = root.querySelector<HTMLElement>('#apps-status')!;
   const search = root.querySelector<HTMLInputElement>('#app-search')!;
@@ -81,7 +83,7 @@ export function installApps(): void {
       const next = JSON.stringify(data); if (next === fingerprint) return; fingerprint = next;
       list.replaceChildren();
       status.textContent = data.available ? '' : 'Apps require Goose execution.';
-      if (!data.apps.length) list.append(element('p', 'home-empty', 'Ask an agent to build the internal tool your work needs.'));
+      if (!data.apps.length) list.append(element('p', 'home-empty', canManageResources() ? 'Ask an agent to build the internal tool your work needs.' : 'No apps have been shared with you. Business-resource access is currently owner-controlled.'));
       for (const app of data.apps) {
         const card = element('article', 'app-card'); card.dataset.app = app.id;
         card.dataset.search = `${app.name} ${app.description}`.toLocaleLowerCase();

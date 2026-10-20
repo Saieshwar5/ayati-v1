@@ -37,6 +37,15 @@ impl Workspace {
     pub fn open(data: &Path, config: Config, agent: Arc<Agent>) -> Result<Arc<Self>> {
         let mut template = GooseConfig::from_env(data, &config.model);
         template.platform = agent.platform();
+        Self::open_with_template(data, config, agent, template)
+    }
+
+    pub fn open_with_template(
+        data: &Path,
+        config: Config,
+        agent: Arc<Agent>,
+        template: GooseConfig,
+    ) -> Result<Arc<Self>> {
         let registry = Registry::open(&data.join("agents.sqlite"))?;
         let workspace = Arc::new(Self {
             setup_test: tokio::sync::Mutex::new(()),

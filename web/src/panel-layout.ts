@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { element } from './view';
 import type { PanelDefinition } from './panel-renderer';
 type Layout = { order: string[]; wide: string[] };
@@ -7,13 +8,13 @@ export function panelTemplate(definition?: PanelDefinition | null): string {
 }
 export function loadLayout(): Layout {
   try {
-    const value = JSON.parse(localStorage.getItem('ayati.home.layout') ?? 'null');
+    const value = JSON.parse(localStorage.getItem(storageScope('ayati.home.layout')) ?? 'null');
     if (value && Array.isArray(value.order) && Array.isArray(value.wide)) return { order: [...new Set<string>(value.order.filter((v: unknown) => typeof v === 'string'))], wide: value.wide.filter((v: unknown) => typeof v === 'string') };
   } catch { /* Layout remains usable without storage. */ }
   return { order: [], wide: [] };
 }
 export function arrangement(card: HTMLElement, id: string, ids: string[], layout: Layout, template: string, redraw: () => void): void {
-  const save = (): void => { try { localStorage.setItem('ayati.home.layout', JSON.stringify(layout)); } catch { /* In-memory placement still works. */ } redraw();
+  const save = (): void => { try { localStorage.setItem(storageScope('ayati.home.layout'), JSON.stringify(layout)); } catch { /* In-memory placement still works. */ } redraw();
     [...document.querySelectorAll<HTMLElement>('[data-panel]')].find(n => n.dataset.panel === id)?.querySelector<HTMLButtonElement>('.panel-drag')?.focus();
   };
   const move = (target: number): void => { const next = ids.filter(item => item !== id); next.splice(Math.max(0, target), 0, id); layout.order = next; save(); };

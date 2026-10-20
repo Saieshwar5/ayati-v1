@@ -35,8 +35,8 @@ export function installSetup(): void {
       }
       ready = setup.can_test;
       status.textContent = !setup.supported ? 'Switch to the Goose runtime to use this setup guide.' : setup.checks.every(check => check.ok)
-        ? 'Local checks passed. Provider availability has not been tested.' : 'Complete the items below, restart Ayati after configuration changes, then refresh.';
-    } catch { status.textContent = 'Setup could not be read. Check that Ayati is running, then refresh.'; }
+        ? 'Local checks passed. Provider availability has not been tested.' : 'Complete the items below, restart Relay after configuration changes, then refresh.';
+    } catch { status.textContent = 'Setup could not be read. Check that Relay is running, then refresh.'; }
     finally { refresh.disabled = busy; test.disabled = busy || !ready || !consent.checked; }
   }
   refresh.onclick = () => { result.textContent = ''; consent.checked = false; void load(); };

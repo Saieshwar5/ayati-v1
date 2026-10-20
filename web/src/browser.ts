@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { workPanels } from './work-panels';
 import { api, post, selectedAgent } from './types';
 
@@ -14,7 +15,7 @@ export function installBrowser(): void {
   const finish = document.querySelector<HTMLButtonElement>('#browser-finish')!;
   const address = document.querySelector<HTMLInputElement>('#browser-address')!;
   const privateText = document.querySelector<HTMLInputElement>('#browser-private-text')!;
-  const storageKey = selectedAgent === 'local-agent' ? 'ayati-browser-controller' : `ayati-browser-controller.${selectedAgent}`;
+  const storageKey = storageScope(selectedAgent === 'local-agent' ? 'ayati-browser-controller' : `ayati-browser-controller.${selectedAgent}`);
   let token: string | undefined;
   try { token = sessionStorage.getItem(storageKey) ?? undefined; } catch { /* In-memory fallback. */ }
   let owns = false;

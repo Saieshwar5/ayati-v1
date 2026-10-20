@@ -1,3 +1,4 @@
+import { workspaceUrl } from './workspace-context';
 import { api } from './types';
 
 export type AppSession = { session: string; document_id: string; document_url: string; revision: number; preview: boolean; definition: { name: string; description: string; html: string; css: string; javascript: string; collections: Record<string, Record<string, string>> } };
@@ -40,6 +41,6 @@ export function mountAppFrame(container: HTMLElement, app: string, session: AppS
   const dispose = (): void => { disposed = true; clearTimeout(timeout); abort.abort(); port?.close(); window.removeEventListener('message', receive); frame.remove(); };
   window.addEventListener('message', receive);
   frame.onload = () => { if (++loads > 1) { status.textContent = 'The app navigated away from its reviewed document. Reopen the app to restore scoped record access.'; dispose(); } };
-  frame.src = session.document_url; container.append(frame);
+  frame.src = workspaceUrl(session.document_url); container.append(frame);
   return { dispose, ready };
 }

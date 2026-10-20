@@ -1,3 +1,4 @@
+import { workspaceUrl } from './workspace-context';
 import { api, selectedAgent } from './types';
 import { element } from './view';
 
@@ -22,11 +23,11 @@ export function installAgentCreations(): void {
       list.replaceChildren();
       for (const panel of views) {
         const link = element('a', 'text-button', `${panel.active?.definition.title ?? panel.draft!.title} · ${panel.state === 'active' ? 'On Home' : 'Review on Home'} ↗`);
-        link.href = '/?view=home'; link.target = window.self !== window.top ? '_top' : '_self'; list.append(link);
+        link.href = workspaceUrl('/?view=home'); link.target = window.self !== window.top ? '_top' : '_self'; list.append(link);
       }
       for (const app of tools) {
         const link = element('a', 'text-button', `${app.name} · ${app.active_revision === null ? 'Ready to try' : 'Open in Apps'} ↗`);
-        link.href = '/?view=apps'; link.target = window.self !== window.top ? '_top' : '_self'; list.append(link);
+        link.href = workspaceUrl('/?view=apps'); link.target = window.self !== window.top ? '_top' : '_self'; list.append(link);
       }
     } catch { /* Chat remains available when the creations service is unavailable. */ }
     finally { loading = false; }

@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { post, selectedAgent } from './types';
 import { loadBusinessClock } from './home-clock';
 import { localMinute, matchingInstants } from './business-time';
@@ -16,7 +17,7 @@ export function installScheduleForm(container: HTMLElement, saved: () => Promise
       <label>Unit<select name="unit"><option value="3600">hours</option><option value="60">minutes</option><option value="86400">24-hour periods</option></select></label>
       <p>Intervals are elapsed time, not calendar recurrence. Local clock time may shift with daylight saving.</p>
     </fieldset>
-    <p>Scheduled work can use your configured model and incur API charges, even when this page is closed. This computer and Ayati must stay on. Tool approvals still apply.</p>
+    <p>Scheduled work can use your configured model and incur API charges, even when this page is closed. This computer and Relay must stay on. Tool approvals still apply.</p>
     <p id="schedule-save-status" role="status"></p><button type="submit" class="files-button">Create schedule</button>
   </form>`;
   const form = container.querySelector<HTMLFormElement>('form')!;
@@ -28,7 +29,7 @@ export function installScheduleForm(container: HTMLElement, saved: () => Promise
   const unit = input<HTMLSelectElement>('unit');
   const submit = form.querySelector<HTMLButtonElement>('[type=submit]')!;
   const status = form.querySelector('#schedule-save-status')!;
-  const key = `ayati.schedule.pending.${selectedAgent}`;
+  const key = storageScope(`ayati.schedule.pending.${selectedAgent}`);
   let pending: ScheduleInput | undefined;
   let busy = false;
   let available = false, clockReady = false;

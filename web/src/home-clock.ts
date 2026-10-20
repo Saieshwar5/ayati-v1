@@ -1,3 +1,4 @@
+import { canManageResources } from './workspace-context';
 import { api, post } from './types';
 import { element } from './view';
 import type { BusinessClock } from './business-time';
@@ -17,7 +18,7 @@ export function businessDate(value: number | string): string {
 }
 export function installHomeClock(time: HTMLElement): void {
   const button = element('button', 'text-button home-location', 'Choose location');
-  time.after(button);
+  time.after(button); button.disabled = !canManageResources();
   const draw = (): void => {
     time.textContent = new Date().toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: clock.timezone, hour12: clock.hour12 });
     button.textContent = `${clock.location} ⌄`;
