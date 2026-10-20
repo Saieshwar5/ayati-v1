@@ -65,3 +65,33 @@
 }
 .home-feature { flex-direction: column; }
 .home-feature > .feature-host { width: 100%; }
+/* Permanent workspace panels are outside the user-arranged custom panel grid. */
+.home-standard-panels { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 16px; margin: 24px 0 28px; }
+.home-clock-panel, .home-notifications-host { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; min-width: 0; }
+.home-clock-panel { display: flex; flex-direction: column; justify-content: center; }
+.home-clock-panel h2 { color: var(--muted); font-size: .75rem; margin-bottom: 18px; }
+.home-clock-panel time { display: block; }
+.business-clock-value { display: block; color: var(--text); font-size: clamp(2rem, 3.7vw, 3rem); font-weight: 500; letter-spacing: -.05em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.business-clock-date { display: block; margin-top: 8px; color: var(--muted); font-size: .8125rem; }
+.home-clock-panel .home-location { text-align: left; align-self: flex-start; margin-top: 20px; max-width: 100%; overflow-wrap: anywhere; white-space: normal; font-size: .75rem; }
+.standard-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.home .standard-panel-heading h2 { margin: 0; }
+.standard-panel-heading .ui-button { font-size: .75rem; padding: 5px 9px; }
+.standard-panel-caption { font-size: .75rem; color: var(--muted); margin: 4px 0 12px; }
+.notification-row { display: flex; width: 100%; gap: 10px; padding: 10px 0; text-align: left; align-items: center; color: var(--text); border: 0; background: transparent; cursor: pointer; }
+.notification-row + .notification-row { border-top: 1px solid var(--border); }
+.notification-row:hover { background: var(--soft); }
+.notification-mark { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 9px; background: var(--soft); color: var(--muted); }
+.notice-decisions, .notice-problems { background: var(--warning-bg); color: var(--warning); }
+.notification-copy { min-width: 0; flex: 1; }
+.notification-copy strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .8125rem; font-weight: 500; overflow-wrap: anywhere; }
+.notification-copy small { display: block; font-size: .6875rem; color: var(--muted); margin-top: 3px; }
+.notification-action { font-size: .6875rem; white-space: nowrap; }
+.notifications-clear { padding: 18px 0; }
+.notifications-clear > span { color: var(--success); margin-right: 8px; }
+.notifications-clear strong { font-weight: 500; font-size: .875rem; }
+.notifications-clear p { color: var(--muted); font-size: .75rem; margin-bottom: 0; }
+.notification-connection { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+.notification-connection #home-refresh { margin-left: auto; font-size: .6875rem; }
+@media (max-width: 800px) { .home-standard-panels { grid-template-columns: 1fr; } .home-clock-panel { padding: 18px; } .home-clock-panel h2 { margin-bottom: 10px; } .home-clock-panel .home-location { margin-top: 12px; } }
+@media (max-width: 400px) { .home-notifications-host { padding: 16px; } .notification-action { display: none; } .home-section-heading { gap: 8px; } }

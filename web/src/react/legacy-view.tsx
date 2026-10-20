@@ -1,3 +1,4 @@
+import { HomeNotifications, type HomeNotificationsState, type HomeNotice } from './home-notifications';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { HomeToolbar } from './home-toolbar';
@@ -8,7 +9,7 @@ import type { WorkspacePage } from './workspace-shell';
 
 type Controller = { profile?: (profile: Profile) => void; navigate?: (url: URL) => void };
 
-async function install(page: WorkspacePage, view: ViewLifetime): Promise<Controller | void> {
+async function install(page: WorkspacePage, view: ViewLifetime, onNotifications: (data: HomeNotificationsState) => void): Promise<Controller | void> {
   const url = view.url;
   if (page === 'agents') {
     const module = await import('../agent-manager');
@@ -18,7 +19,7 @@ async function install(page: WorkspacePage, view: ViewLifetime): Promise<Control
     if (view.active) { setViewLifetime(view); return { navigate: await module.installSharedChat() }; }
   } else if (page === 'home') {
     const module = await import('../home');
-    if (view.active) { setViewLifetime(view); module.installHome(); }
+    if (view.active) { setViewLifetime(view); module.installHome(onNotifications); }
   } else if (page === 'chat') {
     const module = await import('../chat');
     if (view.active) { setViewLifetime(view); return { profile: module.installChat() }; }
@@ -30,6 +31,8 @@ async function install(page: WorkspacePage, view: ViewLifetime): Promise<Control
 
 /** React owns the host; the feature owns its subtree and must dispose every effect. */
 export function LegacyView({ page, href, profile }: { page: WorkspacePage; href: string; profile?: Profile }) {
+  const [notifications, setNotifications] = useState<HomeNotificationsState | null>(null);
+  const [notificationHost, setNotificationHost] = useState<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
   const [homeActions, setHomeActions] = useState<HTMLElement | null>(null);
   const controller = useRef<Controller | void>(undefined);
@@ -41,6 +44,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setReady(false);
+    setNotifications(null); setNotificationHost(null);
     setHomeActions(null);
     // Each effect owns a separate subtree, including Strict Mode remounts. Late
     // catch/finally handlers can only touch their detached original nodes.
@@ -50,11 +54,14 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
     setViewLifetime(view);
     const status = document.createElement('p'); status.setAttribute('role', 'status');
     status.className = 'feature-loading'; status.textContent = 'Opening…'; node.append(status);
-    void install(page, view).then(consumer => {
+    void install(page, view, data => { if (view.active) setNotifications(data); }).then(consumer => {
       if (!view.active) return;
       status.remove(); controller.current = consumer;
       setReady(true);
-      if (page === 'home') setHomeActions(node.querySelector('[data-home-actions]'));
+      if (page === 'home') {
+        setHomeActions(node.querySelector('[data-home-actions]'));
+        setNotificationHost(node.querySelector('[data-home-notifications]'));
+      }
       consumer?.navigate?.(new URL(latestHref.current));
       if (latestProfile.current) consumer?.profile?.(latestProfile.current);
     }).catch(error => {
@@ -70,8 +77,13 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
     return () => { controller.current = undefined; view.dispose(); node.remove(); };
   }, [page, mountKey]);
   const trigger = (selector: string) => host.current?.querySelector<HTMLButtonElement>(selector)?.click();
+  const openNotifications = (category: HomeNotice['category']) => {
+    trigger('#home-decisions');
+    trigger(`.inbox-filters [data-category="${category}"]`);
+  };
   if (page !== 'home') return <div className="feature-host" ref={host} />;
   return <div className="feature-host home-feature">
+    {notificationHost && createPortal(<HomeNotifications data={notifications} open={openNotifications} />, notificationHost)}
     {homeActions && createPortal(<HomeToolbar ready={ready}
       arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />, homeActions)}
     <div className="feature-host" ref={host} />

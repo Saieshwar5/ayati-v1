@@ -213,6 +213,9 @@ test('Home separates outcomes from decisions and keeps customization behind its 
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('#home-activity-count')?.textContent.includes('1 outcome'));
       assert.equal(document.querySelector('#home-agents'), null);
+      assert.equal(document.querySelectorAll('.home-standard-panels .home-clock-panel').length, 1);
+      assert.equal(document.querySelectorAll('.home-standard-panels .home-notifications').length, 1);
+      assert.match(document.querySelector('.notification-preview').textContent, /Daily report/);
       assert.equal(document.querySelector('#home-decisions').hidden, true);
       assert.match(document.querySelector('.home-welcome').textContent, /A home for what matters/);
       await click(document.querySelector('#home-history-toggle'));
@@ -223,13 +226,14 @@ test('Home separates outcomes from decisions and keeps customization behind its 
       await click(button('Close inbox'));
       permissions = [{ id: 'approval', task_id: 'queued', title: 'Send supplier request', action: { operation: 'send' } }];
       await click(document.querySelector('#home-refresh'));
-      assert.equal(document.querySelector('#home-decisions').hidden, false);
-      await click(document.querySelector('#home-decisions'));
+      assert.match(document.querySelector('.notification-preview').textContent, /Send supplier request/);
+      await click(document.querySelector('.notification-row'));
       assert.match(document.querySelector('.inbox-filters [aria-pressed=true]').textContent, /Decisions/);
       assert.match(document.querySelector('#home-attention').textContent, /Send supplier request/);
       await click(button('Close inbox'));
       await click(button('Customize Home'));
       assert.equal(document.querySelector('[data-arrange]').hidden, false);
+      assert.equal(document.querySelector('.home-standard-panels .panel-arrange'), null);
       await click(document.querySelector('[data-arrange]'));
       assert.equal(document.querySelector('[data-arrange]').hidden, true);
       await click(document.querySelector('.home-toolbar-actions .primary'));
@@ -252,6 +256,10 @@ test('Home keeps saved panels, arrangement order and content on a failed refresh
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelectorAll('[data-panel]').length === 2);
       assert.equal(document.querySelector('.home-welcome'), null);
+      assert.match(document.querySelector('.notifications-clear').textContent, /all caught up/);
+      await click(document.querySelector('.home-location'));
+      assert.equal(document.querySelector('.clock-dialog').open, true);
+      await click(document.querySelector('.clock-dialog [aria-label="Close location"]'));
       assert.equal(document.querySelector('.panel-arrange'), null);
       await click(button('Customize Home'));
       const later = [...document.querySelector('[data-panel="panel-0"]').querySelectorAll('button')].find(b => b.textContent === 'Move later');

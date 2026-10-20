@@ -14,7 +14,7 @@ type Panel = { id: string; agent_id: string; revision: number; active_revision: 
 export function installHomePanels(container: HTMLElement): void {
   const view = currentView();
   const { api, post } = view;
-  container.innerHTML = `<div class="home-section-heading"><h2>Your panels</h2><div class="panel-heading-actions"><button class="text-button" data-arrange hidden>Done</button><button class="text-button" data-request-panel hidden>＋ Add panel</button></div></div>
+  container.innerHTML = `<div class="home-section-heading"><h2>Your panels</h2><div data-home-actions></div><div class="panel-heading-actions"><button class="text-button" data-arrange hidden>Done</button><button class="text-button" data-request-panel hidden>＋ Add panel</button></div></div>
     <p data-panel-status role="status"></p><div class="home-panels" data-panel-list></div><div data-panel-request hidden></div>`;
   const status = container.querySelector<HTMLElement>('[data-panel-status]')!;
   const list = container.querySelector<HTMLElement>('[data-panel-list]')!;

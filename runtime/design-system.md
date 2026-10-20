@@ -145,3 +145,17 @@ maintenance, removal and saved snapshots retain their existing contracts.
 The new toolbar is React-owned. Panels, clock and attention/history remain
 explicitly isolated compatibility controllers with their existing lifecycle.
 This is a Home design refinement, not completion of the React migration.
+
+## Standard Home panels — 2026-10-20
+
+A permanent Business clock and Notifications row precedes custom panels. The
+clock uses the saved business timezone and existing owner-only location editor.
+The two standard panels cannot be removed, resized or reordered by Customize;
+custom panels retain their own saved order and controls below this row.
+
+Notifications is a React preview of the existing scoped agent attention data,
+prioritizing approvals, then problems, then results, with at most three rows.
+View all opens the existing categorized inbox; opening it does not approve work
+or mark results reviewed. The count means pending requests/outcomes, not unread
+messages. Empty and connection-failure states remain visible. User mentions and
+chat notifications still require a separate backend source and are not fabricated.

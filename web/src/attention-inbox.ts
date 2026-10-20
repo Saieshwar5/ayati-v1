@@ -20,7 +20,7 @@ export function installAttentionInbox(container: HTMLElement): (items: HTMLEleme
   let current: HTMLElement[] = [], category = 'Decisions';
   const tabs = new Map<string, HTMLButtonElement>();
   for (const name of ['Decisions', 'Problems', 'Updates']) {
-    const button = element('button', 'text-button', name); tabs.set(name, button); filters.append(button);
+    const button = element('button', 'text-button', name); button.dataset.category = name; tabs.set(name, button); filters.append(button);
     button.onclick = () => { category = name; draw(); };
   }
   function draw(): void {

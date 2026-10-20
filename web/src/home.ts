@@ -1,3 +1,4 @@
+import type { HomeNotificationsState, HomeNotice } from './react/home-notifications';
 import { currentView } from './view-lifetime';
 import { workspaceUrl, canManageResources } from './workspace-context';
 import './home.css';
@@ -16,14 +17,18 @@ type Entry = {
 };
 type Home = { agents: Entry[] };
 
-export function installHome(): void {
+export function installHome(onNotifications?: (data: HomeNotificationsState) => void): void {
   const view = currentView();
   const { api } = view;
   document.title = 'Home · Relay';
   const app = view.querySelector<HTMLDivElement>('#app')!;
-  app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button><div data-home-actions></div></div>
+  app.innerHTML = `<main class="home" aria-label="Home">
+    <div class="home-standard-panels">
+      <section class="home-clock-panel" aria-label="Business clock"><h2>Business clock</h2><time id="home-date"></time></section>
+      <div class="home-notifications-host"><div data-home-notifications></div><div class="notification-connection"><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div></div>
+    </div>
     <p id="home-error" role="alert"></p>
-    <button class="home-attention-surface" id="home-decisions" hidden aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Review ↗</span></button>
+    <button id="home-decisions" hidden aria-haspopup="dialog">Review attention</button>
     <section id="home-panels"></section>
 
     <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Relay</button></div>
@@ -133,16 +138,17 @@ export function installHome(): void {
   function draw(data: Home): void {
     const opened = new Set(Array.from(app.querySelectorAll<HTMLElement>('[data-permission]')).filter(node => node.querySelector('details')?.open).map(node => node.dataset.permission));
     const attention: HTMLElement[] = [], work: HTMLElement[] = [];
+    const notices: HomeNotice[] = [];
     const recent: { entry: Entry; task: Work }[] = [];
-    let decisionCount = 0, problemCount = 0, outcomeCount = 0;
+    let decisionCount = 0, outcomeCount = 0;
     for (const entry of data.agents) {
       const { profile, attention: state } = entry;
       if (!state) continue;
       decisionCount += state.permissions.length;
-      problemCount += state.outcomes.filter(outcome => ['failed', 'interrupted'].includes(outcome.status)).length;
       outcomeCount += state.outcome_count;
       recent.push(...state.recent.map(task => ({ entry, task })));
       for (const permission of state.permissions) {
+        notices.push({ id: `permission-${profile.id}-${permission.id}`, agent: profile.name, title: permission.title, category: 'Decisions' });
         const node = card(entry, state.active.find(task => task.id === permission.task_id));
         node.dataset.category = 'Decisions'; node.dataset.permission = permission.id; node.classList.add('approval-row');
         node.prepend(element('h3', '', permission.title));
@@ -157,6 +163,7 @@ export function installHome(): void {
         review.append(controls); node.append(review); attention.push(node);
       }
       for (const outcome of state.outcomes) {
+        notices.push({ id: `outcome-${profile.id}-${outcome.id}`, agent: profile.name, title: outcome.request || outcome.detail || 'Agent result', category: ['failed', 'interrupted'].includes(outcome.status) ? 'Problems' : 'Updates' });
         const node = card(entry, outcome);
         node.dataset.category = ['failed', 'interrupted'].includes(outcome.status) ? 'Problems' : 'Updates';
         const controls = element('div', 'home-controls');
@@ -173,13 +180,8 @@ export function installHome(): void {
         node.append(controls); work.push(node);
       }
     }
-    view.querySelector<HTMLElement>('#home-decisions')!.hidden = decisionCount + problemCount === 0;
-    view.querySelector('#attention-title')!.textContent = decisionCount
-      ? `${decisionCount === 1 ? 'One decision needs' : `${decisionCount} decisions need`} you`
-      : `${problemCount === 1 ? 'One request needs' : `${problemCount} requests need`} attention`;
-    view.querySelector('#attention-count')!.textContent = decisionCount
-      ? `Review requested actions before agents continue.${problemCount ? ` ${problemCount} requests also need attention.` : ''}`
-      : 'Review failed or interrupted work.';
+    const priority = { Decisions: 0, Problems: 1, Updates: 2 };
+    onNotifications?.({ items: notices.sort((a, b) => priority[a.category] - priority[b.category]), total: decisionCount + outcomeCount });
     view.querySelector('#home-activity-count')!.textContent = `${work.length} active · ${outcomeCount} ${outcomeCount === 1 ? 'outcome' : 'outcomes'} `;
     view.querySelector<HTMLElement>('#home-updates')!.hidden = outcomeCount === 0;
     view.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
