@@ -6,16 +6,13 @@ import './access-preview.css';
 type Workspace = { id: string; name: string; role: string };
 type Invite = { id: string; name: string; role: string };
 type Session = { user: { id: string; email: string } | null; workspaces?: Workspace[]; invitations?: Invite[] };
-type People = { role: string; members: { id: string; email: string; role: string }[];
-  invitations: { id: string; email: string; role: string; status: string; expires: number }[] };
-
-export async function installAccount(embedded?: 'people' | 'account'): Promise<void> {
+export async function installAccount(embedded?: 'account'): Promise<void> {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = embedded === 'people' ? 'Users · Relay' : embedded === 'account' ? 'My account · Relay' : 'Your workspaces · Relay';
+  document.title = embedded === 'account' ? 'My account · Relay' : 'Your workspaces · Relay';
   let session: Session = { user: null };
   let selected = embedded ? workspaceId : '';
-  let screen: 'home' | 'people' | 'create' | 'choose' | 'account' = embedded ?? 'home';
+  let screen: 'home' | 'create' | 'choose' | 'account' = embedded ?? 'home';
   let busy = false;
   let notice = '';
   let createId = crypto.randomUUID();
@@ -81,8 +78,9 @@ export async function installAccount(embedded?: 'people' | 'account'): Promise<v
       const workspace = session.workspaces?.find(w => w.id === workspaceId);
       if (!workspace) { location.assign('/?view=account&choose=1'); return; }
       const content = element('main', 'access-content'); root.append(content);
-      if (embedded === 'people') await people(content, workspace);
-      else { heading(content, 'My account', session.user.email); content.append(button('Manage workspaces', () => location.assign('/?view=account&choose=1')), button('Sign out', async () => { await logout(); location.assign('/?view=account'); })); }
+      heading(content, 'My account', session.user.email);
+      content.append(button('Manage workspaces', () => location.assign('/?view=account&choose=1')),
+        button('Sign out', async () => { await logout(); location.assign('/?view=account'); }));
       return;
     }
     if (!session.user) {
@@ -131,65 +129,6 @@ export async function installAccount(embedded?: 'people' | 'account'): Promise<v
       root.append(card); return;
     }
     location.assign(`/w/${selected}/`);
-  }
-  async function people(root: HTMLElement, workspace: Workspace): Promise<void> {
-    heading(root, 'Users', 'Workspace membership is separate from access to business resources.');
-    const data = await api<People>(`/workspaces/${workspace.id}/people`);
-    if (data.role !== 'Member') {
-      const form = element('form', 'access-panel');
-      form.append(element('h2', '', 'Invite someone'));
-      const email = field(form, 'Email address', 'email');
-      const label = element('label', 'access-field', 'Role');
-      const role = element('select');
-      for (const name of data.role === 'Owner' ? ['Member', 'Admin'] : ['Member']) {
-        role.append(new Option(name, name));
-      }
-      label.append(role); form.append(label, element('button', 'access-button primary', 'Send invitation'));
-      form.onsubmit = event => {
-        event.preventDefault(); void run(async () => {
-          await api(`/workspaces/${workspace.id}/invitations`, { email: email.value, role: role.value });
-          notice = 'Invitation email sent. The recipient can sign in and accept it under Your workspaces.';
-        });
-      };
-      form.append(element('p', 'access-help', 'This sends a real email. During localhost testing, recipients must use this same running installation to join.'));
-      root.append(form);
-    }
-    const list = element('section', 'access-panel');
-    list.append(element('h2', '', 'Members'));
-    for (const member of data.members) {
-      const row = element('div', 'access-person');
-      const detail = element('div');
-      detail.append(element('strong', '', member.email), element('span', 'access-help', member.role));
-      row.append(detail);
-      if (member.role !== 'Owner' && (data.role === 'Owner' || (data.role === 'Admin' && member.role === 'Member'))) {
-        const actions = element('div', 'access-actions');
-        if (data.role === 'Owner') actions.append(button(member.role === 'Admin' ? 'Make member' : 'Make admin', async () => {
-          await api(`/workspaces/${workspace.id}/members/${member.id}`, { role: member.role === 'Admin' ? 'Member' : 'Admin' });
-          await refresh();
-        }));
-        actions.append(button('Remove access', async () => {
-          if (confirm(`Remove ${member.email}? Business records remain.`)) {
-            await api(`/workspaces/${workspace.id}/members/${member.id}`, { role: null }); await refresh();
-          }
-        }));
-        row.append(actions);
-      }
-      list.append(row);
-    }
-    for (const invitation of data.invitations) {
-      const row = element('div', 'access-person');
-      row.append(element('span', '', `${invitation.email} · ${invitation.expires * 1000 <= Date.now() ? 'expired' : invitation.status}`),
-        button('Cancel invitation', async () => {
-          const result = await api<{ provider_invitation_revoked: boolean }>(`/workspaces/${workspace.id}/invitations/${invitation.id}/cancel`, {});
-          if (!result.provider_invitation_revoked) notice = 'Workspace invitation cancelled. The provider email link may still allow account signup, but cannot grant workspace access.';
-        }));
-      list.append(row);
-    }
-    root.append(list);
-    if (data.role === 'Owner') {
-      try { await import('./user-agent-access').then(m => m.installUserAgentAccess(root)); await import('./user-resource-access').then(m => m.installResourceAccess(root)); }
-      catch { root.append(element('p', 'access-help', 'Agent access settings are unavailable. Reload to retry.')); }
-    }
   }
   root.append(element('p', 'access-subtitle', 'Checking your session…'));
   try {

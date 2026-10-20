@@ -1,6 +1,8 @@
 import { enterWorkspace, currentWorkspace, workspaceId } from './workspace-context';
 import './style.css';
 import './workspace.css';
+import './app-ui.css';
+import './agent-manager.css';
 import { installWorkspace, type WorkspacePage } from './workspace';
 
 async function start(): Promise<void> {
@@ -16,8 +18,10 @@ async function start(): Promise<void> {
       : requested === 'account' ? 'account' : params.has('agent') || requested === 'chat' ? 'chat'
       : requested === 'agents' || requested === 'apps' || requested === 'settings' ? requested : 'home';
     installWorkspace(page);
-    if (page === 'people' || page === 'account') {
-      await import('./account').then(({ installAccount }) => installAccount(page));
+    if (page === 'people') {
+      await import('./people').then(({ installPeople }) => installPeople());
+    } else if (page === 'account') {
+      await import('./account').then(({ installAccount }) => installAccount('account'));
     } else if (page === 'agents') {
       await import('./agent-manager').then(({ installAgentManager }) => installAgentManager());
     } else if (page === 'chat' && workspaceId && !params.has('agent')) {

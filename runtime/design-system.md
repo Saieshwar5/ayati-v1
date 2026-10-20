@@ -87,3 +87,36 @@ See [Organized Home](organized-home.md) for fixed panel templates, owner-control
 placement, the business clock, grouped attention drawer and highlighted creation
 modes. Agent updates refresh content without changing owner layout. Creation
 intent belongs in the composer chrome, never prefilled message prose.
+
+## App layout refinement — 2026-10-20
+
+Relay uses a white navigation dock inset from the light gray canvas. A visible
+12–16 px gap separates navigation from the working area. The selected feature
+uses graphite contrast; workspace identity remains inside the bottom account
+menu. The dock keeps the existing Home, Apps, Chat, Agents, Users and Settings.
+
+Management pages use a compact title/action toolbar and a bounded content area.
+Users opens a searchable member list; invitations are a separate tab and sending
+one uses a focused dialog. A member drawer separates membership from agent and
+App/panel grants. Agent management uses a searchable list and a drawer with
+Overview, Capabilities and Advanced tabs. Explicit saves, revision checks and
+confirmation for removal/archive remain in place.
+
+Apps keeps its existing launcher and sandboxed runtime. Manage opens release and
+agent-record access separately; Open gives the app most of the available window.
+Settings shows one category at a time. Existing custom Home panels keep their
+layout and data, with a more compact empty state and toolbar. At phone widths,
+Chat alternates between conversations and the selected transcript so the composer
+stays in view instead of stacking two tall scroll regions.
+
+Shared buttons, tabs, search fields and native modal dialogs use the existing
+palette, keyboard focus and reduced-motion support. Dialog controls lock while
+saving; errors remain beside the relevant form and failed access changes restore
+the displayed saved value. Tabs support arrow keys, Home and End. Search, selected
+tabs and the member-list position survive saves within the current page. Navigation
+between workspaces still loads a new document to discard old identity-bound state.
+
+This refinement supersedes the earlier placement of release controls inside App
+cards and the earlier combined settings layout. It does not redesign generated
+App contents or change authentication, resource isolation, approval or execution
+policy. The original private chat tools remain available through Chat.
