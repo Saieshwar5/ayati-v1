@@ -1,3 +1,4 @@
+import { workspaceUrl, canManageResources } from './workspace-context';
 import './home.css';
 import { api, type Task, type ChatMessage } from './types';
 import { element } from './view';
@@ -25,6 +26,7 @@ export function installHome(): void {
     <div class="home-footer"><button id="home-guide" class="home-ask">✧ What would you like help with?</button><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">See what happened ↗</button></div>
     <div id="home-activity" hidden><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
+  document.querySelector<HTMLElement>('#home-guide')!.hidden = !canManageResources();
   installHomeClock(document.querySelector('#home-date')!);
   const drawInbox = installAttentionInbox(app);
   document.querySelector<HTMLButtonElement>('#home-guide')!.onclick = openGuide;
@@ -62,6 +64,7 @@ export function installHome(): void {
     loading = true;
     try {
       const data = await scoped<Home>('local-agent', '/home');
+      for (const entry of data.agents) if (entry.profile.id === 'local-agent' && entry.profile.name === 'Ayati') entry.profile.name = 'Relay';
       freshAt = Date.now();
       const next = JSON.stringify(data);
       if (next !== fingerprint) { draw(data); fingerprint = next; }
@@ -91,7 +94,7 @@ export function installHome(): void {
   }
   function conversation(entry: Entry): HTMLAnchorElement {
     const link = element('a', 'text-button', 'Open conversation');
-    link.href = `/?agent=${encodeURIComponent(entry.profile.id)}`;
+    link.href = workspaceUrl(`/?agent=${encodeURIComponent(entry.profile.id)}`);
     return link;
   }
   function requestHistory(entry: Entry, work: Work): HTMLButtonElement {
@@ -141,7 +144,7 @@ export function installHome(): void {
       element('p', 'home-agent-outcomes', state?.outcome_count ? `${state.outcome_count} outcomes to review` : ''));
       if (profile.state === 'ready') summary.append(conversation(entry));
       else {
-        const link = element('a', 'text-button', 'Manage agent setup'); link.href = '/?agent=local-agent'; summary.append(link);
+        const link = element('a', 'text-button', 'Manage agent setup'); link.href = workspaceUrl('/?agent=local-agent'); summary.append(link);
       }
       overview.push(summary);
       if (!state) continue;

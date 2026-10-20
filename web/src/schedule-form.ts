@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { post, selectedAgent } from './types';
 import { loadBusinessClock } from './home-clock';
 import { localMinute, matchingInstants } from './business-time';
@@ -28,7 +29,7 @@ export function installScheduleForm(container: HTMLElement, saved: () => Promise
   const unit = input<HTMLSelectElement>('unit');
   const submit = form.querySelector<HTMLButtonElement>('[type=submit]')!;
   const status = form.querySelector('#schedule-save-status')!;
-  const key = `ayati.schedule.pending.${selectedAgent}`;
+  const key = storageScope(`ayati.schedule.pending.${selectedAgent}`);
   let pending: ScheduleInput | undefined;
   let busy = false;
   let available = false, clockReady = false;

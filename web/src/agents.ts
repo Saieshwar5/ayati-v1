@@ -1,3 +1,4 @@
+import { workspaceUrl } from './workspace-context';
 import './agents.css';
 import { api, selectedAgent } from './types';
 import { element } from './view';
@@ -99,7 +100,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
         document.querySelector('.identity strong')!.textContent = current.name;
         document.querySelector('.identity .avatar')!.textContent = current.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
         document.querySelector('#input')!.setAttribute('aria-label', `Message ${current.name}`);
-        document.title = `${current.name} · Relay`;
+        document.title = current.name === 'Relay' ? 'Chat · Relay' : `${current.name} · Relay`;
         const input = document.querySelector<HTMLTextAreaElement>('#input')!;
         input.placeholder = `Message ${current.name}…`;
         document.querySelector('.chat')!.setAttribute('aria-label', `Conversation with ${current.name}`);
@@ -116,7 +117,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
         const avatar = element('span', 'agent-avatar', profile.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
         card.append(avatar);
         const link = element('a', 'agent-link', profile.name);
-        link.href = `/?agent=${encodeURIComponent(profile.id)}`;
+        link.href = workspaceUrl(`/?agent=${encodeURIComponent(profile.id)}`);
         if (profile.state !== 'ready') { link.removeAttribute('href'); link.setAttribute('aria-disabled', 'true'); }
         if (profile.id === selectedAgent) link.setAttribute('aria-current', 'page');
         card.append(link);

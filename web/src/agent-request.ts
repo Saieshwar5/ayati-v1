@@ -1,3 +1,4 @@
+import { workspaceUrl } from './workspace-context';
 import { api } from './types';
 import { element } from './view';
 import './agent-request.css';
@@ -7,7 +8,7 @@ export function conversationUrl(agent: string, intent?: string, id?: string): st
   const params = new URLSearchParams({ agent });
   if (intent) params.set('intent', intent);
   if (id) params.set('item', id);
-  return `/?${params}`;
+  return workspaceUrl(`/?${params}`);
 }
 
 // Selection only navigates: work starts when the owner sends the conversation draft.

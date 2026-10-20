@@ -1,3 +1,4 @@
+import { workspaceId } from './workspace-context';
 import { brand } from './brand';
 import { element } from './view';
 import './access-preview.css';
@@ -8,13 +9,13 @@ type Session = { user: { id: string; email: string } | null; workspaces?: Worksp
 type People = { role: string; members: { id: string; email: string; role: string }[];
   invitations: { id: string; email: string; role: string; status: string; expires: number }[] };
 
-export async function installAccount(): Promise<void> {
+export async function installAccount(embedded?: 'people' | 'account'): Promise<void> {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = 'Your workspace · Relay';
+  document.title = embedded === 'people' ? 'People · Relay' : embedded === 'account' ? 'My account · Relay' : 'Your workspaces · Relay';
   let session: Session = { user: null };
-  let selected = '';
-  let screen: 'home' | 'people' | 'create' | 'choose' | 'account' = 'home';
+  let selected = embedded ? workspaceId : '';
+  let screen: 'home' | 'people' | 'create' | 'choose' | 'account' = embedded ?? 'home';
   let busy = false;
   let notice = '';
   let createId = crypto.randomUUID();
@@ -72,9 +73,18 @@ export async function installAccount(): Promise<void> {
   }
   async function render(): Promise<void> {
     root.replaceChildren();
-    const banner = element('div', 'access-demo', 'Local identity workspace · Real WorkOS sign-in');
-    root.append(banner);
+    const banner = element('div', 'access-demo', 'Relay · Your business workspace');
+    if (!embedded) root.append(banner);
     const error = element('p', 'access-error', notice); error.setAttribute('role', 'alert'); error.tabIndex = -1; root.append(error);
+    if (embedded && !session.user) { location.assign('/?view=account'); return; }
+    if (embedded && session.user) {
+      const workspace = session.workspaces?.find(w => w.id === workspaceId);
+      if (!workspace) { location.assign('/?view=account&choose=1'); return; }
+      const content = element('main', 'access-content'); root.append(content);
+      if (embedded === 'people') await people(content, workspace);
+      else { heading(content, 'My account', session.user.email); content.append(button('Manage workspaces', () => location.assign('/?view=account&choose=1')), button('Sign out', async () => { await logout(); location.assign('/?view=account'); })); }
+      return;
+    }
     if (!session.user) {
       const card = element('main', 'access-card');
       card.append(brand('access-brand'));
@@ -94,7 +104,7 @@ export async function installAccount(): Promise<void> {
       form.onsubmit = event => {
         event.preventDefault(); void run(async () => {
           const result = await api<{ id: string }>('/workspaces', { name: name.value, request_id: createId });
-          selected = result.id; createId = crypto.randomUUID(); screen = 'home'; await refresh();
+          selected = result.id; createId = crypto.randomUUID(); screen = embedded ?? 'home'; await refresh();
         });
       };
       card.append(form, button('Back', () => { screen = 'choose'; }));
@@ -110,46 +120,17 @@ export async function installAccount(): Promise<void> {
           element('p', 'access-help', `Join as a ${invitation.role.toLowerCase()}.`),
           button('Accept invitation', async () => {
             const joined = await api<{ id: string }>(`/invitations/${invitation.id}/accept`, {});
-            selected = joined.id; screen = 'home'; await refresh();
+            selected = joined.id; screen = embedded ?? 'home'; await refresh();
           }, true));
         card.append(section);
       }
       for (const workspace of session.workspaces ?? []) {
-        card.append(button(`${workspace.name} · ${workspace.role}`, () => { selected = workspace.id; screen = 'home'; }));
+        card.append(button(`${workspace.name} · ${workspace.role}`, () => { selected = workspace.id; screen = embedded ?? 'home'; }));
       }
       card.append(button('Create a workspace', () => { screen = 'create'; }, true), button('Sign out', logout));
       root.append(card); return;
     }
-    const workspace = session.workspaces!.find(w => w.id === selected);
-    if (!workspace) { selected = ''; await render(); return; }
-    const layout = element('div', 'access-layout');
-    const rail = element('aside', 'access-sidebar');
-    rail.append(brand('access-wordmark'), button(`${workspace.name} ▾`, async () => { await refresh(); screen = 'choose'; }));
-    const nav = element('nav');
-    for (const [label, target] of [['Home', 'home'], ['People', 'people'], ['My account', 'account']] as const) {
-      const item = button(label, async () => { await refresh(); screen = target; });
-      if (screen === target) item.setAttribute('aria-current', 'page');
-      nav.append(item);
-    }
-    rail.append(nav, element('p', 'access-help', session.user.email), button('Sign out', logout));
-    const content = element('main', 'access-content');
-    layout.append(rail, content); root.append(layout);
-    if (screen === 'people') await people(content, workspace);
-    else if (screen === 'account') {
-      heading(content, 'My account', session.user.email);
-      content.append(element('p', '', 'Identity verified through WorkOS.'),
-        element('p', 'access-help', 'This local milestone uses one-hour sessions and checks provider session status on each request. Account recovery and passkey settings are handled by the provider.'),
-        button('Sign out', logout));
-    } else {
-      heading(content, `Welcome to ${workspace.name}`, 'Your workspace is ready.');
-      const panel = element('section', 'access-panel');
-      panel.append(element('h2', '', 'Start with you. Grow with your team.'),
-        element('p', '', 'Invite employees and manage their workspace membership.'),
-        button('Open People', () => { screen = 'people'; }, true),
-        element('p', 'access-help', 'Agents, Apps and existing local files are not connected to this identity workspace yet.'));
-      content.append(panel);
-      if (session.invitations?.length) content.append(button('View pending invitations', () => { screen = 'choose'; }));
-    }
+    location.assign(`/w/${selected}/`);
   }
   async function people(root: HTMLElement, workspace: Workspace): Promise<void> {
     heading(root, 'People', 'Workspace membership is separate from access to business resources.');
@@ -209,6 +190,13 @@ export async function installAccount(): Promise<void> {
   root.append(element('p', 'access-subtitle', 'Checking your session…'));
   try {
     await refresh();
+    if (!embedded) {
+      const params = new URLSearchParams(location.search);
+      if (params.has('choose') || session.invitations?.length) { screen = 'choose'; selected = ''; }
+      else if (session.user && !selected) {
+        try { const last = localStorage.getItem(`relay.last-workspace.${session.user.id}`); if (session.workspaces?.some(w => w.id === last)) selected = last!; } catch { /* Optional. */ }
+      }
+    }
     if (new URLSearchParams(location.search).has('login_error')) notice = 'Sign-in was not completed. Try again, and make sure your email is verified.';
     await render();
   } catch (error) {

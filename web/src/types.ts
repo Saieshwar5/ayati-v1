@@ -1,3 +1,4 @@
+import { workspaceUrl, workspaceId } from './workspace-context.ts';
 export interface ChatMessage {
   id: string;
   task_id: string;
@@ -40,13 +41,15 @@ export interface AgentEvent {
 
 export const selectedAgent = new URLSearchParams(location.search).get('agent') ?? 'local-agent';
 export function apiUrl(path: string): string {
-  return `/api${path}${path.includes('?') ? '&' : '?'}agent=${encodeURIComponent(selectedAgent)}`;
+  return `${workspaceUrl(`/api${path}`)}${path.includes('?') ? '&' : '?'}agent=${encodeURIComponent(selectedAgent)}`;
 }
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers);
   if (!headers.has('X-Ayati-Agent')) headers.set('X-Ayati-Agent', selectedAgent);
-  const response = await fetch(`/api${path}`, { ...options, headers });
+  if (workspaceId && options?.method && options.method !== 'GET') headers.set('X-Ayati-Request', 'identity');
+  const response = await fetch(workspaceUrl(`/api${path}`), { ...options, headers });
+  if (response.status === 401) { location.assign('/?view=account&choose=1'); throw new Error('Please sign in again.'); }
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.');
   return data as T;

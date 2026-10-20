@@ -1,3 +1,4 @@
+import { storageScope, workspaceId } from './workspace-context';
 import './style.css';
 import { installAgents } from './agents';
 import { api, post, apiUrl, selectedAgent, type AgentEvent, type Artifact, type Snapshot } from './types';
@@ -83,12 +84,12 @@ let attachments: { name: string; id: string }[] = [];
 let uploading = false;
 let browserStorage: Storage | undefined;
 try { browserStorage = window.sessionStorage; } catch { /* Private browser modes may restrict it. */ }
-const pendingSubmission = new PendingSubmission(browserStorage, selectedAgent);
-const draftKey = `ayati.draft.${selectedAgent}`;
+const pendingSubmission = new PendingSubmission(browserStorage, storageScope(selectedAgent));
+const draftKey = storageScope(`ayati.draft.${selectedAgent}`);
 try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
 catch { input.value = pendingSubmission.draft(); }
 try {
-  const saved: unknown = JSON.parse(browserStorage?.getItem(`ayati.attachments.${selectedAgent}`) ?? '[]');
+  const saved: unknown = JSON.parse(browserStorage?.getItem(storageScope(`ayati.attachments.${selectedAgent}`)) ?? '[]');
   if (Array.isArray(saved)) attachments = saved.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string').slice(0, 8);
 } catch { attachments = []; }
 installAgents(installAgentDetails());
@@ -128,7 +129,7 @@ async function sync(): Promise<void> {
 }
 
 function showAttachments(): void {
-  try { browserStorage?.setItem(`ayati.attachments.${selectedAgent}`, JSON.stringify(attachments)); } catch { /* Optional storage. */ }
+  try { browserStorage?.setItem(storageScope(`ayati.attachments.${selectedAgent}`), JSON.stringify(attachments)); } catch { /* Optional storage. */ }
   const container = document.querySelector<HTMLDivElement>('#attachments')!;
   container.replaceChildren(...attachments.map((attachment, index) => {
     const chip = element('button', 'attachment-chip', `${attachment.name} ×`);
@@ -241,7 +242,7 @@ events.onmessage = (event) => {
 void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').then((health) => {
   modelReady = health.model_ready;
   document.querySelector<HTMLButtonElement>('#attach')!.hidden = health.file_uploads_supported === false;
-  if (!modelReady) tell('Relay needs its AI connection. See the project README to configure it on this computer.');
+  if (!modelReady) tell(workspaceId ? 'This workspace needs its own agent environment. Create an agent from the agent list to get started; existing local environments are kept separate.' : 'Relay needs its AI connection. See the project README to configure it on this computer.');
   else if (pendingSubmission.draft()) tell('Your last message is saved here. You can retry the same message safely.');
   draw();
 }).catch(() => tell('Relay is not reachable. Start the local service and reload.'));

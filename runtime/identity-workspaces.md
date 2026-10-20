@@ -2,7 +2,7 @@
 
 Run `cargo run -- identity` after building the client with `cd web && npm run build`.
 Open `http://127.0.0.1:8765/`. This is a separate server mode, not the existing
-`serve` mode. It does not start Goose, VMs or the local-owner API. A process already
+`serve` mode. It opens the existing client behind an authenticated workspace gateway. Workspace runtimes are loaded on demand; unscoped local-owner APIs remain blocked. A process already
 using the port must be stopped separately, or choose another `AYATI_PORT` and
 register its corresponding callback with WorkOS.
 
@@ -69,9 +69,7 @@ or background email reconciliation yet. Invitation emails are generic applicatio
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.
 
-Existing agents, channels, Apps, files and connections are deliberately not
-mounted in this server. Their resource ownership migration and execution-time
-authorization remain required before enabling them for multiple users.
+Existing installation data is not automatically imported. Each workspace has a separate runtime and business store under `identity/workspaces/<id>`. See [workspace client integration](workspace-client-integration.md) for the request boundary and remaining sharing/execution limits.
 The original browser-only preview remains at `?view=access-preview` in the
 regular client and is not used as authentication by this server.
 
@@ -82,7 +80,7 @@ check. The hosted Google login completed through the real callback, and the owne
 created a workspace. Its account, session and workspace survived a server restart.
 The authenticated People screen showed the Owner membership. A user-authorized
 invitation was accepted by WorkOS for sending and appeared as pending locally;
-inbox receipt and second-user acceptance are separate verification steps.
+the recipient subsequently accepted it, and the persisted Member membership was verified.
 
 All 27 library tests passed with local socket access; six exercise the identity
 module. Client build/type checking, five client test files, Rust library clippy

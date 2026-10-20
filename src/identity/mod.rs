@@ -1,7 +1,8 @@
-//! Isolated local identity server. It never mounts the local-owner agent API.
+//! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 mod provider;
 mod routes;
 pub mod store;
+mod workspaces;
 
 use anyhow::{Context, Result};
 use axum::{
@@ -33,6 +34,7 @@ struct App {
     store: Store,
     origin: String,
     pending: Mutex<HashMap<String, Pending>>,
+    runtimes: workspaces::Runtimes,
 }
 type Shared = Arc<App>;
 type ApiResult<T> = Result<T, Error>;
@@ -140,20 +142,33 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         store: Store::open(&data.join("identity.sqlite"))?,
         origin: format!("http://127.0.0.1:{port}"),
         pending: Mutex::new(HashMap::new()),
+        runtimes: workspaces::Runtimes::new(data.join("workspaces")),
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
-    axum::serve(listener, router(app))
-        .with_graceful_shutdown(async {
+    let stopping = app.runtimes.stopping.clone();
+    axum::serve(listener, router(app.clone()))
+        .with_graceful_shutdown(async move {
             let _ = tokio::signal::ctrl_c().await;
+            stopping.cancel();
         })
         .await?;
+    app.runtimes.shutdown().await?;
     Ok(())
 }
 fn router(app: Shared) -> Router {
     Router::new()
         .route(
             "/",
-            get(|| async { Redirect::to("/index.html?view=account") }),
+            get(|axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>| async move {
+                Redirect::to(if params.get("choose").is_some_and(|value| value == "1") {
+                    "/index.html?view=account&choose=1"
+                } else { "/index.html?view=account" })
+            }),
+        )
+        .route("/w/{workspace}/", get(workspaces::client))
+        .route(
+            "/w/{workspace}/api/{*rest}",
+            axum::routing::any(workspaces::dispatch),
         )
         .route("/auth/login", get(routes::login))
         .route("/auth/callback", get(routes::callback))
@@ -199,11 +214,21 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     if path.starts_with("/api/") && !path.starts_with("/api/identity/") {
         return StatusCode::NOT_FOUND.into_response();
     }
+    let guide_document =
+        path.starts_with("/w/") && request.uri().query() == Some("agent=local-agent&guide=1");
+    let scoped_api = path.starts_with("/w/") && path.contains("/api/");
     let mut response = next.run(request).await;
     let h = response.headers_mut();
     h.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
     h.insert("referrer-policy", "no-referrer".parse().unwrap());
     h.insert("x-content-type-options", "nosniff".parse().unwrap());
+    if scoped_api {
+        return response;
+    }
+    if guide_document {
+        h.insert("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'".parse().unwrap());
+        return response;
+    }
     h.insert("content-security-policy","default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'".parse().unwrap());
     response
 }

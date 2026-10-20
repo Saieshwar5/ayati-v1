@@ -107,6 +107,9 @@ async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
         store: Store::open(Path::new(":memory:")).unwrap(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        runtimes: workspaces::Runtimes::new(
+            std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
+        ),
     });
     for (path, method, host, expected) in [
         (
@@ -163,6 +166,9 @@ async fn login_is_pkce_bound_and_callback_state_is_single_use() {
         store: Store::open(Path::new(":memory:")).unwrap(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        runtimes: workspaces::Runtimes::new(
+            std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
+        ),
     });
     let response = router(app.clone())
         .oneshot(

@@ -1,3 +1,4 @@
+import { storageScope } from './workspace-context';
 import { api, post, selectedAgent } from './types';
 import { element } from './view';
 import { installEventSourceForm } from './event-sources';
@@ -32,7 +33,7 @@ export function installTriggers(container: HTMLElement): () => Promise<void> {
   let busy = false, fresh = false, fingerprint = '';
   let sources: Source[] = [];
   let pending: Record<string, unknown> | undefined;
-  const pendingKey = `ayati.trigger.pending.${selectedAgent}`;
+  const pendingKey = storageScope(`ayati.trigger.pending.${selectedAgent}`);
   try { const saved = sessionStorage.getItem(pendingKey); if (saved) pending = JSON.parse(saved) as Record<string, unknown>; } catch { /* Storage is optional. */ }
   function controls(): void {
     container.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = busy || !fresh; });
