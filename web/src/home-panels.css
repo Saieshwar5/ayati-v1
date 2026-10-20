@@ -1,5 +1,5 @@
 .home-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.home-panel-card { padding: 22px; border-radius: var(--radius); background: var(--surface); min-width: 0; overflow-wrap: anywhere; box-shadow: 0 8px 24px var(--shadow), 0 1px 2px var(--shadow); font-size: .8125rem; line-height: 1.6; }
+.home-panel-card { padding: 22px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); min-width: 0; overflow-wrap: anywhere; font-size: .8125rem; line-height: 1.6; }
 .home-panel-card.panel-wide { grid-column: 1 / -1; }
 .panel-heading-actions { display: flex; gap: 16px; }
 .panel-heading-actions button { font-size: .75rem; }
@@ -27,10 +27,10 @@
 [data-panel-status]:empty { display: none; }
 .home-panel-card h4 { font-size: .8125rem; font-weight: 500; margin: 0 0 8px; }
 .home-panel-card .panel-purpose { margin: 8px 0; }
-.home-welcome { grid-column: 1 / -1; padding: 24px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow); }
+.home-welcome { grid-column: 1 / -1; padding: 32px 24px; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; text-align: center; }
 .home-welcome .welcome-mark { display: none; }
 .home-welcome h3 { font-size: 1.125rem; margin: 0 0 8px; letter-spacing: -.025em; }
-.home-welcome p { color: var(--muted); font-size: .875rem; }
+.home-welcome p { color: var(--muted); font-size: .8125rem; margin-bottom: 20px; }
 .welcome-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
 .welcome-suggestions button { border-radius: 13px; }
 @media (max-width: 760px) { .home-panels { grid-template-columns: 1fr; } .home-panel-card { padding: 18px; } .home-welcome { padding: 24px; } }
@@ -42,13 +42,13 @@
 .panel-bar-column span { display: block; margin-top: 6px; font-size: .6875rem; color: var(--muted); overflow-wrap: anywhere; }
 /* Auto-placement follows owner order. Avoid dense packing, which can visually
    lift lower-priority cards ahead of higher-priority cards. */
-.home-panels { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-flow: row; gap: 14px; align-items: stretch; }
-.home-panel-card { grid-column: span 2; display: flex; flex-direction: column; }
+.home-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row; gap: 14px; align-items: stretch; }
+.home-panel-card { grid-column: span 1; display: flex; flex-direction: column; }
 .home-panel-card[data-template=metric] { grid-column: span 1; }
 .home-panel-card .panel-footer { margin-top: auto; }
 .home-panel-card > .panel-snapshot { flex: 1; }
 .home-panel-card[data-template=metric] .panel-purpose { font-size: .75rem; }
-.home-panel-card .panel-snapshot { max-height: 340px; overflow-y: auto; }
+.home-panel-card .panel-snapshot { min-width: 0; }
 .panel-arrange { flex-wrap: wrap; gap: 8px; }
 .panel-arrange button { font-size: .6875rem; }
 .panel-drag { cursor: grab; }

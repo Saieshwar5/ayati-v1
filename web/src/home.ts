@@ -23,11 +23,11 @@ export function installHome(): void {
   const app = view.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
     <p id="home-error" role="alert"></p>
-    <button class="home-attention-surface" id="home-decisions" aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Take a look ↗</span></button>
+    <button class="home-attention-surface" id="home-decisions" hidden aria-haspopup="dialog"><span class="home-attention-mark" aria-hidden="true">◎</span><span><strong id="attention-title">Checking what needs you…</strong><small id="attention-count"></small></span><span class="home-review-link">Review ↗</span></button>
     <section id="home-panels"></section>
-    <section class="home-team" aria-label="Your agents"><div id="home-agents" class="home-agents"></div></section>
-    <div class="home-footer"><button id="home-guide" class="home-ask">✧ What would you like help with?</button><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">See what happened ↗</button></div>
-    <div id="home-activity" hidden><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
+
+    <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Relay</button></div>
+    <div id="home-activity" hidden><button id="home-updates" class="text-button" aria-haspopup="dialog">Review outcomes</button><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
   view.querySelector<HTMLElement>('#home-guide')!.hidden = !canManageResources();
   installHomeClock(view.querySelector('#home-date')!);
@@ -132,26 +132,15 @@ export function installHome(): void {
   }
   function draw(data: Home): void {
     const opened = new Set(Array.from(app.querySelectorAll<HTMLElement>('[data-permission]')).filter(node => node.querySelector('details')?.open).map(node => node.dataset.permission));
-    const overview: HTMLElement[] = [], attention: HTMLElement[] = [], work: HTMLElement[] = [];
+    const attention: HTMLElement[] = [], work: HTMLElement[] = [];
     const recent: { entry: Entry; task: Work }[] = [];
-    let attentionCount = 0;
+    let decisionCount = 0, problemCount = 0, outcomeCount = 0;
     for (const entry of data.agents) {
       const { profile, attention: state } = entry;
-      const summary = card(entry);
-      const initials = profile.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-      summary.prepend(element('span', 'home-agent-avatar', initials));
-      const agentState = !state ? profile.state : state.permissions.length ? 'waiting' : state.active.length ? 'working' : 'ready';
-      summary.dataset.state = agentState;
-      summary.append(element('p', 'home-agent-state', !state ? profile.detail : state.permissions.length
-        ? `${state.permissions.length} awaiting approval` : state.active.length ? `${state.active.length} active or queued` : profile.id === 'local-agent' ? 'Your guide · Always here' : 'Ready'),
-      element('p', 'home-agent-outcomes', state?.outcome_count ? `${state.outcome_count} outcomes to review` : ''));
-      if (profile.state === 'ready') summary.append(conversation(entry));
-      else {
-        const link = element('a', 'text-button', 'Manage agent setup'); link.href = workspaceUrl('/?agent=local-agent'); summary.append(link);
-      }
-      overview.push(summary);
       if (!state) continue;
-      attentionCount += state.permissions.length + state.outcome_count;
+      decisionCount += state.permissions.length;
+      problemCount += state.outcomes.filter(outcome => ['failed', 'interrupted'].includes(outcome.status)).length;
+      outcomeCount += state.outcome_count;
       recent.push(...state.recent.map(task => ({ entry, task })));
       for (const permission of state.permissions) {
         const node = card(entry, state.active.find(task => task.id === permission.task_id));
@@ -184,15 +173,20 @@ export function installHome(): void {
         node.append(controls); work.push(node);
       }
     }
-    view.querySelector<HTMLElement>('#home-decisions')!.hidden = attentionCount === 0;
-    view.querySelector('#attention-title')!.textContent = attentionCount === 1 ? 'One thing needs your say.' : `${attentionCount} things need your say.`;
-    view.querySelector('#attention-count')!.textContent = `${data.agents.reduce((n, a) => n + (a.attention?.permissions.length ?? 0), 0)} decisions · ${data.agents.reduce((n, a) => n + (a.attention?.outcome_count ?? 0), 0)} outcomes`;
+    view.querySelector<HTMLElement>('#home-decisions')!.hidden = decisionCount + problemCount === 0;
+    view.querySelector('#attention-title')!.textContent = decisionCount
+      ? `${decisionCount === 1 ? 'One decision needs' : `${decisionCount} decisions need`} you`
+      : `${problemCount === 1 ? 'One request needs' : `${problemCount} requests need`} attention`;
+    view.querySelector('#attention-count')!.textContent = decisionCount
+      ? `Review requested actions before agents continue.${problemCount ? ` ${problemCount} requests also need attention.` : ''}`
+      : 'Review failed or interrupted work.';
+    view.querySelector('#home-activity-count')!.textContent = `${work.length} active · ${outcomeCount} ${outcomeCount === 1 ? 'outcome' : 'outcomes'} `;
+    view.querySelector<HTMLElement>('#home-updates')!.hidden = outcomeCount === 0;
     view.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
       const row = element('article', 'home-feed-item');
       row.append(element('strong', '', `${entry.profile.name} · ${task.status}`), element('p', '', task.request), element('small', '', `Requested ${businessDate(task.created_at.replace(' ', 'T') + (task.created_at.endsWith('Z') ? '' : 'Z'))}`), requestHistory(entry, task));
       return row;
     }) : [element('p', 'home-empty', 'Completed work will appear here.')]));
-    view.querySelector('#home-agents')!.replaceChildren(...overview);
     drawInbox(attention);
     view.querySelector('#home-work')!.replaceChildren(...(work.length ? work : [element('p', 'home-empty', 'No other work is running or queued.')]));
   }

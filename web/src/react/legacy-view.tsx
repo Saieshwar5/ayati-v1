@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { HomeToolbar } from './home-toolbar';
 import { ViewLifetime, setViewLifetime } from '../view-lifetime';
 import { workspaceId } from '../workspace-context';
 import type { Profile } from '../agents';
@@ -28,6 +29,7 @@ async function install(page: WorkspacePage, view: ViewLifetime): Promise<Control
 
 /** React owns the host; the feature owns its subtree and must dispose every effect. */
 export function LegacyView({ page, href, profile }: { page: WorkspacePage; href: string; profile?: Profile }) {
+  const [ready, setReady] = useState(false);
   const controller = useRef<Controller | void>(undefined);
   const latestHref = useRef(href); latestHref.current = href;
   const mountKey = page === 'chat' && workspaceId && !new URL(href).searchParams.has('agent') ? 'shared-chat' : href;
@@ -36,6 +38,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   useEffect(() => { if (profile) controller.current?.profile?.(profile); }, [profile]);
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    setReady(false);
     // Each effect owns a separate subtree, including Strict Mode remounts. Late
     // catch/finally handlers can only touch their detached original nodes.
     const node = document.createElement('div'); node.id = 'app';
@@ -47,6 +50,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
     void install(page, view).then(consumer => {
       if (!view.active) return;
       status.remove(); controller.current = consumer;
+      setReady(true);
       consumer?.navigate?.(new URL(latestHref.current));
       if (latestProfile.current) consumer?.profile?.(latestProfile.current);
     }).catch(error => {
@@ -61,5 +65,11 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
     });
     return () => { controller.current = undefined; view.dispose(); node.remove(); };
   }, [page, mountKey]);
-  return <div className="feature-host" ref={host} />;
+  const trigger = (selector: string) => host.current?.querySelector<HTMLButtonElement>(selector)?.click();
+  if (page !== 'home') return <div className="feature-host" ref={host} />;
+  return <div className="feature-host home-feature">
+    <HomeToolbar ready={ready}
+      arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />
+    <div className="feature-host" ref={host} />
+  </div>;
 }

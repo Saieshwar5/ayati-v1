@@ -7,9 +7,16 @@ export function installAttentionInbox(container: HTMLElement): (items: HTMLEleme
   const filters = element('div', 'inbox-filters'); filters.setAttribute('aria-label', 'Attention categories');
   const list = element('div', 'home-list'); list.id = 'home-attention';
   const status = element('p', 'home-detail'); status.id = 'inbox-connection'; status.setAttribute('role', 'status');
-  dialog.append(header, document.querySelector('#home-error')!, status, filters, list); container.append(dialog);
+  dialog.append(header, container.querySelector('#home-error')!, status, filters, list); container.append(dialog);
   close.onclick = () => dialog.close();
-  document.querySelector<HTMLButtonElement>('#home-decisions')!.onclick = () => dialog.showModal();
+  container.querySelector<HTMLButtonElement>('#home-decisions')!.onclick = () => {
+    category = current.some(item => item.dataset.category === 'Decisions') ? 'Decisions' : 'Problems';
+    draw(); dialog.showModal();
+  };
+  container.querySelector<HTMLButtonElement>('#home-updates')!.onclick = () => {
+    category = current.some(item => item.dataset.category === 'Updates') ? 'Updates' : 'Problems';
+    draw(); dialog.showModal();
+  };
   let current: HTMLElement[] = [], category = 'Decisions';
   const tabs = new Map<string, HTMLButtonElement>();
   for (const name of ['Decisions', 'Problems', 'Updates']) {
