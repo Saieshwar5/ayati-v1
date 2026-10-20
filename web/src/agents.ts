@@ -87,6 +87,9 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
     refreshing = true;
     try {
       workspace = await ownerApi<Workspace>('/agents');
+      // Present the built-in guide under the product name without changing saved profiles.
+      workspace.agents = workspace.agents.map(agent => agent.profile.id === 'local-agent' && agent.profile.name === 'Ayati'
+        ? { ...agent, profile: { ...agent.profile, name: 'Relay' } } : agent);
       create.disabled = !workspace.creation_available || workspace.agents.length >= workspace.limit || workspace.agents.some(a => a.profile.state === 'preparing');
       status.textContent = !workspace.creation_available ? 'Creating agents requires local VM setup.'
         : workspace.agents.length >= workspace.limit ? `Local limit: ${workspace.limit} agents.` : '';
@@ -96,7 +99,7 @@ export function installAgents(updateDetails: (profile: Profile) => void): void {
         document.querySelector('.identity strong')!.textContent = current.name;
         document.querySelector('.identity .avatar')!.textContent = current.name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
         document.querySelector('#input')!.setAttribute('aria-label', `Message ${current.name}`);
-        document.title = `${current.name} · Ayati`;
+        document.title = `${current.name} · Relay`;
         const input = document.querySelector<HTMLTextAreaElement>('#input')!;
         input.placeholder = `Message ${current.name}…`;
         document.querySelector('.chat')!.setAttribute('aria-label', `Conversation with ${current.name}`);

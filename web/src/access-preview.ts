@@ -1,3 +1,4 @@
+import { brand } from './brand';
 import { element } from './view';
 import {
   accept, createBusiness, emptyState, emailAddress, membership,
@@ -14,7 +15,7 @@ type Screen = 'entry' | 'create' | 'choose' | 'home' | 'people' | 'account';
 export function installAccessPreview(): void {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = 'Workspace preview · Ayati';
+  document.title = 'Workspace preview · Relay';
   if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
     root.textContent = 'The account preview is available only on localhost.';
     return;
@@ -85,7 +86,7 @@ export function installAccessPreview(): void {
     root.replaceChildren();
     const banner = element('div', 'access-demo');
     banner.append(element('span', '', 'Local preview · Simulated accounts · No emails sent'));
-    const exit = element('a', '', 'Back to local Ayati'); exit.href = '/';
+    const exit = element('a', '', 'Back to local Relay'); exit.href = '/';
     banner.append(exit);
     const error = element('p', 'access-error', storageProblem);
     error.setAttribute('role', 'alert'); error.tabIndex = -1;
@@ -97,6 +98,7 @@ export function installAccessPreview(): void {
     const business = available().find(item => item.id === session!.workspace);
     if (!business) {
       const card = element('main', 'access-card');
+      card.append(brand('access-brand'));
       heading(card, 'Workspace access unavailable', 'Your membership may have been removed. Choose another workspace or create one.');
       card.append(button('Choose workspace', () => { session!.workspace = ''; screen = 'choose'; }));
       root.append(card); return;
@@ -105,8 +107,8 @@ export function installAccessPreview(): void {
   }
   function renderEntry(): void {
     const card = element('main', 'access-card');
-    card.append(element('div', 'access-brand', 'a'));
-    heading(card, 'Your business, together.', 'One place for you and your team to work with Ayati.');
+    card.append(brand('access-brand'));
+    heading(card, 'Your business, together.', 'One place for you and your team to work with Relay.');
     const google = button('Continue with Google', () => {});
     google.disabled = true; google.title = 'Available after authentication provider setup';
     card.append(google, element('p', 'access-help', 'Google and email verification need provider setup. Use a demo identity below to explore.'));
@@ -130,6 +132,7 @@ export function installAccessPreview(): void {
   }
   function renderCreate(): void {
     const card = element('main', 'access-card');
+    card.append(brand('access-brand'));
     heading(card, 'Create your workspace', 'Start on your own. Invite your team whenever you’re ready.');
     const form = element('form');
     const name = field(form, 'Business or workspace name'); name.maxLength = 80; name.placeholder = 'Sai Stores';
@@ -143,6 +146,7 @@ export function installAccessPreview(): void {
   }
   function renderChooser(): void {
     const card = element('main', 'access-card');
+    card.append(brand('access-brand'));
     heading(card, 'Choose a workspace', `Signed in as ${session!.email}`);
     const choices = available();
     if (!choices.length) card.append(element('p', '', 'You haven’t joined a workspace yet.'));
@@ -155,11 +159,12 @@ export function installAccessPreview(): void {
   }
   function renderInvitation(): void {
     const card = element('main', 'access-card');
+    card.append(brand('access-brand'));
     const invitation = state.invitations.find(item => item.id === invitationId);
     const business = state.businesses.find(item => item.id === invitation?.workspace);
     if (!invitation || !business || invitation.status === 'cancelled' || (invitation.status === 'pending' && invitation.expires <= Date.now())) {
       heading(card, 'Invitation unavailable', 'It may have expired or been cancelled. Demo links work only in this browser, on this address.');
-      card.append(button('Continue to Ayati', clearInvitation)); root.append(card); return;
+      card.append(button('Continue to Relay', clearInvitation)); root.append(card); return;
     }
     heading(card, `Join ${business.name}`, `You’re invited as a ${invitation.role.toLowerCase()}.`);
     card.append(element('p', 'access-help', `Invited email: ${invitation.email}`));
@@ -190,7 +195,7 @@ export function installAccessPreview(): void {
   function renderShell(business: Business): void {
     const layout = element('div', 'access-layout');
     const rail = element('aside', 'access-sidebar');
-    rail.append(element('span', 'access-wordmark', 'ayati'),
+    rail.append(brand('access-wordmark'),
       button(`${business.name} ▾`, () => { screen = 'choose'; }));
     const nav = element('nav'); nav.setAttribute('aria-label', 'Preview workspace');
     for (const [label, target] of [['Home', 'home'], ['People', 'people'], ['My account', 'account']] as const) {

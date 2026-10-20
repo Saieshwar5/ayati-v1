@@ -27,7 +27,7 @@ export function installConversationIntent(input: HTMLTextAreaElement): (content:
     banner.hidden = !active; launch.hidden = active; form.classList.toggle('is-creating', active);
     label.textContent = ({ panel: 'Creating a panel', app: 'Creating an app', 'edit-panel': 'Updating a panel', 'edit-app': 'Updating an app' } as Record<string, string>)[intent] ?? '';
     select.hidden = intent !== 'panel';
-    input.placeholder = active ? 'Describe what you need…' : 'Ask Ayati anything…';
+    input.placeholder = active ? 'Describe what you need…' : 'Ask Relay anything…';
   };
   close.onclick = () => { intent = ''; reference = ''; for (const key of ['intent', 'item', 'topic', 'template']) url.searchParams.delete(key); history.replaceState(null, '', url); draw(); input.focus(); };
   launch.onclick = () => { intent = 'panel'; url.searchParams.set('intent', intent); history.replaceState(null, '', url); draw(); input.focus(); };

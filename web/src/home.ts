@@ -15,7 +15,7 @@ type Entry = {
 type Home = { agents: Entry[] };
 
 export function installHome(): void {
-  document.title = 'Home · Ayati';
+  document.title = 'Home · Relay';
   const app = document.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home" aria-label="Home"><div class="home-heading"><time id="home-date"></time><p id="home-connection" role="status">Connecting…</p><button id="home-refresh" class="text-button">Refresh</button></div>
     <p id="home-error" role="alert"></p>

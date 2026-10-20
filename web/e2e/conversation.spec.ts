@@ -69,7 +69,7 @@ test('provider failure is clear, does not leak its body, and permits a new reque
 test('failed submission preserves the draft and retry creates only one request', async ({ page, ayati }) => {
   await page.route('**/api/messages', (route) => route.fulfill({ status: 503,
     contentType: 'application/json', body: JSON.stringify({ error: 'Temporary test connection failure' }) }), { times: 1 });
-  const input = page.getByRole('textbox', { name: 'Message Ayati' });
+  const input = page.getByRole('textbox', { name: 'Message Relay' });
   await input.fill('Please keep this draft.');
   await page.getByRole('button', { name: 'Send message' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Temporary test connection failure' })).toBeVisible();
@@ -106,7 +106,7 @@ test('long replies keep the composer visible on short laptops and mobile layouts
   await ayati.completed(await ayati.send('Give me a long explanation.'));
   for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 600 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    const input = page.getByRole('textbox', { name: 'Message Ayati' });
+    const input = page.getByRole('textbox', { name: 'Message Relay' });
     await expect(input).toBeInViewport();
     const bounds = await input.boundingBox();
     ayati.check(`Composer fits ${viewport.width}×${viewport.height}`, true,
@@ -120,9 +120,9 @@ test('long replies keep the composer visible on short laptops and mobile layouts
     await expect(page.getByRole('button', { name: 'Artifacts', exact: true })).toBeFocused();
     await ayati.screenshot(`conversation-${viewport.width}x${viewport.height}`);
   }
-  await page.getByRole('textbox', { name: 'Message Ayati' }).focus();
+  await page.getByRole('textbox', { name: 'Message Relay' }).focus();
   await page.keyboard.type('First line');
   await page.keyboard.press('Shift+Enter');
   await page.keyboard.type('Second line');
-  await expect(page.getByRole('textbox', { name: 'Message Ayati' })).toHaveValue('First line\nSecond line');
+  await expect(page.getByRole('textbox', { name: 'Message Relay' })).toHaveValue('First line\nSecond line');
 });

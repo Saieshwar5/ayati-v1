@@ -38,7 +38,7 @@ export const test = base.extend<{ ayati: Harness }>({
         send: async (text) => {
           const accepted = page.waitForResponse((response) =>
             new URL(response.url()).pathname === '/api/messages' && response.request().method() === 'POST');
-          await page.getByRole('textbox', { name: 'Message Ayati' }).fill(text);
+          await page.getByRole('textbox', { name: 'Message Relay' }).fill(text);
           await page.getByRole('button', { name: 'Send message' }).click();
           const response = await accepted;
           expect(response.ok(), 'Message accepted by the real daemon').toBe(true);

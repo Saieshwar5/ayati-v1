@@ -18,8 +18,8 @@ import { installConversationIntent } from './conversation-intent';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="header" role="toolbar" aria-label="Agent tools">
-    <div class="identity"><span class="avatar" aria-hidden="true">a</span>
-      <div><strong>Ayati</strong><span class="connection" id="connection">Connecting…</span></div>
+    <div class="identity"><span class="avatar" aria-hidden="true">R</span>
+      <div><strong>Relay</strong><span class="connection" id="connection">Connecting…</span></div>
     </div>
     <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
     <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
@@ -28,14 +28,14 @@ app.innerHTML = `
     <div class="chat-tool-links"></div>
   </div>
   <main class="main">
-    <section class="chat" aria-label="Conversation with Ayati">
+    <section class="chat" aria-label="Conversation with Relay">
       <div class="notice" id="notice" role="status" hidden></div>
       <div class="conversation" id="conversation" role="log" aria-label="Messages"></div>
       <div class="composer-area">
         <div class="attachments" id="attachments"></div>
         <form id="composer" class="composer">
           <button type="button" class="icon-button attach" id="attach" aria-label="Attach a file">＋</button>
-          <textarea id="input" rows="1" placeholder="Ask Ayati anything…" aria-label="Message Ayati" maxlength="16000"></textarea>
+          <textarea id="input" rows="1" placeholder="Ask Relay anything…" aria-label="Message Relay" maxlength="16000"></textarea>
           <button type="button" class="stop-button" id="stop" hidden>Stop</button>
           <button type="submit" class="send-button" id="send" aria-label="Send message">↑</button>
         </form>
@@ -103,7 +103,7 @@ document.querySelector<HTMLButtonElement>('#agent-sidebar-toggle')!.onclick = ev
 function tell(text: string): void { notice.textContent = text; notice.hidden = !text; }
 
 function draw(): void {
-  renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
+  renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Relay');
   renderArtifacts(state.artifacts);
   document.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
   const active = state.tasks.find(task => task.status === 'running');
@@ -234,15 +234,15 @@ events.onmessage = (event) => {
   const update = JSON.parse(event.data) as AgentEvent;
   if (update.kind === 'delta' && update.message_id && update.text) {
     if (!applyDelta(state, update)) { void sync(); return; }
-    renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Ayati');
+    renderConversation(conversation, state, document.querySelector('.identity strong')?.textContent ?? 'Relay');
   } else { void sync(); }
 };
 
 void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').then((health) => {
   modelReady = health.model_ready;
   document.querySelector<HTMLButtonElement>('#attach')!.hidden = health.file_uploads_supported === false;
-  if (!modelReady) tell('Ayati needs its AI connection. See the project README to configure it on this computer.');
+  if (!modelReady) tell('Relay needs its AI connection. See the project README to configure it on this computer.');
   else if (pendingSubmission.draft()) tell('Your last message is saved here. You can retry the same message safely.');
   draw();
-}).catch(() => tell('Ayati is not reachable. Start the local service and reload.'));
+}).catch(() => tell('Relay is not reachable. Start the local service and reload.'));
 void sync();

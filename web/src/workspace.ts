@@ -1,3 +1,4 @@
+import { brand } from './brand';
 import { element } from './view';
 import { openGuide } from './guide';
 
@@ -23,8 +24,10 @@ export function installWorkspace(page: WorkspacePage): void {
     link.title = name[0].toUpperCase() + name.slice(1);
     nav.append(link);
   }
-  const help = element('button', 'workspace-help', '?'); help.setAttribute('aria-label', 'Ask Ayati'); help.title = 'Ask Ayati'; help.onclick = openGuide;
-  rail.append(nav, help, element('span', 'workspace-owner', 'You'));
+  const help = element('button', 'workspace-help', '?'); help.setAttribute('aria-label', 'Ask Relay'); help.title = 'Ask Relay'; help.onclick = openGuide;
+  const logo = element('a', 'workspace-brand'); logo.href = '/'; logo.setAttribute('aria-label', 'Relay home');
+  logo.append(brand('', true));
+  rail.append(logo, nav, help, element('span', 'workspace-owner', 'You'));
   const body = element('div', 'workspace-body');
   app.before(shell); body.append(app); shell.append(rail, body);
   document.documentElement.dataset.page = page;

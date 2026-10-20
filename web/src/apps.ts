@@ -9,7 +9,7 @@ type App = { id: string; agent_id: string; revision: number; active_revision: nu
 type Grant = { agent_id: string; collection: string; can_write: boolean };
 
 export function installApps(): void {
-  document.title = 'Apps · Ayati';
+  document.title = 'Apps · Relay';
   const root = document.querySelector<HTMLElement>('#app')!;
   root.innerHTML = `<main class="workspace-page apps-page" aria-label="Apps"><div class="apps-toolbar"><label class="app-search-label">Find an app<input type="search" id="app-search" placeholder="Find an app…"></label><button class="files-button" id="ask-app">＋ Create app</button></div>
     <p id="apps-status" role="status"></p>

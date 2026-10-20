@@ -1,3 +1,4 @@
+import { brand } from './brand';
 import { element } from './view';
 import './access-preview.css';
 
@@ -10,7 +11,7 @@ type People = { role: string; members: { id: string; email: string; role: string
 export async function installAccount(): Promise<void> {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = 'Your workspace · Ayati';
+  document.title = 'Your workspace · Relay';
   let session: Session = { user: null };
   let selected = '';
   let screen: 'home' | 'people' | 'create' | 'choose' | 'account' = 'home';
@@ -67,7 +68,7 @@ export async function installAccount(): Promise<void> {
   async function logout(): Promise<void> {
     const result = await api<{ provider_session_revoked: boolean }>('/logout', {});
     session = { user: null }; selected = '';
-    if (!result.provider_session_revoked) notice = 'Signed out of Ayati. WorkOS session termination could not be confirmed.';
+    if (!result.provider_session_revoked) notice = 'Signed out of Relay. WorkOS session termination could not be confirmed.';
   }
   async function render(): Promise<void> {
     root.replaceChildren();
@@ -76,15 +77,16 @@ export async function installAccount(): Promise<void> {
     const error = element('p', 'access-error', notice); error.setAttribute('role', 'alert'); error.tabIndex = -1; root.append(error);
     if (!session.user) {
       const card = element('main', 'access-card');
-      card.append(element('div', 'access-brand', 'a'));
+      card.append(brand('access-brand'));
       heading(card, 'Your business, together.', 'Sign in securely, then create your workspace or join your team.');
       const link = element('a', 'access-button primary', 'Continue to sign in');
       link.href = '/auth/login';
-      card.append(link, element('p', 'access-help', 'Your available sign-in methods are managed by WorkOS. Ayati never asks for your Google password.'));
+      card.append(link, element('p', 'access-help', 'Your available sign-in methods are managed by WorkOS. Relay never asks for your Google password.'));
       root.append(card); return;
     }
     if (screen === 'create') {
       const card = element('main', 'access-card');
+      card.append(brand('access-brand'));
       heading(card, 'Create your workspace', 'Start on your own. Invite employees whenever you’re ready.');
       const form = element('form');
       const name = field(form, 'Business or workspace name'); name.maxLength = 80;
@@ -100,6 +102,7 @@ export async function installAccount(): Promise<void> {
     }
     if (!selected || screen === 'choose') {
       const card = element('main', 'access-card');
+      card.append(brand('access-brand'));
       heading(card, 'Your workspaces', session.user.email);
       for (const invitation of session.invitations ?? []) {
         const section = element('section', 'access-panel');
@@ -121,7 +124,7 @@ export async function installAccount(): Promise<void> {
     if (!workspace) { selected = ''; await render(); return; }
     const layout = element('div', 'access-layout');
     const rail = element('aside', 'access-sidebar');
-    rail.append(element('span', 'access-wordmark', 'ayati'), button(`${workspace.name} ▾`, async () => { await refresh(); screen = 'choose'; }));
+    rail.append(brand('access-wordmark'), button(`${workspace.name} ▾`, async () => { await refresh(); screen = 'choose'; }));
     const nav = element('nav');
     for (const [label, target] of [['Home', 'home'], ['People', 'people'], ['My account', 'account']] as const) {
       const item = button(label, async () => { await refresh(); screen = target; });

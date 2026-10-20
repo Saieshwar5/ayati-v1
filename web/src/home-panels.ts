@@ -41,7 +41,7 @@ export function installHomePanels(container: HTMLElement): void {
       for (const label of ['Orders', 'Stock', 'Appointments']) {
         const button = element('button', 'files-button', label); button.onclick = () => chooseAgent('panel', label.toLowerCase()); suggestions.append(button);
       }
-      const guide = element('button', 'text-button', 'Ask Ayati'); guide.onclick = openGuide;
+      const guide = element('button', 'text-button', 'Ask Relay'); guide.onclick = openGuide;
       welcome.append(suggestions, guide); list.append(welcome);
     }
     const ordered = [...panels].sort((a, b) => {
