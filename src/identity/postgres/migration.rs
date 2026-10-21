@@ -11,6 +11,7 @@ impl MigratorTrait for Migrator {
             Box::new(Collaboration),
             Box::new(QueueTelemetry),
             Box::new(Messaging),
+            Box::new(AgentProfiles),
         ]
     }
 }
@@ -143,6 +144,28 @@ impl MigrationTrait for Messaging {
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom(
             "Messages and receipts are durable; use a forward migration".into(),
+        ))
+    }
+}
+
+struct AgentProfiles;
+impl MigrationName for AgentProfiles {
+    fn name(&self) -> &str {
+        "m20261021_000007_agent_profiles"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for AgentProfiles {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("agent_profiles.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Agent ownership and knowledge are durable; use a forward migration".into(),
         ))
     }
 }

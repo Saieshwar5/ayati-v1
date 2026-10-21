@@ -1,5 +1,6 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 pub mod adoption;
+mod agents;
 mod chat;
 mod collaboration;
 mod database;
@@ -211,6 +212,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
 }
 fn router(app: Shared) -> Router {
     Router::new()
+        .merge(agents::routes())
         .merge(chat::routes())
         .merge(collaboration::routes())
         .merge(simulation::routes())

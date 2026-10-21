@@ -6,7 +6,7 @@ impl PgStore {
     pub async fn allowed_shared_agents(&self, user: &User, w: &str) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
         let owner = role(&tx, w, &user.id).await? == "Owner";
-        let profiles=json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ($3 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)) ORDER BY a.name",vec![w.into(),user.id.clone().into(),owner.into()]).await?;
+        let profiles=json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))) ORDER BY a.name",vec![w.into(),user.id.clone().into(),owner.into()]).await?;
         tx.commit().await?;
         Ok(profiles)
     }
@@ -36,7 +36,7 @@ impl PgStore {
             role(&tx, w, &user.id).await? == "Owner",
             "Only the owner can create shared agents"
         );
-        let changed = execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model) VALUES($1,$2,$3,$4,$5) ON CONFLICT(workspace,id) DO NOTHING",vec![w.into(),id.into(),name.into(),description.into(),model.into()]).await?;
+        let changed = execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model,owner_id,creator_id) VALUES($1,$2,$3,$4,$5,$6,$6) ON CONFLICT(workspace,id) DO NOTHING",vec![w.into(),id.into(),name.into(),description.into(),model.into(),user.id.clone().into()]).await?;
         if changed == 0 {
             let r = query(
                 &tx,

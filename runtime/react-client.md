@@ -20,6 +20,8 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
+- `web/src/react/agents/`: PostgreSQL agent directory, guided creation, profile
+  editing, approved knowledge and preserved local-agent lifecycle controls.
 - `web/src/react/people.tsx`, `member-details.tsx`, `member-access.tsx`: member and
   invitation lists, invitations, roles and explicit agent/App/panel grants.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
@@ -32,7 +34,7 @@ Existing workspace-bound APIs remain authoritative for every access decision.
 
 ## Temporary boundary and remaining conversion
 
-Home/panels, Apps/record frames, agent management, private-agent transcripts, Settings,
+Home/panels, Apps/record frames, no-workspace agent management, private-agent transcripts, Settings,
 connections, schedules, browser/approvals, memory/files and access-preview demo
 still use their existing TypeScript implementations. `LegacyView` reserves an
 empty `#app` subtree for them. React manages the shell but does not reconcile the

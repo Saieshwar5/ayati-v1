@@ -1,5 +1,7 @@
 //! PostgreSQL identity storage. All access stays behind the existing Relay API.
 mod accounts;
+mod agent_knowledge;
+mod agent_profiles;
 mod chat;
 pub mod cli;
 mod collaboration;
@@ -166,3 +168,6 @@ mod company_tests;
 
 #[cfg(test)]
 mod messaging_tests;
+pub(crate) use agent_knowledge::KnowledgeInput;
+#[cfg(test)]
+mod agent_profile_tests;

@@ -15,7 +15,7 @@ export function CreateConversation({ directory, mode, close, created, privateAge
   const mutation = useMutation();
   const id = useRef(crypto.randomUUID());
   const users = directory.users.filter(user => user.id !== workspaceSession?.user?.id);
-  const choices = [...users.map(user => ({ ...user, kind: 'user' })), ...directory.agents.map(agent => ({ ...agent, kind: 'agent' }))];
+  const choices = [...users.map(user => ({ ...user, kind: 'user' })), ...directory.agents.filter(agent => mode === 'direct' || agent.scope !== 'private').map(agent => ({ ...agent, kind: 'agent' }))];
   const create = (members: string[], title: string) => mutation.run(async () => {
     const users = members.filter(key => key.startsWith('user:')).map(key => key.slice(5));
     const agents = members.filter(key => key.startsWith('agent:')).map(key => key.slice(6));
