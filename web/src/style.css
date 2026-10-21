@@ -87,3 +87,5 @@ h2 { font-size: 16px; font-weight: 600; margin: 0; }
 .memory-panel input, .memory-panel textarea { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
 .memory-panel textarea { min-height: 90px; resize: vertical; }
 @media (max-width: 560px) { .header { flex-wrap: wrap; gap: 8px; } }
+
+.private-message-avatar { display:none; }

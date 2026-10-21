@@ -26,7 +26,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
   app.innerHTML = `
     <div class="header" role="toolbar" aria-label="Agent tools">
       <div class="identity"><span class="avatar" aria-hidden="true">R</span>
-        <div><strong>Cuckoo</strong><span class="connection" id="connection">Connecting…</span></div>
+        <div><strong>Cuckoo</strong><span class="chat-header-meta"><small class="chat-kind">Agent</small><span class="connection" id="connection">Connecting…</span></span></div>
       </div>
       <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
       <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>

@@ -11,7 +11,7 @@ import { ChatMessage } from './message';
 import { ChatThread } from './thread';
 import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
-import { chatRequest, conversationName, type Conversation, type Directory, type History } from './model';
+import { chatRequest, conversationKind, conversationName, type Conversation, type Directory, type History } from './model';
 
 export function ConversationPane({ chat, directory, back }: { chat: Conversation; directory: Directory; back: () => void }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
@@ -87,10 +87,23 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
   const title = conversationName(chat, directory);
+  const kind = conversationKind(chat, directory);
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <section className="chat-conversation" aria-label={`Conversation with ${title}`}>
-    <header className="chat-pane-header"><Button className="chat-back" onClick={back}>‹ Chats</Button><span className="chat-avatar">{chat.kind === 'direct' ? title.slice(0, 1).toUpperCase() : '#'}</span><div><h2 title={title}>{chat.kind !== 'direct' && '# '}{title}</h2></div><Button onClick={() => setDetails(true)}>Details</Button></header>
-    <p className="chat-connection" role="status">{connection}</p>
+    <header className="chat-pane-header">
+      <Button className="chat-back" onClick={back}>‹ Chats</Button>
+      <span className={`chat-avatar ${kind.toLowerCase()}`}>
+        {kind === 'Channel' ? '#' : kind === 'Agent' ? '✧' : title.slice(0, 1).toUpperCase()}
+      </span>
+      <div>
+        <h2 title={title}>{title}</h2>
+        <div className="chat-header-meta">
+          <small className="chat-kind">{kind}</small>
+          <p className="chat-connection" role="status">{connection}</p>
+        </div>
+      </div>
+      <Button onClick={() => setDetails(true)}>Details</Button>
+    </header>
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => { const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }}>
       {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}

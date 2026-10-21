@@ -1,6 +1,6 @@
 # Cuckoo workspace design system
 
-Current accepted direction, 2026-10-21. This is the authoritative visual and
+Current accepted direction, 2026-10-22. This is the authoritative visual and
 interaction guide for the existing Cuckoo client. It supersedes the older
 Floating Canvas, floating dock, tinted Chat directory and agent-first Home
 layouts. Historical prototypes explain past choices; they are not current rules.
@@ -96,16 +96,36 @@ messages, retain author/Agent labels, and keep message text naturally aligned.
 Use one persistent Chat shell for Channels and Direct messages, including people
 and agents. The conversation list and message area share the same surface color,
 with a thin vertical divider. The global rail remains outside the shared frame.
-Selecting a conversation changes only the right pane; keep the list, search and
-workspace navigation mounted. Preserve scoped drafts and reject stale responses.
+Selecting a conversation changes only the right pane; keep the list and workspace
+navigation mounted. Searching must preserve the active transcript, its reading
+position and scoped drafts. Reject stale responses.
 
-The pencil action means New message. The plus beside Channels means Create
-channel. Both need accessible names and clear hover labels. Do not use two
-indistinguishable plus buttons for these different actions.
+Use the approved OpenPencil page 09 / option 1: one workspace with a floating
+composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
+240 px before the existing phone list/conversation switch. Sidebar and conversation
+headers share a 64 px height. Only the conversation header has a bottom divider;
+do not extend it under the sidebar's Chat title. Keep connection status in the
+header. Use 40 px sidebar/header avatars and 36 px incoming-message avatars,
+with a smaller private-agent header avatar where needed on phones.
 
-Keep channel, person and agent headers slim. Use a compact single-row floating composer with an inset and subtle shadow. It grows
-for long messages and attachments, reserving transcript space above it. Keep own
-message time and delivery indicators compact; omit the repeated own name/avatar.
+The search button beside Chat opens a focused dialog for authorized channels,
+people and agents, with category filters and name/email matching. This is directory
+search, not message-history search. Typing and filtering do not write. Choosing
+an existing direct conversation reopens it; a result labelled Start conversation
+uses the same guarded creation operation as New message. Keep failed queries,
+block duplicate submissions, ignore late navigation after closing, and retain
+owner-only private-agent access. New message is the labelled plus beside Direct
+messages; Create channel is the labelled plus beside Channels. Both have accessible
+names and hover labels. Escape closes search and restores the trigger's focus;
+arrow keys move between the query and results, with native keyboard activation.
+
+Keep channel, person and agent headers slim. Use the existing shared composer,
+centered on a reading column up to 760 px, with a control border, 18 px corners and
+a restrained shadow. Keep it in layout flow with a bottom inset; long messages,
+attachments and voice controls must reserve transcript space rather than cover
+messages. Keep own time and delivery indicators together on a predictable metadata
+line; omit the repeated own name/avatar. Retain visible reply counts and reveal
+ordinary reply actions on hover/focus, keeping them available on touch devices.
 Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
@@ -184,3 +204,13 @@ scroll preservation; dialogs/menus; short and narrow layouts down to 320 px; and
 composer focus in forced colors. Screenshots were reviewed with no browser errors.
 The scripted sample workspace had no custom Home panels or Apps: their updated
 border rules were inspected in source, not verified against populated records.
+
+The 2026-10-22 Chat option 1 implementation passed the production build, all 65
+frontend tests (including five focused search/direct-opening regressions), browser-
+test type checking, source line limits and diff checks. Live local Chromium checks
+cover channel/person/shared-agent views, search categories and keyboard dismissal,
+existing-DM reuse, retained drafts/reading position, growing composers, thread
+opening, light/dark themes, short windows, widths down to 320 px and forced colors.
+Six additional private-agent adapter checks used provider fixtures because the
+sample workspace has no legacy private agents. These establish UI behavior only;
+no LLM calls or external integrations were exercised. Screenshots were reviewed.
