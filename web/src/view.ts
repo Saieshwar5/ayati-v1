@@ -88,7 +88,11 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
   const content = element('div', 'message-content message-markdown');
   content.innerHTML = messageHtml(body);
   for (const name of attachments) content.append(element('span', 'sent-attachment', `↧ ${name}`));
-  if (message.role === 'assistant') row.append(element('div', 'speaker', agentName));
+  if (message.role === 'assistant') {
+    const avatar = element('span', 'private-message-avatar', '✧');
+    avatar.setAttribute('aria-hidden', 'true');
+    row.append(avatar, element('div', 'speaker', agentName));
+  }
   row.append(content);
   return row;
 }

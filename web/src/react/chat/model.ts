@@ -12,3 +12,9 @@ export function conversationName(chat: Conversation, directory: Directory): stri
   const agent = directory.agents.find(agent => chat.agents.includes(agent.id));
   return person?.name ?? agent?.name ?? chat.name;
 }
+
+export function conversationKind(chat: Conversation, directory: Directory): 'Channel' | 'Person' | 'Agent' {
+  if (chat.kind !== 'direct') return 'Channel';
+  const person = directory.users.some(user => chat.users.includes(user.id) && user.id !== workspaceSession?.user?.id);
+  return !person && chat.agents.length ? 'Agent' : 'Person';
+}

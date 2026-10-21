@@ -1,0 +1,8 @@
+.ui-dialog:has(.chat-search) { width:min(600px,calc(100vw - 32px)); }
+.chat-search { display:flex; flex-direction:column; gap:16px; }
+.chat-search-filters { display:flex; gap:6px; flex-wrap:wrap; }
+.chat-search-filters .ui-button { border-color:transparent; background:transparent; }
+.chat-search-filters [aria-pressed=true] { background:var(--selection); color:var(--text); }
+.chat-search-results { margin:0; padding:3px; list-style:none; max-height:min(380px,45dvh); overflow:auto; }
+.chat-search-results .chat-contact { min-height:58px; padding:8px; }
+.chat-search-results .chat-contact:focus-visible { outline-offset:-2px; }

@@ -157,17 +157,17 @@ test('shared chat selection retains its sidebar and rejects messages from an old
       const rail = document.querySelector('.workspace-rail');
       await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Second')));
       await update(() => releaseOld?.(response({ messages: [{ id: 'old', author: 'owner', name: 'Owner', kind: 'user', content: 'OLD SELECTION', state: 'complete', at: 1 }], agents: [] })));
-      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# Second');
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === 'Second');
       assert.equal(document.querySelector('.chat-directory'), sidebar);
       assert.equal(document.querySelector('.workspace-rail'), rail);
       assert.doesNotMatch(document.querySelector('.chat-message-list').textContent, /OLD SELECTION/);
       const input = document.querySelector('.message-composer textarea');
       await change(input, 'Second draft');
       await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('First')));
-      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# First');
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === 'First');
       assert.equal(document.querySelector('.message-composer textarea').value, '');
       await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Second')));
-      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# Second');
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === 'Second');
       assert.equal(document.querySelector('.message-composer textarea').value, 'Second draft');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat&conversation=first`, fetch: async path => {
@@ -195,7 +195,7 @@ test('creating a channel validates membership and resets its dialog', async () =
       assert.equal(dialog.querySelector('button[type=submit]').disabled, true);
       await click(dialog.querySelector('input[type=checkbox]'));
       await submit(dialog.querySelector('form'));
-      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# New team chat');
+      await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === 'New team chat');
       assert.equal(document.querySelector('dialog'), null);
       await click(button('Create channel'));
       assert.equal(document.querySelector('dialog input').value, '');
