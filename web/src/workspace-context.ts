@@ -15,7 +15,7 @@ export async function identityRequest<T>(path: string, body?: unknown, signal?: 
   if (path === '/session' && response.status === 401) return { user: null } as T;
   if (path === '/profile' && response.status === 401) location.replace('/?view=account');
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? 'Account request failed.');
+  if (!response.ok) throw Object.assign(new Error(data.error ?? 'Account request failed.'), { status: response.status, retryAfter: response.headers?.get('Retry-After') });
   return data as T;
 }
 export async function enterWorkspace(): Promise<boolean> {

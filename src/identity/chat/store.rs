@@ -316,6 +316,18 @@ impl Store {
             );
             return Ok(None);
         }
+        for (kind, id) in super::mentions::parse(&input.content, input.agent.as_deref())? {
+            if kind == "user" {
+                ensure!(
+                    tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM chat_people WHERE chat=?1 AND user=?2)",
+                        params![chat, id],
+                        |r| r.get::<_, bool>(0)
+                    )?,
+                    "Mentioned person is not in this conversation"
+                );
+            }
+        }
         if let Some(thread) = &input.thread {
             ensure!(tx.query_row("SELECT EXISTS(SELECT 1 FROM chat_messages WHERE id=?1 AND chat=?2 AND thread IS NULL)", params![thread,chat], |r| r.get::<_,bool>(0))?, "Thread is not in this conversation");
         }
@@ -348,19 +360,19 @@ impl Store {
             let reply = uuid::Uuid::new_v4().to_string();
             let kind: String =
                 tx.query_row("SELECT kind FROM chats WHERE id=?1", [chat], |r| r.get(0))?;
-            let thread = input
+            let context_thread = input
                 .thread
                 .as_deref()
                 .or_else(|| (kind != "direct").then_some(input.id.as_str()));
             // Explicit agent requests use only their root and replies, never other threads.
             let mut lines=tx.prepare("SELECT kind,content FROM (SELECT rowid,kind,content FROM chat_messages WHERE chat=?1 AND (?2 IS NULL OR id=?2 OR thread=?2) AND state IN ('sent','complete') ORDER BY rowid DESC LIMIT 30) ORDER BY rowid")?
-                .query_map(params![chat,thread],|r|Ok(format!("{}: {}",r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+                .query_map(params![chat,context_thread],|r|Ok(format!("{}: {}",r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }
             tx.execute(
                 "INSERT INTO chat_messages(id,chat,author,kind,content,state,at,target,requester,thread) VALUES(?1,?2,?3,'agent','','queued',?4,NULL,?5,?6)",
-                params![reply, chat, agent, now(), user.id, thread],
+                params![reply, chat, agent, now(), user.id, input.thread],
             )?;
             Some(Job {
                 claim: None,

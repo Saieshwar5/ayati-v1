@@ -70,6 +70,11 @@ server-synchronized placement in the Home plan is still future work. See
 
 ## Chat
 
+Align the signed-in person's messages to the right and other people's and agents'
+messages to the left, including thread replies. Determine ownership by user ID,
+never by display name or who requested an agent. Use a subtle themed fill for own
+messages, retain author/Agent labels, and keep message text naturally aligned.
+
 Use one persistent Chat shell for Channels and Direct messages, including people
 and agents. The conversation list and message area share the same surface color,
 with a thin vertical divider. The global rail remains outside the shared frame.

@@ -58,7 +58,7 @@ API timing, browser visibility and deterministic business-operation results.
 
 New shared-company features require PostgreSQL. SQLite/private-agent behavior stays
 available, but it does not implement these new collaboration APIs. Apply the fourth
-and fifth explicit forward migrations before using the new binary with an ordinary
+through sixth explicit forward migrations before using the new binary with an ordinary
 PostgreSQL workspace. The helper migrates only its dedicated simulation database;
 it does not migrate the user's ordinary workspace.
 
@@ -176,3 +176,10 @@ requires a matched backup, not merely checking out that tag.
 6. Run multi-hour and resource-exhaustion/outage exercises. Current tests do not prove
    absence of memory leaks, production rate-limit safety, real-provider availability,
    OCR/transcription quality, or whether actual employees will find the product useful.
+
+## Reliable messaging follow-up
+
+The earlier polling measurements above are retained baseline evidence. Shared chat now
+uses durable live synchronization, a local outbox, delivered/seen receipts and unread
+counts. See [the current contract and outage checks](reliable-messaging.md). Additional
+`messaging-*` reports and conversations are retained alongside the original rehearsals.

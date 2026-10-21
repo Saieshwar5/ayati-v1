@@ -1,3 +1,4 @@
+import { startLive } from './chat/live';
 import { disposeViewLifetime } from '../view-lifetime';
 import { useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
@@ -17,6 +18,7 @@ export function WorkspaceApplication() {
   const page = workspacePage(url);
   const privateChat = page === 'chat' && (url.searchParams.has('agent') || !workspaceId);
   useEffect(installNavigation, []);
+  useEffect(startLive, []);
   const featureKey = page === 'chat' ? 'chat' : href;
   useEffect(() => () => disposeViewLifetime(), [featureKey]);
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { act } from 'react';
+import { outboxStorage } from './outbox-storage-fixture.mjs';
 import { registerHooks } from 'node:module';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,6 +20,8 @@ function dataFor(path) {
   if (path.endsWith('/session')) return session;
   if (path.endsWith('/agents')) return directory;
   if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Owner' };
+  if (path.endsWith('/message-capabilities')) return { live: true };
+  if (path.endsWith('/unread')) return { unread: [] };
   if (path.endsWith('/chats')) return { chats: [] };
   if (path.endsWith('/home')) return { agents: [] };
   if (path.endsWith('/panels')) return { panels: [], available: true };
@@ -33,11 +37,12 @@ function dataFor(path) {
   throw new Error(`Unexpected request: ${path}`);
 }
 async function prepare(dom) {
-  const original = Object.fromEntries(['Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]));
+  const original = Object.fromEntries(['indexedDB', 'Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]));
   const timers = new Map(); let timer = 0;
   dom.window.setInterval = handler => { timers.set(++timer, handler); return timer; };
   dom.window.clearInterval = id => timers.delete(id);
   const streams = new Set();
+  globalThis.indexedDB = outboxStorage();
   globalThis.Event = dom.window.Event;
   globalThis.Option = dom.window.Option;
   globalThis.FormData = dom.window.FormData;
@@ -45,11 +50,11 @@ async function prepare(dom) {
   globalThis.requestAnimationFrame = handler => { handler(); return 0; };
   globalThis.cancelAnimationFrame = () => {};
   globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-  globalThis.EventSource = class { constructor(url) { this.url = url; streams.add(this); } close() { streams.delete(this); } };
+  globalThis.EventSource = class { constructor(url) { this.url = url; if (!url.includes('message-events')) streams.add(this); } addEventListener() {} close() { streams.delete(this); } };
   const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
   const { WorkspaceApplication } = await import('../src/react/workspace-application.tsx');
   return { WorkspaceApplication, timers, streams, async cleanup() {
-    const { disposeViewLifetime } = await import('../src/view-lifetime.ts'); disposeViewLifetime();
+    const { disposeViewLifetime } = await import('../src/view-lifetime.ts'); await act(async () => { disposeViewLifetime(); await Promise.resolve(); });
     Object.assign(globalThis, original);
   } };
 }
@@ -80,7 +85,7 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
       });
       await until(update, () => document.querySelector('.settings-page'));
       assert.equal(document.querySelector('.apps-page'), null);
-      assert.equal(setup.timers.size, 0, 'Old Home/Apps pollers must be removed');
+      assert.equal(setup.timers.size, 1, 'Only the workspace outbox/receipt timer remains');
       await update(() => dom.window.history.back());
       await until(update, () => document.querySelector('.apps-page'));
       assert.equal(document.querySelector('.workspace-rail'), rail);
@@ -96,27 +101,27 @@ test('agent switching retains contacts, isolates drafts and ignores late agent r
   let releaseOld;
   let initialState = true;
   const requests = [];
-  await reactFixture(async ({ dom, render, click, update }) => {
+  await reactFixture(async ({ dom, render, click, update, change }) => {
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelector('#input') && document.querySelector('.chat-contact'));
+      await until(update, () => document.querySelector('.message-composer textarea') && document.querySelector('.chat-contact'));
       const rail = document.querySelector('.workspace-rail');
       const contacts = document.querySelector('.chat-directory');
       document.querySelector('#conversation').scrollTop = 123;
-      const input = document.querySelector('#input'); input.value = 'Draft for Relay'; input.dispatchEvent(new dom.window.Event('input'));
+      await change(document.querySelector('.message-composer textarea'), 'Draft for Relay');
       await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Ramesh')));
-      await until(update, () => document.querySelector('#input')?.getAttribute('aria-label') === 'Message Ramesh');
+      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Ramesh');
       assert.equal(document.querySelector('.chat-directory'), contacts);
       assert.equal(document.querySelector('.workspace-rail'), rail);
-      assert.equal(document.querySelector('#input').value, '');
+      assert.equal(document.querySelector('.message-composer textarea').value, '');
       assert.equal(setup.streams.size, 1, 'Previous agent stream must close');
       await update(() => releaseOld?.(response({ messages: [{ id: 'old', role: 'assistant', content: 'STALE RELAY REPLY', state: 'done' }], tasks: [], artifacts: [] })));
       assert.doesNotMatch(document.querySelector('#conversation').textContent, /STALE/);
-      document.querySelector('#input').value = 'Draft for Ramesh'; document.querySelector('#input').dispatchEvent(new dom.window.Event('input'));
+      await change(document.querySelector('.message-composer textarea'), 'Draft for Ramesh');
       await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Relay')));
-      await until(update, () => document.querySelector('#input')?.getAttribute('aria-label') === 'Message Relay');
-      assert.equal(document.querySelector('#input').value, 'Draft for Relay');
+      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Relay');
+      assert.equal(document.querySelector('.message-composer textarea').value, 'Draft for Relay');
       assert.equal(document.querySelector('#conversation').scrollTop, 123);
       assert.ok(requests.some(request => request.path.endsWith('/state') && request.agent === 'assistant-two'));
       assert.equal(setup.streams.size, 1);
@@ -156,14 +161,14 @@ test('shared chat selection retains its sidebar and rejects messages from an old
       assert.equal(document.querySelector('.chat-directory'), sidebar);
       assert.equal(document.querySelector('.workspace-rail'), rail);
       assert.doesNotMatch(document.querySelector('.chat-message-list').textContent, /OLD SELECTION/);
-      const input = document.querySelector('.chat-compose textarea');
+      const input = document.querySelector('.message-composer textarea');
       await change(input, 'Second draft');
       await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('First')));
       await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# First');
-      assert.equal(document.querySelector('.chat-compose textarea').value, '');
+      assert.equal(document.querySelector('.message-composer textarea').value, '');
       await click([...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Second')));
       await until(update, () => document.querySelector('.chat-pane-header h2')?.textContent === '# Second');
-      assert.equal(document.querySelector('.chat-compose textarea').value, 'Second draft');
+      assert.equal(document.querySelector('.message-composer textarea').value, 'Second draft');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat&conversation=first`, fetch: async path => {
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], grants: [], role: 'Owner' });
@@ -294,27 +299,27 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
       await until(update,()=>document.querySelector('.chat-contact'));
       const sidebar=document.querySelector('.chat-directory');
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
-      await until(update,()=>document.querySelector('.chat-compose textarea'));
-      await change(document.querySelector('.chat-compose textarea'),'Inventory draft');
+      await until(update,()=>document.querySelector('.message-composer textarea'));
+      await change(document.querySelector('.message-composer textarea'),'Inventory draft');
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Ramesh')));
-      await until(update,()=>document.querySelector('#input'));
+      await until(update,()=>document.querySelector('.message-composer textarea'));
       assert.equal(document.querySelector('.chat-directory'),sidebar);
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Priya')));
       await until(update,()=>document.querySelector('.chat-pane-header h2')?.textContent==='Priya');
       assert.equal(document.querySelector('.chat-directory'),sidebar);
       assert.equal(setup.streams.size,0);
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
-      await until(update,()=>document.querySelector('.chat-compose textarea')?.value==='Inventory draft');
+      await until(update,()=>document.querySelector('.message-composer textarea')?.value==='Inventory draft');
       await click(button('Reply in thread'));
       await change(document.querySelector('[aria-label="Reply in thread"]'),'Thread reply');
-      await submit(document.querySelector('.chat-thread-compose'));
+      await submit(document.querySelector('dialog .message-composer'));
       assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
     if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
     if(path.endsWith('/chats'))return response({chats});
     if(path.endsWith('/messages')){
-      if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true});}
+      if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:2,sequence:2,chat:'inventory'}});}
       return response({agents:[],messages:[{id:'root',author:'member',name:'Priya',kind:'user',content:'Check stock',state:'sent',at:1,thread:null},...(reply?[{id:'reply',author:'owner',name:'Owner',kind:'user',content:reply,state:'sent',at:2,thread:'root'}]:[])]});
     }
     return response(dataFor(path));

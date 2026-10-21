@@ -2,6 +2,6 @@
 .creation-mode strong { color: var(--working); font-weight: 500; }
 .creation-mode select { min-width: 0; max-width: 150px; padding: 5px; border: 0; background: var(--surface); color: var(--text); border-radius: 9px; font-size: .75rem; }
 .creation-mode .icon-button { margin-left: auto; }
-.composer.is-creating { border-color: var(--working); border-radius: 0 0 20px 20px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--working) 30%, transparent); }
+.composer-area.is-creating .message-composer { border-color: var(--working); border-radius: 0 0 20px 20px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--working) 30%, transparent); }
 .creation-launch { margin: 0 0 6px 12px; font-size: .75rem; }
 @media (max-width: 480px) { .creation-mode { flex-wrap: wrap; gap: 6px; padding: 8px; } }

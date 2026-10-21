@@ -4,13 +4,13 @@ import './agent-request.css';
 import './creation-mode.css';
 
 // Mode is visible UI state. The message field always remains the owner's draft.
-export function installConversationIntent(input: HTMLTextAreaElement): (content: string) => string {
+export function installConversationIntent(input: { focus: () => void; setPlaceholder: (text: string) => void }): (content: string) => string {
   const view = currentView();
   const url = new URL(view.url);
   let intent = url.searchParams.get('intent') ?? '';
   const item = url.searchParams.get('item');
   let reference = item && /^[a-zA-Z0-9-]{1,80}$/.test(item) ? item : '';
-  const form = view.querySelector<HTMLElement>('#composer')!;
+  const form = view.querySelector<HTMLElement>('.composer-area')!;
   const area = view.querySelector('.composer-area')!;
   const banner = element('div', 'creation-mode');
   const label = element('strong');
@@ -28,7 +28,7 @@ export function installConversationIntent(input: HTMLTextAreaElement): (content:
     banner.hidden = !active; form.classList.toggle('is-creating', active);
     label.textContent = ({ panel: 'Creating a panel', app: 'Creating an app', 'edit-panel': 'Updating a panel', 'edit-app': 'Updating an app' } as Record<string, string>)[intent] ?? '';
     select.hidden = intent !== 'panel';
-    input.placeholder = active ? 'Describe what you need…' : 'Message…';
+    input.setPlaceholder(active ? 'Describe what you need…' : 'Message…');
   };
   close.onclick = () => { intent = ''; reference = ''; for (const key of ['intent', 'item', 'topic', 'template']) url.searchParams.delete(key); history.replaceState(null, '', url); draw(); input.focus(); };
   draw();

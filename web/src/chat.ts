@@ -1,10 +1,11 @@
+import { mountPrivateComposer } from './react/chat/private-composer';
+import './message-content.css';
 import { storageScope, workspaceId } from './workspace-context';
 import './style.css';
 import { currentView } from './view-lifetime';
-import { type AgentEvent, type Artifact, type Snapshot } from './types';
-import { element, renderConversation } from './view';
+import { type AgentEvent, type Snapshot } from './types';
+import { renderConversation } from './view';
 import { applyDelta, mergeSnapshot } from './conversation-state';
-import { PendingSubmission } from './submission';
 import { workPanels } from './work-panels';
 import { installBrowser } from './browser';
 import { installMemory } from './memory';
@@ -37,13 +38,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
         <div class="notice" id="notice" role="status" hidden></div>
         <div class="conversation" id="conversation" role="log" aria-label="Messages"></div>
         <div class="composer-area">
-          <div class="attachments" id="attachments"></div>
-          <form id="composer" class="composer">
-            <button type="button" class="icon-button attach" id="attach" aria-label="Attach a file">＋</button>
-            <textarea id="input" rows="1" placeholder="Ask Relay anything…" aria-label="Message Relay" maxlength="16000"></textarea>
-            <button type="button" class="stop-button" id="stop" hidden>Stop</button>
-            <button type="submit" class="send-button" id="send" aria-label="Send message">↑</button>
-          </form>
+          <div id="private-composer"></div>
         </div>
       </section>
       <dialog class="files-panel" id="files-panel" aria-label="Artifacts" hidden>
@@ -64,43 +59,32 @@ export function installChat(): (profile: import('./agents').Profile) => void {
         <p>Use the browser view to select a field first. This text is sent only to your browser session.</p>
       </div>
     </dialog>
-    <input id="file-input" type="file" hidden />`;
+    `;
   view.querySelector('.chat')!.prepend(view.querySelector('.header')!);
   installBrowser();
   installMemory();
 
   const conversation = view.querySelector<HTMLDivElement>('#conversation')!;
-  const input = view.querySelector<HTMLTextAreaElement>('#input')!;
   const notice = view.querySelector<HTMLDivElement>('#notice')!;
   const connection = view.querySelector<HTMLSpanElement>('#connection')!;
-  const send = view.querySelector<HTMLButtonElement>('#send')!;
-  const stop = view.querySelector<HTMLButtonElement>('#stop')!;
   const filesButton = view.querySelector<HTMLButtonElement>('#files-button')!;
   const filesPanel = view.querySelector<HTMLDialogElement>('#files-panel')!;
-  const fileInput = view.querySelector<HTMLInputElement>('#file-input')!;
   let state: Snapshot = { messages: [], tasks: [], artifacts: [] };
   let modelReady = false;
   let connected = false;
-  let sending = false;
   let syncing = false;
   let syncAgain = false;
-  let attachments: { name: string; id: string }[] = [];
-  let uploading = false;
   let browserStorage: Storage | undefined;
   try { browserStorage = window.sessionStorage; } catch { /* Private browser modes may restrict it. */ }
-  const pendingSubmission = new PendingSubmission(browserStorage, storageScope(selectedAgent));
   const readingKey = storageScope(`ayati.reading.${selectedAgent}`);
   let restoreReading = true;
   view.cleanup(() => {
     try { browserStorage?.setItem(readingKey, String(conversation.scrollTop)); } catch { /* Optional reading position. */ }
   });
-  const draftKey = storageScope(`ayati.draft.${selectedAgent}`);
-  try { input.value = browserStorage?.getItem(draftKey) ?? pendingSubmission.draft(); }
-  catch { input.value = pendingSubmission.draft(); }
-  try {
-    const saved: unknown = JSON.parse(browserStorage?.getItem(storageScope(`ayati.attachments.${selectedAgent}`)) ?? '[]');
-    if (Array.isArray(saved)) attachments = saved.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string').slice(0, 8);
-  } catch { attachments = []; }
+  const composer = mountPrivateComposer(view.querySelector('#private-composer')!, view, {
+    transform: text => creationContent(text), refresh: sync, stop: stopTask,
+  });
+  const creationContent = installConversationIntent(composer);
   const updateDetails = installAgentDetails();
   const showProfile = (profile: import('./agents').Profile): void => {
     if (!view.active || profile.id !== selectedAgent) return;
@@ -108,9 +92,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     updateDetails(profile);
     view.querySelector('.identity strong')!.textContent = name;
     view.querySelector('.identity .avatar')!.textContent = name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-    input.setAttribute('aria-label', `Message ${name}`);
-    if (!view.querySelector('#composer')!.classList.contains('is-creating')) input.placeholder = workspaceId ? 'Message…' : `Message ${name}…`;
-    resizeComposer();
+    composer.update({ name });
     view.querySelector('.chat')!.setAttribute('aria-label', `Conversation with ${name}`);
     document.title = name === 'Relay' ? 'Chat · Relay' : `${name} · Relay`;
   };
@@ -132,10 +114,8 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     renderArtifacts(state.artifacts);
     view.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
     const active = state.tasks.find(task => task.status === 'running');
-    stop.hidden = !active;
+    composer.update({ ready:modelReady, task:active?.id });
     if (connected) connection.textContent = state.permissions?.length ? 'Waiting for your approval' : active?.detail || (active ? 'Working…' : 'Ready');
-    send.disabled = !modelReady || sending || uploading;
-    view.querySelector<HTMLButtonElement>('#attach')!.disabled = uploading || sending;
   }
 
   async function sync(): Promise<void> {
@@ -156,71 +136,12 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     }
   }
 
-  function showAttachments(): void {
-    try { browserStorage?.setItem(storageScope(`ayati.attachments.${selectedAgent}`), JSON.stringify(attachments)); } catch { /* Optional storage. */ }
-    const container = view.querySelector<HTMLDivElement>('#attachments')!;
-    container.replaceChildren(...attachments.map((attachment, index) => {
-      const chip = element('button', 'attachment-chip', `${attachment.name} ×`);
-      chip.type = 'button';
-      chip.title = 'Remove from this message';
-      chip.onclick = () => { attachments.splice(index, 1); showAttachments(); };
-      return chip;
-    }));
-  }
-
-  view.querySelector('#composer')!.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (uploading || sending || !modelReady || (!input.value.trim() && !attachments.length)) return;
-    sending = true;
-    draw();
-    const content = creationContent(input.value.trim());
-    const submission = pendingSubmission.prepare(content, attachments.map(f => f.id));
-    try {
-      await post('/messages', submission);
-      pendingSubmission.acknowledge(submission.request_id);
-      input.value = '';
-      try { browserStorage?.removeItem(draftKey); } catch { /* Storage is optional. */ }
-      input.style.height = '';
-      attachments = [];
-      showAttachments();
-      tell('');
-      await sync();
-    } catch (error) {
-      tell(error instanceof TypeError
-        ? 'The connection was lost while sending. Your draft is saved; retry the same message safely.'
-        : (error as Error).message);
-    }
-    finally { sending = false; draw(); input.focus(); }
-  });
-
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      view.querySelector<HTMLFormElement>('#composer')!.requestSubmit();
-    }
-  });
-  function resizeComposer(): void {
-    input.style.height = 'auto';
-    input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
-  }
-  input.addEventListener('input', () => {
-    try { browserStorage?.setItem(draftKey, input.value); } catch { /* Storage is optional. */ }
-    resizeComposer();
-  });
-  view.onWindow('resize', resizeComposer);
-  const resizeFrame = requestAnimationFrame(resizeComposer);
-  view.cleanup(() => cancelAnimationFrame(resizeFrame));
-  const creationContent = installConversationIntent(input);
   installAgentCreations();
 
   async function stopTask(id: string): Promise<void> {
     try { await post(`/tasks/${id}/stop`); await sync(); }
     catch (error) { tell((error as Error).message); }
   }
-  stop.onclick = () => {
-    const active = state.tasks.find((task) => task.status === 'running');
-    if (active) void stopTask(active.id);
-  };
   conversation.addEventListener('click', (event) => {
     const decision = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-permission]');
     if (decision?.dataset.permission) {
@@ -235,28 +156,6 @@ export function installChat(): (profile: import('./agents').Profile) => void {
 
   const filesWork = workPanels.register(filesPanel, filesButton);
   view.querySelector<HTMLButtonElement>('#close-files')!.onclick = () => filesWork.close();
-  view.querySelector<HTMLButtonElement>('#attach')!.onclick = () => fileInput.click();
-  fileInput.onchange = async () => {
-    if (attachments.length >= 8) { tell('Send up to 8 files per message.'); return; }
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    if (file.size > 25 * 1024 * 1024) { tell('Please choose a file smaller than 25 MB.'); return; }
-    const body = new FormData();
-    body.append('file', file);
-    uploading = true; draw();
-    tell('Adding your file…');
-    try {
-      const data = await api<{ artifact: Artifact; workspace_path: string }>('/files', { method: 'POST', body });
-      attachments.push({ name: file.name, id: data.artifact.id });
-      showAttachments();
-      tell('');
-      await sync();
-      input.focus();
-    } catch (error) { tell((error as Error).message); }
-    finally { uploading = false; fileInput.value = ''; draw(); }
-  };
-
-  showAttachments();
   const events = new EventSource(apiUrl('/events'));
   view.cleanup(() => events.close());
   events.onopen = () => { connected = true; draw(); void sync(); };
@@ -272,9 +171,8 @@ export function installChat(): (profile: import('./agents').Profile) => void {
 
   void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').then((health) => {
     modelReady = health.model_ready;
-    view.querySelector<HTMLButtonElement>('#attach')!.hidden = health.file_uploads_supported === false;
+    composer.update({ uploads: health.file_uploads_supported !== false });
     if (!modelReady) tell(workspaceId ? 'This workspace needs its own agent environment. Create an agent from the agent list to get started; existing local environments are kept separate.' : 'Relay needs its AI connection. See the project README to configure it on this computer.');
-    else if (pendingSubmission.draft()) tell('Your last message is saved here. You can retry the same message safely.');
     draw();
   }).catch(() => tell('Relay is not reachable. Start the local service and reload.'));
   void sync();

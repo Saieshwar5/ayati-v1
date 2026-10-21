@@ -1,3 +1,4 @@
+import { subscribeChanges } from './live';
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
 import { currentWorkspace, workspaceUrl } from '../../workspace-context';
@@ -13,6 +14,7 @@ import './workspace-chat.css';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), agent = url.searchParams.get('agent'), selected = url.searchParams.get('conversation');
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const [directory, setDirectory] = useState<Directory>();
   const [chats, setChats] = useState<Conversation[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -32,14 +34,20 @@ export function WorkspaceChat({ href }: { href: string }) {
           chatRequest<{ chats: Conversation[] }>('/chats', undefined, abort.signal),
         ]);
         if (!abort.signal.aborted) { setDirectory(people); setChats(conversations.chats); setError(''); }
-      } catch (e) { if (!abort.signal.aborted) setError(errorMessage(e)); }
+      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setChats([]); setDirectory(undefined); setUnread({}); } } }
       finally { busy = false; if (again && !abort.signal.aborted) { again = false; void load(); } }
     };
     refresh.current = load; void load();
-    const timer = window.setInterval(() => { if (!document.hidden) void load(); }, 5000);
+    let unreadTimer: number | undefined;
+    const counts = async () => { try { const data = await chatRequest<{ unread: { chat: string; count: number }[] }>('/unread', undefined, abort.signal); if (!abort.signal.aborted) setUnread(Object.fromEntries(data.unread.map(item => [item.chat, item.count]))); } catch { /* Keep last known counts during an outage. */ } };
+    void counts();
+    const unsubscribe = subscribeChanges(change => {
+      if (change.kind === 'access' || change.kind === 'reset') void load();
+      if (unreadTimer === undefined) unreadTimer = window.setTimeout(() => { unreadTimer = undefined; void counts(); }, 500);
+    });
     if (owner) void api<{ agents: { profile: Profile }[] }>('/agents', { signal: abort.signal }, 'local-agent')
       .then(data => { if (!abort.signal.aborted) setProfiles(data.agents.map(entry => entry.profile)); }).catch(() => {});
-    return () => { abort.abort(); window.clearInterval(timer); };
+    return () => { abort.abort(); unsubscribe(); window.clearTimeout(unreadTimer); };
   }, [owner]);
   useEffect(() => { setShowList(!agent && !selected); setChooser(undefined); }, [agent, selected]);
   const open = (id: string) => { setChooser(undefined); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`)); void refresh.current(); };
@@ -50,7 +58,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     const name = directory ? conversationName(chat, directory) : chat.name;
     if (!matches(name)) return null;
     return <a key={chat.id} className="chat-contact" href={workspaceUrl(`/?view=chat&conversation=${chat.id}`)} aria-current={selected === chat.id && !agent ? 'page' : undefined}>
-      <span className={`chat-avatar ${chat.kind === 'direct' ? '' : 'channel'}`}>{chat.kind === 'direct' ? name.slice(0, 1).toUpperCase() : '#'}</span><span>{name}</span>{chat.kind === 'direct' && chat.agents.length > 0 && <small>Agent</small>}
+      <span className={`chat-avatar ${chat.kind === 'direct' ? '' : 'channel'}`}>{chat.kind === 'direct' ? name.slice(0, 1).toUpperCase() : '#'}</span><span>{name}{unread[chat.id] > 0 && <small aria-label={`${unread[chat.id]} unread messages`}>{unread[chat.id]} unread</small>}</span>{chat.kind === 'direct' && chat.agents.length > 0 && <small>Agent</small>}
     </a>;
   };
   return <div className={`workspace-chat${showList ? ' show-chat-list' : ''}`} onClick={event => {

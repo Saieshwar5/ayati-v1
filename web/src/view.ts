@@ -1,3 +1,4 @@
+import { messageHtml } from './markdown';
 import { workspaceUrl } from './workspace-context.ts';
 import type { Artifact, ChatMessage, Snapshot, Task } from './types';
 
@@ -84,7 +85,8 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
       }
     } catch { /* Preserve ordinary messages that happen to include the marker. */ }
   }
-  const content = element('div', 'message-content', body);
+  const content = element('div', 'message-content message-markdown');
+  content.innerHTML = messageHtml(body);
   for (const name of attachments) content.append(element('span', 'sent-attachment', `↧ ${name}`));
   if (message.role === 'assistant') row.append(element('div', 'speaker', agentName));
   row.append(content);
