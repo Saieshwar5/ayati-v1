@@ -25,8 +25,12 @@
 .chat-pane-header h2 { font-size:15px; margin:0; font-weight:600; overflow-wrap:anywhere; }
 .chat-pane-header p { font-size:11px; color:var(--muted); margin:3px 0 0; overflow-wrap:anywhere; }
 .chat-message-list { flex:1; min-height:0; overflow:auto; padding:16px max(20px,calc((100% - 760px)/2)); scrollbar-gutter:stable; }
-.chat-message { display:flex; gap:11px; margin-bottom:24px; }
-.chat-message > div { flex:1; min-width:0; }
+.chat-message { display:flex; align-items:flex-start; gap:8px; width:fit-content; max-width:88%; margin:0 auto 18px 0; }
+.chat-message > div { min-width:0; padding:10px 13px; border:1px solid var(--border); border-radius:4px 14px 14px; background:var(--surface); }
+.chat-message-own { flex-direction:row-reverse; margin-left:auto; margin-right:0; }
+.chat-message-own > div { background:var(--soft); border-radius:14px 4px 14px 14px; }
+.chat-message .chat-file { overflow-wrap:anywhere; }
+.chat-message .chat-file img,.chat-message .chat-file audio { max-width:100%; }
 .chat-message header { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .chat-message strong { font-size:12px; font-weight:600; overflow-wrap:anywhere; }
 .chat-message time,.chat-message small { font-size:11px; color:var(--muted); }
