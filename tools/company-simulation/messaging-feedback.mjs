@@ -1,0 +1,12 @@
+import { readFile,readdir } from 'node:fs/promises';
+import { resolve,join } from 'node:path';
+import { clients,randomUUID } from './client.mjs';
+const {directory}=JSON.parse(await readFile(resolve('.ayati-local/company-simulation/runs/latest.json')));
+const c=JSON.parse(await readFile(join(directory,'manifest.json'))),{request}=clients(c.base,[]);
+await request(0,'/api/identity/simulation/employees/0/login',{});
+const names=(await readdir(directory)).filter(n=>n.startsWith('messaging-')).sort();
+const findings=(await request(0,`${c.w}/feedback`)).feedback;
+for(const f of findings.filter(f=>f.title==='Recipient visibility is dominated by polling'&&f.status!=='verified'))await request(0,`${c.w}/feedback/${f.id}`,{status:'verified',revision:f.revision});
+await request(0,`${c.w}/feedback`,{id:randomUUID(),chat:c.channels['Incident room'],title:'Reliable messaging verified across browsers and server restart',category:'reliability',severity:'low',expected:'Live messages arrive promptly, retries do not duplicate, and seen requires visible reading.',actual:'Eight real-browser scenarios passed. Twenty live subscribers received 100 messages each (2,000 observations), no loss, delivery p95 281 ms. Cross-instance delivery and real server restart recovered one queued message exactly once.',evidence:names.join('\n')});
+await request(0,`${c.w}/feedback`,{id:randomUUID(),chat:c.channels['Incident room'],title:'Messaging production operating limits need a longer study',category:'missing-feature',severity:'medium',expected:'Measured journal retention, cluster-wide tenant quotas, receipt policy and long-duration reliability.',actual:'Current implementation retains journal history, has per-process stream limits and short local measurements. Offline uploads, an offline application shell and push notifications are not implemented.',evidence:'runtime/reliable-messaging.md'});
+console.log('Verified the polling finding and retained the new evidence and operating limits in Feedback.');

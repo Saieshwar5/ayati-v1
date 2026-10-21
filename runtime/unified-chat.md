@@ -38,8 +38,8 @@ by that page. PostgreSQL exposes `next_before` for older pages and the client me
 loaded history by message ID. SQLite retains its recent-history window. Thread reply
 counts reflect loaded messages, not exhaustive totals. Agent context remains capped at 30 messages and
 14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording,
-with immutable local objects and download-time access checks. Unread counts, push
-notifications, typing indicators and channel archival remain unimplemented. Polling remains 2.5 seconds for the open conversation and five
+with immutable local objects and download-time access checks. Unread counts and live delivery now follow [reliable messaging](reliable-messaging.md). Push
+notifications, typing indicators and channel archival remain unimplemented. Legacy baseline polling was 2.5 seconds for the open conversation and five
 seconds for the directory, paused when the document is hidden.
 
 ## Storage upgrade
@@ -47,7 +47,7 @@ seconds for the directory, paused when the document is hidden.
 PostgreSQL migration `m20261020_000002_conversation_kinds` adds conversation kind,
 purpose, unique direct participant keys and message thread roots. Run
 `./tools/local-postgres.sh migrate` locally (or `workspace-db migrate` with the
-administrator connection), then restart Relay. Startup requires all five current migrations, including company
+administrator connection), then restart Relay. Startup requires all six current migrations, including company
 collaboration and queue telemetry. See [company simulation](company-simulation.md).
 The migration is additive and retains all existing messages and memberships.
 SQLite fallback upgrades its local schema on open. Offline SQLite import supports
