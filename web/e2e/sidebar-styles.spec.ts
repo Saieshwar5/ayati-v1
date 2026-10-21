@@ -69,9 +69,15 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(selected).toHaveCSS('background-color', selectedColor);
     await nav.getByRole('link', { name: 'Chat', exact: true }).hover();
     await expect(selected).toHaveCSS('background-color', selectedColor);
-    await selected.click(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+    await selected.click();
+    expect(await selected.evaluate(node => node.matches(':focus-visible'))).toBe(false);
+    const icon = await selected.locator('svg').boundingBox();
+    await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
     await expect(selected).toHaveCSS('outline-style', 'solid');
     await expect(selected).toHaveCSS('outline-width', '2px');
+    await expect(selected).toHaveCSS('outline-offset', '-3px');
+    await expect(selected).toHaveCSS('outline-color', theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(32, 34, 42)');
+    expect(await selected.locator('svg').boundingBox()).toEqual(icon);
     await expect(selected).toHaveCSS('background-color', selectedColor);
     await nav.getByRole('link', { name: 'Chat', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Chat', exact: true })).toBeVisible();
