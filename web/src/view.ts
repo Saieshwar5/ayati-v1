@@ -11,12 +11,12 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Relay'): void {
+export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Cuckoo'): void {
   const atEnd = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
   const nodes: HTMLElement[] = [];
   if (!state.messages.length) {
     const welcome = element('section', 'welcome');
-    const mark = element('span', 'relay-brand relay-symbol'); mark.setAttribute('aria-hidden', 'true');
+    const mark = element('span', 'cuckoo-brand cuckoo-symbol'); mark.setAttribute('aria-hidden', 'true');
     welcome.append(mark,
       element('h1', '', 'A little help, whenever you need it.'),
       element('p', '', 'Ask a question, work through an idea, or share a file.'));
@@ -96,14 +96,14 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
 export function renderFiles(container: HTMLElement, files: Artifact[], agent = 'local-agent'): void {
   const visible = files.filter((file) => file.kind !== 'log');
   const nodes: HTMLElement[] = [];
-  if (!visible.length) nodes.push(element('p', 'empty-files', 'Files you share and files Relay creates will appear here.'));
+  if (!visible.length) nodes.push(element('p', 'empty-files', 'Files you share and files Cuckoo creates will appear here.'));
   for (const file of visible) {
     const link = element('a', 'file-row');
     link.href = workspaceUrl(`/api/files/${encodeURIComponent(file.id)}?agent=${encodeURIComponent(agent)}`);
     link.setAttribute('download', file.name);
     const info = element('div', 'file-info');
     info.append(element('span', 'file-name', file.name), element('span', 'file-meta',
-      `${file.kind === 'upload' ? 'You shared' : 'Relay created'} · ${formatSize(file.size)}`));
+      `${file.kind === 'upload' ? 'You shared' : 'Cuckoo created'} · ${formatSize(file.size)}`));
     link.append(element('span', 'file-icon', '↧'), info);
     nodes.push(link);
   }

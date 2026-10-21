@@ -28,7 +28,7 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
   }
   useEffect(() => {
     let active = true;
-    document.title = embedded ? 'My account · Relay' : 'Your workspaces · Relay';
+    document.title = embedded ? 'My account · Cuckoo' : 'Your workspaces · Cuckoo';
     // Initial loading is read-only; Strict Mode may repeat it without accepting an invitation or creating a workspace.
     void fetch('/api/identity/session', { credentials: 'same-origin' }).then(async response => {
       const data: Session & { error?: string } = await response.json();
@@ -54,18 +54,18 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
   async function logout() {
     const result = await request<{ provider_session_revoked: boolean }>('/logout', {});
     setSession({ user: null });
-    if (!result.provider_session_revoked) setNotice('Signed out of Relay. WorkOS session termination could not be confirmed.');
+    if (!result.provider_session_revoked) setNotice('Signed out of Cuckoo. WorkOS session termination could not be confirmed.');
     if (embedded) location.assign('/?view=account');
   }
   const action = (label: string, run: () => Promise<void>, primary = false) =>
     <button type="button" className={`access-button${primary ? ' primary' : ''}`} disabled={mutation.busy} onClick={() => void mutation.run(run)}>{label}</button>;
   return <div id="app" className="access-preview">
-    {!embedded && <div className="access-demo">Relay · Your business workspace</div>}
+    {!embedded && <div className="access-demo">Cuckoo · Your business workspace</div>}
     <p className="access-error" role="alert">{mutation.status || notice}</p>
     {!session ? <p className="access-subtitle">Checking your session…</p> : !session.user ? <main className="access-card">
       <Brand className="access-brand" /><h1>Your business, together.</h1><p className="access-subtitle">Sign in securely, then create your workspace or join your team.</p>
       <a className="access-button primary" href="/auth/login">Continue to sign in</a>
-      <p className="access-help">Your available sign-in methods are managed by WorkOS. Relay never asks for your Google password.</p>
+      <p className="access-help">Your available sign-in methods are managed by WorkOS. Cuckoo never asks for your Google password.</p>
     </main> : !session.user.display_name ? <main className="access-card">
       <Brand className="access-brand" /><h1>What should people call you?</h1>
       <p className="access-subtitle">Choose a display name to get started.</p>

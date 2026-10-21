@@ -53,7 +53,7 @@ impl Workspace {
             setup_test: tokio::sync::Mutex::new(()),
             default: AgentProfile {
                 id: "local-agent".into(),
-                name: "Relay".into(),
+                name: "Cuckoo".into(),
                 role: crate::runtime::guidance::GUIDE_ROLE.into(),
                 model: config.model.clone(),
                 memory: template.memory,
@@ -211,7 +211,7 @@ impl Workspace {
         self.ensure_creation()?;
         ensure!(
             self.registry.list()?.len() < 3,
-            "This local workspace supports four agents including Relay"
+            "This local workspace supports four agents including Cuckoo"
         );
         ensure!(
             !input.browser || self.template.browser,

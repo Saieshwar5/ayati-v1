@@ -1,3 +1,4 @@
+import { displayAgentName } from '../agents';
 import { useEffect, useState } from 'react';
 import { api } from '../types';
 import type { Profile } from '../agents';
@@ -38,8 +39,8 @@ export function PrivateChat({ href }: { href: string }) {
     <a className="files-button" href={workspaceUrl('/?view=chat')}>People &amp; group chats</a>
     <div className="agents-heading"><h2>Chat</h2><a className="files-button" href={workspaceUrl('/?view=agents')}>Manage</a></div>
     <label className="agent-search-label">Search agents<input id="agent-search" type="search" placeholder="Search agents…" value={query} onChange={event => setQuery(event.target.value)} /></label>
-    <div id="agent-cards">{directory?.agents.filter(({ profile }) => profile.state !== 'archived' && `${profile.name} ${profile.role}`.toLowerCase().includes(query.toLowerCase())).map(({ profile, activity }) => {
-      const name = profile.id === 'local-agent' && profile.name === 'Ayati' ? 'Relay' : profile.name;
+    <div id="agent-cards">{directory?.agents.filter(({ profile }) => profile.state !== 'archived' && `${displayAgentName(profile)} ${profile.role}`.toLowerCase().includes(query.toLowerCase())).map(({ profile, activity }) => {
+      const name = displayAgentName(profile);
       return <div key={profile.id} className={`agent-card${profile.id === agent ? ' selected' : ''}`} data-state={profile.state !== 'ready' ? profile.state : activity.pending_approvals ? 'waiting' : activity.pending_tasks ? 'working' : 'ready'} title={profile.state === 'ready' ? name : profile.detail}>
         <span className="agent-avatar" aria-hidden="true">{name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
         <a className="agent-link" href={profile.state === 'ready' ? workspaceUrl(`/?agent=${encodeURIComponent(profile.id)}`) : undefined} aria-disabled={profile.state !== 'ready' || undefined} aria-current={profile.id === agent ? 'page' : undefined}>{name}</a>

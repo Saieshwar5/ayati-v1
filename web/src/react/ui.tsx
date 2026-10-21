@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode
 import { createPortal } from 'react-dom';
 
 export function Brand({ className = '', symbol = false }: { className?: string; symbol?: boolean }) {
-  return <span className={`relay-brand ${symbol ? 'relay-symbol' : 'relay-logo'} ${className}`} role="img" aria-label="Relay" />;
+  return <span className={`cuckoo-brand ${symbol ? 'cuckoo-symbol' : 'cuckoo-logo'} ${className}`} role="img" aria-label="Cuckoo" />;
 }
 
 export function Button({ primary = false, className = '', type = 'button', ...props }: ComponentProps<'button'> & { primary?: boolean }) {

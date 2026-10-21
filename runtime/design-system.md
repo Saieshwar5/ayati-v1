@@ -1,7 +1,7 @@
-# Relay workspace design system
+# Cuckoo workspace design system
 
 Current accepted direction, 2026-10-20. This is the authoritative visual and
-interaction guide for the existing Relay client. It supersedes the older
+interaction guide for the existing Cuckoo client. It supersedes the older
 Floating Canvas, floating dock, tinted Chat directory and agent-first Home
 layouts. Historical prototypes explain past choices; they are not current rules.
 Feature specifications still govern permissions, persistence and execution.
@@ -19,8 +19,8 @@ Feature specifications still govern permissions, persistence and execution.
   outer border inside each feature or add floating page containers.
 - Keep workspace switching, account identity and sign-out inside the bottom
   account menu. Do not restore a permanent email/workspace/sign-out header.
-- Use Relay's existing name and black logo. Ayati remains an internal repository
-  and runtime name; do not replace internal identifiers as a visual cleanup.
+- Use Cuckoo's approved bird/C mark and lowercase wordmark. Ayati remains an
+  internal repository and runtime name; do not replace internal identifiers as a visual cleanup.
 
 ## Color, hierarchy and components
 

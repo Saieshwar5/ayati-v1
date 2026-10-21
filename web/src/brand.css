@@ -1,20 +1,20 @@
-.relay-brand {
+.cuckoo-brand {
   display: inline-block;
   flex-shrink: 0;
   background: #111;
   vertical-align: middle;
-  mask: var(--relay-artwork) center / contain no-repeat;
+  mask: var(--cuckoo-artwork) center / contain no-repeat;
 }
-.relay-logo { --relay-artwork: url('/brand/relay-logo.svg'); width: 126px; height: 39px; }
-.relay-symbol { --relay-artwork: url('/brand/relay-symbol.svg'); width: 30px; height: 34px; }
-.access-brand { display: block; width: 152px; height: 47px; margin-bottom: 28px; }
+.cuckoo-logo { --cuckoo-artwork: url('/brand/cuckoo-logo.svg'); width: 150px; height: 34px; }
+.cuckoo-symbol { --cuckoo-artwork: url('/brand/cuckoo-symbol.svg'); width: 36px; height: 28px; }
+.access-brand { display: block; width: 180px; height: 40px; margin-bottom: 28px; }
 .access-wordmark { margin: 0 12px 14px; }
 .workspace-brand { display: grid; place-items: center; min-height: 44px; border-radius: 10px; }
 .workspace-brand:hover { background: var(--soft); }
-:root[data-theme=dark] .relay-brand { background: #fff; }
+:root[data-theme=dark] .cuckoo-brand { background: #fff; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme=light]) .relay-brand { background: #fff; }
+  :root:not([data-theme=light]) .cuckoo-brand { background: #fff; }
 }
 @media (max-width: 700px) {
-  .access-wordmark { width: 106px; height: 33px; margin: 0 0 6px; }
+  .access-wordmark { width: 126px; height: 28px; margin: 0 0 6px; }
 }

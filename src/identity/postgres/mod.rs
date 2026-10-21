@@ -1,4 +1,4 @@
-//! PostgreSQL identity storage. All access stays behind the existing Relay API.
+//! PostgreSQL identity storage. All access stays behind the existing Cuckoo API.
 mod accounts;
 mod agent_knowledge;
 mod agent_profiles;
@@ -46,7 +46,7 @@ impl PgStore {
         // Driver errors may contain connection details. Do not propagate them to logs/UI.
         let db = Database::connect(options)
             .await
-            .map_err(|_| anyhow::anyhow!("Cannot connect to Relay PostgreSQL"))?;
+            .map_err(|_| anyhow::anyhow!("Cannot connect to Cuckoo PostgreSQL"))?;
         Ok(Self {
             db,
             changes: tokio::sync::broadcast::channel(256).0,

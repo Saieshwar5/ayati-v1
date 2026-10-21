@@ -15,7 +15,7 @@ type Screen = 'entry' | 'create' | 'choose' | 'home' | 'people' | 'account';
 export function installAccessPreview(): void {
   const root = document.querySelector<HTMLDivElement>('#app')!;
   root.className = 'access-preview';
-  document.title = 'Workspace preview · Relay';
+  document.title = 'Workspace preview · Cuckoo';
   if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
     root.textContent = 'The account preview is available only on localhost.';
     return;
@@ -86,7 +86,7 @@ export function installAccessPreview(): void {
     root.replaceChildren();
     const banner = element('div', 'access-demo');
     banner.append(element('span', '', 'Local preview · Simulated accounts · No emails sent'));
-    const exit = element('a', '', 'Back to local Relay'); exit.href = '/';
+    const exit = element('a', '', 'Back to local Cuckoo'); exit.href = '/';
     banner.append(exit);
     const error = element('p', 'access-error', storageProblem);
     error.setAttribute('role', 'alert'); error.tabIndex = -1;
@@ -108,7 +108,7 @@ export function installAccessPreview(): void {
   function renderEntry(): void {
     const card = element('main', 'access-card');
     card.append(brand('access-brand'));
-    heading(card, 'Your business, together.', 'One place for you and your team to work with Relay.');
+    heading(card, 'Your business, together.', 'One place for you and your team to work with Cuckoo.');
     const google = button('Continue with Google', () => {});
     google.disabled = true; google.title = 'Available after authentication provider setup';
     card.append(google, element('p', 'access-help', 'Google and email verification need provider setup. Use a demo identity below to explore.'));
@@ -164,7 +164,7 @@ export function installAccessPreview(): void {
     const business = state.businesses.find(item => item.id === invitation?.workspace);
     if (!invitation || !business || invitation.status === 'cancelled' || (invitation.status === 'pending' && invitation.expires <= Date.now())) {
       heading(card, 'Invitation unavailable', 'It may have expired or been cancelled. Demo links work only in this browser, on this address.');
-      card.append(button('Continue to Relay', clearInvitation)); root.append(card); return;
+      card.append(button('Continue to Cuckoo', clearInvitation)); root.append(card); return;
     }
     heading(card, `Join ${business.name}`, `You’re invited as a ${invitation.role.toLowerCase()}.`);
     card.append(element('p', 'access-help', `Invited email: ${invitation.email}`));

@@ -21,7 +21,7 @@ async function start(): Promise<void> {
     const theme = localStorage.getItem('ayati.theme');
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
   } catch { /* System preference is the fallback. */ }
-  flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Relay…</main>));
+  flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Cuckoo…</main>));
   if (new URLSearchParams(location.search).get("view") === "simulation") { root.render(<StrictMode><SimulationPage /></StrictMode>); return; }
   if (!await enterWorkspace()) return;
   const params = new URLSearchParams(location.search);

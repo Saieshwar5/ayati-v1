@@ -136,7 +136,7 @@ pub(super) async fn client() -> Response {
         Ok(html) => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html).into_response(),
         Err(_) => (
             StatusCode::SERVICE_UNAVAILABLE,
-            "Build the client before opening Relay.",
+            "Build the client before opening Cuckoo.",
         )
             .into_response(),
     }

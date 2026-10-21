@@ -119,8 +119,8 @@ test('agent switching retains contacts, isolates drafts and ignores late agent r
       await update(() => releaseOld?.(response({ messages: [{ id: 'old', role: 'assistant', content: 'STALE RELAY REPLY', state: 'done' }], tasks: [], artifacts: [] })));
       assert.doesNotMatch(document.querySelector('#conversation').textContent, /STALE/);
       await change(document.querySelector('.message-composer textarea'), 'Draft for Ramesh');
-      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Relay')));
-      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Relay');
+      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Cuckoo')));
+      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Cuckoo');
       assert.equal(document.querySelector('.message-composer textarea').value, 'Draft for Relay');
       assert.equal(document.querySelector('#conversation').scrollTop, 123);
       assert.ok(requests.some(request => request.path.endsWith('/state') && request.agent === 'assistant-two'));
@@ -324,4 +324,12 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
     }
     return response(dataFor(path));
   }});
+});
+
+test('rebrands only the built-in guide while preserving custom agent names', async () => {
+  const { displayAgentName } = await import('../src/agents.ts');
+  for (const name of ['Ayati', 'Relay', 'Cuckoo']) {
+    assert.equal(displayAgentName({ id: 'local-agent', name }), 'Cuckoo');
+    assert.equal(displayAgentName({ id: 'custom-agent', name }), name);
+  }
 });

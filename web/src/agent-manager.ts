@@ -1,3 +1,4 @@
+import { displayAgentName } from './agents';
 import { currentView } from './view-lifetime';
 
 import { canManageResources, workspaceUrl } from './workspace-context.ts';
@@ -10,7 +11,7 @@ export async function installAgentManager(): Promise<void> {
   const view = currentView();
   const { api, post } = view;
   const root = view.querySelector<HTMLDivElement>('#app')!;
-  document.title = 'Agents · Relay';
+  document.title = 'Agents · Cuckoo';
   root.innerHTML = `<main class="desk-page" aria-label="Agents"><header class="desk-toolbar"><div class="desk-title"><h1>Agents</h1><p>Your team’s agents. Their conversations live in Chat.</p></div></header><p class="ui-status" role="status"></p><div class="desk-content"><div class="manager-list ui-directory"></div></div></main>`;
   const toolbar = root.querySelector<HTMLElement>('.desk-toolbar')!;
   const list = root.querySelector<HTMLElement>('.manager-list')!;
@@ -96,7 +97,7 @@ export async function installAgentManager(): Promise<void> {
       const next = JSON.stringify(directory); if (next === fingerprint) return; fingerprint = next;
       list.replaceChildren();
       for (const { profile } of directory.agents) {
-        if (profile.id === 'local-agent' && profile.name === 'Ayati') profile.name = 'Relay';
+        profile.name = displayAgentName(profile);
         const row = element('article', 'ui-row manager-row'); row.dataset.search = `${profile.name} ${profile.role}`.toLowerCase();
         const avatar = element('span', 'ui-avatar', profile.name.slice(0, 2).toUpperCase()); avatar.setAttribute('aria-hidden', 'true');
         const detail = element('div', 'ui-row-title'); detail.append(element('strong', '', profile.name), element('small', 'manager-description', profile.role));

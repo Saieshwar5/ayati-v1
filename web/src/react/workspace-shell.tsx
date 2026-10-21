@@ -19,13 +19,13 @@ function Icon({ name }: { name: WorkspacePage }) {
 export function WorkspaceShell({ page, children }: { page: WorkspacePage; children: ReactNode }) {
   const pages: WorkspacePage[] = workspaceId ? ['home', 'apps', 'chat', 'agents', 'people', 'company', 'feedback', 'settings'] : ['home', 'apps', 'chat', 'agents', 'settings'];
   return <div className="workspace-shell"><aside className="workspace-rail">
-    <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Relay home"><Brand symbol /></a>
+    <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Cuckoo home"><Brand symbol /></a>
     <nav aria-label="Workspace">{pages.map(name => {
       const label = name === 'people' ? 'Users' : name[0].toUpperCase() + name.slice(1);
       return <a key={name} className={`workspace-nav nav-${name}`} href={workspaceUrl(`/?view=${name}`)} title={label}
         aria-current={page === name ? 'page' : undefined}><Icon name={name} /><span>{label}</span></a>;
     })}</nav>
-    {canManageResources() && <button type="button" className="workspace-help" aria-label="Ask Relay" title="Ask Relay" onClick={() => void import('../guide').then(module => module.openGuide())}>?</button>}
+    {canManageResources() && <button type="button" className="workspace-help" aria-label="Ask Cuckoo" title="Ask Cuckoo" onClick={() => void import('../guide').then(module => module.openGuide())}>?</button>}
     {workspaceId ? <AccountMenu /> : <span className="workspace-owner">You</span>}
   </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}{children}</div></div>;
 }

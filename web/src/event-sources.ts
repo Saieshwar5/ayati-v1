@@ -18,7 +18,7 @@ export async function installEventSourceForm(container: HTMLElement, connection:
   const fields = element('div');
   const status = element('p'); status.setAttribute('role', 'status');
   const submit = element('button', 'files-button', 'Start watching'); submit.type = 'submit';
-  form.append(select, description, fields, element('p', '', 'Composio watches this account and delivers events to Relay. A trigger rule below decides what this agent should do. Pausing one agent’s rule does not stop a shared event source.'), status, submit);
+  form.append(select, description, fields, element('p', '', 'Composio watches this account and delivers events to Cuckoo. A trigger rule below decides what this agent should do. Pausing one agent’s rule does not stop a shared event source.'), status, submit);
   container.append(form);
   function draw(): void {
     fields.replaceChildren(); submit.disabled = false;
