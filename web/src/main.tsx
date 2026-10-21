@@ -1,3 +1,5 @@
+import { SimulationPage } from './react/simulation';
+import './react/company.css';
 import { WorkspaceApplication } from './react/workspace-application';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -20,6 +22,7 @@ async function start(): Promise<void> {
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
   } catch { /* System preference is the fallback. */ }
   flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Relay…</main>));
+  if (new URLSearchParams(location.search).get("view") === "simulation") { root.render(<StrictMode><SimulationPage /></StrictMode>); return; }
   if (!await enterWorkspace()) return;
   const params = new URLSearchParams(location.search);
   const requested = params.get('view');
