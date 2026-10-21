@@ -10,6 +10,7 @@ impl MigratorTrait for Migrator {
             Box::new(DisplayNames),
             Box::new(Collaboration),
             Box::new(QueueTelemetry),
+            Box::new(Messaging),
         ]
     }
 }
@@ -121,5 +122,27 @@ impl MigrationTrait for QueueTelemetry {
     }
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom("Use a forward migration".into()))
+    }
+}
+
+struct Messaging;
+impl MigrationName for Messaging {
+    fn name(&self) -> &str {
+        "m20261021_000006_reliable_messaging"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for Messaging {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("messaging.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Messages and receipts are durable; use a forward migration".into(),
+        ))
     }
 }

@@ -8,6 +8,7 @@ mod feedback;
 mod history;
 mod import;
 mod jobs;
+mod messaging;
 pub mod migration;
 mod objects;
 mod people;
@@ -25,6 +26,7 @@ use std::time::Duration;
 
 pub struct PgStore {
     db: DatabaseConnection,
+    pub(crate) changes: tokio::sync::broadcast::Sender<String>,
 }
 impl PgStore {
     pub async fn connect(url: &str) -> Result<Self> {
@@ -43,7 +45,10 @@ impl PgStore {
         let db = Database::connect(options)
             .await
             .map_err(|_| anyhow::anyhow!("Cannot connect to Relay PostgreSQL"))?;
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            changes: tokio::sync::broadcast::channel(256).0,
+        })
     }
 
     /// Serialize mutations only within a workspace. Independent businesses use other connections.
@@ -158,3 +163,6 @@ mod profile_tests;
 
 #[cfg(test)]
 mod company_tests;
+
+#[cfg(test)]
+mod messaging_tests;
