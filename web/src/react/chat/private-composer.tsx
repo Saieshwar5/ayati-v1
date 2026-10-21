@@ -59,7 +59,7 @@ function PrivateComposer({ view, options, actions }: { view: ViewLifetime; optio
 /** Explicit React-owned island inside the documented compatibility subtree. */
 export function mountPrivateComposer(host: HTMLElement, view: ViewLifetime, actions: Actions) {
   const root = createRoot(host);
-  let options: Options = { ready:false, uploads:false, name:'Relay', placeholder:'Message…' };
+  let options: Options = { ready:false, uploads:false, name:'Cuckoo', placeholder:'Message…' };
   const update = (next: Partial<Options>) => { options = { ...options,...next }; if (view.active) root.render(<StrictMode><PrivateComposer view={view} options={options} actions={actions} /></StrictMode>); };
   update({});
   view.cleanup(() => queueMicrotask(() => root.unmount()));

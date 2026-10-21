@@ -1,3 +1,4 @@
+import { displayAgentName } from './agents';
 import { mountPrivateComposer } from './react/chat/private-composer';
 import './message-content.css';
 import { storageScope, workspaceId } from './workspace-context';
@@ -25,7 +26,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
   app.innerHTML = `
     <div class="header" role="toolbar" aria-label="Agent tools">
       <div class="identity"><span class="avatar" aria-hidden="true">R</span>
-        <div><strong>Relay</strong><span class="connection" id="connection">Connecting…</span></div>
+        <div><strong>Cuckoo</strong><span class="connection" id="connection">Connecting…</span></div>
       </div>
       <button class="files-button" id="agent-sidebar-toggle" aria-label="Hide agent list" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
       <button class="files-button agent-list-toggle" id="agent-list-toggle" aria-label="Choose agent"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
@@ -34,7 +35,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
       <div class="chat-tool-links"></div>
     </div>
     <main class="main">
-      <section class="chat" aria-label="Conversation with Relay">
+      <section class="chat" aria-label="Conversation with Cuckoo">
         <div class="notice" id="notice" role="status" hidden></div>
         <div class="conversation" id="conversation" role="log" aria-label="Messages"></div>
         <div class="composer-area">
@@ -88,13 +89,13 @@ export function installChat(): (profile: import('./agents').Profile) => void {
   const updateDetails = installAgentDetails();
   const showProfile = (profile: import('./agents').Profile): void => {
     if (!view.active || profile.id !== selectedAgent) return;
-    const name = profile.id === 'local-agent' && profile.name === 'Ayati' ? 'Relay' : profile.name;
+    const name = displayAgentName(profile);
     updateDetails(profile);
     view.querySelector('.identity strong')!.textContent = name;
     view.querySelector('.identity .avatar')!.textContent = name.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
     composer.update({ name });
     view.querySelector('.chat')!.setAttribute('aria-label', `Conversation with ${name}`);
-    document.title = name === 'Relay' ? 'Chat · Relay' : `${name} · Relay`;
+    document.title = name === 'Cuckoo' ? 'Chat · Cuckoo' : `${name} · Cuckoo`;
   };
   const sidebarButton = view.querySelector<HTMLButtonElement>('#agent-sidebar-toggle')!;
   sidebarButton.setAttribute('aria-controls', 'agents-sidebar');
@@ -110,7 +111,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
 
   function draw(): void {
     if (!view.active) return;
-    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Relay');
+    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo');
     renderArtifacts(state.artifacts);
     view.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
     const active = state.tasks.find(task => task.status === 'running');
@@ -165,16 +166,16 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     const update = JSON.parse(event.data) as AgentEvent;
     if (update.kind === 'delta' && update.message_id && update.text) {
       if (!applyDelta(state, update)) { void sync(); return; }
-      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Relay');
+      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo');
     } else { void sync(); }
   };
 
   void api<{ model_ready: boolean; file_uploads_supported?: boolean }>('/health').then((health) => {
     modelReady = health.model_ready;
     composer.update({ uploads: health.file_uploads_supported !== false });
-    if (!modelReady) tell(workspaceId ? 'This workspace needs its own agent environment. Create an agent from the agent list to get started; existing local environments are kept separate.' : 'Relay needs its AI connection. See the project README to configure it on this computer.');
+    if (!modelReady) tell(workspaceId ? 'This workspace needs its own agent environment. Create an agent from the agent list to get started; existing local environments are kept separate.' : 'Cuckoo needs its AI connection. See the project README to configure it on this computer.');
     draw();
-  }).catch(() => tell('Relay is not reachable. Start the local service and reload.'));
+  }).catch(() => tell('Cuckoo is not reachable. Start the local service and reload.'));
   void sync();
   return showProfile;
 

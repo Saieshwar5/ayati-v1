@@ -12,7 +12,7 @@ export function installTriggers(container: HTMLElement): () => Promise<void> {
   const { api, post } = view;
   const selectedAgent = view.agent;
   container.classList.add('connections');
-  container.innerHTML = `<h3>Event triggers</h3><p>Start this agent’s work when a connected account sends a matching event. Model charges and tool approvals still apply. This computer and Relay must stay on.</p>
+  container.innerHTML = `<h3>Event triggers</h3><p>Start this agent’s work when a connected account sends a matching event. Model charges and tool approvals still apply. This computer and Cuckoo must stay on.</p>
     <button class="files-button" data-trigger-refresh>Refresh triggers</button><p data-trigger-status role="status"></p>
     <div data-trigger-list></div><div data-trigger-runs></div>
     <form data-trigger-form><h3>Create a trigger</h3>

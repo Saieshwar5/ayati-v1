@@ -14,7 +14,7 @@ type Grant = { agent_id: string; collection: string; can_write: boolean };
 export function installApps(): void {
   const view = currentView();
   const { api, post } = view;
-  document.title = 'Apps · Relay';
+  document.title = 'Apps · Cuckoo';
   const root = view.querySelector<HTMLElement>('#app')!;
   root.innerHTML = `<main class="desk-page apps-page" aria-label="Apps"><header class="desk-toolbar"><div class="desk-title"><h1>Apps</h1><p>Your everyday tools, ready to open.</p></div><input class="ui-search" type="search" id="app-search" aria-label="Find an app" placeholder="Find an app"><button class="ui-button primary" id="ask-app">＋ Create app</button></header>
     <p id="apps-status" role="status"></p><div class="desk-content"><div id="app-request" hidden></div><div id="apps-list"></div></div></main>`;

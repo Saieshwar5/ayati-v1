@@ -6,7 +6,7 @@ impl Workspace {
         let _lifecycle = self.lifecycle.lock().await;
         ensure!(
             id != "local-agent",
-            "The built-in Relay guide cannot be removed"
+            "The built-in Cuckoo guide cannot be removed"
         );
         ensure!(
             !self.closing.load(Ordering::SeqCst),

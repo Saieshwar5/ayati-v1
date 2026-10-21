@@ -62,7 +62,7 @@ impl PgStore {
         )
         .await
         .map_err(|_| {
-            anyhow::anyhow!("Run workspace-db migrate before starting Relay PostgreSQL")
+            anyhow::anyhow!("Run workspace-db migrate before starting Cuckoo PostgreSQL")
         })?;
         ensure!(
             applied.len() == 7

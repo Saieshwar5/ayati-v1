@@ -1,6 +1,6 @@
-# Ayati
+# Cuckoo
 
-Ayati is becoming a local-first business agent workspace powered by Goose, with
+Cuckoo is becoming a local-first business agent workspace powered by Goose, with
 Rust control services and a TypeScript web app undergoing a [staged React migration](runtime/react-client.md). The owner can create
 independent agents through the UI, each running inside its own real QEMU/KVM
 Linux VM with streaming chat, saved sessions, Stop and exact tool approvals. An optional protected browser now adds
@@ -16,6 +16,10 @@ Settings and Agent Details. Live MCP discovery and a bounded Gmail read passed;
 OAuth refresh, new-account consent and VM acceptance remain unverified.
 [Event triggers](runtime/composio-triggers.md) add per-agent rules and a signed
 Composio receiver; live delivery needs an explicitly configured HTTPS endpoint.
+
+The public app name is Cuckoo. Existing `ayati` commands, `AYATI_*` /
+`RELAY_*` configuration, database names and saved data paths remain compatible.
+See [Cuckoo branding](runtime/cuckoo-brand.md) for artwork and naming.
 
 ## Run the Goose-backed chat
 

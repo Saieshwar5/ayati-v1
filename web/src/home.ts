@@ -1,3 +1,4 @@
+import { displayAgentName } from './agents';
 import type { HomeNotificationsState, HomeNotice } from './react/home-notifications';
 import { currentView } from './view-lifetime';
 import { workspaceUrl, canManageResources } from './workspace-context';
@@ -20,7 +21,7 @@ type Home = { agents: Entry[] };
 export function installHome(onNotifications?: (data: HomeNotificationsState) => void): void {
   const view = currentView();
   const { api } = view;
-  document.title = 'Home · Relay';
+  document.title = 'Home · Cuckoo';
   const app = view.querySelector<HTMLDivElement>('#app')!;
   app.innerHTML = `<main class="home" aria-label="Home">
     <div class="home-standard-panels">
@@ -31,7 +32,7 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
     <button id="home-decisions" hidden aria-haspopup="dialog">Review attention</button>
     <section id="home-panels"></section>
 
-    <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Relay</button></div>
+    <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Cuckoo</button></div>
     <div id="home-activity" hidden><button id="home-updates" class="text-button" aria-haspopup="dialog">Review outcomes</button><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
     <section class="home-surface" aria-labelledby="recent-title"><h2 id="recent-title">Recent work</h2><div id="home-recent" class="home-feed"></div></section></div></main>`;
   view.querySelector<HTMLElement>('#home-guide')!.hidden = !canManageResources();
@@ -72,7 +73,7 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
     loading = true;
     try {
       const data = await scoped<Home>('local-agent', '/home');
-      for (const entry of data.agents) if (entry.profile.id === 'local-agent' && entry.profile.name === 'Ayati') entry.profile.name = 'Relay';
+      for (const entry of data.agents) entry.profile.name = displayAgentName(entry.profile);
       freshAt = Date.now();
       const next = JSON.stringify(data);
       if (next !== fingerprint) { draw(data); fingerprint = next; }

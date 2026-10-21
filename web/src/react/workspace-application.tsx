@@ -26,7 +26,7 @@ export function WorkspaceApplication() {
   useEffect(() => {
     document.documentElement.dataset.page = page;
     const title = page === 'people' ? 'Users' : page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
-    document.title = `${title} · Relay`;
+    document.title = `${title} · Cuckoo`;
   }, [page, href]);
   const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
   return <WorkspaceShell page={page}>

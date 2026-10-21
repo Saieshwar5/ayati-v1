@@ -8,11 +8,11 @@ export function openGuide(): void {
   const view = currentView();
   const existing = view.querySelector<HTMLDialogElement>('.guide-drawer');
   if (existing) { existing.showModal(); return; }
-  const dialog = document.createElement('dialog'); dialog.className = 'guide-drawer'; dialog.setAttribute('aria-label', 'Ask Relay');
+  const dialog = document.createElement('dialog'); dialog.className = 'guide-drawer'; dialog.setAttribute('aria-label', 'Ask Cuckoo');
   const header = element('header'); const full = element('a', 'text-button', 'Open conversation ↗'); full.href = workspaceUrl('/?agent=local-agent');
-  const close = element('button', 'icon-button', '×'); close.setAttribute('aria-label', 'Close Relay');
+  const close = element('button', 'icon-button', '×'); close.setAttribute('aria-label', 'Close Cuckoo');
   header.append(element('span', '', 'Your guide · Always here'), full, close);
-  const frame = document.createElement('iframe'); frame.title = 'Conversation with Relay'; frame.src = workspaceUrl('/?agent=local-agent&guide=1');
+  const frame = document.createElement('iframe'); frame.title = 'Conversation with Cuckoo'; frame.src = workspaceUrl('/?agent=local-agent&guide=1');
   dialog.append(header, frame); view.append(dialog); dialog.showModal(); close.onclick = () => dialog.close();
   // Keep the frame on close so an unsent draft or open approval remains intact.
 }
