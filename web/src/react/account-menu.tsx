@@ -9,12 +9,13 @@ export function AccountMenu() {
   const mutation = useMutation();
   if (!workspaceId || !workspace) return null;
   const email = workspaceSession?.user?.email ?? '';
-  const initials = email.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toUpperCase() || 'W';
+  const name = workspaceSession?.user?.display_name || email;
+  const initials = name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toUpperCase() || 'W';
   return <><button type="button" title="Your account" className="workspace-menu-trigger workspace-profile-trigger" aria-label="Your account"
     aria-controls="workspace-profile" aria-expanded={open} popoverTarget="workspace-profile"><span className="workspace-profile-avatar" aria-hidden="true">{initials}</span></button>
     {createPortal(<div id="workspace-profile" className="workspace-menu workspace-profile" popover="auto" aria-label="Your account"
       onToggle={event => setOpen((event.nativeEvent as ToggleEvent).newState === 'open')}>
-      <h2>Your account</h2><p className="workspace-menu-email">{email}</p><p className="workspace-menu-role">{workspace.name} · {workspace.role}</p><hr />
+      <h2>{name}</h2><p className="workspace-menu-email">{email}</p><p className="workspace-menu-role">{workspace.name} · {workspace.role}</p><hr />
       <h2>Workspaces</h2><nav className="workspace-menu-list" aria-label="Choose workspace">{workspaceSession?.workspaces?.map(entry =>
         <a key={entry.id} className="workspace-menu-action" href={`/w/${entry.id}/`} aria-current={entry.id === workspaceId ? 'true' : undefined}>
           {entry.name}{entry.id === workspaceId && <small>Current</small>}</a>)}</nav>

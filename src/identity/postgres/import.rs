@@ -13,7 +13,7 @@ const TABLES: &[Table] = &[
     Table {
         source: "users",
         target: "relay_users",
-        columns: &["id", "provider", "email"],
+        columns: &["id", "provider", "email", "display_name"],
     },
     Table {
         source: "workspaces",
@@ -119,6 +119,12 @@ impl PgStore {
             .collect::<rusqlite::Result<Vec<_>>>()?
             .iter()
             .any(|c| c == "kind");
+        let has_display_names = source
+            .prepare("PRAGMA table_info(users)")?
+            .query_map([], |r| r.get::<_, String>(1))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .iter()
+            .any(|c| c == "display_name");
         let has_threads = source
             .prepare("PRAGMA table_info(chat_messages)")?
             .query_map([], |r| r.get::<_, String>(1))?
@@ -128,6 +134,9 @@ impl PgStore {
         let mut counts = serde_json::Map::new();
         for table in TABLES {
             let select = match table.source {
+                "users" if !has_display_names => {
+                    "SELECT id,provider,email,NULL FROM users ORDER BY rowid".into()
+                }
                 "chats" if !has_chat_kinds => {
                     "SELECT id,workspace,name,creator,'group','',NULL FROM chats ORDER BY rowid"
                         .into()

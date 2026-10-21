@@ -28,10 +28,10 @@ export function CreateConversation({ directory, mode, close, created, privateAge
         <label>Purpose <span>(optional)</span><input maxLength={300} value={description} onChange={e => setDescription(e.target.value)} placeholder="Stock, suppliers and incoming deliveries" /></label>
         <p className="chat-help">Private channel · only invited members can read messages. You are included.</p></>}
       <label>{mode === 'channel' ? 'Add people or agents' : 'Find a person or agent'}<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search workspace…" /></label>
-      <div className="chat-choice-list">{choices.filter(item => item.name.toLowerCase().includes(query.toLowerCase())).map(item => {
+      <div className="chat-choice-list">{choices.filter(item => `${item.name} ${item.email ?? ''}`.toLowerCase().includes(query.toLowerCase())).map(item => {
         const key = `${item.kind}:${item.id}`;
-        return mode === 'channel' ? <label className="chat-choice" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e => setSelected(values => e.target.checked ? [...values, key] : values.filter(value => value !== key))} /><span>{item.name}</span>{item.kind === 'agent' && <small>Agent</small>}</label>
-          : <button type="button" className="chat-contact" key={key} onClick={() => item.kind === 'agent' && directory.role === 'Owner' ? privateAgent(item.id) : void create([key], item.name)}><span className={`chat-avatar ${item.kind}`}>{item.kind === 'agent' ? '✧' : item.name.slice(0, 1).toUpperCase()}</span><span>{item.name}</span>{item.kind === 'agent' && <small>Agent</small>}</button>;
+        return mode === 'channel' ? <label className="chat-choice" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e => setSelected(values => e.target.checked ? [...values, key] : values.filter(value => value !== key))} /><span>{item.name}{item.email && <small>{item.email}</small>}</span>{item.kind === 'agent' && <small>Agent</small>}</label>
+          : <button type="button" className="chat-contact" key={key} onClick={() => item.kind === 'agent' && directory.role === 'Owner' ? privateAgent(item.id) : void create([key], item.name)}><span className={`chat-avatar ${item.kind}`}>{item.kind === 'agent' ? '✧' : item.name.slice(0, 1).toUpperCase()}</span><span>{item.name}{item.email && <small>{item.email}</small>}</span>{item.kind === 'agent' && <small>Agent</small>}</button>;
       })}</div>
       {!choices.length && <p className="chat-help">Invite a workspace member or create an agent to start a conversation.</p>}
       {mode === 'channel' && <Button primary type="submit" disabled={!name.trim() || !selected.length || mutation.busy}>Create channel</Button>}

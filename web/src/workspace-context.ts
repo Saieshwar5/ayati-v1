@@ -1,5 +1,5 @@
 export type Membership = { id: string; name: string; role: string; adopted?: boolean };
-type Session = { user: { id: string; email: string } | null; workspaces?: Membership[] };
+type Session = { user: { id: string; email: string; display_name?: string | null } | null; workspaces?: Membership[] };
 const match = (typeof location === 'undefined' ? '' : location.pathname).match(/^\/w\/([0-9a-f-]{36})\//);
 export const workspaceId = match?.[1] ?? '';
 export let workspaceSession: Session | undefined;
@@ -13,6 +13,7 @@ export async function identityRequest<T>(path: string, body?: unknown, signal?: 
     headers: body === undefined ? {} : { 'Content-Type': 'application/json', 'X-Ayati-Request': 'identity' },
     body: body === undefined ? undefined : JSON.stringify(body) });
   if (path === '/session' && response.status === 401) return { user: null } as T;
+  if (path === '/profile' && response.status === 401) location.replace('/?view=account');
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? 'Account request failed.');
   return data as T;
@@ -21,6 +22,7 @@ export async function enterWorkspace(): Promise<boolean> {
   if (!workspaceId) return true;
   workspaceSession = await identityRequest<Session>('/session');
   if (!workspaceSession.user || !currentWorkspace()) { location.replace('/?view=account&choose=1'); return false; }
+  if (workspaceSession.user.display_name === null) { location.replace('/?view=account&choose=1'); return false; }
   try { localStorage.setItem(`relay.last-workspace.${workspaceSession.user.id}`, workspaceId); } catch { /* Optional preference. */ }
   // Migrate only the original owner's layout into its explicitly adopted workspace.
   if (currentWorkspace()?.role === 'Owner' && currentWorkspace()?.adopted) {

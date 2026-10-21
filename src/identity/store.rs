@@ -9,6 +9,7 @@ pub struct Store(pub Mutex<Connection>);
 pub struct User {
     pub id: String,
     pub email: String,
+    pub display_name: Option<String>,
 }
 pub fn now() -> i64 {
     std::time::SystemTime::now()
@@ -55,6 +56,7 @@ impl Store {
                 status TEXT NOT NULL, provider TEXT);
             CREATE UNIQUE INDEX IF NOT EXISTS pending_invite ON invitations(workspace,email) WHERE status='pending';
             CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor TEXT, workspace TEXT, action TEXT, target TEXT, at INTEGER);")?;
+        super::profile::schema(&db)?;
         super::chat::schema(&db)?;
         super::resources::schema(&db)?;
         db.execute("UPDATE chat_messages SET state='failed',content='Request interrupted by a server restart. Send a new request to retry.' WHERE kind='agent' AND state='queued'", [])?;
@@ -80,17 +82,22 @@ impl Store {
             params![hash, id, sid, now() + 3600],
         )?;
         audit(&tx, &id, "", "sign_in", "")?;
+        let display_name =
+            tx.query_row("SELECT display_name FROM users WHERE id=?1", [&id], |r| {
+                r.get(0)
+            })?;
         tx.commit()?;
         Ok(User {
             id,
             email: email.into(),
+            display_name,
         })
     }
     pub fn session(&self, hash: &str) -> Result<Option<(User, String, String)>> {
         let db = self.0.lock().unwrap();
         Ok(db
             .query_row(
-                "SELECT u.id,u.email,u.provider,s.provider_session FROM sessions s
+                "SELECT u.id,u.email,u.provider,s.provider_session,u.display_name FROM sessions s
             JOIN users u ON s.user=u.id WHERE s.hash=?1 AND s.expires>?2",
                 params![hash, now()],
                 |r| {
@@ -98,6 +105,7 @@ impl Store {
                         User {
                             id: r.get(0)?,
                             email: r.get(1)?,
+                            display_name: r.get(4)?,
                         },
                         r.get(2)?,
                         r.get(3)?,
@@ -160,8 +168,8 @@ impl Store {
     pub fn people(&self, user: &User, workspace: &str) -> Result<Value> {
         let db = self.0.lock().unwrap();
         let own_role = role(&db, workspace, &user.id)?;
-        let mut q = db.prepare("SELECT u.id,u.email,m.role FROM members m JOIN users u ON u.id=m.user WHERE m.workspace=?1 ORDER BY m.rowid")?;
-        let members = q.query_map([workspace], |r| Ok(json!({"id":r.get::<_,String>(0)?,"email":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?})))?
+        let mut q = db.prepare("SELECT u.id,u.email,m.role,u.display_name FROM members m JOIN users u ON u.id=m.user WHERE m.workspace=?1 ORDER BY m.rowid")?;
+        let members = q.query_map([workspace], |r| Ok(json!({"id":r.get::<_,String>(0)?,"email":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?,"display_name":r.get::<_,Option<String>>(3)?})))?
             .collect::<Result<Vec<_>,_>>()?;
         let mut invitations = Vec::new();
         if own_role != "Member" {

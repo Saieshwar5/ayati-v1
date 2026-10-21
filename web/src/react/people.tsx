@@ -4,7 +4,7 @@ import { Button, Dialog, Tabs } from './ui';
 import { useMutation, useResource } from './requests';
 import { MemberDetails } from './member-details';
 
-export type Member = { id: string; email: string; role: string };
+export type Member = { id: string; email: string; display_name?: string | null; role: string };
 type People = { role: string; members: Member[]; invitations: { id: string; email: string; role: string; status: string; expires: number }[] };
 const base = `/workspaces/${workspaceId}`;
 const loadPeople = () => identityRequest<People>(`${base}/people`);
@@ -20,7 +20,7 @@ export function PeoplePage() {
     mutation.setStatus(message);
     try { await refresh(); } catch { mutation.setStatus(`${message} Reload Users to refresh the list.`); }
   }
-  const members = data?.members.filter(member => matches(member.email)) ?? [];
+  const members = data?.members.filter(member => matches(member.email) || matches(member.display_name ?? '')) ?? [];
   const invitations = data?.invitations.filter(invitation => matches(invitation.email)) ?? [];
   return <div id="app"><main className="desk-page" aria-label="Users">
     <header className="desk-toolbar"><div className="desk-title"><h1>Users</h1><p>Your team and their workspace access.</p></div>
@@ -30,8 +30,8 @@ export function PeoplePage() {
     {error && <Button onClick={() => void refresh().catch(() => {})}>Retry</Button>}
     <div className="desk-content"><Tabs sections={[
       { title: 'Members', content: <div className="ui-directory">{members.map(member => <div className="ui-row" key={member.id}>
-        <span className="ui-avatar" aria-hidden="true">{member.email.slice(0, 2).toUpperCase()}</span>
-        <div className="ui-row-title"><strong>{member.email}</strong></div><span className="ui-badge">{member.role}</span>
+        <span className="ui-avatar" aria-hidden="true">{(member.display_name || member.email).slice(0, 2).toUpperCase()}</span>
+        <div className="ui-row-title"><strong>{member.display_name || member.email}</strong>{member.display_name && <small>{member.email}</small>}</div><span className="ui-badge">{member.role}</span>
         <Button aria-label={`View ${member.email}`} data-member={member.id} onClick={() => select(member)}>Details</Button>
       </div>)}{data && !members.length && <p className="ui-empty">{query ? 'No members match your search.' : 'No members to show.'}</p>}</div> },
       { title: 'Invitations', content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>

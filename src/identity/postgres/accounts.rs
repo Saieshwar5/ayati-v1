@@ -6,7 +6,7 @@ impl PgStore {
     pub async fn login(&self, provider: &str, email: &str, hash: &str, sid: &str) -> Result<User> {
         let tx = self.db.begin().await?;
         let proposed = uuid::Uuid::new_v4().to_string();
-        let row = query(&tx, "INSERT INTO relay_users(id,provider,email) VALUES($1,$2,$3) ON CONFLICT(provider) DO UPDATE SET email=excluded.email RETURNING id",
+        let row = query(&tx, "INSERT INTO relay_users(id,provider,email) VALUES($1,$2,$3) ON CONFLICT(provider) DO UPDATE SET email=excluded.email RETURNING id,display_name",
             vec![proposed.into(), provider.into(), email.into()]).await?.context("Missing user")?;
         let id: String = row.try_get("", "id")?;
         execute(
@@ -31,6 +31,7 @@ impl PgStore {
         Ok(User {
             id,
             email: email.into(),
+            display_name: row.try_get("", "display_name")?,
         })
     }
     pub async fn session(&self, hash: &str) -> Result<Option<(User, String, String)>> {
@@ -52,6 +53,7 @@ impl PgStore {
             User {
                 id: account.id,
                 email: account.email,
+                display_name: account.display_name,
             },
             account.provider,
             row.try_get("", "provider_session")?,
@@ -112,7 +114,7 @@ impl PgStore {
     pub async fn people(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         let own_role = role(&tx, workspace, &user.id).await?;
-        let members = json_rows(&tx, "SELECT jsonb_build_object('id',u.id,'email',u.email,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
+        let members = json_rows(&tx, "SELECT jsonb_build_object('id',u.id,'email',u.email,'display_name',u.display_name,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
         let invitations = if own_role != "Member" {
             json_rows(&tx, "SELECT jsonb_build_object('id',id,'email',email,'role',role,'status',status,'expires',expires) AS data FROM relay_invitations WHERE workspace=$1 AND status NOT IN ('cancelled','accepted') ORDER BY sequence DESC",vec![workspace.into()]).await?
         } else {
@@ -120,5 +122,25 @@ impl PgStore {
         };
         tx.commit().await?;
         Ok(json!({"members":members,"invitations":invitations,"role":own_role}))
+    }
+}
+
+impl PgStore {
+    pub async fn update_profile(&self, user: &User, name: &str) -> Result<User> {
+        let name = crate::identity::profile::validate(name)?;
+        let tx = self.db.begin().await?;
+        let count = execute(
+            &tx,
+            "UPDATE relay_users SET display_name=$1 WHERE id=$2",
+            vec![name.into(), user.id.clone().into()],
+        )
+        .await?;
+        ensure!(count == 1, "Account unavailable");
+        audit(&tx, &user.id, None, "profile_updated", &user.id).await?;
+        tx.commit().await?;
+        Ok(User {
+            display_name: Some(name.into()),
+            ..user.clone()
+        })
     }
 }

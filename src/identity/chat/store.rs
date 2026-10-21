@@ -201,6 +201,7 @@ impl Store {
                         &User {
                             id: member.clone(),
                             email: String::new(),
+                            display_name: None,
                         },
                         workspace,
                         &id,
@@ -264,7 +265,7 @@ impl Store {
     pub fn chat_messages(&self, user: &User, workspace: &str, chat: &str) -> Result<Value> {
         let db = self.0.lock().unwrap();
         access(&db, user, workspace, chat)?;
-        let mut q=db.prepare("WITH recent AS (SELECT rowid,* FROM chat_messages WHERE chat=?1 ORDER BY rowid DESC LIMIT 200) SELECT m.id,m.author,m.kind,m.content,m.state,m.at,u.email,m.thread FROM (SELECT * FROM recent UNION SELECT rowid,* FROM chat_messages WHERE chat=?1 AND id IN (SELECT thread FROM recent)) m LEFT JOIN users u ON u.id=m.author ORDER BY m.rowid")?;
+        let mut q=db.prepare("WITH recent AS (SELECT rowid,* FROM chat_messages WHERE chat=?1 ORDER BY rowid DESC LIMIT 200) SELECT m.id,m.author,m.kind,m.content,m.state,m.at,COALESCE(u.display_name,u.email),m.thread FROM (SELECT * FROM recent UNION SELECT rowid,* FROM chat_messages WHERE chat=?1 AND id IN (SELECT thread FROM recent)) m LEFT JOIN users u ON u.id=m.author ORDER BY m.rowid")?;
         let rows=q.query_map([chat],|r|Ok(json!({"id":r.get::<_,String>(0)?,"author":r.get::<_,String>(1)?,"kind":r.get::<_,String>(2)?,"content":r.get::<_,String>(3)?,"state":r.get::<_,String>(4)?,"at":r.get::<_,i64>(5)?,"name":r.get::<_,Option<String>>(6)?,"thread":r.get::<_,Option<String>>(7)?})))?.collect::<rusqlite::Result<Vec<_>>>()?;
         let agents = db
             .prepare("SELECT agent FROM chat_agents WHERE chat=?1")?
@@ -377,6 +378,7 @@ impl Store {
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
+            display_name: None,
         };
         access(&db, &user, &job.workspace, &job.chat).is_ok()
             && agent_access(&db, &user.id, &job.workspace, &job.agent).unwrap_or(false)
@@ -386,6 +388,7 @@ impl Store {
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
+            display_name: None,
         };
         let allowed = access(&db, &user, &job.workspace, &job.chat).is_ok()
             && agent_access(&db, &user.id, &job.workspace, &job.agent).unwrap_or(false);

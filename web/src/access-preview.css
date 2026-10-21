@@ -43,3 +43,5 @@
   .access-person { align-items: flex-start; flex-direction: column; }
   .access-demo { padding: 12px 16px; }
 }
+
+.account-profile-form { max-width: 440px; }

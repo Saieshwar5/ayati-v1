@@ -124,3 +124,5 @@
   [data-page=chat] .workspace-chat .header .identity .avatar { display:none; }
   [data-page=chat] .workspace-chat .header .identity > div { display:flex; flex-direction:column; align-items:flex-start; gap:0; min-width:0; }
 }
+
+.chat-contact > span > small, .chat-choice > span > small { display:block; margin-top:3px; color:var(--muted); font-size:11px; }

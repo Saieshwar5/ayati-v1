@@ -128,3 +128,135 @@ async fn provider_failure_remains_closed_after_a_successful_check() {
     );
     server.abort();
 }
+
+#[tokio::test]
+async fn profile_updates_require_current_session_and_cannot_target_another_user() {
+    use crate::identity::{self, store::Store};
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    let (provider, mock, server) = mock_provider().await;
+    let store = Store::open(std::path::Path::new(":memory:")).unwrap();
+    let owner = store
+        .login(
+            "user_test",
+            "owner@example.com",
+            &digest("token"),
+            "session_test",
+        )
+        .unwrap();
+    let other = store
+        .login("user_other", "other@example.com", "other", "other_session")
+        .unwrap();
+    let app = Arc::new(identity::App {
+        provider,
+        store: store.into(),
+        origin: "http://127.0.0.1:8765".into(),
+        pending: std::sync::Mutex::new(std::collections::HashMap::new()),
+        runtimes: identity::workspaces::Runtimes::new(
+            std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
+        ),
+    });
+    for (body, cookie, origin, expected) in [
+        (
+            json!({"display_name":"Sai"}),
+            "",
+            "http://127.0.0.1:8765",
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            json!({"display_name":"Sai"}),
+            "ayati_identity=token",
+            "https://evil.example",
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            json!({"display_name":"Sai","id":other.id}),
+            "ayati_identity=token",
+            "http://127.0.0.1:8765",
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        (
+            json!({"display_name":"Sai"}),
+            "ayati_identity=token",
+            "http://127.0.0.1:8765",
+            StatusCode::OK,
+        ),
+    ] {
+        let response = identity::router(app.clone())
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/identity/profile")
+                    .header("host", "127.0.0.1:8765")
+                    .header("origin", origin)
+                    .header("cookie", cookie)
+                    .header("x-ayati-request", "identity")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+    }
+    assert_eq!(
+        app.store
+            .sqlite()
+            .session(&digest("token"))
+            .unwrap()
+            .unwrap()
+            .0
+            .display_name
+            .as_deref(),
+        Some("Sai")
+    );
+    assert!(
+        app.store
+            .sqlite()
+            .session("other")
+            .unwrap()
+            .unwrap()
+            .0
+            .display_name
+            .is_none()
+    );
+    mock.active.store(false, Ordering::SeqCst);
+    let response = identity::router(app.clone())
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/identity/profile")
+                .header("host", "127.0.0.1:8765")
+                .header("origin", "http://127.0.0.1:8765")
+                .header("cookie", "ayati_identity=token")
+                .header("x-ayati-request", "identity")
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"display_name":"Rejected"}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        app.store
+            .sqlite()
+            .session(&digest("token"))
+            .unwrap()
+            .unwrap()
+            .0
+            .id,
+        owner.id
+    );
+    assert_eq!(
+        app.store
+            .sqlite()
+            .session(&digest("token"))
+            .unwrap()
+            .unwrap()
+            .0
+            .display_name
+            .as_deref(),
+        Some("Sai")
+    );
+    server.abort();
+}

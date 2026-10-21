@@ -77,7 +77,7 @@ impl PgStore {
     pub async fn directory(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         let own_role = role(&tx, workspace, &user.id).await?;
-        let users=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',u.email,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
+        let users=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'email',u.email,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
         let grants = if own_role == "Owner" {
             json_rows(&tx,"SELECT jsonb_build_object('user',user_id,'agent',agent) AS data FROM relay_chat_access WHERE workspace=$1",vec![workspace.into()]).await?
         } else {
@@ -132,6 +132,7 @@ impl PgStore {
                         &User {
                             id: member.clone(),
                             email: String::new(),
+                            display_name: None,
                         },
                         workspace,
                         &id,
@@ -174,7 +175,7 @@ impl PgStore {
     pub async fn chat_messages(&self, user: &User, workspace: &str, chat: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         access(&tx, user, workspace, chat).await?;
-        let messages=json_rows(&tx,"WITH recent AS (SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 ORDER BY sequence DESC LIMIT 200) SELECT jsonb_build_object('id',m.id,'author',m.author,'kind',m.kind,'content',m.content,'state',m.state,'at',m.at,'name',u.email,'thread',m.thread) AS data FROM (SELECT * FROM recent UNION SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id IN (SELECT thread FROM recent)) m LEFT JOIN relay_users u ON u.id=m.author ORDER BY m.sequence",vec![workspace.into(),chat.into()]).await?;
+        let messages=json_rows(&tx,"WITH recent AS (SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 ORDER BY sequence DESC LIMIT 200) SELECT jsonb_build_object('id',m.id,'author',m.author,'kind',m.kind,'content',m.content,'state',m.state,'at',m.at,'name',COALESCE(u.display_name,u.email),'thread',m.thread) AS data FROM (SELECT * FROM recent UNION SELECT * FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id IN (SELECT thread FROM recent)) m LEFT JOIN relay_users u ON u.id=m.author ORDER BY m.sequence",vec![workspace.into(),chat.into()]).await?;
         let agents = rows(
             &tx,
             "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2",
@@ -290,6 +291,7 @@ impl PgStore {
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
+            display_name: None,
         };
         self.claim_active(job).await.unwrap_or(false)
             && access(&self.db, &user, &job.workspace, &job.chat)
@@ -311,6 +313,7 @@ impl PgStore {
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
+            display_name: None,
         };
         let allowed = access(&tx, &user, &job.workspace, &job.chat).await.is_ok()
             && agent_access(&tx, &user.id, &job.workspace, &job.agent)

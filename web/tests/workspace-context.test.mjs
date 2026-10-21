@@ -79,3 +79,15 @@ test('one authenticated startup request migrates layouts only for the adopted ow
     assert.equal(saved.has(owner.storageScope('ayati.home.layout')), false);
   } finally { Object.assign(globalThis, original); }
 });
+
+test('accounts without a display name finish setup before mounting a workspace', async () => {
+  const original = { location: globalThis.location, fetch: globalThis.fetch };
+  try {
+    let target;
+    globalThis.location = { pathname: `/w/${first}/`, replace: value => { target = value; } };
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ user: { id: 'owner', display_name: null }, workspaces: [{ id: first, name: 'Business', role: 'Owner' }] }) });
+    const context = await import('../src/workspace-context.ts?name-setup');
+    assert.equal(await context.enterWorkspace(), false);
+    assert.equal(target, '/?view=account&choose=1');
+  } finally { Object.assign(globalThis, original); }
+});

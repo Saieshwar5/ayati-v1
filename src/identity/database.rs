@@ -41,6 +41,12 @@ impl Database {
             Self::Postgres(db) => db.logout(hash).await,
         }
     }
+    pub async fn update_profile(&self, user: &User, name: &str) -> Result<User> {
+        match self {
+            Self::Sqlite(db) => db.update_profile(user, name),
+            Self::Postgres(db) => db.update_profile(user, name).await,
+        }
+    }
     pub async fn snapshot(&self, user: &User) -> Result<Value> {
         match self {
             Self::Sqlite(db) => db.snapshot(user),

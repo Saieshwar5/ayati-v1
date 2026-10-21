@@ -4,7 +4,7 @@
 .workspace-profile-avatar { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--border); border-radius:50%; background:var(--surface); }
 .workspace-menu { position:fixed; inset:64px auto auto 82px; margin:0; width:min(300px,calc(100vw - 94px)); max-height:calc(100dvh - 90px); overflow:auto; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
 .workspace-profile { top:auto; bottom:12px; }
-.workspace-menu h2 { padding:8px 10px; margin:0; font-size:14px; }
+.workspace-menu h2 { overflow-wrap:anywhere; padding:8px 10px; margin:0; font-size:14px; }
 .workspace-menu-list { display:grid; gap:4px; max-height:40dvh; overflow:auto; }
 .workspace-menu-action { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:40px; padding:10px; border:0; border-radius:8px; background:transparent; color:var(--text); text-decoration:none; font-size:13px; text-align:left; overflow-wrap:anywhere; }
 .workspace-menu-action:hover, .workspace-menu-action[aria-current] { background:var(--soft); }

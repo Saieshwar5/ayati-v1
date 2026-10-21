@@ -4,7 +4,7 @@ import { reactFixture } from './react-fixture.mjs';
 
 const first = '11111111-1111-4111-8111-111111111111';
 const second = '22222222-2222-4222-8222-222222222222';
-const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: first, name: 'Store', role: 'Owner' }] };
+const session = { user: { id: 'owner', email: 'owner@example.com', display_name: 'Owner' }, workspaces: [{ id: first, name: 'Store', role: 'Owner' }] };
 
 test('React workspace selection is explicit when invitations or choose are present', async () => {
   const writes = [];

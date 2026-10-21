@@ -3,6 +3,7 @@ pub mod adoption;
 mod chat;
 mod database;
 pub mod postgres;
+mod profile;
 mod provider;
 mod resources;
 mod routes;
@@ -212,6 +213,7 @@ fn router(app: Shared) -> Router {
         .route("/auth/callback", get(routes::callback))
         .route("/api/identity/session", get(routes::session))
         .route("/api/identity/logout", post(routes::logout))
+        .route("/api/identity/profile", post(profile::update))
         .route("/api/identity/workspaces", post(routes::create))
         .route("/api/identity/workspaces/{id}/people", get(routes::people))
         .route(
