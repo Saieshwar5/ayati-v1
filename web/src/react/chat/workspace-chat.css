@@ -8,7 +8,8 @@
 .chat-directory section { margin-bottom:22px; }
 .chat-directory section > header { min-height:36px; padding:0 8px; }
 .chat-contact { display:flex; align-items:center; gap:9px; width:100%; padding:10px 8px; margin:3px 0; text-decoration:none; color:var(--text); background:transparent; border:0; border-radius:9px; text-align:left; font:inherit; font-size:13px; cursor:pointer; }
-.chat-contact:hover,.chat-contact[aria-current=page] { background:var(--selection); }
+.chat-contact:hover:not([aria-current=page]) { background:var(--soft); }
+.chat-contact[aria-current=page] { background:var(--selection); }
 .chat-contact > span:nth-child(2) { min-width:0; flex:1; overflow-wrap:anywhere; }
 .chat-contact small { font-size:10px; color:var(--muted); }
 .chat-avatar { width:30px; height:30px; flex:0 0 30px; border-radius:50%; background:var(--soft); color:var(--muted); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }

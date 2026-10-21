@@ -8,7 +8,7 @@
 .agent-card { position: relative; padding: 12px 8px 12px 48px; margin: 3px 0; border-radius: 9px; min-height: 65px; }
 .agent-card:hover { background: var(--soft); }
 .agent-card.selected { background: var(--selection); }
-.agent-avatar { position: absolute; left: 8px; top: 14px; width: 30px; height: 30px; background: var(--soft); color: var(--accent); border-radius: 9px; display: grid; place-items: center; font-size: .8125rem; }
+.agent-card > .agent-avatar { position: absolute; left: 8px; top: 14px; width: 30px; height: 30px; background: var(--soft); color: var(--accent); border-radius: 9px; display: grid; place-items: center; font-size: .8125rem; }
 .agent-link { display: block; color: var(--text); font-weight: 550; font-size: .875rem; text-decoration: none; overflow-wrap: anywhere; }
 .agent-link::after { content: ''; position: absolute; inset: 0; border-radius: 9px; }
 .agent-card button { position: relative; z-index: 1; }
@@ -59,12 +59,12 @@
 .agent-card { padding: 12px 22px 12px 52px; min-height: 72px; margin: 5px 0; border-radius: 23px; transition: background 180ms, box-shadow 180ms; }
 .agent-card:hover { background: var(--surface); }
 .agent-card.selected { background: var(--surface); box-shadow: 0 5px 16px var(--shadow); }
-.agent-avatar { left: 10px; top: 15px; width: 32px; height: 32px; border-radius: 50%; background: var(--soft); color: var(--text); font-size: .75rem; }
-.agent-avatar::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); border: 2px solid var(--canvas); }
-.agent-card[data-state=waiting] .agent-avatar::after { background: var(--warning); }
-.agent-card[data-state=working] .agent-avatar::after { background: var(--working); }
-.agent-card[data-state=failed] .agent-avatar::after { background: var(--danger); }
-.agent-card[data-state=preparing] .agent-avatar::after { background: var(--muted); }
+.agent-card > .agent-avatar { left: 10px; top: 15px; width: 32px; height: 32px; border-radius: 50%; background: var(--soft); color: var(--text); font-size: .75rem; }
+.agent-card > .agent-avatar::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); border: 2px solid var(--canvas); }
+.agent-card[data-state=waiting] > .agent-avatar::after { background: var(--warning); }
+.agent-card[data-state=working] > .agent-avatar::after { background: var(--working); }
+.agent-card[data-state=failed] > .agent-avatar::after { background: var(--danger); }
+.agent-card[data-state=preparing] > .agent-avatar::after { background: var(--muted); }
 .agent-link { font-weight: 500; font-size: .8125rem; }
 .agent-link::after { border-radius: 23px; }
 .agent-detail { font-size: .6875rem; margin: 3px 0 0; }
