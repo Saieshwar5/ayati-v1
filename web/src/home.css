@@ -7,7 +7,7 @@
 #home-error { color: var(--danger); }
 .home h2, .home h3 { font-size: .875rem; font-weight: 500; margin: 0 0 8px; }
 .home section { min-width: 0; }
-.home button.home-attention-surface { margin-bottom: 26px; padding: 16px 18px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; }
+.home button.home-attention-surface { margin-bottom: 26px; padding: 16px 18px; border: 1px solid var(--border-panel); background: var(--surface); border-radius: 12px; }
 .home button.home-attention-surface[hidden] { display: none; }
 .home-attention-surface > summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
 .home-attention-surface > summary::-webkit-details-marker { display: none; }
@@ -16,7 +16,7 @@
 .home-attention-surface small { display: block; color: var(--muted); font-size: .75rem; margin-top: 3px; }
 .home-review-link { margin-left: auto; white-space: nowrap; padding: 8px 13px; border-radius: 13px; background: var(--surface); font-size: .8125rem; }
 .home-attention-surface[open] > .home-list { margin-top: 14px; padding: 8px 20px; background: var(--surface); border-radius: 22px; box-shadow: 0 8px 24px var(--shadow); }
-.home-surface { padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.home-surface { padding: 20px; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 12px; }
 .home-section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .home-section-heading h2 { font-size: .875rem; color: var(--text); margin: 0; }
 .home-card { padding: 14px 0; min-width: 0; overflow-wrap: anywhere; }
@@ -57,7 +57,7 @@
 #home-history-toggle { display: flex; gap: 12px; align-items: center; color: var(--text); }
 #home-activity-count { color: var(--muted); }
 #home-updates { grid-column: 1 / -1; justify-self: start; }
-.home-review-link { border: 1px solid var(--border); border-radius: 8px; }
+.home-review-link { border: 1px solid var(--border-control); border-radius: 8px; }
 .home .home-location { background: transparent; padding: 4px; }
 @media (max-width: 600px) {
   .home-heading { gap: 10px; padding-top: 16px; }
@@ -67,7 +67,7 @@
 .home-feature > .feature-host { width: 100%; }
 /* Permanent workspace panels are outside the user-arranged custom panel grid. */
 .home-standard-panels { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 16px; margin: 24px 0 28px; }
-.home-clock-panel, .home-notifications-host { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; min-width: 0; }
+.home-clock-panel, .home-notifications-host { background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; padding: 20px; min-width: 0; }
 .home-clock-panel { background: var(--soft); }
 .home-clock-panel { display: flex; flex-direction: column; justify-content: center; }
 .home-clock-panel h2 { color: var(--muted); font-size: .75rem; margin-bottom: 18px; }

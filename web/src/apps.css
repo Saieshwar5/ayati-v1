@@ -1,5 +1,5 @@
 #apps-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 14px; align-items: start; }
-.app-card { min-width: 0; border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: var(--surface); overflow-wrap: anywhere; }
+.app-card { min-width: 0; border: 1px solid var(--border-panel); border-radius: 14px; padding: 20px; background: var(--surface); overflow-wrap: anywhere; }
 .app-card:focus-within, .app-card:hover { border-color: var(--muted); }
 .app-card-heading { display: flex; align-items: center; gap: 10px; }
 .app-card h2 { font-weight: 500; font-size: 14px; flex: 1; min-width: 0; }
@@ -25,6 +25,6 @@
 .app-access-editor { font-size: 13px; line-height: 1.6; }
 .app-access-editor h3 { margin: 0; font-size: 14px; }
 .app-access-editor p { color: var(--muted); }
-.app-access-editor select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 9px; color: var(--text); background: var(--surface); }
+.app-access-editor select { width: 100%; padding: 10px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); }
 .app-access-editor .ui-button { width: fit-content; }
 @media (max-width:600px) { .app-viewer { margin: 6px; width: calc(100vw - 12px); height: calc(100dvh - 12px); } .app-card { padding: 16px; } }

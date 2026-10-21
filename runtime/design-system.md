@@ -21,7 +21,7 @@ Feature specifications still govern permissions, persistence and execution.
 - Use the same white surface inside the frame across pages. Grey outside means
   global navigation; white inside means the current feature. The shared surface
   provides elevation across Home, Chat, Agents and all other workspace pages.
-  Keep inner panel borders and dividers light; avoid nested elevated page containers.
+  Use the selective inner-border hierarchy below; avoid nested elevated page containers.
 - Keep workspace switching, account identity and sign-out inside the bottom
   account menu. Do not restore a permanent email/workspace/sign-out header.
 - Use Cuckoo's approved bird/C mark and lowercase wordmark. Ayati remains an
@@ -35,6 +35,18 @@ work area; `--soft` is a subtle inset/search/hover fill; `--selection` marks sel
 items. Dark mode uses the corresponding existing tokens, not literal white.
 
 - Establish hierarchy with spacing, type, alignment and thin dividers first.
+- Apply the approved OpenPencil D / Selective treatment: keep ordinary row,
+  table and section dividers on `--border` (#E5E7EA in light mode), use
+  `--border-panel` (#D1D6DD) for Home panels and App tiles, and
+  `--border-control` (#AEB8C5) for composers, outlined buttons and form controls.
+  The Chat directory boundary uses `--border-structure` (#D6DAE0). Each has a
+  corresponding dark-theme value. Keep resting borders 1 px; do not thicken
+  every container or add boxes around messages, Agents or Users rows.
+- Preserve filled primary actions, borderless icon buttons, soft search fields
+  and selected-row fills. Reserve stronger focus emphasis for interaction:
+  ordinary controls keep the shared 2 px focus outline; the composer uses its
+  1 px border plus a 1 px focus ring without changing layout. In forced colors,
+  give the composer a system-color outline because shadows are suppressed.
 - Keep Home panels and app tiles individually bordered. Use flat rows for people
   and agent directories; do not wrap every entry in a separate rounded card.
 - Keep selection and hover/focus highlights pale grey. Primary actions are dark.
@@ -163,3 +175,12 @@ in light/dark mode, unchanged shell geometry, explicit/system themes, chat draft
 focus/reading-position preservation, menus/dialogs, short windows, 400/320 px widths
 and forced-colors fallback. Screenshots were visually reviewed. These checks used
 the local scripted company workspace; they did not invoke an LLM or external tools.
+
+The 2026-10-21 D / Selective inner-border refinement passed the production client
+build, all 60 frontend tests, browser-test type checking, source line limits and
+diff checks. Local browser checks verified selective hierarchy on Home, Chat,
+Agents and Users; shared shell/theme behavior across eight pages; focus/draft/
+scroll preservation; dialogs/menus; short and narrow layouts down to 320 px; and
+composer focus in forced colors. Screenshots were reviewed with no browser errors.
+The scripted sample workspace had no custom Home panels or Apps: their updated
+border rules were inspected in source, not verified against populated records.

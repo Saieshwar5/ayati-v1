@@ -1,5 +1,5 @@
 .home-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.home-panel-card { padding: 22px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); min-width: 0; overflow-wrap: anywhere; font-size: .8125rem; line-height: 1.6; }
+.home-panel-card { padding: 22px; border-radius: 12px; border: 1px solid var(--border-panel); background: var(--surface); min-width: 0; overflow-wrap: anywhere; font-size: .8125rem; line-height: 1.6; }
 .home-panel-card.panel-wide { grid-column: 1 / -1; }
 .panel-heading-actions { display: flex; gap: 16px; }
 .panel-heading-actions button { font-size: .75rem; }
