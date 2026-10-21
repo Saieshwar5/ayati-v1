@@ -4,6 +4,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+type ExistingMessage = (String, String, String, Option<String>, Option<String>);
+
 pub fn schema(db: &Connection) -> Result<()> {
     db.execute_batch("CREATE TABLE IF NOT EXISTS chats(id TEXT PRIMARY KEY, workspace TEXT NOT NULL, name TEXT NOT NULL, creator TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS chat_people(chat TEXT NOT NULL, user TEXT NOT NULL, PRIMARY KEY(chat,user));
@@ -86,13 +88,15 @@ impl NewChat {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NewMessage {
+    #[serde(default)]
+    pub attachments: Vec<String>,
     pub id: String,
     pub content: String,
     pub agent: Option<String>,
     #[serde(default)]
     pub thread: Option<String>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Job {
     pub reply: String,
     pub chat: String,
@@ -185,30 +189,29 @@ impl Store {
                 "Agent is not shared with you"
             );
         }
-        if let Some(key) = &direct_key {
-            if let Some(id) = tx
+        if let Some(key) = &direct_key
+            && let Some(id) = tx
                 .query_row(
                     "SELECT id FROM chats WHERE workspace=?1 AND direct_key=?2",
                     params![workspace, key],
                     |r| r.get::<_, String>(0),
                 )
                 .optional()?
-            {
-                access(&tx, user, workspace, &id)?;
-                for member in &input.users {
-                    access(
-                        &tx,
-                        &User {
-                            id: member.clone(),
-                            email: String::new(),
-                            display_name: None,
-                        },
-                        workspace,
-                        &id,
-                    )?;
-                }
-                return Ok(id);
+        {
+            access(&tx, user, workspace, &id)?;
+            for member in &input.users {
+                access(
+                    &tx,
+                    &User {
+                        id: member.clone(),
+                        email: String::new(),
+                        display_name: None,
+                    },
+                    workspace,
+                    &id,
+                )?;
             }
+            return Ok(id);
         }
         ensure!(
             !tx.query_row(
@@ -288,10 +291,14 @@ impl Store {
             !input.content.trim().is_empty() && input.content.len() <= 12000,
             "Message is empty or too long"
         );
+        ensure!(
+            input.attachments.is_empty(),
+            "Shared attachments require PostgreSQL"
+        );
         let mut db = self.0.lock().unwrap();
         let tx = db.transaction()?;
         access(&tx, user, workspace, chat)?;
-        let existing: Option<(String, String, String, Option<String>, Option<String>)> = tx
+        let existing: Option<ExistingMessage> = tx
             .query_row(
                 "SELECT chat,author,content,target,thread FROM chat_messages WHERE id=?1",
                 [&input.id],
@@ -407,3 +414,15 @@ impl Store {
         Ok(())
     }
 }
+
+#[derive(Debug)]
+pub struct QueueFull;
+impl std::fmt::Display for QueueFull {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "The workspace queue is full (64 pending replies). Wait for work to finish before retrying."
+        )
+    }
+}
+impl std::error::Error for QueueFull {}

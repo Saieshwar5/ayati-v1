@@ -1,12 +1,14 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 pub mod adoption;
 mod chat;
+mod collaboration;
 mod database;
 pub mod postgres;
 mod profile;
 mod provider;
 mod resources;
 mod routes;
+pub mod simulation;
 mod sqlite_access;
 pub mod store;
 mod workspaces;
@@ -42,6 +44,7 @@ struct App {
     origin: String,
     pending: Mutex<HashMap<String, Pending>>,
     runtimes: workspaces::Runtimes,
+    simulation: Option<simulation::Simulation>,
 }
 type Shared = Arc<App>;
 type ApiResult<T> = Result<T, Error>;
@@ -62,7 +65,13 @@ impl Error {
 }
 impl<E: Into<anyhow::Error>> From<E> for Error {
     fn from(value: E) -> Self {
-        Self(value.into(), StatusCode::BAD_REQUEST)
+        let error = value.into();
+        let status = if error.is::<chat::store::QueueFull>() {
+            StatusCode::TOO_MANY_REQUESTS
+        } else {
+            StatusCode::BAD_REQUEST
+        };
+        Self(error, status)
     }
 }
 impl IntoResponse for Error {
@@ -112,6 +121,13 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
         .session(&digest(&token))
         .await?
         .ok_or_else(Error::unauthorized)?;
+    if app.simulation.is_some() {
+        check(
+            provider.starts_with("simulation_employee_") && sid == "local-simulation",
+            "Invalid simulation session",
+        )?;
+        return Ok(user);
+    }
     if !app
         .provider
         .identity_valid(&provider, &sid, &user.email)
@@ -179,6 +195,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         origin: format!("http://127.0.0.1:{port}"),
         pending: Mutex::new(HashMap::new()),
         runtimes,
+        simulation: None,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
     chat::start_dispatcher(app.clone());
@@ -195,6 +212,8 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
 fn router(app: Shared) -> Router {
     Router::new()
         .merge(chat::routes())
+        .merge(collaboration::routes())
+        .merge(simulation::routes())
         .merge(resources::routes())
         .route(
             "/",
@@ -238,6 +257,8 @@ fn router(app: Shared) -> Router {
         .with_state(app)
 }
 async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) -> Response {
+    let started = std::time::Instant::now();
+    let request_id = uuid::Uuid::new_v4().to_string();
     let headers = request.headers();
     let host = app.origin.trim_start_matches("http://");
     if headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(host) {
@@ -261,6 +282,13 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let mut response = next.run(request).await;
     let response_status = response.status();
     let h = response.headers_mut();
+    h.insert("x-relay-request-id", request_id.parse().unwrap());
+    h.insert(
+        "server-timing",
+        format!("app;dur={:.3}", started.elapsed().as_secs_f64() * 1000.0)
+            .parse()
+            .unwrap(),
+    );
     h.insert(
         header::CACHE_CONTROL,
         if cache_asset && response_status.is_success() {
@@ -277,10 +305,10 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
         return response;
     }
     if guide_document {
-        h.insert("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'".parse().unwrap());
+        h.insert("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'".parse().unwrap());
         return response;
     }
-    h.insert("content-security-policy","default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'".parse().unwrap());
+    h.insert("content-security-policy","default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'".parse().unwrap());
     response
 }
 

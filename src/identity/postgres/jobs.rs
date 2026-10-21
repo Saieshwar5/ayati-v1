@@ -9,7 +9,7 @@ impl PgStore {
             execute(&tx,"UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this request. Send a new request to retry.' WHERE id=$1 AND state='queued'",vec![row.try_get::<String>("","reply")?.into()]).await?;
         }
         let claim = uuid::Uuid::new_v4().to_string();
-        let row=query(&tx,"WITH ready AS (SELECT reply FROM relay_chat_jobs WHERE (state='queued' OR (state='running' AND lease_until<=$1)) AND attempts<3 ORDER BY sequence FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE relay_chat_jobs j SET state='running',claim=$2,lease_until=$3,attempts=attempts+1 FROM ready WHERE j.reply=ready.reply RETURNING j.payload",vec![now().into(),claim.clone().into(),(now()+300).into()]).await?;
+        let row=query(&tx,"WITH ready AS (SELECT reply FROM relay_chat_jobs WHERE (state='queued' OR (state='running' AND lease_until<=$1)) AND attempts<3 ORDER BY sequence FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE relay_chat_jobs j SET state='running',claim=$2,lease_until=$3,attempts=attempts+1,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint FROM ready WHERE j.reply=ready.reply RETURNING j.payload",vec![now().into(),claim.clone().into(),(now()+300).into()]).await?;
         let job = row
             .map(|row| -> Result<Job> {
                 let payload: Value = row.try_get("", "payload")?;

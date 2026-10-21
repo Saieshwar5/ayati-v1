@@ -23,6 +23,7 @@ fn setup(root: &Path) -> (Shared, User, User, User, String) {
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        simulation: None,
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
     });
     (app, owner, member, second, w)

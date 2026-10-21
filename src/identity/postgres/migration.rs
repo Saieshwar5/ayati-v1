@@ -8,6 +8,8 @@ impl MigratorTrait for Migrator {
             Box::new(Foundation),
             Box::new(ConversationKinds),
             Box::new(DisplayNames),
+            Box::new(Collaboration),
+            Box::new(QueueTelemetry),
         ]
     }
 }
@@ -77,5 +79,47 @@ impl MigrationTrait for DisplayNames {
         Err(DbErr::Custom(
             "Display names are durable; use a forward migration".into(),
         ))
+    }
+}
+
+struct Collaboration;
+impl MigrationName for Collaboration {
+    fn name(&self) -> &str {
+        "m20261021_000004_company_collaboration"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for Collaboration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("collaboration.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Company records are durable; use a forward migration".into(),
+        ))
+    }
+}
+
+struct QueueTelemetry;
+impl MigrationName for QueueTelemetry {
+    fn name(&self) -> &str {
+        "m20261021_000005_queue_telemetry"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for QueueTelemetry {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("telemetry.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom("Use a forward migration".into()))
     }
 }

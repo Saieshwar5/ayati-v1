@@ -39,6 +39,7 @@ fn conversation(
 }
 fn message(agent: Option<&str>) -> NewMessage {
     NewMessage {
+        attachments: vec![],
         thread: None,
         id: uuid::Uuid::new_v4().to_string(),
         content: "Check the shared plan".into(),

@@ -34,21 +34,7 @@ async fn directory(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let _role = workspaces::membership(&app, &user, &workspace).await?;
-    let state = app.runtimes.get(&workspace, port(&app)).await?;
-    let profiles = state
-        .workspace
-        .context("Workspace unavailable")?
-        .profiles()?;
-    let mut agents = Vec::new();
-    for profile in profiles.into_iter().filter(|p| p.state == "ready") {
-        if app
-            .store
-            .agent_access(&user.id, &workspace, &profile.id)
-            .await?
-        {
-            agents.push(json!({"id":profile.id,"name":profile.name}));
-        }
-    }
+    let agents = super::collaboration::agents(&app, &user, &workspace).await?;
     let mut directory = app.store.directory(&user, &workspace).await?;
     directory["agents"] = json!(agents);
     Ok(Json(directory))
@@ -78,11 +64,7 @@ async fn grant(
         workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can share agents",
     )?;
-    let state = app.runtimes.get(&workspace, port(&app)).await?;
-    state
-        .workspace
-        .context("Workspace unavailable")?
-        .agent(&input.agent)?;
+    super::collaboration::validate_agent(&app, &user, &workspace, &input.agent).await?;
     app.store
         .chat_grant(&user, &workspace, &input.user, &input.agent, input.allowed)
         .await?;
@@ -104,23 +86,30 @@ async fn create(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &workspace).await?;
-    if !input.agents.is_empty() {
-        let state = app.runtimes.get(&workspace, port(&app)).await?;
-        let registry = state.workspace.context("Workspace unavailable")?;
-        for id in &input.agents {
-            registry.agent(id)?;
-        }
+    for id in &input.agents {
+        super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
     }
     Ok(Json(
         json!({"id":app.store.chat_create(&user,&workspace,&input).await?}),
     ))
 }
+#[derive(Deserialize)]
+struct Page {
+    before: Option<i64>,
+}
 async fn messages(
     State(app): State<Shared>,
     RoutePath((workspace, chat)): RoutePath<(String, String)>,
     headers: axum::http::HeaderMap,
+    axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    if let super::database::Database::Postgres(pg) = &app.store {
+        return Ok(Json(
+            pg.chat_page(&user, &workspace, &chat, page.before).await?,
+        ));
+    }
+    check(page.before.is_none(), "Older history requires PostgreSQL")?;
     Ok(Json(
         app.store.chat_messages(&user, &workspace, &chat).await?,
     ))
@@ -133,22 +122,24 @@ async fn send(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
-    app.store.chat_messages(&user, &workspace, &chat).await?;
+    if let super::database::Database::Postgres(pg) = &app.store {
+        pg.check_chat(&user, &workspace, &chat).await?;
+    } else {
+        app.store.chat_messages(&user, &workspace, &chat).await?;
+    }
     if let Some(id) = &input.agent {
-        app.runtimes
-            .get(&workspace, port(&app))
-            .await?
-            .workspace
-            .context("Workspace unavailable")?
-            .agent(id)?;
+        super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
     }
     if let Some(job) = app
         .store
         .chat_send(&user, &workspace, &chat, &input)
         .await?
-        && matches!(app.store, super::database::Database::Sqlite(_))
     {
-        tokio::spawn(runner::run(app.clone(), job));
+        if matches!(app.store, super::database::Database::Sqlite(_)) {
+            tokio::spawn(runner::run(app.clone(), job));
+        } else {
+            app.runtimes.chat_wake.notify_one();
+        }
     }
     Ok(Json(json!({"ok":true})))
 }
@@ -162,19 +153,28 @@ pub(super) fn start_dispatcher(app: Shared) {
         loop {
             tokio::select! {
                 _ = app.runtimes.stopping.cancelled() => break,
+                _ = app.runtimes.chat_wake.notified() => {},
                 _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
             }
-            if app.runtimes.chat_slots.available_permits() == 0 {
+            if app
+                .simulation
+                .as_ref()
+                .is_some_and(|sim| sim.paused.load(std::sync::atomic::Ordering::Acquire))
+            {
                 continue;
             }
             if let super::database::Database::Postgres(pg) = &app.store {
-                match pg.claim_job().await {
-                    Ok(Some(job)) => {
-                        tokio::spawn(runner::run(app.clone(), job));
-                    }
-                    Ok(None) => {}
-                    Err(_) => {
-                        tracing::warn!("Shared work database unavailable; dispatch will retry")
+                // Reserve capacity before claiming: never lease jobs waiting for a local slot.
+                while let Ok(slot) = app.runtimes.chat_slots.clone().try_acquire_owned() {
+                    match pg.claim_job().await {
+                        Ok(Some(job)) => {
+                            tokio::spawn(runner::run_claimed(app.clone(), job, slot));
+                        }
+                        Ok(None) => break,
+                        Err(_) => {
+                            tracing::warn!("Shared work database unavailable; dispatch will retry");
+                            break;
+                        }
                     }
                 }
             }

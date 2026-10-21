@@ -7,7 +7,8 @@ use tower::ServiceExt;
 
 pub(super) struct Runtimes {
     root: PathBuf,
-    pub chat_slots: tokio::sync::Semaphore,
+    pub chat_wake: tokio::sync::Notify,
+    pub chat_slots: Arc<tokio::sync::Semaphore>,
     pub access_gate: tokio::sync::RwLock<()>,
     pub bound: Option<(String, String)>,
     pub stopping: tokio_util::sync::CancellationToken,
@@ -19,10 +20,14 @@ impl Runtimes {
             root,
             bound: None,
             access_gate: tokio::sync::RwLock::new(()),
-            chat_slots: tokio::sync::Semaphore::new(4),
+            chat_wake: tokio::sync::Notify::new(),
+            chat_slots: Arc::new(tokio::sync::Semaphore::new(4)),
             stopping: tokio_util::sync::CancellationToken::new(),
             states: tokio::sync::Mutex::new(HashMap::new()),
         }
+    }
+    pub fn object_root(&self, id: &str) -> PathBuf {
+        self.root.join(id).join("objects")
     }
     pub fn chat_root(&self, id: &str) -> PathBuf {
         self.root.join(id).join("shared-chat")
@@ -115,6 +120,7 @@ pub(super) async fn membership(app: &App, user: &User, id: &str) -> ApiResult<St
 // does not need a second provider-verified request just to read installation context.
 pub(super) async fn session_snapshot(app: &App, user: &User) -> Result<serde_json::Value> {
     let mut snapshot = app.store.snapshot(user).await?;
+    snapshot["simulation"] = json!(app.simulation.is_some());
     if let Some(entries) = snapshot["workspaces"].as_array_mut() {
         for entry in entries {
             entry["adopted"] = json!(app.runtimes.bound.as_ref().is_some_and(|(id, owner)| {
@@ -193,6 +199,19 @@ async fn dispatch_for(
     }
     if path == "/api/context" {
         return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner","adopted":adopted && role == "Owner"})).into_response();
+    }
+    if app.simulation.is_some() {
+        if path == "/api/agents" {
+            let profiles = match collaboration::agents(&app, &user, &workspace).await {
+                Ok(p) => p,
+                Err(e) => return Error::from(e).into_response(),
+            };
+            return Json(json!({"agents":profiles.into_iter().map(|p|json!({"profile":{"id":p["id"],"name":p["name"],"role":p["role"],"state":"ready","detail":"Scripted simulation agent","model":"scripted","editable":false},"activity":{"pending_tasks":0,"pending_approvals":0}})).collect::<Vec<_>>(),"creation_available":false,"limit":20})).into_response();
+        }
+        if let Some(value) = member_view(&path, request.method()) {
+            return Json(value).into_response();
+        }
+        return (StatusCode::FORBIDDEN,Json(json!({"error":"The simulation uses shared conversations; private runtime tools and external services are disabled."}))).into_response();
     }
     if role != "Owner" {
         return resources::member(app, user, workspace, path, request).await;
