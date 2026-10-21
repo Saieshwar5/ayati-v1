@@ -27,7 +27,27 @@ pub(super) async fn agent_access(
     workspace: &str,
     agent: &str,
 ) -> Result<bool> {
-    Ok(role(db, workspace, user).await? == "Owner"
+    let member_role = role(db, workspace, user).await?;
+    if let Some(row) = query(
+        db,
+        "SELECT scope,owner_id,settings FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+        vec![workspace.into(), agent.into()],
+    )
+    .await?
+    {
+        let settings: Value = row.try_get("", "settings")?;
+        if settings["paused"] == true {
+            return Ok(false);
+        }
+        let owner: Option<String> = row.try_get("", "owner_id")?;
+        if row.try_get::<String>("", "scope")? == "private" {
+            return Ok(owner.as_deref() == Some(user));
+        }
+        if owner.as_deref() == Some(user) {
+            return Ok(true);
+        }
+    }
+    Ok(member_role == "Owner"
         || query(
             db,
             "SELECT agent FROM relay_chat_access WHERE workspace=$1 AND user_id=$2 AND agent=$3",
@@ -54,6 +74,7 @@ impl PgStore {
             "Only the owner can share agents"
         );
         role(&tx, workspace, target).await?;
+        ensure!(query(&tx,"SELECT id FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='private'",vec![workspace.into(),agent.into()]).await?.is_none(),"Private agents cannot be shared");
         if allowed {
             execute(&tx,"INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),target.into(),agent.into()]).await?;
         } else {
@@ -116,6 +137,13 @@ impl PgStore {
             role(&tx, workspace, member).await?;
         }
         for agent in &input.agents {
+            let personal=query(&tx,"SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='private'",vec![workspace.into(),agent.clone().into()]).await?;
+            if personal.is_some() {
+                ensure!(
+                    input.kind == "direct" && input.users.is_empty() && input.agents.len() == 1,
+                    "Private agents can only have a direct conversation with their owner"
+                );
+            }
             ensure!(
                 agent_access(&tx, &user.id, workspace, agent).await?,
                 "Agent is not shared with you"
@@ -164,7 +192,7 @@ impl PgStore {
             execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),member.clone().into()]).await?;
         }
         for agent in &input.agents {
-            execute(&tx,"INSERT INTO relay_chat_agents(workspace,chat,agent) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),agent.clone().into()]).await?;
+            execute(&tx,"INSERT INTO relay_chat_agents(workspace,chat,agent,joined_sequence) VALUES($1,$2,$3,(SELECT COALESCE(max(sequence),0) FROM relay_chat_messages WHERE workspace=$1 AND chat=$2)) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),agent.clone().into()]).await?;
         }
         tx.commit().await?;
         Ok(input.id.clone())
@@ -263,11 +291,21 @@ impl PgStore {
             .await?
             .context("Conversation missing")?
             .try_get("", "kind")?;
-            let context_thread = input
-                .thread
-                .as_deref()
-                .or_else(|| (kind != "direct").then_some(input.id.as_str()));
-            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT 30) m ORDER BY sequence",vec![workspace.into(),chat.into(),context_thread.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
+            let managed = query(&tx,"SELECT settings FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND revision>0",vec![workspace.into(),agent.clone().into()]).await?;
+            let settings: Option<Value> = managed.map(|r| r.try_get("", "settings")).transpose()?;
+            let context_limit: i64 = if settings.is_some() { 60 } else { 30 };
+            let context_thread = if settings.is_some() {
+                None
+            } else {
+                input
+                    .thread
+                    .as_deref()
+                    .or_else(|| (kind != "direct").then_some(input.id.as_str()))
+            };
+            let since_join = settings
+                .as_ref()
+                .is_some_and(|s| s["history"] == "since_join");
+            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND (NOT $4 OR sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5)) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT $6) m ORDER BY sequence",vec![workspace.into(),chat.into(),context_thread.into(),since_join.into(),agent.clone().into(),context_limit.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }

@@ -10,6 +10,8 @@ import { PeoplePage } from './people';
 import { AccountPage } from './account';
 import { PrivateChat } from './private-chat';
 import { LegacyView } from './legacy-view';
+import './agents/agents.css';
+import { AgentsPage } from './agents/directory';
 import { WorkspaceChat } from './chat/workspace-chat';
 
 export function WorkspaceApplication() {
@@ -28,7 +30,7 @@ export function WorkspaceApplication() {
   }, [page, href]);
   const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
   return <WorkspaceShell page={page}>
-    {page === 'company' ? <CompanyPage /> : page === 'feedback' ? <FeedbackPage /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded />
+    {page === 'agents' && workspaceId && !url.searchParams.has('legacy') ? <AgentsPage /> : page === 'company' ? <CompanyPage /> : page === 'feedback' ? <FeedbackPage /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded />
       : privateChat ? <PrivateChat href={href} /> : <LegacyView key={featureKey} page={page} href={href} />}
   </WorkspaceShell>;
 }
