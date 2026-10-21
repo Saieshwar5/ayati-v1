@@ -4,7 +4,11 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(Foundation), Box::new(ConversationKinds)]
+        vec![
+            Box::new(Foundation),
+            Box::new(ConversationKinds),
+            Box::new(DisplayNames),
+        ]
     }
 }
 struct Foundation;
@@ -50,6 +54,28 @@ impl MigrationTrait for ConversationKinds {
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom(
             "Conversation metadata is durable; use a forward migration".into(),
+        ))
+    }
+}
+
+struct DisplayNames;
+impl MigrationName for DisplayNames {
+    fn name(&self) -> &str {
+        "m20261021_000003_display_names"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for DisplayNames {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("ALTER TABLE relay_users ADD COLUMN display_name TEXT")
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Display names are durable; use a forward migration".into(),
         ))
     }
 }

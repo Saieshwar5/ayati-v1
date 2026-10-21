@@ -6,7 +6,7 @@ use crate::identity::{
 };
 use sea_orm::ConnectionTrait;
 
-async fn fixture() -> PgStore {
+pub(super) async fn fixture() -> PgStore {
     let url = std::env::var("RELAY_TEST_DATABASE_URL")
         .expect("Set RELAY_TEST_DATABASE_URL to a disposable PostgreSQL database");
     let admin = PgStore::connect(&url).await.unwrap();
@@ -28,7 +28,7 @@ async fn fixture() -> PgStore {
     runtime.verify_schema().await.unwrap();
     runtime
 }
-async fn user(db: &PgStore, name: &str) -> User {
+pub(super) async fn user(db: &PgStore, name: &str) -> User {
     db.login(
         name,
         &format!("{name}@example.test"),
@@ -38,7 +38,7 @@ async fn user(db: &PgStore, name: &str) -> User {
     .await
     .unwrap()
 }
-async fn workspace(db: &PgStore, owner: &User) -> String {
+pub(super) async fn workspace(db: &PgStore, owner: &User) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     db.create(owner, "Test business", &id).await.unwrap()
 }
@@ -52,7 +52,7 @@ async fn join(db: &PgStore, owner: &User, w: &str, member: &User, role: &str) {
         .unwrap();
     db.accept(member, &invite).await.unwrap();
 }
-async fn chat(
+pub(super) async fn chat(
     db: &PgStore,
     owner: &User,
     w: &str,
@@ -74,7 +74,7 @@ async fn chat(
     .await
     .unwrap()
 }
-fn message(text: &str, agent: Option<&str>) -> NewMessage {
+pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
     NewMessage {
         thread: None,
         id: uuid::Uuid::new_v4().to_string(),
@@ -362,11 +362,17 @@ async fn sqlite_import_preserves_ids_and_history_without_sessions() {
             },
         )
         .unwrap();
+    old.update_profile(&owner, "Imported person").unwrap();
     old.chat_send(&owner, &w, &c, &message("Keep this history", None))
         .unwrap();
     drop(old);
     let counts = db.import_sqlite(&path).await.unwrap();
     assert_eq!(counts["users"], 1);
+    let imported = db
+        .login("owner", "owner@example.test", "new-hash", "sid")
+        .await
+        .unwrap();
+    assert_eq!(imported.display_name.as_deref(), Some("Imported person"));
     assert_eq!(db.role(&w, &owner.id).await.unwrap(), "Owner");
     assert_eq!(
         db.chat_messages(&owner, &w, &c).await.unwrap()["messages"][0]["content"],

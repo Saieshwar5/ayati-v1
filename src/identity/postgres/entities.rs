@@ -9,6 +9,7 @@ pub mod user {
         #[sea_orm(unique)]
         pub provider: String,
         pub email: String,
+        pub display_name: Option<String>,
     }
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
     pub enum Relation {}

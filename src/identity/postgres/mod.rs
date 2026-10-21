@@ -147,3 +147,6 @@ async fn audit(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod profile_tests;

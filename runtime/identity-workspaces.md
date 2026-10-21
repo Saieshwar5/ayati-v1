@@ -95,3 +95,25 @@ The existing client can now use PostgreSQL for identity, memberships, shared cha
 resource grants and durable shared-reply jobs. See [local PostgreSQL setup and
 migration](postgres-workspaces.md). Private agent and App stores remain SQLite;
 this does not establish cloud readiness.
+
+## Display names
+
+On first entry, including existing accounts without a name, Relay asks “What
+should people call you?” before workspace selection. People can edit their
+account-wide Display name in **My account** or under **Edit display name** in the
+workspace chooser. Names are trimmed, required, and limited to 80 Unicode
+characters; control characters are rejected. Names need not be unique.
+
+The same name appears in account avatars, Users, chat recipients, direct-message
+headings and message attribution, including older messages. Email remains visible
+in account/member details and recipient selection to distinguish people with the
+same name. Until someone chooses a name, existing messages retain the email
+fallback. Identity, membership, grants and message ownership still use stable user
+IDs; a name never grants access. Only the currently authenticated person can
+change their name through `POST /api/identity/profile` with `{ "display_name": "…" }`.
+
+SQLite adds the nullable column on open. PostgreSQL requires the explicit forward
+migration before starting the updated server: run `workspace-db migrate` with the
+administrator connection (or `./tools/local-postgres.sh migrate` for this local
+setup). SQLite imports preserve chosen names and accept older source schemas
+without the column. No provider profile write or email change is performed.

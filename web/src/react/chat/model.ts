@@ -1,5 +1,5 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
-export type Participant = { id: string; name: string; role?: string };
+export type Participant = { id: string; name: string; email?: string; role?: string };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; users: string[]; agents: string[] };
 export type Message = { id: string; author: string; name: string | null; kind: string; content: string; state: string; at: number; thread?: string | null };

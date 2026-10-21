@@ -30,6 +30,7 @@ export function MemberDetails({ member, viewerRole, close, refresh }: { member: 
       <Button className="danger" onClick={() => { if (confirm(`Remove ${member.email} from this workspace? Business records remain.`)) void change(null); }}>Remove from workspace</Button>}
   </section>;
   return <Dialog title="Member details" drawer busy={mutation.busy} status={mutation.status} close={close}>
+    {member.display_name && <h3>{member.display_name}</h3>}
     <p className="ui-member-email">{member.email}</p>
     {canEdit ? <MemberAccess user={member.id} mutation={mutation} membership={membership} /> : <Tabs sections={[{ title: 'Membership', content: membership }]} />}
   </Dialog>;
