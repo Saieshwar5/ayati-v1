@@ -1,5 +1,5 @@
 .workspace-chat { display:flex; flex:1; min-height:0; min-width:0; overflow:hidden; }
-.chat-directory { flex:0 0 226px; width:226px; min-height:0; display:flex; flex-direction:column; padding:10px 12px; background:var(--surface); border-right:1px solid var(--border); }
+.chat-directory { flex:0 0 226px; width:226px; min-height:0; display:flex; flex-direction:column; padding:10px 12px; background:var(--surface); border-right:1px solid var(--border-structure); }
 .chat-directory > header,.chat-directory section > header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .chat-directory h1 { font-size:20px; font-weight:600; margin:0; letter-spacing:-.5px; }
 .chat-directory h2 { font-size:12px; font-weight:500; color:var(--muted); margin:0; }
@@ -54,7 +54,7 @@
 .chat-empty { padding:35px 0; text-align:center; color:var(--muted); }
 .chat-empty h3 { font-size:17px; color:var(--text); font-weight:500; }
 .chat-create label:not(.chat-choice) { display:block; font-size:13px; margin:0 0 18px; }
-.chat-create label > input:not([type=checkbox]) { display:block; width:100%; font:inherit; margin-top:7px; padding:10px; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+.chat-create label > input:not([type=checkbox]) { display:block; width:100%; font:inherit; margin-top:7px; padding:10px; color:var(--text); background:var(--surface); border:1px solid var(--border-control); border-radius:8px; }
 .chat-create label > span { color:var(--muted); }
 .chat-choice-list { max-height:260px; overflow:auto; margin:12px 0 20px; }
 .chat-choice { display:flex; align-items:center; gap:10px; padding:11px 3px; font-size:13px; }

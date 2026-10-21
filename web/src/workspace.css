@@ -3,6 +3,7 @@
   color-scheme: light;
   --surface: #ffffff; --canvas: #f3f4f5; --raised: #ffffff;
   --text: #22252a; --muted: #697079; --border: #e5e7ea;
+  --border-panel: #d1d6dd; --border-control: #aeb8c5; --border-structure: #d6dae0;
   --soft: #f7f8f9; --selection: #eef0f2; --accent: #22252a;
   --on-accent: #ffffff; --focus: #52525b; --danger: #a42f35;
   --warning: #945b10; --warning-bg: #fff3e2;
@@ -17,6 +18,7 @@
   color-scheme: dark;
   --surface: #1c1f26; --canvas: #111318; --raised: #252a34;
   --text: #f0f1f5; --muted: #abb1bf; --border: #303540;
+  --border-panel: #414956; --border-control: #697487; --border-structure: #3b424f;
   --soft: #252a34; --selection: #303540; --accent: #f0f1f5;
   --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf;
   --warning: #efbc77; --warning-bg: #423222;
@@ -29,6 +31,7 @@
     color-scheme: dark;
     --surface: #1c1f26; --canvas: #111318; --raised: #252a34;
     --text: #f0f1f5; --muted: #abb1bf; --border: #303540;
+    --border-panel: #414956; --border-control: #697487; --border-structure: #3b424f;
     --soft: #252a34; --selection: #303540; --accent: #f0f1f5;
     --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf;
     --warning: #efbc77; --warning-bg: #423222;
@@ -58,7 +61,7 @@ a { color: var(--accent); }
 .identity { flex: 1; min-width: 0; }
 .identity strong { font-size: .9375rem; }
 .connection { color: var(--muted); font-size: .75rem; }
-.files-button { background: var(--surface); border-color: var(--border); color: var(--text); text-decoration: none; min-height: 36px; }
+.files-button { background: var(--surface); border-color: var(--border-control); color: var(--text); text-decoration: none; min-height: 36px; }
 .files-button:hover { background: var(--soft); }
 .text-button { color: var(--accent); font-size: .8125rem; }
 .workspace-page { flex: 1; min-height: 0; overflow: auto; padding: 24px; }
@@ -71,7 +74,7 @@ a { color: var(--accent); }
 .settings-section { max-width: 760px; margin: 20px 0; padding: 24px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 2px 5px var(--shadow); }
 .settings-row { display: flex; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--border); font-size: .875rem; overflow-wrap: anywhere; }
 .settings-row span { min-width: 0; }
-.settings-row select { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--surface); color: var(--text); }
+.settings-row select { border: 1px solid var(--border-control); border-radius: 8px; padding: 8px; background: var(--surface); color: var(--text); }
 @media (max-width: 600px) {
   .workspace-shell { padding: 6px; gap: 8px; }
   .workspace-rail { width: 48px; padding: 10px 2px; gap: 8px; }
