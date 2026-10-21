@@ -7,7 +7,7 @@ const live = process.env.AYATI_TEST_MODE === 'live';
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: live ? 'live-agent.spec.ts' : 'conversation.spec.ts',
+  testMatch: live ? 'live-agent.spec.ts' : ['conversation.spec.ts', 'sidebar-styles.spec.ts'],
   outputDir: join(run, 'results'),
   workers: 1,
   fullyParallel: false,

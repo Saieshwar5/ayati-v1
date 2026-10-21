@@ -51,6 +51,13 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
   and agent directories; do not wrap every entry in a separate rounded card.
 - Keep selection and hover/focus highlights pale grey. Primary actions are dark.
   Status colors are small and meaningful, always paired with readable text.
+- Keep interaction states explicit: hover applies only to unselected navigation
+  items; selection keeps its fill while hovered. Keyboard focus adds the shared
+  visible outline without changing the selected page. Chat rows use the soft fill
+  for hover and the selection fill for the current conversation.
+- Profile avatars in Agents use `agent-profile-avatar` inside shared `ui-avatar`
+  controls. Legacy contact positioning/status-dot rules belong to
+  `.agent-card > .agent-avatar`; do not apply them to profile or editor avatars.
 - Use existing shared buttons, search fields, tabs, drawers and native dialogs.
   Avoid underlined link-like styling for primary actions and bulky inline forms.
 - Keep title/action rows compact. Home needs no repeated Home heading or tagline;

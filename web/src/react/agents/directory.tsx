@@ -9,7 +9,7 @@ import { LocalAgents } from './local-agents';
 
 export function AgentAvatar({ agent }: { agent: Agent }) {
   const avatar = agent.settings.avatar;
-  return <span className="ui-avatar agent-avatar">{symbols[avatar] ?? <img alt="" src={`/api/identity${base}/${agent.id}/avatar/${avatar}`} />}</span>;
+  return <span className="ui-avatar agent-profile-avatar">{symbols[avatar] ?? <img alt="" src={`/api/identity${base}/${agent.id}/avatar/${avatar}`} />}</span>;
 }
 export function AgentsPage() {
   const { data, error, refresh } = useResource(loadAgents);
