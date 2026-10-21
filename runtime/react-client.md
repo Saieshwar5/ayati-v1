@@ -14,6 +14,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,
   threads and creation dialogs; owner-private transcripts retain the legacy bridge.
 - `web/src/react/private-chat.tsx`: no-workspace private-agent fallback.
+- `web/src/react/chat/composer.tsx`: shared React composer across channel, DM, thread
+  and private-agent views. Private chat mounts an explicitly owned React island
+  through `private-composer.tsx`; its legacy composer is removed.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.

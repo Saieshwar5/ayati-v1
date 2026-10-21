@@ -26,8 +26,9 @@ private membership. Removing a workspace user still revokes
 conversation access and grants through the existing membership system.
 
 Messages have optional thread roots validated inside their own conversation. Channel
-agent requests publish into the request thread. Ordinary messages do not run agents;
-choose an explicit agent in the composer. Shared agent DMs reply in the main timeline.
+agent requests publish in the main channel timeline unless the request explicitly
+belongs to a thread. Ordinary messages do not run agents; select an inline @mention
+to request an agent. Shared agent DMs reply in the main timeline.
 Thread context contains only the root and replies; direct-message context stays in
 that DM. These shared executions have no private agent memory or business tools.
 Typed @names alone do not dispatch work. Existing requester grants, membership checks,
@@ -62,8 +63,9 @@ messages, concurrent DM creation, foreign thread rejection, thread context isola
 revocation and import. Live-provider agent behavior remains separately testable; a
 passing storage test does not claim a new model-provider integration run.
 
-The chat surface uses compact headers and single-row composers. The @ control
-opens recipient selection; typing an @name still does not dispatch an agent.
+The chat surface uses compact headers and a shared expanding React composer. Typing
+@ opens inline suggestions; selecting an agent records its identity for dispatch.
+Unselected plain @text does not dispatch work. The separate recipient selector is removed.
 Shared-chat scope information lives in Details. The always-visible Create panel
 shortcut above private-agent composers is removed; Home's creation flow and
 explicit creation-mode links remain available.
@@ -80,3 +82,9 @@ execution can operate on internal quotation records behind explicit channel gran
 manager approval, claim fencing and atomic receipts. It never calls model providers.
 Teams, channel-scoped feedback, local object storage, retained scenario reports and
 measured limitations are described in [company simulation](company-simulation.md).
+
+## Chat experience follow-up
+
+See [unified composition and Markdown](chat-experience.md) for inline identity-bound
+mentions, safe formatted responses, integrated file/voice controls and channel-visible
+agent replies. Explicit threads retain their thread placement; old records are preserved.

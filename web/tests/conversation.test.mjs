@@ -49,7 +49,7 @@ test('stored message and filename markup is rendered as text, never executable H
   globalThis.document = dom.window.document;
   const attack = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
   renderConversation(document.querySelector('#chat'), snapshot(attack, 'complete'));
-  assert.equal(document.querySelector('.message-content').textContent, attack);
+  assert.equal(document.querySelector('.message-content').textContent.trimEnd(), attack);
   assert.equal(document.querySelector('img'), null);
   assert.equal(document.querySelector('script'), null);
   renderFiles(document.querySelector('#files'), [{ id: 'abc', name: attack, kind: 'output', size: 10 }]);
