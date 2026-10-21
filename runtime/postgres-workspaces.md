@@ -169,7 +169,8 @@ above, not production capacity, distributed execution or managed recovery.
 The fourth forward migration adds shared agent profiles, teams, channel visibility
 and posting controls, file metadata, feedback, internal work records and receipts.
 The fifth adds queue timing columns and a pending-message index. Existing job timing
-is left unknown rather than invented. Startup now requires all five migrations.
+is left unknown rather than invented. The sixth adds transactional message events, workspace clocks and delivery/read receipts.
+Startup now requires all six migrations. See [reliable messaging](reliable-messaging.md).
 New company features require PostgreSQL; SQLite keeps its previous local scope.
 The dedicated simulation helper does not migrate the ordinary workspace database.
 See [company simulation](company-simulation.md) for API behavior, local object-store

@@ -1,5 +1,7 @@
 mod runner;
 pub(crate) mod store;
+mod stream_limit;
+mod sync;
 #[cfg(test)]
 mod tests;
 use super::*;
@@ -10,6 +12,7 @@ pub(super) use store::schema;
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
+        .merge(sync::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chat-directory",
             get(directory),
@@ -141,11 +144,17 @@ async fn send(
             app.runtimes.chat_wake.notify_one();
         }
     }
+    if let super::database::Database::Postgres(pg) = &app.store {
+        return Ok(Json(
+            json!({"ok":true,"message":pg.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
+        ));
+    }
     Ok(Json(json!({"ok":true})))
 }
 
 /// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.
 pub(super) fn start_dispatcher(app: Shared) {
+    sync::start(app.clone());
     if !matches!(app.store, super::database::Database::Postgres(_)) {
         return;
     }

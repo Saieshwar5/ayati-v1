@@ -1,3 +1,4 @@
+import { outboxStorage } from './outbox-storage-fixture.mjs';
 import { registerHooks } from 'node:module';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,6 +19,8 @@ function dataFor(path) {
   if (path.endsWith('/session')) return session;
   if (path.endsWith('/agents')) return directory;
   if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Owner' };
+  if (path.endsWith('/message-capabilities')) return { live: true };
+  if (path.endsWith('/unread')) return { unread: [] };
   if (path.endsWith('/chats')) return { chats: [] };
   if (path.endsWith('/home')) return { agents: [] };
   if (path.endsWith('/panels')) return { panels: [], available: true };
@@ -33,11 +36,12 @@ function dataFor(path) {
   throw new Error(`Unexpected request: ${path}`);
 }
 async function prepare(dom) {
-  const original = Object.fromEntries(['Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]));
+  const original = Object.fromEntries(['indexedDB', 'Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]));
   const timers = new Map(); let timer = 0;
   dom.window.setInterval = handler => { timers.set(++timer, handler); return timer; };
   dom.window.clearInterval = id => timers.delete(id);
   const streams = new Set();
+  globalThis.indexedDB = outboxStorage();
   globalThis.Event = dom.window.Event;
   globalThis.Option = dom.window.Option;
   globalThis.FormData = dom.window.FormData;
@@ -45,7 +49,7 @@ async function prepare(dom) {
   globalThis.requestAnimationFrame = handler => { handler(); return 0; };
   globalThis.cancelAnimationFrame = () => {};
   globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-  globalThis.EventSource = class { constructor(url) { this.url = url; streams.add(this); } close() { streams.delete(this); } };
+  globalThis.EventSource = class { constructor(url) { this.url = url; if (!url.includes('message-events')) streams.add(this); } addEventListener() {} close() { streams.delete(this); } };
   const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
   const { WorkspaceApplication } = await import('../src/react/workspace-application.tsx');
   return { WorkspaceApplication, timers, streams, async cleanup() {
@@ -80,7 +84,7 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
       });
       await until(update, () => document.querySelector('.settings-page'));
       assert.equal(document.querySelector('.apps-page'), null);
-      assert.equal(setup.timers.size, 0, 'Old Home/Apps pollers must be removed');
+      assert.equal(setup.timers.size, 1, 'Only the workspace outbox/receipt timer remains');
       await update(() => dom.window.history.back());
       await until(update, () => document.querySelector('.apps-page'));
       assert.equal(document.querySelector('.workspace-rail'), rail);
@@ -314,7 +318,7 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
     if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
     if(path.endsWith('/chats'))return response({chats});
     if(path.endsWith('/messages')){
-      if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true});}
+      if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:2,sequence:2,chat:'inventory'}});}
       return response({agents:[],messages:[{id:'root',author:'member',name:'Priya',kind:'user',content:'Check stock',state:'sent',at:1,thread:null},...(reply?[{id:'reply',author:'owner',name:'Owner',kind:'user',content:reply,state:'sent',at:2,thread:'root'}]:[])]});
     }
     return response(dataFor(path));
