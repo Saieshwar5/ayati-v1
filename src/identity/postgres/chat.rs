@@ -214,6 +214,15 @@ impl PgStore {
             );
             return Ok(None);
         }
+        for (kind, id) in
+            crate::identity::chat::mentions::parse(&input.content, input.agent.as_deref())?
+        {
+            if kind == "user" {
+                ensure!(query(&tx,"SELECT m.user_id FROM relay_members m JOIN relay_chats c ON c.workspace=m.workspace WHERE m.workspace=$1 AND m.user_id=$2 AND c.id=$3 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=$1 AND p.chat=$3 AND p.user_id=$2))",vec![workspace.into(),id.into(),chat.into()]).await?.is_some(),"Mentioned person is not in this conversation");
+            }
+            // Mentioned agents must match the explicit target, checked below against
+            // current membership and requester authority in this transaction.
+        }
         ensure!(input.attachments.len() <= 8, "Attach at most eight files");
         for id in &input.attachments {
             ensure!(query(&tx,"SELECT id FROM relay_objects WHERE workspace=$1 AND chat=$2 AND id=$3 AND uploader=$4",vec![workspace.into(),chat.into(),id.clone().into(),user.id.clone().into()]).await?.is_some(),"Attachment is unavailable in this conversation");
@@ -254,15 +263,15 @@ impl PgStore {
             .await?
             .context("Conversation missing")?
             .try_get("", "kind")?;
-            let thread = input
+            let context_thread = input
                 .thread
                 .as_deref()
                 .or_else(|| (kind != "direct").then_some(input.id.as_str()));
-            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT 30) m ORDER BY sequence",vec![workspace.into(),chat.into(),thread.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
+            let mut lines=rows(&tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT 30) m ORDER BY sequence",vec![workspace.into(),chat.into(),context_thread.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }
-            execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.clone().into(),now().into(),user.id.clone().into(),thread.into()]).await?;
+            execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.clone().into(),now().into(),user.id.clone().into(),input.thread.clone().into()]).await?;
             Some(Job {
                 claim: None,
                 reply,

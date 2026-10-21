@@ -102,3 +102,97 @@ async fn messaging_clock_does_not_publish_rolled_back_events() {
         m.id
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boundaries() {
+    let db = fixture().await;
+    let owner = user(&db, "mention-owner").await;
+    let member = user(&db, "mention-member").await;
+    let outsider = user(&db, "mention-outsider").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &outsider, "Member").await;
+    let agent = uuid::Uuid::new_v4().to_string();
+    db.save_shared_agent(&owner, &w, &agent, "Helper", "Testing", "scripted")
+        .await
+        .unwrap();
+    let c = chat(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec![agent.clone()],
+    )
+    .await;
+    db.chat_send(&owner, &w, &c, &message("UNRELATED-CONTEXT", None))
+        .await
+        .unwrap();
+    let request = message(
+        &format!(
+            "[@Helper](mention:agent:{agent}) Ask [@Member](mention:user:{})",
+            member.id
+        ),
+        Some(&agent),
+    );
+    let job = db
+        .chat_send(&owner, &w, &c, &request)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!job.prompt.contains("UNRELATED-CONTEXT"));
+    let history = db.chat_messages(&member, &w, &c).await.unwrap();
+    let reply = history["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == job.reply)
+        .unwrap();
+    assert!(reply["thread"].is_null());
+    assert_eq!(reply["name"], "Helper");
+    let replay = db.sync_page(&member, &w, Some(0)).await.unwrap();
+    assert_eq!(
+        replay["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|event| event["message"]["id"] == job.reply)
+            .unwrap()["message"]["name"],
+        "Helper"
+    );
+    assert!(
+        db.chat_send(&owner, &w, &c, &request)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let invalid = message(&format!("[@Outsider](mention:user:{})", outsider.id), None);
+    assert!(db.chat_send(&owner, &w, &c, &invalid).await.is_err());
+    assert!(
+        db.chat_send(
+            &member,
+            &w,
+            &c,
+            &message(&format!("[@Helper](mention:agent:{agent})"), Some(&agent))
+        )
+        .await
+        .is_err()
+    );
+    let mut threaded = message("Explicit thread", Some(&agent));
+    threaded.thread = Some(request.id.clone());
+    let job = db
+        .chat_send(&owner, &w, &c, &threaded)
+        .await
+        .unwrap()
+        .unwrap();
+    let history = db.chat_messages(&owner, &w, &c).await.unwrap();
+    assert_eq!(
+        history["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["id"] == job.reply)
+            .unwrap()["thread"],
+        request.id
+    );
+}

@@ -243,3 +243,37 @@ fn recent_thread_replies_keep_their_older_root_visible() {
             .any(|m| m["id"] == root.id)
     );
 }
+
+#[test]
+fn channel_agent_answers_stay_in_timeline_without_widening_context() {
+    let (db, owner, member, outsider, w) = setup();
+    let chat = conversation(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec!["local-agent".into()],
+    );
+    let mut unrelated = message(None);
+    unrelated.content = "UNRELATED-CONTEXT".into();
+    db.chat_send(&owner, &w, &chat, &unrelated).unwrap();
+    let mut request = message(Some("local-agent"));
+    request.content = format!(
+        "[@Helper](mention:agent:local-agent) Ask [@Person](mention:user:{})",
+        member.id
+    );
+    let job = db.chat_send(&owner, &w, &chat, &request).unwrap().unwrap();
+    assert!(!job.prompt.contains("UNRELATED-CONTEXT"));
+    let history = db.chat_messages(&owner, &w, &chat).unwrap();
+    let reply = history["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == job.reply)
+        .unwrap();
+    assert!(reply["thread"].is_null());
+    request.id = uuid::Uuid::new_v4().to_string();
+    request.content = format!("[@Outsider](mention:user:{})", outsider.id);
+    request.agent = None;
+    assert!(db.chat_send(&owner, &w, &chat, &request).is_err());
+}

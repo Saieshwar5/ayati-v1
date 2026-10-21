@@ -1,3 +1,4 @@
+pub(crate) mod mentions;
 mod runner;
 pub(crate) mod store;
 mod stream_limit;
