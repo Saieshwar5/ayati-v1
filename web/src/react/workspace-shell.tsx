@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { workspaceId, workspaceUrl, canManageResources } from '../workspace-context';
+import { workspaceId, workspaceUrl, canManageResources, workspaceSession } from '../workspace-context';
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 
-export type WorkspacePage = 'home' | 'apps' | 'chat' | 'agents' | 'settings' | 'people' | 'account';
+export type WorkspacePage = 'home' | 'apps' | 'chat' | 'agents' | 'settings' | 'people' | 'account' | 'company' | 'feedback';
 function Icon({ name }: { name: WorkspacePage }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    {(name === 'company' || name === 'feedback') && <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>}
     {name === 'home' && <><path d="m3 10 9-7 9 7v10H3Z" /><path d="M9 20v-7h6v7" /></>}
     {name === 'apps' && <>{[[3, 3], [14, 3], [3, 14], [14, 14]].map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="7" height="7" rx="1" />)}</>}
     {name === 'chat' && <><path d="M21 11a8 8 0 0 1-8 8H5l-3 3V11a9 9 0 0 1 19 0Z" /><path d="M7 11h10" /></>}
@@ -16,7 +17,7 @@ function Icon({ name }: { name: WorkspacePage }) {
 }
 
 export function WorkspaceShell({ page, children }: { page: WorkspacePage; children: ReactNode }) {
-  const pages: WorkspacePage[] = workspaceId ? ['home', 'apps', 'chat', 'agents', 'people', 'settings'] : ['home', 'apps', 'chat', 'agents', 'settings'];
+  const pages: WorkspacePage[] = workspaceId ? ['home', 'apps', 'chat', 'agents', 'people', 'company', 'feedback', 'settings'] : ['home', 'apps', 'chat', 'agents', 'settings'];
   return <div className="workspace-shell"><aside className="workspace-rail">
     <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Relay home"><Brand symbol /></a>
     <nav aria-label="Workspace">{pages.map(name => {
@@ -26,5 +27,5 @@ export function WorkspaceShell({ page, children }: { page: WorkspacePage; childr
     })}</nav>
     {canManageResources() && <button type="button" className="workspace-help" aria-label="Ask Relay" title="Ask Relay" onClick={() => void import('../guide').then(module => module.openGuide())}>?</button>}
     {workspaceId ? <AccountMenu /> : <span className="workspace-owner">You</span>}
-  </aside><div className="workspace-body">{children}</div></div>;
+  </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}{children}</div></div>;
 }

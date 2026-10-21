@@ -152,6 +152,7 @@ async fn profile_updates_require_current_session_and_cannot_target_another_user(
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: std::sync::Mutex::new(std::collections::HashMap::new()),
+        simulation: None,
         runtimes: identity::workspaces::Runtimes::new(
             std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         ),

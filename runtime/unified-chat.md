@@ -19,8 +19,10 @@ their membership and history are unchanged. New message lists workspace people a
 agents available to the requester. Human DMs and granted member-to-agent DMs use a
 canonical participant key, so either person reopens the same conversation, including
 under concurrent creation. Owner agent selection retains the existing private runtime.
-Channel membership is fixed at creation in this release; adding/removing channel
-members and public channels are future work. Removing a workspace user still revokes
+On PostgreSQL, channel creators/managers can update people membership, and managers
+can rename channels, switch private/public visibility and restrict posting to managers.
+Public visibility includes existing history and published files. SQLite retains fixed
+private membership. Removing a workspace user still revokes
 conversation access and grants through the existing membership system.
 
 Messages have optional thread roots validated inside their own conversation. Channel
@@ -31,12 +33,13 @@ that DM. These shared executions have no private agent memory or business tools.
 Typed @names alone do not dispatch work. Existing requester grants, membership checks,
 durable jobs and result-publication checks continue to apply.
 
-The current history response contains the latest 200 messages plus any older roots
-referenced by those messages. It is a recent-history window, not full pagination or
-an exhaustive thread reply count. Agent context remains capped at 30 messages and
-14,000 characters. Unread counts, push notifications, typing indicators, attachments
-in shared conversations, channel lifecycle controls and older-history pagination are
-not implemented here. Polling remains 2.5 seconds for the open conversation and five
+The history response contains a bounded 200-message page plus older roots referenced
+by that page. PostgreSQL exposes `next_before` for older pages and the client merges
+loaded history by message ID. SQLite retains its recent-history window. Thread reply
+counts reflect loaded messages, not exhaustive totals. Agent context remains capped at 30 messages and
+14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording,
+with immutable local objects and download-time access checks. Unread counts, push
+notifications, typing indicators and channel archival remain unimplemented. Polling remains 2.5 seconds for the open conversation and five
 seconds for the directory, paused when the document is hidden.
 
 ## Storage upgrade
@@ -44,7 +47,8 @@ seconds for the directory, paused when the document is hidden.
 PostgreSQL migration `m20261020_000002_conversation_kinds` adds conversation kind,
 purpose, unique direct participant keys and message thread roots. Run
 `./tools/local-postgres.sh migrate` locally (or `workspace-db migrate` with the
-administrator connection), then restart Relay. Startup requires both migrations.
+administrator connection), then restart Relay. Startup requires all five current migrations, including company
+collaboration and queue telemetry. See [company simulation](company-simulation.md).
 The migration is additive and retains all existing messages and memberships.
 SQLite fallback upgrades its local schema on open. Offline SQLite import supports
 both the original schema and the new conversation metadata and thread columns.
@@ -65,3 +69,14 @@ shortcut above private-agent composers is removed; Home's creation flow and
 explicit creation-mode links remain available.
 
 Agent tools remain available from the compact header overflow menu.
+
+## Company rehearsal additions — 2026-10-21
+
+PostgreSQL shared profiles separate agent identity from private VM provisioning.
+They retain explicit employee request grants. Four local workers draw from a bounded
+64-pending queue, waking on accepted work/completion with a recovery-poll fallback.
+Normal Goose shared execution remains conversation-only. Simulation-only scripted
+execution can operate on internal quotation records behind explicit channel grants,
+manager approval, claim fencing and atomic receipts. It never calls model providers.
+Teams, channel-scoped feedback, local object storage, retained scenario reports and
+measured limitations are described in [company simulation](company-simulation.md).

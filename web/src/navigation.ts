@@ -4,6 +4,7 @@ const eventName = 'relay:navigate';
 export function workspacePage(url: URL): WorkspacePage {
   const requested = url.searchParams.get('view');
   if (requested === 'people' || requested === 'users') return 'people';
+  if (requested === 'company' || requested === 'feedback') return requested;
   if (requested === 'account') return 'account';
   if (url.searchParams.has('agent') || requested === 'chat') return 'chat';
   return requested === 'apps' || requested === 'agents' || requested === 'settings' ? requested : 'home';

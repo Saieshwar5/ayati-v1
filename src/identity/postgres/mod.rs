@@ -2,12 +2,17 @@
 mod accounts;
 mod chat;
 pub mod cli;
+mod collaboration;
 mod entities;
+mod feedback;
+mod history;
 mod import;
 mod jobs;
 pub mod migration;
+mod objects;
 mod people;
 mod resources;
+mod work;
 
 use super::store::{User, now};
 use anyhow::{Context, Result, ensure};
@@ -150,3 +155,6 @@ mod tests;
 
 #[cfg(test)]
 mod profile_tests;
+
+#[cfg(test)]
+mod company_tests;

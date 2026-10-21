@@ -15,6 +15,9 @@ pub(super) async fn login(
     State(app): State<Shared>,
     Query(input): Query<LoginQuery>,
 ) -> ApiResult<Response> {
+    if app.simulation.is_some() {
+        return Ok(Redirect::to("/index.html?view=simulation").into_response());
+    }
     check(
         input
             .invitation_token

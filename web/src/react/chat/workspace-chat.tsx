@@ -70,7 +70,7 @@ export function WorkspaceChat({ href }: { href: string }) {
         {chats.filter(chat => chat.kind !== 'direct').map(contact)}
         {!chats.some(chat => chat.kind !== 'direct') && <p className="chat-help">Organize work with your team.</p>}
       </section><section><header><h2>Direct messages</h2></header>{chats.filter(chat => chat.kind === 'direct').map(contact)}
-        {owner && directory?.agents.filter(item => matches(item.name)).map(item => <a key={item.id} className="chat-contact" href={workspaceUrl(`/?view=chat&agent=${encodeURIComponent(item.id)}`)} aria-current={agent === item.id ? 'page' : undefined}><span className="chat-avatar agent">✧</span><span>{item.name === 'Ayati' ? 'Relay' : item.name}</span><small>Agent</small></a>)}
+        {owner && directory?.agents.filter(item => !item.shared && matches(item.name)).map(item => <a key={item.id} className="chat-contact" href={workspaceUrl(`/?view=chat&agent=${encodeURIComponent(item.id)}`)} aria-current={agent === item.id ? 'page' : undefined}><span className="chat-avatar agent">✧</span><span>{item.name === 'Ayati' ? 'Relay' : item.name}</span><small>Agent</small></a>)}
       </section></div>
       {!directory && !error && <p className="chat-help" role="status">Loading conversations…</p>}
       {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}

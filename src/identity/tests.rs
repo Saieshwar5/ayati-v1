@@ -107,6 +107,7 @@ async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        simulation: None,
         runtimes: workspaces::Runtimes::new(
             std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         ),
@@ -125,6 +126,12 @@ async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
             StatusCode::FORBIDDEN,
         ),
         ("/api/state", "GET", "127.0.0.1:8765", StatusCode::NOT_FOUND),
+        (
+            "/api/identity/simulation",
+            "GET",
+            "127.0.0.1:8765",
+            StatusCode::NOT_FOUND,
+        ),
     ] {
         let response = router(app.clone())
             .oneshot(
@@ -166,6 +173,7 @@ async fn login_is_pkce_bound_and_callback_state_is_single_use() {
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        simulation: None,
         runtimes: workspaces::Runtimes::new(
             std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         ),
@@ -271,6 +279,7 @@ async fn only_versioned_static_code_can_be_cached() {
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        simulation: None,
         runtimes: workspaces::Runtimes::new(
             std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         ),

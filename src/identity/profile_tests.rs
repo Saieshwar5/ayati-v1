@@ -34,6 +34,7 @@ fn names_survive_restart_login_and_change_historical_attribution_without_changin
         &w,
         &chat,
         &NewMessage {
+            attachments: vec![],
             id: uuid::Uuid::new_v4().to_string(),
             content: "Hello".into(),
             agent: None,

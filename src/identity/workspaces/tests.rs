@@ -18,6 +18,7 @@ fn setup(root: &std::path::Path) -> (Shared, User, User, String, String) {
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
         pending: Mutex::new(HashMap::new()),
+        simulation: None,
         runtimes: Runtimes::new(root.join("workspaces")),
     });
     (app, owner, other, first, second)

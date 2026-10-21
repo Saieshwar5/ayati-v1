@@ -42,7 +42,7 @@ pub(super) async fn workspace(db: &PgStore, owner: &User) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     db.create(owner, "Test business", &id).await.unwrap()
 }
-async fn join(db: &PgStore, owner: &User, w: &str, member: &User, role: &str) {
+pub(super) async fn join(db: &PgStore, owner: &User, w: &str, member: &User, role: &str) {
     let invite = db
         .reserve_invite(owner, w, &member.email, role)
         .await
@@ -76,6 +76,7 @@ pub(super) async fn chat(
 }
 pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
     NewMessage {
+        attachments: vec![],
         thread: None,
         id: uuid::Uuid::new_v4().to_string(),
         content: text.into(),

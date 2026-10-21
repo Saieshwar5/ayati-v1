@@ -1,5 +1,5 @@
 export type Membership = { id: string; name: string; role: string; adopted?: boolean };
-type Session = { user: { id: string; email: string; display_name?: string | null } | null; workspaces?: Membership[] };
+type Session = { simulation?: boolean; user: { id: string; email: string; display_name?: string | null } | null; workspaces?: Membership[] };
 const match = (typeof location === 'undefined' ? '' : location.pathname).match(/^\/w\/([0-9a-f-]{36})\//);
 export const workspaceId = match?.[1] ?? '';
 export let workspaceSession: Session | undefined;

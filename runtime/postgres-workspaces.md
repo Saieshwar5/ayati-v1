@@ -108,8 +108,9 @@ lease and current conversation/agent permissions in a transaction, so a stale
 worker cannot overwrite a newer result.
 
 Ordinary human messages never start agent work. Only explicit agent requests
-produce jobs. The existing four pending replies per workspace and four local
-worker slots remain. Retry can repeat model inference and its cost; it is safe
+produce jobs. The workspace queue now accepts up to 64 pending replies while retaining four local
+execution slots. Admission beyond that returns HTTP 429. Dispatch reserves a slot
+before claiming and wakes on work arrival/completion, with a 500 ms recovery poll. Retry can repeat model inference and its cost; it is safe
 here only because shared replies have no external business tools. Tool-enabled
 jobs need action receipts and uncertain-outcome reconciliation before automatic
 recovery. Local per-request working files are still used; distributed workers and
@@ -162,3 +163,14 @@ rate limits, managed backup/PITR, migration orchestration and workload benchmark
 Configured credentials, server binaries, database files and backups are ignored
 local files; none belong in a commit. These checks establish the local boundary
 above, not production capacity, distributed execution or managed recovery.
+
+## Company collaboration and telemetry migrations — 2026-10-21
+
+The fourth forward migration adds shared agent profiles, teams, channel visibility
+and posting controls, file metadata, feedback, internal work records and receipts.
+The fifth adds queue timing columns and a pending-message index. Existing job timing
+is left unknown rather than invented. Startup now requires all five migrations.
+New company features require PostgreSQL; SQLite keeps its previous local scope.
+The dedicated simulation helper does not migrate the ordinary workspace database.
+See [company simulation](company-simulation.md) for API behavior, local object-store
+limits, validation results, replay and backup/restore procedures.

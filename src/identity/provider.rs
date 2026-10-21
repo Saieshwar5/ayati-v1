@@ -12,6 +12,14 @@ pub struct Provider {
 }
 
 impl Provider {
+    pub(super) fn simulation() -> Self {
+        Self {
+            client: Client::new(),
+            key: String::new(),
+            client_id: "simulation".into(),
+            base_url: "simulation://disabled".into(),
+        }
+    }
     #[cfg(test)]
     pub(super) fn test_provider() -> Self {
         Self {

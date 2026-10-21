@@ -3,6 +3,8 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { currentWorkspace, workspaceId } from '../workspace-context';
 import { WorkspaceShell } from './workspace-shell';
+import { CompanyPage } from './company';
+import { FeedbackPage } from './feedback';
 import { PeoplePage } from './people';
 import { AccountPage } from './account';
 import { PrivateChat } from './private-chat';
@@ -24,7 +26,7 @@ export function WorkspaceApplication() {
   }, [page, href]);
   const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
   return <WorkspaceShell page={page}>
-    {page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded />
+    {page === 'company' ? <CompanyPage /> : page === 'feedback' ? <FeedbackPage /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded />
       : privateChat ? <PrivateChat href={href} /> : <LegacyView key={featureKey} page={page} href={href} />}
   </WorkspaceShell>;
 }

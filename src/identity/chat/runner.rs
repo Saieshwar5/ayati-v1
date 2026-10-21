@@ -2,6 +2,12 @@ use super::{store::Job, *};
 use crate::{agent::Agent, files::Files, runtime::config::GooseConfig};
 
 pub(super) async fn run(app: Shared, job: Job) {
+    let Ok(slot) = app.runtimes.chat_slots.clone().acquire_owned().await else {
+        return;
+    };
+    run_claimed(app, job, slot).await;
+}
+pub(super) async fn run_claimed(app: Shared, job: Job, slot: tokio::sync::OwnedSemaphorePermit) {
     let result = execute(&app, &job).await;
     let (text, state) = match result {
         Ok(text) => (text, "complete"),
@@ -13,20 +19,46 @@ pub(super) async fn run(app: Shared, job: Job) {
     if let Err(error) = app.store.chat_finish(&job, &text, state).await {
         tracing::error!(%error,"Could not save shared reply");
     }
+    drop(slot);
+    app.runtimes.chat_wake.notify_one();
 }
 async fn execute(app: &Shared, job: &Job) -> Result<String> {
-    let _slot = app.runtimes.chat_slots.acquire().await?;
     anyhow::ensure!(
         app.store.chat_job_allowed(job).await,
         "Request access changed"
     );
+    if app.simulation.is_some() {
+        return super::super::simulation::execute(app, job).await;
+    }
+    let shared = if let super::super::database::Database::Postgres(pg) = &app.store {
+        pg.shared_agents(&job.workspace)
+            .await?
+            .into_iter()
+            .find(|p| p["id"] == job.agent)
+    } else {
+        None
+    };
     let state = app.runtimes.get(&job.workspace, super::port(app)).await?;
     let registry = state.workspace.context("Workspace unavailable")?;
-    let profile = registry
-        .profiles()?
-        .into_iter()
-        .find(|p| p.id == job.agent && p.state == "ready")
-        .context("Agent unavailable")?;
+    let profile = if let Some(p) = shared {
+        crate::workspace::registry::AgentProfile {
+            id: job.agent.clone(),
+            name: p["name"].as_str().unwrap_or("Agent").into(),
+            role: p["role"].as_str().unwrap_or("").into(),
+            model: p["model"].as_str().unwrap_or("").into(),
+            memory: false,
+            browser: false,
+            state: "ready".into(),
+            detail: String::new(),
+            attempt: String::new(),
+        }
+    } else {
+        registry
+            .profiles()?
+            .into_iter()
+            .find(|p| p.id == job.agent && p.state == "ready")
+            .context("Agent unavailable")?
+    };
     // Each shared request gets a fresh Goose context and no tools, private files,
     // memory or VM. Never point shared execution at the legacy owner's environment.
     let mut root = app.runtimes.chat_root(&job.workspace).join(&job.reply);
@@ -60,7 +92,7 @@ async fn execute(app: &Shared, job: &Job) -> Result<String> {
                 !app.runtimes.stopping.is_cancelled() && app.store.chat_job_allowed(job).await,
                 "Request access changed"
             );
-            registry.agent(&job.agent)?;
+            // Shared profiles do not require a private VM-backed registry entry.
             let task = store.task(&task.id)?.context("Task missing")?;
             if !["queued", "running"].contains(&task.status.as_str()) {
                 anyhow::ensure!(
