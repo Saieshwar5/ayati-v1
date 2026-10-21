@@ -37,12 +37,13 @@ try {
   await other.locator('.message-mention').filter({hasText:c.employees[3].name}).waitFor();
   const h=await(await owner.request.get(`${c.base}${c.w}/chats/${chat}/messages`)).json();assert.equal(h.messages.filter(m=>m.kind==='agent').length,1);
  });
- await check('Files and reviewed voice recording use controls inside the shared composer',async()=>{
+ await check('Stop attaches voice automatically without sending the draft',async()=>{
   assert.equal(await page.locator('.message-composer').getByRole('button',{name:'Attach file',exact:true}).count(),1);
   await page.getByLabel('Choose attachment').setInputFiles({name:'review.txt',mimeType:'text/plain',buffer:Buffer.from('Retained chat UI evidence')});await page.getByRole('button',{name:'Remove review.txt',exact:true}).waitFor();
+  const beforeVoice=(await(await owner.request.get(`${c.base}${c.w}/chats/${chat}/messages`)).json()).messages.length;
   await page.getByRole('button',{name:'Record voice',exact:true}).click();await page.getByRole('button',{name:'Stop recording',exact:true}).waitFor();await page.waitForTimeout(1200);await page.getByRole('button',{name:'Stop recording',exact:true}).click();
-  await page.getByLabel('Recording preview').waitFor();assert.ok(await page.getByRole('button',{name:'Send message',exact:true}).isDisabled());
-  await page.getByRole('button',{name:'Attach recording',exact:true}).click();await page.getByRole('button',{name:'Remove voice-message.webm',exact:true}).waitFor();
+await page.getByRole('button',{name:'Remove voice-message.webm',exact:true}).waitFor();
+  assert.equal((await(await owner.request.get(`${c.base}${c.w}/chats/${chat}/messages`)).json()).messages.length,beforeVoice,'Stop must not submit the draft');
   await page.getByRole('button',{name:'Send message',exact:true}).click();await other.getByRole('link',{name:'review.txt',exact:true}).waitFor();await other.getByLabel('voice-message.webm').waitFor();
  });
  await page.screenshot({path:join(evidence,'channel-desktop.png')});
@@ -57,7 +58,13 @@ try {
   await page.setViewportSize({width:360,height:740});
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth+1);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  const composer=await page.locator('.message-composer').boundingBox();assert.ok(composer.height<=64,'Empty composer should stay compact');
   await page.screenshot({path:join(evidence,'channel-narrow.png')});
+  await page.setViewportSize({width:320,height:560});await page.emulateMedia({colorScheme:'dark'});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  const short=await page.locator('.message-composer').boundingBox();assert.ok(short.y+short.height<=560);
+  await page.screenshot({path:join(evidence,'channel-dark-short.png')});
+  await page.emulateMedia({colorScheme:'light'});await page.setViewportSize({width:360,height:740});
  });
  await check('Private agent composer keeps drafts, formats responses and preserves tool controls',async()=>{
   // Only the browser's model endpoints are mocked; no provider or live agent call.

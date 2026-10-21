@@ -25,7 +25,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     node.style.height = 'auto'; node.style.height = `${Math.min(node.scrollHeight, 160)}px`;
     if (restore.current !== undefined) { node.focus(); node.setSelectionRange(restore.current, restore.current); restore.current = undefined; }
     if (!disabled && restoreFocus.current) { restoreFocus.current = false; node.focus(); }
-  }, [value, disabled]);
+  }, [value, disabled, placeholder]);
   useEffect(() => {
     const node = input.current;
     if (!node || typeof ResizeObserver === 'undefined') return;

@@ -52,3 +52,22 @@ test('cancelled microphone requests release late streams without entering record
   });
  }finally{if(navigatorDescriptor)Object.defineProperty(globalThis,'navigator',navigatorDescriptor);else delete globalThis.navigator;globalThis.MediaRecorder=oldRecorder;}
 });
+
+test('Stop attaches once, failed upload retains audio for retry, and Cancel never attaches', async()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator'), old=globalThis.MediaRecorder;
+ let attempts=0, fail=true, stopped=0;
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop:()=>stopped++}]})}}});
+ globalThis.MediaRecorder=class {
+  state='inactive';mimeType='audio/webm';
+  start(){this.state='recording';}
+  stop(){this.state='inactive';this.ondataavailable({data:new Blob(['audio'],{type:this.mimeType})});this.onstop();}
+ };
+ try {await reactFixture(async({render,button,click})=>{
+  const {VoiceRecorder}=await import('../src/react/chat/voice-recorder.tsx');let pending=false;
+  await render(VoiceRecorder,{disabled:false,attach:async()=>{attempts++;if(fail)throw Error('offline');},pending:v=>pending=v});
+  await click(button('Record voice'));await click(button('Stop recording'));
+  assert.equal(attempts,1);assert.equal(pending,true);assert.ok(document.querySelector('audio'));
+  fail=false;await click(button('Retry voice upload'));assert.equal(attempts,2);assert.equal(pending,false);assert.equal(document.querySelector('audio'),null);
+  await click(button('Record voice'));await click(button('Cancel recording'));assert.equal(attempts,2);assert.equal(pending,false);assert.ok(stopped>=2);
+ });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
+});

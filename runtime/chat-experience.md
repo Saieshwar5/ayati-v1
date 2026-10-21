@@ -51,15 +51,18 @@ agent names accompany authorized messages so readers can identify agents even wh
 they lack permission to invoke them.
 
 Attachment and voice buttons live inside the composer. Voice recordings have a
-visible elapsed timer, stop/cancel controls, local audio preview and explicit Attach
-recording action. Sending is blocked during recording, preview and upload. Failed
-voice uploads keep the preview for retry. Media tracks, preview URLs, observers and
+visible elapsed timer, stop/cancel controls, automatic attachment on Stop. Cancel discards a recording. Sending still requires
+an explicit Send after attachment; it is blocked during recording and upload. Failed
+voice uploads retain a playable preview with Retry and Cancel controls. Media tracks, preview URLs, observers and
 pending requests are released on teardown. Shared upload limits remain 10 MiB/eight
 files; private uploads retain their existing 25 MiB/eight-file boundary. These are
 stored audio attachments, not speech recognition.
 
 Messages retain own-right/other-left alignment, quieter incoming surfaces and compact
-consecutive sender groups. Sent/delivered/seen states remain distinct. Screens are
+consecutive sender groups. Own messages omit repeated names/avatars, with time and
+accessible delivery indicators on the final line. Thread actions remain keyboard/touch
+accessible as compact reply buttons. The single-row composer floats inside the work
+area with an inset and soft shadow, growing only for drafts, files or recording controls. Sent/delivered/seen states remain distinct. Screens are
 checked at desktop and 360px widths with local scrolling.
 
 ## Verification
@@ -86,3 +89,12 @@ for 12 messages; this remains a small local measurement, not a production guaran
 Dependency audit reports no advisory for the new parser/sanitizer. It reports an
 existing Vite 8.3.2 development-server launch-editor advisory; that unrelated tool
 upgrade is not included in this change. Normal use here serves built static assets.
+
+## Compact design follow-up
+
+The approved floating-composer design passes all 16 frontend test files, production
+build, browser-test type checking, seven browser UI scenarios and eight recovery
+scenarios. Stop-to-attach, failed-upload retry and cancellation are covered explicitly.
+Layout checks cover a single-row empty composer, desktop, narrow and 320px dark/short
+windows. The offscreen receipt check uses a short viewport because compact messages
+can now all fit in the previous desktop viewport. No real provider calls were made.

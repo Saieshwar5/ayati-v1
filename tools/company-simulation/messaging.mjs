@@ -35,6 +35,9 @@ try {
   assert.ok((await history()).every(m=>m.seen===0));
  });
  await check('Visible foreground messages receive seen acknowledgements',async()=>{
+  // Compact messages can all fit at desktop height; create actual offscreen history.
+  await receiver.setViewportSize({width:1000,height:400});
+  await receiver.waitForFunction(()=>{const list=document.querySelector('.chat-message-list');return list && list.scrollHeight>list.clientHeight;});
   await receiver.evaluate(()=>{delete document.hidden;delete document.hasFocus;});await receiver.bringToFront();
   await receiver.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await until(async()=>(await history()).some(m=>m.seen===1));

@@ -29,7 +29,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [] 
     <div className="chat-thread-root"><ChatMessage message={root} directory={directory} /></div>
     <div role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} /></div>
     <ChatComposer chat={chat} files={files} setFiles={setFiles} value={text} change={update} send={() => void send()} disabled={mutation.busy}
-      sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply in this thread…"
+      sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…"
       candidates={[...people, ...agents.map(agent => ({ ...agent, kind: 'agent' as const }))]} />
   </Dialog>;
 }

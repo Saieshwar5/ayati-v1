@@ -100,7 +100,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
     </div>
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy} sendDisabled={!draft.trim() && !files.length}
-      placeholder={chat.kind === 'direct' ? 'Message…' : 'Message… Type @ to mention someone'}
+      placeholder="Message…"
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
