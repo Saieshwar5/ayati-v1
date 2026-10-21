@@ -52,6 +52,9 @@ a { color: var(--accent); }
 .workspace-nav svg { width: 19px; height: 19px; }
 .workspace-nav:hover:not([aria-current=page]) { background: var(--selection); color: var(--text); }
 .workspace-nav[aria-current=page] { background: var(--accent); color: var(--on-accent); }
+/* Keep keyboard focus inside the rail control instead of adding an outer capsule. */
+.workspace-rail :is(a, button):focus-visible { outline-offset: -3px; }
+.workspace-nav[aria-current=page]:focus-visible { outline-color: var(--on-accent); }
 .nav-settings { margin-top: auto; }
 .workspace-owner { align-self: center; font-size: .6875rem; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 50%; width: 30px; height: 30px; display: grid; place-items: center; }
 /* The transparent border preserves content geometry while the shadow defines the edge. */
@@ -85,6 +88,7 @@ a { color: var(--accent); }
 @media (pointer: coarse) { .files-button, .text-button, .icon-button { min-height: 44px; } }
 @media (forced-colors: active) {
   .workspace-body { border-color: CanvasText; box-shadow: none; }
+  .workspace-rail :is(a, button):focus-visible, .workspace-nav[aria-current=page]:focus-visible { outline-color: Highlight; }
 }
 
 .setup-check { padding: 12px 0; border-bottom: 1px solid var(--border); }

@@ -52,9 +52,12 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
 - Keep selection and hover/focus highlights pale grey. Primary actions are dark.
   Status colors are small and meaningful, always paired with readable text.
 - Keep interaction states explicit: hover applies only to unselected navigation
-  items; selection keeps its fill while hovered. Keyboard focus adds the shared
-  visible outline without changing the selected page. Chat rows use the soft fill
-  for hover and the selection fill for the current conversation.
+  items; selection keeps its fill while hovered. Rail links and buttons keep the
+  shared 2 px keyboard focus outline inside the control (offset -3 px), avoiding
+  an outer capsule. Selected navigation uses the contrasting on-accent color;
+  forced colors uses Highlight. Focus preserves icon geometry and selection.
+  Chat rows use the soft fill for hover and the selection fill for the current
+  conversation, retaining their inset keyboard outline.
 - Profile avatars in Agents use `agent-profile-avatar` inside shared `ui-avatar`
   controls. Legacy contact positioning/status-dot rules belong to
   `.agent-card > .agent-avatar`; do not apply them to profile or editor avatars.
