@@ -1,6 +1,6 @@
 # Cuckoo workspace design system
 
-Current accepted direction, 2026-10-20. This is the authoritative visual and
+Current accepted direction, 2026-10-21. This is the authoritative visual and
 interaction guide for the existing Cuckoo client. It supersedes the older
 Floating Canvas, floating dock, tinted Chat directory and agent-first Home
 layouts. Historical prototypes explain past choices; they are not current rules.
@@ -11,12 +11,17 @@ Feature specifications still govern permissions, persistence and execution.
 - Keep the quiet global navigation rail visible across Home, Apps, Chat, Agents,
   Users and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
-- Put the entire work area inside one continuous thin rounded frame. Keep a small
-  gap from the top, right and bottom edges. Current geometry is a 12 px desktop
+- Put the entire work area inside one rounded surface with shadow-led separation
+  from the canvas. This supersedes the visible outer-border treatment. Use a
+  transparent 1 px border to preserve content geometry. Keep the 12 px desktop
   shell inset and 18 px frame radius; phones use a 6 px inset and 14 px radius.
+  Light mode uses a soft downward shadow (0 8px 24px, ink at 10%); dark mode uses
+  black at 32%. At widths up to 600 px, reduce the shadow to 0 4px 12px. Use the
+  dedicated workspace shadow tokens so buttons and overlays retain their own depth.
 - Use the same white surface inside the frame across pages. Grey outside means
-  global navigation; white inside means the current feature. Do not repeat the
-  outer border inside each feature or add floating page containers.
+  global navigation; white inside means the current feature. The shared surface
+  provides elevation across Home, Chat, Agents and all other workspace pages.
+  Keep inner panel borders and dividers light; avoid nested elevated page containers.
 - Keep workspace switching, account identity and sign-out inside the bottom
   account menu. Do not restore a permanent email/workspace/sign-out header.
 - Use Cuckoo's approved bird/C mark and lowercase wordmark. Ayati remains an
@@ -40,8 +45,9 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
   management pages can use a concise title, search and one primary action.
 - Use comfortable text sizes and modest padding. Avoid oversized empty headers,
   decorative shadows, excessive nesting or shrinking text to make a layout fit.
-- Use shadows sparingly for overlays. Hover and keyboard focus should both reveal
-  useful emphasis; essential actions must remain available on touch screens.
+- Use shadows for the shared workspace and sparingly for overlays. Keep flat rows
+  and ordinary panels grounded. Hover and keyboard focus should both reveal useful
+  emphasis; essential actions must remain available on touch screens.
 
 ## Home
 
@@ -134,6 +140,10 @@ legacy controllers remain within their documented compatibility subtrees.
   still discard old identity-bound state through full document navigation.
 - Bound work areas to the viewport and use intentional local scrolling. Avoid
   document-wide horizontal overflow, stacked full-height lists and hidden composers.
+- Preserve workspace content clipping at rounded corners while allowing the shell
+  shadow outside the surface. Check that the visible shadow is not abruptly cut
+  off and that menus, dialogs and sidebar controls remain reachable. Forced-colors
+  mode uses a system-color frame border instead of relying on the shadow.
 - Check desktop, short windows and narrow screens down to 320 px, long labels,
   keyboard focus, touch targets, dialogs and theme tokens. Respect reduced motion.
 - Use native semantics, accessible names, visible focus, Escape dismissal and focus
@@ -141,7 +151,15 @@ legacy controllers remain within their documented compatibility subtrees.
 - Run proportionate build/type and behavior checks. Layout checks do not establish
   live provider behavior, backend completeness or deployment readiness.
 
-The latest white-surface implementation passed the production client build, all
+The 2026-10-20 white-surface implementation passed the production client build, all
 11 client test files, source line limits and light-mode browser checks across Home,
 Apps, Agents, Users and Settings at desktop, 400 px and 320 px widths. Dark-mode
 tokens remain in use; these checks did not include a full dark-mode visual audit.
+
+The 2026-10-21 shadow-led refinement passed the production client build, all 60
+frontend tests across 17 files, browser-test type checking, source line limits and
+diff checks. Twenty-eight live local Chromium checks covered eight workspace pages
+in light/dark mode, unchanged shell geometry, explicit/system themes, chat draft/
+focus/reading-position preservation, menus/dialogs, short windows, 400/320 px widths
+and forced-colors fallback. Screenshots were visually reviewed. These checks used
+the local scripted company workspace; they did not invoke an LLM or external tools.
