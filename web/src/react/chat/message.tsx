@@ -8,15 +8,15 @@ export function ChatMessage({ message, directory, replies, openThread, compact =
   const own = message.kind !== 'agent' && message.author === workspaceSession?.user?.id;
   const element = useSeen(message, own);
   return <article ref={element} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
-    <span className={`chat-avatar ${message.kind}`}>{message.kind === 'agent' ? '✧' : name.slice(0, 1).toUpperCase()}</span>
-    <div><header><strong>{own ? 'You' : name}</strong>{message.kind === 'agent' && <span className="chat-agent-label">Agent</span>}<time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></header>
+    {!own && <span className={`chat-avatar ${message.kind}`}>{message.kind === 'agent' ? '✧' : name.slice(0, 1).toUpperCase()}</span>}
+    <div>{!own && <header><strong>{own ? 'You' : name}</strong>{message.kind === 'agent' && <span className="chat-agent-label">Agent</span>}<time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></header>}
       <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(message.content || 'Preparing a reply…') }} />{!['sent', 'complete'].includes(message.state) && <small role="status">{message.state === 'queued' ? 'Working on a reply…' : message.state}</small>}
       {message.attachments?.map(file => {
         const url = `/api/identity/workspaces/${workspaceId}/objects/${file.id}`;
         return <div className="chat-file" key={file.id}>{file.mime.startsWith('image/') && <img loading="lazy" src={url} alt={file.name} />}{file.mime.startsWith('audio/') && <audio controls preload="none" src={url} aria-label={file.name} />}<a href={url} download={file.name}>{file.name}</a><small> · {Math.ceil(file.size / 1024)} KB</small></div>;
       })}
-      {own && <MessageReceipt message={message} />}
-      {openThread && <button type="button" className="chat-thread-link" onClick={openThread}>{replies ? `${replies} ${replies === 1 ? 'reply' : 'replies'}` : 'Reply in thread'}</button>}
+      {own && <div className="chat-message-meta"><time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><MessageReceipt message={message} /></div>}
     </div>
+    {openThread && <button type="button" className={replies ? 'chat-thread-link chat-thread-count' : 'chat-thread-action'} aria-label={replies ? `${replies} ${replies === 1 ? 'reply' : 'replies'}` : 'Reply in thread'} title="Reply in thread" onClick={openThread}>{replies ? `${replies} ${replies === 1 ? 'reply' : 'replies'}` : '↩'}</button>}
   </article>;
 }

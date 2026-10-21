@@ -85,8 +85,10 @@ The pencil action means New message. The plus beside Channels means Create
 channel. Both need accessible names and clear hover labels. Do not use two
 indistinguishable plus buttons for these different actions.
 
-Keep channel, person and agent headers slim. Use a compact composer that grows for
-long messages, reserving transcript space above it. Recipient selection is under
+Keep channel, person and agent headers slim. Use a compact single-row floating composer with an inset and subtle shadow. It grows
+for long messages and attachments, reserving transcript space above it. Keep own
+message time and delivery indicators compact; omit the repeated own name/avatar.
+Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
 above the composer; explicit creation-mode links and Home creation still work.

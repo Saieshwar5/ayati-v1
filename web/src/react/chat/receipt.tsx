@@ -28,7 +28,7 @@ export function MessageReceipt({ message }: { message: Message }) {
     setBusy(true); setError('');
     void chatRequest<{ receipts: Receipt[] }>(`/chats/${message.chat}/receipts/${message.id}`).then(data => setDetails(data.receipts)).catch(() => { setDetails(undefined); setError('Receipt details unavailable.'); }).finally(() => setBusy(false));
   }}>
-    <summary className={message.seen ? 'chat-seen' : ''}>{label}</summary>
+    <summary aria-label={label} title={label} className={message.seen ? 'chat-seen' : ''}>{message.seen || message.delivered ? '✓✓' : '✓'}</summary>
     {busy ? <small>Loading…</small> : error ? <small>{error}</small> : details?.length ? details.map((r, i) => <small key={i}>{r.name} · {r.seen_at ? 'Seen' : 'Delivered'} {new Date((r.seen_at ?? r.delivered_at) * 1000).toLocaleTimeString()}</small>) : <small>No recipient has acknowledged this message yet.</small>}
   </details>;
 }

@@ -311,7 +311,7 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
       await until(update,()=>document.querySelector('.message-composer textarea')?.value==='Inventory draft');
       await click(button('Reply in thread'));
-      await change(document.querySelector('[aria-label="Reply in thread"]'),'Thread reply');
+      await change(document.querySelector('textarea[aria-label="Reply in thread"]'),'Thread reply');
       await submit(document.querySelector('dialog .message-composer'));
       assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
     } finally { await setup.cleanup(); }
