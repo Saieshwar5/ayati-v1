@@ -372,3 +372,10 @@ the existing preview/review path. See the specification for update and schedule
 permissions, browser-local layout preferences and verification limits.
 
 Local PostgreSQL workspace storage and migration: [setup and verification](runtime/postgres-workspaces.md).
+
+Shared-agent work can also run in a separate process: set
+`AYATI_CHAT_EXECUTION=external` on `ayati identity`, then start `ayati worker`
+against the same PostgreSQL database with its own data directory. See
+[independent shared-chat workers](runtime/independent-chat-worker.md) for startup,
+recovery checks and the conversation-only boundary. Existing embedded execution
+remains the default; this increment does not deploy the platform to cloud.

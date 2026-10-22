@@ -27,4 +27,12 @@ impl PgStore {
         };
         Ok(query(&self.db,"SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND claim=$3 AND state='running' AND lease_until>$4",vec![job.workspace.clone().into(),job.reply.clone().into(),claim.clone().into(),now().into()]).await?.is_some())
     }
+
+    /// Expire this exact claim only after its runtime stops. Retaining `running`
+    /// lets retry exhaustion finish attempt 3 instead of stranding a queued job.
+    pub(crate) async fn release_job(&self, job: &Job) -> Result<()> {
+        let claim = job.claim.as_ref().context("Unclaimed shared job")?;
+        execute(&self.db,"UPDATE relay_chat_jobs SET lease_until=0 WHERE workspace=$1 AND reply=$2 AND claim=$3 AND state='running'",vec![job.workspace.clone().into(),job.reply.clone().into(),claim.clone().into()]).await?;
+        Ok(())
+    }
 }

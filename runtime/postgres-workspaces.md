@@ -1,5 +1,10 @@
 # Local PostgreSQL workspace foundation
 
+The existing durable shared-reply queue also supports
+[independent workers](independent-chat-worker.md), added 2026-10-23. API-only shared
+dispatch uses `AYATI_CHAT_EXECUTION=external`; `ayati worker` claims work from the
+same database using its own scratch directory. No new schema migration is required.
+
 Relay can serve its existing React client using PostgreSQL for accounts, sessions,
 workspaces, memberships, invitations, shared conversations, human resource grants,
 App-session bindings, audit records and durable shared-reply jobs. Set

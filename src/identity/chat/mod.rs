@@ -1,3 +1,4 @@
+pub(super) mod execution;
 pub(crate) mod mentions;
 mod runner;
 pub(crate) mod store;
@@ -154,10 +155,14 @@ async fn send(
 }
 
 /// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.
-pub(super) fn start_dispatcher(app: Shared) {
+pub(super) fn start_dispatcher(app: Shared) -> Result<()> {
+    let embedded = super::worker::embedded_mode(
+        std::env::var("AYATI_CHAT_EXECUTION").ok().as_deref(),
+        matches!(app.store, super::database::Database::Postgres(_)),
+    )?;
     sync::start(app.clone());
-    if !matches!(app.store, super::database::Database::Postgres(_)) {
-        return;
+    if !embedded || !matches!(app.store, super::database::Database::Postgres(_)) {
+        return Ok(());
     }
     tokio::spawn(async move {
         loop {
@@ -190,4 +195,5 @@ pub(super) fn start_dispatcher(app: Shared) {
             }
         }
     });
+    Ok(())
 }
