@@ -15,6 +15,7 @@ pub mod migration;
 mod objects;
 mod people;
 mod resources;
+mod settings;
 mod work;
 
 use super::store::{User, now};
@@ -129,10 +130,7 @@ async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result
 }
 async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
     let role = role(db, workspace, actor).await?;
-    ensure!(
-        role == "Owner" || role == "Admin",
-        "Only owners and admins can manage people"
-    );
+    ensure!(role == "Owner", "Only Owners can manage workspace access");
     Ok(role)
 }
 async fn audit(
@@ -171,3 +169,6 @@ mod messaging_tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
 #[cfg(test)]
 mod agent_profile_tests;
+
+#[cfg(test)]
+mod ownership_tests;

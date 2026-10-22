@@ -8,7 +8,7 @@ async fn personal_agents_are_invisible_even_to_workspace_owner_and_cannot_be_sha
     let owner = user(&db, "a-owner").await;
     let member = user(&db, "a-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     let mut a = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Nova".into(),
@@ -136,7 +136,7 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
     let owner = user(&db, "knowledge-owner").await;
     let member = user(&db, "knowledge-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     let a = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Nova".into(),

@@ -113,9 +113,9 @@ impl PgStore {
     }
     pub async fn people(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
-        let own_role = role(&tx, workspace, &user.id).await?;
+        let own_role = manager(&tx, workspace, &user.id).await?;
         let members = json_rows(&tx, "SELECT jsonb_build_object('id',u.id,'email',u.email,'display_name',u.display_name,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
-        let invitations = if own_role != "Member" {
+        let invitations = if own_role == "Owner" {
             json_rows(&tx, "SELECT jsonb_build_object('id',id,'email',email,'role',role,'status',status,'expires',expires) AS data FROM relay_invitations WHERE workspace=$1 AND status NOT IN ('cancelled','accepted') ORDER BY sequence DESC",vec![workspace.into()]).await?
         } else {
             vec![]

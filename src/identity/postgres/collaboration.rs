@@ -124,9 +124,7 @@ impl PgStore {
             "Direct-message membership is fixed"
         );
         ensure!(
-            own_role == "Owner"
-                || own_role == "Admin"
-                || row.try_get::<String>("", "creator")? == user.id,
+            own_role == "Owner" || row.try_get::<String>("", "creator")? == user.id,
             "Only a channel creator or manager may change members"
         );
         ensure!(

@@ -4,11 +4,13 @@ mod agents;
 mod chat;
 mod collaboration;
 mod database;
+mod membership_schema;
 pub mod postgres;
 mod profile;
 mod provider;
 mod resources;
 mod routes;
+mod settings;
 pub mod simulation;
 mod sqlite_access;
 pub mod store;
@@ -237,6 +239,8 @@ fn router(app: Shared) -> Router {
         .route("/api/identity/profile", post(profile::update))
         .route("/api/identity/workspaces", post(routes::create))
         .route("/api/identity/workspaces/{id}/people", get(routes::people))
+        .route("/api/identity/workspaces/{id}/settings", get(settings::read).post(settings::update))
+        .route("/api/identity/workspaces/{id}/activity", get(settings::activity))
         .route(
             "/api/identity/workspaces/{id}/invitations",
             post(routes::invite),
@@ -345,3 +349,6 @@ fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
             .iter()
             .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
 }
+
+#[cfg(test)]
+mod ownership_tests;

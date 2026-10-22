@@ -125,18 +125,21 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     let admin = user(&db, "admin").await;
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &admin, "Admin").await;
+    join(&db, &owner, &w, &admin, "User").await;
+    db.change(&owner, &w, &admin.id, Some("Owner"))
+        .await
+        .unwrap();
     assert!(
         db.reserve_invite(&admin, &w, &member.email, "Admin")
             .await
             .is_err()
     );
     let invite = db
-        .reserve_invite(&admin, &w, &member.email, "Member")
+        .reserve_invite(&admin, &w, &member.email, "User")
         .await
         .unwrap();
     assert!(
-        db.reserve_invite(&admin, &w, &member.email, "Member")
+        db.reserve_invite(&admin, &w, &member.email, "User")
             .await
             .is_err()
     );
@@ -144,16 +147,16 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     db.delivered(&invite, Some("delivered")).await.unwrap();
     assert!(db.accept(&owner, &invite).await.is_err());
     db.accept(&member, &invite).await.unwrap();
-    assert!(db.change(&admin, &w, &owner.id, None).await.is_err());
+    assert!(db.change(&member, &w, &owner.id, None).await.is_err());
     assert!(db.change(&member, &w, &admin.id, None).await.is_err());
     db.change(&admin, &w, &member.id, None).await.unwrap();
     assert!(db.accept(&member, &invite).await.is_err());
     let pending = db
-        .reserve_invite(&admin, &w, &member.email, "Member")
+        .reserve_invite(&admin, &w, &member.email, "User")
         .await
         .unwrap();
     db.delivered(&pending, Some("delivered")).await.unwrap();
-    db.change(&owner, &w, &admin.id, Some("Member"))
+    db.change(&owner, &w, &admin.id, Some("User"))
         .await
         .unwrap();
     assert!(db.accept(&member, &pending).await.is_err());
@@ -166,7 +169,7 @@ async fn conversations_isolate_workspaces_private_history_and_duplicates() {
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
     let other = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     let shared = chat(
         &db,
         &owner,
@@ -281,7 +284,7 @@ async fn revocation_cancels_pending_results_and_resource_sessions() {
     let owner = user(&db, "owner").await;
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     let c = chat(
         &db,
         &owner,
@@ -323,7 +326,7 @@ async fn revocation_cancels_pending_results_and_resource_sessions() {
             .await
             .is_err()
     );
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     assert!(
         db.resource_allowed(&member, &w, "app", "app-one")
             .await

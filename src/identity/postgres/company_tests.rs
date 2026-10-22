@@ -21,8 +21,8 @@ async fn company_media_feedback_and_membership_boundaries() {
     let member = user(&db, "member").await;
     let outsider = user(&db, "outsider").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
-    join(&db, &owner, &w, &outsider, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &outsider, "User").await;
     let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     let obj = Object {
         id: uuid::Uuid::new_v4().to_string(),

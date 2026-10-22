@@ -10,7 +10,7 @@ fn setup() -> (Store, User, User, User, String) {
     let workspace = uuid::Uuid::new_v4().to_string();
     db.create(&owner, "Business", &workspace).unwrap();
     let invite = db
-        .reserve_invite(&owner, &workspace, &member.email, "Member")
+        .reserve_invite(&owner, &workspace, &member.email, "User")
         .unwrap();
     db.delivered(&invite, Some("provider")).unwrap();
     db.accept(&member, &invite).unwrap();
@@ -119,7 +119,7 @@ fn removal_revokes_chat_and_grants_even_after_reinvitation() {
     assert!(!db.chat_job_allowed(&job));
     assert!(db.chat_messages(&member, &w, &chat).is_err());
     let invite = db
-        .reserve_invite(&owner, &w, &member.email, "Member")
+        .reserve_invite(&owner, &w, &member.email, "User")
         .unwrap();
     db.delivered(&invite, Some("new")).unwrap();
     db.accept(&member, &invite).unwrap();

@@ -12,6 +12,7 @@ impl MigratorTrait for Migrator {
             Box::new(QueueTelemetry),
             Box::new(Messaging),
             Box::new(AgentProfiles),
+            Box::new(WorkspaceRoles),
         ]
     }
 }
@@ -166,6 +167,28 @@ impl MigrationTrait for AgentProfiles {
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom(
             "Agent ownership and knowledge are durable; use a forward migration".into(),
+        ))
+    }
+}
+
+struct WorkspaceRoles;
+impl MigrationName for WorkspaceRoles {
+    fn name(&self) -> &str {
+        "m20261022_000008_workspace_roles"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WorkspaceRoles {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("workspace_roles.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Ownership changes are durable; use a forward migration".into(),
         ))
     }
 }
