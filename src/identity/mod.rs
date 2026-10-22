@@ -15,6 +15,7 @@ mod settings;
 pub mod simulation;
 mod sqlite_access;
 pub mod store;
+pub mod worker;
 mod workspaces;
 
 use anyhow::{Context, Result};
@@ -208,11 +209,11 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         simulation: None,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
-    chat::start_dispatcher(app.clone());
+    chat::start_dispatcher(app.clone())?;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
-            let _ = tokio::signal::ctrl_c().await;
+            worker::shutdown_signal().await;
             stopping.cancel();
         })
         .await?;

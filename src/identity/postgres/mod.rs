@@ -180,3 +180,6 @@ mod ownership_tests;
 
 #[cfg(test)]
 mod workspace_scenario_tests;
+
+#[cfg(test)]
+mod worker_tests;

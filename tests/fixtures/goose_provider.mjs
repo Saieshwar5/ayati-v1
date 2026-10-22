@@ -6,6 +6,7 @@ import { once } from 'node:events';
 export async function fixtureProvider() {
   const requests = [];
   let unavailable = false;
+  let held = false;
   const server = createServer(async (request, response) => {
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'application/json');
@@ -29,7 +30,7 @@ export async function fixtureProvider() {
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
       return;
     }
-    if (prompt === 'stall') return; // Deliberately interrupted by Stop.
+    if (held || prompt === 'stall') return; // Deliberately interrupted by Stop/worker loss.
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
     if (prompt?.startsWith('workspace ')) {
@@ -104,6 +105,7 @@ export async function fixtureProvider() {
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
     setUnavailable: (value) => { unavailable = value; },
+    setHeld: (value) => { held = value; },
     close: () => { server.closeAllConnections(); server.close(); },
   };
 }
