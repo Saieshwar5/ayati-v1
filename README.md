@@ -10,6 +10,11 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
+[Workspace Library](runtime/library.md) adds private pages, shared reference files,
+version recovery and source-based private agent questions to PostgreSQL workspaces.
+Files use explicitly configured private S3-compatible or local development storage.
+See its runtime contract for configuration, access rules and initial release limits.
+
 Optional [Composio connections](runtime/composio.md) support Connect MCP consumer
 keys and Platform project keys, with explicit per-agent operation grants through
 Settings and Agent Details. Live MCP discovery and a bounded Gmail read passed;

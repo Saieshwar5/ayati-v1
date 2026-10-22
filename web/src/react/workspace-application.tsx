@@ -1,6 +1,6 @@
 import { startLive } from './chat/live';
 import { disposeViewLifetime } from '../view-lifetime';
-import { useEffect, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { currentWorkspace, workspaceId } from '../workspace-context';
 import { WorkspaceShell } from './workspace-shell';
@@ -11,6 +11,10 @@ import { LegacyView } from './legacy-view';
 import './agents/agents.css';
 import { AgentsPage } from './agents/directory';
 import { WorkspaceChat } from './chat/workspace-chat';
+import { LibraryUploads } from './library/uploads';
+import { LibraryBoundary } from './library/boundary';
+import './library/library.css';
+const LibraryPage = lazy(() => import('./library/library-page').then(module => ({ default: module.LibraryPage })));
 
 export function WorkspaceApplication() {
   const href = useSyncExternalStore(subscribeNavigation, () => window.location.href);
@@ -27,8 +31,8 @@ export function WorkspaceApplication() {
     document.title = `${title} · Cuckoo`;
   }, [page, href]);
   const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
-  return <WorkspaceShell page={page}>
+  return <LibraryUploads><WorkspaceShell page={page}>
     {page === 'agents' && workspaceId && !url.searchParams.has('legacy') ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'account' ? <AccountPage embedded />
-      : privateChat ? <PrivateChat href={href} /> : <LegacyView key={featureKey} page={page} href={href} />}
-  </WorkspaceShell>;
+      : privateChat ? <PrivateChat href={href} /> : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary> : <LegacyView key={featureKey} page={page} href={href} />}
+  </WorkspaceShell></LibraryUploads>;
 }

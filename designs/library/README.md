@@ -8,6 +8,11 @@ The [implementation plan](implementation-plan.md) turns this concept into ordere
 delivery stages, access rules, storage boundaries and testable release gates.
 It is a plan, not an implementation-status claim.
 
+Implementation update: the [Library runtime contract](../../runtime/library.md)
+describes the smaller first release on `feat/workspace-library`. The nine mockups
+remain the broader proposal; grid/collections and other deferred details are not
+implicitly shipped by these illustrations.
+
 Open [cuckoo-library-concept.fig](cuckoo-library-concept.fig) in OpenPencil. It contains
 nine named screens, arranged as a reading flow. Names, files and counts are fictional.
 
