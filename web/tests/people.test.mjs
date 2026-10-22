@@ -45,6 +45,29 @@ test('React invitations retain failed form values and require an explicit retry'
   }, (path, body) => body && path.endsWith('/invitations') && failing ? { ok: false, data: { error: 'Invitation failed' } } : undefined);
 });
 
+test('Unconfirmed delivery refreshes invitations without losing the failed draft', async () => {
+  let current;
+  await fixture('Owner', async ({ people, writes, button, click, change, submit }) => {
+    current = people;
+    await click(button('＋ Invite person'));
+    const form = document.querySelector('form');
+    await change(form.elements.email, 'uncertain@example.com');
+    await submit(form);
+    assert.equal(form.elements.email.value, 'uncertain@example.com');
+    assert.match(document.querySelector('dialog [role=status]').textContent, /Cancel this invitation/);
+    assert.equal(writes.length, 1);
+    await click(button('Close'));
+    await click(button('Invitations'));
+    assert.match(document.querySelector('[role=tabpanel]:not([hidden])').textContent, /Delivery unconfirmed/);
+    assert.ok(button('Cancel invitation'));
+  }, (path, body) => {
+    if (body && path.endsWith('/invitations')) {
+      current.invitations.push({ id: 'uncertain', email: body.email, role: 'User', status: 'delivery_unknown', expires: 0 });
+      return { ok: false, data: { error: 'Cancel this invitation before trying again.' } };
+    }
+  });
+});
+
 test('opening a React member drawer grants nothing; rejected changes retain saved access', async () => {
   await fixture('Owner', async ({ writes, button, click, change }) => {
     await click(button(`View ${member.email}`));

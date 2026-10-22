@@ -16,7 +16,7 @@ impl PgStore {
         manager(&tx, workspace, &user.id).await?;
         ensure!(query(&tx,"SELECT u.id FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 AND u.email=$2",vec![workspace.into(),email.into()]).await?.is_none(),"This person is already a member");
         execute(&tx,"UPDATE relay_invitations SET status='expired' WHERE workspace=$1 AND expires<=$2 AND status='pending'",vec![workspace.into(),now().into()]).await?;
-        ensure!(query(&tx,"SELECT id FROM relay_invitations WHERE workspace=$1 AND email=$2 AND status='pending'",vec![workspace.into(),email.into()]).await?.is_none(), "An invitation is already pending");
+        ensure!(query(&tx,"SELECT id FROM relay_invitations WHERE workspace=$1 AND email=$2 AND status IN ('pending','delivery_unknown')",vec![workspace.into(),email.into()]).await?.is_none(), "An invitation is pending or delivery is uncertain; cancel it before sending another");
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_invitations(id,workspace,email,role,inviter,expires,status) VALUES($1,$2,$3,$4,$5,$6,'pending')",vec![id.clone().into(),workspace.into(),email.into(),assigned.into(),user.id.clone().into(),(now()+604800).into()]).await.context("An invitation is already pending")?;
         audit(&tx, &user.id, Some(workspace), "invitation_created", &id).await?;

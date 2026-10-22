@@ -37,7 +37,7 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
       </div>)}{data && !members.length && <p className="ui-empty">{query ? 'No members match your search.' : 'No members to show.'}</p>}</div> },
       { title: 'Invitations', content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
         <div className="ui-row-title"><strong>{invitation.email}</strong><small>{invitation.role}</small></div>
-        <span className="ui-badge">{invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
+        <span className="ui-badge">{invitation.status === 'delivery_unknown' ? 'Delivery unconfirmed' : invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
         {data?.role === 'Owner' && <Button disabled={mutation.busy} onClick={() => {
           if (!confirm(`Cancel the invitation for ${invitation.email}?`)) return;
           void mutation.run(async () => {
@@ -47,18 +47,20 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
         }}>Cancel invitation</Button>}
       </div>)}{data && !invitations.length && <p className="ui-empty">{query ? 'No invitations match your search.' : 'No invitations to show. Invite someone when you’re ready.'}</p>}</div> },
     ]} /></div>
-    {inviting && data && <InviteDialog close={() => setInviting(false)} saved={async () => { setInviting(false); await saved('Invitation sent. They can sign in and accept it under Your workspaces.'); }} />}
+    {inviting && data && <InviteDialog close={() => setInviting(false)} failed={() => void refresh().catch(() => {})} saved={async () => { setInviting(false); await saved('Invitation sent. They can sign in and accept it under Your workspaces.'); }} />}
     {selected && data && <MemberDetails key={selected.id} member={selected} viewerRole={data.role} ownerCount={data.members.filter(person => person.role === 'Owner').length} close={() => select(undefined)} refresh={refresh} />}
   </main></div>;
 }
 
-function InviteDialog({ close, saved }: { close: () => void; saved: () => Promise<void> }) {
+function InviteDialog({ close, saved, failed }: { close: () => void; saved: () => Promise<void>; failed: () => void }) {
   const emailInput = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState('');
   const mutation = useMutation();
   return <Dialog title="Invite a person" busy={mutation.busy} status={mutation.status} close={close} initialFocus={emailInput}>
     <form className="ui-form" onSubmit={event => { event.preventDefault(); void mutation.run(async () => {
-      await identityRequest(`${base}/invitations`, { email, role: 'User' }); await saved();
+      try { await identityRequest(`${base}/invitations`, { email, role: 'User' }); }
+      catch (error) { failed(); throw error; }
+      await saved();
     }); }}>
       <label className="ui-field">Email address<input ref={emailInput} name="email" type="email" required autoComplete="email" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} /></label>
       <p className="ui-help">They’ll receive an email to join as a User. An Owner can give them ownership after they join. Apps, Home panels and agent access are shared separately.</p>

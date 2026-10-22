@@ -201,6 +201,11 @@ impl Store {
         let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM members m JOIN users u ON u.id=m.user WHERE m.workspace=?1 AND u.email=?2)", params![workspace,email], |r|r.get(0))?;
         ensure!(!exists, "This person is already a member");
         tx.execute("UPDATE invitations SET status='expired' WHERE workspace=?1 AND expires<=?2 AND status='pending'",params![workspace,now()])?;
+        let outstanding: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM invitations WHERE workspace=?1 AND email=?2 AND status IN ('pending','delivery_unknown'))", params![workspace,email], |r|r.get(0))?;
+        ensure!(
+            !outstanding,
+            "An invitation is pending or delivery is uncertain; cancel it before sending another"
+        );
         let id = uuid::Uuid::new_v4().to_string();
         tx.execute(
             "INSERT INTO invitations VALUES(?1,?2,?3,?4,?5,?6,'pending',NULL)",

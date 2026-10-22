@@ -172,3 +172,6 @@ mod agent_profile_tests;
 
 #[cfg(test)]
 mod ownership_tests;
+
+#[cfg(test)]
+mod workspace_scenario_tests;
