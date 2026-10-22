@@ -4,6 +4,7 @@ mod agents;
 mod chat;
 mod collaboration;
 mod database;
+mod library;
 mod membership_schema;
 pub mod postgres;
 mod profile;
@@ -42,6 +43,7 @@ struct Pending {
     expires: i64,
 }
 struct App {
+    library: library::Storage,
     provider: Provider,
     store: database::Database,
     origin: String,
@@ -69,7 +71,11 @@ impl Error {
 impl<E: Into<anyhow::Error>> From<E> for Error {
     fn from(value: E) -> Self {
         let error = value.into();
-        let status = if error.is::<chat::store::QueueFull>() {
+        let status = if error.is::<library::model::Denied>() {
+            StatusCode::NOT_FOUND
+        } else if error.is::<library::model::Conflict>() {
+            StatusCode::CONFLICT
+        } else if error.is::<chat::store::QueueFull>() {
             StatusCode::TOO_MANY_REQUESTS
         } else {
             StatusCode::BAD_REQUEST
@@ -193,6 +199,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     let mut runtimes = workspaces::Runtimes::new(data.join("workspaces"));
     runtimes.bound = bound;
     let app = Arc::new(App {
+        library: library::Storage::from_env()?,
         provider,
         store,
         origin: format!("http://127.0.0.1:{port}"),
@@ -216,6 +223,7 @@ fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(chat::routes())
+        .merge(library::routes())
         .merge(collaboration::routes())
         .merge(simulation::routes())
         .merge(resources::routes())
@@ -266,11 +274,19 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let started = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().to_string();
     let headers = request.headers();
+    let library_head = request.method() == axum::http::Method::HEAD
+        && request
+            .uri()
+            .path()
+            .starts_with("/api/identity/workspaces/")
+        && request.uri().path().contains("/library/")
+        && request.uri().path().ends_with("/download");
     let host = app.origin.trim_start_matches("http://");
     if headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(host) {
         return StatusCode::FORBIDDEN.into_response();
     }
     if request.method() != axum::http::Method::GET
+        && !library_head
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(app.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {
@@ -285,6 +301,9 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
         path.starts_with("/w/") && request.uri().query() == Some("agent=local-agent&guide=1");
     let cache_asset = cacheable_asset(request.method(), path);
     let scoped_api = path.starts_with("/w/") && path.contains("/api/");
+    let library_preview = path.starts_with("/api/identity/workspaces/")
+        && path.contains("/library/")
+        && path.ends_with("/download");
     let mut response = next.run(request).await;
     let response_status = response.status();
     let h = response.headers_mut();
@@ -308,6 +327,15 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     h.insert("referrer-policy", "no-referrer".parse().unwrap());
     h.insert("x-content-type-options", "nosniff".parse().unwrap());
     if scoped_api {
+        return response;
+    }
+    if library_preview {
+        h.insert(
+            "content-security-policy",
+            "sandbox; default-src 'none'; frame-ancestors 'self'"
+                .parse()
+                .unwrap(),
+        );
         return response;
     }
     if guide_document {
@@ -342,7 +370,7 @@ fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
         return false;
     };
     let bytes = stem.as_bytes();
-    matches!(extension, "js" | "css")
+    matches!(extension, "js" | "mjs" | "css")
         && bytes.len() > 9
         && bytes[bytes.len() - 9] == b'-'
         && bytes[bytes.len() - 8..]

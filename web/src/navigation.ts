@@ -7,7 +7,7 @@ export function workspacePage(url: URL): WorkspacePage {
   if (requested === 'company' || requested === 'feedback') return 'settings';
   if (requested === 'account') return 'account';
   if (url.searchParams.has('agent') || requested === 'chat') return 'chat';
-  return requested === 'apps' || requested === 'agents' || requested === 'settings' ? requested : 'home';
+  return requested === 'apps' || requested === 'agents' || requested === 'library' || requested === 'settings' ? requested : 'home';
 }
 export function localDestination(href: string, current = new URL(window.location.href)): URL | undefined {
   const url = new URL(href, current);

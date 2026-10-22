@@ -347,6 +347,9 @@ impl PgStore {
             display_name: None,
         };
         self.claim_active(job).await.unwrap_or(false)
+            && library::source_allowed(&self.db, job)
+                .await
+                .unwrap_or(false)
             && access(&self.db, &user, &job.workspace, &job.chat)
                 .await
                 .is_ok()
@@ -369,6 +372,7 @@ impl PgStore {
             display_name: None,
         };
         let allowed = access(&tx, &user, &job.workspace, &job.chat).await.is_ok()
+            && library::source_allowed(&tx, job).await.unwrap_or(false)
             && agent_access(&tx, &user.id, &job.workspace, &job.agent)
                 .await
                 .unwrap_or(false);

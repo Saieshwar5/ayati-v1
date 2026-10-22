@@ -3,19 +3,20 @@ import { workspaceId, workspaceUrl, canManageResources, workspaceSession } from 
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 
-export type WorkspacePage = 'home' | 'apps' | 'chat' | 'agents' | 'settings' | 'account';
+export type WorkspacePage = 'home' | 'apps' | 'chat' | 'agents' | 'library' | 'settings' | 'account';
 function Icon({ name }: { name: WorkspacePage }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     {name === 'home' && <><path d="m3 10 9-7 9 7v10H3Z" /><path d="M9 20v-7h6v7" /></>}
     {name === 'apps' && <>{[[3, 3], [14, 3], [3, 14], [14, 14]].map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="7" height="7" rx="1" />)}</>}
     {name === 'chat' && <><path d="M21 11a8 8 0 0 1-8 8H5l-3 3V11a9 9 0 0 1 19 0Z" /><path d="M7 11h10" /></>}
     {name === 'agents' && <><rect x="4" y="7" width="16" height="14" rx="4" /><path d="M12 3v4M1 12v4m22-4v4M8 12v2m8-2v2m-8 3h8" /></>}
+    {name === 'library' && <><path d="M4 4h5v16H4zM12 4h3v16h-3zM16 5l3-1 4 15-3 1z" /></>}
     {name === 'settings' && <><path d="M3 6h18M3 12h18M3 18h18" /><circle cx="8" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="9" cy="18" r="2" /></>}
   </svg>;
 }
 
 export function WorkspaceShell({ page, children }: { page: WorkspacePage; children: ReactNode }) {
-  const pages: WorkspacePage[] = ['home', 'apps', 'chat', 'agents', 'settings'];
+  const pages: WorkspacePage[] = ['home', 'apps', 'chat', 'agents', 'library', 'settings'];
   return <div className="workspace-shell"><aside className="workspace-rail">
     <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Cuckoo home"><Brand symbol /></a>
     <nav aria-label="Workspace">{pages.map(name => {

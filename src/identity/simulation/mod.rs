@@ -62,6 +62,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     let store = database::Database::Postgres(pg);
     let simulation = seed::prepare(&root, &store).await?;
     let app = Arc::new(App {
+        library: library::Storage::from_env()?,
         provider: Provider::simulation(),
         store,
         origin: format!("http://127.0.0.1:{port}"),

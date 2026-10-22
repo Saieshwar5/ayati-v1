@@ -91,6 +91,7 @@ impl Fixture {
         let workspace = uuid::Uuid::new_v4().to_string();
         store.create(&users[0], "Fixture", &workspace).unwrap();
         let app = Arc::new(identity::App {
+            library: Default::default(),
             provider,
             store: store.into(),
             origin: "http://127.0.0.1:8765".into(),
