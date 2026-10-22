@@ -10,6 +10,11 @@ mod feedback;
 mod history;
 mod import;
 mod jobs;
+mod library;
+#[cfg(test)]
+mod library_http_tests;
+#[cfg(test)]
+mod library_tests;
 mod messaging;
 pub mod migration;
 mod objects;

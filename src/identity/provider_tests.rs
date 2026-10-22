@@ -148,6 +148,7 @@ async fn profile_updates_require_current_session_and_cannot_target_another_user(
         .login("user_other", "other@example.com", "other", "other_session")
         .unwrap();
     let app = Arc::new(identity::App {
+        library: Default::default(),
         provider,
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),

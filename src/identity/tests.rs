@@ -105,6 +105,7 @@ fn sessions_expire_and_logout_removes_access() {
 #[tokio::test]
 async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
     let app = Arc::new(App {
+        library: Default::default(),
         provider: Provider::test_provider(),
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
@@ -171,6 +172,7 @@ async fn guards_reject_cross_origin_posts_legacy_routes_and_invalid_callback() {
 #[tokio::test]
 async fn login_is_pkce_bound_and_callback_state_is_single_use() {
     let app = Arc::new(App {
+        library: Default::default(),
         provider: Provider::test_provider(),
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),
@@ -260,7 +262,11 @@ async fn postgres_errors_do_not_expose_database_values() {
 #[tokio::test]
 async fn only_versioned_static_code_can_be_cached() {
     use axum::http::Method;
-    for path in ["/assets/index-Abcd1234.js", "/assets/home-aBc_12-4.css"] {
+    for path in [
+        "/assets/index-Abcd1234.js",
+        "/assets/home-aBc_12-4.css",
+        "/assets/pdf.worker.min-CjEcRF4W.mjs",
+    ] {
         assert!(cacheable_asset(&Method::GET, path));
         assert!(cacheable_asset(&Method::HEAD, path));
         assert!(!cacheable_asset(&Method::POST, path));
@@ -269,6 +275,7 @@ async fn only_versioned_static_code_can_be_cached() {
         "/index.html",
         "/assets/index.html",
         "/assets/app.js",
+        "/assets/pdf.worker.mjs",
         "/assets/file-Abcd1234.json",
         "/assets/nested/file-Abcd1234.js",
         "/api/identity/session",
@@ -277,6 +284,7 @@ async fn only_versioned_static_code_can_be_cached() {
         assert!(!cacheable_asset(&Method::GET, path));
     }
     let app = Arc::new(App {
+        library: Default::default(),
         provider: Provider::test_provider(),
         store: Store::open(Path::new(":memory:")).unwrap().into(),
         origin: "http://127.0.0.1:8765".into(),

@@ -14,6 +14,7 @@ fn setup(root: &std::path::Path) -> (Shared, User, User, String, String) {
     store.create(&owner, "First", &first).unwrap();
     store.create(&other, "Second", &second).unwrap();
     let app = Arc::new(App {
+        library: Default::default(),
         provider: Provider::test_provider(),
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),

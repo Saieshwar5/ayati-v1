@@ -13,7 +13,29 @@ impl MigratorTrait for Migrator {
             Box::new(Messaging),
             Box::new(AgentProfiles),
             Box::new(WorkspaceRoles),
+            Box::new(Library),
         ]
+    }
+}
+struct Library;
+impl MigrationName for Library {
+    fn name(&self) -> &str {
+        "m20261022_000009_library"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for Library {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("library.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Library data is durable; use a forward migration".into(),
+        ))
     }
 }
 struct Foundation;

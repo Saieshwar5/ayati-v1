@@ -19,6 +19,7 @@ fn setup(root: &Path) -> (Shared, User, User, User, String) {
         store.accept(user, &invite).unwrap();
     }
     let app = Arc::new(App {
+        library: Default::default(),
         provider: Provider::test_provider(),
         store: store.into(),
         origin: "http://127.0.0.1:8765".into(),
