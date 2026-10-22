@@ -15,6 +15,7 @@ mod library;
 mod library_http_tests;
 #[cfg(test)]
 mod library_tests;
+mod login_flows;
 mod messaging;
 pub mod migration;
 mod objects;
@@ -181,5 +182,7 @@ mod ownership_tests;
 #[cfg(test)]
 mod workspace_scenario_tests;
 
+#[cfg(test)]
+mod hosting_tests;
 #[cfg(test)]
 mod worker_tests;

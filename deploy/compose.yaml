@@ -1,0 +1,75 @@
+name: ayati
+x-runtime: &runtime
+  image: ${AYATI_IMAGE:-ayati:hosted-local}
+  platform: linux/amd64
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    - /var/lib/ayati:rw,nosuid,nodev,size=1g,uid=10001,gid=10001,mode=0700
+  stop_grace_period: 90s
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *runtime
+    command: [identity]
+    environment:
+      AYATI_PUBLIC_ORIGIN: ${AYATI_PUBLIC_ORIGIN:?Set the HTTPS public origin}
+      AYATI_BIND_ADDRESS: 0.0.0.0
+      AYATI_CHAT_EXECUTION: external
+      AYATI_WORKER_PROVIDERS: ${AYATI_WORKER_PROVIDERS:-openai}
+      AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
+      AYATI_GOOSE_PROVIDER: ${AYATI_GOOSE_PROVIDER:-openai}
+      RELAY_DATABASE_URL_FILE: /run/secrets/database_url
+      WORKOS_CLIENT_ID: ${WORKOS_CLIENT_ID:?Set the WorkOS client ID}
+      WORKOS_API_KEY_FILE: /run/secrets/workos_api_key
+      CUCKOO_LIBRARY_S3_BUCKET: ${CUCKOO_LIBRARY_S3_BUCKET:-}
+      CUCKOO_LIBRARY_S3_ENDPOINT: ${CUCKOO_LIBRARY_S3_ENDPOINT:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    secrets: [database_url, workos_api_key]
+    # Put a TLS reverse proxy/load balancer in front; this port is private to the host.
+    ports: ["127.0.0.1:${AYATI_LOCAL_PORT:-8765}:8765"]
+    healthcheck:
+      test: [CMD, /opt/ayati/ayati, api-health]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+  worker:
+    <<: *runtime
+    command: [worker]
+    environment:
+      RELAY_DATABASE_URL_FILE: /run/secrets/database_url
+      OPENAI_API_KEY_FILE: /run/secrets/model_api_key
+      AYATI_GOOSE_PROVIDER: openai
+      AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
+      AYATI_WORKER_CONCURRENCY: ${AYATI_WORKER_CONCURRENCY:-4}
+      AYATI_WORKER_HEALTH_FILE: /var/lib/ayati/worker.health
+    secrets: [database_url, model_api_key]
+    healthcheck:
+      test: [CMD, /opt/ayati/ayati, worker-health]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+  migrate:
+    <<: *runtime
+    profiles: [maintenance]
+    command: [workspace-db, migrate]
+    environment:
+      RELAY_DATABASE_URL_FILE: /run/secrets/migration_database_url
+    secrets: [migration_database_url]
+    restart: "no"
+
+secrets:
+  database_url:
+    file: ${AYATI_DATABASE_URL_FILE:?Set the runtime database URL file}
+  migration_database_url:
+    file: ${AYATI_MIGRATION_DATABASE_URL_FILE:?Set the migration database URL file}
+  workos_api_key:
+    file: ${AYATI_WORKOS_API_KEY_FILE:?Set the WorkOS API key file}
+  model_api_key:
+    file: ${AYATI_MODEL_API_KEY_FILE:?Set the model API key file}

@@ -14,7 +14,26 @@ impl MigratorTrait for Migrator {
             Box::new(AgentProfiles),
             Box::new(WorkspaceRoles),
             Box::new(Library),
+            Box::new(LoginFlows),
         ]
+    }
+}
+struct LoginFlows;
+impl MigrationName for LoginFlows {
+    fn name(&self) -> &str {
+        "m20261023_000010_login_flows"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for LoginFlows {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager.get_connection().execute_unprepared(
+            "CREATE TABLE relay_login_flows(hash TEXT PRIMARY KEY CHECK(length(hash)=43), state TEXT NOT NULL CHECK(length(state)<=256), verifier TEXT NOT NULL CHECK(length(verifier)<=256), invitation TEXT CHECK(length(invitation)<=1024), expires BIGINT NOT NULL); CREATE INDEX relay_login_flows_expiry ON relay_login_flows(expires);"
+        ).await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom("Use a forward migration".into()))
     }
 }
 struct Library;

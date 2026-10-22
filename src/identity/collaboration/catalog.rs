@@ -5,7 +5,7 @@ pub(in crate::identity) async fn agents(app: &App, user: &User, w: &str) -> Resu
     } else {
         vec![]
     };
-    if app.simulation.is_none() {
+    if app.simulation.is_none() && !hosting::hosted(app) {
         let state = app
             .runtimes
             .get(w, app.origin.rsplit(':').next().unwrap_or("8765").parse()?)

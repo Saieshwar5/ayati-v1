@@ -38,7 +38,7 @@ async fn list(
     let user = identity(&app, &headers).await?;
     let role = workspaces::membership(&app, &user, &w).await?;
     Ok(Json(
-        json!({"agents":pg(&app)?.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":std::env::var("OPENAI_API_KEY").is_ok_and(|s|!s.trim().is_empty())},{"id":"fireworks-ai","name":"Fireworks","configured":std::env::var("FIREWORKS_API_KEY").is_ok_and(|s|!s.trim().is_empty())}],"default_model":crate::config::Config::from_env()?.model}),
+        json!({"agents":pg(&app)?.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured("openai","OPENAI_API_KEY")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured("fireworks-ai","FIREWORKS_API_KEY")}],"default_model":crate::config::Config::from_env()?.model}),
     ))
 }
 async fn save(

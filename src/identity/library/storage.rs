@@ -18,7 +18,9 @@ pub enum Storage {
 impl Storage {
     pub fn from_env() -> Result<Self> {
         let local = std::env::var_os("CUCKOO_LIBRARY_LOCAL_ROOT");
-        let bucket = std::env::var("CUCKOO_LIBRARY_S3_BUCKET").ok();
+        let bucket = std::env::var("CUCKOO_LIBRARY_S3_BUCKET")
+            .ok()
+            .filter(|s| !s.is_empty());
         ensure!(
             local.is_none() || bucket.is_none(),
             "Configure only one Library storage backend"
@@ -27,7 +29,10 @@ impl Storage {
             let mut builder = AmazonS3Builder::from_env()
                 .with_bucket_name(bucket)
                 .with_allow_http(false);
-            if let Ok(endpoint) = std::env::var("CUCKOO_LIBRARY_S3_ENDPOINT") {
+            if let Some(endpoint) = std::env::var("CUCKOO_LIBRARY_S3_ENDPOINT")
+                .ok()
+                .filter(|s| !s.is_empty())
+            {
                 let url = reqwest::Url::parse(&endpoint).context("Invalid Library S3 endpoint")?;
                 ensure!(
                     url.scheme() == "https"

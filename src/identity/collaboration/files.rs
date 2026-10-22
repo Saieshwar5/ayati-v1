@@ -52,20 +52,30 @@ pub(super) async fn upload(
         size: bytes.len() as i64,
         checksum: checksum(&bytes),
     };
-    let root = app.runtimes.object_root(&w);
-    tokio::fs::create_dir_all(&root).await?;
-    use std::os::unix::fs::PermissionsExt;
-    tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).await?;
-    let path = root.join(&object.id);
-    let mut file = tokio::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&path)
-        .await?;
-    file.write_all(&bytes).await?;
-    file.sync_all().await?;
-    std::fs::File::open(&root)?.sync_all()?;
+    if hosting::hosted(&app) {
+        shared_storage(&app)?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            app.library.put(&format!("chat/{w}/{}", object.id), bytes),
+        )
+        .await
+        .context("File upload not confirmed; check stored records before retrying")??;
+    } else {
+        let root = app.runtimes.object_root(&w);
+        tokio::fs::create_dir_all(&root).await?;
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).await?;
+        let path = root.join(&object.id);
+        let mut file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&path)
+            .await?;
+        file.write_all(&bytes).await?;
+        file.sync_all().await?;
+        std::fs::File::open(&root)?.sync_all()?;
+    }
     // Retain orphan bytes on uncertain DB failure; reconciliation must not destroy evidence.
     pg(&app)?.save_object(&user, &w, &chat, &object).await?;
     Ok(Json(json!(object)))
@@ -78,9 +88,20 @@ pub(super) async fn download(
     let user = identity(&app, &headers).await?;
     check(uuid::Uuid::parse_str(&id).is_ok(), "Invalid file ID")?;
     let object = pg(&app)?.object(&user, &w, &id).await?;
-    let bytes = tokio::fs::read(app.runtimes.object_root(&w).join(&id))
+    let bytes = if hosting::hosted(&app) {
+        shared_storage(&app)?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            app.library.get(&format!("chat/{w}/{id}")),
+        )
         .await
-        .context("Stored object unavailable")?;
+        .context("File download timed out")??
+    } else {
+        tokio::fs::read(app.runtimes.object_root(&w).join(&id))
+            .await
+            .context("Stored object unavailable")?
+            .into()
+    };
     check(
         bytes.len() as i64 == object.size && checksum(&bytes) == object.checksum,
         "Stored object failed its integrity check",
@@ -99,6 +120,16 @@ pub(super) async fn download(
         .parse()?,
     );
     Ok(response)
+}
+fn shared_storage(app: &App) -> ApiResult<()> {
+    if matches!(app.library, library::Storage::S3(_)) {
+        Ok(())
+    } else {
+        Err(Error(
+            anyhow::anyhow!("Hosted chat attachments require private S3 storage."),
+            StatusCode::SERVICE_UNAVAILABLE,
+        ))
+    }
 }
 fn checksum(bytes: &[u8]) -> String {
     ring::digest::digest(&ring::digest::SHA256, bytes)

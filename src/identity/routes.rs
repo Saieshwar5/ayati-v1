@@ -42,27 +42,21 @@ pub(super) async fn login(
         url.query_pairs_mut()
             .append_pair("invitation_token", invitation);
     }
-    {
-        let mut pending = app.pending.lock().unwrap();
-        pending.retain(|_, v| v.expires > now());
-        check(
-            pending.len() < 100,
-            "Too many sign-in attempts. Try again later",
-        )?;
-        pending.insert(
-            digest(&token),
-            Pending {
-                state,
-                verifier,
-                invitation: input.invitation_token,
-                expires: now() + 600,
-            },
-        );
-    }
+    login_state::save(
+        &app,
+        &digest(&token),
+        Pending {
+            state,
+            verifier,
+            invitation: input.invitation_token,
+            expires: now() + 600,
+        },
+    )
+    .await?;
     let mut response = Redirect::to(url.as_str()).into_response();
     response
         .headers_mut()
-        .append(header::SET_COOKIE, set_cookie(FLOW, &token, 600));
+        .append(header::SET_COOKIE, set_cookie(&app, FLOW, &token, 600));
     Ok(response)
 }
 #[derive(Deserialize)]
@@ -78,12 +72,7 @@ pub(super) async fn callback(
 ) -> Response {
     let result: anyhow::Result<String> = async {
         let token = cookie(&headers, FLOW).context("Missing sign-in cookie")?;
-        let pending = app
-            .pending
-            .lock()
-            .unwrap()
-            .remove(&digest(&token))
-            .context("Sign-in expired")?;
+        let pending = login_state::take(&app, &digest(&token)).await?;
         anyhow::ensure!(
             pending.expires > now() && input.state.as_deref() == Some(&pending.state),
             "Sign-in state mismatch"
@@ -129,7 +118,7 @@ pub(super) async fn callback(
             let mut response = Redirect::to("/?view=account").into_response();
             response
                 .headers_mut()
-                .append(header::SET_COOKIE, set_cookie(SESSION, &token, 3600));
+                .append(header::SET_COOKIE, set_cookie(&app, SESSION, &token, 3600));
             response
         }
         // Deliberately do not expose the provider callback, code, or upstream error body.
@@ -137,7 +126,7 @@ pub(super) async fn callback(
     };
     response
         .headers_mut()
-        .append(header::SET_COOKIE, set_cookie(FLOW, "", 0));
+        .append(header::SET_COOKIE, set_cookie(&app, FLOW, "", 0));
     response
 }
 pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Response {
@@ -177,7 +166,7 @@ pub(super) async fn logout(State(app): State<Shared>, headers: HeaderMap) -> Api
     let mut response = Json(json!({"ok":true,"provider_session_revoked":revoked})).into_response();
     response
         .headers_mut()
-        .append(header::SET_COOKIE, set_cookie(SESSION, "", 0));
+        .append(header::SET_COOKIE, set_cookie(&app, SESSION, "", 0));
     Ok(response)
 }
 #[derive(Deserialize)]

@@ -4,7 +4,9 @@ mod agents;
 mod chat;
 mod collaboration;
 mod database;
+mod hosting;
 mod library;
+mod login_state;
 mod membership_schema;
 pub mod postgres;
 mod profile;
@@ -16,6 +18,7 @@ pub mod simulation;
 mod sqlite_access;
 pub mod store;
 pub mod worker;
+pub mod worker_health;
 mod workspaces;
 
 use anyhow::{Context, Result};
@@ -118,9 +121,9 @@ fn cookie(headers: &axum::http::HeaderMap, name: &str) -> Option<String> {
     }
     Some(value)
 }
-fn set_cookie(name: &str, value: &str, age: u32) -> axum::http::HeaderValue {
-    // This server binds only to loopback HTTP. Hosted deployment requires Secure cookies + HTTPS.
-    format!("{name}={value}; Path=/; HttpOnly; SameSite=Lax; Max-Age={age}")
+fn set_cookie(app: &App, name: &str, value: &str, age: u32) -> axum::http::HeaderValue {
+    let secure = if hosting::hosted(app) { "; Secure" } else { "" };
+    format!("{name}={value}; Path=/; HttpOnly; SameSite=Lax; Max-Age={age}{secure}")
         .parse()
         .unwrap()
 }
@@ -150,8 +153,9 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
 }
 pub async fn serve(data: &Path, port: u16) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
+    let hosting = hosting::Hosting::from_env(port)?;
     let provider = Provider::from_env()?;
-    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
+    let listener = tokio::net::TcpListener::bind((hosting.bind, port))
         .await
         .context("Identity port is in use. Stop the other server or choose AYATI_PORT")?;
     std::fs::create_dir_all(data)?;
@@ -191,6 +195,10 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         let bound = adoption::binding(&store)?;
         (store.into(), bound)
     };
+    anyhow::ensure!(
+        !hosting.origin.starts_with("https://") || bound.is_none(),
+        "Hosted identity requires a fresh data directory; local installation bindings are not portable"
+    );
     // The bound installation must never be opened simultaneously by the old daemon.
     let _installation_lock = if bound.is_some() {
         Some(adoption::lock(&installation.join("daemon.lock"))?)
@@ -203,7 +211,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         library: library::Storage::from_env()?,
         provider,
         store,
-        origin: format!("http://127.0.0.1:{port}"),
+        origin: hosting.origin,
         pending: Mutex::new(HashMap::new()),
         runtimes,
         simulation: None,
@@ -228,6 +236,8 @@ fn router(app: Shared) -> Router {
         .merge(collaboration::routes())
         .merge(simulation::routes())
         .merge(resources::routes())
+        .route("/health/live", get(hosting::live))
+        .route("/health/ready", get(hosting::ready))
         .route(
             "/",
             get(|axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>| async move {
@@ -282,8 +292,14 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
             .starts_with("/api/identity/workspaces/")
         && request.uri().path().contains("/library/")
         && request.uri().path().ends_with("/download");
-    let host = app.origin.trim_start_matches("http://");
-    if headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(host) {
+    let health = request.method() == axum::http::Method::GET
+        && matches!(request.uri().path(), "/health/live" | "/health/ready");
+    let host = app
+        .origin
+        .split_once("://")
+        .map(|(_, host)| host)
+        .unwrap_or("");
+    if !health && headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(host) {
         return StatusCode::FORBIDDEN.into_response();
     }
     if request.method() != axum::http::Method::GET
@@ -379,5 +395,7 @@ fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
 }
 
+#[cfg(test)]
+mod hosting_tests;
 #[cfg(test)]
 mod ownership_tests;
