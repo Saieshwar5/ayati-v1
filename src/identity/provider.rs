@@ -173,3 +173,6 @@ pub fn exchanged_session(value: &Value) -> Result<String> {
 #[cfg(test)]
 #[path = "provider_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod invitation_tests;

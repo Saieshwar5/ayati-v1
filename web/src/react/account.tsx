@@ -75,12 +75,12 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
       <DisplayNameForm key={session.user.id} user={session.user} saved={() => location.assign(location.href)} />
       {action('Manage workspaces', async () => location.assign('/?view=account&choose=1'))}{action('Sign out', logout)}
     </main> : screen === 'create' ? <main className="access-card"><Brand className="access-brand" />
-      <h1>Create your workspace</h1><p className="access-subtitle">Start on your own. Invite employees whenever you’re ready.</p>
+      <h1>Create your workspace</h1><p className="access-subtitle">Start on your own. Invite people whenever you’re ready.</p>
       <form onSubmit={event => { event.preventDefault(); void mutation.run(async () => {
         const result = await request<{ id: string }>('/workspaces', { name, request_id: createId.current });
         location.assign(`/w/${result.id}/`);
       }); }}><fieldset className="ui-fieldset" disabled={mutation.busy}>
-        <label className="access-field">Business or workspace name<input name="name" required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
+        <label className="access-field">Workspace name<input name="name" required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
         <button type="submit" className="access-button primary">Create workspace</button>
       </fieldset></form>
       <button type="button" className="access-button" disabled={mutation.busy} onClick={() => setScreen('choose')}>Back</button>

@@ -18,14 +18,14 @@ fn membership_invitation_and_revocation_are_transactional() {
     db.create(&owner, "Business", &workspace).unwrap();
     assert!(db.people(&outsider, &workspace).is_err());
     let invitation = db
-        .reserve_invite(&owner, &workspace, &employee.email, "Member")
+        .reserve_invite(&owner, &workspace, &employee.email, "User")
         .unwrap();
     assert!(db.accept(&employee, &invitation).is_err()); // No confirmed provider delivery.
     db.delivered(&invitation, Some("invitation_test")).unwrap();
     assert!(db.accept(&outsider, &invitation).is_err());
     db.accept(&employee, &invitation).unwrap();
     assert!(
-        db.reserve_invite(&employee, &workspace, "someone@example.com", "Member")
+        db.reserve_invite(&employee, &workspace, "someone@example.com", "User")
             .is_err()
     );
     assert!(db.change(&owner, &workspace, &owner.id, None).is_err());
@@ -49,27 +49,29 @@ fn cancelled_expired_and_demoted_invites_cannot_grant_access() {
     let workspace = uuid::Uuid::new_v4().to_string();
     db.create(&owner, "Business", &workspace).unwrap();
     let admin_invite = db
-        .reserve_invite(&owner, &workspace, &admin.email, "Admin")
+        .reserve_invite(&owner, &workspace, &admin.email, "User")
         .unwrap();
     db.delivered(&admin_invite, Some("invitation_admin"))
         .unwrap();
     db.accept(&admin, &admin_invite).unwrap();
+    db.change(&owner, &workspace, &admin.id, Some("Owner"))
+        .unwrap();
     assert!(
         db.reserve_invite(&admin, &workspace, "another@example.com", "Admin")
             .is_err()
     );
     let invitation = db
-        .reserve_invite(&admin, &workspace, &employee.email, "Member")
+        .reserve_invite(&admin, &workspace, &employee.email, "User")
         .unwrap();
     db.delivered(&invitation, Some("invitation_employee"))
         .unwrap();
-    db.change(&owner, &workspace, &admin.id, Some("Member"))
+    db.change(&owner, &workspace, &admin.id, Some("User"))
         .unwrap();
     assert!(db.accept(&employee, &invitation).is_err());
     db.cancel(&owner, &workspace, &invitation).unwrap();
     assert!(db.accept(&employee, &invitation).is_err());
     let invitation = db
-        .reserve_invite(&owner, &workspace, &employee.email, "Member")
+        .reserve_invite(&owner, &workspace, &employee.email, "User")
         .unwrap();
     db.delivered(&invitation, Some("invitation_new")).unwrap();
     db.0.lock()

@@ -61,7 +61,7 @@ test('Users searches display names while keeping email available for identificat
     await change(search, 'sai'); assert.equal(document.querySelectorAll('.ui-row').length, 1);
     await change(search, 'owner@example.com'); assert.equal(document.querySelectorAll('.ui-row').length, 1);
     await change(search, 'missing'); assert.equal(document.querySelectorAll('.ui-row').length, 0);
-  }, { fetch: async () => ({ ok: true, json: async () => ({ role: 'Member', members: [{ ...user, display_name: 'Sai Eshwar', role: 'Member' }], invitations: [] }) }) });
+  }, { fetch: async () => ({ ok: true, json: async () => ({ role: 'Owner', members: [{ ...user, display_name: 'Sai Eshwar', role: 'User' }], invitations: [] }) }) });
 });
 
 test('expired profile sessions return to sign-in without a successful save callback', async () => {

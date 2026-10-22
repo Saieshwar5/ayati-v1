@@ -30,7 +30,7 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
     </div>
     <p id="home-error" role="alert"></p>
     <button id="home-decisions" hidden aria-haspopup="dialog">Review attention</button>
-    <section id="home-panels"></section>
+    <section id="home-panels"></section><section data-work-records></section>
 
     <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Cuckoo</button></div>
     <div id="home-activity" hidden><button id="home-updates" class="text-button" aria-haspopup="dialog">Review outcomes</button><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>

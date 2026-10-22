@@ -4,11 +4,16 @@ import { currentWorkspace, workspaceUrl } from '../workspace-context';
 import { Button } from './ui';
 import { useMutation, useResource } from './requests';
 type Work = { id: string; chat: string; title: string; details: Record<string, unknown>; assignee: string; status: string; revision: number };
-export function CompanyWork({ directory }: { directory: Directory }) {
-  const resource = useResource(useCallback(() => chatRequest<{ work: Work[] }>('/work'), []));
+export function WorkRecords() {
+  const resource = useResource(useCallback(async () => {
+    const [directory, data] = await Promise.all([chatRequest<Directory>('/chat-directory'), chatRequest<{ work: Work[] }>('/work')]);
+    return { directory, ...data };
+  }, []));
   const mutation = useMutation();
   const [assignees, setAssignees] = useState<Record<string, string>>({});
-  const manager = ['Owner', 'Admin'].includes(currentWorkspace()?.role ?? '');
+  const manager = currentWorkspace()?.role === 'Owner';
+  if (!resource.data?.work.length) return null;
+  const directory = resource.data.directory;
   return <section><header><h2>Work records</h2><Button onClick={() => void resource.refresh().catch(() => {})}>Refresh work</Button></header>
     <p>Internal drafts, approvals and handoffs. Completed records are retained. No external order or payment is sent.</p>
     {(resource.error || mutation.status) && <p role="alert">{resource.error || mutation.status}</p>}

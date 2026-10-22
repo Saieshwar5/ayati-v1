@@ -17,7 +17,13 @@ pub fn now() -> i64 {
         .unwrap_or_default()
         .as_secs() as i64
 }
-fn audit(db: &Connection, actor: &str, workspace: &str, action: &str, target: &str) -> Result<()> {
+pub(super) fn audit(
+    db: &Connection,
+    actor: &str,
+    workspace: &str,
+    action: &str,
+    target: &str,
+) -> Result<()> {
     db.execute(
         "INSERT INTO audit(actor,workspace,action,target,at) VALUES(?1,?2,?3,?4,?5)",
         params![actor, workspace, action, target, now()],
@@ -33,29 +39,27 @@ pub fn role(db: &Connection, workspace: &str, actor: &str) -> Result<String> {
     .optional()?
     .context("Workspace access denied")
 }
-fn manager(db: &Connection, workspace: &str, actor: &str) -> Result<String> {
+pub(super) fn manager(db: &Connection, workspace: &str, actor: &str) -> Result<String> {
     let value = role(db, workspace, actor)?;
-    ensure!(
-        value == "Owner" || value == "Admin",
-        "Only owners and admins can manage people"
-    );
+    ensure!(value == "Owner", "Only Owners can manage workspace access");
     Ok(value)
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
-        let db = Connection::open(path)?;
+        let mut db = Connection::open(path)?;
         db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
             CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, provider TEXT UNIQUE NOT NULL, email TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, user TEXT NOT NULL REFERENCES users(id),
                 provider_session TEXT NOT NULL, expires INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY, name TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS members(workspace TEXT REFERENCES workspaces(id), user TEXT REFERENCES users(id),
-                role TEXT NOT NULL CHECK(role IN ('Owner','Admin','Member')), PRIMARY KEY(workspace,user));
+                role TEXT NOT NULL CHECK(role IN ('Owner','User')), PRIMARY KEY(workspace,user));
             CREATE TABLE IF NOT EXISTS invitations(id TEXT PRIMARY KEY, workspace TEXT REFERENCES workspaces(id),
                 email TEXT NOT NULL, role TEXT NOT NULL, inviter TEXT NOT NULL, expires INTEGER NOT NULL,
                 status TEXT NOT NULL, provider TEXT);
             CREATE UNIQUE INDEX IF NOT EXISTS pending_invite ON invitations(workspace,email) WHERE status='pending';
             CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor TEXT, workspace TEXT, action TEXT, target TEXT, at INTEGER);")?;
+        super::membership_schema::migrate(&mut db)?;
         super::profile::schema(&db)?;
         super::chat::schema(&db)?;
         super::resources::schema(&db)?;
@@ -167,12 +171,12 @@ impl Store {
     }
     pub fn people(&self, user: &User, workspace: &str) -> Result<Value> {
         let db = self.0.lock().unwrap();
-        let own_role = role(&db, workspace, &user.id)?;
+        let own_role = manager(&db, workspace, &user.id)?;
         let mut q = db.prepare("SELECT u.id,u.email,m.role,u.display_name FROM members m JOIN users u ON u.id=m.user WHERE m.workspace=?1 ORDER BY m.rowid")?;
         let members = q.query_map([workspace], |r| Ok(json!({"id":r.get::<_,String>(0)?,"email":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?,"display_name":r.get::<_,Option<String>>(3)?})))?
             .collect::<Result<Vec<_>,_>>()?;
         let mut invitations = Vec::new();
-        if own_role != "Member" {
+        if own_role == "Owner" {
             let mut q = db.prepare("SELECT id,email,role,status,expires FROM invitations WHERE workspace=?1 AND status NOT IN ('cancelled','accepted') ORDER BY rowid DESC")?;
             invitations = q.query_map([workspace], |r| Ok(json!({"id":r.get::<_,String>(0)?,"email":r.get::<_,String>(1)?,"role":r.get::<_,String>(2)?,"status":r.get::<_,String>(3)?,"expires":r.get::<_,i64>(4)?})))?
                 .collect::<Result<Vec<_>,_>>()?;
@@ -190,17 +194,18 @@ impl Store {
             email.len() <= 254 && email.contains('@') && !email.chars().any(char::is_whitespace),
             "Enter a valid email"
         );
-        ensure!(["Admin", "Member"].contains(&assigned), "Invalid role");
+        ensure!(assigned == "User", "Invalid role");
         let mut db = self.0.lock().unwrap();
         let tx = db.transaction()?;
-        let own_role = manager(&tx, workspace, &user.id)?;
-        ensure!(
-            assigned != "Admin" || own_role == "Owner",
-            "Only owners can appoint admins"
-        );
+        manager(&tx, workspace, &user.id)?;
         let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM members m JOIN users u ON u.id=m.user WHERE m.workspace=?1 AND u.email=?2)", params![workspace,email], |r|r.get(0))?;
         ensure!(!exists, "This person is already a member");
         tx.execute("UPDATE invitations SET status='expired' WHERE workspace=?1 AND expires<=?2 AND status='pending'",params![workspace,now()])?;
+        let outstanding: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM invitations WHERE workspace=?1 AND email=?2 AND status IN ('pending','delivery_unknown'))", params![workspace,email], |r|r.get(0))?;
+        ensure!(
+            !outstanding,
+            "An invitation is pending or delivery is uncertain; cancel it before sending another"
+        );
         let id = uuid::Uuid::new_v4().to_string();
         tx.execute(
             "INSERT INTO invitations VALUES(?1,?2,?3,?4,?5,?6,'pending',NULL)",
@@ -236,11 +241,7 @@ impl Store {
             email == user.email && status == "pending" && expires > now() && provider.is_some(),
             "Invitation unavailable for this account"
         );
-        let current = manager(&tx, &workspace, &inviter)?;
-        ensure!(
-            assigned != "Admin" || current == "Owner",
-            "Inviter no longer has authority"
-        );
+        manager(&tx, &workspace, &inviter)?;
         tx.execute(
             "INSERT INTO members VALUES(?1,?2,?3) ON CONFLICT(workspace,user) DO NOTHING",
             params![workspace, user.id, assigned],
@@ -272,21 +273,25 @@ impl Store {
         assigned: Option<&str>,
     ) -> Result<()> {
         ensure!(
-            assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
+            assigned.is_none_or(|r| ["Owner", "User"].contains(&r)),
             "Invalid role"
         );
         let mut db = self.0.lock().unwrap();
         let tx = db.transaction()?;
-        let own_role = manager(&tx, workspace, &user.id)?;
+        manager(&tx, workspace, &user.id)?;
         let target_role = role(&tx, workspace, target)?;
-        ensure!(
-            target_role != "Owner",
-            "The owner cannot be removed or demoted"
-        );
-        ensure!(
-            own_role == "Owner" || (target_role == "Member" && assigned != Some("Admin")),
-            "Only owners can manage admins"
-        );
+        if target_role == "Owner" && assigned != Some("Owner") {
+            let count: i64 = tx.query_row(
+                "SELECT count(*) FROM members WHERE workspace=?1 AND role='Owner'",
+                [workspace],
+                |r| r.get(0),
+            )?;
+            ensure!(count > 1, "A workspace must keep at least one Owner");
+        }
+        tx.execute(
+            "DELETE FROM member_app_sessions WHERE workspace=?1 AND user=?2",
+            params![workspace, target],
+        )?;
         if let Some(assigned) = assigned {
             tx.execute(
                 "UPDATE members SET role=?3 WHERE workspace=?1 AND user=?2",
@@ -311,7 +316,13 @@ impl Store {
                 params![workspace, target],
             )?;
         }
-        audit(&tx, &user.id, workspace, "membership_changed", target)?;
+        audit(
+            &tx,
+            &user.id,
+            workspace,
+            "membership_changed",
+            &format!("{target}:{}", assigned.unwrap_or("removed")),
+        )?;
         tx.commit()?;
         Ok(())
     }

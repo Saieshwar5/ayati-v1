@@ -11,16 +11,12 @@ impl PgStore {
             email.len() <= 254 && email.contains('@') && !email.chars().any(char::is_whitespace),
             "Enter a valid email"
         );
-        ensure!(["Admin", "Member"].contains(&assigned), "Invalid role");
+        ensure!(assigned == "User", "Invalid role");
         let tx = self.workspace_tx(workspace).await?;
-        let own_role = manager(&tx, workspace, &user.id).await?;
-        ensure!(
-            assigned != "Admin" || own_role == "Owner",
-            "Only owners can appoint admins"
-        );
+        manager(&tx, workspace, &user.id).await?;
         ensure!(query(&tx,"SELECT u.id FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 AND u.email=$2",vec![workspace.into(),email.into()]).await?.is_none(),"This person is already a member");
         execute(&tx,"UPDATE relay_invitations SET status='expired' WHERE workspace=$1 AND expires<=$2 AND status='pending'",vec![workspace.into(),now().into()]).await?;
-        ensure!(query(&tx,"SELECT id FROM relay_invitations WHERE workspace=$1 AND email=$2 AND status='pending'",vec![workspace.into(),email.into()]).await?.is_none(), "An invitation is already pending");
+        ensure!(query(&tx,"SELECT id FROM relay_invitations WHERE workspace=$1 AND email=$2 AND status IN ('pending','delivery_unknown')",vec![workspace.into(),email.into()]).await?.is_none(), "An invitation is pending or delivery is uncertain; cancel it before sending another");
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_invitations(id,workspace,email,role,inviter,expires,status) VALUES($1,$2,$3,$4,$5,$6,'pending')",vec![id.clone().into(),workspace.into(),email.into(),assigned.into(),user.id.clone().into(),(now()+604800).into()]).await.context("An invitation is already pending")?;
         audit(&tx, &user.id, Some(workspace), "invitation_created", &id).await?;
@@ -58,11 +54,7 @@ impl PgStore {
         let row=query(&tx,"SELECT role,inviter FROM relay_invitations WHERE id=$1 AND email=$2 AND status='pending' AND expires>$3 AND provider IS NOT NULL FOR UPDATE",vec![id.into(),user.email.clone().into(),now().into()]).await?.context("Invitation unavailable for this account")?;
         let assigned: String = row.try_get("", "role")?;
         let inviter: String = row.try_get("", "inviter")?;
-        let current = manager(&tx, &workspace, &inviter).await?;
-        ensure!(
-            assigned != "Admin" || current == "Owner",
-            "Inviter no longer has authority"
-        );
+        manager(&tx, &workspace, &inviter).await?;
         execute(&tx,"INSERT INTO relay_members(workspace,user_id,role) VALUES($1,$2,$3) ON CONFLICT(workspace,user_id) DO NOTHING",vec![workspace.clone().into(),user.id.clone().into(),assigned.into()]).await?;
         execute(
             &tx,
@@ -98,20 +90,30 @@ impl PgStore {
         assigned: Option<&str>,
     ) -> Result<()> {
         ensure!(
-            assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
+            assigned.is_none_or(|r| ["Owner", "User"].contains(&r)),
             "Invalid role"
         );
         let tx = self.workspace_tx(workspace).await?;
-        let own_role = manager(&tx, workspace, &user.id).await?;
+        manager(&tx, workspace, &user.id).await?;
         let target_role = role(&tx, workspace, target).await?;
-        ensure!(
-            target_role != "Owner",
-            "The owner cannot be removed or demoted"
-        );
-        ensure!(
-            own_role == "Owner" || (target_role == "Member" && assigned != Some("Admin")),
-            "Only owners can manage admins"
-        );
+        if target_role == "Owner" && assigned != Some("Owner") {
+            let count: i64 = query(
+                &tx,
+                "SELECT count(*) AS count FROM relay_members WHERE workspace=$1 AND role='Owner'",
+                vec![workspace.into()],
+            )
+            .await?
+            .context("Workspace unavailable")?
+            .try_get("", "count")?;
+            ensure!(count > 1, "A workspace must keep at least one Owner");
+        }
+        // Revoke documents issued under the old role as well as on removal.
+        execute(
+            &tx,
+            "DELETE FROM relay_member_app_sessions WHERE workspace=$1 AND user_id=$2",
+            vec![workspace.into(), target.into()],
+        )
+        .await?;
         if let Some(assigned) = assigned {
             execute(
                 &tx,
@@ -128,7 +130,14 @@ impl PgStore {
             )
             .await?;
         }
-        audit(&tx, &user.id, Some(workspace), "membership_changed", target).await?;
+        audit(
+            &tx,
+            &user.id,
+            Some(workspace),
+            "membership_changed",
+            &format!("{target}:{}", assigned.unwrap_or("removed")),
+        )
+        .await?;
         tx.commit().await?;
         Ok(())
     }

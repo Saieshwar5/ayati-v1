@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
 
 const workspace = '11111111-1111-4111-8111-111111111111';
-const member = { id: 'employee', email: 'employee@example.com', role: 'Member' };
+const member = { id: 'employee', email: 'employee@example.com', role: 'User' };
 const owner = { id: 'owner', email: 'owner@example.com', role: 'Owner' };
 
 async function fixture(viewerRole, run, respond) {
@@ -35,14 +35,37 @@ test('React invitations retain failed form values and require an explicit retry'
     await click(button('＋ Invite person'));
     const form = document.querySelector('form');
     assert.equal(document.activeElement, form.elements.email);
-    await change(form.elements.email, 'invited@example.com'); await change(form.elements.role, 'Admin');
+    await change(form.elements.email, 'invited@example.com');
     assert.equal(writes.length, 0); await submit(form);
     assert.match(document.querySelector('dialog [role=status]').textContent, /Invitation failed/);
     assert.equal(form.elements.email.value, 'invited@example.com'); assert.equal(button('Send invitation').disabled, false);
     assert.equal(writes.length, 1); failing = false; await submit(form);
     assert.equal(document.querySelector('dialog'), null);
-    assert.deepEqual(writes[1].body, { email: 'invited@example.com', role: 'Admin' });
+    assert.deepEqual(writes[1].body, { email: 'invited@example.com', role: 'User' });
   }, (path, body) => body && path.endsWith('/invitations') && failing ? { ok: false, data: { error: 'Invitation failed' } } : undefined);
+});
+
+test('Unconfirmed delivery refreshes invitations without losing the failed draft', async () => {
+  let current;
+  await fixture('Owner', async ({ people, writes, button, click, change, submit }) => {
+    current = people;
+    await click(button('＋ Invite person'));
+    const form = document.querySelector('form');
+    await change(form.elements.email, 'uncertain@example.com');
+    await submit(form);
+    assert.equal(form.elements.email.value, 'uncertain@example.com');
+    assert.match(document.querySelector('dialog [role=status]').textContent, /Cancel this invitation/);
+    assert.equal(writes.length, 1);
+    await click(button('Close'));
+    await click(button('Invitations'));
+    assert.match(document.querySelector('[role=tabpanel]:not([hidden])').textContent, /Delivery unconfirmed/);
+    assert.ok(button('Cancel invitation'));
+  }, (path, body) => {
+    if (body && path.endsWith('/invitations')) {
+      current.invitations.push({ id: 'uncertain', email: body.email, role: 'User', status: 'delivery_unknown', expires: 0 });
+      return { ok: false, data: { error: 'Cancel this invitation before trying again.' } };
+    }
+  });
 });
 
 test('opening a React member drawer grants nothing; rejected changes retain saved access', async () => {
@@ -64,8 +87,8 @@ test('opening a React member drawer grants nothing; rejected changes retain save
 test('React role and grant saves target only the selected person and resource', async () => {
   await fixture('Owner', async ({ writes, button, click, change }) => {
     await click(button(`View ${member.email}`));
-    await change(document.querySelector('dialog .ui-field select'), 'Admin'); await click(button('Save role'));
-    assert.deepEqual(writes[0].body, { role: 'Admin' }); assert.ok(writes[0].path.endsWith('/members/employee'));
+    await change(document.querySelector('dialog .ui-field select'), 'Owner'); await click(button('Save role'));
+    assert.deepEqual(writes[0].body, { role: 'Owner' }); assert.ok(writes[0].path.endsWith('/members/employee'));
     await change(document.querySelector('dialog .ui-resource select'), '');
     assert.deepEqual(writes[1].body, { user: 'employee', kind: 'app', resource: 'app', access: null });
     const agent = document.querySelector('dialog input[type=checkbox]'); await click(agent);
@@ -73,31 +96,20 @@ test('React role and grant saves target only the selected person and resource', 
   });
 });
 
-test('React member view cannot edit roles, invite, remove, or grant access', async () => {
-  await fixture('Member', async ({ writes, button, click }) => {
-    assert.equal(button('＋ Invite person').hidden, true); await click(button(`View ${member.email}`));
-    assert.equal(document.querySelector('dialog select').disabled, true);
-    assert.equal(button('Save role'), undefined); assert.equal(button('Remove from workspace'), undefined);
-    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 1); assert.equal(writes.length, 0);
+test('Users cannot open workspace management controls', async () => {
+  await fixture('User', async ({ writes }) => {
+    assert.match(document.body.textContent, /Only Owners/);
+    assert.equal(document.querySelector('input'), null);
+    assert.equal(writes.length, 0);
   });
 });
 
-test('React admins can invite members and remove members without owner grant controls', async () => {
-  await fixture('Admin', async ({ button, click, writes }) => {
-    await click(button('＋ Invite person'));
-    assert.deepEqual([...document.querySelector('dialog select').options].map(option => option.value), ['Member']);
-    await click(button('Close')); await click(button(`View ${member.email}`));
-    assert.equal(button('Save role'), undefined); assert.ok(button('Remove from workspace'));
-    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 1); assert.equal(writes.length, 0);
-  });
-});
-
-test('React owner membership remains immutable', async () => {
+test('The last Owner cannot be demoted or removed', async () => {
   await fixture('Owner', async ({ button, click }) => {
     await click(button(`View ${owner.email}`));
     assert.equal(document.querySelector('dialog select').disabled, true);
     assert.equal(button('Save role'), undefined); assert.equal(button('Remove from workspace'), undefined);
-    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 1);
+    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 3);
   });
 });
 

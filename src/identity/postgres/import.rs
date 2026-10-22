@@ -180,7 +180,14 @@ impl PgStore {
                         ValueRef::Integer(v) => v.into(),
                         ValueRef::Text(v) => {
                             let text = std::str::from_utf8(v)?;
-                            if table.source == "audit" && *column == "workspace" && text.is_empty()
+                            if *column == "role"
+                                && ["members", "invitations"].contains(&table.source)
+                                && ["Admin", "Member"].contains(&text)
+                            {
+                                "User".into()
+                            } else if table.source == "audit"
+                                && *column == "workspace"
+                                && text.is_empty()
                             {
                                 SqlValue::String(None)
                             } else {

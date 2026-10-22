@@ -71,16 +71,7 @@ pub(super) async fn prepare(root: &Path, store: &database::Database) -> Result<S
     for employee in employees.iter().skip(1) {
         if store.role(&workspace, &employee.user.id).await.is_err() {
             let id = store
-                .reserve_invite(
-                    owner,
-                    &workspace,
-                    &employee.user.email,
-                    if [3, 7, 12, 15].contains(&employee.number) {
-                        "Admin"
-                    } else {
-                        "Member"
-                    },
-                )
+                .reserve_invite(owner, &workspace, &employee.user.email, "User")
                 .await?;
             store
                 .delivered(&id, Some("simulation-local-no-email"))

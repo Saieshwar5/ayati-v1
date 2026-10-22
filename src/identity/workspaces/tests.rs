@@ -81,7 +81,7 @@ async fn cross_workspace_and_member_requests_cannot_inherit_owner_authority() {
     let invite = app
         .store
         .sqlite()
-        .reserve_invite(&owner, &first, &other.email, "Member")
+        .reserve_invite(&owner, &first, &other.email, "User")
         .unwrap();
     app.store.sqlite().delivered(&invite, Some("sent")).unwrap();
     app.store.sqlite().accept(&other, &invite).unwrap();
@@ -301,7 +301,7 @@ async fn startup_snapshot_marks_only_the_bound_owner_workspace() {
         .lock()
         .unwrap()
         .execute(
-            "UPDATE members SET role='Member' WHERE workspace=?1 AND user=?2",
+            "UPDATE members SET role='User' WHERE workspace=?1 AND user=?2",
             [&first, &owner.id],
         )
         .unwrap();

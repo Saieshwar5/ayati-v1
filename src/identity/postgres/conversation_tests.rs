@@ -8,7 +8,7 @@ async fn channel_membership_and_concurrent_direct_creation() {
     let member = user(&db, "channel-member").await;
     let outsider = user(&db, "channel-outsider").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &member, "User").await;
     let mut input = NewChat {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Inventory".into(),

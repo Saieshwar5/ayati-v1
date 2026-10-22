@@ -13,7 +13,7 @@ fn setup(root: &Path) -> (Shared, User, User, User, String) {
     store.create(&owner, "Business", &w).unwrap();
     for user in [&member, &second] {
         let invite = store
-            .reserve_invite(&owner, &w, &user.email, "Member")
+            .reserve_invite(&owner, &w, &user.email, "User")
             .unwrap();
         store.delivered(&invite, Some("sent")).unwrap();
         store.accept(user, &invite).unwrap();

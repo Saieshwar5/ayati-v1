@@ -13,7 +13,7 @@ async function loadAccess() {
   const [directory, resources] = await Promise.all([
     identityRequest<Directory>(`${base}/chat-directory`), identityRequest<Resources>(`${base}/resource-access`),
   ]);
-  if (directory.role !== 'Owner') throw new Error('Only the owner can manage resource access.');
+  if (directory.role !== 'Owner') throw new Error('Only Owners can manage resource access.');
   return { directory, resources };
 }
 

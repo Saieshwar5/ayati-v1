@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile,writeFile } from 'node:fs/promises';
 import { join,resolve } from 'node:path';
 import { clients,checksum } from './client.mjs';
-const root=resolve('.ayati-local/company-simulation/runs');
+const root=resolve(process.argv[3]??'.ayati-local/company-simulation/runs');
 const {directory}=JSON.parse(await readFile(join(root,'latest.json')));
 const manifest=JSON.parse(await readFile(join(directory,'manifest.json')));
 const {request}=clients(manifest.base,[]);
@@ -15,7 +15,8 @@ for(const id of Object.values(manifest.channels)) {
  channels[id]=[...new Set(messages.map(m=>m.id))].sort();
  for(const object of messages.flatMap(m=>m.attachments??[]))objects[object.id]=checksum(await request(0,`${manifest.w}/objects/${object.id}`));
 }
-const snapshot={messages:metrics.messages,objects:metrics.objects,feedback:metrics.feedback,channels,checksums:objects};
+const snapshot={messages:metrics.messages,objects:metrics.objects,feedback:metrics.feedback,channels,checksums:objects,
+ settings:await request(0,`${manifest.w}/settings`),people:await request(0,`${manifest.w}/people`)};
 const path=join(directory,'retention-before.json');
 if(process.argv[2]==='capture')await writeFile(path,JSON.stringify(snapshot,null,2));
 else {assert.deepEqual(snapshot,JSON.parse(await readFile(path)));await writeFile(join(directory,'retention-result.json'),JSON.stringify({passed:true,checked_at:new Date().toISOString(),...snapshot},null,2));}

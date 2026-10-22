@@ -15,7 +15,7 @@ export function ChannelSettings({ chat, directory }: { chat: Conversation; direc
   const [visibility, setVisibility] = useState<string>(chat.visibility ?? 'private');
   const [announcements, setAnnouncements] = useState(chat.announcements ?? false);
   const mutation = useMutation();
-  if (!['Owner', 'Admin'].includes(directory.role)) return null;
+  if (directory.role !== 'Owner') return null;
   return <section><h3>Channel access</h3><p>Making a channel public shares its existing history and published files with every workspace member.</p>
     <form className="company-form" onSubmit={e => { e.preventDefault(); void mutation.run(async () => { await chatRequest(`/chats/${chat.id}/settings`, { name, visibility, announcements }); mutation.setStatus('Channel settings saved.'); }); }}>
       <label>Channel name<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>

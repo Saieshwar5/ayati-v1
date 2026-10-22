@@ -4,9 +4,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { currentWorkspace, workspaceId } from '../workspace-context';
 import { WorkspaceShell } from './workspace-shell';
-import { CompanyPage } from './company';
-import { FeedbackPage } from './feedback';
-import { PeoplePage } from './people';
+import { SettingsPage } from './settings/settings-page';
 import { AccountPage } from './account';
 import { PrivateChat } from './private-chat';
 import { LegacyView } from './legacy-view';
@@ -25,12 +23,12 @@ export function WorkspaceApplication() {
   useEffect(() => () => disposeViewLifetime(), [featureKey]);
   useEffect(() => {
     document.documentElement.dataset.page = page;
-    const title = page === 'people' ? 'Users' : page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
+    const title = page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
     document.title = `${title} · Cuckoo`;
   }, [page, href]);
   const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
   return <WorkspaceShell page={page}>
-    {page === 'agents' && workspaceId && !url.searchParams.has('legacy') ? <AgentsPage /> : page === 'company' ? <CompanyPage /> : page === 'feedback' ? <FeedbackPage /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'people' ? <PeoplePage /> : page === 'account' ? <AccountPage embedded />
+    {page === 'agents' && workspaceId && !url.searchParams.has('legacy') ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'account' ? <AccountPage embedded />
       : privateChat ? <PrivateChat href={href} /> : <LegacyView key={featureKey} page={page} href={href} />}
   </WorkspaceShell>;
 }
