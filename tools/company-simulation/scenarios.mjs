@@ -7,7 +7,8 @@ export async function scenarios(c, request, check, fixtures, timings) {
   const history=(actor,chat)=>request(actor,`${w}/chats/${chat}/messages`);
   const agentReply=async(actor,chat,text,agent,extra={})=>{
     const id=randomUUID(),start=performance.now();
-    await request(actor,`${w}/chats/${chat}/messages`,{id,content:text,agent,...extra});
+    if (!extra.thread) await send(actor,chat,`Rehearsal request: ${text}`,{id});
+    await request(actor,`${w}/chats/${chat}/messages`,{id:randomUUID(),content:text,agent,thread:id,...extra});
     const h=await until(()=>history(actor,chat),h=>h.messages.some(m=>m.kind==='agent' && m.thread===(extra.thread??id) && m.state!=='queued'),'agent completion');
     const reply=h.messages.find(m=>m.kind==='agent' && m.thread===(extra.thread??id));
     timings.push(performance.now()-start); return {id,reply};
@@ -25,8 +26,9 @@ export async function scenarios(c, request, check, fixtures, timings) {
     const blocked=await agentReply(3,channels.Sales,`Complete this quotation now. [complete:${work.id}]`,agents[3].id);
     assert.equal(blocked.reply.state,'failed');
     await request(4,`${w}/work/${work.id}`,{status:'approved',assignee:employees[3].user.id,revision:work.revision},{expected:400});
-    await request(3,`${w}/work/${work.id}`,{status:'approved',assignee:employees[3].user.id,revision:work.revision});
     await request(3,`${w}/work/${work.id}`,{status:'approved',assignee:employees[3].user.id,revision:work.revision},{expected:400});
+    await request(0,`${w}/work/${work.id}`,{status:'approved',assignee:employees[3].user.id,revision:work.revision});
+    await request(0,`${w}/work/${work.id}`,{status:'approved',assignee:employees[3].user.id,revision:work.revision},{expected:400});
     const completed=await agentReply(3,channels.Sales,`Approval is recorded; finish the internal quotation. [complete:${work.id}]`,agents[3].id);
     assert.equal(completed.reply.state,'complete');
     work=(await request(3,`${w}/work`)).work.find(t=>t.id===reply.id);assert.equal(work.status,'completed');

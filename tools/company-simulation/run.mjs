@@ -43,7 +43,8 @@ await scenarios(c,request,check,fixtures,agentTimes);
 await check('Twenty simultaneous agent requests are admitted and complete',async()=>{
  const payloads=c.employees.map(e=>({actor:e.number,chat:c.channels[e.team],id:randomUUID(),content:`${e.name}: confirm the next action during the busy period.`,agent:c.agents[e.number].id}));
  const start=performance.now();
- const results=await Promise.allSettled(payloads.map(p=>request(p.actor,`${c.w}/chats/${p.chat}/messages`,{id:p.id,content:p.content,agent:p.agent})));
+ await Promise.all(payloads.map(p=>request(p.actor,`${c.w}/chats/${p.chat}/messages`,{id:p.id,content:'Busy-period request thread.'})));
+ const results=await Promise.allSettled(payloads.map(p=>request(p.actor,`${c.w}/chats/${p.chat}/messages`,{id:randomUUID(),thread:p.id,content:p.content,agent:p.agent})));
  const accepted=payloads.filter((_,i)=>results[i].status==='fulfilled');
  await until(()=>request(0,`${c.w}/metrics`),m=>m.pending===0,'busy-period drain',60000);
  c.agentBurst={offered:20,accepted:accepted.length,rejected:20-accepted.length,elapsed_ms:performance.now()-start};
@@ -51,16 +52,16 @@ await check('Twenty simultaneous agent requests are admitted and complete',async
  assert.equal(accepted.length,20,'Expected the bounded queue to absorb a 20-person burst');
 });
 await check('Feedback stays scoped, retries are safe, and status edits reject stale revisions',async()=>{
- const id=randomUUID(),input={id,chat:c.channels.Finance,title:'Finance review example',expected:'Manager reviews supplier evidence',actual:'Awaiting supplier document',category:'usability',severity:'low',evidence:`Run ${run}: intentionally seeded feedback example`};
+ const id=randomUUID(),input={id,chat:c.channels.Finance,title:'Finance review example',expected:'Owner reviews supplier evidence',actual:'Awaiting supplier document',category:'usability',severity:'low',evidence:`Run ${run}: intentionally seeded feedback example`};
  await request(12,`${c.w}/feedback`,input);await request(12,`${c.w}/feedback`,input);
  assert.ok(!(await request(3,`${c.w}/feedback`)).feedback.some(f=>f.id===id));
- await request(12,`${c.w}/feedback/${id}`,{status:'investigating',revision:0});
- await request(12,`${c.w}/feedback/${id}`,{status:'verified',revision:0},{expected:400});
+ await request(12,`${c.w}/feedback/${id}`,{status:'investigating',revision:0},{expected:400});
+ await request(0,`${c.w}/feedback/${id}`,{status:'investigating',revision:0});
+ await request(0,`${c.w}/feedback/${id}`,{status:'verified',revision:0},{expected:400});
 });
 const limitations=[
  ['Real model quality is not tested','Evaluate judgement and factual accuracy with a separately authorized real-model study.','All replies were deterministic fixtures.','missing-feature'],
  ['External business integrations are not exercised','Validate live provider authorization and uncertain external writes separately.','The rehearsal only changes internal work records.','missing-feature'],
- ['Notifications and unread counts remain absent','Employees can find new work without opening every conversation.','The current interface polls open conversations and has no unread/push system.','missing-feature'],
  ['Same-workspace transactions serialize writes','Measure contention before changing the locking strategy.','The workspace row remains a broad authorization lock; compare sustained workload latency before redesign.','architecture'],
  ['Shared runtime tools remain restricted','Extend approved internal operations to real runtime adapters with the same receipts.','Internal work execution is wired to the scripted simulation adapter; Goose still has conversation-only tools.','missing-feature'],
 ];

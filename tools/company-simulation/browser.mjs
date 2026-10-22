@@ -5,7 +5,7 @@ import { resolve,join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
-const {directory}=JSON.parse(await readFile(resolve('.ayati-local/company-simulation/runs/latest.json')));
+const {directory}=JSON.parse(await readFile(resolve(process.argv[2]??'.ayati-local/company-simulation/runs','latest.json')));
 const c=JSON.parse(await readFile(join(directory,'manifest.json')));
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
 const errors=[],results=[];
@@ -30,7 +30,7 @@ try{
  const audio=q.locator('audio[aria-label="voice-message.webm"]').last();await audio.scrollIntoViewIfNeeded();await audio.evaluate(async node=>{await node.play();});await q.waitForFunction(()=>[...document.querySelectorAll('audio')].some(a=>a.getAttribute('aria-label')==='voice-message.webm'&&a.currentTime>0.05));
  results.push({name:'image decode and recorded audio playback',passed:true});
  await p.screenshot({path:join(directory,'company-chat-desktop.png')});
- await visit(p,'company');await p.getByRole('heading',{name:'Work records',exact:true}).waitFor();await p.screenshot({path:join(directory,'company-work-desktop.png')});
+ await visit(p,'home');await p.getByRole('heading',{name:'Work records',exact:true}).waitFor();await p.screenshot({path:join(directory,'workspace-work-desktop.png')});
  await visit(p,'feedback');await p.getByRole('heading',{name:'Feedback',exact:true}).waitFor();await p.getByRole('button',{name:'Report an issue'}).click();await p.getByLabel('Issue',{exact:true}).fill('Browser feedback journey');await p.getByLabel('Expected result').fill('An employee can report a problem without losing context.');await p.getByLabel('Actual result').fill('Report created during the automated browser rehearsal.');await p.getByRole('button',{name:'Save report'}).click();await p.getByRole('heading',{name:'Browser feedback journey'}).last().waitFor();results.push({name:'feedback submission through product UI',passed:true});
  for(const theme of ['light','dark']){await p.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);for(const viewport of [{width:1366,height:900},{width:320,height:568}]){await p.setViewportSize(viewport);const fits=await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);assert.ok(fits,`${theme} ${viewport.width} overflow`);await p.screenshot({path:join(directory,`feedback-${theme}-${viewport.width}.png`)});}}
  results.push({name:'feedback viewport containment, light/dark',passed:true});

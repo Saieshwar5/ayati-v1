@@ -4,7 +4,7 @@ import { readFile,writeFile,mkdir } from 'node:fs/promises';
 import { resolve,join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-const {directory}=JSON.parse(await readFile(resolve('.ayati-local/company-simulation/runs/latest.json')));
+const {directory}=JSON.parse(await readFile(resolve(process.argv[2]??'.ayati-local/company-simulation/runs','latest.json')));
 const c=JSON.parse(await readFile(join(directory,'manifest.json')));
 const evidence=join(directory,`messaging-${Date.now()}`);await mkdir(evidence);
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});

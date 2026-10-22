@@ -16,8 +16,9 @@ npm run build --prefix web
 ```
 
 Open `http://127.0.0.1:8876/index.html?view=simulation`. Choose an employee; Ananya
-Rao is the owner and can see Company → Simulation results. Feedback contains
-permission-scoped findings. The account menu and simulation banner switch employees.
+Rao is the Owner and can see Settings → Workspace → Teams → Simulation results.
+Settings → Personal → Help & feedback contains permission-scoped findings. The
+account menu and simulation banner switch employees.
 
 The helper uses a separate PostgreSQL cluster on a private Unix socket, port 55433,
 with no TCP listener. The application runs as `relay_app`, without schema or audit
@@ -57,8 +58,8 @@ API timing, browser visibility and deterministic business-operation results.
 ## Product capabilities
 
 New shared-company features require PostgreSQL. SQLite/private-agent behavior stays
-available, but it does not implement these new collaboration APIs. Apply the fourth
-through sixth explicit forward migrations before using the new binary with an ordinary
+available, but it does not implement these new collaboration APIs. Apply all eight
+explicit forward migrations before using the new binary with an ordinary
 PostgreSQL workspace. The helper migrates only its dedicated simulation database;
 it does not migrate the user's ordinary workspace.
 
@@ -66,8 +67,8 @@ it does not migrate the user's ordinary workspace.
   grants still control which employees can request them. Real Goose execution of
   these agents remains conversation-only; the scripted executor is simulation-only.
 - Teams organize people; team membership does not implicitly grant channel access.
-- Channel member replacement rechecks current workspace roles. Managers can rename
-  channels, switch private/public visibility and restrict posting to managers.
+- Channel member replacement rechecks current workspace roles. Owners can rename
+  channels, switch private/public visibility and restrict posting to Owners.
   Making a channel public exposes existing history and published attachments.
 - History has a bounded 200-message page and an older-history cursor. Referenced
   thread roots accompany pages. UI merges loaded pages by stable message identity.
@@ -81,9 +82,9 @@ it does not migrate the user's ordinary workspace.
   after uncertain metadata writes. Quotas, reconciliation and garbage collection remain.
 - Feedback stores expected/actual outcomes, impact, category, evidence and status.
   Its audience follows the linked conversation, including revocation. Exact retries
-  are idempotent. Manager status changes use revision checks and audit entries.
+  are idempotent. Owner status changes use revision checks and audit entries.
   The list is currently limited to the latest 200 accessible reports.
-- Internal quotation drafts have real persisted totals, requester/assignee, manager
+- Internal quotation drafts have real persisted totals, requester/assignee, Owner
   approval, revision checks and completion state. Scripted agent operations require
   an explicit per-channel work grant, live requester access and an active job claim.
   The business write and receipt commit together; retries reuse that receipt. This
@@ -183,3 +184,36 @@ The earlier polling measurements above are retained baseline evidence. Shared ch
 uses durable live synchronization, a local outbox, delivered/seen receipts and unread
 counts. See [the current contract and outage checks](reliable-messaging.md). Additional
 `messaging-*` reports and conversations are retained alongside the original rehearsals.
+
+## Owner/User workspace follow-up
+
+See [the 2026-10-22 workspace audit](workspace-simulation-2026-10-22.md) for current
+Settings, invitation, role-race, workspace-switching, load and recovery evidence.
+The older performance observations and improvement list above are historical;
+unread counts and live delivery are now implemented and exercised separately.
+
+All runners accept an alternative retained runs directory. For a freshly seeded,
+isolated instance (change the base URL and directory to match that instance):
+
+```sh
+node tools/company-simulation/run.mjs http://127.0.0.1:8878 .tmp/workspace-audit/runs
+node tools/company-simulation/load.mjs 45 .tmp/workspace-audit/runs
+node tools/company-simulation/browser.mjs .tmp/workspace-audit/runs
+node tools/company-simulation/messaging.mjs .tmp/workspace-audit/runs
+node tools/company-simulation/recovery.mjs prepare .tmp/workspace-audit/runs
+# Restart only that isolated server, then verify its queued jobs.
+node tools/company-simulation/recovery.mjs verify .tmp/workspace-audit/runs
+node tools/company-simulation/retention.mjs capture .tmp/workspace-audit/runs
+# Restart only that isolated server, then compare retained data.
+node tools/company-simulation/retention.mjs verify .tmp/workspace-audit/runs
+node tools/company-simulation/workspaces.mjs .tmp/workspace-audit/runs
+node tools/company-simulation/settings-browser.mjs .tmp/workspace-audit/runs
+```
+
+The workspace runner also performs a read-only simulation-endpoint denial check
+against the ordinary server on port 8765. It intentionally removes fictional
+employee 19 from the seeded workspace at the end. Run the 20-person workloads
+before that check; use a newly seeded isolated database for another full audit.
+`--verify-removal` resumes only the final removal verification using its retained
+report, without restoring revoked access or replaying earlier mutation scenarios.
+These scripts retain their data and never reset an ordinary workspace.

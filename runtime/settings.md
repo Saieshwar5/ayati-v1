@@ -22,6 +22,12 @@ administration authority, including changing another Owner to User or removing
 them. At least one Owner must remain. PostgreSQL serializes these changes with the
 workspace row lock; SQLite uses its existing connection mutex and transaction.
 
+An invitation with unconfirmed email delivery cannot grant access or be silently
+sent again. An Owner must cancel it before sending another invitation to that
+address in the same workspace. The failure keeps the email draft and refreshes
+People's invitation list immediately, labelled "Delivery unconfirmed". Cancellation
+removes the local membership-grant path even if provider revocation fails.
+
 Membership, settings, activity and invitation APIs enforce Owner access. Chat's
 member directory remains available to workspace participants without exposing
 invitations. Agent, App and panel grants remain explicit and separate from roles.
@@ -71,3 +77,6 @@ role-based sections, failed saves, invitation retry, grants and double submissio
 A separate scripted workspace was used for the browser journey, including Owner
 and User views, promotion/demotion while open, personal themes, general/activity,
 short windows and narrow layouts. No model calls or invitation emails were sent.
+
+See [the workspace scenario audit](workspace-simulation-2026-10-22.md) for the
+subsequent 20-person workload, provider-fixture tests and recovery/restore results.
