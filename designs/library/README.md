@@ -4,6 +4,10 @@ Created in the live OpenPencil desktop through its authenticated MCP bridge on
 2026-10-22. These are editable design frames and illustrative previews, not a shipped
 Library feature or a working S3 integration. The existing application was not edited.
 
+The [implementation plan](implementation-plan.md) turns this concept into ordered
+delivery stages, access rules, storage boundaries and testable release gates.
+It is a plan, not an implementation-status claim.
+
 Open [cuckoo-library-concept.fig](cuckoo-library-concept.fig) in OpenPencil. It contains
 nine named screens, arranged as a reading flow. Names, files and counts are fictional.
 
