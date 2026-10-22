@@ -45,6 +45,7 @@ pub async fn serve(data: &Path) -> Result<()> {
         .context("The independent worker requires RELAY_DATABASE_URL; SQLite is not supported")?;
     let pg = PgStore::connect(&url).await?;
     pg.verify_schema().await?;
+    let health = super::worker_health::Heartbeat::from_env()?;
     let root = data
         .join("chat-workers")
         .join(uuid::Uuid::new_v4().to_string());
@@ -59,19 +60,35 @@ pub async fn serve(data: &Path) -> Result<()> {
         signal.cancel();
     });
     tracing::info!(concurrency = limit, "Independent shared-chat worker ready");
-    dispatch(Arc::new(Database::Postgres(pg)), &root, &stopping, limit).await;
+    dispatch(
+        Arc::new(Database::Postgres(pg)),
+        &root,
+        &stopping,
+        limit,
+        health,
+    )
+    .await;
     signal_task.abort();
     execution::cleanup(&root).await;
     tracing::info!("Independent shared-chat worker stopped");
     Ok(())
 }
 
-async fn dispatch(db: Arc<Database>, root: &Path, stopping: &CancellationToken, limit: usize) {
+async fn dispatch(
+    db: Arc<Database>,
+    root: &Path,
+    stopping: &CancellationToken,
+    limit: usize,
+    mut health: Option<super::worker_health::Heartbeat>,
+) {
     let Database::Postgres(pg) = db.as_ref() else {
         unreachable!()
     };
     let mut tasks = JoinSet::new();
     while !stopping.is_cancelled() {
+        if let Some(health) = &mut health {
+            health.tick(pg).await;
+        }
         while tasks.len() < limit && !stopping.is_cancelled() {
             let claimed = tokio::select! {
                 _ = stopping.cancelled() => break,

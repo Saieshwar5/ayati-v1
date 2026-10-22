@@ -98,17 +98,24 @@ export async function workerFixture(t) {
     }, 'API did not start');
   }
   async function startWorker() {
+    const workerData = join(data, 'worker-' + randomUUID());
+    await mkdir(workerData);
     const worker = launch(['worker'], {
       RELAY_DATABASE_URL: runtime.href,
-      AYATI_DATA_DIR: join(data, 'worker-' + randomUUID()),
+      AYATI_DATA_DIR: workerData,
+      AYATI_WORKER_HEALTH_FILE: join(workerData, 'worker.health'),
       OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url,
       // Deliberately inherited local capabilities must all be disabled for shared work.
       AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/vm.json',
       AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
     });
+    worker.healthFile = join(workerData, 'worker.health');
     await until(() => {
       assert.equal(worker.child.exitCode, null, worker.logs);
-      return worker.logs.includes('Independent shared-chat worker ready');
+      try {
+        execFileSync(binary, ['worker-health'], { cwd: data, env: { ...env, AYATI_WORKER_HEALTH_FILE: worker.healthFile }, stdio: 'pipe' });
+        return true;
+      } catch { return false; }
     }, 'Worker did not start');
     return worker;
   }
@@ -159,6 +166,9 @@ export async function workerFixture(t) {
       'Reply did not reach ' + state, 35000);
   }
   return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done,
+    startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
+      WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
+      AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
     sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
     pass: name => { records.push({ name, passed: true }); console.log('PASS', name); },
     // Only synthetic IDs obtained from this schema are interpolated into fixture SQL.

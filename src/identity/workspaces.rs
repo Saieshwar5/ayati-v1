@@ -198,7 +198,16 @@ async fn dispatch_for(
         return StatusCode::FORBIDDEN.into_response();
     }
     if path == "/api/context" {
-        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner","adopted":adopted && role == "Owner"})).into_response();
+        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner" && !hosting::hosted(&app),"adopted":adopted && role == "Owner"})).into_response();
+    }
+    if hosting::hosted(&app) {
+        if let Some(mut value) = member_view(&path, request.method()) {
+            if matches!(path.as_str(), "/api/apps" | "/api/panels") {
+                value["available"] = json!(false);
+            }
+            return Json(value).into_response();
+        }
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":"This local runtime feature is not available in the hosted workspace yet."}))).into_response();
     }
     if app.simulation.is_some() {
         if path == "/api/agents" {

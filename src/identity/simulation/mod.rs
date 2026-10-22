@@ -133,7 +133,7 @@ async fn login(
         Json(json!({"workspace":sim.workspace,"user":employee.user})).into_response();
     response
         .headers_mut()
-        .append(header::SET_COOKIE, set_cookie(SESSION, &token, 3600));
+        .append(header::SET_COOKIE, set_cookie(&app, SESSION, &token, 3600));
     Ok(response)
 }
 

@@ -9,12 +9,14 @@ of the remote-tool/cloud-worker plan.
 Build the current binary and configure a migrated PostgreSQL database privately
 using [the existing setup](postgres-workspaces.md). Both processes use the same
 `RELAY_DATABASE_URL`. They do not need the same filesystem or data directory.
-There is no new database migration in this increment; schema version 9 remains.
+The original worker increment used schema version 9. The current checkout also
+requires migration 10 for durable hosted sign-in state; migrate and reapply runtime
+grants before starting either role. See [hosted deployment](hosted-deployment.md).
 
 Start the API in one terminal:
 
 ```sh
-AYATI_CHAT_EXECUTION=external cargo run --locked -- identity
+AYATI_WORKER_PROVIDERS=fireworks-ai AYATI_CHAT_EXECUTION=external cargo run --locked -- identity
 ```
 
 Start a worker in another terminal, with its own scratch directory:
@@ -28,6 +30,12 @@ PostgreSQL runtime connection, pinned Goose binary and credentials for the model
 providers used by the selected agent profiles. It opens no HTTP listener, needs no
 WorkOS credentials or Library object-store credentials, and never opens the API's
 local agent registry or private VM-backed workspace.
+
+Set `AYATI_WORKER_PROVIDERS` on the API to the providers actually configured on
+workers (`openai`, `fireworks-ai`, or both, comma separated). This advertises model
+choices without giving the API model keys; it is not a worker availability check.
+The optional `AYATI_WORKER_HEALTH_FILE` and `ayati worker-health` support a process
+supervisor; [the hosted guide](hosted-deployment.md) describes readiness and limits.
 
 `AYATI_CHAT_EXECUTION=embedded` is the default for existing installations. It keeps
 the original in-process shared dispatcher. `external` disables that dispatcher in

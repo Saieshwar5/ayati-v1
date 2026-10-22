@@ -50,6 +50,18 @@ async fn main() -> Result<()> {
             .await
         }
         "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
+        "worker-health" => ayati::identity::worker_health::check(),
+        "api-health" => {
+            reqwest::Client::builder()
+                .no_proxy()
+                .timeout(std::time::Duration::from_secs(5))
+                .build()?
+                .get(format!("http://127.0.0.1:{}/health/ready", config.port))
+                .send()
+                .await?
+                .error_for_status()?;
+            Ok(())
+        }
         "worker" => {
             anyhow::ensure!(
                 !config.prototype,
@@ -104,7 +116,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Cuckoo workspaces\nayati worker     Run an independent PostgreSQL shared-chat worker\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Cuckoo — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Cuckoo workspaces\nayati worker     Run an independent PostgreSQL shared-chat worker\nayati api-health Check API readiness on its internal port\nayati worker-health Check this container worker heartbeat\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }

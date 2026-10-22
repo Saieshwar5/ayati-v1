@@ -12,6 +12,10 @@ pub(super) fn schema(db: &rusqlite::Connection) -> Result<()> {
     Ok(())
 }
 async fn platform(app: &App, workspace: &str) -> Result<Arc<crate::platform::Platform>> {
+    ensure!(
+        !hosting::hosted(app),
+        "Local business resources are unavailable in hosted workspaces"
+    );
     let port = app.origin.rsplit(':').next().unwrap().parse()?;
     app.runtimes
         .get(workspace, port)
@@ -165,6 +169,7 @@ async fn list(
         workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can manage resource access",
     )?;
+    hosted_boundary(&app)?;
     let p = platform(&app, &workspace).await?;
     let grants = app.store.resource_grants(&user, &workspace).await?;
     Ok(Json(
@@ -191,6 +196,7 @@ async fn grant(
         workspaces::membership(&app, &user, &workspace).await? == "Owner",
         "Only the owner can share resources",
     )?;
+    hosted_boundary(&app)?;
     check(
         ["app", "panel"].contains(&input.kind.as_str()),
         "Unknown resource type",
@@ -226,6 +232,16 @@ async fn grant(
         )
         .await?;
     Ok(Json(json!({"ok":true})))
+}
+
+fn hosted_boundary(app: &App) -> ApiResult<()> {
+    if hosting::hosted(app) {
+        return Err(Error(
+            anyhow::anyhow!("Local business resources are unavailable in hosted workspaces"),
+            StatusCode::SERVICE_UNAVAILABLE,
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

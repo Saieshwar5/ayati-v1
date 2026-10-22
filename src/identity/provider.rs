@@ -29,6 +29,17 @@ impl Provider {
             base_url: "https://api.workos.com".into(),
         }
     }
+    #[cfg(test)]
+    pub(super) fn fixture(base_url: String) -> Self {
+        let mut provider = Self::test_provider();
+        provider.base_url = base_url;
+        provider.client = Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+        provider
+    }
     pub fn from_env() -> Result<Self> {
         let key = std::env::var("WORKOS_API_KEY")
             .or_else(|_| std::env::var("WORK_OS_API_KEY"))

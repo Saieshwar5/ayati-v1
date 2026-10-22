@@ -1,0 +1,25 @@
+# Allow only build inputs. Local secrets, data, references and screenshots never enter the context.
+**
+!Cargo.toml
+!Cargo.lock
+!src/
+!src/**
+!crates/
+!crates/guest/
+!crates/guest/Cargo.toml
+!crates/guest/src/
+!crates/guest/src/**
+!web/
+!web/package.json
+!web/package-lock.json
+!web/index.html
+!web/tsconfig.json
+!web/vite.config.ts
+!web/src/
+!web/src/**
+!web/public/
+!web/public/**
+!tools/
+!tools/install-goose.sh
+!deploy/
+!deploy/container-entrypoint.sh

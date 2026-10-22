@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import { access } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/goose_app.mjs';
 
@@ -21,6 +22,7 @@ test('API-only workspace and independent Goose workers retain and recover shared
   app.pass('API restart preserves queued requests and authenticated conversation access');
 
   let worker = await app.startWorker();
+  await access(worker.healthFile);
   assert.match((await app.done(first)).content, /GOOSE_FIXTURE_OK/);
   assert.deepEqual(app.provider.requests.at(-1).tools ?? [], []);
   assert.equal(app.attempts(first), 1);
@@ -39,6 +41,7 @@ test('API-only workspace and independent Goose workers retain and recover shared
   await until(() => app.provider.requests.length > calls, 'Worker did not start held request');
   const gracefulChildren = await app.gooseChildren(worker);
   await app.stop(worker);
+  await assert.rejects(access(worker.healthFile));
   await app.assertChildrenStopped(gracefulChildren);
   app.provider.setHeld(false);
   worker = await app.startWorker();

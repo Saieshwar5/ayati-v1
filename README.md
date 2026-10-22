@@ -379,3 +379,8 @@ against the same PostgreSQL database with its own data directory. See
 [independent shared-chat workers](runtime/independent-chat-worker.md) for startup,
 recovery checks and the conversation-only boundary. Existing embedded execution
 remains the default; this increment does not deploy the platform to cloud.
+
+The [hosted deployment foundation](runtime/hosted-deployment.md) adds one container
+image for API/workers/migrations, explicit HTTPS origin and Secure cookies,
+PostgreSQL sign-in state across API replacement, and readiness checks. The Compose
+template is for a private deployment rehearsal; cloud resources are not provisioned.
