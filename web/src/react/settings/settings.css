@@ -1,0 +1,58 @@
+.settings-react { height:100%; min-height:0; min-width:0; display:flex; flex-direction:column; background:var(--surface); color:var(--text); overflow:hidden; }
+.settings-heading { padding:26px 32px 20px; flex-shrink:0; }
+.settings-heading h1 { font-weight:600; font-size:26px; margin:0 0 8px; }
+.settings-react p { color:var(--muted); font-size:14px; line-height:1.5; }
+.settings-heading p { margin:0; }
+.settings-controls { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 32px 18px; flex-shrink:0; }
+.settings-scope { display:flex; gap:4px; border-radius:10px; background:var(--soft); padding:4px; }
+.settings-scope button,.settings-sections button { font:inherit; font-size:14px; border:0; cursor:pointer; color:var(--muted); background:transparent; border-radius:7px; padding:10px 18px; white-space:nowrap; }
+.settings-scope button[aria-selected=true] { background:var(--surface); color:var(--text); font-weight:600; box-shadow:0 1px 3px var(--shadow); }
+.settings-context { font-size:12px; color:var(--muted); padding:6px 10px; background:var(--soft); border-radius:6px; overflow-wrap:anywhere; }
+.settings-sections { display:flex; gap:8px; margin:0 32px; padding-bottom:18px; border-bottom:1px solid var(--border); overflow-x:auto; flex-shrink:0; }
+.settings-sections button[aria-current=page] { color:var(--text); background:var(--selection); font-weight:600; }
+.settings-detail { padding:28px 48px 40px; overflow:auto; min-height:0; flex:1; }
+.settings-detail > section,.settings-detail > div { max-width:1100px; margin:0 auto; }
+.settings-detail h2 { font-size:22px; margin:0 0 8px; }
+.settings-detail h3 { font-size:16px; }
+.settings-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.settings-people .desk-page { padding:0; height:auto; overflow:visible; }
+.settings-people .desk-toolbar { padding:0; border:0; background:transparent; }
+.settings-people .desk-content { padding:0; overflow:visible; }
+.settings-people .ui-tabs { border-bottom:1px solid var(--border); padding-bottom:14px; margin-top:12px; }
+.settings-people .ui-row { min-height:72px; }
+.settings-profile { display:flex; align-items:center; gap:18px; padding:24px 0; border-top:1px solid var(--border); margin-top:24px; }
+.settings-profile .ui-avatar { width:60px; height:60px; flex-basis:60px; }
+.settings-profile h3,.settings-profile p { margin:4px 0; }
+.settings-account .account-profile-form { max-width:640px; }
+.settings-account .access-field input,.settings-general input { width:100%; padding:12px; color:var(--text); background:var(--surface); border:1px solid var(--border-control); border-radius:8px; }
+.settings-account .access-button { width:auto; padding:10px 18px; margin:12px 0; }
+.settings-readonly { border-top:1px solid var(--border); margin-top:20px; padding-top:20px; display:grid; gap:8px; }
+.settings-readonly span,.settings-readonly p { color:var(--muted); font-size:13px; margin:0; }
+.settings-general { margin-top:28px; max-width:640px; }
+.settings-themes { display:flex; flex-wrap:wrap; gap:16px; border:0; padding:20px 0; margin:24px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.settings-themes legend { padding-top:20px; font-weight:600; }
+.settings-theme { display:grid; gap:12px; padding:8px; width:170px; border:1px solid var(--border); border-radius:9px; cursor:pointer; }
+.settings-theme:has(input:checked) { border-color:var(--text); }
+.settings-theme > span:last-child { display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+.settings-theme-preview { display:flex; gap:12px; height:78px; padding:12px; background:#eceef0; border-radius:6px; }
+.settings-theme-preview > i { width:15px; background:#b5bdc7; border-radius:3px; }
+.settings-theme-preview > span { display:grid; align-content:start; gap:12px; padding-top:4px; flex:1; }
+.settings-theme-preview > span > i { background:#b5bdc7; height:8px; border-radius:3px; }
+.settings-theme-preview > span > i:last-child { height:24px; background:#d9dee5; }
+.theme-dark .settings-theme-preview { background:#292d34; }.theme-dark .settings-theme-preview > span > i:last-child { background:#606977; }
+.theme-system .settings-theme-preview { background:linear-gradient(90deg,#eceef0 50%,#292d34 50%); }
+.settings-facts { margin-top:28px; }.settings-facts > div { display:flex; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); }.settings-facts dd { overflow-wrap:anywhere; }
+.settings-check { padding:12px 0; }.settings-activity { display:flex; align-items:start; justify-content:space-between; gap:24px; padding:18px 0; border-bottom:1px solid var(--border); font-size:13px; }.settings-activity div { display:grid; gap:7px; min-width:0; }.settings-activity small { color:var(--muted); overflow-wrap:anywhere; }.settings-activity time { color:var(--muted); flex-shrink:0; }
+.settings-detail .company-page { padding:0; height:auto; overflow:visible; }
+@media(max-width:800px) { .settings-detail { padding:24px; }.settings-sections { gap:2px; }.settings-sections button { padding:10px 12px; } }
+@media(max-width:500px) { .settings-heading { padding:20px 16px 16px; }.settings-controls { padding:0 16px 16px; }.settings-context { max-width:130px; }.settings-sections { margin:0 16px; }.settings-detail { padding:20px 16px; }.settings-activity { flex-direction:column; gap:8px; }.settings-theme { width:142px; }.settings-people .ui-row { flex-wrap:wrap; }.settings-people .ui-row-title { flex-basis:calc(100% - 70px); } }
+@media(forced-colors:active) { .settings-scope button[aria-selected=true],.settings-sections button[aria-current=page],.settings-theme:has(input:checked) { outline:1px solid Highlight; } }
+.settings-scope { flex-shrink:0; }
+.settings-context { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+@media(max-width:600px) { .settings-context { display:none; } }
+
+.settings-connection,.settings-connect { padding:20px 0; border-bottom:1px solid var(--border); }
+.settings-connection-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.settings-connect .ui-form { margin:16px 0; max-width:640px; }
+
+@media(max-width:400px) { .settings-heading p { display:none; } }

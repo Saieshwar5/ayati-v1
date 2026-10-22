@@ -1,6 +1,8 @@
 import { HomeNotifications, type HomeNotificationsState, type HomeNotice } from './home-notifications';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { workspaceId } from '../workspace-context';
+import { WorkRecords } from './work-records';
 import { HomeToolbar } from './home-toolbar';
 import { ViewLifetime, setViewLifetime } from '../view-lifetime';
 import type { Profile } from '../agents';
@@ -18,9 +20,9 @@ async function install(page: WorkspacePage, view: ViewLifetime, onNotifications:
   } else if (page === 'chat') {
     const module = await import('../chat');
     if (view.active) { setViewLifetime(view); return { profile: module.installChat() }; }
-  } else if (page === 'apps' || page === 'settings') {
-    const module = await import('../workspace-pages');
-    if (view.active) { setViewLifetime(view); module.installWorkspacePage(page); }
+  } else if (page === 'apps') {
+    const module = await import('../apps');
+    if (view.active) { setViewLifetime(view); module.installApps(); }
   }
 }
 
@@ -29,6 +31,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const [notifications, setNotifications] = useState<HomeNotificationsState | null>(null);
   const [notificationHost, setNotificationHost] = useState<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [workHost, setWorkHost] = useState<HTMLElement | null>(null);
   const [homeActions, setHomeActions] = useState<HTMLElement | null>(null);
   const controller = useRef<Controller | void>(undefined);
   const latestHref = useRef(href); latestHref.current = href;
@@ -39,6 +42,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setReady(false);
+    setWorkHost(null);
     setNotifications(null); setNotificationHost(null);
     setHomeActions(null);
     // Each effect owns a separate subtree, including Strict Mode remounts. Late
@@ -55,6 +59,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
       setReady(true);
       if (page === 'home') {
         setHomeActions(node.querySelector('[data-home-actions]'));
+        setWorkHost(node.querySelector('[data-work-records]'));
         setNotificationHost(node.querySelector('[data-home-notifications]'));
       }
       consumer?.navigate?.(new URL(latestHref.current));
@@ -78,6 +83,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   };
   if (page !== 'home') return <div className="feature-host" ref={host} />;
   return <div className="feature-host home-feature">
+    {workspaceId && workHost && createPortal(<WorkRecords />, workHost)}
     {notificationHost && createPortal(<HomeNotifications data={notifications} open={openNotifications} />, notificationHost)}
     {homeActions && createPortal(<HomeToolbar ready={ready}
       arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />, homeActions)}

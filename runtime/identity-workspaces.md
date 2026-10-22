@@ -40,8 +40,8 @@ By default SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, 
 memberships, invitations and audit entries. Directory permissions are 0700.
 Workspace creation and owner membership are transactional and request-idempotent.
 Workspace IDs never confer access. Reads and writes check current membership.
-Members cannot administer people; admins cannot appoint admins or alter owners.
-The owner cannot be removed/demoted in this milestone.
+Users cannot administer people. Owners can appoint other Owners and change or remove
+any membership while preserving at least one Owner. See [Settings and ownership](settings.md).
 
 Invitations are application-level WorkOS emails, not WorkOS organization grants.
 After authenticating, a recipient explicitly accepts a pending Relay workspace
@@ -64,7 +64,7 @@ step-up authentication acceptance, operational rate limits, and PostgreSQL
 migration. Login attempts have a bounded in-memory pending-flow map; active
 login flows do not survive server restart.
 
-There is no owner-transfer, workspace deletion, session-list UI, automatic refresh,
+There is no workspace deletion, session-list UI, automatic token refresh,
 or background email reconciliation yet. Invitation emails are generic application
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.

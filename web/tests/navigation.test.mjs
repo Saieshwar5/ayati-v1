@@ -71,7 +71,7 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('.home'));
       const rail = document.querySelector('.workspace-rail');
-      for (const [label, selector] of [['Apps', '.apps-page'], ['Users', '[aria-label=Users]'], ['Settings', '.settings-page'], ['Home', '.home']]) {
+      for (const [label, selector] of [['Apps', '.apps-page'], ['Settings', '.settings-page'], ['Home', '.home']]) {
         const link = [...rail.querySelectorAll('a')].find(node => node.title === label);
         await click(link);
         assert.equal(document.querySelector('.workspace-rail'), rail);
@@ -138,7 +138,7 @@ test('navigation interception leaves workspace switches, downloads and other des
     const { localDestination, workspacePage } = await import('../src/navigation.ts');
     const current = new URL(dom.window.location.href);
     assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'chat');
-    assert.equal(workspacePage(new URL('?view=users', current)), 'people');
+    assert.equal(workspacePage(new URL('?view=users', current)), 'settings');
     assert.ok(localDestination('?view=apps', current));
     for (const path of ['/w/22222222-2222-4222-8222-222222222222/', '/auth/login', '/api/identity/session', 'https://example.com/']) assert.equal(localDestination(path, current), undefined);
   }, { url: `http://localhost${base}?view=home` });

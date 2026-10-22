@@ -9,7 +9,7 @@ Feature specifications still govern permissions, persistence and execution.
 ## Shared workspace shell
 
 - Keep the quiet global navigation rail visible across Home, Apps, Chat, Agents,
-  Users and Settings. It sits on the light grey outer canvas, without its own
+  Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
@@ -80,7 +80,7 @@ the existing owner editor. The clock has a subtle soft fill; notifications and
 custom panels use white bordered surfaces with clear titles and consistent gaps.
 
 Do not restore the agent/user directory, agent presence row, large prompt hero or
-fictional business metrics. Agents and Users have their own management pages.
+fictional business metrics. Agents has its own management page; people management is under Settings.
 A short first-panel empty state and Add panel are sufficient when no panels exist.
 Customize reveals arrangement controls; Done returns to normal reading.
 
@@ -147,14 +147,14 @@ Stop where supported. Closing a tool does not hand back browser control or resum
 work. See [Unified Chat](unified-chat.md) for current channel/thread capabilities,
 access boundaries and remaining work; a visual component grants no authority.
 
-## Agents and Users
+## Agents and people management
 
 Agents manages configuration; conversations live in Chat. Use a searchable flat
 list with avatars, names, roles/descriptions and actual status, separated by thin
 lines. Hover and focus-within give a subtle highlight. Manage opens the existing
 configuration drawer with Overview, Capabilities and Advanced sections.
 
-Users uses the same directory language. Members and invitations remain separate
+Settings → Workspace → People uses the same directory language. People and invitations remain separate
 tabs; inviting opens a focused dialog. Details opens the member drawer. Keep
 workspace membership, roles, agent access and App/panel grants distinct. Preserve
 explicit saves, pending states, validation and confirmation for destructive actions.
@@ -168,9 +168,16 @@ Manage holds release and access controls. Opening an app retains the existing
 large sandboxed surface; preview and active records stay isolated. Activation
 still applies to the exact reviewed release.
 
-Settings shows one category at a time. Group controls with headings, spacing and
-thin separators rather than another enclosing card. Preserve the existing tab
-navigation, connection/setup flows and theme controls.
+Settings follows approved Option B: everyone sees Personal; only Owners see the
+Workspace scope. Use a compact segmented scope control followed by flat category
+navigation and one bounded, locally scrolling detail area. Personal contains My
+account, Appearance and Help & feedback. Workspace contains General, People,
+Access, Connections, Activity, Teams and Local setup. Hide owner-only sections for
+Users and enforce the same boundary on the server. Use Owner/User role labels.
+Keep all workspace administration here rather than adding Users, Company or
+Feedback global navigation items. Group controls with headings, spacing and thin
+separators. Keep the current theme and setup/connection behavior. See
+[Settings and ownership](settings.md) and [approved mockups](../designs/settings/README.md).
 
 ## Implementation and verification
 

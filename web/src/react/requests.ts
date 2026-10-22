@@ -29,7 +29,7 @@ export function useResource<T>(load: () => Promise<T>) {
   const refresh = useCallback(async () => {
     const request = ++generation.current;
     try { const next = await load(); if (generation.current === request) { setData(next); setError(''); } }
-    catch (failure) { if (generation.current === request) setError(errorMessage(failure)); throw failure; }
+    catch (failure) { if (generation.current === request) { setError(errorMessage(failure)); if (failure && typeof failure === 'object' && 'status' in failure && [400, 401, 403, 404].includes(Number(failure.status))) setData(undefined); } throw failure; }
   }, [load]);
   useEffect(() => {
     void refresh().catch(() => {});
