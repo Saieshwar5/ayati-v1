@@ -7,13 +7,13 @@ generations, leases and final results. Executors use the controller API and
 receive no core database or WorkOS credentials.
 
 This is an opt-in, same-host, tool-free rehearsal. Goose remains pinned at 1.54.0.
-AWS identity, remote transport, token streaming, capacity autoscaling and latency
-targets remain later work. The [cold assignment path](worker-control.md) and
+M1.5c adds [durable live replies](reply-streaming.md). AWS identity, remote transport,
+capacity autoscaling and response-speed acceptance remain later work. The [cold assignment path](worker-control.md) and
 [polling workers](independent-chat-worker.md) remain available.
 
 ## Setup
 
-Run all thirteen migrations through `m20261023_000013_executor_slots` with the
+Run all fourteen migrations through `m20261023_000014_reply_output` with the
 migration owner, then reapply runtime grants as in [PostgreSQL setup](postgres-workspaces.md).
 Migration 13 preserves existing dispatch modes, IDs, assignment history and v12
 completion fingerprints. Startup verifies the schema without migrating ordinary
@@ -143,8 +143,8 @@ database. For process suites use `AYATI_TEST_BIN` pointing at an immutable copy 
 the built binary while other Cargo commands run. Fixtures retain disposable schemas,
 reports and logs and use real pinned Goose with a scripted loopback model.
 
-M1.5c next forwards authorized ordered text/status through controller persistence
-and replay to React. It must measure acceptance, context, dispatch, readiness,
-model request, first token and final save separately, including bursts and mixed
-long/short work. Prepared PID reuse proves the startup path, not a millisecond
-end-to-end response SLA, multi-hour soak or cloud scale-out performance.
+M1.5c's [live output and local capacity rehearsal](reply-streaming.md) now extend
+this pool. Streaming/replay has local evidence; the proposed model-request latency
+target remains unmet. Context/harness timing needs further work before final M0
+sizing and M2/M3 cloud identity/service acceptance. Prepared PID reuse does not
+establish a millisecond response SLA, multi-hour soak or cloud scale-out performance.

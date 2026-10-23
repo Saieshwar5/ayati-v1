@@ -115,7 +115,8 @@ impl Slot {
         };
         self.state = State::Running(Box::new(scope.clone()));
         jobs.spawn(async move {
-            let result=attempt::run(run_client,request,stop,|context,cancel|async move {harness.run(context,cancel).await}).await;
+            let output=super::output::Output {client:run_client.clone(),assignment:request.clone()};
+            let result=attempt::run(run_client,request,stop,|context,cancel|async move {harness.run(context,cancel,output).await}).await;
             let _=shutdown.shutdown().await;
             execution::cleanup(&root).await;
             if client.release(&registration,&scope,"lost").await.is_err() {tracing::warn!(assignment=%scope.assignment,"Pool release deferred to durable reconciliation");}

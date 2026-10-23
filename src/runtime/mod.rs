@@ -220,6 +220,15 @@ impl GooseRuntime {
             text: Mutex::new(String::new()),
         });
         *self.shared.active.lock().unwrap() = Some(turn.clone());
+        if scoped.is_some() {
+            let _ = self.shared.events.send(crate::agent::Event {
+                kind: "prompt".into(),
+                task_id: claim.task_id.clone(),
+                message_id: Some(reply.into()),
+                text: None,
+                offset: None,
+            });
+        }
         let prompt = p
             .connection
             .send_request(PromptRequest::new(

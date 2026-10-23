@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { storageScope } from '../../workspace-context';
 import { ChatMessage } from './message';
 import { ChatThread } from './thread';
+import { mergeMessages, newerMessage } from './message-state';
 import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
 import { chatRequest, conversationKind, conversationName, type Conversation, type Directory, type History } from './model';
@@ -42,7 +43,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
       if (loading) { queued = true; return; } loading = true;
       try { const data = await chatRequest<History>(`/chats/${chat.id}/messages`, undefined, abort.signal);
         if (!abort.signal.aborted) {
-          const merged = [...new Map([...data.messages, ...incoming.current.values()].map(m => [m.id, m])).values()].sort((a,b)=>(a.sequence ?? 0)-(b.sequence ?? 0));
+          const merged = mergeMessages(data.messages, [...incoming.current.values()]);
           setHistory({ ...data, messages: merged }); acknowledge(chat.id, data.messages); void confirmSent(data.messages).catch(() => {}); setError('');
         }
       } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setHistory(undefined); setOlder([]); incoming.current.clear(); } } }
@@ -52,10 +53,12 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
     const unsubscribe = subscribeChanges(change => {
       if (change.kind === 'reset' || change.kind === 'access') { incoming.current.clear(); void load(); }
       if (change.chat === chat.id && change.message) {
-        const message = change.message; void confirmSent([message]).catch(() => {}); incoming.current.set(message.id, message);
+        const message = change.message; void confirmSent([message]).catch(() => {});
+        const previous = incoming.current.get(message.id);
+        incoming.current.set(message.id, previous ? newerMessage(previous, message) : message);
         if (incoming.current.size > 400) incoming.current.delete(incoming.current.keys().next().value!);
-        setOlder(old => old.map(m => m.id === message.id ? message : m));
-        setHistory(previous => previous ? { ...previous, messages: [...new Map([...previous.messages, message].map(m => [m.id,m])).values()].sort((a,b)=>(a.sequence ?? 0)-(b.sequence ?? 0)).slice(-400) } : previous);
+        setOlder(old => old.map(m => m.id === message.id ? newerMessage(m, message) : m));
+        setHistory(previous => previous ? { ...previous, messages: mergeMessages(previous.messages, [message]).slice(-400) } : previous);
       }
     });
     return () => { alive.current = false; abort.abort(); unsubscribe(); };
@@ -79,11 +82,11 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
   const loadOlder = async () => {
     const before = cursor === undefined ? history?.next_before : cursor;
     if (!before || loadingOlder) return; setLoadingOlder(true);
-    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?before=${before}`); if (alive.current) { bottom.current = false; setOlder(previous => [...page.messages, ...previous]); setCursor(page.next_before ?? null); } }
+    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?before=${before}`); if (alive.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
     catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { if (alive.current) setLoadingOlder(false); }
   };
-  const allMessages = [...new Map([...older, ...(history?.messages ?? [])].map(m => [m.id, m])).values()].sort((a, b) => (a.sequence ?? a.at) - (b.sequence ?? b.at));
+  const allMessages = mergeMessages(older, history?.messages ?? []);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
   const title = conversationName(chat, directory);

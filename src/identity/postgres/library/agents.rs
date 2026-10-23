@@ -114,11 +114,13 @@ impl PgStore {
         };
         execute(
             &tx,
-            "INSERT INTO relay_chat_jobs(workspace,reply,payload) VALUES($1,$2,$3)",
+            "INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds) VALUES($1,$2,$3,$4,$5)",
             vec![
                 w.into(),
                 reply.clone().into(),
                 serde_json::to_value(job)?.into(),
+                if self.pooled {"pooled"} else if self.assigned {"assigned"} else {"polling"}.into(),
+                (if self.pooled || self.assigned {self.assignment_seconds as i32} else {180}).into(),
             ],
         )
         .await?;

@@ -26,7 +26,7 @@ async fn agent(db: &PgStore, owner: &User, w: &str) -> (String, String) {
         input.id,
     )
 }
-async fn setup() -> (
+pub(super) async fn setup() -> (
     PgStore,
     User,
     String,
@@ -60,7 +60,7 @@ async fn setup() -> (
     };
     (db, owner, w, c, a, executor, slot)
 }
-async fn report(db: &PgStore, e: &Registration, slots: Vec<SlotReport>) -> Result<()> {
+pub(super) async fn report(db: &PgStore, e: &Registration, slots: Vec<SlotReport>) -> Result<()> {
     db.report_executor(&e.executor, &e.incarnation, &Capacity { slots })
         .await
 }
@@ -72,12 +72,12 @@ fn limits() -> PoolLimits {
         lease: 6,
     }
 }
-async fn reserve(db: &PgStore, e: &Registration) -> Option<Scope> {
+pub(super) async fn reserve(db: &PgStore, e: &Registration) -> Option<Scope> {
     db.reserve_ready_slot(&e.executor, &e.incarnation, limits())
         .await
         .unwrap()
 }
-fn context(scope: &Scope) -> Prepared {
+pub(super) fn context(scope: &Scope) -> Prepared {
     Prepared {
         version: 1,
         workspace: scope.workspace.clone(),

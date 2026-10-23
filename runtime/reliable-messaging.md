@@ -35,6 +35,8 @@ Reading counts on public channels do not imply that everyone in the organization
 an intended recipient. Read receipts are currently enabled for all shared conversations;
 per-organization privacy policies and exact send-time audience snapshots are follow-ups.
 Agents retain execution status independently from human delivery/read receipts.
+Pooled [live reply drafts](reply-streaming.md) use this same replay channel; pending
+draft text is excluded from delivery/read receipts until the reply completes.
 
 ## Live updates and recovery
 

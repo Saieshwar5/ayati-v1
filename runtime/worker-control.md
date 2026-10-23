@@ -8,16 +8,18 @@ operator bootstrap key. The controller owns all PostgreSQL access.
 
 This cold launcher path creates a fresh worker/Goose process per assignment.
 M1.5b adds an opt-in [prepared executor pool](executor-pool.md) that reuses this
-start/renew/complete boundary. Token streaming, measured latency, checkpoints and
-AWS machine identity remain later increments. The [direct-PG M1 path](assignment-workers.md) remains available.
+start/renew/complete boundary. M1.5c adds [durable live output](reply-streaming.md)
+to that pool. Response-speed acceptance, checkpoints and AWS machine identity
+remain later increments. The [direct-PG M1 path](assignment-workers.md) remains available.
 
 ## Migration and local startup
 
-Run all thirteen migrations through `m20261023_000013_executor_slots`, using the
+Run all fourteen migrations through `m20261023_000014_reply_output`, using the
 migration owner and reapply runtime grants. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.
 Migration 13 adds pooled slot readiness/generations and preserves v12 receipts.
+Migration 14 adds separately stored output drafts/receipts and message revisions.
 See [PostgreSQL setup](postgres-workspaces.md).
 
 Configure these on the controller and local launcher:

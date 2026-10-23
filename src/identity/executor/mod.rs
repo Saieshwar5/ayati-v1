@@ -1,6 +1,9 @@
 //! Persistent local executor with prepared, single-use Goose slots and durable dispatch.
 mod harness;
 pub(crate) mod model;
+mod output;
+#[cfg(test)]
+mod output_tests;
 mod slots;
 mod stream;
 use crate::identity::{

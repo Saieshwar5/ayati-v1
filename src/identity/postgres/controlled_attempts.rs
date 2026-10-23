@@ -36,6 +36,7 @@ impl PgStore {
         execute(&tx,&format!("UPDATE relay_assignment_credentials SET session=$2,context=$3,expires={CLOCK}+300 WHERE assignment=$1"),
             vec![scope.assignment.clone().into(),request.session.clone().into(),serde_json::to_value(context)?.into()]).await?;
         self.acknowledge_slot(&tx, scope).await?;
+        execute(&tx,"UPDATE relay_worker_assignments SET context_ready_ms=COALESCE(context_ready_ms,(extract(epoch FROM clock_timestamp())*1000)::bigint) WHERE id=$1",vec![scope.assignment.clone().into()]).await?;
         tx.commit().await?;
         Ok(context.clone())
     }
@@ -137,7 +138,10 @@ async fn active(tx: &DatabaseTransaction, job: &crate::identity::chat::store::Jo
     Ok(query(tx,&format!("SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND claim=$3 AND state='running' AND lease_until>{CLOCK}"),
         vec![job.workspace.clone().into(),job.reply.clone().into(),job.claim.clone().into()]).await?.is_some())
 }
-async fn access(tx: &DatabaseTransaction, job: &crate::identity::chat::store::Job) -> Result<()> {
+pub(super) async fn access(
+    tx: &DatabaseTransaction,
+    job: &crate::identity::chat::store::Job,
+) -> Result<()> {
     let user = User {
         id: job.requester.clone(),
         email: String::new(),

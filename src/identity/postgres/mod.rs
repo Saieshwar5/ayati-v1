@@ -31,6 +31,10 @@ mod messaging;
 pub mod migration;
 mod objects;
 mod people;
+mod reply_output;
+#[cfg(test)]
+mod reply_output_tests;
+mod reply_views;
 mod resources;
 mod settings;
 mod work;
