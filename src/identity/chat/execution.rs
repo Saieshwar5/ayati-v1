@@ -45,6 +45,18 @@ pub(in crate::identity) async fn execute(
     stopping: &CancellationToken,
     profile: Profile,
 ) -> Result<String> {
+    execute_bounded(db, job, root, stopping, profile, 180).await
+}
+
+pub(in crate::identity) async fn execute_bounded(
+    db: &Database,
+    job: &Job,
+    root: &Path,
+    stopping: &CancellationToken,
+    profile: Profile,
+    seconds: u64,
+) -> Result<String> {
+    ensure!((1..=86400).contains(&seconds), "Invalid execution deadline");
     ensure!(!stopping.is_cancelled(), "Worker is stopping");
     ensure!(db.chat_job_allowed(job).await, "Request access changed");
     let sources = if let Database::Postgres(pg) = db {
@@ -56,6 +68,7 @@ pub(in crate::identity) async fn execute(
     std::fs::create_dir_all(root)?;
     std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
     let mut config = GooseConfig::from_env(root, &profile.model);
+    config.run_timeout = std::time::Duration::from_secs(seconds);
     config.agent_id = job.agent.clone();
     config.role = format!(
         "Your name is {}.\n{}\nResponsibility: {}",
@@ -105,7 +118,7 @@ pub(in crate::identity) async fn execute(
     let agent = Agent::start_goose(store.clone(), files, config, None);
     let result = async {
         let task = agent.submit_once(&prompt, Some(&job.reply))?;
-        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(180);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(seconds);
         loop {
             ensure!(!stopping.is_cancelled(), "Worker is stopping");
             ensure!(db.chat_job_allowed(job).await, "Request access changed");

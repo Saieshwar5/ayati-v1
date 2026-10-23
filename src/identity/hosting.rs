@@ -24,8 +24,11 @@ impl Hosting {
         if hosting.origin.starts_with("https://") {
             anyhow::ensure!(
                 std::env::var("RELAY_DATABASE_URL").is_ok()
-                    && std::env::var("AYATI_CHAT_EXECUTION").as_deref() == Ok("external"),
-                "Hosted identity requires PostgreSQL and AYATI_CHAT_EXECUTION=external"
+                    && matches!(
+                        super::worker_config::Mode::from_env(true)?,
+                        super::worker_config::Mode::External | super::worker_config::Mode::Assigned
+                    ),
+                "Hosted identity requires PostgreSQL and external or assigned chat execution"
             );
             anyhow::ensure!(
                 std::env::var_os("CUCKOO_LIBRARY_LOCAL_ROOT").is_none(),
@@ -67,7 +70,10 @@ pub(super) fn hosted(app: &App) -> bool {
     app.origin.starts_with("https://")
 }
 pub(super) fn provider_configured(provider: &str, key: &str) -> bool {
-    if std::env::var("AYATI_CHAT_EXECUTION").as_deref() == Ok("external") {
+    if matches!(
+        super::worker_config::Mode::from_env(true),
+        Ok(super::worker_config::Mode::External | super::worker_config::Mode::Assigned)
+    ) {
         // Operator-declared capability, not a live worker availability probe.
         std::env::var("AYATI_WORKER_PROVIDERS")
             .unwrap_or_default()

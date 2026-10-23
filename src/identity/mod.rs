@@ -1,6 +1,8 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 pub mod adoption;
 mod agents;
+pub mod assignment_launcher;
+pub mod assignment_worker;
 mod chat;
 mod collaboration;
 mod database;
@@ -18,6 +20,7 @@ pub mod simulation;
 mod sqlite_access;
 pub mod store;
 pub mod worker;
+mod worker_config;
 pub mod worker_health;
 mod workspaces;
 

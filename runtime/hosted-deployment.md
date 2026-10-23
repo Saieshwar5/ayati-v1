@@ -1,5 +1,9 @@
 # Hosted deployment foundation
 
+The newer [assignment worker mode](assignment-workers.md) adds a local launch
+rehearsal and requires migration 11. The Compose template below retains polling
+workers; it is not yet an AWS on-demand task launcher.
+
 This increment packages the website and independent conversation workers and
 adds an explicit HTTPS gateway configuration. It prepares a private cloud
 rehearsal; it does not provision an account, database, bucket, DNS or public site.
@@ -126,7 +130,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 
 Keep schema creation/ownership and database administration away from the runtime
-role. Existing deployments must run migration 10 (`m20261023_000010_login_flows`)
+role. Existing deployments must run migration 11 (`m20261023_000011_worker_assignments`)
 and grants before starting this version. API/worker startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.

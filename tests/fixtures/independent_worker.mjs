@@ -11,7 +11,7 @@ import { until } from './goose_app.mjs';
 const root = resolve(import.meta.dirname, '../..');
 const binary = process.env.AYATI_TEST_BIN ?? join(root, 'target/debug/ayati');
 
-export async function workerFixture(t) {
+export async function workerFixture(t, options = {}) {
   const admin = new URL(process.env.RELAY_TEST_DATABASE_URL);
   assert.match(admin.pathname, /^\/relay_simulation_/,
     'Process tests require a dedicated local relay_simulation_* test database');
@@ -44,12 +44,13 @@ export async function workerFixture(t) {
   scoped.searchParams.set('options', `-c search_path=${schema}`);
   const runtime = new URL(scoped);
   runtime.username = 'relay_app';
-  const provider = await fixtureProvider();
+  const provider = await fixtureProvider({ resumableHold: options.resumableHold ?? false });
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
     AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
-    AYATI_CHAT_EXECUTION: 'external', AYATI_WORKER_CONCURRENCY: '1',
+    AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
+    AYATI_ASSIGNMENT_RUN_SECONDS: String(options.runSeconds ?? 180),
     AYATI_DATA_DIR: join(data, 'migration'),
   };
   execFileSync(binary, ['workspace-db', 'migrate'], {
@@ -97,7 +98,7 @@ export async function workerFixture(t) {
       catch { return false; }
     }, 'API did not start');
   }
-  async function startWorker() {
+  async function startWorker(extra = {}) {
     const workerData = join(data, 'worker-' + randomUUID());
     await mkdir(workerData);
     const worker = launch(['worker'], {
@@ -108,6 +109,7 @@ export async function workerFixture(t) {
       // Deliberately inherited local capabilities must all be disabled for shared work.
       AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/vm.json',
       AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
+      ...extra,
     });
     worker.healthFile = join(workerData, 'worker.health');
     await until(() => {
@@ -118,6 +120,16 @@ export async function workerFixture(t) {
       } catch { return false; }
     }, 'Worker did not start');
     return worker;
+  }
+  async function startAssignmentRole(args, extra = {}) {
+    const workerData = join(data, 'assignment-' + randomUUID());
+    await mkdir(workerData);
+    return launch(args, {
+      RELAY_DATABASE_URL: runtime.href, AYATI_DATA_DIR: workerData,
+      AYATI_CHAT_EXECUTION: 'assigned', AYATI_ASSIGNMENT_LEASE_SECONDS: '6',
+      AYATI_ASSIGNMENT_CAPACITY: '2', OPENAI_API_KEY: 'fixture-not-a-secret',
+      OPENAI_HOST: provider.url, ...extra,
+    });
   }
   async function request(path, cookie, body, expected = 200, method) {
     const response = await fetch(base + path, {
@@ -138,7 +150,7 @@ export async function workerFixture(t) {
     for (const child of [...children].reverse()) await stop(child);
     provider.close();
     await writeFile(join(data, 'report.json'), JSON.stringify({
-      passed: t.passed, schema, checks: records, processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode })),
+      passed: t.passed, schema, checks: records, processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
     }, null, 2));
     for (const [i, child] of children.entries()) await writeFile(join(data, `process-${i}.log`), child.logs);
     console.log('Retained worker evidence:', data);
@@ -170,6 +182,8 @@ export async function workerFixture(t) {
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
     sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
+    startLauncher: extra => startAssignmentRole(['assignment-launcher'], extra),
+    startAssignment: (id, extra) => startAssignmentRole(['worker', '--assignment', id], extra),
     pass: name => { records.push({ name, passed: true }); console.log('PASS', name); },
     // Only synthetic IDs obtained from this schema are interpolated into fixture SQL.
     expire: job => sql(`UPDATE relay_chat_jobs SET lease_until=0 WHERE reply='${job.reply}' AND state='running'`, scoped.href),

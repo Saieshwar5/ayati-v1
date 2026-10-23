@@ -417,7 +417,7 @@ impl GooseRuntime {
                 let _ = tokio::time::timeout(Duration::from_secs(2), &mut prompt).await;
                 Err(anyhow::anyhow!("Stopped; any already-completed actions cannot be undone"))
             },
-            result = tokio::time::timeout(Duration::from_secs(180), &mut prompt) => match result {
+            result = tokio::time::timeout(self.config.run_timeout, &mut prompt) => match result {
                 Ok(Ok(response)) if response.stop_reason == StopReason::EndTurn => Ok(()),
                 Ok(Ok(_)) => Err(anyhow::anyhow!("Goose ended before completion; send a message to continue")),
                 Ok(Err(_)) => Err(anyhow::anyhow!("Goose request failed; its outcome may be uncertain. No automatic retry was made.")),

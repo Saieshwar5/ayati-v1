@@ -21,6 +21,7 @@ pub struct GooseConfig {
     pub proof_tool: bool,
     pub browser: bool,
     pub memory: bool,
+    pub run_timeout: std::time::Duration,
 }
 
 impl GooseConfig {
@@ -61,6 +62,7 @@ impl GooseConfig {
             proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
             browser: std::env::var("AYATI_BROWSER").as_deref() == Ok("1"),
             memory: std::env::var("AYATI_MEMORY").as_deref() == Ok("1"),
+            run_timeout: std::time::Duration::from_secs(180),
         }
     }
 

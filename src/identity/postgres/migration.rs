@@ -15,7 +15,29 @@ impl MigratorTrait for Migrator {
             Box::new(WorkspaceRoles),
             Box::new(Library),
             Box::new(LoginFlows),
+            Box::new(WorkerAssignments),
         ]
+    }
+}
+struct WorkerAssignments;
+impl MigrationName for WorkerAssignments {
+    fn name(&self) -> &str {
+        "m20261023_000011_worker_assignments"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WorkerAssignments {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("worker_assignments.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Assignment history is durable; use a forward migration".into(),
+        ))
     }
 }
 struct LoginFlows;
