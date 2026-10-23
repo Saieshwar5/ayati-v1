@@ -57,6 +57,11 @@ async fn read(
                 && let Some(data) = data.take()
             {
                 let scope: Scope = serde_json::from_str(&data)?;
+                crate::identity::start_trace::point(
+                    &scope.assignment,
+                    "executor",
+                    "offer_received",
+                );
                 tokio::select! {_=stop.cancelled()=>return Ok(()),result=sender.send(Event::Offer(Box::new(scope)))=>result?}
             }
         }

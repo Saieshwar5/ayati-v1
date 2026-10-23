@@ -68,6 +68,21 @@ active requests. Reports and failed runs remain in printed fixture directories.
 The model is scripted and PostgreSQL remains outside that affinity; these are not
 cloud sizing or live-provider performance results.
 
+For the follow-up with fresh PostgreSQL and verified CPU/memory limits, use:
+
+~~~sh
+python tools/run-agent-load.py
+python tools/run-agent-load.py --executor-cpu 200
+python tools/run-agent-load.py --suite faults
+python tools/run-agent-load.py --suite regressions
+~~~
+
+The [bounded rehearsal guide](../runtime/bounded-agent-load.md) describes required
+local tools, resource ceilings, timestamp precision and retained evidence. Each
+invocation owns and stops its test cluster/scopes and keeps their files; no
+existing database is reconfigured. These commands require a working systemd user
+manager and cgroup v2, and fail instead of falling back to unbounded execution.
+
 ## Existing browser and agent journeys
 
 The existing journeys below explicitly select the preserved prototype runtime.

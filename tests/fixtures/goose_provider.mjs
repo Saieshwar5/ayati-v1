@@ -1,5 +1,8 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { performance } from 'node:perf_hooks';
+
+const unixMicros = () => Math.round((performance.timeOrigin + performance.now()) * 1000);
 
 // A local model fixture, not live inference. The real pinned Goose process
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
@@ -11,6 +14,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   let outputHeld = false;
   const timings = [];
   const server = createServer(async (request, response) => {
+    const headersUs = unixMicros();
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({ data: [{ id: 'fixture', object: 'model', owned_by: 'fixture' }] }));
@@ -18,10 +22,13 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
     }
     let raw = '';
     for await (const chunk of request) raw += chunk;
+    const bodyUs = unixMicros();
     const input = JSON.parse(raw);
     requests.push(input);
     const index=requests.length-1;
-    timings.push({index,phase:'request',time_ms:Date.now()});
+    timings.push({index,phase:'request_headers',time_us:headersUs});
+    timings.push({index,phase:'request_body',time_us:bodyUs});
+    timings.push({index,phase:'request',time_ms:Date.now(),time_us:unixMicros()});
     const script=streamScript;
     const messages = input.messages ?? [];
     const lastUser = messages.findLastIndex((message) => message.role === 'user');

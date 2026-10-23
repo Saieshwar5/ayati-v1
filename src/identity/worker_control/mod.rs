@@ -258,7 +258,9 @@ async fn start_assignment(
     let mut trace = super::start_trace::StartTrace::new();
     super::postgres::worker_control::require(id == input.scope.assignment)?;
     model::uuid(&input.session)?;
+    model::uuid(&input.scope.assignment)?;
     let hash = credential(&headers)?;
+    super::start_trace::point(&input.scope.assignment, "controller", "start_handler_enter");
     let record = pg(&state)
         .controlled_assignment(&input.scope, &hash)
         .await?;
@@ -286,6 +288,11 @@ async fn start_assignment(
     let lease = pg(&state).renew_controlled(&input, &hash).await?;
     trace.mark("lease_confirm");
     trace.finish(&input.scope.assignment, "controller");
+    super::start_trace::point(
+        &input.scope.assignment,
+        "controller",
+        "start_handler_return",
+    );
     Ok(Json(json!({"context":context,"lease_seconds":lease})))
 }
 async fn renew(

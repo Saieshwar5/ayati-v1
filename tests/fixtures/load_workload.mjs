@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { until } from './goose_app.mjs';
-import { traces } from './load_metrics.mjs';
+import { traces, startPoints } from './load_metrics.mjs';
 
 export async function ready(app, count = 4) {
   await until(async () => Number(await app.sqlAsync("SELECT count(*) FROM relay_executor_slots s JOIN relay_executors e ON e.id=s.executor WHERE s.state='ready' AND e.state='serving'")) >= count,
@@ -52,6 +52,7 @@ export async function complete(app, items, timeout = 60000) {
 }
 export function samples(app, items, rows) {
   const trace = traces(app);
+  const points = startPoints(app);
   return items.map(item => {
     const row = rows.find(row => row.chat === item.chat);
     assert.equal(row.message_state, 'complete', `Load reply failed: ${row.reply}`);
@@ -66,7 +67,15 @@ export function samples(app, items, rows) {
     const timing = app.provider.timings.filter(t => t.index === index);
     const startTrace = trace.get(row.claim);
     assert.ok(startTrace?.controller && startTrace?.executor, 'Missing correlated start trace');
+    const handoff = points.get(row.claim);
+    for (const phase of ['offer_available', 'offer_received', 'run_spawn', 'start_http_begin',
+      'start_handler_enter', 'start_handler_return', 'start_http_returned', 'local_setup_done', 'acp_submit']) {
+      assert.ok(Number.isSafeInteger(handoff?.[phase]), `Missing handoff point ${phase}`);
+    }
     return { ...row, sent_ms: item.sent_ms, ack_ms: item.ack_ms, trace: startTrace,
+      points: { ...handoff, provider_headers_us: timing.find(t => t.phase === 'request_headers').time_us,
+        provider_body_us: timing.find(t => t.phase === 'request_body').time_us,
+        provider_request_us: timing.find(t => t.phase === 'request').time_us },
       provider_request_ms: timing.find(t => t.phase === 'request').time_ms,
       provider_first_token_ms: timing.find(t => t.phase === 'first_token').time_ms,
       prompt_bytes: Buffer.byteLength(JSON.stringify(input.messages)), content: undefined, progress: undefined };

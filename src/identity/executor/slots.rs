@@ -104,6 +104,7 @@ impl Slot {
         let shutdown = harness.shutdown_handle();
         let generation = self.generation;
         let mut trace = crate::identity::start_trace::StartTrace::new();
+        crate::identity::start_trace::point(&scope.assignment, "executor", "run_spawn");
         let run_client = control
             .client
             .with_token(&self.token)

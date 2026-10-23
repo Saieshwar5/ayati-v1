@@ -30,7 +30,13 @@ where
 {
     let base = format!("/v1/assignments/{}", request.scope.assignment);
     let began = tokio::time::Instant::now();
+    crate::identity::start_trace::point(&request.scope.assignment, "executor", "start_http_begin");
     let started: Started = client.retry(&format!("{base}/start"), &request, 3).await?;
+    crate::identity::start_trace::point(
+        &request.scope.assignment,
+        "executor",
+        "start_http_returned",
+    );
     ensure!(
         started.context.agent == request.scope.agent
             && started.context.reply == request.scope.reply

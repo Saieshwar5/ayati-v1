@@ -29,10 +29,8 @@ pub(in crate::identity) async fn managed_profile(
         email: String::new(),
         display_name: None,
     };
-    pg.allowed_shared_agents(&user, &job.workspace)
+    pg.allowed_shared_agent(&user, &job.workspace, &job.agent)
         .await?
-        .into_iter()
-        .find(|profile| profile["id"] == job.agent)
         .map(serde_json::from_value)
         .transpose()
         .map_err(Into::into)

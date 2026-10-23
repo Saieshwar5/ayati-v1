@@ -126,12 +126,24 @@ pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) 
             }
             if let Ok(offers) = pg(&state).pending_offers(&key.0, &key.1).await {
                 for offer in offers {
+                    super::super::start_trace::point(
+                        &offer.assignment,
+                        "controller",
+                        "offer_available",
+                    );
                     state.hub.offer(&key, &offer);
                 }
             }
             for _ in 0..16 {
                 match pg(&state).reserve_ready_slot(&key.0, &key.1, limits).await {
-                    Ok(Some(scope)) => state.hub.offer(&key, &scope),
+                    Ok(Some(scope)) => {
+                        super::super::start_trace::point(
+                            &scope.assignment,
+                            "controller",
+                            "offer_available",
+                        );
+                        state.hub.offer(&key, &scope);
+                    }
                     Ok(None) => break,
                     Err(_) => {
                         tracing::warn!("Executor dispatch deferred; ownership remains durable");

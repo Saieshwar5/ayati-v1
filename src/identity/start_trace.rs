@@ -1,5 +1,20 @@
 //! Opt-in start timings: fixed code labels and durations, never context or credentials.
-use std::{collections::BTreeMap, time::Instant};
+use std::{
+    collections::BTreeMap,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
+pub(crate) fn point(assignment: &str, side: &'static str, phase: &'static str) {
+    if std::env::var("AYATI_TRACE_START").as_deref() != Ok("1") {
+        return;
+    }
+    let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
+        return;
+    };
+    let Ok(unix_us) = u64::try_from(now.as_micros()) else {
+        return;
+    };
+    tracing::info!(target:"ayati::performance",assignment,side,start_point=%serde_json::json!({"version":1,"phase":phase,"unix_us":unix_us}),"Assignment start point");
+}
 pub(crate) struct StartTrace {
     enabled: bool,
     began: Instant,
