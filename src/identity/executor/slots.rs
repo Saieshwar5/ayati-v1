@@ -38,7 +38,6 @@ pub(super) enum Done {
 pub(super) struct Control {
     pub client: Client,
     pub registration: Registration,
-    pub url: String,
     pub stop: CancellationToken,
 }
 impl Slot {
@@ -104,8 +103,12 @@ impl Slot {
         let root = harness.root();
         let shutdown = harness.shutdown_handle();
         let generation = self.generation;
-        let run_client =
-            Client::new(&control.url, &self.token).expect("Validated local capability");
+        let mut trace = crate::identity::start_trace::StartTrace::new();
+        let run_client = control
+            .client
+            .with_token(&self.token)
+            .expect("Validated local capability");
+        trace.mark("credential_binding");
         let client = control.client.clone();
         let registration = control.registration.clone();
         let stop = control.stop.clone();
@@ -115,7 +118,7 @@ impl Slot {
         };
         self.state = State::Running(Box::new(scope.clone()));
         jobs.spawn(async move {
-            let output=super::output::Output {client:run_client.clone(),assignment:request.clone()};
+            let output=super::output::Output {client:run_client.clone(),assignment:request.clone(),trace};
             let result=attempt::run(run_client,request,stop,|context,cancel|async move {harness.run(context,cancel,output).await}).await;
             let _=shutdown.shutdown().await;
             execution::cleanup(&root).await;

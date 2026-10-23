@@ -105,8 +105,10 @@ Both local p95 observations are retained:
 The proposed targets are 100 ms for dispatch and 250 ms for model request. The
 initial run missed the model-request target; the isolated repeat met both. No
 specific latency optimization accounts for this variation. Consistent acceptance
-needs controlled concurrent-load repetitions and narrower context/harness traces,
-followed by a separately bounded live-provider calibration before cloud sizing.
+needs repeated load evidence followed by a separately bounded live-provider
+calibration before cloud sizing. The [controlled load rehearsal](load-acceptance.md)
+adds that local matrix, narrower context/harness traces and recovery under load;
+its current model-request target misses remain explicit.
 These are fixture observations, not a production capacity recommendation or
 live-provider/first-token SLA. Browser timing, ready reserve and cold expansion
 require their own representative evidence.

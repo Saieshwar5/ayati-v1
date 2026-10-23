@@ -11,6 +11,8 @@ mod collaboration;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
+#[cfg(test)]
+mod dispatch_lock_tests;
 mod executor_dispatch;
 #[cfg(test)]
 mod executor_slot_tests;
@@ -96,7 +98,10 @@ impl PgStore {
         let tx = self.db.begin().await?;
         query(
             &tx,
-            "SELECT id FROM relay_workspaces WHERE id=$1 FOR UPDATE",
+            // Writers serialize without blocking FK KEY SHARE locks on change
+            // records. FOR UPDATE creates a workspace -> sync-clock -> workspace
+            // cycle when message intake overlaps assignment projection writes.
+            "SELECT id FROM relay_workspaces WHERE id=$1 FOR NO KEY UPDATE",
             vec![workspace.into()],
         )
         .await?

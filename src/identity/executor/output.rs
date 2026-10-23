@@ -11,10 +11,11 @@ use tokio_util::sync::CancellationToken;
 pub(super) struct Output {
     pub client: Client,
     pub assignment: AssignedRequest,
+    pub trace: crate::identity::start_trace::StartTrace,
 }
 impl Output {
     pub async fn forward(
-        self,
+        mut self,
         mut events: broadcast::Receiver<Event>,
         reply: String,
         done: CancellationToken,
@@ -27,7 +28,7 @@ impl Output {
         result
     }
     async fn consume(
-        &self,
+        &mut self,
         events: &mut broadcast::Receiver<Event>,
         reply: &str,
         done: &CancellationToken,
@@ -63,8 +64,12 @@ impl Output {
                 && event.message_id.as_deref() == Some(reply)
             {
                 if event.kind == "prompt" {
+                    self.trace.mark("prompt_observed");
                     ensure!(sequence == 0 && total == 0, "Repeated harness handoff");
                     self.send(1, "waiting", String::new()).await?;
+                    self.trace.mark("waiting_ack");
+                    self.trace
+                        .finish(&self.assignment.scope.assignment, "executor");
                     sequence = 1;
                 } else if event.kind == "delta" {
                     let text = event.text.context("Missing output text")?;

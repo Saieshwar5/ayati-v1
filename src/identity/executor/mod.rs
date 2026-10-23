@@ -78,7 +78,6 @@ pub async fn serve(data: &Path) -> Result<()> {
     let control = Control {
         client: client.clone(),
         registration: registration.clone(),
-        url: url.clone(),
         stop: fatal.clone(),
     };
     let preparation = CancellationToken::new();
