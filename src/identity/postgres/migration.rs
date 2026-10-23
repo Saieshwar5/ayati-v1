@@ -20,7 +20,29 @@ impl MigratorTrait for Migrator {
             Box::new(ExecutorSlots),
             Box::new(ReplyOutput),
             Box::new(HarnessPreparation),
+            Box::new(InteractiveReserve),
         ]
+    }
+}
+struct InteractiveReserve;
+impl MigrationName for InteractiveReserve {
+    fn name(&self) -> &str {
+        "m20261024_000016_interactive_reserve"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for InteractiveReserve {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("interactive_reserve.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Request classes require a forward migration".into(),
+        ))
     }
 }
 struct HarnessPreparation;

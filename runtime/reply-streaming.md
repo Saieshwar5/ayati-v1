@@ -7,7 +7,7 @@ workers retain final-result delivery. This does not deploy AWS or enable tools.
 
 ## Startup and migration
 
-Run all fifteen migrations through `m20261023_000015_harness_preparation` with the
+Run all sixteen migrations through `m20261024_000016_interactive_reserve` with the
 migration owner, then reapply runtime table/sequence grants. Existing databases
 are not automatically migrated by startup. See [PostgreSQL setup](postgres-workspaces.md).
 The migration preserves existing IDs, messages, assignment ownership, capabilities

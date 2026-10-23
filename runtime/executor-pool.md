@@ -17,7 +17,7 @@ passes the named local ready-capacity targets. The [cold assignment path](worker
 
 ## Setup
 
-Run all fifteen migrations through `m20261023_000015_harness_preparation` with the
+Run all sixteen migrations through `m20261024_000016_interactive_reserve` with the
 migration owner, then reapply runtime grants as in [PostgreSQL setup](postgres-workspaces.md).
 Migration 13 preserves existing dispatch modes, IDs, assignment history and v12
 completion fingerprints. Startup verifies the schema without migrating ordinary
@@ -63,6 +63,7 @@ the configured model key; per-run model brokerage is still future work.
 | `AYATI_EXECUTOR_CAPACITY` | `AYATI_ASSIGNMENT_CAPACITY` (2); 1–1024 | Controller, global active pool limit |
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
 | `AYATI_EXECUTOR_MODEL_LIMIT` | Pool capacity; 1–1024 | Controller, provider/model pair |
+| `AYATI_EXECUTOR_CHAT_RESERVE` | 0; below global/workspace/model limits | Controller; [background admission](interactive-reserve.md) |
 | `AYATI_EXECUTOR_EXPIRY_SECONDS` | 15; 6–120 | Controller, readiness heartbeat expiry |
 | `AYATI_ASSIGNMENT_LEASE_SECONDS` | 120; 6–300 | Controller, accepted execution lease |
 | `AYATI_ASSIGNMENT_RUN_SECONDS` | 180; 1–86400 | Controller, persisted at intake |
@@ -156,7 +157,8 @@ reports and logs and use real pinned Goose with a scripted loopback model.
 M1.5c's [live output and local capacity rehearsal](reply-streaming.md) now extend
 this pool. Streaming/replay and the repeated
 [prepared ready-capacity matrix](bounded-agent-load.md#preparation-follow-up) have
-local evidence. The named provisional targets pass; release-image/live-model
-calibration and interactive reserve precede final M0 sizing and M2/M3 cloud
+local evidence. [Chat reserve and mixed admission](interactive-reserve.md) also
+have native release evidence. The named provisional targets pass; release-image/live-model
+calibration precedes final M0 sizing and M2/M3 cloud
 identity/service acceptance. Prepared PID reuse does not
 establish a millisecond response SLA, multi-hour soak or cloud scale-out performance.

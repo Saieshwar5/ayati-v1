@@ -7,7 +7,7 @@ use crate::identity::{
     worker_control::model::{AssignedRequest, Completion, Registration, Scope},
 };
 
-async fn agent(db: &PgStore, owner: &User, w: &str) -> (String, String) {
+pub(super) async fn agent(db: &PgStore, owner: &User, w: &str) -> (String, String) {
     let input = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Pool agent".into(),
@@ -71,12 +71,18 @@ fn limits() -> PoolLimits {
         workspace: 2,
         model: 2,
         lease: 6,
+        chat_reserve: 0,
     }
 }
 pub(super) async fn reserve(db: &PgStore, e: &Registration) -> Option<Scope> {
-    db.reserve_ready_slot(&e.executor, &e.incarnation, limits())
-        .await
-        .unwrap()
+    db.reserve_ready_slot(
+        &e.executor,
+        &e.incarnation,
+        limits(),
+        &[(e.executor.clone(), e.incarnation.clone())],
+    )
+    .await
+    .unwrap()
 }
 pub(super) fn context(scope: &Scope) -> Prepared {
     Prepared {
@@ -93,7 +99,7 @@ pub(super) fn context(scope: &Scope) -> Prepared {
         run_seconds: 180,
     }
 }
-async fn finish(db: &PgStore, slot: &SlotReport, scope: Scope) {
+pub(super) async fn finish(db: &PgStore, slot: &SlotReport, scope: Scope) {
     let request = AssignedRequest {
         scope: scope.clone(),
         session: uuid::Uuid::new_v4().to_string(),
@@ -173,9 +179,10 @@ async fn pool_limits_global_workspace_and_model_admission_under_concurrent_dispa
             1 => policy.workspace = 1,
             _ => policy.model = 1,
         }
+        let connected = [(e.executor.clone(), e.incarnation.clone())];
         let (a, b) = tokio::join!(
-            db.reserve_ready_slot(&e.executor, &e.incarnation, policy),
-            db.reserve_ready_slot(&e.executor, &e.incarnation, policy)
+            db.reserve_ready_slot(&e.executor, &e.incarnation, policy, &connected),
+            db.reserve_ready_slot(&e.executor, &e.incarnation, policy, &connected)
         );
         assert_eq!(
             [a.unwrap(), b.unwrap()]

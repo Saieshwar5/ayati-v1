@@ -120,7 +120,8 @@ pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) 
         if pg(&state).expire_executors(expiry).await.is_err() {
             tracing::warn!("Executor registry unavailable; admission paused");
         }
-        for key in state.hub.connected() {
+        let connected = state.hub.connected();
+        for key in &connected {
             if stopping.is_cancelled() {
                 return;
             }
@@ -131,18 +132,21 @@ pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) 
                         "controller",
                         "offer_available",
                     );
-                    state.hub.offer(&key, &offer);
+                    state.hub.offer(key, &offer);
                 }
             }
             for _ in 0..16 {
-                match pg(&state).reserve_ready_slot(&key.0, &key.1, limits).await {
+                match pg(&state)
+                    .reserve_ready_slot(&key.0, &key.1, limits, &connected)
+                    .await
+                {
                     Ok(Some(scope)) => {
                         super::super::start_trace::point(
                             &scope.assignment,
                             "controller",
                             "offer_available",
                         );
-                        state.hub.offer(&key, &scope);
+                        state.hub.offer(key, &scope);
                     }
                     Ok(None) => break,
                     Err(_) => {

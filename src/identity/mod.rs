@@ -87,7 +87,9 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
             StatusCode::NOT_FOUND
         } else if error.is::<library::model::Conflict>() {
             StatusCode::CONFLICT
-        } else if error.is::<chat::store::QueueFull>() {
+        } else if error.is::<chat::store::QueueFull>()
+            || error.is::<chat::store::BackgroundQueueFull>()
+        {
             StatusCode::TOO_MANY_REQUESTS
         } else {
             StatusCode::BAD_REQUEST

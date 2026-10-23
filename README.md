@@ -375,7 +375,7 @@ Local PostgreSQL workspace storage and migration: [setup and verification](runti
 
 For temporary one-assignment workers, set `AYATI_CHAT_EXECUTION=assigned` and run
 `ayati assignment-launcher`. Each worker renews its ownership, saves an outcome
-and exits. This checkout requires all PostgreSQL migrations through 15; see [assignment workers](runtime/assignment-workers.md)
+and exits. This checkout requires all PostgreSQL migrations through 16; see [assignment workers](runtime/assignment-workers.md)
 for configuration, cancellation, recovery and local-only evidence limits.
 
 For prepared shared sessions, set `AYATI_CHAT_EXECUTION=pooled` on the controller
@@ -385,7 +385,8 @@ each used session is replaced before reuse. See [the local executor pool](runtim
 for startup, readiness, draining and limits. [Live output and reconnect recovery](runtime/reply-streaming.md) are locally
 implemented. [Generic harness preparation](runtime/harness-preparation.md) passes
 the named local ready-capacity targets; release/live-model calibration and cloud
-deployment remain later work.
+deployment remain later work. [Chat reserve and background admission](runtime/interactive-reserve.md)
+add an explicit deferred-request API and configurable shared capacity headroom.
 
 Shared-agent work can also run in a separate process: set
 `AYATI_CHAT_EXECUTION=external` on `ayati identity`, then start `ayati worker`

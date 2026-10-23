@@ -129,6 +129,8 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
         let limits = super::postgres::PoolLimits {
             capacity,
             lease: state.lease,
+            chat_reserve: super::worker_config::seconds("AYATI_EXECUTOR_CHAT_RESERVE", 0, 0, 1023)?
+                as usize,
             workspace: super::worker_config::seconds(
                 "AYATI_EXECUTOR_WORKSPACE_LIMIT",
                 capacity as u64,
@@ -142,6 +144,10 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
                 1024,
             )? as usize,
         };
+        ensure!(
+            limits.chat_reserve < limits.capacity.min(limits.workspace).min(limits.model),
+            "AYATI_EXECUTOR_CHAT_RESERVE must be smaller than global, workspace and model limits"
+        );
         let expiry = super::worker_config::seconds("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6, 120)?;
         Some(tokio::spawn(pool::dispatch(state, limits, expiry)))
     } else {

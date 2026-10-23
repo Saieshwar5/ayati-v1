@@ -307,3 +307,52 @@ Docker image build could not run because this session lacks daemon access.
 
 All artifacts and initial test failures are
 retained under `.tmp/harness-readiness-verification` and printed fixture paths.
+
+## Native release with chat reserve
+
+The later [admission increment](interactive-reserve.md) adds immutable server-owned
+request classes, compatible ready-capacity headroom and durable background turns.
+The optimized native Ayati ELF is
+`3ad52e76544059fac61194bf1edeb50104359d5726acdfb5775dc5965621b1f3`; every final
+suite uses it with the same pinned prepared Goose ELF. This is a release-profile
+build, so its timing differences from earlier debug results do not isolate the
+admission changes. Docker image execution remains unverified.
+
+Both unchanged 384-request ordinary matrices pass correctness and every named
+ready-capacity target (reserve 0, preserving the existing interactive workload):
+
+| Executor ceiling per two-slot supervisor | Dispatch p95 | One-agent model-request p95 | Four-agent model-request p95 |
+| --- | ---: | ---: | ---: |
+| 1 CPU | 5–22 ms | 52–60 ms | 106–116 ms |
+| 2 CPUs | 5–19 ms | 50–57 ms | 105–117 ms |
+
+All 768 traces have zero observed interval inversions. Summed executor throttling
+across case intervals is 46.74 / 0 seconds. At concurrency 8, model-request p95
+is 850–893 / 756–773 ms; at 16 it is 2,251–2,408 / 1,985–2,067 ms. Saturation
+remains explicit queueing behind four ready slots, separate from the target.
+
+The separate mixed suite enables reserve 1. It passes 96 measured chats beside
+three held background model calls and one queued background request, with
+dispatch p95 6–16 ms and model-request p95 51–194 ms. All four background requests
+then finish once. Other mixed journeys cover real deferred intake, backpressure,
+authority, smaller actual capacity, drain, restart and executor loss. See the
+admission guide for the request mix and limits.
+
+| Evidence | Runner | Main detailed fixture |
+| --- | --- | --- |
+| One CPU | `.tmp/bounded-agent-7sxaqrt9` | `.tmp/independent-worker-Zzqfpn` |
+| Two CPUs | `.tmp/bounded-agent-h10cthax` | `.tmp/independent-worker-SjQ43f` |
+| Five mixed journeys | `.tmp/bounded-agent-c3tcjm3u` | Printed per-journey fixtures |
+| Three faults | `.tmp/bounded-agent-t0ejge2p` | Printed per-journey fixtures |
+| Three preparation checks | `.tmp/bounded-agent-tvi0tsc8` | Printed per-journey fixtures |
+| Twenty regressions | `.tmp/bounded-agent-ejlir7f1` | Printed per-journey fixtures |
+
+All 33 primary journeys pass. Native verification also passes 149 default Rust
+tests, 84 disposable PostgreSQL checks, strict all-target Clippy, four Python
+resource/cleanup boundary tests (normal and optimized), release build and
+format/diff/link/510-source-file length checks. Final auditing confirms matching
+artifacts and stopped owned scopes/private postmasters across all six suites.
+
+Build logs, initial failed/intermediate checks, final pointers and immutable
+artifacts remain under `.tmp/interactive-reserve-verification`. Existing migration
+and rollout restrictions apply; no ordinary database or AWS resource is changed.

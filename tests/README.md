@@ -52,6 +52,21 @@ The runner creates a fresh private database and verifies resource limits; use
 
 ## Durable live replies and local timing
 
+For [reserved chat/background admission](../runtime/interactive-reserve.md), build
+and freeze a binary after migration 16, then run:
+
+~~~sh
+python3 tools/run-agent-load.py --suite mixed --executor-cpu 200 --binary /absolute/path/to/frozen/ayati
+~~~
+
+It measures 96 short small/large-context requests beside held background calls
+and a queued backlog, then checks background completion. Other journeys verify
+authenticated immutable intake/backpressure, a smaller actual fleet, graceful
+drain, revoked grants and controller/executor recovery. Fixtures use the real
+background API rather than relabeling database jobs. Timings cover ready capacity;
+replenishment and overflow are distinct. The existing 64 total/32 background
+pending-request bounds are tested independently from execution reserves.
+
 See the [streaming contract](../runtime/reply-streaming.md). After building Rust
 and web assets, use the same private disposable database to run:
 

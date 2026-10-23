@@ -11,6 +11,7 @@ pub(crate) struct PoolLimits {
     pub workspace: usize,
     pub model: usize,
     pub lease: u64,
+    pub chat_reserve: usize,
 }
 impl PgStore {
     pub(crate) async fn reserve_ready_slot(
@@ -18,6 +19,7 @@ impl PgStore {
         executor: &str,
         incarnation: &str,
         limits: PoolLimits,
+        connected: &[(String, String)],
     ) -> Result<Option<Scope>> {
         ensure!(
             (1..=1024).contains(&limits.capacity)
@@ -25,6 +27,10 @@ impl PgStore {
                 && (1..=1024).contains(&limits.model)
                 && (6..=300).contains(&limits.lease),
             "Invalid pool limits"
+        );
+        ensure!(
+            limits.chat_reserve < limits.capacity.min(limits.workspace).min(limits.model),
+            "Chat reserve must be smaller than every admission limit"
         );
         let tx = self.db.begin().await?;
         super::assignments::admission_gate(&tx).await?;
@@ -40,22 +46,27 @@ impl PgStore {
                 provider: slot.try_get("", "provider")?,
                 model: slot.try_get("", "model")?,
             };
-            let candidate=query(&tx,&format!("SELECT j.reply,j.workspace,j.attempts FROM relay_chat_jobs j
-                JOIN relay_shared_agents a ON a.workspace=j.workspace AND a.id=j.payload->>'agent'
-                WHERE j.dispatch='pooled' AND j.attempts<3 AND (j.state='queued' OR (j.state='running' AND j.lease_until<={CLOCK}))
-                AND a.model=$1 AND COALESCE(NULLIF(a.settings->>'provider',''),$2)=$2
-                AND NOT EXISTS(SELECT 1 FROM relay_chat_jobs other WHERE other.workspace=j.workspace AND other.payload->>'agent'=j.payload->>'agent'
-                    AND other.reply<>j.reply AND other.state='running' AND other.lease_until>{CLOCK})
-                AND (SELECT count(*) FROM relay_chat_jobs other WHERE other.workspace=j.workspace AND other.state='running' AND other.lease_until>{CLOCK})<$3
-                AND (SELECT count(*) FROM relay_chat_jobs other JOIN relay_shared_agents oa ON oa.workspace=other.workspace AND oa.id=other.payload->>'agent'
-                    WHERE other.state='running' AND other.lease_until>{CLOCK} AND oa.model=$1 AND COALESCE(NULLIF(oa.settings->>'provider',''),$2)=$2)<$4
-                ORDER BY (SELECT count(*) FROM relay_chat_jobs other WHERE other.workspace=j.workspace AND other.state='running' AND other.lease_until>{CLOCK}),
-                    COALESCE((SELECT max(history.created_ms) FROM relay_worker_assignments history WHERE history.workspace=j.workspace),0),j.sequence
-                FOR UPDATE OF j SKIP LOCKED LIMIT 1"),vec![profile.model.into(),profile.provider.into(),(limits.workspace as i64).into(),(limits.model as i64).into()]).await?;
+            let peers = serde_json::json!(connected.iter().map(|(executor,incarnation)|serde_json::json!({"executor":executor,"incarnation":incarnation})).collect::<Vec<_>>());
+            let candidate = query(
+                &tx,
+                include_str!("pool_candidate.sql"),
+                vec![
+                    profile.model.clone().into(),
+                    profile.provider.clone().into(),
+                    (limits.workspace as i64).into(),
+                    (limits.model as i64).into(),
+                    (limits.capacity as i64).into(),
+                    count.into(),
+                    (limits.chat_reserve as i64).into(),
+                    peers.into(),
+                ],
+            )
+            .await?;
             let Some(candidate) = candidate else {
                 continue;
             };
             let reply: String = candidate.try_get("", "reply")?;
+            let class: String = candidate.try_get("", "work_class")?;
             let id = uuid::Uuid::new_v4().to_string();
             execute(&tx,&format!("UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,lease_until={CLOCK}+15 WHERE reply=$1"),vec![reply.clone().into(),id.clone().into()]).await?;
             execute(&tx,"INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)",
@@ -73,6 +84,9 @@ impl PgStore {
                 vec![id.into(), record.scope.resource().into()],
             )
             .await?;
+            execute(&tx,"INSERT INTO relay_pool_turns(provider,model,interactive_streak) VALUES($1,$2,CASE WHEN $3='interactive' THEN 1 ELSE 0 END)
+                ON CONFLICT(provider,model) DO UPDATE SET interactive_streak=CASE WHEN $3='interactive' THEN LEAST(relay_pool_turns.interactive_streak+1,3) ELSE 0 END",
+                vec![profile.provider.into(),profile.model.into(),class.into()]).await?;
             tx.commit().await?;
             return Ok(Some(record.scope));
         }
