@@ -157,7 +157,8 @@ test('controller restart and executor loss retain background class and fence onl
   await app.stopApi();await app.startApi();
   assert.deepEqual((await jobs(app,items)).map(row=>row.claim).sort(),before.map(row=>row.claim).sort());
   const pids=await app.gooseChildren(fleet[0]);
-  const claims=JSON.parse(await app.sqlAsync(`SELECT COALESCE(json_agg(assignment),'[]') FROM relay_executor_slots WHERE pid IN (${pids.join(',')}) AND state='running'`));
+  const identity=await app.executorIdentity(fleet[0]);
+  const claims=JSON.parse(await app.sqlAsync(`SELECT COALESCE(json_agg(assignment),'[]') FROM relay_executor_slots WHERE executor='${identity.id}' AND incarnation='${identity.incarnation}' AND state='running'`));
   assert.ok(claims.length>=1);
   await app.stop(fleet[0],'SIGKILL');
   await app.assertChildrenStopped(pids);

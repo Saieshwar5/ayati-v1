@@ -23,6 +23,7 @@ SUITES = {
     'faults': ['tests/agent_load_faults.mjs'],
     'preparation': ['tests/harness_preparation.mjs'],
     'mixed': ['tests/interactive_reserve.mjs'],
+    'image': ['tests/image_release.mjs', 'tests/interactive_reserve.mjs', 'tests/agent_load_faults.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/worker_control.mjs',
                     'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
@@ -84,6 +85,7 @@ def stop_scopes(profile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--suite', choices=SUITES, default='matrix')
+    parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults suites')
     parser.add_argument('--binary', type=Path, default=ROOT / 'target/debug/ayati')
     parser.add_argument('--postgres-bin', type=Path)
     parser.add_argument('--samples', type=int, default=24)
@@ -93,7 +95,11 @@ def main():
     parser.add_argument('--executor-cpu', type=int, choices=[100, 200], default=100,
                         help='CPU ceiling per two-slot executor, in percent of one CPU')
     args = parser.parse_args()
-    if not args.binary.is_file():
+    if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults']:
+        parser.error('This suite does not support container mode')
+    if args.suite == 'image' and not args.image:
+        parser.error('The image suite requires --image sha256:...')
+    if not args.image and not args.binary.is_file():
         parser.error('Build ayati first or supply --binary')
     if not 4 <= args.samples <= 40 or not 1 <= args.repeats <= 5:
         parser.error('Samples must be 4-40 and repeats 1-5')
@@ -126,7 +132,8 @@ def main():
     profile_file = evidence / 'profile.json'
     profile_file.write_text(json.dumps(profile, indent=2) + '\n')
     binary = evidence / 'ayati'
-    shutil.copy2(args.binary.resolve(), binary)
+    if not args.image:
+        shutil.copy2(args.binary.resolve(), binary)
     admin = getpass.getuser()
     if not re.fullmatch(r'[a-zA-Z0-9_-]+', admin):
         raise RuntimeError('Unsupported local account name')
@@ -140,21 +147,27 @@ def main():
                PGDATABASE='postgres', PGPASSWORD='', PGOPTIONS='')
     metadata = {'version': 1, 'began_utc': datetime.now(timezone.utc).isoformat(),
                 'suite': args.suite, 'profile': profile, 'database': dbname,
-                'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+                'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest() if not args.image else None,
                 'base_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 'exit_code': None, 'errors': []}
     goose = ROOT / '.cache/goose/v1.54.0/goose'
-    if goose.is_file():
+    if goose.is_file() and not args.image:
         metadata['goose_binary_sha256'] = hashlib.sha256(goose.read_bytes()).hexdigest()
     prepared = ROOT / '.cache/goose/v1.54.0-ayati.1/goose'
-    if prepared.is_file():
+    if prepared.is_file() and not args.image:
         with prepared.open('rb') as file:
             metadata['prepared_goose_sha256'] = hashlib.file_digest(file, 'sha256').hexdigest()
     source_paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others',
         '--exclude-standard', '--', 'src', 'tests', 'tools'], cwd=ROOT, text=True).splitlines()
     metadata['checkout_source_sha256'] = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
-        for name in source_paths if (ROOT / name).is_file() and (ROOT / name).suffix in {'.rs', '.mjs', '.py'}}
+        for name in source_paths if (ROOT / name).is_file() and (ROOT / name).suffix in {'.rs', '.mjs', '.py', '.sql'}}
     save = lambda: (evidence / 'result.json').write_text(json.dumps(metadata, indent=2) + '\n')
+    image_config = None
+    if args.image:
+        import agent_image_resources
+        image_config, image_file, metadata['image'] = agent_image_resources.prepare(evidence, args.image)
+        env['PGPORT'] = str(image_config['port'])
+        env['AYATI_TEST_IMAGE_CONFIG'] = str(image_file)
     pg = None
     output = None
     save()
@@ -167,11 +180,12 @@ def main():
             init += ['-L', str(share)]
         run_checked(init, env, evidence / 'setup.log')
         hba = cluster / 'pg_hba.conf'
-        hba.write_text('local all relay_app peer map=ayati_load_runtime\n' + hba.read_text())
+        tcp_hba = 'host all relay_app,relay_image_owner 127.0.0.1/32 scram-sha-256\n' if image_config else ''
+        hba.write_text('local all relay_app peer map=ayati_load_runtime\n' + tcp_hba + hba.read_text())
         with (cluster / 'pg_ident.conf').open('a') as ident:
             ident.write(f'\nayati_load_runtime {admin} relay_app\n')
-        pg_command = [pg_bin / 'postgres', '-D', cluster, '-k', socket, '-p', '55439',
-                      '-c', 'listen_addresses=', '-c', 'shared_buffers=128MB',
+        pg_command = [pg_bin / 'postgres', '-D', cluster, '-k', socket, '-p', env['PGPORT'],
+                      '-c', 'listen_addresses=' + ('127.0.0.1' if image_config else ''), '-c', 'shared_buffers=128MB',
                       '-c', 'max_connections=64', '-c', 'max_parallel_workers_per_gather=0']
         lib = pg_bin.parent / 'lib/postgresql'
         if lib.is_dir():
@@ -191,12 +205,14 @@ def main():
         verify_limits(metadata['postgres_before'], profile, 'postgres')
         run_checked(['psql', '-X', '-v', 'ON_ERROR_STOP=1'], env, evidence / 'setup.log',
                     f'CREATE ROLE relay_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;\nCREATE DATABASE {dbname};\n')
+        if image_config:
+            run_checked(['psql', '-X', '-v', 'ON_ERROR_STOP=1'], env, evidence / 'setup.log', agent_image_resources.role_sql(image_config))
         config = subprocess.check_output(['psql', '-X', '-Atc',
             "SELECT json_build_object('fsync',current_setting('fsync'),'synchronous_commit',current_setting('synchronous_commit'),'full_page_writes',current_setting('full_page_writes'),'server_version',current_setting('server_version'))"], env=env, text=True)
         metadata['postgres_configuration'] = json.loads(config)
         if not all(metadata['postgres_configuration'][key] == 'on' for key in ['fsync', 'synchronous_commit', 'full_page_writes']):
             raise RuntimeError('Private PostgreSQL durability settings are disabled')
-        url = f'postgresql://{quote(admin)}@localhost/{dbname}?' + urlencode({'host': str(socket), 'port': '55439'})
+        url = f'postgresql://{quote(admin)}@localhost/{dbname}?' + urlencode({'host': str(socket), 'port': env['PGPORT']})
         env.update(RELAY_TEST_DATABASE_URL=url, AYATI_TEST_BIN=str(binary),
                    AYATI_LOAD_PROFILE_FILE=str(profile_file), AYATI_LOAD_POSTGRES_PID=str(pg.pid),
                    AYATI_LOAD_SAMPLES=str(args.samples), AYATI_LOAD_REPEATS=str(args.repeats),
@@ -216,6 +232,12 @@ def main():
         metadata['errors'].append(str(error))
         metadata['exit_code'] = 1
     finally:
+        if image_config:
+            try:
+                agent_image_resources.stop_owned(image_config)
+            except Exception as error:
+                metadata['errors'].append(str(error))
+                metadata['exit_code'] = 1
         if pg and pg.poll() is None:
             pg.send_signal(signal.SIGINT)
             try:

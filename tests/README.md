@@ -50,6 +50,30 @@ legacy reports, version-14 migration, preserved owned work and atomic start repl
 The runner creates a fresh private database and verifies resource limits; use
 `--executor-cpu 200` for the two-CPU profile. Raw failures and successes are retained.
 
+## Exact release-image checks
+
+With Docker Engine/Buildx, systemd user scopes and local PostgreSQL tools:
+
+~~~sh
+python3 tools/verify-release-image.py
+~~~
+
+The [image guide](../runtime/release-image-validation.md) documents the private
+fixture data, exact image hashes, resource guards and cleanup ownership. No host
+application/Goose build is needed. The complete workflow passes thirteen process
+journeys: image setup/readiness/assets, mixed chat/background work, recovery and
+two 384-request load matrices. Every service runs the same immutable image;
+executors have private PID namespaces and actual container cgroup limits.
+`--smoke-only` omits the ordinary matrices. `--image sha256:...` tests an existing
+immutable local image. This is scripted-provider, same-host evidence.
+
+Nine Python guards cover resource-scope and container cleanup ownership:
+
+~~~sh
+python3 -m unittest discover -s tests -p 'agent_*_test.py'
+python3 -O -m unittest discover -s tests -p 'agent_*_test.py'
+~~~
+
 ## Durable live replies and local timing
 
 For [reserved chat/background admission](../runtime/interactive-reserve.md), build

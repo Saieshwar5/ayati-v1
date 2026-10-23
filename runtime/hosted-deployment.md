@@ -38,8 +38,10 @@ docker build --platform linux/amd64 -t ayati:hosted-local .
 
 The Dockerfile pins Node 26.2.0, Rust 1.98.0 and Debian Trixie base image digests,
 uses `npm ci` and `cargo build --locked`, builds the production website, and
-installs the existing SHA-256-verified Goose 1.54.0 binary. It supports Linux amd64
-only. Debian package repositories still supply build-time package updates; this
+installs the existing SHA-256-verified Goose 1.54.0 binary and the separately pinned
+prepared variant for pooled execution. `BUILD_JOBS` defaults to 2 in both Rust
+stages to bound local build pressure. It supports Linux amd64 only.
+Debian package repositories still supply build-time package updates; this
 is a versioned artifact, not a claim of bit-for-bit reproducible builds.
 
 The context is an allowlist of source/build inputs. `.env`, local databases,
@@ -101,6 +103,8 @@ for `RELAY_DATABASE_URL`, `WORKOS_API_KEY`, `OPENAI_API_KEY`,
 `AWS_SESSION_TOKEN`. It rejects conflicting, missing/unreadable and empty secret
 files. It does not evaluate file contents or print values. Mounted files must be
 readable by UID 10001; Compose bind-file secrets preserve host file permissions.
+`RELAY_SIMULATION_DATABASE_URL_FILE` is also supported for explicit local
+`simulate` rehearsals; it is not a normal hosted identity configuration.
 Provision real secrets through the hosting secret manager, separately by service.
 An API deployment never needs a model key; a worker never needs a WorkOS key.
 
@@ -208,6 +212,19 @@ evidence under `.tmp/container-deployment-*`. It makes no real WorkOS/model call
 The process test uses a private TLS certificate trusted only by its client and
 retains evidence under `.tmp/independent-worker-*`. Provider fixtures prove local
 protocol behavior, not acceptance by the real provider.
+
+For the prepared shared-executor image, use the additional
+[release-image verification workflow](release-image-validation.md):
+
+```sh
+python3 tools/verify-release-image.py
+```
+
+It builds one immutable image, runs eleven image/mixed/recovery journeys and two
+384-request matrices, and verifies actual container resource limits and owned
+cleanup. It uses the current same-host loopback worker transport. Its successful
+2026-10-24 evidence supplements the older Compose polling-worker rehearsal below;
+it does not establish private cross-host executor identity or cloud autoscaling.
 
 Remaining cloud work: select account/region and a cost ceiling; provision private
 compute, managed PostgreSQL and private object storage; configure TLS, actual

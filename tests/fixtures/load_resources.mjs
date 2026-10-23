@@ -1,3 +1,4 @@
+import { containerTarget, assertContainerLimits } from './image_runtime.mjs';
 import { readFile, readdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -50,8 +51,11 @@ export async function sampleResources(parents) {
   const profile = await loadProfile();
   const roles = parents.map((_, i) => i === 0 ? 'driver' : i === 1 ? 'controller' : 'executor');
   if (profile) { parents = [...parents, Number(process.env.AYATI_LOAD_POSTGRES_PID)]; roles.push('postgres'); }
+  const containers=await Promise.all(parents.map(containerTarget));
+  parents=parents.map((pid,index)=>containers[index]?.pid??pid);
+  const validate=(snapshot,index)=>containers[index]?assertContainerLimits(snapshot,profile,roles[index],containers[index].id):assertLimits(snapshot,profile,roles[index]);
   const before = profile ? await Promise.all(parents.map(cgroupSnapshot)) : [];
-  for (let i = 0; i < before.length; i++) assertLimits(before[i], profile, roles[i]);
+  for (let i = 0; i < before.length; i++) validate(before[i],i);
   const hz = Number(execFileSync('getconf', ['CLK_TCK'], { encoding: 'utf8' }));
   const loop = monitorEventLoopDelay({ resolution: 10 }); loop.enable();
   const initial = await Promise.all(parents.map(proc));
@@ -71,7 +75,7 @@ export async function sampleResources(parents) {
     stopped = true; await worker; loop.disable();
     const final = await Promise.all(parents.map(proc));
     const after = profile ? await Promise.all(parents.map(cgroupSnapshot)) : [];
-    for (let i = 0; i < after.length; i++) assertLimits(after[i], profile, roles[i]);
+    for (let i = 0; i < after.length; i++) validate(after[i],i);
     const cgroups = after.map((end, i) => ({ role: roles[i], before: before[i], after: end,
       cpu_seconds: (end.cpu.usage_usec - before[i].cpu.usage_usec) / 1e6,
       throttled_seconds: (end.cpu.throttled_usec - before[i].cpu.throttled_usec) / 1e6 }));

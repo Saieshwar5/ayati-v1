@@ -399,3 +399,9 @@ The [hosted deployment foundation](runtime/hosted-deployment.md) adds one contai
 image for API/workers/migrations, explicit HTTPS origin and Secure cookies,
 PostgreSQL sign-in state across API replacement, and readiness checks. The Compose
 template is for a private deployment rehearsal; cloud resources are not provisioned.
+
+The [release-image verifier](runtime/release-image-validation.md) builds one
+immutable image and checks prepared shared executors, mixed chat/background work,
+recovery and two resource-bounded load profiles. Run
+`python3 tools/verify-release-image.py` with local Docker access. All data and model
+responses are disposable/scripted; no AWS resources or paid calls are required.
