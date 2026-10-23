@@ -15,7 +15,51 @@ impl MigratorTrait for Migrator {
             Box::new(WorkspaceRoles),
             Box::new(Library),
             Box::new(LoginFlows),
+            Box::new(WorkerAssignments),
+            Box::new(WorkerControl),
         ]
+    }
+}
+struct WorkerControl;
+impl MigrationName for WorkerControl {
+    fn name(&self) -> &str {
+        "m20261023_000012_worker_control"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WorkerControl {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("worker_control.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Machine assignment receipts are durable; use a forward migration".into(),
+        ))
+    }
+}
+struct WorkerAssignments;
+impl MigrationName for WorkerAssignments {
+    fn name(&self) -> &str {
+        "m20261023_000011_worker_assignments"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WorkerAssignments {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("worker_assignments.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Assignment history is durable; use a forward migration".into(),
+        ))
     }
 }
 struct LoginFlows;

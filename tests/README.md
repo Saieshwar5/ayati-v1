@@ -1,5 +1,24 @@
 # Browser testing and agent feedback
 
+## Temporary assignment workers
+
+The backend [assignment worker contract](../runtime/assignment-workers.md) describes
+the separate real-Goose/PG process rehearsal. With a dedicated local
+RELAY_TEST_DATABASE_URL whose database starts with relay_simulation_:
+
+~~~sh
+cargo build --locked --bin ayati
+node --test --test-concurrency=1 tests/assignment_workers.mjs
+~~~
+
+It checks startup from zero workers, one-assignment exit, ownership renewal,
+competing launchers, cancellation/revocation and process-loss recovery. Set
+AYATI_ASSIGNMENT_SOAK_SECONDS=185 to cover the former three-minute ACP limit.
+The provider is scripted and all database records are disposable. This does not
+test AWS, paid models, browser tools or business-effect checkpoint continuation.
+
+## Existing browser and agent journeys
+
 The existing journeys below explicitly select the preserved prototype runtime.
 They are regression evidence for that harness. The new Goose path is tested with
 `cargo build` then `node --test --test-concurrency=1 tests/goose_integration.mjs tests/goose_durability.mjs tests/goose_scheduling.mjs`.

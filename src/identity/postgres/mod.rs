@@ -2,9 +2,15 @@
 mod accounts;
 mod agent_knowledge;
 mod agent_profiles;
+#[cfg(test)]
+mod assignment_tests;
+mod assignments;
 mod chat;
 pub mod cli;
 mod collaboration;
+#[cfg(test)]
+mod controlled_attempt_tests;
+mod controlled_attempts;
 mod entities;
 mod feedback;
 mod history;
@@ -23,6 +29,9 @@ mod people;
 mod resources;
 mod settings;
 mod work;
+pub(crate) mod worker_control;
+#[cfg(test)]
+mod worker_control_migration_tests;
 
 use super::store::{User, now};
 use anyhow::{Context, Result, ensure};
@@ -36,6 +45,8 @@ use std::time::Duration;
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
+    pub(crate) assigned: bool,
+    pub(crate) assignment_seconds: u64,
 }
 impl PgStore {
     pub async fn connect(url: &str) -> Result<Self> {
@@ -57,6 +68,14 @@ impl PgStore {
         Ok(Self {
             db,
             changes: tokio::sync::broadcast::channel(256).0,
+            assigned: super::worker_config::Mode::from_env(true)?
+                == super::worker_config::Mode::Assigned,
+            assignment_seconds: super::worker_config::seconds(
+                "AYATI_ASSIGNMENT_RUN_SECONDS",
+                180,
+                1,
+                86400,
+            )?,
         })
     }
 

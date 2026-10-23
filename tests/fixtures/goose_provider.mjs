@@ -3,7 +3,7 @@ import { once } from 'node:events';
 
 // A local model fixture, not live inference. The real pinned Goose process
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
-export async function fixtureProvider() {
+export async function fixtureProvider({ resumableHold = false } = {}) {
   const requests = [];
   let unavailable = false;
   let held = false;
@@ -30,7 +30,9 @@ export async function fixtureProvider() {
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
       return;
     }
-    if (held || prompt === 'stall') return; // Deliberately interrupted by Stop/worker loss.
+    if (prompt === 'stall' || (held && !resumableHold)) return; // Deliberately interrupted by Stop/worker loss.
+    while (held && !response.destroyed) await new Promise(resolve => setTimeout(resolve, 20));
+    if (response.destroyed) return;
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
     if (prompt?.startsWith('workspace ')) {

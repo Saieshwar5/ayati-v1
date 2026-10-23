@@ -31,6 +31,21 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages",
             get(messages).post(send),
         )
+        .route(
+            "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{reply}/cancel",
+            post(cancel),
+        )
+}
+async fn cancel(
+    State(app): State<Shared>,
+    RoutePath((workspace, chat, reply)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let pg = super::collaboration::pg(&app)?;
+    pg.cancel_assignment(&user, &workspace, &chat, &reply)
+        .await?;
+    Ok(Json(json!({"ok":true})))
 }
 async fn directory(
     State(app): State<Shared>,

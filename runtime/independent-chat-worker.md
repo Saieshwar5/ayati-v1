@@ -1,5 +1,9 @@
 # Independent shared-agent worker
 
+Use [assignment workers](assignment-workers.md) for the newer temporary-worker
+mode and local launcher. This guide describes the retained polling compatibility
+mode.
+
 Implemented 2026-10-23. This is the first local API/worker separation for
 PostgreSQL-managed workspace agents. It is not a hosted deployment or completion
 of the remote-tool/cloud-worker plan.
@@ -10,7 +14,8 @@ Build the current binary and configure a migrated PostgreSQL database privately
 using [the existing setup](postgres-workspaces.md). Both processes use the same
 `RELAY_DATABASE_URL`. They do not need the same filesystem or data directory.
 The original worker increment used schema version 9. The current checkout also
-requires migration 10 for durable hosted sign-in state; migrate and reapply runtime
+requires migration 11 for worker assignments and migration 10 for hosted sign-in
+state; migrate and reapply runtime
 grants before starting either role. See [hosted deployment](hosted-deployment.md).
 
 Start the API in one terminal:

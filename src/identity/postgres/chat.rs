@@ -328,11 +328,13 @@ impl PgStore {
         if let Some(job) = &job {
             execute(
                 &tx,
-                "INSERT INTO relay_chat_jobs(workspace,reply,payload) VALUES($1,$2,$3)",
+                "INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds) VALUES($1,$2,$3,$4,$5)",
                 vec![
                     workspace.into(),
                     job.reply.clone().into(),
                     serde_json::to_value(job)?.into(),
+                    if self.assigned { "assigned" } else { "polling" }.into(),
+                    (if self.assigned { self.assignment_seconds as i32 } else { 180 }).into(),
                 ],
             )
             .await?;
@@ -358,26 +360,52 @@ impl PgStore {
                 .unwrap_or(false)
     }
     pub async fn chat_finish(&self, job: &Job, content: &str, state: &str) -> Result<()> {
+        self.finish_claimed_job(job, content, state)
+            .await
+            .map(|_| ())
+    }
+    pub(crate) async fn finish_claimed_job(
+        &self,
+        job: &Job,
+        content: &str,
+        state: &str,
+    ) -> Result<bool> {
         let tx = self.workspace_tx(&job.workspace).await?;
+        let result = self.finish_job_in(&tx, job, content, state).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
+    pub(super) async fn finish_job_in(
+        &self,
+        tx: &DatabaseTransaction,
+        job: &Job,
+        content: &str,
+        state: &str,
+    ) -> Result<bool> {
+        ensure!(
+            ["complete", "failed", "cancelled"].contains(&state),
+            "Invalid reply outcome"
+        );
         let Some(claim) = &job.claim else {
             anyhow::bail!("Unclaimed shared job")
         };
-        let finished = execute(&tx,"UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>$3",vec![job.reply.clone().into(),claim.clone().into(),now().into()]).await?;
+        let finished = execute(tx,"UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint AND workspace=$3",vec![job.reply.clone().into(),claim.clone().into(),job.workspace.clone().into()]).await?;
         if finished == 0 {
-            return Ok(());
+            return Ok(false);
         }
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
             display_name: None,
         };
-        let allowed = access(&tx, &user, &job.workspace, &job.chat).await.is_ok()
-            && library::source_allowed(&tx, job).await.unwrap_or(false)
-            && agent_access(&tx, &user.id, &job.workspace, &job.agent)
+        let allowed = access(tx, &user, &job.workspace, &job.chat).await.is_ok()
+            && library::source_allowed(tx, job).await.unwrap_or(false)
+            && agent_access(tx, &user.id, &job.workspace, &job.agent)
                 .await
                 .unwrap_or(false);
-        execute(&tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
-        tx.commit().await?;
-        Ok(())
+        execute(tx,"UPDATE relay_worker_assignments SET state='finished',outcome=$2,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='running'",vec![claim.clone().into(),if allowed { state } else { "cancelled" }.into()]).await?;
+        execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
+        Ok(true)
     }
 }

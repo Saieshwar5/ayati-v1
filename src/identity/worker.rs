@@ -14,17 +14,7 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 pub(super) fn embedded_mode(value: Option<&str>, postgres: bool) -> Result<bool> {
-    match value.unwrap_or("embedded") {
-        "embedded" => Ok(true),
-        "external" => {
-            ensure!(
-                postgres,
-                "AYATI_CHAT_EXECUTION=external requires RELAY_DATABASE_URL"
-            );
-            Ok(false)
-        }
-        _ => anyhow::bail!("AYATI_CHAT_EXECUTION must be embedded or external"),
-    }
+    Ok(super::worker_config::Mode::parse(value, postgres)? == super::worker_config::Mode::Embedded)
 }
 
 fn concurrency(value: Option<&str>) -> Result<usize> {
@@ -40,6 +30,10 @@ fn concurrency(value: Option<&str>) -> Result<usize> {
 }
 
 pub async fn serve(data: &Path) -> Result<()> {
+    ensure!(
+        super::worker_config::Mode::from_env(true)? != super::worker_config::Mode::Assigned,
+        "Assigned mode requires assignment-launcher or worker --assignment <id>"
+    );
     let limit = concurrency(std::env::var("AYATI_WORKER_CONCURRENCY").ok().as_deref())?;
     let url = std::env::var("RELAY_DATABASE_URL")
         .context("The independent worker requires RELAY_DATABASE_URL; SQLite is not supported")?;

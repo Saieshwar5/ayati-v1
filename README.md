@@ -373,6 +373,11 @@ permissions, browser-local layout preferences and verification limits.
 
 Local PostgreSQL workspace storage and migration: [setup and verification](runtime/postgres-workspaces.md).
 
+For temporary one-assignment workers, set `AYATI_CHAT_EXECUTION=assigned` and run
+`ayati assignment-launcher`. Each worker renews its ownership, saves an outcome
+and exits. This requires PostgreSQL migration 11; see [assignment workers](runtime/assignment-workers.md)
+for configuration, cancellation, recovery and local-only evidence limits.
+
 Shared-agent work can also run in a separate process: set
 `AYATI_CHAT_EXECUTION=external` on `ayati identity`, then start `ayati worker`
 against the same PostgreSQL database with its own data directory. See

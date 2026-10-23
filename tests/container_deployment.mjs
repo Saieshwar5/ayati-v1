@@ -73,7 +73,7 @@ test('deployable image runs separate API, migration and supervised worker contai
     GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
     REVOKE UPDATE,DELETE ON relay_audit FROM relay_app;
     REVOKE INSERT,UPDATE,DELETE ON seaql_migrations FROM relay_app;`);
-  assert.equal(sql('SELECT count(*) FROM seaql_migrations'),'10');
+  assert.equal(sql('SELECT count(*) FROM seaql_migrations'),'11');
   assert.equal(sql("SELECT has_schema_privilege('relay_app','public','CREATE')"),'f');
   pass('Explicit migration container creates the schema; runtime role has no DDL/migration authority');
   compose(['up','-d','api','worker']);
