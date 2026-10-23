@@ -25,7 +25,12 @@ impl Harness {
         use std::os::unix::fs::PermissionsExt;
         std::fs::create_dir_all(root)?;
         std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
+        // Stop dotenv discovery at this fresh, owned scratch boundary.
+        std::fs::write(root.join(".env"), "")?;
         let mut config = GooseConfig::from_env(root, &profile.model);
+        config.binary = std::env::var_os("AYATI_PREPARED_GOOSE_BIN")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0-ayati.1/goose"));
         config.provider = profile.provider.clone();
         config.agent_id = "prepared-chat".into();
         config.vm_manifest = None;

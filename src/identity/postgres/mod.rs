@@ -18,6 +18,8 @@ mod executor_dispatch;
 mod executor_slot_tests;
 mod executor_slots;
 #[cfg(test)]
+mod preparation_tests;
+#[cfg(test)]
 mod profile_lookup_tests;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;

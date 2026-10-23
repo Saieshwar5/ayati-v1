@@ -27,6 +27,10 @@ impl PgStore {
             crate::identity::worker_control::model::token(&slot.token)?;
             slot.profile.validate()?;
             ensure!(
+                slot.preparation_version <= 1,
+                "Unsupported harness preparation version"
+            );
+            ensure!(
                 (1..=1_000_000_000).contains(&slot.generation) && unique.insert(&slot.slot),
                 "Invalid/duplicate slot generation"
             );
@@ -71,11 +75,16 @@ impl PgStore {
                 ensure!(count < 16, "Executor slot limit reached");
             }
             require(state == "serving")?;
-            execute(&tx,"INSERT INTO relay_executor_slots(executor,incarnation,slot,generation,provider,model,state,token_hash,pid,ready_ms)
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $7='ready' THEN (extract(epoch FROM clock_timestamp())*1000)::bigint ELSE NULL END)
+            let reported = if slot.state == "ready" && slot.preparation_version == 0 {
+                "preparing"
+            } else {
+                &slot.state
+            };
+            execute(&tx,"INSERT INTO relay_executor_slots(executor,incarnation,slot,generation,provider,model,state,token_hash,pid,preparation_version,ready_ms)
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $7='ready' THEN (extract(epoch FROM clock_timestamp())*1000)::bigint ELSE NULL END)
                 ON CONFLICT(executor,incarnation,slot) DO UPDATE SET generation=$4,provider=$5,model=$6,state=$7,token_hash=$8,pid=$9,
-                ready_ms=CASE WHEN $7='ready' THEN COALESCE(CASE WHEN relay_executor_slots.generation=$4 THEN relay_executor_slots.ready_ms END,(extract(epoch FROM clock_timestamp())*1000)::bigint) ELSE NULL END,assignment=NULL",
-                vec![executor.into(),incarnation.into(),slot.slot.clone().into(),slot.generation.into(),slot.profile.provider.clone().into(),slot.profile.model.clone().into(),slot.state.clone().into(),hash.into(),slot.pid.map(i64::from).into()]).await?;
+                preparation_version=$10,ready_ms=CASE WHEN $7='ready' THEN COALESCE(CASE WHEN relay_executor_slots.generation=$4 THEN relay_executor_slots.ready_ms END,(extract(epoch FROM clock_timestamp())*1000)::bigint) ELSE NULL END,assignment=NULL",
+                vec![executor.into(),incarnation.into(),slot.slot.clone().into(),slot.generation.into(),slot.profile.provider.clone().into(),slot.profile.model.clone().into(),reported.into(),hash.into(),slot.pid.map(i64::from).into(),i32::from(slot.preparation_version).into()]).await?;
         }
         tx.commit().await?;
         Ok(())

@@ -26,9 +26,10 @@ holds an uncommitted agent pause, allows a metadata-only offer, proves context
 start waits, commits the pause and verifies start is denied without saving context.
 All PostgreSQL regressions cover the wider workspace lock change.
 
-There is no schema change; use migration 14 and the existing restricted runtime
-grants from [PostgreSQL setup](postgres-workspaces.md). Ordinary databases were
-not migrated during this work.
+That load increment added no schema change and used migration 14. The current
+checkout requires migration 15 and the [prepared harness](harness-preparation.md);
+use the restricted runtime grants from [PostgreSQL setup](postgres-workspaces.md).
+Ordinary databases were not migrated during these rehearsals.
 
 ## Removing per-run transport initialization
 

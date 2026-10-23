@@ -7,14 +7,17 @@ renews/completes through HTTP. It receives no core PostgreSQL URL, WorkOS key or
 operator bootstrap key. The controller owns all PostgreSQL access.
 
 This cold launcher path creates a fresh worker/Goose process per assignment.
+Controller start now confirms the accepted lease atomically with ownership and
+saved context, including exact replay. It retains the current access checks; see
+[generic harness preparation](harness-preparation.md#one-atomic-start-and-lease-confirmation).
 M1.5b adds an opt-in [prepared executor pool](executor-pool.md) that reuses this
 start/renew/complete boundary. M1.5c adds [durable live output](reply-streaming.md)
-to that pool. Response-speed acceptance, checkpoints and AWS machine identity
+to that pool. Release/live-provider speed calibration, checkpoints and AWS machine identity
 remain later increments. The [direct-PG M1 path](assignment-workers.md) remains available.
 
 ## Migration and local startup
 
-Run all fourteen migrations through `m20261023_000014_reply_output`, using the
+Run all fifteen migrations through `m20261023_000015_harness_preparation`, using the
 migration owner and reapply runtime grants. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.

@@ -1,0 +1,38 @@
+--- a/crates/goose-cli/src/cli.rs
++++ b/crates/goose-cli/src/cli.rs
+@@ -76,3 +76,3 @@
+ #[derive(Parser)]
+-#[command(name = "goose", author, version, display_name = "", about, long_about = None)]
++#[command(name = "goose", author, version = "1.54.0+ayati.1", display_name = "", about, long_about = None)]
+ pub struct Cli {
+--- a/crates/goose/src/acp/server/new_session.rs
++++ b/crates/goose/src/acp/server/new_session.rs
+@@ -83,2 +83,9 @@
+     ) -> Result<NewSessionResponse, agent_client_protocol::Error> {
++        // Ayati preparation v1 is pure initialization: no prompt, tool or inference.
++        let prepare = match args.meta.as_ref().and_then(|meta| meta.get("ayatiPrepare")) {
++            None => false,
++            Some(value) if value.as_u64() == Some(1) => true,
++            Some(_) => return Err(agent_client_protocol::Error::invalid_params()
++                .data("Unsupported Ayati preparation contract")),
++        };
+         let rendered_recipe = self
+@@ -94,3 +101,3 @@
+         let reloaded_session = self.reload_session(&session.id).await?;
+-        let response = self
++        let mut response = self
+             .build_new_session_response(
+@@ -101,2 +108,13 @@
+             .await?;
++        if prepare {
++            let began = std::time::Instant::now();
++            let _counter = crate::token_counter::create_token_counter().await.map_err(|_| {
++                agent_client_protocol::Error::internal_error().data("Generic preparation failed")
++            })?;
++            response.meta.get_or_insert_with(Default::default).insert(
++                "ayatiPrepared".to_string(),
++                serde_json::json!({"version":1,"tokenCounter":"o200k_base",
++                    "durationMicros":u64::try_from(began.elapsed().as_micros()).unwrap_or(u64::MAX)}),
++            );
++        }
+         Ok(response)

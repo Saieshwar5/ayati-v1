@@ -7,7 +7,7 @@ workers retain final-result delivery. This does not deploy AWS or enable tools.
 
 ## Startup and migration
 
-Run all fourteen migrations through `m20261023_000014_reply_output` with the
+Run all fifteen migrations through `m20261023_000015_harness_preparation` with the
 migration owner, then reapply runtime table/sequence grants. Existing databases
 are not automatically migrated by startup. See [PostgreSQL setup](postgres-workspaces.md).
 The migration preserves existing IDs, messages, assignment ownership, capabilities
@@ -108,7 +108,9 @@ specific latency optimization accounts for this variation. Consistent acceptance
 needs repeated load evidence followed by a separately bounded live-provider
 calibration before cloud sizing. The [controlled load rehearsal](load-acceptance.md)
 adds that local matrix, narrower context/harness traces and recovery under load;
-its current model-request target misses remain explicit.
+its historical model-request target misses remain explicit. The later
+[generic-preparation follow-up](bounded-agent-load.md#preparation-follow-up) passes
+both targets across two repeated CPU profiles, with zero pre-ready inference.
 These are fixture observations, not a production capacity recommendation or
 live-provider/first-token SLA. Browser timing, ready reserve and cold expansion
 require their own representative evidence.

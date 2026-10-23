@@ -4,20 +4,25 @@ This follows the [first load increment](load-acceptance.md). It adds fresh priva
 PostgreSQL clusters, verified resource ceilings and handoff timestamps so worker
 CPU pressure can be distinguished from controller work and transport. These are
 local debug-build/scripted-provider measurements, not cloud capacity or an SLA.
+The [preparation follow-up](harness-preparation.md) moves generic first-use work
+before readiness; the original stock-Goose measurements below remain historical.
 
 ## Reproduce
 
 Use Linux with a working systemd user manager, cgroup v2 CPU/memory controllers,
 `taskset`, Node, `psql`, PostgreSQL server tools and the existing pinned Goose
-1.54.0 installation. A missing prerequisite or failed limit check fails the run;
+1.54.0 installation plus the separate
+[prepared variant](harness-preparation.md). A missing prerequisite or failed limit check fails the run;
 the bounded command does not silently substitute affinity-only execution.
 
 ~~~sh
 cargo build --locked --bin ayati
+python3 tools/build-prepared-goose.py
 python tools/run-agent-load.py
 python tools/run-agent-load.py --executor-cpu 200
 python tools/run-agent-load.py --suite faults
 python tools/run-agent-load.py --suite regressions
+python tools/run-agent-load.py --suite preparation
 python -m unittest discover -s tests -p agent_load_runner_test.py
 ~~~
 
@@ -121,7 +126,7 @@ addition/revocation, cross-workspace lookup and a member's private agent hidden
 from the workspace owner. This bounds profile materialization as the agent list
 grows; it is not evidence that the entire startup target has been met.
 
-## Evidence and acceptance
+## Evidence format and provisional targets
 
 Each runner directory retains `profile.json`, `result.json`, `setup.log`,
 `postgres.log`, `run.log`, the copied binary and the stopped cluster. The result
@@ -138,7 +143,9 @@ all correlated points. The final wave at concurrency 16 contains eight requests.
 Ready-capacity targets remain p95 dispatch below 100 ms and model request below
 250 ms. Overflow queueing is reported separately; target failures remain visible.
 
-Both final matrices passed correctness: 384 requests per profile, 768 total,
+## Historical stock-Goose baseline (PR #61)
+
+Both baseline matrices passed correctness: 384 requests per profile, 768 total,
 with one inference/attempt per healthy request and no conversation/knowledge
 leakage. The same instrumented debug executable was used for both profiles (SHA-256
 `9888044dbda4d0d3370639e8667a829254ef4549d2a89c0ab6eb3c0c813c7370`).
@@ -220,12 +227,83 @@ headline comparison. Its launch pointer is `earlier-one-cpu-build-launch.log`.
 The one-CPU matrix was repeated with the exact executable used by the two-CPU,
 fault and regression suites; only these matching-binary runs are compared above.
 
-Next validate a safe preparation path that completes Goose first-use work
+That baseline identified the next increment: validate preparation that completes Goose first-use work
 before readiness, without inference during preparation or tenant session reuse.
 Identify supported hooks before considering a maintained pinned harness patch;
-no such patch is shipped here. Separately evaluate consolidating controller
+no such patch was shipped in PR #61. Separately evaluate consolidating controller
 reads while retaining current authorization at context delivery/publication.
 Repeat the same bounded workload after either change. Performance acceptance,
 foreground/background reservation, release-image/live-model calibration, cloud
 machine identity/autoscaling and hard tenant isolation remain open. Resource
 scopes provide budgets; they do not establish tenant OS isolation.
+
+## Preparation follow-up
+
+[Generic preparation](harness-preparation.md) now requires the separately identified
+Goose `1.54.0+ayati.1` acknowledgment before readiness. It moves tokenizer creation
+ahead of assignment without an inference or any tenant context. Start also confirms
+its full lease and saved context in one transaction, retaining current authorization.
+These are combined application changes; the same-ELF direct ACP probe isolates
+the preparation effect, whereas a before/after application comparison does not
+attribute the entire improvement to one change or the lean build's feature set.
+
+The immutable Ayati debug ELF is SHA-256
+`ea0f90159bf765985dda2e896170f0e95d36ce3530bacf94e89d7101ec1b3ab4`.
+The prepared Goose release ELF is
+`944672cfcf71cb056514a43601606933dbe4a2195ace6bde5f0c39faefc894d1`.
+Both CPU matrices retain the same workload, context sizes, four ready slots,
+private-cluster durability and resource verification used above.
+
+| Executor budget | Context | Concurrent | Model-request p95, repeat 1 / 2 | ACP-to-provider p95, repeat 1 / 2 |
+| --- | --- | ---: | ---: | ---: |
+| 1 CPU / 2 slots | small | 1 | 103 / 90 ms | 20.0 / 21.7 ms |
+| 1 CPU / 2 slots | small | 4 | 190 / 182 ms | 27.6 / 24.3 ms |
+| 1 CPU / 2 slots | large | 1 | 110 / 101 ms | 25.2 / 26.6 ms |
+| 1 CPU / 2 slots | large | 4 | 225 / 232 ms | 28.2 / 27.7 ms |
+| 2 CPUs / 2 slots | small | 1 | 94 / 95 ms | 20.8 / 19.8 ms |
+| 2 CPUs / 2 slots | small | 4 | 182 / 158 ms | 27.2 / 24.7 ms |
+| 2 CPUs / 2 slots | large | 1 | 104 / 107 ms | 29.1 / 26.0 ms |
+| 2 CPUs / 2 slots | large | 4 | 207 / 227 ms | 28.1 / 32.8 ms |
+
+Both matrices passed all 768 requests and every ready-capacity provisional
+target. Dispatch p95 was 11–38 ms at one CPU and 12–38 ms at two. Single-agent
+model-request p95 was 90–110 / 94–107 ms; four-agent p95 was 182–232 / 158–227 ms.
+Overflow remains separately measured: saturation does not become instant service
+merely because generic initialization moved. One-CPU runner:
+`.tmp/bounded-agent-oh34fcio`; two CPUs: `.tmp/bounded-agent-8kr61h4w`.
+Detailed fixtures: `.tmp/independent-worker-o3lG2E` and
+`.tmp/independent-worker-W2FUAd`. All 768 handoff traces had zero observed
+timestamp inversions. Summed executor throttling across case intervals was
+68.27 seconds at one CPU and zero at two. This is a sum across two scopes and
+includes overflow/replenishment; it is not the delay of a typical ready request.
+
+At concurrency 8, model-request p95 was 1,347–1,408 ms at one CPU and
+1,043–1,169 ms at two. At concurrency 16 it was 3,355–3,668 / 2,678–2,965 ms.
+These deliberately oversubscribe four ready slots. They retain honest capacity
+queueing and do not qualify for the ready-capacity latency target. Sizing shared
+reserve and protecting interactive work remain necessary.
+
+All three fault journeys passed in `.tmp/bounded-agent-pq8cf1nz`, using the same
+Ayati/Goose artifacts and the two-CPU executor profile. Controller replacement,
+actual executor loss/lease expiry, cancellation and source-grant revocation
+preserved final-state and authority boundaries. These are same-host scripted
+recovery checks, not cloud failover guarantees. Restart to all eight final replies
+was 1,303 ms; actual loss to replacement draft was 12,027 ms with twelve-second
+renewable leases. Lease recovery intentionally remains separate from ready dispatch.
+
+The named local ready-capacity gate passes. Release-image verification,
+live-provider calibration, foreground/background reservation, remote executor
+identity, cloud autoscaling and hard tenant isolation remain open.
+
+All twenty existing process journeys also passed in
+`.tmp/bounded-agent-3x1evf8s` with the identical binary pair and two-CPU profile,
+including real browser stream/offline/reload/Stop, private Library sources,
+pool/cold-worker recovery, machine scope denial, lost acknowledgments and HTTPS
+startup. Together with two matrices, three preparation and three fault journeys,
+all 28 primary process journeys pass. Native build, 149 default Rust tests,
+78 disposable PostgreSQL checks, four Python resource-boundary tests (also under
+optimization), strict all-target Clippy and source/diff/link checks pass. The
+Docker image build could not run because this session lacks daemon access.
+
+All artifacts and initial test failures are
+retained under `.tmp/harness-readiness-verification` and printed fixture paths.

@@ -57,6 +57,7 @@ pub(super) async fn setup() -> (
         state: "ready".into(),
         token: random_token(),
         pid: Some(12345),
+        preparation_version: 1,
     };
     (db, owner, w, c, a, executor, slot)
 }

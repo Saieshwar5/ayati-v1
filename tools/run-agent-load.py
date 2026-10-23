@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SUITES = {
     'matrix': ['tests/agent_load.mjs'],
     'faults': ['tests/agent_load_faults.mjs'],
+    'preparation': ['tests/harness_preparation.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/worker_control.mjs',
                     'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
@@ -144,6 +145,10 @@ def main():
     goose = ROOT / '.cache/goose/v1.54.0/goose'
     if goose.is_file():
         metadata['goose_binary_sha256'] = hashlib.sha256(goose.read_bytes()).hexdigest()
+    prepared = ROOT / '.cache/goose/v1.54.0-ayati.1/goose'
+    if prepared.is_file():
+        with prepared.open('rb') as file:
+            metadata['prepared_goose_sha256'] = hashlib.file_digest(file, 'sha256').hexdigest()
     source_paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others',
         '--exclude-standard', '--', 'src', 'tests', 'tools'], cwd=ROOT, text=True).splitlines()
     metadata['checkout_source_sha256'] = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()

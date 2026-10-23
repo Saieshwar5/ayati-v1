@@ -21,5 +21,8 @@
 !web/public/**
 !tools/
 !tools/install-goose.sh
+!tools/build-prepared-goose.py
+!tools/patches/
+!tools/patches/goose-1.54.0-preparation.patch
 !deploy/
 !deploy/container-entrypoint.sh

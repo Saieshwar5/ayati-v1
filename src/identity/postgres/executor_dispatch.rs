@@ -34,7 +34,7 @@ impl PgStore {
             return Ok(None);
         }
         let slots=rows(&tx,&format!("SELECT s.* FROM relay_executor_slots s JOIN relay_executors e ON e.id=s.executor AND e.incarnation=s.incarnation
-            WHERE s.executor=$1 AND s.incarnation=$2 AND s.state='ready' AND e.state='serving' AND e.expires>{CLOCK} ORDER BY s.slot FOR UPDATE OF s SKIP LOCKED"),vec![executor.into(),incarnation.into()]).await?;
+            WHERE s.executor=$1 AND s.incarnation=$2 AND s.state='ready' AND s.preparation_version=1 AND e.state='serving' AND e.expires>{CLOCK} ORDER BY s.slot FOR UPDATE OF s SKIP LOCKED"),vec![executor.into(),incarnation.into()]).await?;
         for slot in slots {
             let profile = Profile {
                 provider: slot.try_get("", "provider")?,

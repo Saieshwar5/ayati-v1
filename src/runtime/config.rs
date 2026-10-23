@@ -6,6 +6,7 @@ use std::{
 use tokio::process::Command;
 
 pub const GOOSE_VERSION: &str = "1.54.0";
+pub const PREPARED_GOOSE_VERSION: &str = "1.54.0+ayati.1";
 
 #[derive(Clone)]
 pub struct GooseConfig {
@@ -80,6 +81,12 @@ impl GooseConfig {
     }
 
     pub async fn command(&self) -> Result<Command> {
+        self.command_for(false).await
+    }
+    pub(crate) async fn prepared_command(&self) -> Result<Command> {
+        self.command_for(true).await
+    }
+    async fn command_for(&self, prepared: bool) -> Result<Command> {
         for path in [&self.root, &self.workspace, &self.root.join("config")] {
             std::fs::create_dir_all(path)?;
             std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
@@ -97,10 +104,14 @@ impl GooseConfig {
         )
         .await
         .context("Goose version check timed out")??;
+        let expected = if prepared {
+            PREPARED_GOOSE_VERSION
+        } else {
+            GOOSE_VERSION
+        };
         ensure!(
-            version.status.success()
-                && String::from_utf8_lossy(&version.stdout).trim() == GOOSE_VERSION,
-            "Expected pinned Goose 1.54.0; install the tested artifact"
+            version.status.success() && String::from_utf8_lossy(&version.stdout).trim() == expected,
+            "Expected pinned Goose {expected}; install the tested artifact"
         );
         let mut command = Command::new(binary);
         command.arg("acp").current_dir(&self.workspace).env_clear();
