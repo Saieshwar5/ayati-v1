@@ -96,7 +96,9 @@ measures five healthy foreground replies across individual/concurrent/mixed work
 and checks background completion and Stop. Thirteen boundary checks cover live
 opt-in, key privacy, atomic/nonrefundable accounting, token limits, SSE chunking,
 errors, redirects, missing usage, cancellation and allowance exhaustion.
-Live provider latency remains unverified until a separately configured paid run.
+The [first live Fireworks profile](../runtime/provider-calibration.md#first-live-fireworks-profile--2026-10-24)
+now passes seven requests with real browser timing and Stop. This small local
+sample does not establish cloud latency or general provider/model acceptance.
 
 ## Durable live replies and local timing
 

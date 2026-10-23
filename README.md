@@ -411,3 +411,5 @@ browser-visible replies using that verified image. Its default rehearsal is
 scripted; real-provider execution needs an explicit model/rate/allowance plan and
 private key file. It retains request limits, conservative reservations, usage
 uncertainty and timing evidence before cloud sizing.
+The guide records a first bounded live Fireworks run: seven requests pass, including
+concurrent/mixed work and Stop, with the provider key retained outside containers.

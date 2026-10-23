@@ -158,4 +158,70 @@ interrupted result (130), then stops owned resources. Evidence:
 The audit verifies 339 final source hashes and cleanup of all rehearsal resources;
 the 16 existing stopped Docker containers remain. The first direct-chat reuse
 fixture failure and intermediate runs are retained separately from final evidence.
-Live model/rates/allowance selection and real-provider acceptance remain pending.
+That scripted checkpoint did not establish live acceptance. The following trial
+records the first real-provider result.
+
+## First live Fireworks profile — 2026-10-24
+
+The owner authorized Fireworks, a cheapest-model trial and the key in the root
+`.env`. The key authenticated against Fireworks' model catalog. Selected
+`accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b`, an available serverless
+chat model with the lowest published Standard input rate among the current
+candidates: $0.05/M input and $0.20/M output. This input-heavy workload favors that
+rate. Sources: [current pricing](https://docs.fireworks.ai/serverless/pricing) and
+[model card](https://app.fireworks.ai/models/fireworks/nemotron-lightning-3p5-30b-a3b).
+Standard is the default; no Priority/Fast selection or GPU deployment was used.
+
+The unmodified calibration code at `f8072afc` passed its first live run. All seven
+requests returned HTTP 200 with the selected served model: six completed and one
+was intentionally cancelled. Five healthy foreground samples cover individual
+small/larger context, two concurrent agents and chat beside active background work.
+Both overlaps were observed. Chat Stop persisted cancellation, terminated the
+assigned Goose process and closed the local upstream stream in 64 ms.
+
+| Local measurement | Median | Slowest of five |
+| --- | ---: | ---: |
+| Server acceptance to ready-worker dispatch | 14 ms | 20 ms |
+| Server acceptance to proxy forward | 86 ms | 144 ms |
+| Proxy forward to first provider answer text | 1,159 ms | 3,167 ms |
+| Browser Send click to first visible text | 1,326 ms | 3,637 ms |
+| First saved text to visible browser text | 22 ms | 29 ms |
+
+The provider interval includes Internet transport, provider queueing, reasoning
+and generation; it does not isolate inference compute. The model's documented
+default includes reasoning, and no reasoning-disable option was added. Five samples
+are exploratory, not stable p95/p99, AWS latency or a production SLA. The synthetic
+company UI retains its simulation/scripted-agents banner, but the audited proxy
+forwarded these requests to real Fireworks inference. Normal workspace settings,
+ordinary databases and the root `.env` were not modified.
+
+The plan allowed at most seven calls, two concurrent, 32,768 prompt JSON bytes and
+1,024 output tokens, with a 65,536-token input reservation and $0.025 allowance.
+The smaller input reservation is conservative for the byte-bounded synthetic text
+plus template overhead; it is not the model's full 262k context or a provider token
+limit. Usage stayed below it. Six completed requests reported 8,636 input and 2,843
+output tokens. At declared uncached rates, per-request rounded usage estimates sum
+to **$0.001004**; cache discounts and the actual invoice are not reconciled.
+Cancelled usage is unknown and keeps **$0.003482** reserved. All nonrefundable
+reservations together are **$0.024374**; that total is an accounting allowance,
+not the actual charge. There were no denials, excess-usage fences or extra retries.
+
+Retained local evidence:
+
+- `.tmp/provider-calibration-rFrwT5/verification.json` and `calibration-report.json`.
+- `.tmp/bounded-agent-licquvz8` for source/resource/container/cleanup evidence.
+- `.tmp/fireworks-live-verification/final-audit.json` and private selected plan.
+- `.tmp/provider-calibration-rFrwT5/chat-small.png` for the actual model reply in Chat.
+
+The immutable image is unchanged from the release-image gate. The audit matches
+339 source hashes, verifies the key used matches `.env` without displaying it,
+and confirms all eight registered test containers, both scopes and the private
+postmaster are stopped. All 16 existing stopped containers remain. The temporary
+provider-key copy is removed after verification; the original `.env` is preserved.
+No AWS resources were created. This accepts one bounded local Fireworks-compatible
+profile, not the native `fireworks-ai` adapter, business tools or all providers.
+
+Next: prepare M0's reviewable AWS resource/cost/IaC manifest, then prove M2/M3 private
+service identity before live cloud context. Retain this first profile alongside
+the larger scripted resource trials; broader live sampling, model/think-mode
+latency comparison, cloud scaling and multi-hour acceptance remain separate gates.
