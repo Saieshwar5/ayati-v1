@@ -16,7 +16,7 @@ describes the retained direct-PG compatibility mode. M1.5b adds the opt-in
 
 ## Migration and startup
 
-Run all migrations through 15, m20261023_000015_harness_preparation, with the owner connection,
+Run all migrations through 16, m20261024_000016_interactive_reserve, with the owner connection,
 then reapply runtime table/sequence grants. See [PostgreSQL setup](postgres-workspaces.md)
 and [hosted packaging](hosted-deployment.md). Startup never migrates ordinary data.
 Existing jobs remain polling jobs; they are not silently converted to assignments.

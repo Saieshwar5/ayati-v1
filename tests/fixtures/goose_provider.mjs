@@ -10,6 +10,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   const requests = [];
   let unavailable = false;
   let held = false;
+  let heldMarkers = [];
   let streamScript;
   let outputHeld = false;
   const timings = [];
@@ -44,7 +45,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
       return;
     }
     if (prompt === 'stall' || (held && !resumableHold)) return; // Deliberately interrupted by Stop/worker loss.
-    while (held && !response.destroyed) await new Promise(resolve => setTimeout(resolve, 20));
+    while ((held || heldMarkers.some(marker => textContent.includes(marker))) && !response.destroyed) await new Promise(resolve => setTimeout(resolve, 20));
     if (response.destroyed) return;
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
@@ -136,6 +137,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
     setOutputHeld: value => { outputHeld=value; },
     setUnavailable: (value) => { unavailable = value; },
     setHeld: (value) => { held = value; },
+    setHeldMarkers: markers => { heldMarkers = [...markers]; },
     close: () => { server.closeAllConnections(); server.close(); },
   };
 }

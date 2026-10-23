@@ -1,0 +1,32 @@
+//! Seed the historical v11-v15 column contract without using newer intake SQL.
+use super::*;
+use crate::identity::chat::store::Job;
+
+pub(super) async fn legacy_request(
+    db: &PgStore,
+    user: &User,
+    workspace: &str,
+    chat: &str,
+    agent: &str,
+    content: &str,
+) -> Result<Option<Job>> {
+    let tx = db.db.begin().await?;
+    execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7)",
+        vec![uuid::Uuid::new_v4().to_string().into(),workspace.into(),chat.into(),user.id.clone().into(),content.into(),now().into(),agent.into()]).await?;
+    let reply = uuid::Uuid::new_v4().to_string();
+    execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6)",
+        vec![reply.clone().into(),workspace.into(),chat.into(),agent.into(),now().into(),user.id.clone().into()]).await?;
+    let job = Job {
+        reply,
+        workspace: workspace.into(),
+        chat: chat.into(),
+        agent: agent.into(),
+        requester: user.id.clone(),
+        prompt: content.into(),
+        claim: None,
+    };
+    execute(&tx,"INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds) VALUES($1,$2,$3,$4,$5)",
+        vec![workspace.into(),job.reply.clone().into(),serde_json::to_value(&job)?.into(),if db.assigned {"assigned"} else if db.pooled {"pooled"} else {"polling"}.into(),(db.assignment_seconds as i32).into()]).await?;
+    tx.commit().await?;
+    Ok(Some(job))
+}

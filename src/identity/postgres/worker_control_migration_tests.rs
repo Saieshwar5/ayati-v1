@@ -25,16 +25,17 @@ async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
     let owner = user(&old, "output-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let job = old
-        .chat_send(
-            &owner,
-            &w,
-            &c,
-            &message("Preserve this pending reply", Some("agent-one")),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let job = super::migration_fixture::legacy_request(
+        &old,
+        &owner,
+        &w,
+        &c,
+        "agent-one",
+        "Preserve this pending reply",
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let registration = crate::identity::worker_control::model::Registration {
         executor: uuid::Uuid::new_v4().to_string(),
         incarnation: uuid::Uuid::new_v4().to_string(),
@@ -141,16 +142,17 @@ async fn executor_slots_migration_preserves_v12_completion_receipts_and_history(
     let owner = user(&old, "slots-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let job = old
-        .chat_send(
-            &owner,
-            &w,
-            &c,
-            &message("Keep the old receipt", Some("agent-one")),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let job = super::migration_fixture::legacy_request(
+        &old,
+        &owner,
+        &w,
+        &c,
+        "agent-one",
+        "Keep the old receipt",
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let scope = Scope {
         executor: uuid::Uuid::new_v4().to_string(),
         incarnation: uuid::Uuid::new_v4().to_string(),
@@ -270,16 +272,17 @@ async fn worker_control_migration_preserves_a_running_v11_assignment() {
     let owner = user(&old, "control-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let mut job = old
-        .chat_send(
-            &owner,
-            &w,
-            &c,
-            &message("Keep this accepted job", Some("agent-one")),
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let mut job = super::migration_fixture::legacy_request(
+        &old,
+        &owner,
+        &w,
+        &c,
+        "agent-one",
+        "Keep this accepted job",
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let id = uuid::Uuid::new_v4().to_string();
     execute(&old.db,"UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=1,lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+120 WHERE reply=$1",
         vec![job.reply.clone().into(),id.clone().into()]).await.unwrap();

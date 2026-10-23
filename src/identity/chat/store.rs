@@ -438,3 +438,15 @@ impl std::fmt::Display for QueueFull {
     }
 }
 impl std::error::Error for QueueFull {}
+
+#[derive(Debug)]
+pub struct BackgroundQueueFull;
+impl std::fmt::Display for BackgroundQueueFull {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "The background queue is full (32 pending requests). Wait for work to finish before retrying."
+        )
+    }
+}
+impl std::error::Error for BackgroundQueueFull {}

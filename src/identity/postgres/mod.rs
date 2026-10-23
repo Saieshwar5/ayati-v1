@@ -6,6 +6,7 @@ mod agent_profiles;
 mod assignment_tests;
 mod assignments;
 mod chat;
+mod chat_intake;
 pub mod cli;
 mod collaboration;
 #[cfg(test)]
@@ -26,6 +27,8 @@ mod entities;
 mod feedback;
 mod history;
 mod import;
+#[cfg(test)]
+mod interactive_reserve_tests;
 mod jobs;
 mod library;
 #[cfg(test)]
@@ -35,6 +38,8 @@ mod library_tests;
 mod login_flows;
 mod messaging;
 pub mod migration;
+#[cfg(test)]
+mod migration_fixture;
 mod objects;
 mod people;
 mod reply_output;

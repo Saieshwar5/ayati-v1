@@ -32,6 +32,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(messages).post(send),
         )
         .route(
+            "/api/identity/workspaces/{workspace}/chats/{chat}/background-requests",
+            post(background),
+        )
+        .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{reply}/cancel",
             post(cancel),
         )
@@ -167,6 +171,32 @@ async fn send(
         ));
     }
     Ok(Json(json!({"ok":true})))
+}
+
+async fn background(
+    State(app): State<Shared>,
+    RoutePath((workspace, chat)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<store::NewMessage>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let pg = super::collaboration::pg(&app)?;
+    pg.check_chat(&user, &workspace, &chat).await?;
+    let agent = input
+        .agent
+        .as_ref()
+        .context("Background requests need an agent")?;
+    super::collaboration::validate_agent(&app, &user, &workspace, agent).await?;
+    if pg
+        .chat_background(&user, &workspace, &chat, &input)
+        .await?
+        .is_some()
+    {
+        app.runtimes.chat_wake.notify_one();
+    }
+    Ok(Json(
+        json!({"ok":true,"work_class":"background","message":pg.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
+    ))
 }
 
 /// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.

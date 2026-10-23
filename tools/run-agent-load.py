@@ -22,6 +22,7 @@ SUITES = {
     'matrix': ['tests/agent_load.mjs'],
     'faults': ['tests/agent_load_faults.mjs'],
     'preparation': ['tests/harness_preparation.mjs'],
+    'mixed': ['tests/interactive_reserve.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/worker_control.mjs',
                     'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',

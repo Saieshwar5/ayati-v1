@@ -17,7 +17,7 @@ remain later increments. The [direct-PG M1 path](assignment-workers.md) remains 
 
 ## Migration and local startup
 
-Run all fifteen migrations through `m20261023_000015_harness_preparation`, using the
+Run all sixteen migrations through `m20261024_000016_interactive_reserve`, using the
 migration owner and reapply runtime grants. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.

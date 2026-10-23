@@ -27,7 +27,7 @@ start waits, commits the pause and verifies start is denied without saving conte
 All PostgreSQL regressions cover the wider workspace lock change.
 
 That load increment added no schema change and used migration 14. The current
-checkout requires migration 15 and the [prepared harness](harness-preparation.md);
+checkout requires migration 16 and the [prepared harness](harness-preparation.md);
 use the restricted runtime grants from [PostgreSQL setup](postgres-workspaces.md).
 Ordinary databases were not migrated during these rehearsals.
 

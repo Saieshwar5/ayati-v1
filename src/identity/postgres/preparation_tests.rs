@@ -178,7 +178,7 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
     .await
     .unwrap();
     let c = chat(&old, &owner, &w, vec![], vec![a.clone()]).await;
-    old.chat_send(&owner, &w, &c, &message("Preserve ownership", Some(&a)))
+    super::migration_fixture::legacy_request(&old, &owner, &w, &c, &a, "Preserve ownership")
         .await
         .unwrap();
     let e = Registration {

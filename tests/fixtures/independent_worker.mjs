@@ -88,6 +88,7 @@ export async function workerFixture(t, options = {}) {
     env.AYATI_ASSIGNMENT_CAPACITY = String(options.capacity ?? 2);
     env.AYATI_EXECUTOR_WORKSPACE_LIMIT = String(options.workspaceLimit ?? 2);
     env.AYATI_EXECUTOR_MODEL_LIMIT = String(options.modelLimit ?? 2);
+    env.AYATI_EXECUTOR_CHAT_RESERVE = String(options.chatReserve ?? 0);
   }
   execFileSync(binary, ['workspace-db', 'migrate'], {
     cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
@@ -185,7 +186,8 @@ export async function workerFixture(t, options = {}) {
     });
     const text = await response.text();
     assert.equal(response.status, expected, text);
-    return { value: text ? JSON.parse(text) : null, cookie: response.headers.get('set-cookie')?.split(';')[0] };
+    const value = text ? (response.headers.get('content-type')?.includes('application/json') ? JSON.parse(text) : text) : null;
+    return { value, cookie: response.headers.get('set-cookie')?.split(';')[0] };
   }
   async function login(number) {
     return (await request(`/api/identity/simulation/employees/${number}/login`, '', {})).cookie;
