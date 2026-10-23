@@ -39,6 +39,20 @@ export async function workerFixture(t, options = {}) {
       }).trim();
     } catch { throw new Error('Disposable worker fixture SQL failed'); }
   }
+  async function sqlAsync(input, url = admin.href) {
+    const connection=new URL(url);
+    return new Promise((resolve,reject)=>{
+      const child=spawn('psql',['-X','-At','-v','ON_ERROR_STOP=1'],{env:{...process.env,
+        PGDATABASE:decodeURIComponent(connection.pathname.slice(1)),PGHOST:connection.searchParams.get('host')??connection.hostname,
+        PGPORT:connection.searchParams.get('port')??(connection.port||'5432'),PGUSER:decodeURIComponent(connection.username),
+        PGPASSWORD:decodeURIComponent(connection.password),PGOPTIONS:connection.searchParams.get('options')??'',
+      },stdio:['pipe','pipe','pipe']});
+      let value='';child.stdout.on('data',chunk=>{value+=chunk;if(value.length>2097152)child.kill();});
+      child.stderr.resume();child.on('error',()=>reject(new Error('Disposable async SQL could not start')));
+      child.stdin.on('error',()=>reject(new Error('Disposable async SQL input failed')));
+      child.on('close',code=>code===0?resolve(value.trim()):reject(new Error('Disposable async SQL failed')));child.stdin.end(input);
+    });
+  }
   sql(`CREATE SCHEMA ${schema}`);
   const scoped = new URL(admin);
   scoped.searchParams.set('options', `-c search_path=${schema}`);
@@ -52,6 +66,7 @@ export async function workerFixture(t, options = {}) {
     AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
     AYATI_ASSIGNMENT_RUN_SECONDS: String(options.runSeconds ?? 180),
     AYATI_DATA_DIR: join(data, 'migration'),
+    AYATI_TRACE_START:options.traceStart?'1':'0',
   };
   let control;
   if (options.control) {
@@ -66,7 +81,7 @@ export async function workerFixture(t, options = {}) {
     control = { url: `http://127.0.0.1:${controlPort}`, bootstrap, keyFile };
     env.AYATI_WORKER_CONTROL_URL = control.url;
     env.AYATI_WORKER_CONTROL_KEY_FILE = keyFile;
-    env.AYATI_ASSIGNMENT_LEASE_SECONDS = '6';
+    env.AYATI_ASSIGNMENT_LEASE_SECONDS = String(options.leaseSeconds??6);
     env.AYATI_ASSIGNMENT_CAPACITY = String(options.capacity ?? 2);
     env.AYATI_EXECUTOR_WORKSPACE_LIMIT = String(options.workspaceLimit ?? 2);
     env.AYATI_EXECUTOR_MODEL_LIMIT = String(options.modelLimit ?? 2);
@@ -87,7 +102,7 @@ export async function workerFixture(t, options = {}) {
   const children = [];
   function launch(args, extra, input) {
     const childEnv = Object.fromEntries(Object.entries({ ...env, ...extra }).filter(([, value]) => value !== undefined));
-    const child = spawn(binary, args, { cwd: data, env: childEnv, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    const child = spawn(options.cpuList?'taskset':binary,options.cpuList?['--cpu-list',options.cpuList,binary,...args]:args, { cwd: data, env: childEnv, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
     if (input) child.stdin.end(JSON.stringify(input));
     const record = { child, logs: '' };
     child.stdout.on('data', bytes => { record.logs += bytes; });
@@ -202,6 +217,9 @@ export async function workerFixture(t, options = {}) {
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
     sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
+    sqlAsync:input=>sqlAsync(input,scoped.href),
+    apiProcess:()=>api,
+    processes:()=>[...children],
     startLauncher: extra => startAssignmentRole(['assignment-launcher'], extra),
     startAssignment: (id, extra) => startAssignmentRole(['worker', '--assignment', id], extra),
     async startExecutor(extra = {}) {

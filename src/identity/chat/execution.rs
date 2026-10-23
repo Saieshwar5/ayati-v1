@@ -97,13 +97,31 @@ pub(crate) async fn prepare(
     profile: Profile,
     seconds: u64,
 ) -> Result<Prepared> {
+    prepare_traced(
+        db,
+        job,
+        profile,
+        seconds,
+        &mut crate::identity::start_trace::StartTrace::new(),
+    )
+    .await
+}
+pub(crate) async fn prepare_traced(
+    db: &Database,
+    job: &Job,
+    profile: Profile,
+    seconds: u64,
+    trace: &mut crate::identity::start_trace::StartTrace,
+) -> Result<Prepared> {
     ensure!((1..=86400).contains(&seconds), "Invalid execution deadline");
     ensure!(db.chat_job_allowed(job).await, "Request access changed");
+    trace.mark("authorize_before");
     let sources = if let Database::Postgres(pg) = db {
         pg.library_job_context(job).await?
     } else {
         vec![]
     };
+    trace.mark("library_sources");
     let mut instructions = format!(
         "Your name is {}.\n{}\nResponsibility: {}",
         profile.name,
@@ -115,6 +133,7 @@ pub(crate) async fn prepare(
     if let Database::Postgres(pg) = db
         && let Some(settings) = pg.agent_settings(&job.workspace, &job.agent).await?
     {
+        trace.mark("settings");
         if !settings.provider.is_empty() {
             provider = Some(settings.provider.clone());
         }
@@ -133,7 +152,9 @@ pub(crate) async fn prepare(
                 .await?;
         }
     }
+    trace.mark("instructions_and_notes");
     ensure!(db.chat_job_allowed(job).await, "Request access changed");
+    trace.mark("authorize_after");
     let context = Prepared {
         version: 1,
         workspace: job.workspace.clone(),
@@ -151,6 +172,7 @@ pub(crate) async fn prepare(
         serde_json::to_vec(&context)?.len() <= 262144,
         "Execution context is too large"
     );
+    trace.mark("context_encoding");
     Ok(context)
 }
 

@@ -67,8 +67,9 @@ impl Harness {
         self,
         context: Prepared,
         cancel: CancellationToken,
-        output: super::output::Output,
+        mut output: super::output::Output,
     ) -> Result<String> {
+        output.trace.mark("controller_roundtrip");
         let result = async {
             ensure!(context.version == 1, "Unsupported prepared context version");
             ensure!(
@@ -96,6 +97,7 @@ impl Harness {
                 "Prepared session must contain only its assigned task"
             );
             let reply = self.store.add_claim_reply(&claim)?;
+            output.trace.mark("local_setup");
             let done = CancellationToken::new();
             let finished = done.clone().drop_guard();
             let sender = tokio::spawn(output.forward(

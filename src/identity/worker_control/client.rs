@@ -65,6 +65,16 @@ impl Client {
             token: token.into(),
         })
     }
+    pub fn with_token(&self, token: &str) -> Result<Self> {
+        super::model::token(token)?;
+        // Transport has no default Authorization header or cookie store. Each
+        // request supplies its own capability; cloning only shares connections.
+        Ok(Self {
+            http: self.http.clone(),
+            url: self.url.clone(),
+            token: token.into(),
+        })
+    }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: &impl Serialize) -> Result<T> {
         let mut response = self
             .http

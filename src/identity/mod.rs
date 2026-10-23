@@ -21,6 +21,7 @@ mod routes;
 mod settings;
 pub mod simulation;
 mod sqlite_access;
+pub(crate) mod start_trace;
 pub mod store;
 pub mod worker;
 mod worker_config;

@@ -49,6 +49,25 @@ held/short work, saturation, delayed executor growth and draining. Proposed late
 target failures remain in its report. Screenshots and JSON stay in retained fixture
 directories; this is not a live-provider, cloud or multi-hour benchmark.
 
+## Controlled concurrent load and recovery
+
+See the [load rehearsal](../runtime/load-acceptance.md). With the same dedicated
+local database and an immutable `AYATI_TEST_BIN`:
+
+~~~sh
+node --test --test-concurrency=1 tests/agent_load.mjs tests/agent_load_faults.mjs
+~~~
+
+The default matrix sends 384 measured requests: two repetitions, small/large
+scoped contexts, concurrency 1/4/8/16 and four prepared slots. It pins the driver,
+controller and executor processes to four CPUs; this is affinity, not a quota or
+exclusive host. It records phase traces, prompt sizes, p50/p95/p99, resource
+samples and latency-target misses. Separate fault journeys run controller restart
+with backlog, real executor lease expiry, and cancellation/revocation beside other
+active requests. Reports and failed runs remain in printed fixture directories.
+The model is scripted and PostgreSQL remains outside that affinity; these are not
+cloud sizing or live-provider performance results.
+
 ## Existing browser and agent journeys
 
 The existing journeys below explicitly select the preserved prototype runtime.

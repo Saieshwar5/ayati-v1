@@ -98,6 +98,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
       else if (script) {
         // Controlled partial replies for reconnect/cancel and timing journeys.
         delta({role:'assistant',reasoning_content:'PRIVATE_REASONING_SENTINEL'});
+        if(script.firstDelayMs)await new Promise(resolve=>setTimeout(resolve,script.firstDelayMs));
         for (let part=0;part<script.chunks.length && !response.destroyed;part++) {
           if (part) await new Promise(resolve=>setTimeout(resolve,script.delayMs ?? 40));
           if (part===(script.holdAfter ?? 1)) while(outputHeld && !response.destroyed) await new Promise(resolve=>setTimeout(resolve,20));

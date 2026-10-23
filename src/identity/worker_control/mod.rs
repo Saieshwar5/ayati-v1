@@ -1,6 +1,8 @@
 //! Separate, opt-in local machine API. Browser sessions and origins confer no access.
 pub(crate) mod attempt;
 pub(crate) mod client;
+#[cfg(test)]
+mod client_tests;
 pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
@@ -253,30 +255,37 @@ async fn start_assignment(
     headers: HeaderMap,
     Json(input): Json<AssignedRequest>,
 ) -> Api<Value> {
+    let mut trace = super::start_trace::StartTrace::new();
     super::postgres::worker_control::require(id == input.scope.assignment)?;
     model::uuid(&input.session)?;
     let hash = credential(&headers)?;
     let record = pg(&state)
         .controlled_assignment(&input.scope, &hash)
         .await?;
+    trace.mark("scope_lookup");
     let context = if let Some(context) = record.context {
         serde_json::from_value(context)?
     } else {
         let profile = execution::managed_profile(&state.app.store, &record.assignment.job)
             .await?
             .context("Agent unavailable")?;
-        execution::prepare(
+        trace.mark("profile_lookup");
+        execution::prepare_traced(
             &state.app.store,
             &record.assignment.job,
             profile,
             record.assignment.run_seconds,
+            &mut trace,
         )
         .await?
     };
     let context = pg(&state).start_controlled(&input, &hash, &context).await?;
+    trace.mark("start_commit");
     // Replaying a lost start response must return a newly confirmed full lease,
     // rather than presenting a nearly expired original lease as fresh.
     let lease = pg(&state).renew_controlled(&input, &hash).await?;
+    trace.mark("lease_confirm");
+    trace.finish(&input.scope.assignment, "controller");
     Ok(Json(json!({"context":context,"lease_seconds":lease})))
 }
 async fn renew(
