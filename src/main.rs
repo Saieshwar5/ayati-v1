@@ -51,6 +51,13 @@ async fn main() -> Result<()> {
         }
         "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
         "worker-health" => ayati::identity::worker_health::check(),
+        "executor" => {
+            anyhow::ensure!(
+                std::env::args().nth(2).is_none() && !config.prototype,
+                "Use executor with the Goose runtime"
+            );
+            ayati::identity::executor::serve(&config.data_dir).await
+        }
         "api-health" => {
             reqwest::Client::builder()
                 .no_proxy()
@@ -139,7 +146,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Cuckoo workspaces\nayati worker     Run an independent PostgreSQL polling worker\nayati worker --assignment <id>  Execute one reserved assignment and exit\nayati worker --controller-assignment  Execute a private stdin assignment through controller APIs\nayati assignment-launcher  Launch temporary local assignment workers\nayati api-health Check API readiness on its internal port\nayati worker-health Check this container worker heartbeat\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
+                "Cuckoo — local business agent workspace\n\nayati serve      Start the local daemon\nayati identity   Start the authenticated Cuckoo workspaces\nayati worker     Run an independent PostgreSQL polling worker\nayati worker --assignment <id>  Execute one reserved assignment and exit\nayati worker --controller-assignment  Execute a private stdin assignment through controller APIs\nayati assignment-launcher  Launch temporary local assignment workers\nayati executor   Run a shared pool of prepared Goose sessions\nayati api-health Check API readiness on its internal port\nayati worker-health Check this container worker heartbeat\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\nayati adopt-workspace <id>  Back up and bind this installation to its owner workspace\nayati release-workspace <id>  Release that binding while servers are stopped\nayati status     Check the running daemon\nayati stop       Stop the daemon and its current work\nayati vm status  Inspect the agent VM\nayati vm start   Boot the configured agent VM\nayati vm stop    Cancel work and shut down the agent VM\nayati browser release  Hand back a browser after closing its controlling tab\n\nVM commands require a running daemon with AYATI_EXECUTION=vm.\nConfiguration: .env (see .env.example). Web: http://127.0.0.1:8765"
             );
             Ok(())
         }

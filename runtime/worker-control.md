@@ -6,16 +6,18 @@ stdin. The child loads controller-prepared context, runs pinned tool-free Goose 
 renews/completes through HTTP. It receives no core PostgreSQL URL, WorkOS key or
 operator bootstrap key. The controller owns all PostgreSQL access.
 
-Each assignment still creates a fresh worker/Goose process. Ready shared slots,
-warm-harness latency, token streaming, checkpoints and AWS machine identity remain
-later increments. The [direct-PG M1 path](assignment-workers.md) remains available.
+This cold launcher path creates a fresh worker/Goose process per assignment.
+M1.5b adds an opt-in [prepared executor pool](executor-pool.md) that reuses this
+start/renew/complete boundary. Token streaming, measured latency, checkpoints and
+AWS machine identity remain later increments. The [direct-PG M1 path](assignment-workers.md) remains available.
 
 ## Migration and local startup
 
-Run all twelve migrations, including `m20261023_000012_worker_control`, using the
+Run all thirteen migrations through `m20261023_000013_executor_slots`, using the
 migration owner and reapply runtime grants. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.
+Migration 13 adds pooled slot readiness/generations and preserves v12 receipts.
 See [PostgreSQL setup](postgres-workspaces.md).
 
 Configure these on the controller and local launcher:
@@ -83,7 +85,8 @@ also extend expiry. The bootstrap file is reread on registration refresh.
 
 Scope binds executor, incarnation, slot identity, assignment, workspace, agent,
 conversation, thread, reply and generation. Every current assignment gets a distinct
-slot identity; reusable slot pools are not implemented. A worker chooses one process
+slot identity on this cold path. Pooled scopes additionally bind `slot_generation`;
+legacy zero generations omit that field to preserve existing receipt fingerprints. A worker chooses one process
 session nonce. The same start nonce replays the original prepared context; a second
 nonce is denied. Start confirms a fresh lease before acknowledging, including retries.
 
@@ -111,7 +114,8 @@ than authentication. The launcher passes a private JSON envelope to
 - Run capabilities expire after five minutes and extend only with valid renewal.
   Cancellation/release/expired-owner reconciliation invalidates them and clears
   prepared context. Completion clears context and retains a replayable receipt for
-  five minutes. Durable executor/attempt/receipt history has no automatic deletion
+  up to five minutes (pooled slot replacement revokes that capability earlier).
+  Durable executor/attempt/receipt history has no automatic deletion
   in this slice; a later explicit retention policy must cover it.
 - Controller restart uses durable registrations, scope and receipts. The worker
   retries the same completion payload without repeating its model run. Unconfirmed
@@ -153,4 +157,5 @@ loopback scripted provider. They retain schemas, reports and process logs. Journ
 cover scope denial, expired/cancelled/stale credentials, environment isolation,
 controller restart/lease loss and actually dropped start/completion responses.
 Fixtures make no paid model or AWS calls. Local success does not establish live
-provider quality, cloud identity, shared-slot readiness or warm response latency.
+provider quality, cloud identity or warm response latency. The separate pool
+suite covers actual prepared-slot readiness and shared supervision.

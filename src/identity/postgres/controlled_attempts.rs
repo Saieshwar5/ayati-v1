@@ -35,6 +35,7 @@ impl PgStore {
         )?;
         execute(&tx,&format!("UPDATE relay_assignment_credentials SET session=$2,context=$3,expires={CLOCK}+300 WHERE assignment=$1"),
             vec![scope.assignment.clone().into(),request.session.clone().into(),serde_json::to_value(context)?.into()]).await?;
+        self.acknowledge_slot(&tx, scope).await?;
         tx.commit().await?;
         Ok(context.clone())
     }
@@ -121,6 +122,12 @@ impl PgStore {
         .try_get("", "outcome")?;
         execute(&tx,&format!("UPDATE relay_assignment_credentials SET completion_hash=$2,completion_state=$3,context=NULL,expires={CLOCK}+300 WHERE assignment=$1"),
             vec![scope.assignment.clone().into(),fingerprint.into(),state.clone().into()]).await?;
+        execute(
+            &tx,
+            "UPDATE relay_executor_slots SET state='cleaning' WHERE assignment=$1",
+            vec![scope.assignment.clone().into()],
+        )
+        .await?;
         tx.commit().await?;
         Ok(state)
     }

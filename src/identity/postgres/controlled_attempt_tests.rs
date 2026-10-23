@@ -7,6 +7,7 @@ use crate::identity::{
 
 fn executor() -> Registration {
     Registration {
+        pooled: false,
         executor: uuid::Uuid::new_v4().to_string(),
         incarnation: uuid::Uuid::new_v4().to_string(),
         token: random_token(),

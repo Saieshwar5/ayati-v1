@@ -11,6 +11,11 @@ mod collaboration;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
+mod executor_dispatch;
+#[cfg(test)]
+mod executor_slot_tests;
+mod executor_slots;
+pub(crate) use executor_dispatch::PoolLimits;
 mod entities;
 mod feedback;
 mod history;
@@ -46,6 +51,7 @@ pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
     pub(crate) assigned: bool,
+    pub(crate) pooled: bool,
     pub(crate) assignment_seconds: u64,
 }
 impl PgStore {
@@ -70,6 +76,8 @@ impl PgStore {
             changes: tokio::sync::broadcast::channel(256).0,
             assigned: super::worker_config::Mode::from_env(true)?
                 == super::worker_config::Mode::Assigned,
+            pooled: super::worker_config::Mode::from_env(true)?
+                == super::worker_config::Mode::Pooled,
             assignment_seconds: super::worker_config::seconds(
                 "AYATI_ASSIGNMENT_RUN_SECONDS",
                 180,

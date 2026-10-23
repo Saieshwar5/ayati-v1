@@ -11,11 +11,12 @@ agent. Goose remains pinned at 1.54.0. The original continuously polling
 
 M1.5a's [controller-scoped API path](worker-control.md) now offers the same local
 assignment lifecycle without child-worker database credentials. This document
-describes the retained direct-PG compatibility mode.
+describes the retained direct-PG compatibility mode. M1.5b adds the opt-in
+[prepared executor pool](executor-pool.md) with separate pooled dispatch.
 
 ## Migration and startup
 
-Run all migrations through 12, m20261023_000012_worker_control, with the owner connection,
+Run all migrations through 13, m20261023_000013_executor_slots, with the owner connection,
 then reapply runtime table/sequence grants. See [PostgreSQL setup](postgres-workspaces.md)
 and [hosted packaging](hosted-deployment.md). Startup never migrates ordinary data.
 Existing jobs remain polling jobs; they are not silently converted to assignments.

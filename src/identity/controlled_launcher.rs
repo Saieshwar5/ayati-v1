@@ -19,6 +19,7 @@ pub(super) async fn serve(data: &Path) -> Result<()> {
             .context("Local control launcher requires AYATI_WORKER_CONTROL_KEY_FILE")?,
     );
     let registration = Registration {
+        pooled: false,
         executor: uuid::Uuid::new_v4().to_string(),
         incarnation: uuid::Uuid::new_v4().to_string(),
         token: random_token(),

@@ -333,8 +333,8 @@ impl PgStore {
                     workspace.into(),
                     job.reply.clone().into(),
                     serde_json::to_value(job)?.into(),
-                    if self.assigned { "assigned" } else { "polling" }.into(),
-                    (if self.assigned { self.assignment_seconds as i32 } else { 180 }).into(),
+                    if self.pooled {"pooled"} else if self.assigned { "assigned" } else { "polling" }.into(),
+                    (if self.assigned || self.pooled { self.assignment_seconds as i32 } else { 180 }).into(),
                 ],
             )
             .await?;

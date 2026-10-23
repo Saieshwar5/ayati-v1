@@ -26,7 +26,9 @@ impl Hosting {
                 std::env::var("RELAY_DATABASE_URL").is_ok()
                     && matches!(
                         super::worker_config::Mode::from_env(true)?,
-                        super::worker_config::Mode::External | super::worker_config::Mode::Assigned
+                        super::worker_config::Mode::External
+                            | super::worker_config::Mode::Assigned
+                            | super::worker_config::Mode::Pooled
                     ),
                 "Hosted identity requires PostgreSQL and external or assigned chat execution"
             );
@@ -72,7 +74,9 @@ pub(super) fn hosted(app: &App) -> bool {
 pub(super) fn provider_configured(provider: &str, key: &str) -> bool {
     if matches!(
         super::worker_config::Mode::from_env(true),
-        Ok(super::worker_config::Mode::External | super::worker_config::Mode::Assigned)
+        Ok(super::worker_config::Mode::External
+            | super::worker_config::Mode::Assigned
+            | super::worker_config::Mode::Pooled)
     ) {
         // Operator-declared capability, not a live worker availability probe.
         std::env::var("AYATI_WORKER_PROVIDERS")

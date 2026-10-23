@@ -37,29 +37,8 @@ impl PgStore {
         lease: u64,
         capacity: usize,
     ) -> Result<Option<String>> {
-        // Shared by cooperating local launchers; never held over spawn/model calls.
-        admission_gate(tx).await?;
-        execute(tx, r#"WITH expired AS (
-            SELECT j.claim FROM relay_chat_jobs j WHERE j.dispatch='assigned'
-            AND j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint
-            FOR UPDATE OF j SKIP LOCKED)
-            UPDATE relay_worker_assignments a SET state='lost',outcome='lost',
-            finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
-            FROM expired WHERE expired.claim=a.id AND a.state IN ('launching','running')"#, vec![]).await?;
-        execute(tx,"UPDATE relay_assignment_credentials c SET context=NULL,expires=0 FROM relay_worker_assignments a WHERE a.id=c.assignment AND a.state='lost' AND c.expires<>0",vec![]).await?;
-        let exhausted = rows(
-            tx,
-            r#"UPDATE relay_chat_jobs SET state='finished',
-            finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
-            WHERE dispatch='assigned' AND state='running' AND attempts>=3
-            AND lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint RETURNING reply"#,
-            vec![],
-        )
-        .await?;
-        for row in exhausted {
-            execute(tx, "UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this assignment. Send a new request to retry.' WHERE id=$1 AND state='queued'", vec![row.try_get::<String>("", "reply")?.into()]).await?;
-        }
-        let active: i64 = query(tx, "SELECT count(*) AS n FROM relay_chat_jobs WHERE dispatch='assigned' AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint", vec![]).await?.context("Assignment count unavailable")?.try_get("", "n")?;
+        self.recover_assignments_in(tx).await?;
+        let active: i64 = query(tx, "SELECT count(*) AS n FROM relay_chat_jobs WHERE dispatch IN ('assigned','pooled') AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint", vec![]).await?.context("Assignment count unavailable")?.try_get("", "n")?;
         if active >= capacity as i64 {
             return Ok(None);
         }
@@ -88,6 +67,33 @@ impl PgStore {
         Ok(Some(id))
     }
 
+    pub(super) async fn recover_assignments_in(&self, tx: &DatabaseTransaction) -> Result<()> {
+        // Shared by cooperating local launchers; never held over spawn/model calls.
+        admission_gate(tx).await?;
+        execute(tx, r#"WITH expired AS (
+            SELECT j.claim FROM relay_chat_jobs j WHERE j.dispatch IN ('assigned','pooled')
+            AND j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint
+            FOR UPDATE OF j SKIP LOCKED)
+            UPDATE relay_worker_assignments a SET state='lost',outcome='lost',
+            finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
+            FROM expired WHERE expired.claim=a.id AND a.state IN ('launching','running')"#, vec![]).await?;
+        execute(tx,"UPDATE relay_assignment_credentials c SET context=NULL,expires=0 FROM relay_worker_assignments a WHERE a.id=c.assignment AND a.state='lost' AND c.expires<>0",vec![]).await?;
+        execute(tx,"UPDATE relay_executor_slots s SET state='lost' FROM relay_worker_assignments a WHERE a.id=s.assignment AND a.state='lost' AND s.state<>'lost'",vec![]).await?;
+        let exhausted = rows(
+            tx,
+            r#"UPDATE relay_chat_jobs SET state='finished',
+            finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
+            WHERE dispatch IN ('assigned','pooled') AND state='running' AND attempts>=3
+            AND lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint RETURNING reply"#,
+            vec![],
+        )
+        .await?;
+        for row in exhausted {
+            execute(tx, "UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this assignment. Send a new request to retry.' WHERE id=$1 AND state='queued'", vec![row.try_get::<String>("", "reply")?.into()]).await?;
+        }
+        Ok(())
+    }
+
     pub(crate) async fn start_assignment(
         &self,
         id: &str,
@@ -107,7 +113,7 @@ impl PgStore {
     ) -> Result<Option<Assignment>> {
         let row = query(tx, r#"SELECT j.payload,j.run_seconds,a.lease_seconds FROM relay_chat_jobs j
             JOIN relay_worker_assignments a ON a.id=j.claim AND a.reply=j.reply AND a.workspace=j.workspace
-            WHERE a.id=$1 AND a.state='launching' AND a.provider='local' AND j.dispatch='assigned'
+            WHERE a.id=$1 AND a.state='launching' AND a.provider='local' AND j.dispatch IN ('assigned','pooled')
             AND j.state='running' AND j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint
             AND (a.resource_id IS NULL OR a.resource_id=$2) FOR UPDATE OF j"#, vec![id.into(),resource.into()]).await?;
         let Some(row) = row else { return Ok(None) };
@@ -174,13 +180,19 @@ impl PgStore {
         let tx = self.db.begin().await?;
         // A losing/unknown spawn must never release another registered process.
         if query(&tx, r#"SELECT j.reply FROM relay_chat_jobs j JOIN relay_worker_assignments a ON a.id=j.claim
-            WHERE a.id=$1 AND j.state='running' AND j.dispatch='assigned'
+            WHERE a.id=$1 AND j.state='running' AND j.dispatch IN ('assigned','pooled')
             AND (($2::text IS NULL AND a.resource_id IS NULL AND a.state='launching') OR a.resource_id=$2)
             FOR UPDATE OF j"#, vec![id.into(),resource.into()]).await?.is_none() {
             return Ok(());
         }
-        execute(&tx, "UPDATE relay_chat_jobs SET lease_until=0 WHERE claim=$1 AND dispatch='assigned' AND state='running'", vec![id.into()]).await?;
+        execute(&tx, "UPDATE relay_chat_jobs SET lease_until=0 WHERE claim=$1 AND dispatch IN ('assigned','pooled') AND state='running'", vec![id.into()]).await?;
         execute(&tx, "UPDATE relay_worker_assignments SET state='lost',outcome=$2,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![id.into(),outcome.into()]).await?;
+        execute(
+            &tx,
+            "UPDATE relay_executor_slots SET state='lost' WHERE assignment=$1",
+            vec![id.into()],
+        )
+        .await?;
         execute(
             &tx,
             "UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",

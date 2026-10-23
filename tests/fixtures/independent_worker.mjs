@@ -67,7 +67,9 @@ export async function workerFixture(t, options = {}) {
     env.AYATI_WORKER_CONTROL_URL = control.url;
     env.AYATI_WORKER_CONTROL_KEY_FILE = keyFile;
     env.AYATI_ASSIGNMENT_LEASE_SECONDS = '6';
-    env.AYATI_ASSIGNMENT_CAPACITY = '2';
+    env.AYATI_ASSIGNMENT_CAPACITY = String(options.capacity ?? 2);
+    env.AYATI_EXECUTOR_WORKSPACE_LIMIT = String(options.workspaceLimit ?? 2);
+    env.AYATI_EXECUTOR_MODEL_LIMIT = String(options.modelLimit ?? 2);
   }
   execFileSync(binary, ['workspace-db', 'migrate'], {
     cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
@@ -183,9 +185,9 @@ export async function workerFixture(t, options = {}) {
   const conversation = (await request(path + '/chats', cookie, {
     id: randomUUID(), name: 'Worker proof', users: [], agents: [profile.id], kind: 'direct',
   })).value.id;
-  async function send(content, chat = conversation, actor = cookie) {
+  async function send(content, chat = conversation, actor = cookie, agent = profile.id) {
     const id = randomUUID();
-    await request(`${path}/chats/${chat}/messages`, actor, { id, content, agent: profile.id });
+    await request(`${path}/chats/${chat}/messages`, actor, { id, content, agent });
     return JSON.parse(sql(`SELECT to_json(j.payload)::text FROM relay_chat_jobs j JOIN relay_chat_messages r ON r.id=j.reply WHERE r.chat='${chat}' AND r.sequence>(SELECT sequence FROM relay_chat_messages WHERE id='${id}') ORDER BY r.sequence LIMIT 1`, scoped.href));
   }
   async function history(chat = conversation, actor = cookie) {
@@ -202,6 +204,13 @@ export async function workerFixture(t, options = {}) {
     sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
     startLauncher: extra => startAssignmentRole(['assignment-launcher'], extra),
     startAssignment: (id, extra) => startAssignmentRole(['worker', '--assignment', id], extra),
+    async startExecutor(extra = {}) {
+      const workerData = join(data, 'executor-' + randomUUID());
+      await mkdir(workerData);
+      return launch(['executor'], { AYATI_DATA_DIR: workerData, RELAY_DATABASE_URL: undefined,
+        RELAY_SIMULATION_DATABASE_URL: undefined, OPENAI_API_KEY: 'fixture-not-a-secret',
+        OPENAI_HOST: provider.url, AYATI_EXECUTOR_SLOTS: '2', ...extra });
+    },
     async startControlled(grant, extra = {}) {
       const workerData = join(data, 'controlled-' + randomUUID());
       await mkdir(workerData);
