@@ -26,14 +26,29 @@ impl PgStore {
             "Invalid assignment limits"
         );
         let tx = self.db.begin().await?;
+        let result = self.reserve_assignment_in(&tx, lease, capacity).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
+    pub(super) async fn reserve_assignment_in(
+        &self,
+        tx: &DatabaseTransaction,
+        lease: u64,
+        capacity: usize,
+    ) -> Result<Option<String>> {
         // Shared by cooperating local launchers; never held over spawn/model calls.
-        admission_gate(&tx).await?;
-        execute(&tx, r#"UPDATE relay_worker_assignments a SET state='lost',outcome='lost',
+        admission_gate(tx).await?;
+        execute(tx, r#"WITH expired AS (
+            SELECT j.claim FROM relay_chat_jobs j WHERE j.dispatch='assigned'
+            AND j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint
+            FOR UPDATE OF j SKIP LOCKED)
+            UPDATE relay_worker_assignments a SET state='lost',outcome='lost',
             finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
-            FROM relay_chat_jobs j WHERE j.claim=a.id AND a.state IN ('launching','running')
-            AND j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint"#, vec![]).await?;
+            FROM expired WHERE expired.claim=a.id AND a.state IN ('launching','running')"#, vec![]).await?;
+        execute(tx,"UPDATE relay_assignment_credentials c SET context=NULL,expires=0 FROM relay_worker_assignments a WHERE a.id=c.assignment AND a.state='lost' AND c.expires<>0",vec![]).await?;
         let exhausted = rows(
-            &tx,
+            tx,
             r#"UPDATE relay_chat_jobs SET state='finished',
             finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
             WHERE dispatch='assigned' AND state='running' AND attempts>=3
@@ -42,14 +57,13 @@ impl PgStore {
         )
         .await?;
         for row in exhausted {
-            execute(&tx, "UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this assignment. Send a new request to retry.' WHERE id=$1 AND state='queued'", vec![row.try_get::<String>("", "reply")?.into()]).await?;
+            execute(tx, "UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this assignment. Send a new request to retry.' WHERE id=$1 AND state='queued'", vec![row.try_get::<String>("", "reply")?.into()]).await?;
         }
-        let active: i64 = query(&tx, "SELECT count(*) AS n FROM relay_chat_jobs WHERE dispatch='assigned' AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint", vec![]).await?.context("Assignment count unavailable")?.try_get("", "n")?;
+        let active: i64 = query(tx, "SELECT count(*) AS n FROM relay_chat_jobs WHERE dispatch='assigned' AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint", vec![]).await?.context("Assignment count unavailable")?.try_get("", "n")?;
         if active >= capacity as i64 {
-            tx.commit().await?;
             return Ok(None);
         }
-        let row = query(&tx, r#"SELECT j.reply FROM relay_chat_jobs j
+        let row = query(tx, r#"SELECT j.reply FROM relay_chat_jobs j
             WHERE j.dispatch='assigned' AND j.attempts<3
             AND (j.state='queued' OR (j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint))
             AND NOT EXISTS (SELECT 1 FROM relay_chat_jobs other WHERE other.workspace=j.workspace
@@ -57,13 +71,12 @@ impl PgStore {
                 AND other.state='running' AND other.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint)
             ORDER BY j.sequence FOR UPDATE OF j SKIP LOCKED LIMIT 1"#, vec![]).await?;
         let Some(row) = row else {
-            tx.commit().await?;
             return Ok(None);
         };
         let reply: String = row.try_get("", "reply")?;
         let id = uuid::Uuid::new_v4().to_string();
         let job = query(
-            &tx,
+            tx,
             r#"UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,
             lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300
             WHERE reply=$1 RETURNING workspace,attempts"#,
@@ -71,8 +84,7 @@ impl PgStore {
         )
         .await?
         .context("Assignment disappeared")?;
-        execute(&tx, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)", vec![id.clone().into(),job.try_get::<String>("", "workspace")?.into(),reply.into(),job.try_get::<i32>("", "attempts")?.into(),(lease as i32).into()]).await?;
-        tx.commit().await?;
+        execute(tx, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)", vec![id.clone().into(),job.try_get::<String>("", "workspace")?.into(),reply.into(),job.try_get::<i32>("", "attempts")?.into(),(lease as i32).into()]).await?;
         Ok(Some(id))
     }
 
@@ -82,14 +94,25 @@ impl PgStore {
         resource: &str,
     ) -> Result<Option<Assignment>> {
         let tx = self.db.begin().await?;
-        let row = query(&tx, r#"SELECT j.payload,j.run_seconds,a.lease_seconds FROM relay_chat_jobs j
+        let result = self.start_assignment_in(&tx, id, resource).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
+    pub(super) async fn start_assignment_in(
+        &self,
+        tx: &DatabaseTransaction,
+        id: &str,
+        resource: &str,
+    ) -> Result<Option<Assignment>> {
+        let row = query(tx, r#"SELECT j.payload,j.run_seconds,a.lease_seconds FROM relay_chat_jobs j
             JOIN relay_worker_assignments a ON a.id=j.claim AND a.reply=j.reply AND a.workspace=j.workspace
             WHERE a.id=$1 AND a.state='launching' AND a.provider='local' AND j.dispatch='assigned'
             AND j.state='running' AND j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint
             AND (a.resource_id IS NULL OR a.resource_id=$2) FOR UPDATE OF j"#, vec![id.into(),resource.into()]).await?;
         let Some(row) = row else { return Ok(None) };
         let started = execute(
-            &tx,
+            tx,
             r#"UPDATE relay_worker_assignments SET state='running',resource_id=$2,
             started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint,
             heartbeat_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
@@ -99,7 +122,7 @@ impl PgStore {
         .await?;
         ensure!(started == 1, "Assignment already started");
         let lease_seconds = row.try_get::<i32>("", "lease_seconds")? as u64;
-        execute(&tx, "UPDATE relay_chat_jobs SET lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+$2,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE claim=$1 AND state='running'", vec![id.into(),(lease_seconds as i64).into()]).await?;
+        execute(tx, "UPDATE relay_chat_jobs SET lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+$2,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE claim=$1 AND state='running'", vec![id.into(),(lease_seconds as i64).into()]).await?;
         let mut job: Job = serde_json::from_value(row.try_get::<Value>("", "payload")?)?;
         job.claim = Some(id.into());
         let assignment = Assignment {
@@ -108,7 +131,6 @@ impl PgStore {
             lease_seconds,
             run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
         };
-        tx.commit().await?;
         Ok(Some(assignment))
     }
 
@@ -159,6 +181,12 @@ impl PgStore {
         }
         execute(&tx, "UPDATE relay_chat_jobs SET lease_until=0 WHERE claim=$1 AND dispatch='assigned' AND state='running'", vec![id.into()]).await?;
         execute(&tx, "UPDATE relay_worker_assignments SET state='lost',outcome=$2,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![id.into(),outcome.into()]).await?;
+        execute(
+            &tx,
+            "UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",
+            vec![id.into()],
+        )
+        .await?;
         tx.commit().await?;
         Ok(())
     }
@@ -181,7 +209,8 @@ impl PgStore {
         let row = query(&tx, "UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND reply=$2 AND state!='finished' RETURNING claim", vec![workspace.into(),reply.into()]).await?;
         if let Some(row) = row {
             if let Some(claim) = row.try_get::<Option<String>>("", "claim")? {
-                execute(&tx, "UPDATE relay_worker_assignments SET state='finished',outcome='cancelled',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![claim.into()]).await?;
+                execute(&tx, "UPDATE relay_worker_assignments SET state='finished',outcome='cancelled',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![claim.clone().into()]).await?;
+                execute(&tx,"UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",vec![claim.into()]).await?;
             }
             execute(&tx, "UPDATE relay_chat_messages SET state='cancelled',content='Request cancelled.' WHERE workspace=$1 AND id=$2 AND state='queued'", vec![workspace.into(),reply.into()]).await?;
             audit(

@@ -9,9 +9,13 @@ This is a local execution foundation, not an AWS deployment or resumable busines
 agent. Goose remains pinned at 1.54.0. The original continuously polling
 [worker mode](independent-chat-worker.md) is retained.
 
+M1.5a's [controller-scoped API path](worker-control.md) now offers the same local
+assignment lifecycle without child-worker database credentials. This document
+describes the retained direct-PG compatibility mode.
+
 ## Migration and startup
 
-Run migration 11, m20261023_000011_worker_assignments, with the owner connection,
+Run all migrations through 12, m20261023_000012_worker_control, with the owner connection,
 then reapply runtime table/sequence grants. See [PostgreSQL setup](postgres-workspaces.md)
 and [hosted packaging](hosted-deployment.md). Startup never migrates ordinary data.
 Existing jobs remain polling jobs; they are not silently converted to assignments.
@@ -101,8 +105,8 @@ workers to stop/reap Goose and release unfinished work; after fifteen seconds it
 can force-stop a child. Launcher death triggers the Linux parent-death boundary
 for its workers; workers supervise Goose in turn. A replacement launcher uses
 durable state and lease expiry. This differs from independent ECS tasks surviving
-controller replacement: AWS launching/reconciliation is M2, authenticated task
-bootstrap and scoped controller APIs are M3. A PID is only local diagnostic identity.
+controller replacement: AWS service placement/reconciliation is M2, and real task
+identity/scope proof is M3. Local scoped APIs exist in M1.5a. A PID is diagnostic identity.
 
 Authenticated PostgreSQL conversations also expose:
 
@@ -123,8 +127,8 @@ Existing PostgreSQL polling jobs honor the same request invalidation.
 
 ## Scope and verification
 
-Workers still have the restricted core PostgreSQL connection in this local
-foundation. M3 removes it in favor of task-bound machine authentication/scoped APIs.
+Direct-PG compatibility workers retain the restricted core PostgreSQL connection.
+M1.5a's separate API mode removes it locally; M3 must prove actual AWS machine identity.
 Assignment IDs never replace requester/workspace/agent/source authorization.
 Every attempt uses fresh private scratch and a tool-free Goose session. No browser,
 computer, connector mutation, local shell tool or App deployment is enabled.

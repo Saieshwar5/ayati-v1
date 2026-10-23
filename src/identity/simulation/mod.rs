@@ -70,6 +70,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
         simulation: Some(simulation),
     });
+    let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
@@ -78,10 +79,13 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
-            worker::shutdown_signal().await;
+            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
             stopping.cancel();
         })
         .await?;
+    if let Some(control) = control {
+        control.await?;
+    }
     drop(lock);
     Ok(())
 }

@@ -16,7 +16,29 @@ impl MigratorTrait for Migrator {
             Box::new(Library),
             Box::new(LoginFlows),
             Box::new(WorkerAssignments),
+            Box::new(WorkerControl),
         ]
+    }
+}
+struct WorkerControl;
+impl MigrationName for WorkerControl {
+    fn name(&self) -> &str {
+        "m20261023_000012_worker_control"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WorkerControl {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("worker_control.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Machine assignment receipts are durable; use a forward migration".into(),
+        ))
     }
 }
 struct WorkerAssignments;

@@ -130,10 +130,12 @@ REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 
 Keep schema creation/ownership and database administration away from the runtime
-role. Existing deployments must run migration 11 (`m20261023_000011_worker_assignments`)
+role. Existing deployments must run migration 12 (`m20261023_000012_worker_control`)
 and grants before starting this version. API/worker startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.
+The new [worker-control API](worker-control.md) is a separate local-only boundary;
+this Compose template does not establish remote/cloud executor authentication.
 
 ```sh
 docker compose --env-file /private/ayati/hosted.env -f deploy/compose.yaml up -d api worker

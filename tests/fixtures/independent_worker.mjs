@@ -53,6 +53,22 @@ export async function workerFixture(t, options = {}) {
     AYATI_ASSIGNMENT_RUN_SECONDS: String(options.runSeconds ?? 180),
     AYATI_DATA_DIR: join(data, 'migration'),
   };
+  let control;
+  if (options.control) {
+    const listener = createServer().listen(0, '127.0.0.1');
+    await once(listener, 'listening');
+    const controlPort = listener.address().port;
+    await new Promise(resolve => listener.close(resolve));
+    const { randomBytes } = await import('node:crypto');
+    const bootstrap = randomBytes(32).toString('base64url');
+    const keyFile = join(data, 'worker-control.key');
+    await writeFile(keyFile, bootstrap + '\n', { mode: 0o600 });
+    control = { url: `http://127.0.0.1:${controlPort}`, bootstrap, keyFile };
+    env.AYATI_WORKER_CONTROL_URL = control.url;
+    env.AYATI_WORKER_CONTROL_KEY_FILE = keyFile;
+    env.AYATI_ASSIGNMENT_LEASE_SECONDS = '6';
+    env.AYATI_ASSIGNMENT_CAPACITY = '2';
+  }
   execFileSync(binary, ['workspace-db', 'migrate'], {
     cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
   });
@@ -67,8 +83,10 @@ export async function workerFixture(t, options = {}) {
   await new Promise(resolve => listener.close(resolve));
   const base = `http://127.0.0.1:${port}`;
   const children = [];
-  function launch(args, extra) {
-    const child = spawn(binary, args, { cwd: data, env: { ...env, ...extra }, stdio: ['ignore', 'pipe', 'pipe'] });
+  function launch(args, extra, input) {
+    const childEnv = Object.fromEntries(Object.entries({ ...env, ...extra }).filter(([, value]) => value !== undefined));
+    const child = spawn(binary, args, { cwd: data, env: childEnv, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    if (input) child.stdin.end(JSON.stringify(input));
     const record = { child, logs: '' };
     child.stdout.on('data', bytes => { record.logs += bytes; });
     child.stderr.on('data', bytes => { record.logs += bytes; });
@@ -177,13 +195,22 @@ export async function workerFixture(t, options = {}) {
     return until(async () => (await history(job.chat)).find(m => m.id === job.reply && m.state === state),
       'Reply did not reach ' + state, 35000);
   }
-  return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done,
+  return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done, control,
     startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
     sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
     startLauncher: extra => startAssignmentRole(['assignment-launcher'], extra),
     startAssignment: (id, extra) => startAssignmentRole(['worker', '--assignment', id], extra),
+    async startControlled(grant, extra = {}) {
+      const workerData = join(data, 'controlled-' + randomUUID());
+      await mkdir(workerData);
+      return launch(['worker', '--controller-assignment'], {
+        AYATI_DATA_DIR: workerData, AYATI_WORKER_CONTROL_URL: undefined, AYATI_WORKER_CONTROL_KEY_FILE: undefined,
+        RELAY_DATABASE_URL: undefined, RELAY_SIMULATION_DATABASE_URL: undefined,
+        OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url, ...extra,
+      }, grant);
+    },
     pass: name => { records.push({ name, passed: true }); console.log('PASS', name); },
     // Only synthetic IDs obtained from this schema are interpolated into fixture SQL.
     expire: job => sql(`UPDATE relay_chat_jobs SET lease_until=0 WHERE reply='${job.reply}' AND state='running'`, scoped.href),
@@ -197,12 +224,12 @@ export async function workerFixture(t, options = {}) {
       const pids = execFileSync('ps', ['--ppid', String(worker.child.pid), '-o', 'pid='], { encoding: 'utf8' });
       return pids.trim().split(/\s+/).filter(Boolean).map(Number);
     },
-    async assertChildrenStopped(pids) {
+    async assertChildrenStopped(pids, timeout = 5000) {
       for (const pid of pids) {
         await until(async () => {
           try { return (await readFile(`/proc/${pid}/stat`, 'utf8')).split(') ')[1].startsWith('Z'); }
           catch { return true; }
-        }, 'Goose survived its worker process: ' + pid, 5000);
+        }, 'Goose survived its worker process: ' + pid, timeout);
       }
     },
   };

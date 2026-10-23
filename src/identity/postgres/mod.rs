@@ -8,6 +8,9 @@ mod assignments;
 mod chat;
 pub mod cli;
 mod collaboration;
+#[cfg(test)]
+mod controlled_attempt_tests;
+mod controlled_attempts;
 mod entities;
 mod feedback;
 mod history;
@@ -26,6 +29,9 @@ mod people;
 mod resources;
 mod settings;
 mod work;
+pub(crate) mod worker_control;
+#[cfg(test)]
+mod worker_control_migration_tests;
 
 use super::store::{User, now};
 use anyhow::{Context, Result, ensure};

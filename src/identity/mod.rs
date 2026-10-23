@@ -5,6 +5,8 @@ pub mod assignment_launcher;
 pub mod assignment_worker;
 mod chat;
 mod collaboration;
+mod controlled_launcher;
+pub mod controlled_worker;
 mod database;
 mod hosting;
 mod library;
@@ -21,6 +23,7 @@ mod sqlite_access;
 pub mod store;
 pub mod worker;
 mod worker_config;
+mod worker_control;
 pub mod worker_health;
 mod workspaces;
 
@@ -220,15 +223,19 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         simulation: None,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
+    let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
-            worker::shutdown_signal().await;
+            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
             stopping.cancel();
         })
         .await?;
     app.runtimes.shutdown().await?;
+    if let Some(control) = control {
+        control.await?;
+    }
     Ok(())
 }
 fn router(app: Shared) -> Router {
