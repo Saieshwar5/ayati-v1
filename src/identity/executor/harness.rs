@@ -18,6 +18,7 @@ pub(super) struct Harness {
     root: PathBuf,
     profile: Profile,
     pub pid: u32,
+    events: tokio::sync::broadcast::Sender<crate::agent::Event>,
 }
 impl Harness {
     pub async fn prepare(root: &Path, profile: &Profile) -> Result<Self> {
@@ -37,11 +38,8 @@ impl Harness {
             "Prepared executor requires pinned Goose and a configured provider"
         );
         let store = Arc::new(Store::open(&root.join("chat.sqlite"))?);
-        let runtime = Arc::new(GooseRuntime::new(
-            config,
-            store.clone(),
-            tokio::sync::broadcast::channel(256).0,
-        ));
+        let events = tokio::sync::broadcast::channel(256).0;
+        let runtime = Arc::new(GooseRuntime::new(config, store.clone(), events.clone()));
         let pid = runtime.prepare_chat().await?;
         Ok(Self {
             runtime,
@@ -49,6 +47,7 @@ impl Harness {
             root: root.into(),
             profile: profile.clone(),
             pid,
+            events,
         })
     }
     pub async fn ready(&self) -> bool {
@@ -64,7 +63,12 @@ impl Harness {
         let _ = self.runtime.shutdown().await;
         execution::cleanup(&self.root).await;
     }
-    pub async fn run(self, context: Prepared, cancel: CancellationToken) -> Result<String> {
+    pub async fn run(
+        self,
+        context: Prepared,
+        cancel: CancellationToken,
+        output: super::output::Output,
+    ) -> Result<String> {
         let result = async {
             ensure!(context.version == 1, "Unsupported prepared context version");
             ensure!(
@@ -92,13 +96,21 @@ impl Harness {
                 "Prepared session must contain only its assigned task"
             );
             let reply = self.store.add_claim_reply(&claim)?;
+            let done = CancellationToken::new();
+            let finished = done.clone().drop_guard();
+            let sender = tokio::spawn(output.forward(
+                self.events.subscribe(),
+                reply.clone(),
+                done.clone(),
+                cancel.clone(),
+            ));
             let result = self
                 .runtime
                 .prompt_chat(
                     &claim,
                     &reply,
                     execution::prompt(&context),
-                    cancel,
+                    cancel.clone(),
                     crate::runtime::prepared::ChatTurn {
                         agent: &context.agent,
                         instructions: &context.instructions,
@@ -106,6 +118,8 @@ impl Harness {
                     },
                 )
                 .await;
+            drop(finished);
+            sender.await??;
             self.store.finish_work(
                 &claim,
                 if result.is_ok() {

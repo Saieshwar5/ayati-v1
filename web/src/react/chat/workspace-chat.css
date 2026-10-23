@@ -137,3 +137,6 @@
 .chat-file audio { display:block; margin:4px 0; }
 .chat-receipt summary { list-style:none; }
 .chat-receipt summary::-webkit-details-marker { display:none; }
+
+.chat-reply-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); }
+.chat-reply-progress button { padding: 3px 8px; font-size: 12px; }

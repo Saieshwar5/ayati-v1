@@ -18,7 +18,29 @@ impl MigratorTrait for Migrator {
             Box::new(WorkerAssignments),
             Box::new(WorkerControl),
             Box::new(ExecutorSlots),
+            Box::new(ReplyOutput),
         ]
+    }
+}
+struct ReplyOutput;
+impl MigrationName for ReplyOutput {
+    fn name(&self) -> &str {
+        "m20261023_000014_reply_output"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ReplyOutput {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("reply_output.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Reply output is durable; use a forward migration".into(),
+        ))
     }
 }
 struct ExecutorSlots;

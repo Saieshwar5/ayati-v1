@@ -7,6 +7,9 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   const requests = [];
   let unavailable = false;
   let held = false;
+  let streamScript;
+  let outputHeld = false;
+  const timings = [];
   const server = createServer(async (request, response) => {
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'application/json');
@@ -17,6 +20,9 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
     for await (const chunk of request) raw += chunk;
     const input = JSON.parse(raw);
     requests.push(input);
+    const index=requests.length-1;
+    timings.push({index,phase:'request',time_ms:Date.now()});
+    const script=streamScript;
     const messages = input.messages ?? [];
     const lastUser = messages.findLastIndex((message) => message.role === 'user');
     const content = messages[lastUser]?.content;
@@ -89,13 +95,24 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
       response.setHeader('Content-Type', 'text/event-stream');
       const delta = (value, reason = null) => response.write(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta: value, finish_reason: reason }] })}\n\n`);
       if (tool) delta({ tool_calls: [{ index: 0, ...tool }] });
-      else {
+      else if (script) {
+        // Controlled partial replies for reconnect/cancel and timing journeys.
+        delta({role:'assistant',reasoning_content:'PRIVATE_REASONING_SENTINEL'});
+        for (let part=0;part<script.chunks.length && !response.destroyed;part++) {
+          if (part) await new Promise(resolve=>setTimeout(resolve,script.delayMs ?? 40));
+          if (part===(script.holdAfter ?? 1)) while(outputHeld && !response.destroyed) await new Promise(resolve=>setTimeout(resolve,20));
+          if(response.destroyed) return;
+          timings.push({index,phase:part===0?'first_token':'token',time_ms:Date.now()});
+          delta({content:script.chunks[part]});
+        }
+      } else {
         delta({ role: 'assistant', content: text.slice(0, 8) });
         await new Promise((resolve) => setTimeout(resolve, 20));
         delta({ content: text.slice(8) });
       }
       delta({}, tool ? 'tool_calls' : 'stop');
       response.end('data: [DONE]\n\n');
+      timings.push({index,phase:'complete',time_ms:Date.now()});
     } else {
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({ id: 'fixture', object: 'chat.completion', model: 'fixture', choices: [{ index: 0, message, finish_reason: tool ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }));
@@ -106,6 +123,9 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
+    timings,
+    setStream: value => { streamScript=value; },
+    setOutputHeld: value => { outputHeld=value; },
     setUnavailable: (value) => { unavailable = value; },
     setHeld: (value) => { held = value; },
     close: () => { server.closeAllConnections(); server.close(); },

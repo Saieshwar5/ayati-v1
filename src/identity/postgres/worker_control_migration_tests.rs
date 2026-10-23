@@ -7,6 +7,122 @@ use sea_orm_migration::MigratorTrait;
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
+async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
+    let base = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
+    let admin = PgStore::connect(&base).await.unwrap();
+    let schema = format!("relay_test_{}", uuid::Uuid::new_v4().simple());
+    admin
+        .db
+        .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
+        .await
+        .unwrap();
+    let mut url = reqwest::Url::parse(&base).unwrap();
+    url.query_pairs_mut()
+        .append_pair("options", &format!("-c search_path={schema}"));
+    let mut old = PgStore::connect(url.as_str()).await.unwrap();
+    migration::Migrator::up(&old.db, Some(13)).await.unwrap();
+    old.assigned = true;
+    let owner = user(&old, "output-upgrade-owner").await;
+    let w = workspace(&old, &owner).await;
+    let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
+    let job = old
+        .chat_send(
+            &owner,
+            &w,
+            &c,
+            &message("Preserve this pending reply", Some("agent-one")),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let registration = crate::identity::worker_control::model::Registration {
+        executor: uuid::Uuid::new_v4().to_string(),
+        incarnation: uuid::Uuid::new_v4().to_string(),
+        token: random_token(),
+        pooled: false,
+    };
+    old.register_executor(&registration).await.unwrap();
+    let token = random_token();
+    let reservation = crate::identity::worker_control::model::Reservation {
+        request: uuid::Uuid::new_v4().to_string(),
+        token: token.clone(),
+    };
+    let scope = old
+        .reserve_controlled(
+            &registration.executor,
+            &registration.incarnation,
+            &reservation,
+            120,
+            2,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(scope.reply, job.reply);
+    assert_eq!(scope.slot_generation, 0);
+    old.migrate().await.unwrap();
+    old.migrate().await.unwrap();
+    old.verify_schema().await.unwrap();
+    old.db.execute_unprepared(&format!("GRANT USAGE ON SCHEMA {schema} TO relay_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {schema} TO relay_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA {schema} TO relay_app; REVOKE UPDATE,DELETE ON {schema}.relay_audit FROM relay_app; REVOKE INSERT,UPDATE,DELETE ON {schema}.seaql_migrations FROM relay_app;")).await.unwrap();
+    url.set_username("relay_app").unwrap();
+    let runtime = PgStore::connect(url.as_str()).await.unwrap();
+    let request = AssignedRequest {
+        scope: scope.clone(),
+        session: uuid::Uuid::new_v4().to_string(),
+    };
+    runtime
+        .start_controlled(
+            &request,
+            &digest(&token),
+            &super::executor_slot_tests::context(&scope),
+        )
+        .await
+        .unwrap();
+    runtime
+        .append_output(
+            &crate::identity::worker_control::output::Update {
+                assignment: request.clone(),
+                sequence: 1,
+                phase: "responding".into(),
+                text: "Preserved live reply".into(),
+            },
+            &digest(&token),
+        )
+        .await
+        .unwrap();
+    let messages = runtime.chat_messages(&owner, &w, &c).await.unwrap();
+    assert_eq!(
+        messages["messages"][1]["progress"]["text"],
+        "Preserved live reply"
+    );
+    runtime
+        .complete_controlled(
+            &Completion {
+                assignment: request,
+                state: "complete".into(),
+                text: "Preserved live reply".into(),
+            },
+            &digest(&token),
+        )
+        .await
+        .unwrap();
+    let row = query(
+        &runtime.db,
+        "SELECT claim,attempts FROM relay_chat_jobs WHERE reply=$1",
+        vec![scope.reply.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        row.try_get::<String>("", "claim").unwrap(),
+        scope.assignment
+    );
+    assert_eq!(row.try_get::<i32>("", "attempts").unwrap(), 1);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
 async fn executor_slots_migration_preserves_v12_completion_receipts_and_history() {
     let base = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&base).await.unwrap();
@@ -77,7 +193,17 @@ async fn executor_slots_migration_preserves_v12_completion_receipts_and_history(
     execute(&old.db, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,resource_id,state,outcome,lease_seconds) VALUES($1,$2,$3,1,'local',$4,'finished','complete',120)", vec![scope.assignment.clone().into(),w.clone().into(),job.reply.clone().into(),scope.resource().into()]).await.unwrap();
     execute(&old.db, "INSERT INTO relay_executors(id,incarnation,token_hash,expires) VALUES($1,$2,$3,floor(extract(epoch FROM clock_timestamp()))::bigint+300)", vec![scope.executor.clone().into(),scope.incarnation.clone().into(),digest(&random_token()).into()]).await.unwrap();
     execute(&old.db, "INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,request,token_hash,expires,session,completion_hash,completion_state) VALUES($1,$2,$3,$4,$5,$6,floor(extract(epoch FROM clock_timestamp()))::bigint+300,$7,$8,'complete')", vec![scope.assignment.clone().into(),scope.executor.clone().into(),scope.incarnation.clone().into(),scope.slot.clone().into(),uuid::Uuid::new_v4().to_string().into(),token_hash.clone().into(),completion.assignment.session.clone().into(),digest(&wire).into()]).await.unwrap();
-    let before = old.chat_messages(&owner, &w, &c).await.unwrap();
+    let history_sql = "SELECT jsonb_agg(to_jsonb(m)-'progress'-'revision' ORDER BY sequence) AS data FROM relay_chat_messages m WHERE workspace=$1 AND chat=$2";
+    let before: Value = query(
+        &old.db,
+        history_sql,
+        vec![w.clone().into(), c.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "data")
+    .unwrap();
     old.migrate().await.unwrap();
     old.migrate().await.unwrap();
     old.verify_schema().await.unwrap();
@@ -91,7 +217,21 @@ async fn executor_slots_migration_preserves_v12_completion_receipts_and_history(
             .unwrap(),
         "complete"
     );
-    assert_eq!(runtime.chat_messages(&owner, &w, &c).await.unwrap(), before);
+    let after: Value = query(
+        &runtime.db,
+        history_sql,
+        vec![w.clone().into(), c.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "data")
+    .unwrap();
+    assert_eq!(after, before);
+    assert_eq!(
+        runtime.chat_messages(&owner, &w, &c).await.unwrap()["messages"][1]["content"],
+        completion.text
+    );
     let record = runtime
         .controlled_assignment(&scope, &token_hash)
         .await

@@ -118,6 +118,7 @@ impl PgStore {
     pub(crate) async fn expire_executors(&self, seconds: u64) -> Result<()> {
         let tx = self.db.begin().await?;
         super::assignments::admission_gate(&tx).await?;
+        self.recover_assignments_in(&tx).await?;
         execute(&tx,&format!("UPDATE relay_executors SET state='lost' WHERE pooled AND state IN ('serving','draining') AND heartbeat<={CLOCK}-$1"),vec![(seconds as i64).into()]).await?;
         execute(&tx,"UPDATE relay_executor_slots s SET state='lost' FROM relay_executors e WHERE e.id=s.executor AND e.incarnation=s.incarnation AND e.state='lost' AND s.state<>'lost'",vec![]).await?;
         tx.commit().await?;

@@ -66,13 +66,14 @@ impl PgStore {
         if !ids.is_empty() {
             // One authorized batch read, not three queries per message per recipient.
             let sql = MESSAGE.replace("m.id=$2", "m.id IN (SELECT jsonb_array_elements_text($2::jsonb)) AND EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=m.workspace AND c.id=m.chat AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)))");
-            for message in json_rows(
+            let mut messages = json_rows(
                 &tx,
                 &sql,
                 vec![w.into(), json!(ids).into(), user.id.clone().into()],
             )
-            .await?
-            {
+            .await?;
+            super::reply_views::hydrate(&tx, user, w, &mut messages).await?;
+            for message in messages {
                 output.push(json!({"kind":"message","chat":message["chat"],"message":message}));
             }
         }
@@ -96,12 +97,14 @@ impl PgStore {
         for id in ids {
             let row = query(
                 &tx,
-                "SELECT author FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3",
+                "SELECT author,state FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3",
                 vec![w.into(), chat.into(), id.clone().into()],
             )
             .await?
             .context("Message is unavailable in this conversation")?;
-            if row.try_get::<String>("", "author")? == user.id {
+            if row.try_get::<String>("", "author")? == user.id
+                || !["sent", "complete"].contains(&row.try_get::<String>("", "state")?.as_str())
+            {
                 continue;
             }
             execute(&tx,"INSERT INTO relay_message_receipts(workspace,chat,message,user_id,delivered_at,seen_at) VALUES($1,$2,$3,$4,$5,CASE WHEN $6 THEN $5 ELSE NULL END) ON CONFLICT(workspace,message,user_id) DO UPDATE SET seen_at=EXCLUDED.seen_at WHERE relay_message_receipts.seen_at IS NULL AND EXCLUDED.seen_at IS NOT NULL",vec![w.into(),chat.into(),id.clone().into(),user.id.clone().into(),now().into(),seen.into()]).await?;

@@ -4,6 +4,7 @@ pub(crate) mod client;
 pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
+pub(crate) mod output;
 mod pool;
 use super::{Shared, chat::execution, database::Database, postgres::PgStore, provider::digest};
 use anyhow::{Context, Result, ensure};
@@ -166,6 +167,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
 fn routes(state: StateData) -> Router {
     Router::new()
         .merge(pool::routes())
+        .route("/v1/assignments/{id}/output", post(output::append))
         .route("/v1/executors/register", post(register))
         .route(
             "/v1/executors/{executor}/{incarnation}/reserve",

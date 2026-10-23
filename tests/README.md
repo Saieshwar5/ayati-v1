@@ -32,6 +32,23 @@ executor crash, graceful drain, failed readiness and cancellation. The provider 
 scripted; no cloud or paid model is used. Preserve an immutable `AYATI_TEST_BIN`
 copy if Cargo will rebuild the binary while process tests are running.
 
+## Durable live replies and local timing
+
+See the [streaming contract](../runtime/reply-streaming.md). After building Rust
+and web assets, use the same private disposable database to run:
+
+~~~sh
+node --test --test-concurrency=1 tests/reply_stream.mjs tests/reply_capacity.mjs
+~~~
+
+These use actual Goose and a scripted model to exercise partial text, browser
+send/offline/reload/Stop, controller replacement, dropped output acknowledgments,
+interrupted attempts and bounded-output failures. The named 24-sample capacity
+journey records raw timings/quantiles and resource observations, then rehearses
+held/short work, saturation, delayed executor growth and draining. Proposed latency
+target failures remain in its report. Screenshots and JSON stay in retained fixture
+directories; this is not a live-provider, cloud or multi-hour benchmark.
+
 ## Existing browser and agent journeys
 
 The existing journeys below explicitly select the preserved prototype runtime.
