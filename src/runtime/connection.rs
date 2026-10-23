@@ -10,6 +10,16 @@ use tokio::sync::oneshot;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 impl GooseRuntime {
     pub(super) async fn connect(&self) -> Result<Process> {
+        self.connect_with_preparation(false).await
+    }
+    pub(super) async fn connect_prepared(&self) -> Result<Process> {
+        self.connect_with_preparation(true).await
+    }
+    async fn connect_with_preparation(&self, prepared: bool) -> Result<Process> {
+        ensure!(
+            !prepared || self.vm.is_none(),
+            "Generic preparation requires the local shared chat runtime"
+        );
         let authority_revision = self
             .config
             .platform
@@ -45,7 +55,11 @@ impl GooseRuntime {
         } else {
             let mut config = effective.clone();
             config.model = model.into();
-            let mut command = config.command().await?;
+            let mut command = if prepared {
+                config.prepared_command().await?
+            } else {
+                config.command().await?
+            };
             if effective.memory || effective.platform.is_some() {
                 command
                     .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
@@ -132,7 +146,10 @@ impl GooseRuntime {
             } else {
                 self.config.workspace.canonicalize()?
             };
-            let meta = effective.session_meta()?;
+            let mut meta = effective.session_meta()?;
+            if prepared {
+                meta.insert("ayatiPrepare".into(), serde_json::json!(1));
+            }
             let mut settings = serde_json::json!({"provider":self.config.provider,"model":model,"proof_tool":self.config.proof_tool,"adapter":1});
             if role_revision > 0 {
                 settings["role_revision"] = serde_json::json!(role_revision);
@@ -158,6 +175,10 @@ impl GooseRuntime {
             } else {
                 self.shared.store.runtime_session(&settings)?
             };
+            ensure!(
+                !prepared || saved.is_none(),
+                "Prepared slots require a fresh empty session"
+            );
             let session = if let Some(saved) = saved {
                 let id = SessionId::from(saved);
                 connection
@@ -178,6 +199,14 @@ impl GooseRuntime {
                     .map_err(|_| {
                         anyhow::anyhow!("Goose session setup failed; check provider configuration")
                     })?;
+                if prepared {
+                    let duration = super::prepared::preparation_ack(created.meta.as_ref())?;
+                    tracing::info!(
+                        pid = resources.group,
+                        generic_preparation_us = duration,
+                        "Fresh harness completed generic preparation v1"
+                    );
+                }
                 self.shared
                     .store
                     .save_runtime_session(&created.session_id.to_string(), &settings)?;

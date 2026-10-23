@@ -32,6 +32,24 @@ executor crash, graceful drain, failed readiness and cancellation. The provider 
 scripted; no cloud or paid model is used. Preserve an immutable `AYATI_TEST_BIN`
 copy if Cargo will rebuild the binary while process tests are running.
 
+## Generic preparation before readiness
+
+Pooled fixtures require migration 15 and the separate prepared artifact:
+
+~~~sh
+python3 tools/build-prepared-goose.py
+python3 tools/run-agent-load.py --suite preparation --binary /absolute/path/to/frozen/ayati
+~~~
+
+The [preparation contract](../runtime/harness-preparation.md) describes the tiny
+pinned Goose patch. Its direct ACP probe compares the same ELF with/without
+preparation across eight fresh processes and verifies zero inference before
+readiness. Additional journeys refuse a matching-version process missing the
+acknowledgment and drain blocked preparation children. PostgreSQL tests cover
+legacy reports, version-14 migration, preserved owned work and atomic start replay.
+The runner creates a fresh private database and verifies resource limits; use
+`--executor-cpu 200` for the two-CPU profile. Raw failures and successes are retained.
+
 ## Durable live replies and local timing
 
 See the [streaming contract](../runtime/reply-streaming.md). After building Rust

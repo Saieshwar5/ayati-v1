@@ -115,7 +115,7 @@ test('draining rejects new work while active sessions finish and another executo
 test('failed or dead harness preparation is excluded from admission', options, async t => {
   const app = await workerFixture(t, { mode: 'pooled', control: true });
   const job = await app.send('Wait for an actually prepared harness');
-  const broken = await app.startExecutor({ AYATI_GOOSE_BIN: '/missing/goose' });
+  const broken = await app.startExecutor({ AYATI_PREPARED_GOOSE_BIN: '/missing/goose' });
   await until(() => rows(app).length === 2, 'Preparing capacity was not reported');
   await delay(1500);
   assert.equal(rows(app).filter(s => s.state === 'ready').length, 0);
@@ -203,7 +203,7 @@ test('a lost unacknowledged stream offer replays the exact durable assignment', 
   await machine(app, '/v1/executors/register', app.control.bootstrap, e);
   const base = `/v1/executors/${e.executor}/${e.incarnation}/pool`;
   const slot = { slot: randomUUID(), generation: 1, token: secret(), pid: 12345,
-    profile: { provider: 'openai', model: 'fixture' }, state: 'ready' };
+    profile: { provider: 'openai', model: 'fixture' }, state: 'ready', preparation_version: 1 };
   await machine(app, base + '/capacity', e.token, { slots: [slot] });
   const job = await app.send('Offer acknowledgment may be lost');
   async function offer() {

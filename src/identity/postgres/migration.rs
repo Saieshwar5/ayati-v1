@@ -19,7 +19,29 @@ impl MigratorTrait for Migrator {
             Box::new(WorkerControl),
             Box::new(ExecutorSlots),
             Box::new(ReplyOutput),
+            Box::new(HarnessPreparation),
         ]
+    }
+}
+struct HarnessPreparation;
+impl MigrationName for HarnessPreparation {
+    fn name(&self) -> &str {
+        "m20261023_000015_harness_preparation"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for HarnessPreparation {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("harness_preparation.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Preparation readiness requires a forward migration".into(),
+        ))
     }
 }
 struct ReplyOutput;

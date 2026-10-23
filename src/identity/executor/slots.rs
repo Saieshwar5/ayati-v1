@@ -65,6 +65,11 @@ impl Slot {
             state: state.into(),
             token: self.token.clone(),
             pid: self.pid,
+            preparation_version: if matches!(self.state, State::Ready(_) | State::Running(_)) {
+                1
+            } else {
+                0
+            },
         })
     }
     pub fn prepare(

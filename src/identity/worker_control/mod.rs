@@ -283,10 +283,9 @@ async fn start_assignment(
     };
     let context = pg(&state).start_controlled(&input, &hash, &context).await?;
     trace.mark("start_commit");
-    // Replaying a lost start response must return a newly confirmed full lease,
-    // rather than presenting a nearly expired original lease as fresh.
-    let lease = pg(&state).renew_controlled(&input, &hash).await?;
-    trace.mark("lease_confirm");
+    // The assignment's immutable lease duration was confirmed atomically with
+    // context/session ownership, including on an exact start replay.
+    let lease = record.assignment.lease_seconds;
     trace.finish(&input.scope.assignment, "controller");
     super::start_trace::point(
         &input.scope.assignment,

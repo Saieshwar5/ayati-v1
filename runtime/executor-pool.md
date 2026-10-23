@@ -6,14 +6,18 @@ context and assigns it to a compatible ready slot. PostgreSQL owns claims,
 generations, leases and final results. Executors use the controller API and
 receive no core database or WorkOS credentials.
 
-This is an opt-in, same-host, tool-free rehearsal. Goose remains pinned at 1.54.0.
+This is an opt-in, same-host, tool-free rehearsal. Pooled slots use the separate
+[pinned preparation variant](harness-preparation.md), `1.54.0+ayati.1`;
+ordinary/cold/VM paths retain stock 1.54.0.
 M1.5c adds [durable live replies](reply-streaming.md). AWS identity, remote transport,
-capacity autoscaling and response-speed acceptance remain later work. The [cold assignment path](worker-control.md) and
+capacity autoscaling and release/live-provider speed calibration remain later work.
+The [bounded preparation follow-up](bounded-agent-load.md#preparation-follow-up)
+passes the named local ready-capacity targets. The [cold assignment path](worker-control.md) and
 [polling workers](independent-chat-worker.md) remain available.
 
 ## Setup
 
-Run all fourteen migrations through `m20261023_000014_reply_output` with the
+Run all fifteen migrations through `m20261023_000015_harness_preparation` with the
 migration owner, then reapply runtime grants as in [PostgreSQL setup](postgres-workspaces.md).
 Migration 13 preserves existing dispatch modes, IDs, assignment history and v12
 completion fingerprints. Startup verifies the schema without migrating ordinary
@@ -33,7 +37,11 @@ AYATI_CHAT_EXECUTION=pooled AYATI_WORKER_PROVIDERS=openai \
   cargo run --locked -- identity
 ~~~
 
-Start each executor in a separate private data directory with the pinned Goose
+Build `python3 tools/build-prepared-goose.py` first. Migration 15 withdraws old
+unprepared ready slots while preserving owned work; replace older executors after
+upgrading the controllers. See the preparation guide for rollout restrictions.
+
+Start each executor in a separate private data directory with the prepared Goose
 binary, provider/model configuration and provider key set privately:
 
 ~~~sh
@@ -50,6 +58,7 @@ the configured model key; per-run model brokerage is still future work.
 | Setting | Default and bounds | Owner |
 | --- | --- | --- |
 | `AYATI_EXECUTOR_SLOTS` | 2; 1–16 | Each executor |
+| `AYATI_PREPARED_GOOSE_BIN` | `.cache/goose/v1.54.0-ayati.1/goose` | Executor; preparation variant only |
 | `AYATI_GOOSE_PROVIDER`, `AYATI_MODEL` | One immutable provider/model profile per executor | Executor |
 | `AYATI_EXECUTOR_CAPACITY` | `AYATI_ASSIGNMENT_CAPACITY` (2); 1–1024 | Controller, global active pool limit |
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
@@ -67,7 +76,8 @@ fleet behavior. This change does not update the existing Compose worker service.
 
 1. Register a new executor/incarnation with `pooled:true`. Prepare each slot's
    private scratch, tool-free Goose process, ACP initialization and fresh session.
-   Only then report ready. Preparation submits no model prompt; it does not prove
+   Await the generic token-counter preparation acknowledgment before reporting
+   `ready` with `preparation_version:1`. Preparation submits no model prompt; it does not prove
    a paid provider will accept inference or have low first-token latency.
 2. The controller selects connected, ready provider/model-compatible capacity.
    Under one PostgreSQL admission lock it applies global/workspace/model limits
@@ -78,7 +88,7 @@ fleet behavior. This change does not update the existing Compose worker service.
    lease. An SSE event is a delivery hint, not authority or proof of acceptance.
 4. The executor acknowledges through the existing assignment `start` route using
    its exact slot credential and one session nonce. That transaction prepares
-   scoped context and confirms execution ownership. Duplicate start/offer replay
+   scoped context and confirms ownership plus a full lease in one transaction. Duplicate start/offer replay
    cannot create another local inference. Each run renews independently every
    500 ms and obeys its conservative confirmed lease deadline.
 5. Stop/reap Goose and clean scratch before terminal publication/release. Every
@@ -93,7 +103,7 @@ attempt. Missing profiles also wait; operators must provision the matching profi
 Pool routes under `/v1/executors/{executor}/{incarnation}/pool` use that executor's
 credential: `GET /events`, `POST /capacity`, `POST /drain` and `POST /stop`.
 Capacity includes bounded slot identity, generation, provider/model, state, token
-and diagnostic PID. PostgreSQL stores credential hashes. A reported PID does not
+and diagnostic PID plus preparation version. PostgreSQL stores credential hashes. A reported PID does not
 authenticate a process or independently prove a malicious executor's readiness.
 Executors are trusted operator processes in this local boundary.
 
@@ -144,7 +154,9 @@ the built binary while other Cargo commands run. Fixtures retain disposable sche
 reports and logs and use real pinned Goose with a scripted loopback model.
 
 M1.5c's [live output and local capacity rehearsal](reply-streaming.md) now extend
-this pool. Streaming/replay has local evidence; the proposed model-request latency
-target remains unmet. Context/harness timing needs further work before final M0
-sizing and M2/M3 cloud identity/service acceptance. Prepared PID reuse does not
+this pool. Streaming/replay and the repeated
+[prepared ready-capacity matrix](bounded-agent-load.md#preparation-follow-up) have
+local evidence. The named provisional targets pass; release-image/live-model
+calibration and interactive reserve precede final M0 sizing and M2/M3 cloud
+identity/service acceptance. Prepared PID reuse does not
 establish a millisecond response SLA, multi-hour soak or cloud scale-out performance.

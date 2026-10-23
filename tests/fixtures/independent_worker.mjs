@@ -65,6 +65,7 @@ export async function workerFixture(t, options = {}) {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
     AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
+    AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
     AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
     AYATI_ASSIGNMENT_RUN_SECONDS: String(options.runSeconds ?? 180),
     AYATI_DATA_DIR: join(data, 'migration'),
@@ -257,8 +258,13 @@ export async function workerFixture(t, options = {}) {
       return files.filter(file => file.endsWith('chat.sqlite'));
     },
     async gooseChildren(worker) {
-      const pids = execFileSync('ps', ['--ppid', String(worker.child.pid), '-o', 'pid='], { encoding: 'utf8' });
-      return pids.trim().split(/\s+/).filter(Boolean).map(Number);
+      try {
+        const pids = execFileSync('ps', ['--ppid', String(worker.child.pid), '-o', 'pid='], { encoding: 'utf8' });
+        return pids.trim().split(/\s+/).filter(Boolean).map(Number);
+      } catch (error) {
+        if (error.status === 1 && !error.stdout?.trim()) return [];
+        throw error;
+      }
     },
     async assertChildrenStopped(pids, timeout = 5000) {
       for (const pid of pids) {

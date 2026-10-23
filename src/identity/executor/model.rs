@@ -27,6 +27,8 @@ pub(crate) struct SlotReport {
     pub state: String,
     pub token: String,
     pub pid: Option<u32>,
+    #[serde(default)]
+    pub preparation_version: u8,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
