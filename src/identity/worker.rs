@@ -31,7 +31,10 @@ fn concurrency(value: Option<&str>) -> Result<usize> {
 
 pub async fn serve(data: &Path) -> Result<()> {
     ensure!(
-        super::worker_config::Mode::from_env(true)? != super::worker_config::Mode::Assigned,
+        !matches!(
+            super::worker_config::Mode::from_env(true)?,
+            super::worker_config::Mode::Assigned | super::worker_config::Mode::Pooled
+        ),
         "Assigned mode requires assignment-launcher or worker --assignment <id>"
     );
     let limit = concurrency(std::env::var("AYATI_WORKER_CONCURRENCY").ok().as_deref())?;

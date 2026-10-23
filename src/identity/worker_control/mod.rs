@@ -1,7 +1,10 @@
 //! Separate, opt-in local machine API. Browser sessions and origins confer no access.
+pub(crate) mod attempt;
 pub(crate) mod client;
 pub(crate) mod config;
+mod hub;
 pub(crate) mod model;
+mod pool;
 use super::{Shared, chat::execution, database::Database, postgres::PgStore, provider::digest};
 use anyhow::{Context, Result, ensure};
 use axum::{
@@ -23,6 +26,7 @@ struct Control {
     host: String,
     lease: u64,
     capacity: usize,
+    hub: std::sync::Arc<hub::Hub>,
 }
 type StateData = Arc<Control>;
 struct Error(anyhow::Error);
@@ -79,6 +83,10 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let origin = std::env::var("AYATI_WORKER_CONTROL_URL").ok();
     let key = std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE");
     if origin.is_none() && key.is_none() {
+        ensure!(
+            !matches!(&app.store,Database::Postgres(pg) if pg.pooled),
+            "Pooled execution requires the worker-control listener"
+        );
         return Ok(None);
     }
     let origin = config::url(&origin.context("Worker control requires AYATI_WORKER_CONTROL_URL")?)?;
@@ -86,7 +94,10 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let address = config::address(&host)?;
     ensure!(
         matches!(app.store, Database::Postgres(_))
-            && super::worker_config::Mode::from_env(true)? == super::worker_config::Mode::Assigned,
+            && matches!(
+                super::worker_config::Mode::from_env(true)?,
+                super::worker_config::Mode::Assigned | super::worker_config::Mode::Pooled
+            ),
         "Worker control requires PostgreSQL and assigned execution"
     );
     let key = config::key(std::path::Path::new(
@@ -101,14 +112,45 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
         host,
         lease: super::worker_config::seconds("AYATI_ASSIGNMENT_LEASE_SECONDS", 120, 6, 300)?,
         capacity: super::worker_config::seconds("AYATI_ASSIGNMENT_CAPACITY", 2, 1, 16)? as usize,
+        hub: std::sync::Arc::new(hub::Hub::default()),
     });
-    let router = routes(state);
+    let router = routes(state.clone());
+    let shutdown_hub = state.hub.clone();
+    let coordinator = if pg(&state).pooled {
+        let capacity = super::worker_config::seconds(
+            "AYATI_EXECUTOR_CAPACITY",
+            state.capacity as u64,
+            1,
+            1024,
+        )? as usize;
+        let limits = super::postgres::PoolLimits {
+            capacity,
+            lease: state.lease,
+            workspace: super::worker_config::seconds(
+                "AYATI_EXECUTOR_WORKSPACE_LIMIT",
+                capacity as u64,
+                1,
+                1024,
+            )? as usize,
+            model: super::worker_config::seconds(
+                "AYATI_EXECUTOR_MODEL_LIMIT",
+                capacity as u64,
+                1,
+                1024,
+            )? as usize,
+        };
+        let expiry = super::worker_config::seconds("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6, 120)?;
+        Some(tokio::spawn(pool::dispatch(state, limits, expiry)))
+    } else {
+        None
+    };
     let stopping = app.runtimes.stopping.clone();
     Ok(Some(tokio::spawn(async move {
         let stopped = stopping.clone();
         if axum::serve(listener, router)
             .with_graceful_shutdown(async move {
                 stopped.cancelled().await;
+                shutdown_hub.close();
             })
             .await
             .is_err()
@@ -116,10 +158,14 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
             tracing::error!("Local worker control server stopped unexpectedly");
             stopping.cancel();
         }
+        if let Some(coordinator) = coordinator {
+            let _ = coordinator.await;
+        }
     })))
 }
 fn routes(state: StateData) -> Router {
     Router::new()
+        .merge(pool::routes())
         .route("/v1/executors/register", post(register))
         .route(
             "/v1/executors/{executor}/{incarnation}/reserve",
@@ -165,6 +211,7 @@ async fn register(
     Json(input): Json<Registration>,
 ) -> Api<Value> {
     super::postgres::worker_control::require(credential(&headers)? == state.bootstrap_hash)?;
+    super::postgres::worker_control::require(input.pooled == pg(&state).pooled)?;
     pg(&state).register_executor(&input).await?;
     Ok(Json(json!({"registered":true})))
 }
@@ -174,6 +221,7 @@ async fn reserve(
     headers: HeaderMap,
     Json(input): Json<Reservation>,
 ) -> Api<Option<Scope>> {
+    super::postgres::worker_control::require(!pg(&state).pooled)?;
     pg(&state)
         .executor_allowed(&executor, &incarnation, &credential(&headers)?)
         .await?;

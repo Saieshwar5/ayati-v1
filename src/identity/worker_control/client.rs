@@ -13,6 +13,14 @@ impl std::fmt::Display for Unavailable {
     }
 }
 impl std::error::Error for Unavailable {}
+#[derive(Debug)]
+pub(crate) struct Conflict;
+impl std::fmt::Display for Conflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Controller state has not admitted this transition")
+    }
+}
+impl std::error::Error for Conflict {}
 #[derive(Clone)]
 pub(crate) struct Client {
     http: reqwest::Client,
@@ -20,6 +28,31 @@ pub(crate) struct Client {
     token: String,
 }
 impl Client {
+    pub(crate) async fn events(&self, path: &str) -> Result<reqwest::Response> {
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(2))
+            .build()?;
+        let response = tokio::time::timeout(
+            Duration::from_secs(2),
+            client
+                .get(format!("{}{path}", self.url))
+                .bearer_auth(&self.token)
+                .send(),
+        )
+        .await
+        .map_err(|_| Unavailable)?
+        .map_err(|_| Unavailable)?;
+        if response.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE {
+            return Err(Unavailable.into());
+        }
+        ensure!(
+            response.status().is_success(),
+            "Controller denied executor stream"
+        );
+        Ok(response)
+    }
     pub fn new(url: &str, token: &str) -> Result<Self> {
         super::model::token(token)?;
         Ok(Self {
@@ -43,6 +76,9 @@ impl Client {
             .map_err(|_| Unavailable)?;
         if [429, 502, 503, 504].contains(&response.status().as_u16()) {
             return Err(Unavailable.into());
+        }
+        if response.status() == reqwest::StatusCode::CONFLICT {
+            return Err(Conflict.into());
         }
         ensure!(
             response.status().is_success(),

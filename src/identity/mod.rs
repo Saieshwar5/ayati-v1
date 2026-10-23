@@ -8,6 +8,7 @@ mod collaboration;
 mod controlled_launcher;
 pub mod controlled_worker;
 mod database;
+pub mod executor;
 mod hosting;
 mod library;
 mod login_state;

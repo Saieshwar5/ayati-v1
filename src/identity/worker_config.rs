@@ -6,6 +6,7 @@ pub(crate) enum Mode {
     Embedded,
     External,
     Assigned,
+    Pooled,
 }
 impl Mode {
     pub fn parse(value: Option<&str>, postgres: bool) -> Result<Self> {
@@ -13,7 +14,10 @@ impl Mode {
             "embedded" => Self::Embedded,
             "external" => Self::External,
             "assigned" => Self::Assigned,
-            _ => anyhow::bail!("AYATI_CHAT_EXECUTION must be embedded, external or assigned"),
+            "pooled" => Self::Pooled,
+            _ => {
+                anyhow::bail!("AYATI_CHAT_EXECUTION must be embedded, external, assigned or pooled")
+            }
         };
         ensure!(
             postgres || mode == Self::Embedded,

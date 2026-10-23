@@ -17,6 +17,21 @@ AYATI_ASSIGNMENT_SOAK_SECONDS=185 to cover the former three-minute ACP limit.
 The provider is scripted and all database records are disposable. This does not
 test AWS, paid models, browser tools or business-effect checkpoint continuation.
 
+## Prepared shared executors
+
+The [executor pool contract](../runtime/executor-pool.md) describes M1.5b. With the
+same dedicated disposable database and real pinned Goose, run:
+
+~~~sh
+node --test --test-concurrency=1 tests/executor_pool.mjs
+~~~
+
+It checks prepared PID dispatch, concurrent sessions and independent supervisors,
+workspace isolation, capacity queueing, session replacement, controller restart,
+executor crash, graceful drain, failed readiness and cancellation. The provider is
+scripted; no cloud or paid model is used. Preserve an immutable `AYATI_TEST_BIN`
+copy if Cargo will rebuild the binary while process tests are running.
+
 ## Existing browser and agent journeys
 
 The existing journeys below explicitly select the preserved prototype runtime.

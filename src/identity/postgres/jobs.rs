@@ -14,7 +14,7 @@ impl PgStore {
             SELECT j.reply FROM relay_chat_jobs j WHERE j.dispatch='polling'
             AND (j.state='queued' OR (j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint))
             AND j.attempts<3 AND NOT EXISTS (
-                SELECT 1 FROM relay_chat_jobs other WHERE other.dispatch='assigned'
+                SELECT 1 FROM relay_chat_jobs other WHERE other.dispatch IN ('assigned','pooled')
                 AND other.workspace=j.workspace AND other.payload->>'agent'=j.payload->>'agent'
                 AND other.state='running' AND other.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint)
             ORDER BY j.sequence FOR UPDATE OF j SKIP LOCKED LIMIT 1)

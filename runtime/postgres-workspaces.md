@@ -2,12 +2,14 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twelve migrations, including m20261023_000012_worker_control.
+requires all thirteen migrations, including m20261023_000013_executor_slots.
 API-only polling dispatch uses `AYATI_CHAT_EXECUTION=external`; temporary workers
 use `AYATI_CHAT_EXECUTION=assigned` and the local assignment launcher. Reapply runtime
 grants after migration; existing polling jobs are preserved in their original mode.
 The opt-in [controller-scoped worker API](worker-control.md) keeps core database
 credentials with the controller and preserves direct-PG worker compatibility.
+The [prepared executor pool](executor-pool.md) uses `AYATI_CHAT_EXECUTION=pooled`;
+only initialized compatible slots receive work, with durable slot generations.
 
 Relay can serve its existing React client using PostgreSQL for accounts, sessions,
 workspaces, memberships, invitations, shared conversations, human resource grants,

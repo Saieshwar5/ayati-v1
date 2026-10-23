@@ -34,14 +34,15 @@ impl PgStore {
         let changed = execute(
             &self.db,
             &format!(
-                "INSERT INTO relay_executors(id,incarnation,token_hash,expires)
-            VALUES($1,$2,$3,{CLOCK}+86400) ON CONFLICT(id) DO UPDATE SET expires={CLOCK}+86400
-            WHERE relay_executors.incarnation=$2 AND relay_executors.token_hash=$3"
+                "INSERT INTO relay_executors(id,incarnation,token_hash,expires,pooled)
+            VALUES($1,$2,$3,{CLOCK}+86400,$4) ON CONFLICT(id) DO UPDATE SET expires={CLOCK}+86400
+            WHERE relay_executors.incarnation=$2 AND relay_executors.token_hash=$3 AND relay_executors.pooled=$4"
             ),
             vec![
                 registration.executor.clone().into(),
                 registration.incarnation.clone().into(),
                 super::super::provider::digest(&registration.token).into(),
+                registration.pooled.into(),
             ],
         )
         .await?;
@@ -54,7 +55,7 @@ impl PgStore {
         incarnation: &str,
         hash: &str,
     ) -> Result<()> {
-        require(query(&self.db, &format!("SELECT id FROM relay_executors WHERE id=$1 AND incarnation=$2 AND token_hash=$3 AND expires>{CLOCK}"),
+        require(query(&self.db, &format!("SELECT id FROM relay_executors WHERE id=$1 AND incarnation=$2 AND token_hash=$3 AND state IN ('serving','draining') AND expires>{CLOCK}"),
             vec![executor.into(),incarnation.into(),hash.into()]).await?.is_some())
     }
 
@@ -134,7 +135,7 @@ impl PgStore {
 }
 
 const SCOPE_QUERY: &str =
-    "SELECT c.executor,c.incarnation,c.slot,a.id AS assignment,a.workspace,a.generation,
+    "SELECT c.executor,c.incarnation,c.slot,c.slot_generation,a.id AS assignment,a.workspace,a.generation,
     a.reply,j.payload->>'agent' AS agent,j.payload->>'chat' AS chat,m.thread
     FROM relay_assignment_credentials c JOIN relay_worker_assignments a ON a.id=c.assignment
     JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
@@ -144,6 +145,7 @@ fn scope_from_row(row: QueryResult) -> Result<Scope> {
         executor: row.try_get("", "executor")?,
         incarnation: row.try_get("", "incarnation")?,
         slot: row.try_get("", "slot")?,
+        slot_generation: row.try_get("", "slot_generation")?,
         assignment: row.try_get("", "assignment")?,
         workspace: row.try_get("", "workspace")?,
         agent: row.try_get("", "agent")?,
@@ -162,7 +164,7 @@ pub(super) async fn controlled(
     let row = query(db, &format!("SELECT j.payload,j.run_seconds,a.lease_seconds,c.session,c.context,c.completion_hash,c.completion_state
         FROM relay_assignment_credentials c JOIN relay_executors e ON e.id=c.executor AND e.incarnation=c.incarnation
         JOIN relay_worker_assignments a ON a.id=c.assignment JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
-        WHERE c.assignment=$1 AND c.token_hash=$2 AND c.expires>{CLOCK} AND e.expires>{CLOCK}"), vec![id.into(),hash.into()]).await?.context(ControlDenied)?;
+        WHERE c.assignment=$1 AND c.token_hash=$2 AND c.expires>{CLOCK} AND e.expires>{CLOCK} AND e.state IN ('serving','draining')"), vec![id.into(),hash.into()]).await?.context(ControlDenied)?;
     let scope = scope_from_row(
         query(db, SCOPE_QUERY, vec![id.into()])
             .await?
