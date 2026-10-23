@@ -74,6 +74,30 @@ python3 -m unittest discover -s tests -p 'agent_*_test.py'
 python3 -O -m unittest discover -s tests -p 'agent_*_test.py'
 ~~~
 
+## Provider calibration
+
+The [calibration guide](../runtime/provider-calibration.md) describes the explicit
+live opt-in, fixed upstream endpoints, token/request/concurrency limits, private
+credentials and conservative cost accounting. Run the boundary tests without
+Docker or paid calls:
+
+~~~sh
+node --test tests/provider_calibration_guards.mjs
+~~~
+
+With the verified immutable image, Docker and Playwright Chromium:
+
+~~~sh
+node tools/calibrate-provider.mjs --image sha256:...
+~~~
+
+The default scripted rehearsal runs actual image roles and Chat browser sends,
+measures five healthy foreground replies across individual/concurrent/mixed work,
+and checks background completion and Stop. Thirteen boundary checks cover live
+opt-in, key privacy, atomic/nonrefundable accounting, token limits, SSE chunking,
+errors, redirects, missing usage, cancellation and allowance exhaustion.
+Live provider latency remains unverified until a separately configured paid run.
+
 ## Durable live replies and local timing
 
 For [reserved chat/background admission](../runtime/interactive-reserve.md), build

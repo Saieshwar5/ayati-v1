@@ -405,3 +405,9 @@ immutable image and checks prepared shared executors, mixed chat/background work
 recovery and two resource-bounded load profiles. Run
 `python3 tools/verify-release-image.py` with local Docker access. All data and model
 responses are disposable/scripted; no AWS resources or paid calls are required.
+
+The [provider calibration workflow](runtime/provider-calibration.md) measures
+browser-visible replies using that verified image. Its default rehearsal is
+scripted; real-provider execution needs an explicit model/rate/allowance plan and
+private key file. It retains request limits, conservative reservations, usage
+uncertainty and timing evidence before cloud sizing.

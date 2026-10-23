@@ -99,6 +99,9 @@ postmaster/user scopes. Files/reports and the built image/cache remain for revie
 These scripted-provider checks do not establish real-model first-token latency,
 AWS scaling, private remote identity, business-effect recovery or a multi-hour soak.
 Those remain separately bounded deployment gates.
+The [provider calibration runner](provider-calibration.md) now prepares the next
+gate with actual browser timing and bounded requests; its scripted rehearsal
+does not substitute for the operator-selected live-provider run.
 
 ## Verified image and results — 2026-10-24
 
