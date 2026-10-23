@@ -4,9 +4,32 @@ impl PgStore {
         super::chat::access(&self.db, user, w, chat).await
     }
     pub async fn allowed_shared_agents(&self, user: &User, w: &str) -> Result<Vec<Value>> {
+        self.read_allowed_agents(user, w, None).await
+    }
+    pub(crate) async fn allowed_shared_agent(
+        &self,
+        user: &User,
+        w: &str,
+        agent: &str,
+    ) -> Result<Option<Value>> {
+        Ok(self.read_allowed_agents(user, w, Some(agent)).await?.pop())
+    }
+    async fn read_allowed_agents(
+        &self,
+        user: &User,
+        w: &str,
+        agent: Option<&str>,
+    ) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
         let owner = role(&tx, w, &user.id).await? == "Owner";
-        let profiles=json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))) ORDER BY a.name",vec![w.into(),user.id.clone().into(),owner.into()]).await?;
+        let mut values = vec![w.into(), user.id.clone().into(), owner.into()];
+        let filter = if let Some(agent) = agent {
+            values.push(agent.into());
+            " AND a.id=$4"
+        } else {
+            ""
+        };
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }

@@ -5,6 +5,11 @@ work. It adds opt-in startup traces and repeatable load/fault journeys, and fixe
 a PostgreSQL deadlock discovered by four concurrent requests. It does not deploy
 AWS, change the selected harness, enable tools or establish a production SLA.
 
+The follow-up [bounded local rehearsal](bounded-agent-load.md) adds a fresh private
+PostgreSQL cluster per invocation, verified CPU/memory ceilings and timestamps
+covering offer delivery through actual fixture model HTTP input. Historical
+observations below retain their original affinity-only conditions.
+
 ## The concurrency fix
 
 Workspace writers previously took `FOR UPDATE` on the workspace row. Concurrent

@@ -7,11 +7,13 @@ import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fixtureProvider } from './goose_provider.mjs';
 import { until } from './goose_app.mjs';
+import { loadProfile, limitCommand } from './load_limits.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const binary = process.env.AYATI_TEST_BIN ?? join(root, 'target/debug/ayati');
 
 export async function workerFixture(t, options = {}) {
+  const limitsProfile = await loadProfile();
   const admin = new URL(process.env.RELAY_TEST_DATABASE_URL);
   assert.match(admin.pathname, /^\/relay_simulation_/,
     'Process tests require a dedicated local relay_simulation_* test database');
@@ -102,9 +104,16 @@ export async function workerFixture(t, options = {}) {
   const children = [];
   function launch(args, extra, input) {
     const childEnv = Object.fromEntries(Object.entries({ ...env, ...extra }).filter(([, value]) => value !== undefined));
-    const child = spawn(options.cpuList?'taskset':binary,options.cpuList?['--cpu-list',options.cpuList,binary,...args]:args, { cwd: data, env: childEnv, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    if (limitsProfile) for (const name of ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR']) {
+      if (process.env[name]) childEnv[name] = process.env[name];
+    }
+    const command = options.cpuList ? 'taskset' : binary;
+    const arguments_ = options.cpuList ? ['--cpu-list', options.cpuList, binary, ...args] : args;
+    const role = ['simulate', 'identity'].includes(args[0]) ? 'controller' : 'executor';
+    const limited = limitCommand(limitsProfile, role, command, arguments_);
+    const child = spawn(limited.command, limited.args, { cwd: data, env: childEnv, stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
     if (input) child.stdin.end(JSON.stringify(input));
-    const record = { child, logs: '' };
+    const record = { child, logs: '', resource_scope: limited.unit };
     child.stdout.on('data', bytes => { record.logs += bytes; });
     child.stderr.on('data', bytes => { record.logs += bytes; });
     children.push(record);

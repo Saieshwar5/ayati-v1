@@ -30,7 +30,7 @@ test('controlled matrix retains repeated warm and queued latency with correlated
   const actorSets = {};
   for (const tier of config.contexts) actorSets[tier] = await actors(app,Math.max(...config.concurrency),tier);
   const report = { version:1,config,environment,binary:process.env.AYATI_TEST_BIN,cases:[],failures:[],
-    limits:'Fixed affinity, local scripted model, asynchronous batched observers. Shared-host PostgreSQL and external contention remain uncontrolled; no cloud/live-provider/production capacity claim.' };
+    limits:environment.boundary + ' Local scripted model and asynchronous observers; no cloud/live-provider/production capacity claim.' };
   const save = () => writeFile(app.data+'/load-report.json',JSON.stringify(report,null,2));
   await save();
   try {

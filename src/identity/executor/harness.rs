@@ -98,6 +98,8 @@ impl Harness {
             );
             let reply = self.store.add_claim_reply(&claim)?;
             output.trace.mark("local_setup");
+            let assignment = output.assignment.scope.assignment.clone();
+            crate::identity::start_trace::point(&assignment, "executor", "local_setup_done");
             let done = CancellationToken::new();
             let finished = done.clone().drop_guard();
             let sender = tokio::spawn(output.forward(
@@ -114,6 +116,7 @@ impl Harness {
                     execution::prompt(&context),
                     cancel.clone(),
                     crate::runtime::prepared::ChatTurn {
+                        assignment: &assignment,
                         agent: &context.agent,
                         instructions: &context.instructions,
                         timeout: std::time::Duration::from_secs(context.run_seconds),

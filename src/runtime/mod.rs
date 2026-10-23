@@ -229,6 +229,9 @@ impl GooseRuntime {
                 offset: None,
             });
         }
+        if let Some(turn) = &scoped {
+            crate::identity::start_trace::point(turn.assignment, "executor", "acp_submit");
+        }
         let prompt = p
             .connection
             .send_request(PromptRequest::new(
