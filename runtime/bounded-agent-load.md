@@ -316,7 +316,10 @@ The optimized native Ayati ELF is
 `3ad52e76544059fac61194bf1edeb50104359d5726acdfb5775dc5965621b1f3`; every final
 suite uses it with the same pinned prepared Goose ELF. This is a release-profile
 build, so its timing differences from earlier debug results do not isolate the
-admission changes. Docker image execution remains unverified.
+admission changes. Docker execution was unavailable at that native checkpoint;
+the later [image verification](release-image-validation.md) passes both matrices
+and the mixed profile with the packaged artifacts. Those results are separate
+profiles with different prompt bytes, not a controlled native/container speedup.
 
 Both unchanged 384-request ordinary matrices pass correctness and every named
 ready-capacity target (reserve 0, preserving the existing interactive workload):

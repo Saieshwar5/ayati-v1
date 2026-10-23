@@ -78,7 +78,8 @@ test('executor loss retries only its two attempts beside two active survivors', 
   const before = await drafts(app, items);
   const pids = await app.gooseChildren(fleet[0]);
   assert.equal(pids.length, 2);
-  const lostClaims = JSON.parse(await app.sqlAsync(`SELECT json_agg(assignment) FROM relay_executor_slots WHERE pid IN (${pids.join(',')}) AND state='running'`));
+  const identity=await app.executorIdentity(fleet[0]);
+  const lostClaims = JSON.parse(await app.sqlAsync(`SELECT COALESCE(json_agg(assignment),'[]') FROM relay_executor_slots WHERE executor='${identity.id}' AND incarnation='${identity.incarnation}' AND state='running'`));
   assert.equal(lostClaims.length, 2);
   const began = Date.now();
   await app.stop(fleet[0], 'SIGKILL');
@@ -135,7 +136,7 @@ test('cancellation and grant revocation fence output beside authorized running r
   const cancelled = before.find(row => row.chat === items[0].chat);
   const revokedRow = before.find(row => row.chat === revoked.chat);
   const stoppedClaims = [cancelled.claim, revokedRow.claim];
-  const pids = JSON.parse(await app.sqlAsync(`SELECT json_agg(pid) FROM relay_executor_slots WHERE assignment IN ('${stoppedClaims.join("','")}')`));
+  const pids = await app.assignmentProcessIds(stoppedClaims);
   await Promise.all([
     app.request(`${app.path}/chats/${cancelled.chat}/messages/${cancelled.reply}/cancel`, app.cookie, {}),
     app.request(app.path + '/chat-grants', app.cookie, { user: member, agent: revoked.agent, allowed: false }),

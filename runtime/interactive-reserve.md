@@ -162,9 +162,11 @@ Native checks passed: 149 default Rust tests, 84 disposable PostgreSQL checks,
 strict all-target Clippy, release build, four Python resource/cleanup tests (also
 under optimization), format/diff/link and source-file length checks. Initial test
 harness failures and an intermediate native run remain retained; final evidence
-is indexed under `.tmp/interactive-reserve-verification`. Docker has only its
-permission-denied default daemon context in this session; no usable alternative
-engine or passwordless sudo is available. Ordinary application databases, AWS
+is indexed under `.tmp/interactive-reserve-verification`. Docker access was
+unavailable during that native increment. The later
+[release-image verification](release-image-validation.md) now passes the same
+mixed profile and two ordinary matrices with the actual packaged artifacts.
+Ordinary application databases, AWS
 resources and paid models were not changed/used by this increment.
 
 All 33 primary process journeys pass on that identical release/Goose pair: five

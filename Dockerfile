@@ -8,6 +8,7 @@ COPY web/ ./
 RUN npm run build
 
 FROM rust:1.98.0-trixie@sha256:620dbcd124499c59e2406d3741574b5c5838cf9eb9656f0c3a03948f79b02959 AS rust
+ARG BUILD_JOBS=2
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
@@ -15,7 +16,7 @@ COPY src/ ./src/
 COPY web/src/app-runtime.js ./web/src/app-runtime.js
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --locked --release --bin ayati && cp target/release/ayati /ayati
+    cargo build --locked --release --bin ayati -j "$BUILD_JOBS" && cp target/release/ayati /ayati
 
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS goose
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libstdc++6 \
@@ -25,6 +26,7 @@ COPY tools/install-goose.sh ./tools/install-goose.sh
 RUN ./tools/install-goose.sh
 
 FROM rust:1.98.0-trixie@sha256:620dbcd124499c59e2406d3741574b5c5838cf9eb9656f0c3a03948f79b02959 AS prepared-goose
+ARG BUILD_JOBS=2
 RUN apt-get update && apt-get install -y --no-install-recommends python3 git clang pkg-config \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
@@ -32,7 +34,7 @@ COPY tools/build-prepared-goose.py ./tools/build-prepared-goose.py
 COPY tools/patches/goose-1.54.0-preparation.patch ./tools/patches/goose-1.54.0-preparation.patch
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/.cache/goose-prepared-build/target \
-    python3 tools/build-prepared-goose.py
+    python3 tools/build-prepared-goose.py --jobs "$BUILD_JOBS"
 
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \

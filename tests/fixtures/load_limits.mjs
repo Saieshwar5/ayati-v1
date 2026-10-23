@@ -56,8 +56,11 @@ export async function cgroupSnapshot(pid) {
 }
 
 export function assertLimits(snapshot, profile, role) {
-  const expected = profile.roles[role];
   assert.ok(snapshot.path.split('/').at(-1).startsWith(`${profile.prefix}-${role}-`), 'Process escaped its owned resource scope');
+  assertResourceLimits(snapshot,profile,role);
+}
+export function assertResourceLimits(snapshot,profile,role) {
+  const expected = profile.roles[role];
   const [quota, period] = snapshot.cpu_max.split(' ').map(Number);
   assert.equal(quota / period, expected.cpu_percent / 100, 'CPU quota was not applied');
   assert.equal(snapshot.memory_max, String(expected.memory_bytes), 'Memory limit was not applied');

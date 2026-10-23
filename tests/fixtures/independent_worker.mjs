@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { fixtureProvider } from './goose_provider.mjs';
 import { until } from './goose_app.mjs';
 import { loadProfile, limitCommand } from './load_limits.mjs';
+import { imageRuntime } from './image_runtime.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const binary = process.env.AYATI_TEST_BIN ?? join(root, 'target/debug/ayati');
@@ -56,11 +57,13 @@ export async function workerFixture(t, options = {}) {
     });
   }
   sql(`CREATE SCHEMA ${schema}`);
+  const containers = process.env.AYATI_TEST_IMAGE_CONFIG ? imageRuntime(data, limitsProfile, sql) : undefined;
   const scoped = new URL(admin);
   scoped.searchParams.set('options', `-c search_path=${schema}`);
   const runtime = new URL(scoped);
   runtime.username = 'relay_app';
   const provider = await fixtureProvider({ resumableHold: options.resumableHold ?? false });
+  t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
     AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: 'fixture',
@@ -90,7 +93,8 @@ export async function workerFixture(t, options = {}) {
     env.AYATI_EXECUTOR_MODEL_LIMIT = String(options.modelLimit ?? 2);
     env.AYATI_EXECUTOR_CHAT_RESERVE = String(options.chatReserve ?? 0);
   }
-  execFileSync(binary, ['workspace-db', 'migrate'], {
+  if (containers) containers.migrate(scoped.href,env,schema);
+  else execFileSync(binary, ['workspace-db', 'migrate'], {
     cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
   });
   sql(`GRANT USAGE ON SCHEMA ${schema} TO relay_app;
@@ -106,6 +110,7 @@ export async function workerFixture(t, options = {}) {
   const children = [];
   function launch(args, extra, input) {
     const childEnv = Object.fromEntries(Object.entries({ ...env, ...extra }).filter(([, value]) => value !== undefined));
+    if (containers) { const record=containers.launch(args,childEnv,input);children.push(record);return record; }
     if (limitsProfile) for (const name of ['DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR']) {
       if (process.env[name]) childEnv[name] = process.env[name];
     }
@@ -122,6 +127,7 @@ export async function workerFixture(t, options = {}) {
     return record;
   }
   async function stop(record, signal = 'SIGTERM') {
+    if (containers && record) return containers.stop(record,signal);
     if (!record || record.child.exitCode !== null || record.child.signalCode !== null) return;
     const exited = once(record.child, 'exit');
     record.child.kill(signal);
@@ -195,7 +201,7 @@ export async function workerFixture(t, options = {}) {
   const records = [];
   t.after(async () => {
     for (const child of [...children].reverse()) await stop(child);
-    provider.close();
+    containers?.finish();
     await writeFile(join(data, 'report.json'), JSON.stringify({
       passed: t.passed, schema, checks: records, processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
     }, null, 2));
@@ -224,7 +230,7 @@ export async function workerFixture(t, options = {}) {
     return until(async () => (await history(job.chat)).find(m => m.id === job.reply && m.state === state),
       'Reply did not reach ' + state, 35000);
   }
-  return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done, control,
+  return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done, control, containers,
     startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
@@ -259,7 +265,14 @@ export async function workerFixture(t, options = {}) {
       const files = await readdir(data, { recursive: true });
       return files.filter(file => file.endsWith('chat.sqlite'));
     },
+    async executorIdentity(worker) {
+      const clean=worker.logs.replace(/\u001b\[[0-9;]*m/g,'');
+      const id=clean.match(/executor="?([a-f0-9-]{36})/)?.[1];
+      assert.ok(id,'Executor has not published its durable identity');
+      return JSON.parse(await sqlAsync(`SELECT row_to_json(e) FROM (SELECT id,incarnation FROM relay_executors WHERE id='${id}') e`,scoped.href));
+    },
     async gooseChildren(worker) {
+      if (containers) return containers.children(worker);
       try {
         const pids = execFileSync('ps', ['--ppid', String(worker.child.pid), '-o', 'pid='], { encoding: 'utf8' });
         return pids.trim().split(/\s+/).filter(Boolean).map(Number);
@@ -268,11 +281,16 @@ export async function workerFixture(t, options = {}) {
         throw error;
       }
     },
+    async assignmentProcessIds(claims) {
+      assert.ok(claims.every(id=>/^[a-f0-9-]{36}$/.test(id)));
+      const values=JSON.parse(await sqlAsync(`SELECT COALESCE(json_agg(json_build_object('executor',executor,'pid',pid)),'[]') FROM relay_executor_slots WHERE assignment IN ('${claims.join("','")}')`,scoped.href));
+      return containers?containers.hostPids(values):values.map(row=>row.pid);
+    },
     async assertChildrenStopped(pids, timeout = 5000) {
       for (const pid of pids) {
         await until(async () => {
           try { return (await readFile(`/proc/${pid}/stat`, 'utf8')).split(') ')[1].startsWith('Z'); }
-          catch { return true; }
+          catch(error) {if(error.code==='ENOENT'||error.code==='ESRCH')return true;throw error;}
         }, 'Goose survived its worker process: ' + pid, timeout);
       }
     },
