@@ -413,3 +413,10 @@ private key file. It retains request limits, conservative reservations, usage
 uncertainty and timing evidence before cloud sizing.
 The guide records a first bounded live Fireworks run: seven requests pass, including
 concurrent/mixed work and Stop, with the provider key retained outside containers.
+
+The [M0 AWS package](deploy/aws/README.md) adds read-only inventory/pricing tools,
+validated inactive CloudFormation definitions and a five-employee/five-agent,
+15-minute trial brief. Worker control is still loopback-only: compute and scaling
+stay at zero until the M2/M3 startup and machine-identity integration is proven.
+See [M0 evidence and limitations](runtime/aws-m0-preflight.md). No AWS resources or
+DNS records are created by preparation.
