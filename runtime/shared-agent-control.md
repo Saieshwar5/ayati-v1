@@ -2,7 +2,7 @@
 
 The first shared-workspace control slice adds reviewed remote MCP connections,
 per-agent/per-conversation Allow automatically / Ask first / Block rules, exact
-action approvals and durable outcomes. PostgreSQL schema **21** is required by the current checkout.
+action approvals and durable outcomes. PostgreSQL schema **22** is required by the current checkout.
 [Workspace connections and delegation](workspace-connections.md) extends this engine. [Guided reviews](guided-permissions.md) add draft/preview/activation.
 The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents retain the existing tool-free execution path.
@@ -28,8 +28,9 @@ never silently authorize changed credentials or operation meanings.
 Agent requests use `ayati_control` forwarding tools. The controller validates the
 current requester, workspace, agent, conversation, Library source access, running claim, connection, rule,
 input schema and exact action. Approved proposals remain inspectable after the
-Goose job ends; an authorized human's later decision owns a separate bounded action
-dispatch. This does not implement automatic continuation of the original Goose job.
+Goose attempt ends; an authorized human's later decision owns a separate bounded action
+dispatch. [Durable approval waits](durable-approval-waits.md) now checkpoint the original
+task, release its worker and reconstruct a fresh attempt after a confirmed outcome.
 
 The drawer displays pending approval, executing, completed, blocked, rejected,
 invalidated and uncertain states, with exact inputs and recorded results. It

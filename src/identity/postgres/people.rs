@@ -133,6 +133,7 @@ impl PgStore {
             )
             .await?;
         }
+        super::task_revocation::inaccessible(&tx, workspace).await?;
         audit(
             &tx,
             &user.id,

@@ -1,7 +1,7 @@
 # Workspace connections and delegated agent setup
 
 This increment makes the existing shared-agent control engine configurable by an
-Owner and explicitly delegated members. It requires PostgreSQL **schema 21**.
+Owner and explicitly delegated members. It requires PostgreSQL **schema 22**.
 It provides reviewed, operator-configured MCP accounts; it does not yet provide
 self-service OAuth or arbitrary custom-MCP registration. The subsequent
 [guided review](guided-permissions.md) adds optional AI permission drafts.
@@ -49,9 +49,9 @@ workspace agents, but cannot inspect another person's private agent.
 Activity retains the existing exact-action approval/result UI. Only the designated,
 currently authorized person can approve that action. Other Owners, the agent creator and ordinary channel
 participants cannot substitute for that person. Approval dispatches the saved
-action; it does **not** resume the original Goose job. Channel request cards, selected eligible people/destinations and a restricted inbox
-are now implemented in [channel approvals](channel-approvals.md). Automatic original-task
-continuation remains a later increment.
+action. Channel request cards, selected eligible people/destinations and a restricted inbox
+are implemented in [channel approvals](channel-approvals.md). [Durable approval waits](durable-approval-waits.md)
+now reconstruct the original task after a confirmed outcome, including on another worker.
 
 ## Enforcement and persistence
 
@@ -98,7 +98,7 @@ workspace approval; the UI uses the workspace endpoints above.
 Back up the identity database and stop old binaries before explicitly applying
 `workspace-db migrate` with the administrator connection. Reapply runtime grants,
 including SELECT on the new view, using the existing PostgreSQL deployment procedure.
-Startup requires all 21 migrations. Do not run an old binary against this schema.
+Startup requires all 22 migrations. Do not run an old binary against this schema.
 This change was verified on disposable databases; the ordinary workspace database
 was not migrated.
 

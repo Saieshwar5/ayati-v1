@@ -5,7 +5,7 @@ use crate::identity::{
 };
 use serde_json::json;
 
-async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
+pub(super) async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
     let db = fixture().await;
     let owner = user(&db, "control-owner").await;
     let w = workspace(&db, &owner).await;
@@ -55,14 +55,14 @@ async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
     let job = db.claim_job().await.unwrap().unwrap();
     (db, owner, w, connection, job)
 }
-fn request(connection: &str, order: &str) -> ActionRequest {
+pub(super) fn request(connection: &str, order: &str) -> ActionRequest {
     ActionRequest {
         connection: connection.into(),
         operation: "order.update".into(),
         arguments: json!({"order":order,"address":"Reviewed address"}),
     }
 }
-fn decision(value: &str) -> Decision {
+pub(super) fn decision(value: &str) -> Decision {
     Decision {
         id: uuid::Uuid::new_v4().to_string(),
         decision: value.into(),

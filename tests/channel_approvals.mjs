@@ -56,7 +56,7 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   const control=`${app.path}/agent-profiles/${agent.id}/control`;
   const snapshot=async()=>(await app.request(control,creator)).value;
   const worker=await app.startExecutor({AYATI_EXECUTOR_SLOTS:'1'});
-  async function propose(address){const command=`control ${JSON.stringify({tool:'request_action',arguments:{connection,operation:'order.update',arguments:{order:'one',address}}})}`;const job=await app.send(command,source,creator,agent.id);await until(async()=>(await app.history(source,creator)).find(m=>m.id===job.reply&&m.state==='complete'),'Agent did not finish',35000);return(await snapshot()).actions.find(a=>a.job===job.reply);}
+  async function propose(address){const command=`control ${JSON.stringify({tool:'request_action',arguments:{connection,operation:'order.update',arguments:{order:'one',address}}})}`;const job=await app.send(command,source,creator,agent.id);await until(async()=>(await app.history(source,creator)).find(m=>m.id===job.reply&&(m.state==='complete'||m.progress?.state==='approval')),'Agent did not finish',35000);return(await snapshot()).actions.find(a=>a.job===job.reply);}
   const action=await propose('PRIVATE_REVIEWED_ADDRESS');assert.equal(action.approver,approverUser.id);assert.equal(action.state,'pending');
   await app.request(`${control}/actions/${action.id}/decision`,app.cookie,{id:randomUUID(),decision:'approve'},400);
   await app.request(`${control}/actions/${action.id}/decision`,creator,{id:randomUUID(),decision:'approve'},400);

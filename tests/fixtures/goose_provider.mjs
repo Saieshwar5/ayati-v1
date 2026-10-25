@@ -60,7 +60,9 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     if (response.destroyed) return;
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
-    const controlPrompt = prompt?.replace(/^user:\s*/, '');
+    const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
+    const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
+    const controlPrompt = (savedTask ? textContent.split('\n').find(line => /^(?:user:\s*)?control /.test(line)) : prompt)?.replace(/^user:\s*/, '');
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));
       text = JSON.stringify({ rules: setup.actions.filter(a => a.operation !== 'order.delete').map(a => ({ connection: a.connection, operation: a.operation, mode: a.effect === 'read' ? 'allow' : 'ask' })), warnings: ['Fixture suggestion: delete is omitted and must remain blocked.'] });
@@ -68,10 +70,10 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     if (controlPrompt?.startsWith('control ')) {
       const command = JSON.parse(controlPrompt.slice(8));
       const results = messages.slice(lastUser + 1).filter(message => message.role === 'tool');
-      const steps = command.steps ?? [command];
+      const steps = savedTask ? (savedTask.actions.every(a => a.state === 'completed') ? command.after ?? [] : []) : command.steps ?? [command];
       const step = steps[results.length];
       if (step) tool = { id: `control-${results.length}`, type: 'function', function: { name: `ayati_control__${step.tool}`, arguments: JSON.stringify(step.arguments) } };
-      else text = `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
+      else text = savedTask ? `CONTINUED_RESULT ${JSON.stringify({decisions:savedTask.actions.map(a=>({id:a.id,state:a.state,decision:a.decision})),results:results.map(result=>result.content)})}` : command.checkpoint ?? `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
     }
     if (prompt?.startsWith('workspace ')) {
       const command = JSON.parse(prompt.slice(10));

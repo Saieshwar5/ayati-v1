@@ -26,6 +26,7 @@ impl MigratorTrait for Migrator {
             Box::new(ConnectionAuthority),
             Box::new(GuidedPermissions),
             Box::new(ChannelApprovals),
+            Box::new(super::durable_wait_migration::DurableWaits),
         ]
     }
 }

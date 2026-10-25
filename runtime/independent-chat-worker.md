@@ -2,8 +2,11 @@
 
 [Shared control tools](shared-agent-control.md) now add explicit per-agent/conversation
 operations and durable approvals. Tool-free execution remains the default; the
-original conversation-only test evidence below retains its scope. Current schema: 21.
+original conversation-only test evidence below retains its scope. Current schema: 22.
 
+
+[Durable approval waits](durable-approval-waits.md) now add checkpoint/reconstruction
+for managed tool-enabled tasks through the controller gateway.
 
 Use [assignment workers](assignment-workers.md) for the newer temporary-worker
 mode and local launcher. This guide describes the retained polling compatibility

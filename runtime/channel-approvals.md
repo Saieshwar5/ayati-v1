@@ -4,7 +4,7 @@ This increment adds explicit account-action approval authority, per-operation
 approver/channel selection, saved channel request cards and a restricted **My
 approvals** inbox. It extends [guided permission review](guided-permissions.md)
 and the [shared action gateway](shared-agent-control.md). Current startup requires
-PostgreSQL **schema 21**.
+PostgreSQL **schema 22**.
 
 ## Owner and creator flow
 
@@ -56,10 +56,11 @@ opening a view, duplicate delivery, repeated clicks or controller restart cannot
 create a second write. A different decision after a saved decision conflicts.
 Ordinary chat text, mentions and reactions do not approve an action.
 
-Request changes currently requires asking for a new proposal in the work
-conversation. Automatic revision workflows, backup reassignment and resuming the
-original Goose task remain later increments. Approving a saved action still uses
-the existing separate bounded dispatch after the original proposal job finishes.
+[Durable approval waits](durable-approval-waits.md) now preserve the original task
+through its wait and reconstruct a fresh attempt after the decision and confirmed
+outcome. Request changes continues with that distinct decision; any revised
+proposal needs fresh approval. The exact action still uses a separate bounded
+dispatch. Automatic revision orchestration and backup reassignment remain later work.
 
 ## Private data stays with its source
 
@@ -135,7 +136,7 @@ channel membership and the ability to configure agent tools.
 
 Back up identity data, stop old binaries, explicitly apply `workspace-db migrate`
 with an administrator connection and reapply runtime table/sequence grants using
-the existing deployment procedure. Startup checks all 21 migrations and never
+the existing deployment procedure. Startup checks all 22 migrations and never
 migrates ordinary workspace data automatically. This implementation was tested
 only against disposable databases; the ordinary workspace database was not migrated.
 
@@ -150,6 +151,6 @@ Web tests cover restricted cards, zero-effect opening, double submission, exact
 retry, stale responses and clearing details after denial.
 
 These are local workflow/protocol results. General choice/form messages for every
-agent, legacy local-agent adapters, original-task continuation, complete inbox
+agent, legacy local-agent adapters, general event waits, complete inbox
 pagination, commercial provider acceptance, billing and cloud acceptance remain
 separate work. No new dependency, paid inference or cloud resource was introduced.

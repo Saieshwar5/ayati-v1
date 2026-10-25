@@ -19,7 +19,7 @@ WITH model_load AS (
  AND e.expires>floor(extract(epoch FROM clock_timestamp()))::bigint
  AND s.model=$1 AND s.provider=$2
 )
-SELECT j.reply,j.workspace,j.attempts,j.work_class FROM relay_chat_jobs j
+SELECT j.reply,j.workspace,j.attempts,j.generation,j.work_class FROM relay_chat_jobs j
 JOIN relay_shared_agents a ON a.workspace=j.workspace AND a.id=j.payload->>'agent'
 WHERE j.dispatch='pooled' AND j.attempts<3
 AND (j.state='queued' OR (j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint))

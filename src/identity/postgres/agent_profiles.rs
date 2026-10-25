@@ -43,7 +43,7 @@ impl PgStore {
     pub async fn agent_profiles(&self, user: &User, w: &str) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
         let owner = role(&tx, w, &user.id).await? == "Owner";
-        let profiles = json_rows(&tx, "SELECT to_jsonb(a) || jsonb_build_object('creator_name',COALESCE(u.display_name,u.email,'Unknown'),'owner_name',COALESCE(o.display_name,o.email,'Former member'),'editable',(a.owner_id=$2 OR (a.scope='workspace' AND $3)),'pending',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=a.workspace AND j.payload->>'agent'=a.id AND j.state IN ('queued','running'))) AS data FROM relay_shared_agents a LEFT JOIN relay_users u ON u.id=a.creator_id LEFT JOIN relay_users o ON o.id=a.owner_id WHERE a.workspace=$1 AND (a.owner_id=$2 OR (a.scope='workspace' AND ($3 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.user_id=$2 AND g.agent=a.id)))) ORDER BY a.created_at,a.id LIMIT 500",vec![w.into(),user.id.clone().into(),owner.into()]).await?;
+        let profiles = json_rows(&tx, "SELECT to_jsonb(a) || jsonb_build_object('creator_name',COALESCE(u.display_name,u.email,'Unknown'),'owner_name',COALESCE(o.display_name,o.email,'Former member'),'editable',(a.owner_id=$2 OR (a.scope='workspace' AND $3)),'pending',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=a.workspace AND j.payload->>'agent'=a.id AND j.state IN ('queued','running','waiting'))) AS data FROM relay_shared_agents a LEFT JOIN relay_users u ON u.id=a.creator_id LEFT JOIN relay_users o ON o.id=a.owner_id WHERE a.workspace=$1 AND (a.owner_id=$2 OR (a.scope='workspace' AND ($3 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.user_id=$2 AND g.agent=a.id)))) ORDER BY a.created_at,a.id LIMIT 500",vec![w.into(),user.id.clone().into(),owner.into()]).await?;
         tx.commit().await?;
         Ok(profiles)
     }
@@ -82,7 +82,7 @@ impl PgStore {
                 tx.commit().await?;
                 return Ok(a);
             }
-            let pending:i64=query(&tx,"SELECT count(*) AS count FROM relay_chat_jobs WHERE workspace=$1 AND payload->>'agent'=$2 AND state IN ('queued','running')",vec![w.into(),input.id.clone().into()]).await?.unwrap().try_get("","count")?;
+            let pending:i64=query(&tx,"SELECT count(*) AS count FROM relay_chat_jobs WHERE workspace=$1 AND payload->>'agent'=$2 AND state IN ('queued','running','waiting')",vec![w.into(),input.id.clone().into()]).await?.unwrap().try_get("","count")?;
             ensure!(
                 pending == 0 || input.settings.paused,
                 "Wait for active work to finish or pause the agent first"
@@ -114,6 +114,9 @@ impl PgStore {
             );
         }
         audit(&tx, &user.id, Some(w), "agent_profile_saved", &input.id).await?;
+        if input.settings.paused {
+            super::task_revocation::inaccessible(&tx, w).await?;
+        }
         let result = managed_access(&tx, &user.id, w, &input.id, true).await?;
         tx.commit().await?;
         Ok(result)

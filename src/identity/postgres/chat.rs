@@ -84,6 +84,7 @@ impl PgStore {
                 vec![workspace.into(), target.into(), agent.into()],
             )
             .await?;
+            super::task_revocation::inaccessible(&tx, workspace).await?;
         }
         audit(
             &tx,
@@ -255,8 +256,7 @@ impl PgStore {
         let Some(claim) = &job.claim else {
             anyhow::bail!("Unclaimed shared job")
         };
-        let finished = execute(tx,"UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint AND workspace=$3",vec![job.reply.clone().into(),claim.clone().into(),job.workspace.clone().into()]).await?;
-        if finished == 0 {
+        if query(tx,"SELECT reply FROM relay_chat_jobs WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint AND workspace=$3 FOR UPDATE",vec![job.reply.clone().into(),claim.clone().into(),job.workspace.clone().into()]).await?.is_none() {
             return Ok(false);
         }
         let user = User {
@@ -269,6 +269,13 @@ impl PgStore {
             && agent_access(tx, &user.id, &job.workspace, &job.agent)
                 .await
                 .unwrap_or(false);
+        if allowed
+            && state != "cancelled"
+            && super::task_continuation::suspend(tx, job, content, state).await?
+        {
+            return Ok(true);
+        }
+        execute(tx,"UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
         execute(tx,"UPDATE relay_worker_assignments SET state='finished',outcome=$2,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='running'",vec![claim.clone().into(),if allowed { state } else { "cancelled" }.into()]).await?;
         execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         Ok(true)

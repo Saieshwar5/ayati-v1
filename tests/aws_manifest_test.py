@@ -49,9 +49,10 @@ class ManifestTests(unittest.TestCase):
 
     def test_release_requires_the_channel_approvals_migration(self):
         data = complete_manifest()
-        self.assertEqual(data["release"]["schema_version"], 21)
+        self.assertEqual(data["release"]["schema_version"], 22)
         migration = (ROOT / "src/identity/postgres/migration.rs").read_text()
-        self.assertIn("m20261025_000021_channel_approvals", migration)
+        self.assertIn("Box::new(super::durable_wait_migration::DurableWaits)", migration)
+        self.assertIn("m20261026_000022_durable_approval_waits", (ROOT / "src/identity/postgres/durable_wait_migration.rs").read_text())
         data["release"]["schema_version"] = 20
         self.assertFalse(validate(data, NOW)["schema_ok"])
 

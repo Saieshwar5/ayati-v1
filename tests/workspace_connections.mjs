@@ -109,7 +109,7 @@ test('Owner delegates workspace account access; a member creates a bounded agent
   const command = (operation, args) => `control ${JSON.stringify({ tool: 'request_action', arguments: { connection, operation, arguments: args } })}`;
   async function send(operation, args) {
     const job = await app.send(command(operation, args), chat, member, a.id);
-    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && m.state === 'complete'), 'Delegated agent did not finish', 35000);
+    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Delegated agent did not finish', 35000);
     return (await snapshot()).actions.find(action => action.job === job.reply);
   }
   assert.equal((await send('order.read', { order: 'one' })).state, 'completed');

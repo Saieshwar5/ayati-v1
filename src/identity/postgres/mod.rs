@@ -32,6 +32,7 @@ mod controlled_attempt_tests;
 mod controlled_attempts;
 #[cfg(test)]
 mod dispatch_lock_tests;
+mod durable_wait_migration;
 mod executor_dispatch;
 #[cfg(test)]
 mod executor_slot_tests;
@@ -71,6 +72,10 @@ mod setup_context;
 mod setup_drafts;
 #[cfg(test)]
 mod setup_tests;
+mod task_continuation;
+#[cfg(test)]
+mod task_continuation_tests;
+mod task_revocation;
 mod work;
 pub(crate) mod worker_control;
 #[cfg(test)]

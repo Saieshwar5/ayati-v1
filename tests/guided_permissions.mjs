@@ -94,7 +94,7 @@ test('guided AI review covers every tool, previews without effects and activates
   const worker = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
   async function send(operation, args) {
     const job = await app.send(`control ${JSON.stringify({ tool: 'request_action', arguments: { connection, operation, arguments: args } })}`);
-    await until(async () => (await app.history()).find(m => m.id === job.reply && m.state === 'complete'), 'Guided agent did not finish', 35000);
+    await until(async () => (await app.history()).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Guided agent did not finish', 35000);
     return (await snapshot()).actions.find(action => action.job === job.reply);
   }
   assert.equal((await send('order.read', { order: 'one' })).state, 'completed');

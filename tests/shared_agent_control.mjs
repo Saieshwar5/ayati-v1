@@ -21,8 +21,8 @@ test('shared real Goose obeys UI rules through remote MCP, with exact approvals 
   const workspace = app.path.split('/').at(-1);
   t.after(() => writeFile(join(app.data, 'control-model-requests.json'), JSON.stringify(app.provider.requests, null, 2), { mode: 0o600 }));
   async function done(job) {
-    const message = await until(async () => (await app.history(job.chat)).find(m => m.id === job.reply && ['complete', 'failed', 'stopped'].includes(m.state)), 'Agent did not reach a terminal state', 35000);
-    assert.equal(message.state, 'complete', message.content);
+    const message = await until(async () => (await app.history(job.chat)).find(m => m.id === job.reply && (['complete', 'failed', 'stopped'].includes(m.state) || m.progress?.state === 'approval')), 'Agent did not reach a terminal state', 35000);
+    assert.ok(message.state === 'complete' || message.progress?.state === 'approval', message.content);
     return message;
   }
   await writeFile(profileFile, JSON.stringify([{ id: 'orders', workspace, name: 'Orders sample system', url: remote.url, bearer_file: bearerFile, operations: remote.operations }]));

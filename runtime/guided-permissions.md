@@ -4,7 +4,7 @@ Open **Agents → Set up permissions** for an agent you maintain, or **Tools and
 approvals → Permissions → Guided permission setup**. This extends the existing
 [workspace Connections and delegation](workspace-connections.md) and
 [shared-agent enforcement gateway](shared-agent-control.md). Current startup
-requires PostgreSQL **schema 21**.
+requires PostgreSQL **schema 22**.
 
 ## Product flow
 
@@ -33,8 +33,9 @@ private transcript to solve missing access.
 person/channel choice for each Ask operation. The original Owner remains the
 default; a delegated creator may select another person explicitly authorized by
 that Owner. The selected person also needs independent agent/source visibility.
-Multiple named managers, backup reassignment and original-task continuation remain
-later work.
+[Durable approval waits](durable-approval-waits.md) now continue the original task
+after a confirmed action outcome. Multiple named managers and backup reassignment
+remain later work.
 
 ## Suggestions and complete coverage
 

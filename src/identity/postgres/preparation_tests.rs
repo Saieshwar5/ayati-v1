@@ -191,20 +191,17 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
         .await
         .unwrap();
     let token = random_token();
-    let scope = old
-        .reserve_controlled(
-            &e.executor,
-            &e.incarnation,
-            &Reservation {
-                request: uuid::Uuid::new_v4().to_string(),
-                token: token.clone(),
-            },
-            120,
-            2,
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let scope = super::migration_fixture::legacy_reservation(
+        &old,
+        &e,
+        &Reservation {
+            request: uuid::Uuid::new_v4().to_string(),
+            token: token.clone(),
+        },
+        120,
+    )
+    .await
+    .unwrap();
     let request = AssignedRequest {
         scope: scope.clone(),
         session: uuid::Uuid::new_v4().to_string(),
