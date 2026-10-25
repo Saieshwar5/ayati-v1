@@ -84,10 +84,23 @@ pub(super) async fn download(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,
     headers: HeaderMap,
+    Query(input): Query<crate::server::file_media::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     check(uuid::Uuid::parse_str(&id).is_ok(), "Invalid file ID")?;
     let object = pg(&app)?.object(&user, &w, &id).await?;
+    if input.access {
+        return Ok(Json(json!({"available":true})).into_response());
+    }
+    input.version(&object.checksum)?;
+    if input.metadata {
+        return Ok(Json(json!(object)).into_response());
+    }
+    let permit = if input.thumbnail {
+        Some(crate::media::preview_permit()?)
+    } else {
+        None
+    };
     let bytes = if hosting::hosted(&app) {
         shared_storage(&app)?;
         tokio::time::timeout(
@@ -106,20 +119,19 @@ pub(super) async fn download(
         bytes.len() as i64 == object.size && checksum(&bytes) == object.checksum,
         "Stored object failed its integrity check",
     )?;
-    let mut response = bytes.into_response();
-    response
-        .headers_mut()
-        .insert(header::CONTENT_TYPE, object.mime.parse()?);
-    response.headers_mut().insert(
-        header::CONTENT_DISPOSITION,
-        if object.mime == "application/octet-stream" {
-            "attachment"
-        } else {
-            "inline"
-        }
-        .parse()?,
-    );
-    Ok(response)
+    let data = if let Some(permit) = permit {
+        crate::media::thumbnail(bytes.to_vec(), permit).await?
+    } else {
+        bytes.to_vec()
+    };
+    // Object storage can take time. Recheck membership/publication before releasing bytes.
+    pg(&app)?.object(&user, &w, &id).await?;
+    Ok(crate::server::file_media::deliver(
+        data,
+        &object.name,
+        &object.mime,
+        &input,
+    )?)
 }
 fn shared_storage(app: &App) -> ApiResult<()> {
     if matches!(app.library, library::Storage::S3(_)) {

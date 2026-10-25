@@ -34,6 +34,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/questions/`: compact saved references and typed ordinary-answer
   dialogs, guarded submissions, readable history and source revocation handling.
   Answers and business approvals retain separate authority.
+- `web/src/react/results/`: bounded reply excerpts, saved-response reader and
+  passive file/image viewing shared by workspace Chat/threads and an explicit
+  private-runtime portal adapter. Legacy transcript DOM retains its existing owner.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
 - `web/src/react/requests.ts`: guarded mutations and reads that discard stale or
   unmounted responses. Mutations are user actions and never mount effects.

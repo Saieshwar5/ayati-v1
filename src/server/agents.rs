@@ -110,7 +110,10 @@ pub(super) fn select(state: &WebState, request: &Request<Body>) -> Result<WebSta
     ensure!(
         query.is_none()
             || request.uri().path() == "/api/events"
-            || request.uri().path().starts_with("/api/files/"),
+            || request.uri().path().starts_with("/api/files/")
+            || request.method() == axum::http::Method::GET
+                && request.uri().path().starts_with("/api/messages/")
+                && request.uri().path().ends_with("/response"),
         "Agent query is unsupported on this endpoint"
     );
     ensure!(

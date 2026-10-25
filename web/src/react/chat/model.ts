@@ -9,6 +9,8 @@ export type Message = {
   content: string; state: string; at: number; sequence?: number;
   revision?: number; can_cancel?: boolean;
   questions?: QuestionReference[];
+  response?: import('../results/model').ResponseReference;
+  response_unavailable?: boolean;
   progress?: {
     state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'input' | 'resuming' | 'attention';
     text: string; generation?: number;

@@ -5,7 +5,8 @@ import { storageScope, workspaceId } from './workspace-context';
 import './style.css';
 import { currentView } from './view-lifetime';
 import { type AgentEvent, type Snapshot } from './types';
-import { renderConversation } from './view';
+import { renderConversation, measureResponsePreviews } from './view';
+import { mountLegacyResults } from './react/results/legacy';
 import { applyDelta, mergeSnapshot } from './conversation-state';
 import { workPanels } from './work-panels';
 import { installBrowser } from './browser';
@@ -44,7 +45,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
       </section>
       <dialog class="files-panel" id="files-panel" aria-label="Artifacts" hidden>
         <div class="panel-header"><h2>Artifacts</h2><button class="icon-button" id="close-files" aria-label="Close files">×</button></div>
-        <p class="panel-description">Created, updated and attached here. Text files can be read; other formats are stored for download.</p>
+        <p class="panel-description">Read text, view images and download the original files saved here.</p>
         <div id="agent-creations-slot"></div><div id="artifact-preview" hidden></div><div id="files-list" class="files-list"></div>
       </dialog>
     </main>
@@ -66,6 +67,11 @@ export function installChat(): (profile: import('./agents').Profile) => void {
   installMemory();
 
   const conversation = view.querySelector<HTMLDivElement>('#conversation')!;
+  const results = mountLegacyResults(view);
+  if (typeof ResizeObserver !== 'undefined') {
+    const responseSizes = new ResizeObserver(() => measureResponsePreviews(conversation));
+    responseSizes.observe(conversation); view.cleanup(() => responseSizes.disconnect());
+  }
   const notice = view.querySelector<HTMLDivElement>('#notice')!;
   const connection = view.querySelector<HTMLSpanElement>('#connection')!;
   const filesButton = view.querySelector<HTMLButtonElement>('#files-button')!;
@@ -103,7 +109,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
   sidebarButton.setAttribute('aria-expanded', String(!contactsHidden));
   sidebarButton.setAttribute('aria-label', contactsHidden ? 'Show agent list' : 'Hide agent list');
   view.querySelector('#agent-list-toggle')!.setAttribute('aria-haspopup', 'dialog');
-  const renderArtifacts = installArtifacts();
+  const renderArtifacts = installArtifacts(results.openFile);
   installStudioTools();
 
 
@@ -111,7 +117,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
 
   function draw(): void {
     if (!view.active) return;
-    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo');
+    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen());
     renderArtifacts(state.artifacts);
     view.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
     const active = state.tasks.find(task => task.status === 'running');
@@ -144,6 +150,8 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     catch (error) { tell((error as Error).message); }
   }
   conversation.addEventListener('click', (event) => {
+    const response = (event.target as HTMLElement).closest<HTMLElement>('[data-open-response]');
+    if (response?.dataset.openResponse) { results.openResponse(response.dataset.openResponse); return; }
     const decision = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-permission]');
     if (decision?.dataset.permission) {
       decision.disabled = true;
@@ -166,7 +174,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     const update = JSON.parse(event.data) as AgentEvent;
     if (update.kind === 'delta' && update.message_id && update.text) {
       if (!applyDelta(state, update)) { void sync(); return; }
-      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo');
+      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen());
     } else { void sync(); }
   };
 

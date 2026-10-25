@@ -1,3 +1,4 @@
+import { ManagedResults } from '../results/managed';
 import { PendingMessages } from './pending-messages';
 import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox } from './outbox';
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
@@ -34,6 +35,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
   const [draft, setDraft] = useState(() => { try { return sessionStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const messages = useRef<HTMLDivElement>(null);
   const bottom = useRef(true);
+  const readingResult = useRef(false);
   const pending = useRef(false);
   const attempt = useRef<{ id: string; content: string; agent?: string; attachments: string[] }>(undefined);
   const refresh = useRef<() => Promise<void>>(async () => {});
@@ -45,7 +47,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
     const loadFocus = () => {
       abort.abort(); abort = new AbortController(); const request = abort;
       setFocused([]); setFocusError('');
-      void chatRequest<History>(`/chats/${chat.id}/messages/${encodeURIComponent(focus)}`, undefined, request.signal)
+      void chatRequest<History>(`/chats/${chat.id}/messages/${encodeURIComponent(focus)}?compact=true`, undefined, request.signal)
         .then(page => { if (!request.signal.aborted) { setFocused(page.messages); const message = page.messages.find(m => m.id === focus); if (message?.thread) setThread(message.thread); } })
         .catch(error => { if (!request.signal.aborted) setFocusError(errorMessage(error)); });
     };
@@ -63,7 +65,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
     const abort = new AbortController(); let loading = false, queued = false;
     const load = async () => {
       if (loading) { queued = true; return; } loading = true;
-      try { const data = await chatRequest<History>(`/chats/${chat.id}/messages`, undefined, abort.signal);
+      try { const data = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true`, undefined, abort.signal);
         if (!abort.signal.aborted) {
           const merged = mergeMessages(data.messages, [...incoming.current.values()]);
           setHistory({ ...data, messages: merged }); acknowledge(chat.id, data.messages); void confirmSent(data.messages).catch(() => {}); setError('');
@@ -85,7 +87,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
     });
     return () => { alive.current = false; abort.abort(); unsubscribe(); };
   }, [chat.id]);
-  useLayoutEffect(() => { if (bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history, pendingMessages]);
+  useLayoutEffect(() => { if (!readingResult.current && bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history, pendingMessages]);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   const send = async () => {
     if (pending.current || (!draft.trim() && !files.length)) return;
@@ -104,7 +106,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
   const loadOlder = async () => {
     const before = cursor === undefined ? history?.next_before : cursor;
     if (!before || loadingOlder) return; setLoadingOlder(true);
-    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?before=${before}`); if (alive.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
+    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true&before=${before}`); if (alive.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
     catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { if (alive.current) setLoadingOlder(false); }
   };
@@ -114,7 +116,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
   const title = conversationName(chat, directory);
   const kind = conversationKind(chat, directory);
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  return <section className="chat-conversation" aria-label={`Conversation with ${title}`}>
+  return <ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section className="chat-conversation" aria-label={`Conversation with ${title}`}>
     <header className="chat-pane-header">
       <Button className="chat-back" onClick={back}>‹ Chats</Button>
       <span className={`chat-avatar ${kind.toLowerCase()}`}>
@@ -146,5 +148,5 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
       ]} />
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
     {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p><p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
-  </section>;
+  </section></ManagedResults>;
 }
