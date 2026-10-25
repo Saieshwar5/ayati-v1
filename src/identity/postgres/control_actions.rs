@@ -37,13 +37,16 @@ impl PgStore {
         let request_id = crate::identity::provider::digest(&serde_json::to_string(input)?);
         let tx = self.workspace_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
-        if let Some(action)=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND job=$2 AND request_id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),request_id.clone().into()]).await? {
+        // Object key order can change after model reconstruction or JSONB storage.
+        // Match the exact semantic operation too, including receipts made by older binaries.
+        if let Some(action)=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND job=$2 AND connection=$3 AND operation=$4 AND arguments=$5 ORDER BY created,id LIMIT 1",vec![job.workspace.clone().into(),job.reply.clone().into(),input.connection.clone().into(),input.operation.clone().into(),input.arguments.clone().into()]).await? {
             let action:Value=action.try_get("","data")?;
             ensure!(action["agent"]==job.agent && action["connection"]==input.connection && action["operation"]==input.operation && action["arguments"]==input.arguments,"Action request ID was already used for different work");
             let visible=visible(&tx,&job.workspace,action["id"].as_str().unwrap()).await?;
             tx.commit().await?;
             return Ok(Proposed{action:visible,dispatch:None});
         }
+        ensure!(query(&tx,"SELECT id FROM relay_task_questions WHERE workspace=$1 AND reply=$2 AND state='pending'",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.is_none(), "A saved question needs an answer before requesting more business operations");
         let count: i64 = query(
             &tx,
             "SELECT count(*) AS count FROM relay_control_actions WHERE workspace=$1 AND job=$2",

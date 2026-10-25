@@ -39,7 +39,7 @@ export function Dialog({ title, drawer = false, busy = false, status = '', close
     return () => { node.close(); if (previous?.isConnected) previous.focus(); };
   }, [initialFocus]);
   return createPortal(<dialog ref={dialog} className={`ui-dialog${drawer ? ' ui-drawer' : ''}`} aria-labelledby={id} aria-busy={busy}
-    onCancel={event => { event.preventDefault(); if (!busy) latest.current(); }}>
+    onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) latest.current(); }}>
     <header className="ui-dialog-header"><h2 id={id}>{title}</h2><Button className="ui-icon" aria-label="Close" disabled={busy} onClick={close}>×</Button></header>
     <div className="ui-dialog-body"><fieldset className="ui-fieldset" disabled={busy}>{children}</fieldset></div>
     <footer className="ui-dialog-footer"><p className="ui-status" role="status">{status}</p>{footer}</footer>

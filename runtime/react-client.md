@@ -31,6 +31,9 @@ server API contracts, authentication, and workspace boundaries.
   invitation lists, invitations, roles and explicit agent/App/panel grants.
 - `web/src/react/approvals/`: current-access exact review, restricted inbox and
   approver/channel selection shared by workspace conversations and agent setup.
+- `web/src/react/questions/`: compact saved references and typed ordinary-answer
+  dialogs, guarded submissions, readable history and source revocation handling.
+  Answers and business approvals retain separate authority.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
 - `web/src/react/requests.ts`: guarded mutations and reads that discard stale or
   unmounted responses. Mutations are user actions and never mount effects.

@@ -1,0 +1,21 @@
+.question-card { margin: 12px 0; padding: 12px 0; border-top: 1px solid var(--border); display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+.question-card > strong { flex: 1 0 100%; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.question-card > small { color: var(--muted); flex: 1; font-size: 11px; }
+.question-card .ui-button { font-size: 12px; }
+.question-history { font-size: 12px; }
+.question-history summary { cursor: pointer; padding: 10px 0; color: var(--muted); }
+.question-review { font-size: 14px; line-height: 1.6; }
+.question-description, .question-answer dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.question-state { font-size: 12px; color: var(--muted); }
+.question-form { margin-top: 20px; }
+.question-form > fieldset { border: 0; min-width: 0; padding: 0; margin: 0; display: grid; gap: 16px; }
+.question-form-legend { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.question-options { display: grid; gap: 6px; }
+.question-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; font-size: 13px; }
+.question-option input { accent-color: var(--accent); margin-top: 4px; flex-shrink: 0; }
+.question-option span { overflow-wrap: anywhere; }
+.question-field > label { overflow-wrap: anywhere; }
+.question-form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.question-answer { display: grid; gap: 16px; margin: 24px 0; }
+.question-answer dt { font-size: 12px; color: var(--muted); }
+.question-answer dd { margin: 4px 0 0; }

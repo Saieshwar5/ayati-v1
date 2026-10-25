@@ -74,12 +74,13 @@ remains documented in [private Chat workspace](agents-workspace.md).
 
 ## Deliberate limits
 
-Managed-agent schedules, general questions/forms, connected event waits,
+Managed-agent schedules, connected event waits,
 browser/computer adapters and business email/phone are separate increments.
 The relevant tabs state current support rather than showing fictional records.
 The existing profile editor remains; this change does not implement every
 creation screen in the design archive. No dependency or schema migration is
-introduced: the required PostgreSQL schema remains **22**.
+introduced by the Agents layout increment. It used schema 22; current
+[questions and forms](agent-questions.md) require schema 23 separately.
 
 ## Verification
 

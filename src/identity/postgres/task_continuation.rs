@@ -11,7 +11,7 @@ pub(super) async fn suspend(
     text: &str,
     outcome: &str,
 ) -> Result<bool> {
-    let row=query(tx,"SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=$1 AND a.job=$2 AND a.requires_approval AND a.run_cycle=relay_chat_jobs.run_cycle)",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
+    let row=query(tx,"SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND (EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=$1 AND a.job=$2 AND a.requires_approval AND a.run_cycle=relay_chat_jobs.run_cycle) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=$1 AND q.reply=$2 AND q.run_cycle=relay_chat_jobs.run_cycle))",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
     let Some(row) = row else { return Ok(false) };
     ensure!(
         text.len() <= 65536 && !text.contains('\0'),
@@ -53,7 +53,12 @@ impl PgStore {
             )),
             "Task still has unresolved actions"
         );
-        let data = json!({"version":1,"cycle":checkpoint.try_get::<i32>("","cycle")?,"checkpoint":checkpoint.try_get::<String>("","text")?,"actions":actions});
+        let questions=json_rows(&tx,"SELECT jsonb_build_object('id',id,'key',request_key,'revision',revision,'specification',specification,'state',state,'values',answer,'answered_by',answered_by) AS data FROM relay_task_questions WHERE workspace=$1 AND reply=$2 ORDER BY created_ms,id",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
+        ensure!(
+            !questions.iter().any(|q| q["state"] == "pending"),
+            "Task still has unanswered questions"
+        );
+        let data = json!({"version":1,"cycle":checkpoint.try_get::<i32>("","cycle")?,"checkpoint":checkpoint.try_get::<String>("","text")?,"actions":actions,"questions":questions});
         let data = serde_json::to_string(&data)?;
         ensure!(
             data.len() <= 131072,

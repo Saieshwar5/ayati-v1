@@ -9,6 +9,7 @@ export function ReplyProgress({ message }: { message: Message }) {
   if (message.state === 'queued') {
     switch (message.progress?.state) {
       case 'approval': label = 'Waiting for approval · Worker released'; break;
+      case 'input': label = 'Waiting for an answer'; break;
       case 'resuming': label = 'Decision saved · Waiting to continue…'; break;
       case 'attention': label = 'Needs attention · External outcome not yet confirmed'; break;
       case 'responding': label = 'Responding…'; break;

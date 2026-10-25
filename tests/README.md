@@ -476,3 +476,14 @@ waiting Stop, private work/count isolation, invalidated approval denial, restart
 history, and mobile/dark layouts. It uses a disposable PostgreSQL schema, pinned
 Goose, a scripted model and an authenticated MCP fixture; no paid inference or
 cloud is needed. See [the request API and limits](../runtime/agents-team-workspace.md).
+
+`RELAY_TEST_DATABASE_URL=... node --test tests/agent_questions.mjs` verifies real
+Goose asks for ordinary typed facts, releases its worker, resumes the original
+channel/thread after saved answers and controller restart, then obtains separate
+exact business approval before one write/verification. It covers all form fields,
+closed and multiple choices, enabled alternatives, managed private agents, No /
+close / decline / Stop, current source access, keyboard and phone/dark UI. A
+second case exercises the controller-local broker in an isolated compatibility
+worker; the embedded simulation API intentionally remains deterministic. Both
+use disposable schema 23 and scripted providers, with no cloud or paid inference.
+See [contracts, migration and adapter limits](../runtime/agent-questions.md).
