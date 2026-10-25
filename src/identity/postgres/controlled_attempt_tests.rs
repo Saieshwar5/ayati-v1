@@ -55,6 +55,7 @@ async fn setup() -> (
         .unwrap()
         .unwrap();
     let context = Prepared {
+        control_tools: false,
         version: 1,
         workspace: w,
         agent: scope.agent.clone(),

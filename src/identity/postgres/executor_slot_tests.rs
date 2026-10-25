@@ -86,6 +86,7 @@ pub(super) async fn reserve(db: &PgStore, e: &Registration) -> Option<Scope> {
 }
 pub(super) fn context(scope: &Scope) -> Prepared {
     Prepared {
+        control_tools: false,
         version: 1,
         workspace: scope.workspace.clone(),
         agent: scope.agent.clone(),

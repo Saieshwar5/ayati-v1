@@ -5,6 +5,7 @@ pub mod assignment_launcher;
 pub mod assignment_worker;
 mod chat;
 mod collaboration;
+pub(crate) mod control;
 mod controlled_launcher;
 pub mod controlled_worker;
 mod database;
@@ -245,6 +246,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
 fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
+        .merge(control::routes())
         .merge(chat::routes())
         .merge(library::routes())
         .merge(collaboration::routes())

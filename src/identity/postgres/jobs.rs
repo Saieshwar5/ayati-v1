@@ -20,7 +20,7 @@ impl PgStore {
             ORDER BY j.sequence FOR UPDATE OF j SKIP LOCKED LIMIT 1)
             UPDATE relay_chat_jobs j SET state='running',claim=$1,
             lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300,
-            attempts=attempts+1,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
+            attempts=attempts+1,generation=generation+1,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
             FROM ready WHERE j.reply=ready.reply RETURNING j.payload"#,vec![claim.clone().into()]).await?;
         let job = row
             .map(|row| -> Result<Job> {

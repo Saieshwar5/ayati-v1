@@ -54,3 +54,17 @@ test('read-only viewers see draft status without a stop action and late stop res
   assert.equal(document.body.textContent.includes('Denied'),false);
  },{url:`http://localhost/w/${workspace}/?view=chat`,fetch:async(path,options={})=>options.method==='POST'?new Promise(resolve=>{finish=resolve;}):response(session)});
 });
+
+test('saved approval waits and uncertain outcomes show honest status and retain Stop without creating work',async()=>{
+ const writes=[];
+ await reactFixture(async({render,button})=>{
+  const context=await import('../src/workspace-context.ts');await context.enterWorkspace();
+  const {ReplyProgress}=await import('../src/react/chat/reply-progress.tsx');
+  for(const [state,label] of [['approval','Waiting for approval · Worker released'],['resuming','Decision saved · Waiting to continue'],['attention','Needs attention · External outcome not yet confirmed']]) {
+   await render(ReplyProgress,{message:{...message,progress:{state,text:''}}});
+   assert.ok(document.querySelector('[role=status]').textContent.includes(label));
+   assert.ok(button('Stop reply'));
+  }
+  assert.equal(writes.length,0);
+ },{url:`http://localhost/w/${workspace}/?view=chat`,fetch:async(path,options={})=>{if(options.method==='POST')writes.push(path);return response(session);}});
+});

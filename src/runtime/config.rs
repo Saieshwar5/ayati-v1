@@ -10,6 +10,7 @@ pub const PREPARED_GOOSE_VERSION: &str = "1.54.0+ayati.1";
 
 #[derive(Clone)]
 pub struct GooseConfig {
+    pub(crate) control_tools: Option<crate::identity::control::broker::Endpoint>,
     pub platform: Option<std::sync::Arc<crate::platform::Platform>>,
     pub binary: PathBuf,
     pub agent_id: String,
@@ -45,6 +46,7 @@ impl GooseConfig {
     pub fn from_env(data: &Path, model: &str) -> Self {
         Self {
             platform: None,
+            control_tools: None,
             agent_id: "local-agent".into(),
             role: String::new(),
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
@@ -159,6 +161,13 @@ impl GooseConfig {
         } else {
             serde_json::json!([])
         };
+        if self.control_tools.is_some() {
+            ensure!(
+                self.vm_manifest.is_none(),
+                "Shared control tools require an isolated host session"
+            );
+            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{"name":"ayati_control","command":std::env::current_exe()?,"args":["control-mcp"],"env":[]}}));
+        }
         if self.browser {
             ensure!(
                 self.vm_manifest.is_some(),

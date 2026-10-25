@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LocalConnections } from './connections';
+import { WorkspaceConnections } from './workspace-connections';
 import { api, post } from '../../types';
 import { workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
@@ -27,6 +28,6 @@ export function RuntimeSettings() {
   </section>;
 }
 export function ConnectionSettings() {
-  if (workspaceId) return <section><h2>Connections</h2><p>Workspace connections are not set up yet. Local account connections are kept separate.</p></section>;
+  if (workspaceId) return <WorkspaceConnections />;
   return <LocalConnections />;
 }

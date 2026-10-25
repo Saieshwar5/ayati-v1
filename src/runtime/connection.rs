@@ -65,6 +65,11 @@ impl GooseRuntime {
                     .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
                     .env("AYATI_MEMORY_TOKEN", &connection_id);
             }
+            if let Some(control) = &effective.control_tools {
+                command
+                    .env("AYATI_CONTROL_ADDRESS", &control.address)
+                    .env("AYATI_CONTROL_TOKEN", &control.token);
+            }
             let parent = std::process::id() as libc::pid_t;
             unsafe {
                 command.pre_exec(move || {
@@ -159,6 +164,9 @@ impl GooseRuntime {
             }
             if effective.platform.is_some() {
                 settings["workspace_adapter"] = serde_json::json!(1);
+            }
+            if effective.control_tools.is_some() {
+                settings["control_adapter"] = serde_json::json!(1);
             }
             if authority_revision > 0 {
                 settings["authority_revision"] = serde_json::json!(authority_revision);

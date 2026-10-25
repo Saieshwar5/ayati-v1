@@ -88,16 +88,22 @@ After a native build, use a dedicated local
 
 ~~~sh
 export AYATI_TEST_BRIDGE_PYTHON="$PWD/.tmp/aws-bridge-tools/bin/python"
-export AYATI_TEST_PREPARED_GOOSE_BIN="$PWD/tests/fixtures/bridge_runtime.mjs"
+unset AYATI_TEST_PREPARED_GOOSE_BIN
 node --test --test-concurrency=1 tests/aws_worker_bridge.mjs
 ~~~
 
-This rehearses real Rust execution with a scripted ACP runtime through a local TLS gateway,
-including five employee/agent identities, task-binding denial, controller restart,
-Stop and worker loss. The fixture is not real Goose or preparation acceptance;
-unset its override and build pinned prepared Goose for that later check.
+This rehearses real Rust execution with pinned prepared Goose through a local TLS
+gateway, including five employee/agent identities, task-binding denial, controller
+restart, Stop and worker loss. Build/verify prepared Goose first. An explicit
+`bridge_runtime.mjs` override remains a protocol-only test and cannot satisfy
+runtime acceptance.
 No AWS or paid provider is involved. Ordinary database
 migration is never implied; startup requires migration 17 and current grants.
+
+The [packaged bridge](../runtime/packaged-worker-bridge.md) adds an isolated
+`python3 tools/run-agent-load.py --suite bridge --executor-cpu 200` journey and
+the same real prepared-Goose path in `tools/verify-release-image.py`, including
+`--smoke-only`.
 
 ## Provider calibration
 

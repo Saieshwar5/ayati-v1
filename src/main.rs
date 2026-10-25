@@ -13,6 +13,9 @@ mod browser_cli;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("control-mcp") {
+        return ayati_guest::control_mcp::serve().await;
+    }
     if std::env::args().nth(1).as_deref() == Some("mcp") {
         return ayati::runtime::proof_tool::serve().await;
     }

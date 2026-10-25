@@ -55,11 +55,27 @@ pub async fn serve(data: &Path) -> Result<()> {
         .join("chat-workers")
         .join(uuid::Uuid::new_v4().to_string());
     let outcome = super::worker_control::attempt::run(
-        client,
-        request,
+        client.clone(),
+        request.clone(),
         stopping,
         |context, cancel| async move {
-            let result = execution::execute_prepared(&context, &root, &cancel).await;
+            let broker = if context.control_tools {
+                Some(
+                    super::control::broker::Broker::start(super::control::broker::Access::Remote(
+                        client, request,
+                    ))
+                    .await?,
+                )
+            } else {
+                None
+            };
+            let result = execution::execute_prepared(
+                &context,
+                &root,
+                &cancel,
+                broker.as_ref().map(|b| b.endpoint.clone()),
+            )
+            .await;
             execution::cleanup(&root).await;
             result
         },

@@ -98,6 +98,7 @@ impl GooseRuntime {
 
     pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
         let platform_enabled = config.platform.is_some();
+        let control_tools = config.control_tools.is_some();
         let panel_updates = config
             .platform
             .as_ref()
@@ -130,6 +131,7 @@ impl GooseRuntime {
             memory,
             config,
             shared: Arc::new(RuntimeEvents {
+                control_tools,
                 active: Mutex::new(None),
                 store,
                 events,
@@ -220,7 +222,7 @@ impl GooseRuntime {
             text: Mutex::new(String::new()),
         });
         *self.shared.active.lock().unwrap() = Some(turn.clone());
-        if scoped.is_some() {
+        if scoped.is_some() || self.config.control_tools.is_some() {
             let _ = self.shared.events.send(crate::agent::Event {
                 kind: "prompt".into(),
                 task_id: claim.task_id.clone(),

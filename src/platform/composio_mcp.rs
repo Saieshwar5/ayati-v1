@@ -152,7 +152,7 @@ impl ConsumerMcp {
     }
 }
 
-fn parse_reply(bytes: &[u8], sse: bool, id: u64) -> Result<Option<Value>> {
+pub(crate) fn parse_reply(bytes: &[u8], sse: bool, id: u64) -> Result<Option<Value>> {
     let Ok(text) = std::str::from_utf8(bytes) else {
         return Ok(None);
     };

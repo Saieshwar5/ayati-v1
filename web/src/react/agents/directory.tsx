@@ -6,6 +6,8 @@ import { defaults, loadAgents, symbols, base, type Agent } from './model';
 import { currentWorkspace, identityRequest, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { LocalAgents } from './local-agents';
+import { AgentControl } from './control';
+import { GuidedSetup } from './guided-setup';
 
 export function AgentAvatar({ agent }: { agent: Agent }) {
   const avatar = agent.settings.avatar;
@@ -19,6 +21,8 @@ export function AgentsPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [selected, select] = useState<Agent>();
+  const [controlled, control] = useState<Agent>();
+  const [guided, guide] = useState<Agent>();
   useEffect(() => {
     const timer = window.setInterval(() => { if (!document.hidden) void refresh().catch(() => {}); }, 10000);
     return () => clearInterval(timer);
@@ -39,7 +43,11 @@ export function AgentsPage() {
       <span className="agent-status">{agent.settings.paused ? 'Paused' : agent.pending ? `${agent.pending} pending` : 'Idle'}</span>
       <Button disabled={mutation.busy || agent.settings.paused} onClick={() => void mutation.run(async () => { const result = await identityRequest<{ id: string }>(`/workspaces/${workspaceId}/chats`, { id: crypto.randomUUID(), kind: 'direct', name: agent.name, description: '', users: [], agents: [agent.id] }); if (alive.current) location.assign(workspaceUrl(`/?view=chat&conversation=${result.id}`)); })}>Message</Button>
       <Button aria-label={`View ${agent.name}`} onClick={() => select(agent)}>Details</Button>
+      {agent.editable && <Button aria-label={`Set up permissions for ${agent.name}`} onClick={() => guide(agent)}>Set up permissions</Button>}
+      <Button aria-label={`Tools and approvals for ${agent.name}`} onClick={() => control(agent)}>Tools and approvals</Button>
     </div>)}{data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create an agent and give it a responsibility.'}</p>}{currentWorkspace()?.role === 'Owner' && !workspaceSession?.simulation && <LocalAgents query={query} />}</div>
     {selected && data && <AgentEditor creating={!data.agents.some(a => a.id === selected.id)} key={selected.id} agent={selected} directory={data} close={() => select(undefined)} saved={async () => { select(undefined); await refresh(); }} />}
+    {guided && <GuidedSetup key={guided.id} agent={guided} close={() => guide(undefined)} />}
+    {controlled && <AgentControl key={controlled.id} agent={controlled} close={() => control(undefined)} />}
   </main></div>;
 }

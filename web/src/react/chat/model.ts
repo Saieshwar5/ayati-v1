@@ -8,9 +8,10 @@ export type Message = {
   content: string; state: string; at: number; sequence?: number;
   revision?: number; can_cancel?: boolean;
   progress?: {
-    state: 'starting' | 'waiting' | 'responding' | 'interrupted';
-    text: string; generation: number;
+    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'resuming' | 'attention';
+    text: string; generation?: number;
   } | null;
+  approval?: import('../approvals/approval-card').ApprovalReference;
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null;
 };

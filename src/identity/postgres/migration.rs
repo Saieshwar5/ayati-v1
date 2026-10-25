@@ -22,7 +22,96 @@ impl MigratorTrait for Migrator {
             Box::new(HarnessPreparation),
             Box::new(InteractiveReserve),
             Box::new(CloudExecutors),
+            Box::new(SharedControl),
+            Box::new(ConnectionAuthority),
+            Box::new(GuidedPermissions),
+            Box::new(ChannelApprovals),
+            Box::new(super::durable_wait_migration::DurableWaits),
         ]
+    }
+}
+struct ChannelApprovals;
+impl MigrationName for ChannelApprovals {
+    fn name(&self) -> &str {
+        "m20261025_000021_channel_approvals"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ChannelApprovals {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("channel_approvals.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Approval delivery requires a forward migration".into(),
+        ))
+    }
+}
+struct GuidedPermissions;
+impl MigrationName for GuidedPermissions {
+    fn name(&self) -> &str {
+        "m20261025_000020_guided_permissions"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuidedPermissions {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("setup_drafts.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Permission review receipts require a forward migration".into(),
+        ))
+    }
+}
+struct ConnectionAuthority;
+impl MigrationName for ConnectionAuthority {
+    fn name(&self) -> &str {
+        "m20261025_000019_connection_authority"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ConnectionAuthority {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("connection_authority.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Connection authority requires a forward migration".into(),
+        ))
+    }
+}
+struct SharedControl;
+impl MigrationName for SharedControl {
+    fn name(&self) -> &str {
+        "m20261025_000018_shared_control"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for SharedControl {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("control.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Action receipts require a forward migration".into(),
+        ))
     }
 }
 struct CloudExecutors;

@@ -1,0 +1,16 @@
+.workspace-connections { display: grid; gap: 12px; }
+.workspace-connections > p { margin: 0; }
+.workspace-connection-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+.connection-description { min-width: 0; }
+.connection-description h3, .connection-description p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.connection-description p { color: var(--muted); font-size: 14px; }
+.connection-row-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.connection-creators { margin-top: 12px; }
+.connection-creator-row { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.connection-creator-row .ui-check { min-width: 120px; overflow-wrap: anywhere; }
+.connection-creator-row > span { flex: 1; color: var(--muted); font-size: 14px; }
+.connection-access-row { display: grid; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--border); }
+.connection-access-row small { display: block; margin-top: 6px; color: var(--muted); }
+.connection-access-row > .ui-button { justify-self: start; }
+@media (max-width: 900px) { .workspace-connection-row { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 480px) { .connection-row-actions { width: 100%; } .connection-row-actions button { flex: 1 1 auto; } .connection-creator-row { gap: 10px; } }

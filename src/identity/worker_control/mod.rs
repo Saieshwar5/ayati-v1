@@ -9,6 +9,7 @@ mod hub;
 pub(crate) mod model;
 pub(crate) mod output;
 mod pool;
+mod tools;
 use super::{Shared, chat::execution, database::Database, postgres::PgStore, provider::digest};
 use anyhow::{Context, Result, ensure};
 use axum::{
@@ -177,6 +178,7 @@ fn routes(state: StateData) -> Router {
     Router::new()
         .merge(pool::routes())
         .route("/v1/assignments/{id}/output", post(output::append))
+        .route("/v1/assignments/{id}/tools", post(tools::invoke))
         .route("/v1/executors/register", post(register))
         .route("/v1/executors/register-cloud", post(cloud::register))
         .route(

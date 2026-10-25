@@ -12,7 +12,7 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
   feature navigation with browser history and native identity/workspace changes.
 - `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,
-  threads and creation dialogs; owner-private transcripts retain the legacy bridge.
+  threads, creation dialogs and trusted approval references; owner-private transcripts retain the legacy bridge.
 - `web/src/react/private-chat.tsx`: no-workspace private-agent fallback.
 - `web/src/react/chat/composer.tsx`: shared React composer across channel, DM, thread
   and private-agent views. Private chat mounts an explicitly owned React island
@@ -21,12 +21,14 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
 - `web/src/react/agents/`: PostgreSQL agent directory, guided creation, profile
-  editing, approved knowledge and preserved local-agent lifecycle controls.
+  editing, approved knowledge, guided permission drafts/previews/activation and preserved local-agent lifecycle controls.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
-  teams, setup and local account connections. The legacy Settings screen and setup
+  teams, setup, local accounts and Owner workspace connections/delegation. The legacy Settings screen and setup
   installer are removed; Agent details retains its existing connector integration.
 - `web/src/react/people.tsx`, `member-details.tsx`, `member-access.tsx`: member and
   invitation lists, invitations, roles and explicit agent/App/panel grants.
+- `web/src/react/approvals/`: current-access exact review, restricted inbox and
+  approver/channel selection shared by workspace conversations and agent setup.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
 - `web/src/react/requests.ts`: guarded mutations and reads that discard stale or
   unmounted responses. Mutations are user actions and never mount effects.

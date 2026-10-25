@@ -11,9 +11,10 @@ cleanup deadline remain unset rather than guessed.
 
 ## Current activation boundary
 
-The current worker-control implementation accepts **loopback HTTP only** and uses
-a private local bootstrap file. It cannot authenticate a worker in another
-Fargate task. Preserve that boundary; do not publish port 8766, copy one shared
+The Rust worker-control implementation accepts **loopback HTTP only** and uses
+a private local bootstrap file. The [packaged signed adapter](../../runtime/packaged-worker-bridge.md)
+adds local transport acceptance; actual AWS gateway/task authentication and startup
+remain unproven. Preserve that boundary; do not publish port 8766, copy one shared
 bootstrap secret across tasks, or replace the pooled executor with the old
 database-connected polling worker.
 
@@ -161,7 +162,7 @@ deployment command in the M0 CLI:
 3. Publish the already verified image by immutable registry digest. Validate
    revised templates and inspect change sets, named IAM capabilities and tags.
 4. Create stacks in dependency order. Establish the restricted DB role; perform
-   one serialized forward migration through schema 16 and reapply runtime grants.
+   one serialized forward migration through schema 18 and reapply runtime grants.
 5. Admit a controller only after TLS, private storage and authentication checks.
    Admit executors only after exact machine identity, clean scratch and readiness.
 6. Perform the bounded journey in [trial-runbook.md](trial-runbook.md). Record

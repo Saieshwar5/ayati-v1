@@ -10,6 +10,13 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
+[Shared agent control](runtime/shared-agent-control.md) now adds reviewed remote
+MCP operations to PostgreSQL-managed agents: per-conversation Allow/Ask first/Block
+permissions, exact owner approvals and durable action outcomes. Owners configure
+these through Agents → Tools and approvals. It requires schema 18 and a private
+operator-provisioned MCP profile; broader rule predicates, automatic job continuation
+and live cloud/provider acceptance remain separate work.
+
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,
 version recovery and source-based private agent questions to PostgreSQL workspaces.
 Files use explicitly configured private S3-compatible or local development storage.
@@ -402,7 +409,8 @@ template is for a private deployment rehearsal; cloud resources are not provisio
 
 The [release-image verifier](runtime/release-image-validation.md) builds one
 immutable image and checks prepared shared executors, mixed chat/background work,
-recovery and two resource-bounded load profiles. Run
+recovery, signed bridge execution with real prepared Goose and two resource-bounded
+load profiles. Run
 `python3 tools/verify-release-image.py` with local Docker access. All data and model
 responses are disposable/scripted; no AWS resources or paid calls are required.
 
@@ -420,3 +428,9 @@ validated inactive CloudFormation definitions and a five-employee/five-agent,
 stay at zero until the M2/M3 startup and machine-identity integration is proven.
 See [M0 evidence and limitations](runtime/aws-m0-preflight.md). No AWS resources or
 DNS records are created by preparation.
+
+The [packaged signed bridge](runtime/packaged-worker-bridge.md) provides explicit
+private-file startup in the same release image. The trial manifest requires
+schema 17 for task identity bindings. Its local signed TLS/Goose checks retain
+synthetic IAM/ECS/model services; real AWS ingress, identity and lifecycle remain
+the next deployment proof.

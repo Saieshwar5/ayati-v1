@@ -2,6 +2,10 @@
 mod accounts;
 mod agent_knowledge;
 mod agent_profiles;
+mod approval_authority;
+mod approval_delivery;
+#[cfg(test)]
+mod approval_tests;
 #[cfg(test)]
 mod assignment_tests;
 mod assignments;
@@ -12,11 +16,23 @@ pub mod cli;
 mod cloud_executor_tests;
 mod cloud_executors;
 mod collaboration;
+mod connection_authority;
+#[cfg(test)]
+mod connection_authority_tests;
+#[cfg(test)]
+mod connection_migration_tests;
+pub(crate) mod control_actions;
+#[cfg(test)]
+mod control_execution_tests;
+mod control_rules;
+#[cfg(test)]
+mod control_tests;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
 #[cfg(test)]
 mod dispatch_lock_tests;
+mod durable_wait_migration;
 mod executor_dispatch;
 #[cfg(test)]
 mod executor_slot_tests;
@@ -25,6 +41,7 @@ mod executor_slots;
 mod preparation_tests;
 #[cfg(test)]
 mod profile_lookup_tests;
+mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;
 mod feedback;
@@ -51,6 +68,14 @@ mod reply_output_tests;
 mod reply_views;
 mod resources;
 mod settings;
+mod setup_context;
+mod setup_drafts;
+#[cfg(test)]
+mod setup_tests;
+mod task_continuation;
+#[cfg(test)]
+mod task_continuation_tests;
+mod task_revocation;
 mod work;
 pub(crate) mod worker_control;
 #[cfg(test)]
@@ -65,6 +90,7 @@ use sea_orm::{
 use serde_json::Value;
 use std::time::Duration;
 
+#[derive(Clone)]
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,

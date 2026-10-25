@@ -56,14 +56,14 @@ impl PgStore {
         let id = uuid::Uuid::new_v4().to_string();
         let job = query(
             tx,
-            r#"UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,
+            r#"UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,generation=generation+1,
             lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300
-            WHERE reply=$1 RETURNING workspace,attempts"#,
+            WHERE reply=$1 RETURNING workspace,generation"#,
             vec![reply.clone().into(), id.clone().into()],
         )
         .await?
         .context("Assignment disappeared")?;
-        execute(tx, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)", vec![id.clone().into(),job.try_get::<String>("", "workspace")?.into(),reply.into(),job.try_get::<i32>("", "attempts")?.into(),(lease as i32).into()]).await?;
+        execute(tx, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)", vec![id.clone().into(),job.try_get::<String>("", "workspace")?.into(),reply.into(),job.try_get::<i32>("", "generation")?.into(),(lease as i32).into()]).await?;
         Ok(Some(id))
     }
 
@@ -220,6 +220,7 @@ impl PgStore {
         );
         let row = query(&tx, "UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND reply=$2 AND state!='finished' RETURNING claim", vec![workspace.into(),reply.into()]).await?;
         if let Some(row) = row {
+            execute(&tx,"UPDATE relay_control_actions SET state='invalidated',result='\"Original task was stopped; no pending operation was dispatched.\"'::jsonb WHERE workspace=$1 AND job=$2 AND state='pending'",vec![workspace.into(),reply.into()]).await?;
             if let Some(claim) = row.try_get::<Option<String>>("", "claim")? {
                 execute(&tx, "UPDATE relay_worker_assignments SET state='finished',outcome='cancelled',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![claim.clone().into()]).await?;
                 execute(&tx,"UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",vec![claim.into()]).await?;

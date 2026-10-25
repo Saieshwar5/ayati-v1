@@ -72,7 +72,7 @@ impl PgStore {
             tx.commit().await?;
             return Ok(result);
         }
-        let count:i64=query(&tx,"SELECT count(*) AS n FROM relay_chat_jobs WHERE workspace=$1 AND state IN ('queued','running')",vec![w.into()]).await?.unwrap().try_get("","n")?;
+        let count:i64=query(&tx,"SELECT count(*) AS n FROM relay_chat_jobs WHERE workspace=$1 AND state IN ('queued','running','waiting')",vec![w.into()]).await?.unwrap().try_get("","n")?;
         ensure!(
             count < 32,
             "Workspace agent queue is full. Try again shortly."

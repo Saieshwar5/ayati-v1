@@ -50,17 +50,10 @@ async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
         request: uuid::Uuid::new_v4().to_string(),
         token: token.clone(),
     };
-    let scope = old
-        .reserve_controlled(
-            &registration.executor,
-            &registration.incarnation,
-            &reservation,
-            120,
-            2,
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let scope =
+        super::migration_fixture::legacy_reservation(&old, &registration, &reservation, 120)
+            .await
+            .unwrap();
     assert_eq!(scope.reply, job.reply);
     assert_eq!(scope.slot_generation, 0);
     old.migrate().await.unwrap();

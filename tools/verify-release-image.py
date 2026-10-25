@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--image', help='Reuse an existing immutable sha256 image ID')
     parser.add_argument('--build-jobs', type=int, choices=range(1, 5), default=2)
-    parser.add_argument('--smoke-only', action='store_true', help='Run image/mixed/recovery checks without the two ordinary load matrices')
+    parser.add_argument('--smoke-only', action='store_true', help='Run image/mixed/recovery and signed bridge without the two ordinary load matrices')
     args = parser.parse_args()
     if args.image and not re.fullmatch(r'sha256:[a-f0-9]{64}', args.image):
         parser.error('Use an immutable local image ID')
@@ -33,9 +33,11 @@ def main():
     source = ['Dockerfile', '.dockerignore', 'Cargo.toml', 'Cargo.lock',
               'deploy/container-entrypoint.sh', 'tools/install-goose.sh',
               'tools/build-prepared-goose.py', 'tools/patches/goose-1.54.0-preparation.patch']
+    source += [str(path.relative_to(ROOT)) for path in sorted((ROOT / 'integrations/aws_bridge').glob('*.py'))]
+    source.append('integrations/aws_bridge/requirements.lock')
     report = {'version': 1, 'began_utc': datetime.now(timezone.utc).isoformat(),
               'base_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-              'dirty': bool(subprocess.check_output(['git', 'diff', 'HEAD', '--', 'Dockerfile', '.dockerignore', 'src', 'crates', 'web', 'deploy', 'tools'], cwd=ROOT)),
+              'dirty': bool(subprocess.check_output(['git', 'diff', 'HEAD', '--', 'Dockerfile', '.dockerignore', 'src', 'crates', 'web', 'deploy', 'tools', 'integrations'], cwd=ROOT)),
               'build_inputs': {name: digest(ROOT / name) for name in source},
               'build_origin': 'supplied image; checkout hashes describe test context only' if args.image else 'built from recorded checkout inputs',
               'runs': [], 'errors': [], 'passed': False}
@@ -58,7 +60,7 @@ def main():
             raise RuntimeError('Build did not return an immutable image ID')
         report['image'] = image
         save()
-        suites = [('image', 200)] + ([] if args.smoke_only else [('matrix', 100), ('matrix', 200)])
+        suites = [('image', 200), ('bridge', 200)] + ([] if args.smoke_only else [('matrix', 100), ('matrix', 200)])
         for suite, cpu in suites:
             log = evidence / f'{suite}-{cpu}.log'
             command = [sys.executable, 'tools/run-agent-load.py', '--suite', suite,

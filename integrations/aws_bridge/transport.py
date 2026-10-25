@@ -36,7 +36,8 @@ class Transport:
         if parts.scheme != "https" and not (parts.scheme == "http" and parts.hostname == "127.0.0.1"):
             raise ValueError("TLS or fixed loopback destination required")
         return self.http.request(method, url, body=body if method != "GET" else None,
-                                 headers=values, preload_content=False, redirect=False, retries=False)
+                                 headers=values, preload_content=False, redirect=False, retries=False,
+                                 timeout=urllib3.Timeout(connect=3, read=45 if parts.path.endswith("/tools") else 10))
 
 
 class TaskVerifier:

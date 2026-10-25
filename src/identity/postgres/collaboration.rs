@@ -167,6 +167,7 @@ impl PgStore {
             execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![w.into(),chat.into(),member.clone().into()]).await?;
         }
         audit(&tx, &user.id, Some(w), "channel_members_updated", chat).await?;
+        super::task_revocation::inaccessible(&tx, w).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -191,6 +192,7 @@ impl PgStore {
         manager(&tx, w, &user.id).await?;
         super::chat::access(&tx, user, w, chat).await?;
         ensure!(execute(&tx,"UPDATE relay_chats SET visibility=$3,announcements=$4,name=coalesce($5,name) WHERE workspace=$1 AND id=$2 AND kind<>'direct'",vec![w.into(),chat.into(),visibility.into(),announcements.into(),name.into()]).await?==1,"Direct messages cannot become public channels");
+        super::task_revocation::inaccessible(&tx, w).await?;
         audit(
             &tx,
             &user.id,

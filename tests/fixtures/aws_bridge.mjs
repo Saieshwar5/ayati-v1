@@ -23,24 +23,47 @@ export async function bridgeFixture(t, app) {
     key: app.provider.key ?? randomBytes(32).toString('base64url') }), { mode: 0o600 });
   await writeFile(config, JSON.stringify({ directory, control_url: app.control.url,
     bootstrap_file: app.control.keyFile, model_info: modelInfo }), { mode: 0o600 });
-  const child = spawn(process.env.AYATI_TEST_BRIDGE_PYTHON ?? 'python3',
-    [resolve('tests/fixtures/aws_gateway.py'), config], {
-      cwd: app.data, env: { PATH: process.env.PATH, LANG: 'C.UTF-8', AWS_EC2_METADATA_DISABLED: 'true' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  const record = { child, logs: '' };
-  child.stdout.on('data', bytes => { record.logs += bytes; });
-  child.stderr.on('data', bytes => { record.logs += bytes; });
+  const record = app.containers ? app.startBridge(directory) : {
+    logs: '',
+    child: spawn(process.env.AYATI_TEST_BRIDGE_PYTHON ?? 'python3',
+      [resolve('tests/fixtures/aws_gateway.py'), config], {
+        cwd: app.data, env: { PATH: process.env.PATH, LANG: 'C.UTF-8', AWS_EC2_METADATA_DISABLED: 'true' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+  };
+  const { child } = record;
+  if (!app.containers) {
+    child.stdout.on('data', bytes => { record.logs += bytes; });
+    child.stderr.on('data', bytes => { record.logs += bytes; });
+  }
   t.after(async () => {
     await app.stop(record);
     await writeFile(join(directory, 'bridge.log'), record.logs);
   });
   const settings = await until(async () => {
     assert.equal(child.exitCode, null, record.logs);
-    try { return JSON.parse(await readFile(join(directory, 'bridge-ready.json'), 'utf8')); }
+    try {
+      if (app.containers) {
+        const line = record.logs.match(/^BRIDGE_READY (.+)$/m);
+        return line ? JSON.parse(line[1]) : false;
+      }
+      return JSON.parse(await readFile(join(directory, 'bridge-ready.json'), 'utf8'));
+    }
     catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   }, 'Local signed bridge did not start', 15000);
-  return settings;
+  if (app.containers) {
+    app.containers.inspect(record);
+    for (const [index, worker] of settings.workers.entries()) {
+      for (const name of ['key_file', 'model_key_file']) {
+        const file = join(directory, `${index}-${name}`);
+        await writeFile(file, app.containers.exec(record, ['cat', worker[name]]), { mode: 0o600 });
+        worker[name] = file;
+      }
+    }
+    assert.match(app.containers.exec(record, ['/opt/ayati/bridge/bin/python', '-c',
+      'import aws_bridge.startup; print(aws_bridge.startup.__file__)']).trim(), /^\/opt\/ayati\/integrations\/aws_bridge\/startup.py$/);
+  }
+  return { ...settings, process: record };
 }
 
 export async function captureStarts(t, url) {

@@ -82,6 +82,7 @@ impl PgStore {
         let result = json!({"ok":true});
         remember(&tx, user, w, &input.request, payload, &result).await?;
         audit(&tx, &user.id, Some(w), "library_access_changed", id).await?;
+        super::super::task_revocation::inaccessible(&tx, w).await?;
         tx.commit().await?;
         Ok(result)
     }

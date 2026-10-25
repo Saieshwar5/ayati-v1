@@ -68,9 +68,9 @@ impl PgStore {
             let reply: String = candidate.try_get("", "reply")?;
             let class: String = candidate.try_get("", "work_class")?;
             let id = uuid::Uuid::new_v4().to_string();
-            execute(&tx,&format!("UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,lease_until={CLOCK}+15 WHERE reply=$1"),vec![reply.clone().into(),id.clone().into()]).await?;
+            execute(&tx,&format!("UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,generation=generation+1,lease_until={CLOCK}+15 WHERE reply=$1"),vec![reply.clone().into(),id.clone().into()]).await?;
             execute(&tx,"INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)",
-                vec![id.clone().into(),candidate.try_get::<String>("","workspace")?.into(),reply.into(),(candidate.try_get::<i32>("","attempts")?+1).into(),(limits.lease as i32).into()]).await?;
+                vec![id.clone().into(),candidate.try_get::<String>("","workspace")?.into(),reply.into(),(candidate.try_get::<i32>("","generation")?+1).into(),(limits.lease as i32).into()]).await?;
             let slot_id: String = slot.try_get("", "slot")?;
             let generation: i64 = slot.try_get("", "generation")?;
             execute(&tx,&format!("INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,slot_generation,request,token_hash,expires)

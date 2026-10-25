@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { dirname, join, resolve } from 'node:path';
 import { assertResourceLimits } from './load_limits.mjs';
 
 const processes = new Map();
@@ -47,8 +47,8 @@ export function imageRuntime(data, profile, adminSql) {
   function audit(info,role) {
     assert.equal(info.Image,config.image);
     assert.equal(info.Config.Labels['ayati.test.session'],config.session);
-    if (['controller','executor','migration'].includes(role)) {
-      const limit=profile.roles[role==='migration'?'controller':role];
+    if (['controller','executor','migration','bridge'].includes(role)) {
+      const limit=role==='bridge'?{cpu_percent:50,memory_bytes:268435456,tasks:128}:profile.roles[role==='migration'?'controller':role];
       assert.equal(info.Config.User,'10001:10001');assert.equal(info.HostConfig.Privileged,false);
       assert.equal(info.HostConfig.ReadonlyRootfs,true);assert.equal(info.HostConfig.PidMode,'');
       assert.equal(info.HostConfig.NanoCpus,limit.cpu_percent*10000000);
@@ -130,6 +130,36 @@ export function imageRuntime(data, profile, adminSql) {
   }
   return {
     config,
+    bridge(directory, control, provider) {
+      const folder=join(directory,'image-state');mkdirSync(folder,{mode:0o700});
+      const destination='/var/lib/ayati/bridge';
+      writeFileSync(join(folder,'operator.key'),readFileSync(control.keyFile),{mode:0o600});
+      writeFileSync(join(folder,'model-info.json'),JSON.stringify({url:provider.url,key:provider.key??randomBytes(32).toString('base64url')}),{mode:0o600});
+      writeFileSync(join(folder,'config.json'),JSON.stringify({directory:destination,control_url:control.url,
+        bootstrap_file:destination+'/operator.key',model_info:destination+'/model-info.json'}),{mode:0o600});
+      const helper=name('prepare');
+      docker(['run','--name',helper,'--label','ayati.test.session='+config.session,'--network','none',
+        '--user','0:0','--read-only','--cap-drop','ALL','--cap-add','CHOWN',
+        '--security-opt','no-new-privileges','--memory','64m','--memory-swap','64m','--cpus','0.25','--pids-limit','32',
+        '--mount',`type=bind,src=${folder},dst=/state`, '--entrypoint','/bin/sh',config.image,
+        '-c','chown 0:0 /state; for file in /state/*; do chown 10001:10001 "$file"; done; chown 10001:10001 /state'],{timeout:30000});
+      audit(inspect(helper),'prepare');docker(['rm',helper]);
+      const container=name('bridge');
+      const child=spawn('docker',['run','--name',container,'--label','ayati.test.session='+config.session,
+        '--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--network','host',
+        '--cpus','0.5','--cpuset-cpus',profile.cpu_list,
+        '--memory','268435456','--memory-swap','268435456','--pids-limit','128',
+        '--tmpfs','/tmp:rw,nosuid,nodev,size=16m,mode=1777',
+        '--mount',`type=bind,src=${folder},dst=${destination}`,
+        '--mount',`type=bind,src=${resolve('tests/fixtures/aws_gateway.py')},dst=/opt/ayati/test/aws_gateway.py,readonly`,
+        '--mount',`type=bind,src=${resolve('tests/aws_bridge_startup_test.py')},dst=/opt/ayati/test/aws_bridge_startup_test.py,readonly`,
+        '--env','AWS_EC2_METADATA_DISABLED=true','--entrypoint','/opt/ayati/bridge/bin/python',
+        config.image,'/opt/ayati/test/aws_gateway.py',destination+'/config.json'],{stdio:['ignore','pipe','pipe']});
+      const record={child,logs:'',container,session:config.session,role:'bridge'};
+      child.stdout.on('data',chunk=>{record.logs+=chunk;});child.stderr.on('data',chunk=>{record.logs+=chunk;});
+      records.push(record);processes.set(child.pid,record);
+      return record;
+    },
     migrate(scoped,environment,schema) {
       assert.match(schema,/^relay_worker_[a-f0-9]{32}$/);
       adminSql(`GRANT USAGE,CREATE ON SCHEMA ${schema} TO relay_image_owner`);

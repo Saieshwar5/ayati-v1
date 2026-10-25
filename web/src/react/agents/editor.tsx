@@ -30,8 +30,8 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
   const profile = <div className="ui-form">
     <label className="ui-field">Name<input ref={first} required maxLength={80} value={draft.name} onChange={e => change('name', e.target.value)} /></label>
     <label className="ui-field">Responsibility<textarea required rows={4} maxLength={4000} placeholder="What should this agent help you accomplish?" value={draft.role} onChange={e => change('role', e.target.value)} /></label>
-    <label className="ui-field">Visibility<select disabled={!creating} value={draft.scope} onChange={e => change('scope', e.target.value)}><option value="private">Private · only you</option>{(directory.role === 'Owner' || draft.scope === 'workspace') && <option value="workspace">Workspace · people with access</option>}</select></label>
-    <p className="ui-help">{draft.scope === 'private' ? 'Visible only to you. Cannot be added to channels. Workspace administrators cannot read this agent.' : 'Can participate in channels. Grant teammates access in Users. Personal conversations are never copied into channels.'} Visibility is fixed after creation.</p>
+    <label className="ui-field">Visibility<select disabled={!creating} value={draft.scope} onChange={e => change('scope', e.target.value)}><option value="private">Private · only you</option>{(directory.role === 'Owner' || directory.can_create_workspace || draft.scope === 'workspace') && <option value="workspace">Workspace · people with access</option>}</select></label>
+    <p className="ui-help">{draft.scope === 'private' ? 'Visible only to you. Cannot be added to channels. Workspace administrators cannot read this agent.' : 'Can participate in channels. An Owner can grant teammates access in Settings. Personal conversations are never copied into channels.'} Visibility is fixed after creation.</p>
     <div className="agent-avatars" aria-label="Choose avatar">{Object.entries(symbols).map(([key, symbol]) => <Button key={key} aria-label={`${key} avatar`} aria-pressed={draft.settings.avatar === key} onClick={() => { setting('avatar', key); setFile(undefined); }}>{symbol}</Button>)}</div>
     <label className="ui-field">Upload avatar<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const image = e.target.files?.[0]; if (image && image.size > 2 * 1024 * 1024) { mutation.setStatus('Choose an image smaller than 2 MB.'); e.target.value = ''; return; } setFile(image); }} /></label>
   </div>;
@@ -41,7 +41,7 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <p className="ui-help">Uses the server’s configured model provider. A model identifier must be supported by that provider.</p>
     <label><input type="checkbox" checked={draft.settings.memory} onChange={e => setting('memory', e.target.checked)} /> Use approved knowledge</label>
     <p className="ui-help">Only approved notes for this agent and the current conversation are included. Turning this off retains saved notes.</p>
-    <p className="ui-help">Browser, connector actions and custom MCP are not yet available in this isolated conversation runtime. Existing local agents retain their tools.</p>
+    <p className="ui-help">Manage supported business operations in Tools and approvals on the Agents page. Browser access remains unavailable in this conversation runtime. Existing local agents retain their tools.</p>
   </div>;
   const controls = <div className="ui-form">
     <label className="ui-field">Channel context<select value={draft.settings.history} onChange={e => setting('history', e.target.value)}><option value="all">Recent history, including before joining</option><option value="since_join">Only messages since joining</option></select></label>

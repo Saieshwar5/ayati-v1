@@ -1,6 +1,10 @@
 #!/bin/sh
 # Fixed secret names only; never eval file contents or print secret values.
 set -eu
+if [ "${1-}" = bridge ]; then
+    shift
+    exec /opt/ayati/bridge/bin/python -m aws_bridge "$@"
+fi
 load_secret() {
     name=$1
     eval 'secret_file=${'"${name}"'_FILE-}'

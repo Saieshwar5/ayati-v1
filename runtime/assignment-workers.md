@@ -5,6 +5,9 @@ processes. A local launcher records an attempt, starts one worker for it, observ
 exit and reconciles failures. Workers renew ownership, save an outcome and exit.
 The launcher remains available with zero workers while agents have no work.
 
+[Durable approval waits](durable-approval-waits.md) now layer a saved task lifecycle
+over these bounded attempts. Historical tests below retain their original scope.
+
 This is a local execution foundation, not an AWS deployment or resumable business
 agent. Goose remains pinned at 1.54.0. The original continuously polling
 [worker mode](independent-chat-worker.md) is retained.

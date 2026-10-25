@@ -36,9 +36,17 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/.cache/goose-prepared-build/target \
     python3 tools/build-prepared-goose.py --jobs "$BUILD_JOBS"
 
+FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS bridge
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY integrations/aws_bridge/requirements.lock /tmp/bridge-requirements.lock
+RUN python3 -m venv /opt/ayati/bridge \
+    && /opt/ayati/bridge/bin/pip install --no-cache-dir --disable-pip-version-check \
+       -r /tmp/bridge-requirements.lock
+
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libstdc++6 bubblewrap poppler-utils util-linux \
+    ca-certificates libstdc++6 bubblewrap poppler-utils util-linux python3 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 ayati \
     && useradd --uid 10001 --gid 10001 --home-dir /var/lib/ayati --no-create-home ayati \
@@ -49,8 +57,11 @@ COPY --from=rust /ayati ./ayati
 COPY --from=web /build/web/dist ./web/dist
 COPY --from=goose /build/.cache/goose/v1.54.0/goose ./goose
 COPY --from=prepared-goose /build/.cache/goose/v1.54.0-ayati.1/ ./prepared-goose/
+COPY --from=bridge /opt/ayati/bridge ./bridge/
+COPY integrations/aws_bridge/ ./integrations/aws_bridge/
 COPY --chmod=755 deploy/container-entrypoint.sh ./entrypoint.sh
-ENV AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
+ENV PYTHONPATH=/opt/ayati/integrations PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
     AYATI_PREPARED_GOOSE_BIN=/opt/ayati/prepared-goose/goose \
     AYATI_RUNTIME=goose AYATI_EXECUTION=host AYATI_CHAT_EXECUTION=external \
     AYATI_BROWSER=0 AYATI_MEMORY=0 AYATI_PROOF_TOOL=0 AYATI_PORT=8765
