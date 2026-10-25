@@ -33,15 +33,16 @@ member directory remains available to workspace participants without exposing
 invitations. Agent, App and panel grants remain explicit and separate from roles.
 Removal preserves shared history and attribution, removes membership/resource grants
 and App sessions, and prevents accepted-invitation replay. Role changes invalidate
-issued App sessions. Existing server checks fence queued replies/results after
+issued App sessions and affected business-operation rules/delegations. Existing server checks fence queued replies/results after
 revocation. The client also rechecks its identity/role every 15 seconds and discards
 the previous view on changes; server enforcement does not wait for that refresh.
 
 General name updates include `previous_name` so stale saves fail. Activity lists
 the latest 100 records for the current workspace, only for Owners. Appearance keeps
 its existing device-local persistence. Workspace credentials and provider secrets
-remain server-side. Workspace connection provisioning is still unavailable; Settings
-states this rather than exposing another workspace's local accounts. Local connector management is rendered in React with the existing request contracts.
+remain server-side. PostgreSQL Owners now use [Workspace Connections](workspace-connections.md) to
+approve operator-configured accounts, verify them and delegate bounded agent setup.
+Self-service account registration/OAuth remains unavailable. Local connector management is rendered in React with the existing request contracts.
 Agent details retains its existing legacy connector integration.
 
 ## Existing installations

@@ -108,6 +108,9 @@ impl PgStore {
             ensure!(count > 1, "A workspace must keep at least one Owner");
         }
         // Revoke documents issued under the old role as well as on removal.
+        if assigned != Some(target_role.as_str()) {
+            super::connection_authority::membership_changed(&tx, workspace, target).await?;
+        }
         execute(
             &tx,
             "DELETE FROM relay_member_app_sessions WHERE workspace=$1 AND user_id=$2",

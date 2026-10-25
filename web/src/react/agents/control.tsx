@@ -3,7 +3,7 @@ import { Button, Dialog, Tabs } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { workspaceUrl } from '../../workspace-context';
 import {
-  connectServer, decideAction, loadControls, modes, saveRule, states,
+  decideAction, loadControls, modes, saveRule, states,
   type Action, type Controls, type Mode, type Operation, type Rule,
 } from './control-model';
 import type { Agent } from './model';
@@ -12,7 +12,6 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
   const load = useCallback(() => loadControls(agent.id), [agent.id]);
   const { data, error, refresh } = useResource(load);
   const mutation = useMutation();
-  const [draft, setDraft] = useState({ id: crypto.randomUUID(), server: '' });
   const decisions = useRef(new Map<string, string>());
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -37,55 +36,38 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
       <div className="control-heading">
         <strong>{connection.definition.name}</strong>
         <span>{connection.enabled ? 'Connected' : 'Disconnected'}</span>
-        {data.can_manage && <Button disabled={mutation.busy || (!connection.enabled && data.execution_available === false)} onClick={() => void mutation.run(async () => {
-          await connectServer(agent.id, { id: connection.id, server: connection.server, enabled: !connection.enabled });
-          await refresh();
-        })}>{connection.enabled ? 'Disconnect' : 'Reconnect and review'}</Button>}
+
       </div>
       {connection.enabled && connection.definition.operations.map(operation => {
         const rule = data.rules.find(r => r.connection === connection.id && r.operation === operation.id);
+        const delegation = data.delegations?.find(d => d.connection === connection.id && d.operation === operation.id);
+        const ceiling = data.can_manage_connections ? 'allow' : delegation?.ceiling ?? 'block';
         return <PermissionRow
-          key={`${connection.id}/${operation.id}/${rule?.revision ?? 0}`}
+          key={`${connection.id}/${operation.id}/${rule?.revision ?? 0}/${delegation?.revision ?? 0}`}
           conversations={data.conversations}
           operation={operation}
           rule={rule}
-          editable={data.can_manage && Boolean(agent.editable)}
+          editable={data.can_manage && Boolean(agent.editable) && (data.can_manage_connections || Boolean(delegation))}
+          ceiling={ceiling}
+          approver={data.can_manage_connections ? undefined : delegation?.approver_name}
           busy={mutation.busy}
           executionAvailable={data.execution_available !== false}
           save={(mode, revision, chat) => mutation.run(async () => {
-            await saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision, chat });
+            await saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision, chat, ...(!data.can_manage_connections && delegation ? { delegation_revision: delegation.revision } : {}) });
             await refresh();
           })}
         />;
       })}
     </div>)}
     {!data.connections.length && <p className="ui-help">No connected business systems yet.</p>}
-    {data.can_manage && Boolean(agent.editable) && data.execution_available !== false && <form className="ui-form" onSubmit={event => {
-      event.preventDefault();
-      void mutation.run(async () => {
-        await connectServer(agent.id, { ...draft, enabled: true });
-        setDraft({ id: crypto.randomUUID(), server: '' });
-        await refresh();
-      });
-    }}>
-      <label className="ui-field">Available business system
-        <select value={draft.server} disabled={mutation.busy} onChange={event => {
-          setDraft({ id: crypto.randomUUID(), server: event.target.value });
-        }}>
-          <option value="">Choose a system</option>
-          {data.servers.filter(server => !data.connections.some(c => c.server === server.id)).map(server =>
-            <option key={server.id} value={server.id}>{server.name}</option>)}
-        </select>
-      </label>
-      <Button type="submit" primary disabled={mutation.busy || !draft.server}>Connect system</Button>
-      {!data.servers.length && <p className="ui-help">Your operator needs to configure a supported remote MCP connection. Credentials are never entered in agent chat.</p>}
-    </form>}
-    {!data.can_manage && <p className="ui-help">A workspace owner manages business tool permissions.</p>}
+    {data.can_manage_connections && <a href={workspaceUrl('/?view=settings&scope=workspace&section=connections')}>Manage workspace connections and delegated access</a>}
+    {!data.can_manage_connections && <p className="ui-help">Only operations delegated by an Owner can be configured here. Ask an Owner if an account or permission is missing.</p>}
+
   </section>;
 
   const activity = data && <section className="control-section" aria-label="Action history">
     <p className="ui-help">The latest 50 actions visible to you. Approval applies to the exact fields shown. Unknown outcomes need reconciliation before further writes.</p>
-    {!data.actions.length && <p className="ui-help">Connect a system in Permissions, then ask this agent to use an assigned operation. Its proposals and results will appear here.</p>}
+    {!data.actions.length && <p className="ui-help">Assign an approved system in Permissions, then ask this agent to use an assigned operation. Its proposals and results will appear here.</p>}
     {data.actions.map(action => <ActionRow
       key={action.id}
       action={action}
@@ -107,11 +89,11 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
 
 type PermissionProps = {
   conversations: Controls['conversations']; operation: Operation; rule?: Rule;
-  editable: boolean; busy: boolean;
+  editable: boolean; busy: boolean; ceiling: Mode; approver?: string;
   executionAvailable: boolean;
   save: (mode: Mode, revision: number, chat: string) => Promise<void>;
 };
-function PermissionRow({ conversations, operation, rule, editable, busy, executionAvailable, save }: PermissionProps) {
+function PermissionRow({ conversations, operation, rule, editable, busy, ceiling, approver, executionAvailable, save }: PermissionProps) {
   const [mode, setMode] = useState<Mode>(rule?.mode ?? 'block');
   const [chat, setChat] = useState(rule?.chat ?? (conversations.length === 1 ? conversations[0].id : ''));
   return <form className="control-rule" onSubmit={event => {
@@ -121,7 +103,8 @@ function PermissionRow({ conversations, operation, rule, editable, busy, executi
     <div>
       <strong>{operation.title}</strong>
       <small>{operation.effect === 'write' ? 'Changes business records' : 'Reads business records'}</small>
-      {rule?.mode === 'ask' && <small>Approver: {rule.approver_name}</small>}
+      {rule?.mode === 'ask' && !approver && <small>Approver: {rule.approver_name}</small>}
+      {approver && <small>Your limit: {modes[ceiling]}. Ask requests go to {approver}.</small>}
     </div>
     <div className="control-rule-fields">
       <label className="ui-field">Conversation
@@ -132,7 +115,7 @@ function PermissionRow({ conversations, operation, rule, editable, busy, executi
       </label>
       <label className="ui-field">Permission
         <select aria-label={`${operation.title} permission`} value={mode} disabled={!editable || busy} onChange={event => setMode(event.target.value as Mode)}>
-          {Object.entries(modes).map(([value, label]) => <option key={value} value={value} disabled={!executionAvailable && value !== 'block'}>{label}</option>)}
+          {Object.entries(modes).map(([value, label]) => <option key={value} value={value} disabled={(!executionAvailable && value !== 'block') || (ceiling === 'block' && value !== 'block') || (ceiling === 'ask' && value === 'allow')}>{label}</option>)}
         </select>
       </label>
     </div>

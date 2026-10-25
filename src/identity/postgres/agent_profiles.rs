@@ -55,7 +55,7 @@ impl PgStore {
     ) -> Result<Value> {
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
-        let member_role = role(&tx, w, &user.id).await?;
+        role(&tx, w, &user.id).await?;
         let settings = serde_json::to_value(&input.settings)?;
         let old = query(
             &tx,
@@ -91,8 +91,9 @@ impl PgStore {
         } else {
             ensure!(input.revision == 0, "Agent missing");
             ensure!(
-                input.scope == "private" || member_role == "Owner",
-                "Only the workspace owner can create workspace agents"
+                input.scope == "private"
+                    || super::connection_authority::can_create(&tx, w, &user.id).await?,
+                "An Owner must allow you to create workspace agents"
             );
             execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model,scope,owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)",vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),input.scope.clone().into(),user.id.clone().into(),settings.into()]).await?;
         }

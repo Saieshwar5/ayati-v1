@@ -5,7 +5,7 @@ const workspace = '11111111-1111-4111-8111-111111111111';
 const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Operations', editable: true };
 const operation = { id: 'order.update', title: 'Update order', effect: 'write', schema: {} };
 const connection = { id: 'connection', server: 'orders', enabled: true, revision: 1, definition: { id: 'orders', name: 'Orders', operations: [operation] } };
-function state(extra = {}) { return { can_manage: true, viewer: 'owner', servers: [], connections: [connection], conversations: [{ id: 'chat', name: 'Operations' }], rules: [{ connection: connection.id, operation: operation.id, mode: 'block', revision: 3, approver_name: 'Owner', chat: 'chat' }], actions: [], ...extra }; }
+function state(extra = {}) { return { can_manage: true, can_manage_connections: true, delegations: [], viewer: 'owner', servers: [], connections: [connection], conversations: [{ id: 'chat', name: 'Operations' }], rules: [{ connection: connection.id, operation: operation.id, mode: 'block', revision: 3, approver_name: 'Owner', chat: 'chat' }], actions: [], ...extra }; }
 
 test('control permissions retain a failed draft and synchronously guard repeated saves', async () => {
   const writes = []; let fail = true; let resolveWrite;
@@ -81,7 +81,7 @@ test('a late control response cannot populate another agent after remount', asyn
   } });
 });
 
-test('unsupported worker setup allows disconnection while preventing new tool permissions', async () => {
+test('unsupported worker setup links to connection management while preventing new tool permissions', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click }) => {
     const { AgentControl } = await import('../src/react/agents/control.tsx');
@@ -92,10 +92,27 @@ test('unsupported worker setup allows disconnection while preventing new tool pe
     const permission = document.querySelector('select[aria-label="Update order permission"]');
     assert.equal([...permission.options].find(option => option.value === 'allow').disabled, true);
     assert.equal([...permission.options].find(option => option.value === 'block').disabled, false);
-    assert.equal(button('Disconnect').disabled, false);
+    assert.match(document.querySelector('a').textContent, /Manage workspace connections/);
     assert.equal(writes.length, 0);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options = {}) => {
     if (options.body) writes.push(JSON.parse(options.body));
     return { ok: true, json: async () => state({ execution_available: false }) };
+  } });
+});
+
+test('delegated members see their ceiling and save its revision with the agent permission', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { AgentControl } = await import('../src/react/agents/control.tsx');
+    await render(AgentControl, { agent, close() {} }); await click(button('Permissions'));
+    const select = document.querySelector('[aria-label="Update order permission"]');
+    assert.equal([...select.options].find(o => o.value === 'allow').disabled, true);
+    assert.match(document.querySelector('dialog').textContent, /Ask requests go to Owner/);
+    assert.equal(document.querySelector('a'), null);
+    await change(select, 'ask'); await click(button('Save permission'));
+    assert.equal(writes[0].delegation_revision, 7);
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options = {}) => {
+    if (options.body) { writes.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ saved: true }) }; }
+    return { ok: true, json: async () => state({ can_manage_connections: false, viewer: 'member', delegations: [{ connection: connection.id, operation: operation.id, ceiling: 'ask', revision: 7, approver: 'owner', approver_name: 'Owner' }] }) };
   } });
 });

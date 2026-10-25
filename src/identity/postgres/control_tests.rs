@@ -12,6 +12,17 @@ async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
     let (chat, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let connection = uuid::Uuid::new_v4().to_string();
     let definition = json!({"id":"orders","name":"Orders","operations":[{"id":"order.update","title":"Update order","tool":"update_order","effect":"write","schema":{"type":"object","properties":{"order":{"type":"string"},"address":{"type":"string"}},"required":["order","address"],"additionalProperties":false}}]});
+    db.control_system(
+        &owner,
+        &w,
+        &crate::identity::control::connections_model::SystemApproval {
+            server: "orders".into(),
+            approved: true,
+            revision: 0,
+        },
+    )
+    .await
+    .unwrap();
     db.control_connect(&owner, &w, &agent, &connection, definition, "reviewed")
         .await
         .unwrap();
@@ -20,6 +31,7 @@ async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
         &w,
         &agent,
         &Rule {
+            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
             mode: mode.into(),
@@ -154,6 +166,7 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
             .is_err()
     );
     let rule = Rule {
+        delegation_revision: None,
         connection: connection.clone(),
         operation: "order.update".into(),
         mode: "block".into(),
@@ -188,6 +201,7 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
         &w,
         &job.agent,
         &Rule {
+            delegation_revision: None,
             revision: 2,
             mode: "ask".into(),
             ..rule
@@ -304,6 +318,7 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
+            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
             mode: "block".into(),
@@ -323,6 +338,7 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
+            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
             mode: "allow".into(),

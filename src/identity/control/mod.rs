@@ -1,6 +1,8 @@
 //! Shared-workspace authority boundary for supported, reviewed remote MCP operations.
 pub(crate) mod broker;
 pub(crate) mod catalog;
+mod connections;
+pub(crate) mod connections_model;
 mod mcp;
 pub(crate) mod model;
 use super::*;
@@ -12,6 +14,7 @@ use serde_json::{Value, json};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
+        .merge(connections::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
             get(snapshot),
@@ -52,16 +55,8 @@ async fn snapshot(
     let mut value = pg(&app)?.control_snapshot(&user, &w, &agent).await?;
     let available = execution_available()?;
     value["execution_available"] = json!(available);
-    value["servers"] = if value["can_manage"] == true && available {
-        json!(
-            catalog::servers(&w)?
-                .iter()
-                .map(|s| s.public())
-                .collect::<Vec<_>>()
-        )
-    } else {
-        json!([])
-    };
+    // Account discovery belongs to the Owner-only workspace settings endpoint.
+    value["servers"] = json!([]);
     Ok(Json(value))
 }
 #[derive(Deserialize)]
@@ -92,6 +87,14 @@ async fn connect(
     check(
         execution_available()?,
         "Business tools need controller-managed execution; ask your operator to enable it",
+    )?;
+    let approved = pg(&app)?.workspace_connections(&user, &w).await?;
+    check(
+        approved["systems"].as_array().is_some_and(|rows| {
+            rows.iter()
+                .any(|row| row["server"] == input.server && row["approved"] == true)
+        }),
+        "The workspace Owner must approve this system first",
     )?;
     let server = catalog::server(&w, &input.server)?;
     let fingerprint = server.fingerprint()?;

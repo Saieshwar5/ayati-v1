@@ -2,7 +2,7 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all eighteen migrations, including m20261025_000018_shared_control.
+requires all nineteen migrations, including m20261025_000019_connection_authority.
 API-only polling dispatch uses `AYATI_CHAT_EXECUTION=external`; temporary workers
 use `AYATI_CHAT_EXECUTION=assigned` and the local assignment launcher. Reapply runtime
 grants after migration; existing polling jobs are preserved in their original mode.

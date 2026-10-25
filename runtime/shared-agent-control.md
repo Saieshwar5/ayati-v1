@@ -2,22 +2,26 @@
 
 The first shared-workspace control slice adds reviewed remote MCP connections,
 per-agent/per-conversation Allow automatically / Ask first / Block rules, exact
-action approvals and durable outcomes. PostgreSQL migration **18** is required.
+action approvals and durable outcomes. PostgreSQL schema **19** is required by the current checkout.
+[Workspace connections and delegation](workspace-connections.md) extends this engine.
 The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents retain the existing tool-free execution path.
 
 ## Owner journey
 
-Open Agents, then **Tools and approvals** for a shared managed agent. Activity
-shows approvals/results; Permissions contains connection/rule setup. Connect an
-available system; connection setup validates the reviewed remote schemas without
-executing a business operation. Each operation starts blocked. Select the one
-conversation in which the operation may be used and save its permission. Ask first
-assigns the saving workspace owner as the single approver. Other workspace owners
-cannot use that person's pending approval. Changing the rule invalidates pending
-proposals; reconnecting or disconnecting invalidates pending connection proposals.
-Reconnecting or reviewing changed credentials/definitions also resets existing
-operation grants to Block. Old permissions never silently authorize new semantics.
+Open **Settings → Workspace → Connections** to approve configured systems, verify
+accounts and delegate bounded operation access. Then open Agents → **Tools and
+approvals**. Activity shows exact approvals/results; Permissions saves rules for
+one selected conversation per operation. Each operation starts blocked. Owners
+configure rules directly; delegated members configure agents they maintain within
+their operation limit. Ask first names the saving Owner for direct Owner rules,
+or the Owner who granted the member's delegation. Other Owners cannot substitute
+for that designated approver.
+
+Connection setup validates reviewed remote schemas without executing a business
+operation. Rule changes invalidate pending proposals. Reconnecting/reviewing or
+disconnecting also blocks existing rules and delegation limits. Old permissions
+never silently authorize changed credentials or operation meanings.
 
 Agent requests use `ayati_control` forwarding tools. The controller validates the
 current requester, workspace, agent, conversation, Library source access, running claim, connection, rule,
@@ -123,7 +127,7 @@ The source checks are:
 cargo test --locked --lib
 # Dedicated disposable local PostgreSQL only:
 cargo test --locked --lib identity::postgres -- --ignored --skip embedded_gateway_uses_controller_owned_credentials
-node --test tests/shared_agent_control.mjs
+node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs
 cd web
 npm test
 npm run build
@@ -137,7 +141,7 @@ provider, live model quality, cloud isolation, billing or production acceptance.
 Use `RELAY_TEST_DATABASE_URL` for a dedicated `relay_simulation_*` database. Test
 records, failed attempts and screenshots are retained beneath `.tmp/`.
 
-Verified locally on 2026-10-25: 82 Rust unit tests, 94 disposable-PostgreSQL tests,
+Historical schema-18 verification on 2026-10-25: 82 Rust unit tests, 94 disposable-PostgreSQL tests,
 80 client behavior tests and 43 AWS manifest/bridge tests pass. Clippy with warnings
 denied, formatting, source line limits, client production build and browser-test
 type checks pass. The two process tests cover the pooled real-Goose/browser flow,

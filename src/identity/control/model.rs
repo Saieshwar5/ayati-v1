@@ -157,6 +157,8 @@ pub(crate) struct Rule {
     pub mode: String,
     pub revision: i64,
     pub chat: String,
+    #[serde(default)]
+    pub delegation_revision: Option<i64>,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

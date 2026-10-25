@@ -22,6 +22,17 @@ async fn embedded_gateway_uses_controller_owned_credentials() {
     std::fs::write(&path, serde_json::to_vec(&profiles).unwrap()).unwrap();
     let server = catalog::server(&w, "orders").unwrap();
     let connection = uuid::Uuid::new_v4().to_string();
+    db.control_system(
+        &owner,
+        &w,
+        &crate::identity::control::connections_model::SystemApproval {
+            server: "orders".into(),
+            approved: true,
+            revision: 0,
+        },
+    )
+    .await
+    .unwrap();
     db.control_connect(
         &owner,
         &w,
@@ -37,6 +48,7 @@ async fn embedded_gateway_uses_controller_owned_credentials() {
         &w,
         &agent,
         &Rule {
+            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.read".into(),
             mode: "allow".into(),

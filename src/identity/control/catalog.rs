@@ -11,6 +11,8 @@ pub(crate) struct Server {
     pub id: String,
     pub workspace: String,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
     pub url: String,
     pub bearer_file: Option<String>,
     pub operations: Vec<Operation>,
@@ -50,7 +52,7 @@ impl Server {
             .context("Operation is not supported by this connection")
     }
     pub fn public(&self) -> Value {
-        json!({"id":self.id,"name":self.name,"operations":self.operations})
+        json!({"id":self.id,"name":self.name,"account":self.account,"operations":self.operations})
     }
 }
 fn private_file(path: &Path) -> Result<String> {
@@ -88,6 +90,9 @@ pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
         ensure!(
             !server.name.trim().is_empty()
                 && server.name.len() <= 160
+                && server.account.as_ref().is_none_or(|a| !a.trim().is_empty()
+                    && a.len() <= 200
+                    && !a.chars().any(char::is_control))
                 && !server.operations.is_empty()
                 && server.operations.len() <= 20,
             "Invalid MCP profile"

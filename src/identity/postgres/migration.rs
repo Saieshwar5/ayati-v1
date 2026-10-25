@@ -23,7 +23,29 @@ impl MigratorTrait for Migrator {
             Box::new(InteractiveReserve),
             Box::new(CloudExecutors),
             Box::new(SharedControl),
+            Box::new(ConnectionAuthority),
         ]
+    }
+}
+struct ConnectionAuthority;
+impl MigrationName for ConnectionAuthority {
+    fn name(&self) -> &str {
+        "m20261025_000019_connection_authority"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ConnectionAuthority {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("connection_authority.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Connection authority requires a forward migration".into(),
+        ))
     }
 }
 struct SharedControl;

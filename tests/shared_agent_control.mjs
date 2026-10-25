@@ -33,12 +33,14 @@ test('shared real Goose obeys UI rules through remote MCP, with exact approvals 
   const [name, value] = app.cookie.split('=');
   await context.addCookies([{ name, value, url: app.base, httpOnly: true, sameSite: 'Lax' }]);
   const page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`${app.base}/w/${workspace}/?view=settings&scope=workspace&section=connections`);
+  await page.getByRole('button', { name: 'Approve system', exact: true }).click();
+  await page.getByRole('button', { name: 'Connect account', exact: true }).click();
+  await page.getByRole('button', { name: 'Manage access', exact: true }).waitFor();
   await page.goto(`${app.base}/w/${workspace}/?view=agents`);
   await page.getByRole('button', { name: 'Tools and approvals for Nova' }).click();
   const drawer = page.getByRole('dialog', { name: 'Nova · Tools and approvals' });
   await drawer.getByRole('tab', { name: 'Permissions', exact: true }).click();
-  await drawer.getByLabel('Available business system').selectOption('orders');
-  await drawer.getByRole('button', { name: 'Connect system', exact: true }).click();
   await drawer.getByLabel('Read order permission', { exact: true }).selectOption('allow');
   await drawer.getByRole('button', { name: 'Save Read order permission', exact: true }).click();
   await drawer.getByLabel('Update order permission', { exact: true }).selectOption('ask');

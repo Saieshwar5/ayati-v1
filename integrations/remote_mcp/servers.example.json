@@ -3,6 +3,7 @@
     "id": "orders",
     "workspace": "00000000-0000-4000-8000-000000000000",
     "name": "Orders account · reviewed scope",
+    "account": "Sample business · orders account",
     "url": "https://mcp.example.invalid/mcp",
     "bearer_file": "/absolute/private/orders-bearer",
     "operations": [

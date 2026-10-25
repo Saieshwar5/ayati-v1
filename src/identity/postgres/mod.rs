@@ -12,6 +12,11 @@ pub mod cli;
 mod cloud_executor_tests;
 mod cloud_executors;
 mod collaboration;
+mod connection_authority;
+#[cfg(test)]
+mod connection_authority_tests;
+#[cfg(test)]
+mod connection_migration_tests;
 pub(crate) mod control_actions;
 #[cfg(test)]
 mod control_execution_tests;
@@ -31,6 +36,7 @@ mod executor_slots;
 mod preparation_tests;
 #[cfg(test)]
 mod profile_lookup_tests;
+mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;
 mod feedback;
