@@ -12,8 +12,17 @@ mod approval_tests;
 #[cfg(test)]
 mod assignment_tests;
 mod assignments;
+#[cfg(test)]
+mod channel_archive_recovery_tests;
+mod channel_lifecycle;
 mod chat;
 mod chat_intake;
+mod chat_organization_migration;
+#[cfg(test)]
+mod chat_organization_migration_tests;
+#[cfg(test)]
+mod chat_organization_tests;
+mod chat_pins;
 pub mod cli;
 #[cfg(test)]
 mod cloud_executor_tests;

@@ -1,0 +1,19 @@
+.chat-contact-row { display:flex; align-items:center; gap:2px; border-radius:9px; margin:3px 0; }
+.chat-contact-row .chat-contact { flex:1; min-width:0; width:auto; margin:0; }
+.chat-contact-row:hover, .chat-contact-row:focus-within { background:var(--soft); }
+.chat-contact-row:has(.chat-contact[aria-current=page]) { background:var(--selection); }
+.chat-contact-row .chat-contact[aria-current=page], .chat-contact-row .chat-contact:hover { background:transparent; }
+.chat-directory .chat-pin-action { flex:0 0 32px; width:32px; min-height:36px; padding:4px; font-size:16px; background:transparent; border-color:transparent; color:var(--muted); box-shadow:none; }
+.chat-pin-action[aria-pressed=true] { color:var(--text); }
+.chat-directory section > header > small { font-size:10px; color:var(--muted); }
+.chat-directory .chat-archive-toggle { color:var(--muted); border:0; background:transparent; padding:8px 0; font-size:11px; text-align:left; }
+.chat-archive-banner { display:flex; align-items:center; flex-wrap:wrap; gap:12px; background:var(--soft); padding:12px 18px; font-size:13px; line-height:1.5; }
+.chat-archive-banner span { flex:1; min-width:140px; }
+@media(hover:hover) and (pointer:fine) {
+  .chat-contact-row .chat-pin-action[aria-pressed=false] { opacity:0; }
+  .chat-contact-row:hover .chat-pin-action, .chat-contact-row:focus-within .chat-pin-action { opacity:1; }
+}
+@media(max-width:600px) {
+  .chat-directory .chat-pin-action { flex-basis:40px; width:40px; min-height:40px; }
+  .chat-archive-banner { padding:12px; }
+}

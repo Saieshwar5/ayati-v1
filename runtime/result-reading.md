@@ -120,7 +120,9 @@ The excluded fixture-specific test runs through
 `node --test tests/result_reading.mjs`; retained journeys are
 `tests/reply_stream.mjs` and `tests/agents_workspace.mjs`.
 
-Schema remains **23**. No normal workspace database was migrated, and no cloud or
+This reader increment introduced no migration and shipped on **schema 23**.
+Current startup requires [schema 24](chat-organization.md). No normal workspace
+database was migrated during its checks, and no cloud or
 paid model was used. This delivers the saved text/file/image reader subset.
 Generated artifact publication, PDF/Word/Excel export, every historical streamed
 draft, rich PDF/media readers and universal O3/O4 acceptance remain separate.

@@ -31,6 +31,9 @@ server API contracts, authentication, and workspace boundaries.
   invitation lists, invitations, roles and explicit agent/App/panel grants.
 - `web/src/react/approvals/`: current-access exact review, restricted inbox and
   approver/channel selection shared by workspace conversations and agent setup.
+- `web/src/react/chat/organization-model.ts`, `pin-control.tsx` and
+  `channel-lifecycle.tsx`: personal server pins and guarded archive/restore review.
+  Existing conversation/thread composers retain drafts while closed to new sends.
 - `web/src/react/questions/`: compact saved references and typed ordinary-answer
   dialogs, guarded submissions, readable history and source revocation handling.
   Answers and business approvals retain separate authority.

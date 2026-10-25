@@ -1,5 +1,7 @@
 pub(super) mod execution;
 pub(crate) mod mentions;
+mod organization;
+pub(crate) mod organization_model;
 mod runner;
 pub(crate) mod store;
 mod stream_limit;
@@ -15,6 +17,7 @@ pub(super) use store::schema;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
+        .merge(organization::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
             get(focus),
@@ -136,7 +139,7 @@ async fn list(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.chats(&user, &workspace).await?))
+    Ok(Json(organization::chats(&app, &user, &workspace).await?))
 }
 async fn create(
     State(app): State<Shared>,

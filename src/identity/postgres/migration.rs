@@ -28,6 +28,7 @@ impl MigratorTrait for Migrator {
             Box::new(ChannelApprovals),
             Box::new(super::durable_wait_migration::DurableWaits),
             Box::new(super::question_migration::Questions),
+            Box::new(super::chat_organization_migration::ChatOrganization),
         ]
     }
 }
