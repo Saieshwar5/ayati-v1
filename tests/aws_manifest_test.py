@@ -49,10 +49,10 @@ class ManifestTests(unittest.TestCase):
 
     def test_release_requires_the_cloud_binding_migration(self):
         data = complete_manifest()
-        self.assertEqual(data["release"]["schema_version"], 17)
+        self.assertEqual(data["release"]["schema_version"], 18)
         migration = (ROOT / "src/identity/postgres/migration.rs").read_text()
-        self.assertIn("m20261024_000017_cloud_executors", migration)
-        data["release"]["schema_version"] = 16
+        self.assertIn("m20261025_000018_shared_control", migration)
+        data["release"]["schema_version"] = 17
         self.assertFalse(validate(data, NOW)["schema_ok"])
 
     def test_unknown_secret_fields_are_rejected_without_echoing_them(self):

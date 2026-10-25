@@ -64,6 +64,32 @@ class TransportTests(unittest.TestCase):
         self.client = urllib3.PoolManager(timeout=urllib3.Timeout(connect=2, read=3), retries=False)
         self.addCleanup(self.client.clear)
 
+    def test_scoped_tool_route_preserves_assignment_capability_through_signed_tls(self):
+        assignment = "11111111-1111-4111-8111-111111111111"
+        path = f"/v1/assignments/{assignment}/tools"
+        capability = "s" * 43
+        payload = {"assignment": {"scope": {"assignment": assignment}, "session": "test-session"},
+                   "tool": "operations", "arguments": {}}
+        with tempfile.TemporaryDirectory() as directory, backend() as origin:
+            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP)
+            with stack:
+                worker = chain["workers"][0]
+                response = self.client.request("POST", worker["url"] + path,
+                    body=json.dumps(payload), headers={"Authorization": "Bearer " + capability})
+                self.assertEqual(response.status, 200)
+                response.read()
+                forwarded_path, forwarded, headers = origin.requests[0]
+                self.assertEqual(forwarded_path, path)
+                self.assertEqual(forwarded, payload)
+                self.assertEqual(headers["Authorization"], "Bearer " + capability)
+                self.assertNotEqual(headers["Authorization"], "Bearer " + BOOTSTRAP)
+                self.assertTrue(headers["x-ayati-cloud-task"].endswith("a" * 32))
+                response = self.client.request("GET", worker["url"] + path,
+                    headers={"Authorization": "Bearer " + capability})
+                self.assertEqual(response.status, 403)
+                response.read()
+                self.assertEqual(len(origin.requests), 1)
+
     def test_real_signed_tls_registration_overwrites_untrusted_identity(self):
         with tempfile.TemporaryDirectory() as directory, backend() as origin:
             stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP)

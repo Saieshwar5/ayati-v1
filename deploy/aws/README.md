@@ -162,7 +162,7 @@ deployment command in the M0 CLI:
 3. Publish the already verified image by immutable registry digest. Validate
    revised templates and inspect change sets, named IAM capabilities and tags.
 4. Create stacks in dependency order. Establish the restricted DB role; perform
-   one serialized forward migration through schema 17 and reapply runtime grants.
+   one serialized forward migration through schema 18 and reapply runtime grants.
 5. Admit a controller only after TLS, private storage and authentication checks.
    Admit executors only after exact machine identity, clean scratch and readiness.
 6. Perform the bounded journey in [trial-runbook.md](trial-runbook.md). Record

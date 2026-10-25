@@ -1,0 +1,23 @@
+[
+  {
+    "id": "orders",
+    "workspace": "00000000-0000-4000-8000-000000000000",
+    "name": "Orders account · reviewed scope",
+    "url": "https://mcp.example.invalid/mcp",
+    "bearer_file": "/absolute/private/orders-bearer",
+    "operations": [
+      {
+        "id": "order.read",
+        "title": "Read order",
+        "tool": "read_order",
+        "effect": "read",
+        "schema": {
+          "type": "object",
+          "properties": { "order": { "type": "string" } },
+          "required": ["order"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+]

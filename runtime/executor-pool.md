@@ -1,5 +1,11 @@
 # Local shared executor pool
 
+Shared-tool extension: [governed MCP operations](shared-agent-control.md) use a fresh
+scoped tool harness and count cold startup separately. Prepared chat stays tool-free.
+Current application schema is 18; earlier measurements below retain their original
+source/image/migration evidence boundaries.
+
+
 M1.5b adds `ayati executor`: a persistent Rust supervisor with bounded, prepared
 Goose sessions. The controller accepts shared-chat work, prepares authorized
 context and assigns it to a compatible ready slot. PostgreSQL owns claims,

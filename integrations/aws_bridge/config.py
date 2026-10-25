@@ -8,7 +8,7 @@ import stat
 from urllib.parse import urlsplit
 
 
-CONTROL = re.compile(r"/v1/(?:executors/[a-f0-9-]{36}/[a-f0-9-]{36}/(?:pool/(?:events|capacity|drain|stop)|release)|assignments/[a-f0-9-]{36}/(?:start|renew|complete|output))")
+CONTROL = re.compile(r"/v1/(?:executors/[a-f0-9-]{36}/[a-f0-9-]{36}/(?:pool/(?:events|capacity|drain|stop)|release)|assignments/[a-f0-9-]{36}/(?:start|renew|complete|output|tools))")
 TOKEN = re.compile(r"[A-Za-z0-9_-]{43}")
 
 

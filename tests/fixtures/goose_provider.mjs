@@ -60,6 +60,15 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     if (response.destroyed) return;
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
+    const controlPrompt = prompt?.replace(/^user:\s*/, '');
+    if (controlPrompt?.startsWith('control ')) {
+      const command = JSON.parse(controlPrompt.slice(8));
+      const results = messages.slice(lastUser + 1).filter(message => message.role === 'tool');
+      const steps = command.steps ?? [command];
+      const step = steps[results.length];
+      if (step) tool = { id: `control-${results.length}`, type: 'function', function: { name: `ayati_control__${step.tool}`, arguments: JSON.stringify(step.arguments) } };
+      else text = `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
+    }
     if (prompt?.startsWith('workspace ')) {
       const command = JSON.parse(prompt.slice(10));
       const result = messages.slice(lastUser + 1).find(message => message.role === 'tool');

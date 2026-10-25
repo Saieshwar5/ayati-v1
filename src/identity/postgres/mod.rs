@@ -12,6 +12,12 @@ pub mod cli;
 mod cloud_executor_tests;
 mod cloud_executors;
 mod collaboration;
+pub(crate) mod control_actions;
+#[cfg(test)]
+mod control_execution_tests;
+mod control_rules;
+#[cfg(test)]
+mod control_tests;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
@@ -65,6 +71,7 @@ use sea_orm::{
 use serde_json::Value;
 use std::time::Duration;
 
+#[derive(Clone)]
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, atomic::Ordering};
 use tokio::sync::broadcast;
 
 pub struct RuntimeEvents {
+    pub control_tools: bool,
     pub active: Mutex<Option<Arc<Turn>>>,
     pub store: Arc<Store>,
     pub events: broadcast::Sender<Event>,
@@ -222,36 +223,48 @@ impl RuntimeEvents {
                     observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
                 )
             });
-        if !(browser_allowed || proof_allowed || memory_allowed || workspace_allowed)
+        let control_allowed = self.control_tools
+            && tool.is_some_and(|name| {
+                ayati_guest::control_mcp::observed(
+                    name,
+                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                )
+            });
+        if !(browser_allowed
+            || proof_allowed
+            || memory_allowed
+            || workspace_allowed
+            || control_allowed)
             || observed.get("rawInput") != action.get("rawInput")
         {
             return cancelled();
         }
-        let automatic = workspace_allowed
-            && match tool {
-                Some(
-                    "ayati_workspace__connector_tools"
-                    | "ayati_workspace__panels_list"
-                    | "ayati_workspace__apps_list"
-                    | "ayati_workspace__app_source",
-                ) => true,
-                Some("ayati_workspace__app_records") => {
-                    observed
-                        .pointer("/rawInput/command/action")
-                        .and_then(|v| v.as_str())
-                        == Some("list")
-                }
-                Some("ayati_workspace__panel_write") => {
-                    self.panel_updates.as_ref().is_some_and(|(p, agent)| {
-                        p.automatic_panel_update(
-                            agent,
-                            observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
-                        )
-                        .unwrap_or(false)
-                    })
-                }
-                _ => false,
-            };
+        let automatic = control_allowed
+            || workspace_allowed
+                && match tool {
+                    Some(
+                        "ayati_workspace__connector_tools"
+                        | "ayati_workspace__panels_list"
+                        | "ayati_workspace__apps_list"
+                        | "ayati_workspace__app_source",
+                    ) => true,
+                    Some("ayati_workspace__app_records") => {
+                        observed
+                            .pointer("/rawInput/command/action")
+                            .and_then(|v| v.as_str())
+                            == Some("list")
+                    }
+                    Some("ayati_workspace__panel_write") => {
+                        self.panel_updates.as_ref().is_some_and(|(p, agent)| {
+                            p.automatic_panel_update(
+                                agent,
+                                observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
+                            )
+                            .unwrap_or(false)
+                        })
+                    }
+                    _ => false,
+                };
         let action = serde_json::json!({ "tool": tool, "request": action,"authorization":if automatic {"saved_workspace_policy"}else{"owner_decision"} });
         let Some(allow) = request
             .options

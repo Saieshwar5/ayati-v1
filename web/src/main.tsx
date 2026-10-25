@@ -1,5 +1,6 @@
 import { SimulationPage } from './react/simulation';
 import './react/company.css';
+import './react/agents/control.css';
 import { WorkspaceApplication } from './react/workspace-application';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

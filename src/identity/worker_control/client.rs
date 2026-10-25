@@ -76,11 +76,20 @@ impl Client {
         })
     }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: &impl Serialize) -> Result<T> {
+        self.post_timeout(path, body, 2).await
+    }
+    pub async fn post_timeout<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl Serialize,
+        seconds: u64,
+    ) -> Result<T> {
         let mut response = self
             .http
             .post(format!("{}{path}", self.url))
             .bearer_auth(&self.token)
             .json(body)
+            .timeout(Duration::from_secs(seconds))
             .send()
             .await
             .map_err(|_| Unavailable)?;

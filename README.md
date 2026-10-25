@@ -10,6 +10,13 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
+[Shared agent control](runtime/shared-agent-control.md) now adds reviewed remote
+MCP operations to PostgreSQL-managed agents: per-conversation Allow/Ask first/Block
+permissions, exact owner approvals and durable action outcomes. Owners configure
+these through Agents → Tools and approvals. It requires schema 18 and a private
+operator-provisioned MCP profile; broader rule predicates, automatic job continuation
+and live cloud/provider acceptance remain separate work.
+
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,
 version recovery and source-based private agent questions to PostgreSQL workspaces.
 Files use explicitly configured private S3-compatible or local development storage.

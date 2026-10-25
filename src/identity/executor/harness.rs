@@ -90,6 +90,35 @@ impl Harness {
                 !cancel.is_cancelled() && self.ready().await,
                 "Prepared harness unavailable"
             );
+            // Existing prepared slots are tool-free. A tool job gets a fresh scoped
+            // harness, with its cold startup explicitly included in timing.
+            let broker = if context.control_tools {
+                self.runtime.shutdown().await?;
+                // The empty prepared session has a different tool fingerprint.
+                // Discard that session pointer instead of loading it with new tools.
+                self.store.clear_runtime_session()?;
+                output.trace.mark("tool_harness_cold_start");
+                Some(
+                    crate::identity::control::broker::Broker::start(
+                        crate::identity::control::broker::Access::Remote(
+                            output.client.clone(),
+                            output.assignment.clone(),
+                        ),
+                    )
+                    .await?,
+                )
+            } else {
+                None
+            };
+            let tool_runtime = if let Some(broker) = &broker {
+                Some(Arc::new(GooseRuntime::new(
+                    execution::runtime_config(&context, &self.root, Some(broker.endpoint.clone()))?,
+                    self.store.clone(),
+                    self.events.clone(),
+                )))
+            } else {
+                None
+            };
             let task = self
                 .store
                 .accept_input("Controller-scoped shared request", Some(&context.reply))?;
@@ -113,23 +142,31 @@ impl Harness {
                 done.clone(),
                 cancel.clone(),
             ));
-            let result = self
-                .runtime
-                .prompt_chat(
-                    &claim,
-                    &reply,
-                    execution::prompt(&context),
-                    cancel.clone(),
-                    crate::runtime::prepared::ChatTurn {
-                        assignment: &assignment,
-                        agent: &context.agent,
-                        instructions: &context.instructions,
-                        timeout: std::time::Duration::from_secs(context.run_seconds),
-                    },
-                )
-                .await;
+            let result = if let Some(runtime) = &tool_runtime {
+                runtime
+                    .prompt(&claim, &reply, execution::prompt(&context), cancel.clone())
+                    .await
+            } else {
+                self.runtime
+                    .prompt_chat(
+                        &claim,
+                        &reply,
+                        execution::prompt(&context),
+                        cancel.clone(),
+                        crate::runtime::prepared::ChatTurn {
+                            assignment: &assignment,
+                            agent: &context.agent,
+                            instructions: &context.instructions,
+                            timeout: std::time::Duration::from_secs(context.run_seconds),
+                        },
+                    )
+                    .await
+            };
             drop(finished);
             sender.await??;
+            if let Some(runtime) = tool_runtime {
+                runtime.shutdown().await?;
+            }
             self.store.finish_work(
                 &claim,
                 if result.is_ok() {
@@ -153,6 +190,28 @@ impl Harness {
             ))
         }
         .await;
+        if let Err(error) = &result {
+            let message = error.to_string();
+            let stage = if message.starts_with("Expected pinned Goose") {
+                "pinned_version"
+            } else if message.starts_with("Goose session setup failed") {
+                "session_setup"
+            } else if message.starts_with("Goose initialization failed") {
+                "acp_initialization"
+            } else if message.starts_with("Goose") {
+                "goose_execution"
+            } else if message.starts_with("Controller") {
+                "controller"
+            } else if message.starts_with("Stopped") {
+                "stopped"
+            } else {
+                "assignment_or_output"
+            };
+            tracing::warn!(
+                stage,
+                "Shared harness did not complete; request contents are omitted"
+            );
+        }
         self.close().await;
         result
     }

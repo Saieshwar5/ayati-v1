@@ -30,6 +30,7 @@ impl GooseRuntime {
         ensure!(
             self.vm.is_none()
                 && self.config.platform.is_none()
+                && self.config.control_tools.is_none()
                 && !self.config.memory
                 && !self.config.browser
                 && !self.config.proof_tool

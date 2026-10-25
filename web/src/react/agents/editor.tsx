@@ -41,7 +41,7 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <p className="ui-help">Uses the server’s configured model provider. A model identifier must be supported by that provider.</p>
     <label><input type="checkbox" checked={draft.settings.memory} onChange={e => setting('memory', e.target.checked)} /> Use approved knowledge</label>
     <p className="ui-help">Only approved notes for this agent and the current conversation are included. Turning this off retains saved notes.</p>
-    <p className="ui-help">Browser, connector actions and custom MCP are not yet available in this isolated conversation runtime. Existing local agents retain their tools.</p>
+    <p className="ui-help">Manage supported business operations in Tools and approvals on the Agents page. Browser access remains unavailable in this conversation runtime. Existing local agents retain their tools.</p>
   </div>;
   const controls = <div className="ui-form">
     <label className="ui-field">Channel context<select value={draft.settings.history} onChange={e => setting('history', e.target.value)}><option value="all">Recent history, including before joining</option><option value="since_join">Only messages since joining</option></select></label>

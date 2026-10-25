@@ -84,9 +84,11 @@ front door that overwrites it. The loopback restriction is intentional: this
 increment does not make that front door, private ingress or AWS identity available.
 Never expose the controller bridge or Rust port directly to an untrusted network.
 
-All controllers require migration **17**, runtime grants and the existing cloud
-identity configuration. The trial manifest now requires 17 as well; old schema-16
-manifests fail review rather than starting a release without identity bindings.
+Signed identity bindings were introduced in migration **17**. Current controller
+startup and inactive trial manifests require the full **schema 18**, including
+[shared control](shared-agent-control.md), runtime grants and cloud identity
+configuration. Older manifests fail review; the recorded image evidence below
+retains its original source/schema boundary.
 
 SIGTERM/SIGINT stop accepting requests and close both listeners/connections. A
 failed second bind closes the first listener. Assignment Stop, renewable leases,

@@ -4,7 +4,7 @@ pub mod app_records;
 pub mod apps;
 pub mod composio;
 mod composio_catalog;
-mod composio_mcp;
+pub(crate) mod composio_mcp;
 mod connections;
 mod consumer_connections;
 pub mod event_sources;
