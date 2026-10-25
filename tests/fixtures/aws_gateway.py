@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import secrets
 import signal
+import socket
 import ssl
 import subprocess
 import sys
@@ -23,8 +24,8 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 import urllib3
 
-from aws_bridge.config import cloud_identity, private_token
-from aws_bridge.server import start_server
+from aws_bridge.config import cloud_identity
+from aws_bridge.startup import BridgeRuntime
 from aws_bridge.transport import Transport
 
 HOST = "local.execute-api.ap-south-1.amazonaws.com"
@@ -35,6 +36,12 @@ RELEASE = "arn:aws:ecs:ap-south-1:123456789012:task-definition/ayati-test:1"
 
 def principal(task):
     return f"arn:aws:sts::123456789012:assumed-role/ayati-test-executor/{task}"
+
+
+def free_port():
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        return listener.getsockname()[1]
 
 
 class FixtureVerifier:
@@ -139,15 +146,20 @@ def start_chain(directory, control_url, bootstrap, model_info=None):
     """Start real HTTP bridges and a signed TLS front door; return cleanup and settings."""
     stack = ExitStack()
     try:
-        controller = start_server(("127.0.0.1", 0), mode="controller",
-            verifier=FixtureVerifier(), transport=Transport(), local_key=bootstrap,
-            control_url=control_url, model_info=model_info or directory / "unused-model.json")
-        stack.callback(controller.server_close)
-        stack.callback(controller.shutdown)
+        bootstrap_file = directory / "controller.key"
+        bootstrap_file.write_text(bootstrap)
+        bootstrap_file.chmod(0o600)
+        if not model_info:
+            model_info = directory / "unused-model.json"
+            model_info.write_text(json.dumps({"url": "http://127.0.0.1:9", "key": secrets.token_urlsafe(32)}))
+            model_info.chmod(0o600)
+        controller = stack.enter_context(BridgeRuntime({"mode": "controller", "listen_port": free_port(),
+            "bootstrap_file": str(bootstrap_file), "control_url": control_url, "model_info_file": str(model_info),
+            "role_arn": ROLE, "cluster_arn": CLUSTER, "release_arn": RELEASE}, verifier=FixtureVerifier()))
         gateway = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
         gateway.daemon_threads = True
         gateway.transport = Transport()
-        gateway.controller = f"http://127.0.0.1:{controller.server_port}"
+        gateway.controller = controller.endpoints["controller"]
         gateway.identities = {}
         certificate, key = directory / "gateway.crt", directory / "gateway.key"
         subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
@@ -169,20 +181,12 @@ def start_chain(directory, control_url, bootstrap, model_info=None):
             transport.http = LoopbackTLS(gateway, certificate)
             stack.callback(transport.http.pool.close)
             keyfile = directory / f"worker-{number}.key"
-            worker = start_server(("127.0.0.1", 0), mode="worker", model=False,
-                                  local_key=private_token(keyfile), transport=transport)
-            stack.callback(worker.server_close)
-            stack.callback(worker.shutdown)
-            workers.append({"url": f"http://127.0.0.1:{worker.server_port}",
-                            "key_file": str(keyfile), "task": task})
-            if model_info:
-                model_key = directory / f"model-{number}.key"
-                model = start_server(("127.0.0.1", 0), mode="worker", model=True,
-                    local_key=private_token(model_key), transport=transport)
-                stack.callback(model.server_close)
-                stack.callback(model.shutdown)
-                workers[-1].update(model_url=f"http://127.0.0.1:{model.server_port}",
-                                   model_key_file=str(model_key))
+            model_key = directory / f"model-{number}.key"
+            worker = stack.enter_context(BridgeRuntime({"mode": "worker", "gateway": transport.gateway,
+                "control_port": free_port(), "model_port": free_port(),
+                "control_key_file": str(keyfile), "model_key_file": str(model_key)}, transport=transport))
+            workers.append({"url": worker.endpoints["control"], "key_file": str(keyfile), "task": task,
+                            "model_url": worker.endpoints["model"], "model_key_file": str(model_key)})
         return stack, {"controller": gateway.controller, "gateway_port": gateway.server_port,
                        "workers": workers}
     except BaseException:
@@ -203,6 +207,7 @@ def main():
         descriptor = os.open(directory / "bridge-ready.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as file:
             json.dump(settings, file)
+        print("BRIDGE_READY " + json.dumps(settings), flush=True)
         stopped.wait()
 
 

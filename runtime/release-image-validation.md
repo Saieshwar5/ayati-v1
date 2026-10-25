@@ -16,16 +16,18 @@ python3 tools/verify-release-image.py
 ~~~
 
 The default builds with two Cargo jobs per Rust stage, then runs the image,
-mixed-workload and recovery journeys plus both 384-request ordinary CPU matrices.
+mixed-workload, recovery and [signed bridge](packaged-worker-bridge.md) journeys,
+plus both 384-request ordinary CPU matrices.
 `--build-jobs 1..4` adjusts build parallelism, outside request measurements.
 `--smoke-only` omits the two ordinary matrices; it still runs the mixed and fault
-journeys. `--image sha256:...` reuses a previously built local image. Mutable
+journeys and signed transport with real prepared Goose. `--image sha256:...` reuses a previously built local image. Mutable
 tags are refused. In reuse mode checkout hashes describe the test context, not
 proof of how that supplied image was built.
 
 The build context uses the existing explicit `.dockerignore` allowlist. The
 image contains the optimized Rust application, built web assets, stock Goose,
-the separate pinned preparation variant and its license/build manifest. Runtime
+the separate pinned preparation variant and its license/build manifest, and the
+Python signing bridge with locked dependencies. Runtime
 credentials are supplied through fixed secret-file names. The added
 `RELAY_SIMULATION_DATABASE_URL_FILE` supports the explicitly selected local
 simulation command; it does not enable simulation in ordinary identity mode.
@@ -44,6 +46,10 @@ simulation command; it does not enable simulation in ordinary identity mode.
   the executable itself rejects a core DB credential on an executor.
 - Existing mixed chat/background reserve, bounded intake, grant revocation,
   controller replacement, actual executor loss, cancellation and active drain.
+- Signed transport through the bundled bridge startup code and real prepared
+  Goose, five scoped employee/agent identities, wrong-task/direct-backend denial,
+  and the image entrypoint's private-file/startup/shutdown checks. IAM and ECS
+  inventory are still synthetic, with only local TLS/socket mappings.
 - Ordinary small/large-context load, concurrent requests and overflow. The
   verifier retains latency target misses and does not call them acceptance.
 
@@ -77,6 +83,8 @@ The setup helper does not receive a prompt or execute model-supplied code.
 
 Driver/PostgreSQL use verified user scopes. Containers receive the named profile's
 actual CPU/memory/task limits, swap disabled and the same four-CPU affinity.
+The signed gateway/bridge fixture runs in an additional restricted image container
+at 0.5 CPU, 256 MiB and 128 tasks, with only its synthetic fixture files mounted.
 Shared host CPU/disk contention remains; these ceilings are not dedicated
 reservations or AWS task sizing recommendations. Builds finish before timings run.
 

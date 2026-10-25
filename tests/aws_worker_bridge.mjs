@@ -17,6 +17,13 @@ const ready = (app, count = 2) => until(() => slots(app).filter(s => s.state ===
 test('signed registration binds the real controller and survives replacement without accepting another task', options, async t => {
   const app = await workerFixture(t, { mode: 'pooled', control: true, apiEnv: cloudEnvironment });
   const bridge = await bridgeFixture(t, app);
+  if (app.containers) {
+    const result = app.containers.exec(bridge.process, ['env',
+      'AYATI_BRIDGE_TEST_ENTRYPOINT=/opt/ayati/entrypoint.sh', '/opt/ayati/bridge/bin/python',
+      '/opt/ayati/test/aws_bridge_startup_test.py']);
+    assert.equal(result, '');
+    app.pass('Packaged entrypoint passes startup, shutdown, private-file and credential-denial checks');
+  }
   const registration = { executor: randomUUID(), incarnation: randomUUID(), token: secret(), pooled: true };
   const adapters = await Promise.all(bridge.workers.map(async worker => ({ control: {
     url: worker.url, bootstrap: (await readFile(worker.key_file, 'utf8')).trim(),
@@ -80,7 +87,8 @@ test('five employee/agent identities use bounded signed workers through denial, 
     app.pass('Two workers prepare without model requests');
     assert.equal(Number(app.sql('SELECT count(*) FROM relay_cloud_executors')), 2);
     for (const worker of workers) {
-      const environment = (await readFile(`/proc/${worker.child.pid}/environ`, 'utf8')).split('\0');
+      const environment = (app.containers ? app.containers.exec(worker, ['cat', '/proc/1/environ'])
+        : await readFile(`/proc/${worker.child.pid}/environ`, 'utf8')).split('\0');
       for (const name of ['RELAY_DATABASE_URL', 'RELAY_SIMULATION_DATABASE_URL', 'WORKOS_API_KEY',
         'WORK_OS_API_KEY', 'FIREWORKS_API_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']) {
         assert.equal(environment.some(item => item.startsWith(name + '=')), false, name);

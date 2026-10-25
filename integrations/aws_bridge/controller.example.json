@@ -1,0 +1,10 @@
+{
+  "mode": "controller",
+  "listen_port": 8769,
+  "control_url": "http://127.0.0.1:8766",
+  "bootstrap_file": "/run/secrets/ayati/operator.key",
+  "model_info_file": "/run/secrets/ayati/model-proxy.json",
+  "role_arn": "arn:aws:iam::123456789012:role/ayati-trial-executor",
+  "cluster_arn": "arn:aws:ecs:ap-south-1:123456789012:cluster/ayati-trial",
+  "release_arn": "arn:aws:ecs:ap-south-1:123456789012:task-definition/ayati-trial:1"
+}

@@ -25,6 +25,7 @@ SUITES = {
     'mixed': ['tests/interactive_reserve.mjs'],
     'image': ['tests/image_release.mjs', 'tests/interactive_reserve.mjs', 'tests/agent_load_faults.mjs'],
     'calibration': ['tests/provider_calibration.mjs'],
+    'bridge': ['tests/aws_worker_bridge.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/worker_control.mjs',
                     'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
@@ -86,7 +87,7 @@ def stop_scopes(profile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--suite', choices=SUITES, default='matrix')
-    parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults/calibration suites')
+    parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults/calibration/bridge suites')
     parser.add_argument('--binary', type=Path, default=ROOT / 'target/debug/ayati')
     parser.add_argument('--postgres-bin', type=Path)
     parser.add_argument('--samples', type=int, default=24)
@@ -96,7 +97,9 @@ def main():
     parser.add_argument('--executor-cpu', type=int, choices=[100, 200], default=100,
                         help='CPU ceiling per two-slot executor, in percent of one CPU')
     args = parser.parse_args()
-    if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults', 'calibration']:
+    if args.suite == 'bridge' and os.environ.get('AYATI_TEST_PREPARED_GOOSE_BIN'):
+        parser.error('Bridge acceptance requires pinned prepared Goose; unset AYATI_TEST_PREPARED_GOOSE_BIN')
+    if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults', 'calibration', 'bridge']:
         parser.error('This suite does not support container mode')
     if args.suite == 'image' and not args.image:
         parser.error('The image suite requires --image sha256:...')
@@ -161,7 +164,7 @@ def main():
         with prepared.open('rb') as file:
             metadata['prepared_goose_sha256'] = hashlib.file_digest(file, 'sha256').hexdigest()
     source_paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others',
-        '--exclude-standard', '--', 'src', 'tests', 'tools'], cwd=ROOT, text=True).splitlines()
+        '--exclude-standard', '--', 'src', 'tests', 'tools', 'integrations/aws_bridge'], cwd=ROOT, text=True).splitlines()
     metadata['checkout_source_sha256'] = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
         for name in source_paths if (ROOT / name).is_file() and (ROOT / name).suffix in {'.rs', '.mjs', '.py', '.sql'}}
     save = lambda: (evidence / 'result.json').write_text(json.dumps(metadata, indent=2) + '\n')

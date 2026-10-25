@@ -8,6 +8,10 @@ The controller still owns database access, authorization, durable output and tas
 ownership. Workers receive private local bootstrap files and per-assignment
 capabilities, without the core database, WorkOS or real provider credentials.
 
+The [packaged startup contract](../../runtime/packaged-worker-bridge.md) documents
+the image's `bridge /absolute/config.json` command, private configuration, separate
+supervision and reproducible actual prepared-Goose acceptance.
+
 ## Identity and request boundaries
 
 The worker bridge signs allowed routes with the maintained AWS SDK. The controller
@@ -77,14 +81,15 @@ PostgreSQL client/server tools and OpenSSL, run the protocol rehearsal:
 ```sh
 cargo build --locked --bin ayati -j 1
 export AYATI_TEST_BRIDGE_PYTHON="$PWD/.tmp/aws-bridge-tools/bin/python"
-export AYATI_TEST_PREPARED_GOOSE_BIN="$PWD/tests/fixtures/bridge_runtime.mjs"
+unset AYATI_TEST_PREPARED_GOOSE_BIN
 node --test --test-concurrency=1 tests/aws_worker_bridge.mjs
 ```
 
-This uses the real Rust controller and executors, real TLS/SDK signing, a scripted
-ACP runtime and an authenticated scripted model. The ACP fixture explicitly
-identifies itself in the report. Its readiness acknowledgment is simulated; it
-establishes neither actual Goose preparation nor latency/release acceptance.
+This uses the real Rust controller and executors, real TLS/SDK signing, actual
+prepared Goose and an authenticated scripted model when the prepared artifact is
+installed and `AYATI_TEST_PREPARED_GOOSE_BIN` is unset. The separately identified
+`tests/fixtures/bridge_runtime.mjs` remains an optional protocol-only fixture; its
+simulated acknowledgment is not real Goose readiness or performance evidence.
 Five active employee identities and five explicitly shared agent profiles use two
 single-slot executors. Checks cover queueing, private context, credentials,
 controller replacement, Stop and process-loss recovery. The common company fixture
@@ -96,10 +101,10 @@ the existing local cold-worker API, covering restart, cancellation, lease loss a
 lost acknowledgments. This preserves the existing execution path; it does not
 substitute for a real prepared-Goose run through the new bridge.
 
-For that later acceptance run, build the prepared artifact sequentially with
+For actual prepared runtime acceptance, build/verify the artifact sequentially with
 `python3 tools/build-prepared-goose.py --jobs 1`, unset
 `AYATI_TEST_PREPARED_GOOSE_BIN`, and rerun the process suite. The full prepared
-build did not complete on the small development host. Do not put the scripted
+build did not complete on the earlier small development host. Do not put the scripted
 fixture into a deployment or use it for performance, cost or readiness evidence.
 
 No paid model or AWS call is needed for these checks. Existing local assignment,
@@ -108,7 +113,7 @@ pool and database suites remain the regression checks for the underlying protoco
 ## Deferred cloud work
 
 Actual AWS IAM verification, private ingress/header-overwrite rules, streaming
-gateway configuration, image packaging, secret delivery, storage, Fargate lifecycle
+gateway configuration, cloud secret delivery, storage, Fargate lifecycle
 and independently enforced resource teardown remain unverified. A process timer
 or model-request window does not remove cloud infrastructure. The interrupted
 cloud startup launcher is not part of this supported library checkpoint.

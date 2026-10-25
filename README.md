@@ -402,7 +402,8 @@ template is for a private deployment rehearsal; cloud resources are not provisio
 
 The [release-image verifier](runtime/release-image-validation.md) builds one
 immutable image and checks prepared shared executors, mixed chat/background work,
-recovery and two resource-bounded load profiles. Run
+recovery, signed bridge execution with real prepared Goose and two resource-bounded
+load profiles. Run
 `python3 tools/verify-release-image.py` with local Docker access. All data and model
 responses are disposable/scripted; no AWS resources or paid calls are required.
 
@@ -420,3 +421,9 @@ validated inactive CloudFormation definitions and a five-employee/five-agent,
 stay at zero until the M2/M3 startup and machine-identity integration is proven.
 See [M0 evidence and limitations](runtime/aws-m0-preflight.md). No AWS resources or
 DNS records are created by preparation.
+
+The [packaged signed bridge](runtime/packaged-worker-bridge.md) provides explicit
+private-file startup in the same release image. The trial manifest requires
+schema 17 for task identity bindings. Its local signed TLS/Goose checks retain
+synthetic IAM/ECS/model services; real AWS ingress, identity and lifecycle remain
+the next deployment proof.

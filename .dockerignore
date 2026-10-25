@@ -26,3 +26,7 @@
 !tools/patches/goose-1.54.0-preparation.patch
 !deploy/
 !deploy/container-entrypoint.sh
+!integrations/
+!integrations/aws_bridge/
+!integrations/aws_bridge/*.py
+!integrations/aws_bridge/requirements.lock

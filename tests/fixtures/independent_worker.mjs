@@ -241,6 +241,11 @@ export async function workerFixture(t, options = {}) {
       'Reply did not reach ' + state, 35000);
   }
   return { data, base, path, cookie, profile, conversation, provider, request, login, send, history, done, control, containers,
+    startBridge(directory) {
+      const record = containers.bridge(directory, control, provider);
+      children.push(record);
+      return record;
+    },
     startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),

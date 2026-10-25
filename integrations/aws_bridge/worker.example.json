@@ -1,0 +1,8 @@
+{
+  "mode": "worker",
+  "gateway": "https://replace.execute-api.ap-south-1.amazonaws.com/trial",
+  "control_port": 8767,
+  "model_port": 8768,
+  "control_key_file": "/var/lib/ayati/bridge/control.key",
+  "model_key_file": "/var/lib/ayati/bridge/model.key"
+}

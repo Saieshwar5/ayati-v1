@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "fixtures"))
 from aws_gateway import HOST, start_chain
 import urllib3
 
+BOOTSTRAP = "c" * 43
+
 
 @contextmanager
 def backend():
@@ -64,7 +66,7 @@ class TransportTests(unittest.TestCase):
 
     def test_real_signed_tls_registration_overwrites_untrusted_identity(self):
         with tempfile.TemporaryDirectory() as directory, backend() as origin:
-            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", "controller-only")
+            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP)
             with stack:
                 worker = chain["workers"][0]
                 body = {"executor": "one", "incarnation": "first", "token": "a" * 43, "pooled": True}
@@ -77,7 +79,7 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(forwarded["registration"], body)
                 self.assertTrue(forwarded["task_arn"].endswith("a" * 32))
                 self.assertTrue(forwarded["principal_arn"].endswith("a" * 32))
-                self.assertEqual(headers["Authorization"], "Bearer controller-only")
+                self.assertEqual(headers["Authorization"], "Bearer " + BOOTSTRAP)
                 self.assertNotIn("attacker", json.dumps(forwarded))
 
                 # TLS trust and request authentication are separate boundaries.
@@ -99,7 +101,7 @@ class TransportTests(unittest.TestCase):
 
     def test_stream_is_incremental_and_disconnect_reaches_upstream(self):
         with tempfile.TemporaryDirectory() as directory, backend() as origin:
-            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", "controller-only")
+            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP)
             with stack:
                 path = "/v1/executors/" + "a" * 36 + "/" + "b" * 36 + "/pool/events"
                 response = self.client.request("GET", chain["workers"][0]["url"] + path,
@@ -115,7 +117,7 @@ class TransportTests(unittest.TestCase):
 
     def test_wrong_method_duplicate_headers_and_browser_requests_are_denied(self):
         with tempfile.TemporaryDirectory() as directory, backend() as origin:
-            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", "controller-only")
+            stack, chain = start_chain(Path(directory), f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP)
             with stack:
                 worker = chain["workers"][0]
                 for headers in ({"Origin": ""}, {"Cookie": ""}, {"Transfer-Encoding": "chunked"}):
@@ -141,7 +143,7 @@ class TransportTests(unittest.TestCase):
             model = root / "model.json"
             model.write_text(json.dumps({"url": f"http://127.0.0.1:{origin.server_port}", "key": "u" * 43}))
             model.chmod(0o600)
-            stack, chain = start_chain(root, f"http://127.0.0.1:{origin.server_port}", "controller-only", model)
+            stack, chain = start_chain(root, f"http://127.0.0.1:{origin.server_port}", BOOTSTRAP, model)
             with stack:
                 worker = chain["workers"][0]
                 key = Path(worker["model_key_file"]).read_text()
