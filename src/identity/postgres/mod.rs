@@ -8,6 +8,9 @@ mod assignments;
 mod chat;
 mod chat_intake;
 pub mod cli;
+#[cfg(test)]
+mod cloud_executor_tests;
+mod cloud_executors;
 mod collaboration;
 #[cfg(test)]
 mod controlled_attempt_tests;

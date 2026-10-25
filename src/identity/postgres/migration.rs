@@ -21,7 +21,29 @@ impl MigratorTrait for Migrator {
             Box::new(ReplyOutput),
             Box::new(HarnessPreparation),
             Box::new(InteractiveReserve),
+            Box::new(CloudExecutors),
         ]
+    }
+}
+struct CloudExecutors;
+impl MigrationName for CloudExecutors {
+    fn name(&self) -> &str {
+        "m20261024_000017_cloud_executors"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for CloudExecutors {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(include_str!("cloud_executors.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Cloud ownership requires a forward migration".into(),
+        ))
     }
 }
 struct InteractiveReserve;

@@ -97,7 +97,7 @@ its old run releases ownership.
 
 ## Migration and rollout
 
-Run all migrations through `m20261024_000016_interactive_reserve` with the migration
+Run all migrations through `m20261024_000017_cloud_executors` with the migration
 owner, then reapply restricted runtime grants. Startup only checks the schema.
 Migration 16 adds immutable request class/binding and durable admission turns.
 Historical chat/Library jobs default to interactive; existing IDs, payloads,

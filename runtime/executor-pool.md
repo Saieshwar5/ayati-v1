@@ -17,7 +17,7 @@ passes the named local ready-capacity targets. The [cold assignment path](worker
 
 ## Setup
 
-Run all sixteen migrations through `m20261024_000016_interactive_reserve` with the
+Run all seventeen migrations through `m20261024_000017_cloud_executors` with the
 migration owner, then reapply runtime grants as in [PostgreSQL setup](postgres-workspaces.md).
 Migration 13 preserves existing dispatch modes, IDs, assignment history and v12
 completion fingerprints. Startup verifies the schema without migrating ordinary

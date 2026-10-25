@@ -42,7 +42,9 @@ async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
         token: random_token(),
         pooled: false,
     };
-    old.register_executor(&registration).await.unwrap();
+    super::migration_fixture::legacy_executor(&old, &registration)
+        .await
+        .unwrap();
     let token = random_token();
     let reservation = crate::identity::worker_control::model::Reservation {
         request: uuid::Uuid::new_v4().to_string(),

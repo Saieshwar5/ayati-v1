@@ -74,6 +74,31 @@ python3 -m unittest discover -s tests -p 'agent_*_test.py'
 python3 -O -m unittest discover -s tests -p 'agent_*_test.py'
 ~~~
 
+## Signed controller/worker transport
+
+The [adapter guide](../integrations/aws_bridge/README.md) describes its isolated
+dependencies and local TLS/SigV4 harness. Run Python boundary/stream checks with:
+
+~~~sh
+python -m unittest discover -s tests -p 'aws_bridge*_test.py'
+~~~
+
+After a native build, use a dedicated local
+`RELAY_TEST_DATABASE_URL` and the locked environment's interpreter:
+
+~~~sh
+export AYATI_TEST_BRIDGE_PYTHON="$PWD/.tmp/aws-bridge-tools/bin/python"
+export AYATI_TEST_PREPARED_GOOSE_BIN="$PWD/tests/fixtures/bridge_runtime.mjs"
+node --test --test-concurrency=1 tests/aws_worker_bridge.mjs
+~~~
+
+This rehearses real Rust execution with a scripted ACP runtime through a local TLS gateway,
+including five employee/agent identities, task-binding denial, controller restart,
+Stop and worker loss. The fixture is not real Goose or preparation acceptance;
+unset its override and build pinned prepared Goose for that later check.
+No AWS or paid provider is involved. Ordinary database
+migration is never implied; startup requires migration 17 and current grants.
+
 ## Provider calibration
 
 The [calibration guide](../runtime/provider-calibration.md) describes the explicit

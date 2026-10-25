@@ -375,7 +375,7 @@ Local PostgreSQL workspace storage and migration: [setup and verification](runti
 
 For temporary one-assignment workers, set `AYATI_CHAT_EXECUTION=assigned` and run
 `ayati assignment-launcher`. Each worker renews its ownership, saves an outcome
-and exits. This checkout requires all PostgreSQL migrations through 16; see [assignment workers](runtime/assignment-workers.md)
+and exits. This checkout requires all PostgreSQL migrations through 17; see [assignment workers](runtime/assignment-workers.md)
 for configuration, cancellation, recovery and local-only evidence limits.
 
 For prepared shared sessions, set `AYATI_CHAT_EXECUTION=pooled` on the controller

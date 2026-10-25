@@ -17,13 +17,18 @@ remain later increments. The [direct-PG M1 path](assignment-workers.md) remains 
 
 ## Migration and local startup
 
-Run all sixteen migrations through `m20261024_000016_interactive_reserve`, using the
+Run all seventeen migrations through `m20261024_000017_cloud_executors`, using the
 migration owner and reapply runtime grants. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.
 Migration 13 adds pooled slot readiness/generations and preserves v12 receipts.
 Migration 14 adds separately stored output drafts/receipts and message revisions.
 See [PostgreSQL setup](postgres-workspaces.md).
+
+Migration 17 preserves local credentials and adds immutable task identity bindings
+for the optional [signed transport adapter](../integrations/aws_bridge/README.md).
+The Rust listener remains loopback-only. Local adapter checks do not establish live
+AWS IAM, networking or deployment acceptance.
 
 Configure these on the controller and local launcher:
 

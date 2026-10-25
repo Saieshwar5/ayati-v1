@@ -38,6 +38,7 @@ export async function workerFixture(t, options = {}) {
           PGPASSWORD: decodeURIComponent(connection.password),
           PGOPTIONS: connection.searchParams.get('options') ?? '',
         }, input, encoding: 'utf8',
+        timeout: 30000,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim();
     } catch { throw new Error('Disposable worker fixture SQL failed'); }
@@ -95,7 +96,7 @@ export async function workerFixture(t, options = {}) {
   }
   if (containers) containers.migrate(scoped.href,env,schema);
   else execFileSync(binary, ['workspace-db', 'migrate'], {
-    cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
+    cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe', timeout: 30000,
   });
   sql(`GRANT USAGE ON SCHEMA ${schema} TO relay_app;
     GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${schema} TO relay_app;
@@ -143,6 +144,7 @@ export async function workerFixture(t, options = {}) {
   async function startApi() {
     api = launch(['simulate', join(data, 'api')], {
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: String(port),
+      ...options.apiEnv,
     });
     await until(async () => {
       assert.equal(api.child.exitCode, null, api.logs);
@@ -200,13 +202,21 @@ export async function workerFixture(t, options = {}) {
   }
   const records = [];
   t.after(async () => {
-    for (const child of [...children].reverse()) await stop(child);
+    provider.setHeld?.(false);
+    provider.setOutputHeld?.(false);
+    const cleanupErrors = [];
+    for (const child of [...children].reverse()) {
+      try { await stop(child); }
+      catch (error) { cleanupErrors.push(error); }
+    }
     containers?.finish();
     await writeFile(join(data, 'report.json'), JSON.stringify({
-      passed: t.passed, schema, checks: records, processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
+      passed: t.passed, schema, checks: records, cleanup_errors: cleanupErrors.length,
+      processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
     }, null, 2));
     for (const [i, child] of children.entries()) await writeFile(join(data, `process-${i}.log`), child.logs);
     console.log('Retained worker evidence:', data);
+    if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Worker fixture cleanup failed');
   });
   await startApi();
   const info = (await request('/api/identity/simulation')).value;

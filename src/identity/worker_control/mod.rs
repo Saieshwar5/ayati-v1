@@ -3,6 +3,7 @@ pub(crate) mod attempt;
 pub(crate) mod client;
 #[cfg(test)]
 mod client_tests;
+pub(crate) mod cloud;
 pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
@@ -177,6 +178,7 @@ fn routes(state: StateData) -> Router {
         .merge(pool::routes())
         .route("/v1/assignments/{id}/output", post(output::append))
         .route("/v1/executors/register", post(register))
+        .route("/v1/executors/register-cloud", post(cloud::register))
         .route(
             "/v1/executors/{executor}/{incarnation}/reserve",
             post(reserve),
@@ -203,6 +205,20 @@ async fn guard(State(state): State<StateData>, request: Request<Body>, next: Nex
         StatusCode::FORBIDDEN.into_response()
     } else if credential(headers).is_err() {
         StatusCode::UNAUTHORIZED.into_response()
+    } else if !matches!(
+        request.uri().path(),
+        "/v1/executors/register" | "/v1/executors/register-cloud"
+    ) && pg(&state)
+        .cloud_credential_allowed(
+            &credential(headers).unwrap(),
+            headers
+                .get("x-ayati-cloud-task")
+                .and_then(|h| h.to_str().ok()),
+        )
+        .await
+        .is_err()
+    {
+        StatusCode::FORBIDDEN.into_response()
     } else {
         next.run(request).await
     };
