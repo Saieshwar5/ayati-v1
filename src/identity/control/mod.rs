@@ -5,6 +5,9 @@ mod connections;
 pub(crate) mod connections_model;
 mod mcp;
 pub(crate) mod model;
+mod setup;
+mod setup_assistant;
+pub(crate) mod setup_model;
 use super::*;
 use anyhow::ensure;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
@@ -15,6 +18,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
+        .merge(setup::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
             get(snapshot),

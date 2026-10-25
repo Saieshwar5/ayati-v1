@@ -61,6 +61,10 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     let tool;
     let text = 'GOOSE_FIXTURE_OK 🦀';
     const controlPrompt = prompt?.replace(/^user:\s*/, '');
+    if (controlPrompt?.startsWith('permission_draft ')) {
+      const setup = JSON.parse(controlPrompt.slice(17));
+      text = JSON.stringify({ rules: setup.actions.filter(a => a.operation !== 'order.delete').map(a => ({ connection: a.connection, operation: a.operation, mode: a.effect === 'read' ? 'allow' : 'ask' })), warnings: ['Fixture suggestion: delete is omitted and must remain blocked.'] });
+    }
     if (controlPrompt?.startsWith('control ')) {
       const command = JSON.parse(controlPrompt.slice(8));
       const results = messages.slice(lastUser + 1).filter(message => message.role === 'tool');

@@ -2,7 +2,7 @@
 
 Shared-tool extension: [governed MCP operations](shared-agent-control.md) use a fresh
 scoped tool harness and count cold startup separately. Prepared chat stays tool-free.
-Current application schema is 19; earlier measurements below retain their original
+Current application schema is 20; earlier measurements below retain their original
 source/image/migration evidence boundaries.
 
 

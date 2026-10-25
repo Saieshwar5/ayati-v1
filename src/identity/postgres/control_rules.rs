@@ -77,43 +77,8 @@ impl PgStore {
         agent: &str,
         input: &Rule,
     ) -> Result<()> {
-        ensure!(
-            ["allow", "ask", "block"].contains(&input.mode.as_str())
-                && input.revision >= 0
-                && input.revision < i64::MAX,
-            "Invalid permission rule"
-        );
         let tx = self.workspace_tx(w).await?;
-        let approver = super::connection_authority::rule_approver(&tx, user, w, input).await?;
-        super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
-        super::chat::access(&tx, user, w, &input.chat).await?;
-        ensure!(
-            query(
-                &tx,
-                "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",
-                vec![w.into(), input.chat.clone().into(), agent.into()]
-            )
-            .await?
-            .is_some(),
-            "Agent is not in the selected conversation"
-        );
-        let connection = query(&tx,"SELECT c.definition FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND s.approved",vec![w.into(),input.connection.clone().into()]).await?.context("Connection unavailable")?;
-        let definition: Value = connection.try_get("", "definition")?;
-        ensure!(
-            definition["operations"]
-                .as_array()
-                .is_some_and(|a| a.iter().any(|op| op["id"] == input.operation)),
-            "Unsupported operation"
-        );
-        if input.mode == "ask" {
-            let person = User {
-                id: approver.clone(),
-                email: String::new(),
-                display_name: None,
-            };
-            super::agent_profiles::managed_access(&tx, &person.id, w, agent, false).await?;
-            super::chat::access(&tx, &person, w, &input.chat).await?;
-        }
+        let approver = validate_rule(&tx, user, w, agent, input).await?;
         let old = query(&tx,"SELECT revision,mode,approver,chat,configured_by,delegation_revision FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into()]).await?;
         if let Some(row) = old {
             let revision: i64 = row.try_get("", "revision")?;
@@ -134,8 +99,7 @@ impl PgStore {
         } else {
             ensure!(input.revision == 0, "Permission unavailable");
         }
-        execute(&tx,"INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,chat,configured_by,delegation_revision,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1) ON CONFLICT(workspace,agent,connection,operation) DO UPDATE SET mode=excluded.mode,approver=excluded.approver,chat=excluded.chat,configured_by=excluded.configured_by,delegation_revision=excluded.delegation_revision,revision=relay_control_rules.revision+1",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into(),input.mode.clone().into(),approver.into(),input.chat.clone().into(),user.id.clone().into(),input.delegation_revision.into()]).await?;
-        invalidate(&tx, w, &input.connection, Some((agent, &input.operation))).await?;
+        write_rule(&tx, user, w, agent, input, &approver).await?;
         audit(
             &tx,
             &user.id,
@@ -151,6 +115,69 @@ impl PgStore {
         Ok(query(&self.db,"SELECT r.agent FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 AND c.enabled AND r.mode IN ('allow','ask') LIMIT 1",vec![w.into(),agent.into(),chat.into()]).await?.is_some())
     }
 }
+// Used by manual saves and guided preview/activation. Blocking never grants authority.
+pub(super) async fn validate_rule(
+    db: &impl ConnectionTrait,
+    user: &User,
+    w: &str,
+    agent: &str,
+    input: &Rule,
+) -> Result<String> {
+    ensure!(
+        ["allow", "ask", "block"].contains(&input.mode.as_str())
+            && input.revision >= 0
+            && input.revision < i64::MAX,
+        "Invalid permission rule"
+    );
+    let approver = if input.mode == "block" {
+        user.id.clone()
+    } else {
+        super::connection_authority::rule_approver(db, user, w, input).await?
+    };
+    super::agent_profiles::managed_access(db, &user.id, w, agent, true).await?;
+    super::chat::access(db, user, w, &input.chat).await?;
+    ensure!(
+        query(
+            db,
+            "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",
+            vec![w.into(), input.chat.clone().into(), agent.into()]
+        )
+        .await?
+        .is_some(),
+        "Agent is not in the selected conversation"
+    );
+    let connection = query(db,"SELECT c.definition FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND s.approved",vec![w.into(),input.connection.clone().into()]).await?.context("Connection unavailable")?;
+    let definition: Value = connection.try_get("", "definition")?;
+    ensure!(
+        definition["operations"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|op| op["id"] == input.operation)),
+        "Unsupported operation"
+    );
+    if input.mode == "ask" {
+        let person = User {
+            id: approver.clone(),
+            email: String::new(),
+            display_name: None,
+        };
+        super::agent_profiles::managed_access(db, &person.id, w, agent, false).await?;
+        super::chat::access(db, &person, w, &input.chat).await.context("The designated approver cannot view this conversation; choose a shared work conversation")?;
+    }
+    Ok(approver)
+}
+
+pub(super) async fn write_rule(
+    db: &impl ConnectionTrait,
+    user: &User,
+    w: &str,
+    agent: &str,
+    input: &Rule,
+    approver: &str,
+) -> Result<()> {
+    execute(db,"INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,chat,configured_by,delegation_revision,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1) ON CONFLICT(workspace,agent,connection,operation) DO UPDATE SET mode=excluded.mode,approver=excluded.approver,chat=excluded.chat,configured_by=excluded.configured_by,delegation_revision=excluded.delegation_revision,revision=relay_control_rules.revision+1",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into(),input.mode.clone().into(),approver.into(),input.chat.clone().into(),user.id.clone().into(),input.delegation_revision.into()]).await?;
+    invalidate(db, w, &input.connection, Some((agent, &input.operation))).await
+}
+
 pub(super) const VIEW: &str = "jsonb_build_object('id',a.id,'connection',a.connection,'operation',a.operation,'title',a.title,'effect',a.effect,'decision',a.decision,'requester_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.requester),'conversation_name',(SELECT c.name FROM relay_chats c WHERE c.workspace=a.workspace AND c.id=a.chat),'arguments',a.arguments,'state',CASE WHEN a.state='executing' AND a.updated < floor(extract(epoch FROM clock_timestamp()))::bigint-60 THEN 'uncertain' ELSE a.state END,'result',a.result,'chat',a.chat,'thread',a.thread,'job',a.job,'approver',a.approver,'created',a.created,'updated',a.updated)";
 pub(super) async fn invalidate(
     db: &impl ConnectionTrait,

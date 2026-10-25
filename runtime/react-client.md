@@ -21,7 +21,7 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
 - `web/src/react/agents/`: PostgreSQL agent directory, guided creation, profile
-  editing, approved knowledge and preserved local-agent lifecycle controls.
+  editing, approved knowledge, guided permission drafts/previews/activation and preserved local-agent lifecycle controls.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
   teams, setup, local accounts and Owner workspace connections/delegation. The legacy Settings screen and setup
   installer are removed; Agent details retains its existing connector integration.

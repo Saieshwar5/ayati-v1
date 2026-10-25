@@ -85,7 +85,7 @@ increment does not make that front door, private ingress or AWS identity availab
 Never expose the controller bridge or Rust port directly to an untrusted network.
 
 Signed identity bindings were introduced in migration **17**. Current controller
-startup and inactive trial manifests require the full **schema 19**, including workspace connection authority and
+startup and inactive trial manifests require the full **schema 20**, including guided permission drafts, workspace connection authority and
 [shared control](shared-agent-control.md), runtime grants and cloud identity
 configuration. Older manifests fail review; the recorded image evidence below
 retains its original source/schema boundary.

@@ -1,9 +1,10 @@
 # Workspace connections and delegated agent setup
 
 This increment makes the existing shared-agent control engine configurable by an
-Owner and explicitly delegated members. It requires PostgreSQL **schema 19**.
+Owner and explicitly delegated members. It requires PostgreSQL **schema 20**.
 It provides reviewed, operator-configured MCP accounts; it does not yet provide
-self-service OAuth, arbitrary custom-MCP registration or AI-generated policies.
+self-service OAuth or arbitrary custom-MCP registration. The subsequent
+[guided review](guided-permissions.md) adds optional AI permission drafts.
 
 ## Owner journey
 
@@ -95,7 +96,7 @@ workspace approval; the UI uses the workspace endpoints above.
 Back up the identity database and stop old binaries before explicitly applying
 `workspace-db migrate` with the administrator connection. Reapply runtime grants,
 including SELECT on the new view, using the existing PostgreSQL deployment procedure.
-Startup requires all 19 migrations. Do not run an old binary against this schema.
+Startup requires all 20 migrations. Do not run an old binary against this schema.
 This change was verified on disposable databases; the ordinary workspace database
 was not migrated.
 
@@ -107,8 +108,9 @@ remote account identity; the operator must verify credential/account scope. Use 
 distinct profile ID for each account, including accounts from the same provider.
 Authentication/operation changes require review and never inherit old grants.
 
-No new dependencies, cloud instances, paid model calls or subscription enforcement
-were introduced. Guided draft coverage, richer conditions, channel approvals,
+The following [guided permission review](guided-permissions.md) increment now adds
+saved drafts, optional tool-free AI suggestions, complete coverage, previews and
+atomic activation. Richer conditions, channel approvals,
 durable continuation, customer OAuth, browser/computer controls and commercial
 usage accounting are separate work.
 

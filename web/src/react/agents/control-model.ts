@@ -2,7 +2,7 @@ import { identityRequest } from '../../workspace-context';
 import { base } from './model';
 
 export type Mode = 'allow' | 'ask' | 'block';
-export type Operation = { id: string; title: string; effect: 'read' | 'write'; schema: unknown };
+export type Operation = { id: string; title: string; tool?: string; effect: 'read' | 'write'; schema: unknown };
 export type Server = { id: string; name: string; account?: string | null; operations: Operation[] };
 export type Connection = { id: string; server: string; definition: Server; enabled: boolean; revision: number };
 export type Rule = { connection: string; operation: string; mode: Mode; revision: number; approver_name: string; chat: string };

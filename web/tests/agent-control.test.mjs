@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
+registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 import { reactFixture } from './react-fixture.mjs';
 const workspace = '11111111-1111-4111-8111-111111111111';
 const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Operations', editable: true };

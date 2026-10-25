@@ -6,12 +6,14 @@ import {
   decideAction, loadControls, modes, saveRule, states,
   type Action, type Controls, type Mode, type Operation, type Rule,
 } from './control-model';
+import { GuidedSetup } from './guided-setup';
 import type { Agent } from './model';
 
 export function AgentControl({ agent, close }: { agent: Agent; close: () => void }) {
   const load = useCallback(() => loadControls(agent.id), [agent.id]);
   const { data, error, refresh } = useResource(load);
   const mutation = useMutation();
+  const [guided, guide] = useState(false);
   const decisions = useRef(new Map<string, string>());
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -29,6 +31,7 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
   }
 
   const permissions = data && <section className="control-section" aria-label="Connected systems">
+    {data.can_manage && agent.editable && <Button primary onClick={() => guide(true)}>Guided permission setup</Button>}
     {data.execution_available === false && <p role="status" className="ui-help">Business tools are not enabled for this workspace’s worker setup. Ask your operator to enable controller-managed execution.</p>}
     <p className="ui-help">Connecting a system gives the agent no access until you save a permission for a conversation.</p>
     <p className="ui-help">Each permission covers the records available to the connected account. Additional per-record, amount and time conditions are not available yet.</p>
@@ -77,6 +80,7 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
     />)}
   </section>;
 
+  if (guided) return <GuidedSetup agent={agent} close={() => { guide(false); void refresh().catch(() => {}); }} />;
   return <Dialog drawer title={`${agent.name} · Tools and approvals`} close={close} busy={mutation.busy} status={error || mutation.status}>
     <Button disabled={mutation.busy} onClick={() => void refresh().catch(() => {})}>Refresh activity</Button>
     {!data && !error && <p role="status">Loading tools and approvals…</p>}

@@ -2,8 +2,8 @@
 
 The first shared-workspace control slice adds reviewed remote MCP connections,
 per-agent/per-conversation Allow automatically / Ask first / Block rules, exact
-action approvals and durable outcomes. PostgreSQL schema **19** is required by the current checkout.
-[Workspace connections and delegation](workspace-connections.md) extends this engine.
+action approvals and durable outcomes. PostgreSQL schema **20** is required by the current checkout.
+[Workspace connections and delegation](workspace-connections.md) extends this engine. [Guided reviews](guided-permissions.md) add draft/preview/activation.
 The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents retain the existing tool-free execution path.
 
@@ -127,7 +127,7 @@ The source checks are:
 cargo test --locked --lib
 # Dedicated disposable local PostgreSQL only:
 cargo test --locked --lib identity::postgres -- --ignored --skip embedded_gateway_uses_controller_owned_credentials
-node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs
+node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs tests/guided_permissions.mjs
 cd web
 npm test
 npm run build

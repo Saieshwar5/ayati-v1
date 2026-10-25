@@ -12,6 +12,7 @@ export async function remoteControlMcp() {
   const records = new Map([['one', { order: 'one', address: 'Old address' }], ['lost', { order: 'lost', address: 'Old address' }]]);
   const calls = [];
   let changed = false;
+  const extraTools = [];
   const server = createServer(async (request, response) => {
     if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${token}`) { response.writeHead(403).end(); return; }
     let body = ''; for await (const bytes of request) body += bytes;
@@ -23,7 +24,7 @@ export async function remoteControlMcp() {
     if (message.method === 'initialize') { response.setHeader('Mcp-Session-Id', 'fixture-session'); reply({ protocolVersion: '2025-11-25', capabilities: { tools: {} }, serverInfo: { name: 'Orders fixture', version: '1' } }); return; }
     if (message.method === 'notifications/initialized') { response.writeHead(202).end(); return; }
     if (message.method === 'tools/list') {
-      reply({ tools: operations.map(op => ({ name: op.tool, description: op.title, inputSchema: changed ? { ...op.schema, description: 'Changed schema' } : op.schema, annotations: { readOnlyHint: true } })) }); return;
+      reply({ tools: [...operations.map(op => ({ name: op.tool, description: op.title, inputSchema: changed ? { ...op.schema, description: 'Changed schema' } : op.schema, annotations: { readOnlyHint: true } })), ...extraTools] }); return;
     }
     if (message.method !== 'tools/call') { response.writeHead(400).end(); return; }
     const { name, arguments: args } = message.params;
@@ -39,5 +40,6 @@ export async function remoteControlMcp() {
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   return { token, url: `http://127.0.0.1:${server.address().port}/mcp`, operations, calls, records,
+    addTool(name) { extraTools.push({ name, description: 'Unreviewed tool', inputSchema: schema({}) }); },
     changeSchema() { changed = true; }, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }) };
 }

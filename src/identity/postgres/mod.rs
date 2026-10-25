@@ -63,6 +63,10 @@ mod reply_output_tests;
 mod reply_views;
 mod resources;
 mod settings;
+mod setup_context;
+mod setup_drafts;
+#[cfg(test)]
+mod setup_tests;
 mod work;
 pub(crate) mod worker_control;
 #[cfg(test)]

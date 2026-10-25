@@ -14,6 +14,8 @@ pub(super) async fn membership_changed(
     user: &str,
 ) -> Result<()> {
     // Rejoining or a later promotion must not revive an earlier delegation.
+    // A removed/recreated grant can reuse revision 1. Require a fresh human preview.
+    execute(db,"UPDATE relay_control_drafts d SET preview_revision=NULL WHERE d.workspace=$1 AND d.state='draft' AND (d.user_id=$2 OR EXISTS(SELECT 1 FROM jsonb_array_elements(d.data->'context'->'accounts') a CROSS JOIN LATERAL jsonb_array_elements(a->'permissions') p WHERE p->>'approver'=$2))",vec![w.into(),user.into()]).await?;
     execute(db,"UPDATE relay_control_actions a SET state='invalidated',result='\"Membership authority changed; request a new action.\"'::jsonb WHERE a.workspace=$1 AND a.state='pending' AND (a.approver=$2 OR EXISTS(SELECT 1 FROM relay_control_rules r WHERE r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation AND r.configured_by=$2))",vec![w.into(),user.into()]).await?;
     execute(db,"UPDATE relay_control_rules SET mode='block',revision=revision+1 WHERE workspace=$1 AND (configured_by=$2 OR approver=$2)",vec![w.into(),user.into()]).await?;
     execute(db,"UPDATE relay_control_delegations SET ceiling='block',revision=revision+1 WHERE workspace=$1 AND (user_id=$2 OR approver=$2)",vec![w.into(),user.into()]).await?;

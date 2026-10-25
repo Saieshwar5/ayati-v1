@@ -53,6 +53,9 @@ impl Remote {
         Ok(remote)
     }
     pub async fn verify(&mut self, operations: &[Operation]) -> Result<()> {
+        self.inventory(operations).await.map(|_| ())
+    }
+    pub async fn inventory(&mut self, operations: &[Operation]) -> Result<Vec<String>> {
         let listed = self.rpc("tools/list", json!({}), Some(2)).await?;
         let tools = listed["tools"]
             .as_array()
@@ -72,7 +75,15 @@ impl Remote {
                 "Remote operation schema changed; review the connection before use"
             );
         }
-        Ok(())
+        let mut names = std::collections::BTreeSet::new();
+        for tool in tools {
+            let name = tool["name"]
+                .as_str()
+                .filter(|s| !s.is_empty() && s.len() <= 100 && !s.chars().any(char::is_control))
+                .context("Unsupported remote tool name")?;
+            ensure!(names.insert(name.to_owned()), "Duplicate remote tool name");
+        }
+        Ok(names.into_iter().collect())
     }
     pub async fn call(&mut self, operation: &Operation, arguments: &Value) -> Result<Value> {
         operation.arguments(arguments)?;
