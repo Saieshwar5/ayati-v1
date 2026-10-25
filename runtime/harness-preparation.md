@@ -51,7 +51,7 @@ the request path. Native build verification does not establish Docker execution.
 
 ## Readiness and upgrades
 
-Run all migrations through `m20261024_000016_interactive_reserve` with the migration
+Run all migrations through `m20261024_000017_cloud_executors` with the migration
 owner, then reapply the existing restricted runtime grants. Startup only verifies
 the schema. Migration 15 adds a bounded `preparation_version` to the slot registry
 and withdraws old unverified ready slots. Both controller reporting and a database

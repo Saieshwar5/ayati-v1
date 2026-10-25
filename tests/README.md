@@ -74,6 +74,57 @@ python3 -m unittest discover -s tests -p 'agent_*_test.py'
 python3 -O -m unittest discover -s tests -p 'agent_*_test.py'
 ~~~
 
+## Signed controller/worker transport
+
+The [adapter guide](../integrations/aws_bridge/README.md) describes its isolated
+dependencies and local TLS/SigV4 harness. Run Python boundary/stream checks with:
+
+~~~sh
+python -m unittest discover -s tests -p 'aws_bridge*_test.py'
+~~~
+
+After a native build, use a dedicated local
+`RELAY_TEST_DATABASE_URL` and the locked environment's interpreter:
+
+~~~sh
+export AYATI_TEST_BRIDGE_PYTHON="$PWD/.tmp/aws-bridge-tools/bin/python"
+export AYATI_TEST_PREPARED_GOOSE_BIN="$PWD/tests/fixtures/bridge_runtime.mjs"
+node --test --test-concurrency=1 tests/aws_worker_bridge.mjs
+~~~
+
+This rehearses real Rust execution with a scripted ACP runtime through a local TLS gateway,
+including five employee/agent identities, task-binding denial, controller restart,
+Stop and worker loss. The fixture is not real Goose or preparation acceptance;
+unset its override and build pinned prepared Goose for that later check.
+No AWS or paid provider is involved. Ordinary database
+migration is never implied; startup requires migration 17 and current grants.
+
+## Provider calibration
+
+The [calibration guide](../runtime/provider-calibration.md) describes the explicit
+live opt-in, fixed upstream endpoints, token/request/concurrency limits, private
+credentials and conservative cost accounting. Run the boundary tests without
+Docker or paid calls:
+
+~~~sh
+node --test tests/provider_calibration_guards.mjs
+~~~
+
+With the verified immutable image, Docker and Playwright Chromium:
+
+~~~sh
+node tools/calibrate-provider.mjs --image sha256:...
+~~~
+
+The default scripted rehearsal runs actual image roles and Chat browser sends,
+measures five healthy foreground replies across individual/concurrent/mixed work,
+and checks background completion and Stop. Thirteen boundary checks cover live
+opt-in, key privacy, atomic/nonrefundable accounting, token limits, SSE chunking,
+errors, redirects, missing usage, cancellation and allowance exhaustion.
+The [first live Fireworks profile](../runtime/provider-calibration.md#first-live-fireworks-profile--2026-10-24)
+now passes seven requests with real browser timing and Stop. This small local
+sample does not establish cloud latency or general provider/model acceptance.
+
 ## Durable live replies and local timing
 
 For [reserved chat/background admission](../runtime/interactive-reserve.md), build

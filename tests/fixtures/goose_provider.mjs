@@ -6,7 +6,7 @@ const unixMicros = () => Math.round((performance.timeOrigin + performance.now())
 
 // A local model fixture, not live inference. The real pinned Goose process
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
-export async function fixtureProvider({ resumableHold = false } = {}) {
+export async function fixtureProvider({ resumableHold = false, key, heartbeat = false } = {}) {
   const requests = [];
   let unavailable = false;
   let held = false;
@@ -15,6 +15,10 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   let outputHeld = false;
   const timings = [];
   const server = createServer(async (request, response) => {
+    if (key && request.headers.authorization !== 'Bearer ' + key) {
+      response.writeHead(403).end();
+      return;
+    }
     const headersUs = unixMicros();
     if (request.method === 'GET') {
       response.setHeader('Content-Type', 'application/json');
@@ -43,6 +47,13 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
       response.writeHead(403, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
       return;
+    }
+    if (heartbeat && input.stream) {
+      response.setHeader('Content-Type', 'text/event-stream');
+      response.flushHeaders();
+      const timer = setInterval(() => response.write(': fixture keepalive\n\n'), 500);
+      response.once('close', () => clearInterval(timer));
+      response.once('finish', () => clearInterval(timer));
     }
     if (prompt === 'stall' || (held && !resumableHold)) return; // Deliberately interrupted by Stop/worker loss.
     while ((held || heldMarkers.some(marker => textContent.includes(marker))) && !response.destroyed) await new Promise(resolve => setTimeout(resolve, 20));
@@ -100,7 +111,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
     if (prompt === 'Please summarize the conversation history provided in the system prompt.') text = 'COMPACTION_FIXTURE_SUMMARY: Continue preparing the daily owner report. Retrieve report preferences from scoped memory before finishing.';
     const message = tool ? { role: 'assistant', content: null, tool_calls: [tool] } : { role: 'assistant', content: text };
     if (input.stream) {
-      response.setHeader('Content-Type', 'text/event-stream');
+      if (!response.headersSent) response.setHeader('Content-Type', 'text/event-stream');
       const delta = (value, reason = null) => response.write(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta: value, finish_reason: reason }] })}\n\n`);
       if (tool) delta({ tool_calls: [{ index: 0, ...tool }] });
       else if (script) {
@@ -130,6 +141,7 @@ export async function fixtureProvider({ resumableHold = false } = {}) {
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   return {
+    key,
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
     timings,

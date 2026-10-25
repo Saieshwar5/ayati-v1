@@ -187,7 +187,9 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
         token: random_token(),
         pooled: false,
     };
-    old.register_executor(&e).await.unwrap();
+    super::migration_fixture::legacy_executor(&old, &e)
+        .await
+        .unwrap();
     let token = random_token();
     let scope = old
         .reserve_controlled(
@@ -216,7 +218,9 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
         incarnation: uuid::Uuid::new_v4().to_string(),
         token: random_token(),
     };
-    old.register_executor(&pool).await.unwrap();
+    super::migration_fixture::legacy_executor(&old, &pool)
+        .await
+        .unwrap();
     let slot = uuid::Uuid::new_v4().to_string();
     execute(&old.db,"INSERT INTO relay_executor_slots(executor,incarnation,slot,generation,provider,model,state,token_hash,pid,ready_ms) VALUES($1,$2,$3,1,'openai','fixture','ready',$4,12345,1)",vec![pool.executor.into(),pool.incarnation.into(),slot.clone().into(),digest(&random_token()).into()]).await.unwrap();
     old.migrate().await.unwrap();
@@ -235,6 +239,14 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
     old.db.execute_unprepared(&format!("GRANT USAGE ON SCHEMA {schema} TO relay_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {schema} TO relay_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA {schema} TO relay_app; REVOKE UPDATE,DELETE ON {schema}.relay_audit FROM relay_app; REVOKE INSERT,UPDATE,DELETE ON {schema}.seaql_migrations FROM relay_app;")).await.unwrap();
     url.set_username("relay_app").unwrap();
     let runtime = PgStore::connect(url.as_str()).await.unwrap();
+    runtime
+        .cloud_credential_allowed(&digest(&e.token), None)
+        .await
+        .unwrap();
+    runtime
+        .cloud_credential_allowed(&digest(&token), None)
+        .await
+        .unwrap();
     assert_eq!(
         runtime
             .renew_controlled(&request, &digest(&token))

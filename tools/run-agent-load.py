@@ -24,6 +24,7 @@ SUITES = {
     'preparation': ['tests/harness_preparation.mjs'],
     'mixed': ['tests/interactive_reserve.mjs'],
     'image': ['tests/image_release.mjs', 'tests/interactive_reserve.mjs', 'tests/agent_load_faults.mjs'],
+    'calibration': ['tests/provider_calibration.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/worker_control.mjs',
                     'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
@@ -85,7 +86,7 @@ def stop_scopes(profile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--suite', choices=SUITES, default='matrix')
-    parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults suites')
+    parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults/calibration suites')
     parser.add_argument('--binary', type=Path, default=ROOT / 'target/debug/ayati')
     parser.add_argument('--postgres-bin', type=Path)
     parser.add_argument('--samples', type=int, default=24)
@@ -95,10 +96,12 @@ def main():
     parser.add_argument('--executor-cpu', type=int, choices=[100, 200], default=100,
                         help='CPU ceiling per two-slot executor, in percent of one CPU')
     args = parser.parse_args()
-    if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults']:
+    if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults', 'calibration']:
         parser.error('This suite does not support container mode')
     if args.suite == 'image' and not args.image:
         parser.error('The image suite requires --image sha256:...')
+    if args.suite == 'calibration' and (not args.image or not os.environ.get('AYATI_CALIBRATION_CONFIG')):
+        parser.error('Use tools/calibrate-provider.mjs for isolated image calibration')
     if not args.image and not args.binary.is_file():
         parser.error('Build ayati first or supply --binary')
     if not 4 <= args.samples <= 40 or not 1 <= args.repeats <= 5:

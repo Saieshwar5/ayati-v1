@@ -30,23 +30,19 @@ pub(crate) struct Controlled {
 
 impl PgStore {
     pub(crate) async fn register_executor(&self, registration: &Registration) -> Result<()> {
-        registration.validate()?;
-        let changed = execute(
-            &self.db,
-            &format!(
-                "INSERT INTO relay_executors(id,incarnation,token_hash,expires,pooled)
-            VALUES($1,$2,$3,{CLOCK}+86400,$4) ON CONFLICT(id) DO UPDATE SET expires={CLOCK}+86400
-            WHERE relay_executors.incarnation=$2 AND relay_executors.token_hash=$3 AND relay_executors.pooled=$4"
-            ),
-            vec![
-                registration.executor.clone().into(),
-                registration.incarnation.clone().into(),
-                super::super::provider::digest(&registration.token).into(),
-                registration.pooled.into(),
-            ],
-        )
-        .await?;
-        require(changed == 1)
+        let tx = self.db.begin().await?;
+        super::cloud_executors::register_in(&tx, registration, false).await?;
+        require(
+            query(
+                &tx,
+                "SELECT executor FROM relay_cloud_executors WHERE executor=$1",
+                vec![registration.executor.clone().into()],
+            )
+            .await?
+            .is_none(),
+        )?;
+        tx.commit().await?;
+        Ok(())
     }
 
     pub(crate) async fn executor_allowed(

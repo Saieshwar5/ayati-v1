@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "provider": "CHOOSE_PROVIDER",
+  "model": "CHOOSE_MODEL",
+  "max_requests": 7,
+  "concurrency": 2,
+  "max_prompt_bytes": 65536,
+  "input_token_allowance": 131072,
+  "max_output_tokens": 256,
+  "timeout_seconds": 60,
+  "budget_usd": "CHOOSE_USD_ALLOWANCE",
+  "input_usd_per_million": "VERIFY_CURRENT_RATE",
+  "output_usd_per_million": "VERIFY_CURRENT_RATE",
+  "pricing_source": "CHOOSE_OFFICIAL_PRICING_PAGE",
+  "pricing_checked": "YYYY-MM-DD"
+}

@@ -375,7 +375,7 @@ Local PostgreSQL workspace storage and migration: [setup and verification](runti
 
 For temporary one-assignment workers, set `AYATI_CHAT_EXECUTION=assigned` and run
 `ayati assignment-launcher`. Each worker renews its ownership, saves an outcome
-and exits. This checkout requires all PostgreSQL migrations through 16; see [assignment workers](runtime/assignment-workers.md)
+and exits. This checkout requires all PostgreSQL migrations through 17; see [assignment workers](runtime/assignment-workers.md)
 for configuration, cancellation, recovery and local-only evidence limits.
 
 For prepared shared sessions, set `AYATI_CHAT_EXECUTION=pooled` on the controller
@@ -405,3 +405,18 @@ immutable image and checks prepared shared executors, mixed chat/background work
 recovery and two resource-bounded load profiles. Run
 `python3 tools/verify-release-image.py` with local Docker access. All data and model
 responses are disposable/scripted; no AWS resources or paid calls are required.
+
+The [provider calibration workflow](runtime/provider-calibration.md) measures
+browser-visible replies using that verified image. Its default rehearsal is
+scripted; real-provider execution needs an explicit model/rate/allowance plan and
+private key file. It retains request limits, conservative reservations, usage
+uncertainty and timing evidence before cloud sizing.
+The guide records a first bounded live Fireworks run: seven requests pass, including
+concurrent/mixed work and Stop, with the provider key retained outside containers.
+
+The [M0 AWS package](deploy/aws/README.md) adds read-only inventory/pricing tools,
+validated inactive CloudFormation definitions and a five-employee/five-agent,
+15-minute trial brief. Worker control is still loopback-only: compute and scaling
+stay at zero until the M2/M3 startup and machine-identity integration is proven.
+See [M0 evidence and limitations](runtime/aws-m0-preflight.md). No AWS resources or
+DNS records are created by preparation.

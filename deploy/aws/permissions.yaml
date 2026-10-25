@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Separate bounded controller, migration, task-execution and executor identities.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Environment:
+    Type: String
+    AllowedPattern: 'ayati-[a-z0-9-]{1,18}'
+  RuntimeBoundaryArn:
+    Type: String
+    AllowedPattern: 'arn:aws:iam::[0-9]{12}:policy/.+'
+    Description: Reviewed pre-existing permissions boundary; not provisioned by this stack.
+  OperatorRoleArn:
+    Type: String
+    AllowedPattern: 'arn:aws:iam::[0-9]{12}:role/.+'
+  RuntimeDatabaseSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:.+'
+  WorkosSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:.+'
+  ModelSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:.+'
+  AdminSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:.+'
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed manifest.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: This trial is validated only for Mumbai.
+  SeparateDatabaseCredentials:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Equals: [{Ref: RuntimeDatabaseSecretArn}, {Ref: AdminSecretArn}]
+        AssertDescription: Controller and administrator must use different credentials.
+Resources:
+  ControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-controller'}
+      PermissionsBoundary: {Ref: RuntimeBoundaryArn}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - {Fn::Sub: 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'}
+      Policies:
+        - PolicyName: RuntimeSecretsAndStorage
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [{Ref: RuntimeDatabaseSecretArn}, {Ref: WorkosSecretArn}]
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::${Environment}-${AWS::AccountId}-${AWS::Region}-files'}
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::${Environment}-${AWS::AccountId}-${AWS::Region}-files/*'}
+              - Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: {Fn::ImportValue: {Fn::Sub: '${Environment}-RepositoryArn'}}
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ayati/${Environment}/controller:*'}
+  ControllerProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: {Roles: [{Ref: ControllerRole}]}
+  MigrationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-migration'}
+      PermissionsBoundary: {Ref: RuntimeBoundaryArn}
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: {Ref: OperatorRoleArn}}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MigrationCredentialOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: {Ref: AdminSecretArn}
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-ecs-execution'}
+      PermissionsBoundary: {Ref: RuntimeBoundaryArn}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+              ArnLike: {'aws:SourceArn': {Fn::Sub: 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:*'}}
+      Policies:
+        - PolicyName: ImageLogsAndModelStartupSecret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: {Fn::ImportValue: {Fn::Sub: '${Environment}-RepositoryArn'}}
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ayati/${Environment}/executor:*'}
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: {Ref: ModelSecretArn}
+  ExecutorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-executor'}
+      PermissionsBoundary: {Ref: RuntimeBoundaryArn}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+              ArnLike: {'aws:SourceArn': {Fn::Sub: 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:*'}}
+      Policies:
+        - PolicyName: NoCoreOrProvisioningAuthority
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Deny
+                Action: ['rds:*', 's3:*', 'iam:*', 'secretsmanager:*', 'cloudformation:*', 'sts:AssumeRole', ecs:RunTask, ecs:UpdateService]
+                Resource: '*'
+      # No Allow until M3 proves the exact authenticated bootstrap/control routes.
+  PassRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Reviewable PassRole component only; deliberately not attached to an identity.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: {Fn::GetAtt: [ControllerRole, Arn]}
+            Condition: {StringEquals: {'iam:PassedToService': ec2.amazonaws.com}}
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource:
+              - {Fn::GetAtt: [ExecutionRole, Arn]}
+              - {Fn::GetAtt: [ExecutorRole, Arn]}
+            Condition: {StringEquals: {'iam:PassedToService': ecs-tasks.amazonaws.com}}
+Outputs:
+  ControllerProfile:
+    Value: {Ref: ControllerProfile}
+    Export: {Name: {Fn::Sub: '${Environment}-ControllerProfile'}}
+  ExecutionRole:
+    Value: {Fn::GetAtt: [ExecutionRole, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ExecutionRole'}}
+  ExecutorRole:
+    Value: {Fn::GetAtt: [ExecutorRole, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ExecutorRole'}}
+  MigrationRole:
+    Value: {Fn::GetAtt: [MigrationRole, Arn]}
+  PassRolePolicy:
+    Value: {Ref: PassRolePolicy}

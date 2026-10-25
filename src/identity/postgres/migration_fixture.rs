@@ -1,6 +1,25 @@
-//! Seed the historical v11-v15 column contract without using newer intake SQL.
+//! Seed historical schemas without using newer intake or registration SQL.
 use super::*;
 use crate::identity::chat::store::Job;
+
+pub(super) async fn legacy_executor(
+    db: &PgStore,
+    registration: &crate::identity::worker_control::model::Registration,
+) -> Result<()> {
+    execute(
+        &db.db,
+        "INSERT INTO relay_executors(id,incarnation,token_hash,expires,pooled)
+        VALUES($1,$2,$3,floor(extract(epoch FROM clock_timestamp()))::bigint+86400,$4)",
+        vec![
+            registration.executor.clone().into(),
+            registration.incarnation.clone().into(),
+            super::super::provider::digest(&registration.token).into(),
+            registration.pooled.into(),
+        ],
+    )
+    .await?;
+    Ok(())
+}
 
 pub(super) async fn legacy_request(
     db: &PgStore,

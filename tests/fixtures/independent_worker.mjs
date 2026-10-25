@@ -38,6 +38,7 @@ export async function workerFixture(t, options = {}) {
           PGPASSWORD: decodeURIComponent(connection.password),
           PGOPTIONS: connection.searchParams.get('options') ?? '',
         }, input, encoding: 'utf8',
+        timeout: 30000,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim();
     } catch { throw new Error('Disposable worker fixture SQL failed'); }
@@ -62,11 +63,11 @@ export async function workerFixture(t, options = {}) {
   scoped.searchParams.set('options', `-c search_path=${schema}`);
   const runtime = new URL(scoped);
   runtime.username = 'relay_app';
-  const provider = await fixtureProvider({ resumableHold: options.resumableHold ?? false });
+  const provider = options.provider ?? await fixtureProvider({ resumableHold: options.resumableHold ?? false });
   t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
-    AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: 'fixture',
+    AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: options.model ?? 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
     AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
     AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
@@ -95,7 +96,7 @@ export async function workerFixture(t, options = {}) {
   }
   if (containers) containers.migrate(scoped.href,env,schema);
   else execFileSync(binary, ['workspace-db', 'migrate'], {
-    cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe',
+    cwd: data, env: { ...env, RELAY_DATABASE_URL: scoped.href }, stdio: 'pipe', timeout: 30000,
   });
   sql(`GRANT USAGE ON SCHEMA ${schema} TO relay_app;
     GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${schema} TO relay_app;
@@ -143,6 +144,7 @@ export async function workerFixture(t, options = {}) {
   async function startApi() {
     api = launch(['simulate', join(data, 'api')], {
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: String(port),
+      ...options.apiEnv,
     });
     await until(async () => {
       assert.equal(api.child.exitCode, null, api.logs);
@@ -157,7 +159,7 @@ export async function workerFixture(t, options = {}) {
       RELAY_DATABASE_URL: runtime.href,
       AYATI_DATA_DIR: workerData,
       AYATI_WORKER_HEALTH_FILE: join(workerData, 'worker.health'),
-      OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url,
+      OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret', OPENAI_HOST: provider.url,
       // Deliberately inherited local capabilities must all be disabled for shared work.
       AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/vm.json',
       AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
@@ -200,20 +202,28 @@ export async function workerFixture(t, options = {}) {
   }
   const records = [];
   t.after(async () => {
-    for (const child of [...children].reverse()) await stop(child);
+    provider.setHeld?.(false);
+    provider.setOutputHeld?.(false);
+    const cleanupErrors = [];
+    for (const child of [...children].reverse()) {
+      try { await stop(child); }
+      catch (error) { cleanupErrors.push(error); }
+    }
     containers?.finish();
     await writeFile(join(data, 'report.json'), JSON.stringify({
-      passed: t.passed, schema, checks: records, processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
+      passed: t.passed, schema, checks: records, cleanup_errors: cleanupErrors.length,
+      processes: children.map(c => ({ pid: c.child.pid, code: c.child.exitCode, signal: c.child.signalCode, logs: c.logs.slice(-65536) })),
     }, null, 2));
     for (const [i, child] of children.entries()) await writeFile(join(data, `process-${i}.log`), child.logs);
     console.log('Retained worker evidence:', data);
+    if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Worker fixture cleanup failed');
   });
   await startApi();
   const info = (await request('/api/identity/simulation')).value;
   const cookie = await login(0);
   const path = '/api/identity/workspaces/' + info.workspace;
   const profile = { id: randomUUID(), name: 'Nova', role: 'Answer bounded workspace questions.',
-    model: 'fixture', scope: 'workspace', revision: 0, settings: { provider: 'openai' } };
+    model: options.model ?? 'fixture', scope: 'workspace', revision: 0, settings: { provider: 'openai' } };
   await request(path + '/agent-profiles', cookie, profile);
   const conversation = (await request(path + '/chats', cookie, {
     id: randomUUID(), name: 'Worker proof', users: [], agents: [profile.id], kind: 'direct',
@@ -244,7 +254,7 @@ export async function workerFixture(t, options = {}) {
       const workerData = join(data, 'executor-' + randomUUID());
       await mkdir(workerData);
       return launch(['executor'], { AYATI_DATA_DIR: workerData, RELAY_DATABASE_URL: undefined,
-        RELAY_SIMULATION_DATABASE_URL: undefined, OPENAI_API_KEY: 'fixture-not-a-secret',
+        RELAY_SIMULATION_DATABASE_URL: undefined, OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret',
         OPENAI_HOST: provider.url, AYATI_EXECUTOR_SLOTS: '2', ...extra });
     },
     async startControlled(grant, extra = {}) {
