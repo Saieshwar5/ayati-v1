@@ -16,6 +16,10 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
         .route(
+            "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
+            get(focus),
+        )
+        .route(
             "/api/identity/workspaces/{workspace}/chat-directory",
             get(directory),
         )
@@ -39,6 +43,17 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{reply}/cancel",
             post(cancel),
         )
+}
+async fn focus(
+    State(app): State<Shared>,
+    RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let super::database::Database::Postgres(pg) = &app.store else {
+        return Err(anyhow::anyhow!("Focused history requires PostgreSQL").into());
+    };
+    Ok(Json(pg.chat_focus(&user, &w, &chat, &message).await?))
 }
 async fn cancel(
     State(app): State<Shared>,

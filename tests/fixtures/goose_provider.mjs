@@ -8,6 +8,7 @@ const unixMicros = () => Math.round((performance.timeOrigin + performance.now())
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
 export async function fixtureProvider({ resumableHold = false, key, heartbeat = false } = {}) {
   const requests = [];
+  const controlScripts = new Map();
   let unavailable = false;
   let held = false;
   let heldMarkers = [];
@@ -63,12 +64,14 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
     const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
     const controlPrompt = (savedTask ? textContent.split('\n').find(line => /^(?:user:\s*)?control /.test(line)) : prompt)?.replace(/^user:\s*/, '');
+    const originalLine = savedTask ? textContent.split('Saved task continuation')[0].trim().split('\n').at(-1)?.replace(/^user:\s*/, '') : controlPrompt;
+    const scriptedCommand = controlScripts.get(originalLine);
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));
       text = JSON.stringify({ rules: setup.actions.filter(a => a.operation !== 'order.delete').map(a => ({ connection: a.connection, operation: a.operation, mode: a.effect === 'read' ? 'allow' : 'ask' })), warnings: ['Fixture suggestion: delete is omitted and must remain blocked.'] });
     }
-    if (controlPrompt?.startsWith('control ')) {
-      const command = JSON.parse(controlPrompt.slice(8));
+    if (scriptedCommand || controlPrompt?.startsWith('control ')) {
+      const command = scriptedCommand ?? JSON.parse(controlPrompt.slice(8));
       const results = messages.slice(lastUser + 1).filter(message => message.role === 'tool');
       const steps = savedTask ? (savedTask.actions.every(a => a.state === 'completed') ? command.after ?? [] : []) : command.steps ?? [command];
       const step = steps[results.length];
@@ -159,6 +162,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     key,
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
+    setControl: (prompt, command) => controlScripts.set(prompt, structuredClone(command)),
     timings,
     setStream: value => { streamScript=value; },
     setOutputHeld: value => { outputHeld=value; },

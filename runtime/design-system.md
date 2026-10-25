@@ -149,10 +149,14 @@ access boundaries and remaining work; a visual component grants no authority.
 
 ## Agents and people management
 
-Agents manages configuration; conversations live in Chat. Use a searchable flat
-list with avatars, names, roles/descriptions and actual status, separated by thin
-lines. Hover and focus-within give a subtle highlight. Manage opens the existing
-configuration drawer with Overview, Capabilities and Advanced sections.
+Agents follows the selected **B / Agent workspace** concept: a searchable flat
+team roster beside the selected agent's profile, with Overview, Work, Knowledge,
+Access, Automation, Environment and Activity tabs. Keep rows quiet, actual status
+and purpose readable, and work separated with spacing/dividers. On phones show
+the roster or selected profile with an explicit return control. Profile editing
+retains the existing drawer. Conversations live in Chat; Open conversation from
+work returns to its exact source/thread. Unsupported capabilities must say so.
+See [behavior and authority](agents-team-workspace.md).
 
 Settings → Workspace → People uses the same directory language. People and invitations remain separate
 tabs; inviting opens a focused dialog. Details opens the member drawer. Keep

@@ -91,7 +91,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     </aside>
     <div className="chat-content">
       {agent ? owner ? <LegacyView key={agent} page="chat" href={href} profile={profiles.find(profile => profile.id === agent)} /> : <p role="alert">Private agent chats require workspace owner access.</p>
-        : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} back={() => setShowList(true)} />
+        : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} />
         : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button><div><span className="chat-welcome-mark">↗</span><h2>{selected ? 'Opening conversation' : 'A place to work together'}</h2><p>{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : 'Message a person, talk to an agent, or bring your team together in a channel.'}</p>{!selected && <Button primary disabled={!directory} onClick={() => setChooser('direct')}>New message</Button>}</div></div>}
     </div>
     {approvals && <ApprovalInbox close={() => showApprovals(false)} />}

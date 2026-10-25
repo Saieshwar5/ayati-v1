@@ -3,14 +3,20 @@ import { enqueue } from './outbox';
 import { ChatComposer } from './attachments';
 import { requestAgent, type Mention } from './mentions';
 import type { Attachment } from './model';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { storageScope } from '../../workspace-context';
 import { Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { type Directory, type History, type Message } from './model';
 import { ChatMessage } from './message';
 
-export function ChatThread({ chat, root, history, directory, close, people = [] }: { people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void> }) {
+export function ChatThread({ chat, root, history, directory, close, people = [], focus }: { focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void> }) {
+  const transcript = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focus) return;
+    const target = [...(transcript.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])].find(node => node.dataset.messageId === focus);
+    target?.scrollIntoView?.({ block: 'center' });
+  }, [focus, root.id]);
   const key = storageScope(`relay.chat.thread.${chat}.${root.id}`);
   const [text, setText] = useState(() => { try { return sessionStorage.getItem(key) ?? ''; } catch { return ''; } });
   const [files, setFiles] = useState<Attachment[]>([]);
@@ -27,7 +33,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [] 
   const agents = directory.agents.filter(agent => history.agents.includes(agent.id));
   return <Dialog title="Thread" drawer busy={mutation.busy} status={mutation.status} close={close}>
     <div className="chat-thread-root"><ChatMessage message={root} directory={directory} /></div>
-    <div role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} /></div>
+    <div ref={transcript} role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} /></div>
     <ChatComposer chat={chat} files={files} setFiles={setFiles} value={text} change={update} send={() => void send()} disabled={mutation.busy}
       sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…"
       candidates={[...people, ...agents.map(agent => ({ ...agent, kind: 'agent' as const }))]} />

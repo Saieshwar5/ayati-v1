@@ -1,4 +1,6 @@
-> **Current layout — 2026-10-20:** Follow the [Relay design system](design-system.md)
+> **Historical private Chat layout:** The current Agents management screen is
+> [the team workspace](agents-team-workspace.md). The contextual private Chat
+> panel contract below remains relevant. Follow the [Relay design system](design-system.md)
 > for appearance, navigation and page hierarchy. The older visual descriptions
 > below are historical where they conflict: Home has permanent clock/notifications
 > and custom panels; Chat owns conversations; Agents manages configuration. The

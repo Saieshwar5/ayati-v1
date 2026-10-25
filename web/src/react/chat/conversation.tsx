@@ -14,12 +14,14 @@ import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
 import { chatRequest, conversationKind, conversationName, type Conversation, type Directory, type History } from './model';
 
-export function ConversationPane({ chat, directory, back }: { chat: Conversation; directory: Directory; back: () => void }) {
+export function ConversationPane({ chat, directory, back, focus }: { chat: Conversation; directory: Directory; back: () => void; focus?: string }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
   const [files, setFiles] = useState<Attachment[]>([]);
   const [older, setOlder] = useState<Message[]>([]);
+  const [focused, setFocused] = useState<Message[]>([]);
+  const [focusError, setFocusError] = useState('');
   const [cursor, setCursor] = useState<number | null>();
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [history, setHistory] = useState<History>();
@@ -36,6 +38,26 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
   const attempt = useRef<{ id: string; content: string; agent?: string; attachments: string[] }>(undefined);
   const refresh = useRef<() => Promise<void>>(async () => {});
   const alive = useRef(true);
+  useEffect(() => {
+    setFocused([]); setFocusError('');
+    if (!focus) return;
+    let abort = new AbortController(); bottom.current = false;
+    const loadFocus = () => {
+      abort.abort(); abort = new AbortController(); const request = abort;
+      setFocused([]); setFocusError('');
+      void chatRequest<History>(`/chats/${chat.id}/messages/${encodeURIComponent(focus)}`, undefined, request.signal)
+        .then(page => { if (!request.signal.aborted) { setFocused(page.messages); const message = page.messages.find(m => m.id === focus); if (message?.thread) setThread(message.thread); } })
+        .catch(error => { if (!request.signal.aborted) setFocusError(errorMessage(error)); });
+    };
+    loadFocus();
+    const unsubscribe = subscribeChanges(change => { if (['access', 'reset'].includes(change.kind)) loadFocus(); });
+    return () => { abort.abort(); unsubscribe(); };
+  }, [chat.id, focus]);
+  useLayoutEffect(() => {
+    if (!focus) return;
+    const target = [...(messages.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])].find(node => node.dataset.messageId === focus);
+    target?.scrollIntoView?.({ block: 'center' });
+  }, [focus, focused]);
   useEffect(() => {
     alive.current = true;
     const abort = new AbortController(); let loading = false, queued = false;
@@ -86,7 +108,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
     catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { if (alive.current) setLoadingOlder(false); }
   };
-  const allMessages = mergeMessages(older, history?.messages ?? []);
+  const allMessages = mergeMessages(focused, older, history?.messages ?? []);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
   const title = conversationName(chat, directory);
@@ -111,9 +133,10 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
       {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <ChatMessage compact={index > 0 && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)} />)}
+      {timeline.map((message, index) => <ChatMessage focused={message.id === focus} compact={index > 0 && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)} />)}
       <PendingMessages chat={chat.id} />
     </div>
+    {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
@@ -121,7 +144,7 @@ export function ConversationPane({ chat, directory, back }: { chat: Conversation
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
-    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
+    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
     {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p><p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
   </section>;
 }
