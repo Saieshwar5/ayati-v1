@@ -2,6 +2,10 @@
 mod accounts;
 mod agent_knowledge;
 mod agent_profiles;
+mod approval_authority;
+mod approval_delivery;
+#[cfg(test)]
+mod approval_tests;
 #[cfg(test)]
 mod assignment_tests;
 mod assignments;

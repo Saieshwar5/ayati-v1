@@ -6,6 +6,8 @@ import {
   decideAction, loadControls, modes, saveRule, states,
   type Action, type Controls, type Mode, type Operation, type Rule,
 } from './control-model';
+import { ApprovalFields } from '../approvals/fields';
+import { ApprovalRoute, type Route } from '../approvals/approval-route';
 import { GuidedSetup } from './guided-setup';
 import type { Agent } from './model';
 
@@ -52,11 +54,13 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
           rule={rule}
           editable={data.can_manage && Boolean(agent.editable) && (data.can_manage_connections || Boolean(delegation))}
           ceiling={ceiling}
-          approver={data.can_manage_connections ? undefined : delegation?.approver_name}
+          approver={data.approval_accounts?.find(a => a.id === connection.id)?.permissions.find(p => p.operation.id === operation.id)?.approver_name ?? (data.can_manage_connections ? undefined : delegation?.approver_name)}
+          people={data.approval_accounts?.find(a => a.id === connection.id)?.permissions.find(p => p.operation.id === operation.id)?.approvers ?? []}
+          channels={data.approval_channels ?? []}
           busy={mutation.busy}
           executionAvailable={data.execution_available !== false}
-          save={(mode, revision, chat) => mutation.run(async () => {
-            await saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision, chat, ...(!data.can_manage_connections && delegation ? { delegation_revision: delegation.revision } : {}) });
+          save={(mode, revision, chat, route) => mutation.run(async () => {
+            await saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision, chat, ...(mode === "ask" ? route : {}), ...(!data.can_manage_connections && delegation ? { delegation_revision: delegation.revision } : {}) });
             await refresh();
           })}
         />;
@@ -93,22 +97,24 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
 
 type PermissionProps = {
   conversations: Controls['conversations']; operation: Operation; rule?: Rule;
-  editable: boolean; busy: boolean; ceiling: Mode; approver?: string;
+  people: import('../approvals/approval-route').Approver[]; channels: { id: string; name: string }[]; editable: boolean; busy: boolean; ceiling: Mode; approver?: string;
   executionAvailable: boolean;
-  save: (mode: Mode, revision: number, chat: string) => Promise<void>;
+  save: (mode: Mode, revision: number, chat: string, route: Route) => Promise<void>;
 };
-function PermissionRow({ conversations, operation, rule, editable, busy, ceiling, approver, executionAvailable, save }: PermissionProps) {
+function PermissionRow({ conversations, operation, rule, editable, busy, ceiling, approver, executionAvailable, save, people, channels }: PermissionProps) {
+  const [route, setRoute] = useState<Route>({ approver: rule?.approver, approver_revision: rule?.approver_revision, approval_chat: rule?.approval_chat });
   const [mode, setMode] = useState<Mode>(rule?.mode ?? 'block');
   const [chat, setChat] = useState(rule?.chat ?? (conversations.length === 1 ? conversations[0].id : ''));
+  const selectedName = route.approver ? people.find(p => p.id === route.approver)?.name ?? rule?.approver_name ?? approver : approver ?? rule?.approver_name;
   return <form className="control-rule" onSubmit={event => {
     event.preventDefault();
-    void save(mode, rule?.revision ?? 0, chat);
+    void save(mode, rule?.revision ?? 0, chat, route);
   }}>
     <div>
       <strong>{operation.title}</strong>
       <small>{operation.effect === 'write' ? 'Changes business records' : 'Reads business records'}</small>
-      {rule?.mode === 'ask' && !approver && <small>Approver: {rule.approver_name}</small>}
-      {approver && <small>Your limit: {modes[ceiling]}. Ask requests go to {approver}.</small>}
+      {rule?.mode === 'ask' && !approver && <small>Approver: {selectedName}</small>}
+      {approver && <small>Your limit: {modes[ceiling]}. Ask requests go to {selectedName}.</small>}
     </div>
     <div className="control-rule-fields">
       <label className="ui-field">Conversation
@@ -123,21 +129,12 @@ function PermissionRow({ conversations, operation, rule, editable, busy, ceiling
         </select>
       </label>
     </div>
+    {mode === 'ask' && <ApprovalRoute label={operation.title} route={route} people={people} channels={channels} disabled={!editable || busy} change={setRoute} />}
     {editable && <Button type="submit"
-      disabled={busy || !chat || (!executionAvailable && mode !== 'block') || (Boolean(rule) && mode === rule?.mode && chat === rule.chat)}
+      disabled={busy || !chat || (!executionAvailable && mode !== 'block') || (Boolean(rule) && mode === rule?.mode && chat === rule.chat && (route.approver ?? null) === (rule.approver ?? null) && (route.approval_chat ?? null) === (rule.approval_chat ?? null))}
       aria-label={`Save ${operation.title} permission`}>Save permission</Button>}
     {!conversations.length && <p className="ui-help">Start a conversation with this agent before assigning an operation.</p>}
   </form>;
-}
-
-function ActionFields({ fields }: { fields: unknown }) {
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null;
-  return <dl className="control-fields">
-    {Object.entries(fields).map(([field, value]) => <div key={field}>
-      <dt>{field.replaceAll('_', ' ')}</dt>
-      <dd>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</dd>
-    </div>)}
-  </dl>;
 }
 
 type ActionProps = {
@@ -146,7 +143,7 @@ type ActionProps = {
 };
 function ActionRow({ action, controls, busy, decide }: ActionProps) {
   const awaiting = action.state === 'pending';
-  const canDecide = awaiting && controls.can_manage && controls.viewer === action.approver;
+  const canDecide = awaiting && controls.viewer === action.approver;
   const system = controls.connections.find(connection => connection.id === action.connection)?.definition.name ?? 'Previously connected system';
   return <article className="control-action" aria-label={`${action.title} · ${states[action.state] ?? action.state}`}>
     <div className="control-heading">
@@ -158,13 +155,14 @@ function ActionRow({ action, controls, busy, decide }: ActionProps) {
     {action.state === 'completed' && <p className="ui-help">{action.decision === 'approve' ? 'Executed after exact approval.' : 'Executed under the saved automatic permission.'}</p>}
     <details open={awaiting}>
       <summary>Exact action fields</summary>
-      <ActionFields fields={action.arguments} />
+      <ApprovalFields fields={action.arguments} />
     </details>
     {canDecide && <div className="control-decisions">
       <Button primary disabled={busy} onClick={() => void decide('approve')}>Approve this action</Button>
       <Button disabled={busy} onClick={() => void decide('reject')}>Reject this action</Button>
     </div>}
     {awaiting && !canDecide && <p className="ui-help">Waiting for the designated approver.</p>}
+    {action.delivery?.reason && <p className="ui-help">{action.delivery.reason}</p>}
     {action.state === 'invalidated' && <p className="ui-help">Permissions or connection verification changed. Ask the agent for a new proposal.</p>}
     {action.state === 'uncertain' && <p className="ui-help">The remote system may have changed. Inspect it before requesting another write.</p>}
     {action.state === 'completed' && <details>

@@ -96,6 +96,9 @@ impl Setup {
     }
     fn rule(&self, mode: &str, revision: i64, grant_revision: i64) -> Rule {
         Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             connection: self.account.id.clone(),
             operation: "order.update".into(),
             mode: mode.into(),

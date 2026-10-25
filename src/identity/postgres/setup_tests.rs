@@ -40,11 +40,17 @@ async fn setup() -> (PgStore, User, String, String, String, Draft) {
         .unwrap();
     let choices = vec![
         Choice {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             connection: id.clone(),
             operation: "read".into(),
             mode: "allow".into(),
         },
         Choice {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             connection: id.clone(),
             operation: "update".into(),
             mode: "ask".into(),
@@ -121,6 +127,9 @@ async fn draft_preview_has_no_grants_or_actions_and_activation_is_atomic_idempot
         &w,
         &agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             connection: draft.request.connections[0].clone(),
             operation: "read".into(),
             mode: "block".into(),
@@ -240,6 +249,9 @@ async fn concurrent_manual_rule_change_rejects_whole_activation_without_partial_
         &w,
         &agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             connection: draft.request.connections[0].clone(),
             operation: "update".into(),
             mode: "block".into(),
@@ -392,10 +404,11 @@ async fn delegated_limits_and_revocation_fence_a_saved_review() {
     )
     .await
     .unwrap();
-    let current = db
+    let mut current = db
         .setup_selected_context(&member, &w, &agent, &draft.request)
         .await
         .unwrap();
+    current.approval_channels = draft.context.approval_channels.clone();
     assert_eq!(
         serde_json::to_value(current).unwrap(),
         serde_json::to_value(&draft.context).unwrap()

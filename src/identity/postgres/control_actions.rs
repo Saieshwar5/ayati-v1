@@ -84,6 +84,10 @@ impl PgStore {
         let state = if mode == "block" { "denied" } else { "pending" };
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_control_actions(id,workspace,agent,chat,thread,job,requester,request_id,connection,operation,arguments,title,effect,rule_revision,connection_revision,approver,state,created,updated) SELECT $1,$2,$3,$4,m.thread,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,floor(extract(epoch FROM clock_timestamp()))::bigint,floor(extract(epoch FROM clock_timestamp()))::bigint FROM relay_chat_messages m WHERE m.workspace=$2 AND m.id=$5",vec![id.clone().into(),job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),job.reply.clone().into(),job.requester.clone().into(),request_id.into(),input.connection.clone().into(),input.operation.clone().into(),input.arguments.clone().into(),operation.title.clone().into(),operation.effect.clone().into(),revision.into(),connection.try_get::<i64>("","revision")?.into(),approver.into(),state.into()]).await?;
+        if mode == "ask" {
+            execute(&tx,"UPDATE relay_control_actions SET approval_chat=(SELECT approval_chat FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4) WHERE workspace=$1 AND id=$5",vec![job.workspace.clone().into(),job.agent.clone().into(),input.connection.clone().into(),input.operation.clone().into(),id.clone().into()]).await?;
+            super::approval_delivery::deliver(&tx, &job.workspace, &id).await?;
+        }
         let dispatch = if mode == "allow" {
             let mut dispatch = claim(&tx, &job.workspace, &id).await?;
             dispatch.origin = Some(job.clone());
@@ -113,18 +117,13 @@ impl PgStore {
     ) -> Result<Proposed> {
         crate::identity::worker_control::model::uuid(&input.id)?;
         ensure!(
-            ["approve", "reject"].contains(&input.decision.as_str()),
+            ["approve", "reject", "request_changes"].contains(&input.decision.as_str()),
             "Invalid action decision"
         );
         let tx = self.workspace_tx(w).await?;
         let row=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND agent=$2 AND id=$3",vec![w.into(),agent.into(),id.into()]).await?.context("Action unavailable")?;
         let action: Value = row.try_get("", "data")?;
-        super::agent_profiles::managed_access(&tx, &user.id, w, agent, false).await?;
-        super::chat::access(&tx, user, w, action["chat"].as_str().unwrap()).await?;
-        ensure!(
-            action["approver"] == user.id && role(&tx, w, &user.id).await? == "Owner",
-            "Only the designated workspace owner can decide this action"
-        );
+        super::approval_delivery::decision_authority(&tx, user, w, &action).await?;
         if !action["decision"].is_null() {
             ensure!(
                 action["decision"] == input.decision,
@@ -184,8 +183,7 @@ impl PgStore {
                 email: String::new(),
                 display_name: None,
             };
-            manager(&tx, w, &approver.id).await?;
-            super::chat::access(&tx, &approver, w, &job.chat).await?;
+            super::approval_delivery::decision_authority(&tx, &approver, w, &action).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -254,7 +252,7 @@ pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: boo
     }
     Ok(())
 }
-async fn job_for_action(db: &impl ConnectionTrait, action: &Value) -> Result<Job> {
+pub(super) async fn job_for_action(db: &impl ConnectionTrait, action: &Value) -> Result<Job> {
     let row = query(
         db,
         "SELECT payload FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2",
@@ -267,7 +265,7 @@ async fn job_for_action(db: &impl ConnectionTrait, action: &Value) -> Result<Job
     .context("Task unavailable")?;
     Ok(serde_json::from_value(row.try_get("", "payload")?)?)
 }
-async fn visible(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Value> {
+pub(super) async fn visible(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Value> {
     Ok(query(
         db,
         &format!(

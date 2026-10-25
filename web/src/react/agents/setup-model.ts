@@ -1,9 +1,9 @@
 import { identityRequest, workspaceId } from '../../workspace-context';
 import { controlPath, type Mode, type Operation } from './control-model';
-export type Permission = { operation: Operation; ceiling: Mode; approver: string | null; approver_name: string | null; delegation_revision: number | null; rule_revision: number };
+export type Permission = { approvers?: import('../approvals/approval-route').Approver[]; operation: Operation; ceiling: Mode; approver: string | null; approver_name: string | null; delegation_revision: number | null; rule_revision: number };
 export type Account = { id: string; server: string; name: string; account: string | null; revision: number; permissions: Permission[] };
-export type SetupContext = { name: string; responsibility: string; accounts: Account[]; conversations: { id: string; name: string }[] };
-export type Choice = { connection: string; operation: string; mode: Mode };
+export type SetupContext = { approval_channels?: { id: string; name: string }[]; name: string; responsibility: string; accounts: Account[]; conversations: { id: string; name: string }[] };
+export type Choice = { connection: string; operation: string; mode: Mode } & import('../approvals/approval-route').Route;
 export type Start = { id: string; purpose: string; chat: string; connections: string[]; assistant: boolean };
 export type Inventory = { connection: string; tools: string[]; unsupported: string[] };
 export type DraftData = { request: Start; context: SetupContext; choices: Choice[]; inventories: Inventory[]; notes: string[] };

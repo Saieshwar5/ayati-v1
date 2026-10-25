@@ -34,7 +34,7 @@ impl PgStore {
         let delegations=json_rows(&tx,"SELECT to_jsonb(d)||jsonb_build_object('approver_name',COALESCE(u.display_name,u.email)) AS data FROM relay_control_delegations d JOIN relay_users u ON u.id=d.approver JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=$1 AND d.user_id=$2",vec![w.into(),user.id.clone().into()]).await?;
         let connections = json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'server',c.server,'definition',c.definition,'enabled',c.enabled,'revision',c.revision) AS data FROM relay_control_connections c WHERE c.workspace=$1 AND ($3 OR ($5 AND EXISTS(SELECT 1 FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=c.workspace AND d.connection=c.id AND d.user_id=$4 AND d.ceiling<>'block')) OR EXISTS(SELECT 1 FROM relay_control_rules r WHERE r.workspace=c.workspace AND r.connection=c.id AND r.agent=$2 AND EXISTS(SELECT 1 FROM relay_chats ch WHERE ch.workspace=r.workspace AND ch.id=r.chat AND (ch.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people cp WHERE cp.workspace=ch.workspace AND cp.chat=ch.id AND cp.user_id=$4))))) ORDER BY c.id LIMIT 50",vec![w.into(),agent.into(),owner.into(),user.id.clone().into(),can_manage.into()]).await?;
         let rules = json_rows(&tx,"SELECT to_jsonb(r)||jsonb_build_object('approver_name',COALESCE(u.display_name,u.email)) AS data FROM relay_control_rules r JOIN relay_users u ON u.id=r.approver JOIN relay_chats c ON c.workspace=r.workspace AND c.id=r.chat WHERE r.workspace=$1 AND r.agent=$2 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)) ORDER BY r.connection,r.operation",vec![w.into(),agent.into(),user.id.clone().into()]).await?;
-        let actions = json_rows(&tx,&format!("SELECT {VIEW} AS data FROM relay_control_actions a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.agent=$2 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=a.workspace AND p.chat=a.chat AND p.user_id=$3)) ORDER BY a.created DESC,a.id DESC LIMIT 50"),vec![w.into(),agent.into(),user.id.clone().into()]).await?;
+        let actions = json_rows(&tx,&format!("SELECT {VIEW} AS data FROM relay_control_actions a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.agent=$2 AND (a.requester=$3 OR NOT EXISTS(SELECT 1 FROM relay_library_sources l WHERE l.workspace=a.workspace AND l.reply=a.job)) AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=a.workspace AND p.chat=a.chat AND p.user_id=$3)) ORDER BY a.created DESC,a.id DESC LIMIT 50"),vec![w.into(),agent.into(),user.id.clone().into()]).await?;
         tx.commit().await?;
         Ok(
             json!({"connections":connections,"conversations":conversations,"rules":rules,"actions":actions,"can_manage":can_manage,"can_manage_connections":owner,"delegations":delegations,"viewer":user.id}),
@@ -79,7 +79,7 @@ impl PgStore {
     ) -> Result<()> {
         let tx = self.workspace_tx(w).await?;
         let approver = validate_rule(&tx, user, w, agent, input).await?;
-        let old = query(&tx,"SELECT revision,mode,approver,chat,configured_by,delegation_revision FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into()]).await?;
+        let old = query(&tx,"SELECT revision,mode,approver,chat,configured_by,delegation_revision,approver_revision,approval_chat FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into()]).await?;
         if let Some(row) = old {
             let revision: i64 = row.try_get("", "revision")?;
             if revision != input.revision {
@@ -90,6 +90,18 @@ impl PgStore {
                         && row.try_get::<String>("", "configured_by")? == user.id
                         && row.try_get::<Option<i64>>("", "delegation_revision")?
                             == input.delegation_revision
+                        && row.try_get::<Option<i64>>("", "approver_revision")?
+                            == if input.mode == "ask" {
+                                input.approver_revision
+                            } else {
+                                None
+                            }
+                        && row.try_get::<Option<String>>("", "approval_chat")?
+                            == if input.mode == "ask" {
+                                input.approval_chat.clone()
+                            } else {
+                                None
+                            }
                         && row.try_get::<String>("", "chat")? == input.chat,
                     "Permission changed; reload before saving"
                 );
@@ -129,7 +141,7 @@ pub(super) async fn validate_rule(
             && input.revision < i64::MAX,
         "Invalid permission rule"
     );
-    let approver = if input.mode == "block" {
+    let mut approver = if input.mode == "block" {
         user.id.clone()
     } else {
         super::connection_authority::rule_approver(db, user, w, input).await?
@@ -155,13 +167,39 @@ pub(super) async fn validate_rule(
         "Unsupported operation"
     );
     if input.mode == "ask" {
+        let grantor = approver.clone();
+        approver = input.approver.clone().unwrap_or(approver);
+        if role(db, w, &user.id).await? != "Owner" && approver != grantor {
+            ensure!(query(db,"SELECT user_id FROM relay_control_approvers WHERE workspace=$1 AND connection=$2 AND operation=$3 AND user_id=$4 AND granted_by=$5 AND enabled",vec![w.into(),input.connection.clone().into(),input.operation.clone().into(),approver.clone().into(),grantor.into()]).await?.is_some(),"Your delegating Owner must authorize the selected approver");
+        }
+        super::approval_authority::require(
+            db,
+            w,
+            &input.connection,
+            &input.operation,
+            &approver,
+            input.approver_revision,
+        )
+        .await?;
         let person = User {
             id: approver.clone(),
             email: String::new(),
             display_name: None,
         };
-        super::agent_profiles::managed_access(db, &person.id, w, agent, false).await?;
+        super::approval_authority::agent_visible(db, &person.id, w, agent).await?;
         super::chat::access(db, &person, w, &input.chat).await.context("The designated approver cannot view this conversation; choose a shared work conversation")?;
+    }
+    if input.mode == "ask" {
+        super::approval_authority::route(
+            db,
+            user,
+            w,
+            agent,
+            &input.chat,
+            input.approval_chat.as_deref().unwrap_or(&input.chat),
+            &approver,
+        )
+        .await?;
     }
     Ok(approver)
 }
@@ -174,11 +212,11 @@ pub(super) async fn write_rule(
     input: &Rule,
     approver: &str,
 ) -> Result<()> {
-    execute(db,"INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,chat,configured_by,delegation_revision,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1) ON CONFLICT(workspace,agent,connection,operation) DO UPDATE SET mode=excluded.mode,approver=excluded.approver,chat=excluded.chat,configured_by=excluded.configured_by,delegation_revision=excluded.delegation_revision,revision=relay_control_rules.revision+1",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into(),input.mode.clone().into(),approver.into(),input.chat.clone().into(),user.id.clone().into(),input.delegation_revision.into()]).await?;
+    execute(db,"INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,chat,configured_by,delegation_revision,approver_revision,approval_chat,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1) ON CONFLICT(workspace,agent,connection,operation) DO UPDATE SET mode=excluded.mode,approver=excluded.approver,chat=excluded.chat,configured_by=excluded.configured_by,delegation_revision=excluded.delegation_revision,approver_revision=excluded.approver_revision,approval_chat=excluded.approval_chat,revision=relay_control_rules.revision+1",vec![w.into(),agent.into(),input.connection.clone().into(),input.operation.clone().into(),input.mode.clone().into(),approver.into(),input.chat.clone().into(),user.id.clone().into(),input.delegation_revision.into(),(if input.mode=="ask" {input.approver_revision} else {None}).into(),(if input.mode=="ask" {input.approval_chat.as_deref()} else {None}).into()]).await?;
     invalidate(db, w, &input.connection, Some((agent, &input.operation))).await
 }
 
-pub(super) const VIEW: &str = "jsonb_build_object('id',a.id,'connection',a.connection,'operation',a.operation,'title',a.title,'effect',a.effect,'decision',a.decision,'requester_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.requester),'conversation_name',(SELECT c.name FROM relay_chats c WHERE c.workspace=a.workspace AND c.id=a.chat),'arguments',a.arguments,'state',CASE WHEN a.state='executing' AND a.updated < floor(extract(epoch FROM clock_timestamp()))::bigint-60 THEN 'uncertain' ELSE a.state END,'result',a.result,'chat',a.chat,'thread',a.thread,'job',a.job,'approver',a.approver,'created',a.created,'updated',a.updated)";
+pub(super) const VIEW: &str = "jsonb_build_object('id',a.id,'connection',a.connection,'operation',a.operation,'title',a.title,'effect',a.effect,'decision',a.decision,'requester_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.requester),'conversation_name',(SELECT c.name FROM relay_chats c WHERE c.workspace=a.workspace AND c.id=a.chat),'delivery',(SELECT jsonb_build_object('status',d.status,'reason',d.reason) FROM relay_control_deliveries d WHERE d.workspace=a.workspace AND d.action=a.id),'arguments',a.arguments,'state',CASE WHEN a.state='executing' AND a.updated < floor(extract(epoch FROM clock_timestamp()))::bigint-60 THEN 'uncertain' ELSE a.state END,'result',a.result,'chat',a.chat,'thread',a.thread,'job',a.job,'approver',a.approver,'created',a.created,'updated',a.updated)";
 pub(super) async fn invalidate(
     db: &impl ConnectionTrait,
     w: &str,

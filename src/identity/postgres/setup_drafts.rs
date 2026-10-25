@@ -21,11 +21,13 @@ async fn validate(
     agent: &str,
     draft: &Draft,
 ) -> Result<Vec<(crate::identity::control::model::Rule, String)>> {
-    let current = super::setup_context::select(
+    let mut current = super::setup_context::select(
         super::setup_context::context(db, user, w, agent).await?,
         &draft.request.connections,
         &draft.request.chat,
     )?;
+    // Channel options are presentation; each selected route is authorized below.
+    current.approval_channels = draft.context.approval_channels.clone();
     ensure!(
         serde_json::to_value(current)? == serde_json::to_value(&draft.context)?,
         "Agent, account or permissions changed. Start a new review"

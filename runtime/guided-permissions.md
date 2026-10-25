@@ -4,7 +4,7 @@ Open **Agents → Set up permissions** for an agent you maintain, or **Tools and
 approvals → Permissions → Guided permission setup**. This extends the existing
 [workspace Connections and delegation](workspace-connections.md) and
 [shared-agent enforcement gateway](shared-agent-control.md). Current startup
-requires PostgreSQL **schema 20**.
+requires PostgreSQL **schema 21**.
 
 ## Product flow
 
@@ -29,9 +29,12 @@ their owner-only conversation boundary. Ask requires the designated approver to
 be able to see both the agent and work conversation; setup cannot publish a
 private transcript to solve missing access.
 
-The designated approver is still the Owner who saved the delegation, or the Owner
-configuring rules directly. Choosing arbitrary approvers, multiple named managers,
-channel approval delivery and original-task continuation remain later work.
+[Authorized approvers and channel delivery](channel-approvals.md) now add a
+person/channel choice for each Ask operation. The original Owner remains the
+default; a delegated creator may select another person explicitly authorized by
+that Owner. The selected person also needs independent agent/source visibility.
+Multiple named managers, backup reassignment and original-task continuation remain
+later work.
 
 ## Suggestions and complete coverage
 

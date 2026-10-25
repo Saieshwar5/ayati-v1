@@ -1,7 +1,7 @@
 # Workspace connections and delegated agent setup
 
 This increment makes the existing shared-agent control engine configurable by an
-Owner and explicitly delegated members. It requires PostgreSQL **schema 20**.
+Owner and explicitly delegated members. It requires PostgreSQL **schema 21**.
 It provides reviewed, operator-configured MCP accounts; it does not yet provide
 self-service OAuth or arbitrary custom-MCP registration. The subsequent
 [guided review](guided-permissions.md) adds optional AI permission drafts.
@@ -17,10 +17,11 @@ Open **Settings → Workspace → Connections**. The page separates three decisi
 3. **Manage access** selects a workspace User and the maximum permission they may
    assign for each operation on agents they maintain. New operations are unavailable.
 
-The operation limits are **May allow automatically**, **Must ask me first** and
+The operation limits are **May allow automatically**, **Must ask an authorized approver** and
 **Unavailable**. The first permits Allow/Ask/Block; the second permits Ask/Block;
-the third permits no execution. The Owner saving a delegation becomes its approver
-when the member configures an Ask rule. The page displays the current approver.
+the third permits no execution. The Owner saving a delegation becomes its default approver
+when the member configures an Ask rule. [Scoped approval grants](channel-approvals.md)
+now allow that Owner to authorize other people for selection. The page displays the current approver.
 
 **Agent creators** independently permits selected Users to create workspace agents.
 Removing creation permission prevents new workspace agents; existing agents remain
@@ -45,11 +46,12 @@ the existing agent owner/maintainer plus workspace Owner model; separate named
 multi-person management grants are not implemented. A workspace Owner may manage
 workspace agents, but cannot inspect another person's private agent.
 
-Activity retains the existing exact-action approval/result UI. Only the designated
-Owner can approve that action. Other Owners, the agent creator and ordinary channel
+Activity retains the existing exact-action approval/result UI. Only the designated,
+currently authorized person can approve that action. Other Owners, the agent creator and ordinary channel
 participants cannot substitute for that person. Approval dispatches the saved
-action; it does **not** resume the original Goose job. Channel notification cards,
-selected approval destinations and automatic continuation remain later increments.
+action; it does **not** resume the original Goose job. Channel request cards, selected eligible people/destinations and a restricted inbox
+are now implemented in [channel approvals](channel-approvals.md). Automatic original-task
+continuation remains a later increment.
 
 ## Enforcement and persistence
 
@@ -96,7 +98,7 @@ workspace approval; the UI uses the workspace endpoints above.
 Back up the identity database and stop old binaries before explicitly applying
 `workspace-db migrate` with the administrator connection. Reapply runtime grants,
 including SELECT on the new view, using the existing PostgreSQL deployment procedure.
-Startup requires all 20 migrations. Do not run an old binary against this schema.
+Startup requires all 21 migrations. Do not run an old binary against this schema.
 This change was verified on disposable databases; the ordinary workspace database
 was not migrated.
 

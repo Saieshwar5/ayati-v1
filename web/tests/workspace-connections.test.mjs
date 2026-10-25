@@ -55,7 +55,7 @@ test('delegation retains a failed draft, bounds its revision and names the respo
   await reactFixture(async ({ render, button, click, change, update }) => {
     const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
     await render(WorkspaceConnections); await click(button('Manage access'));
-    assert.match(document.querySelector('dialog').textContent, /You become the approver/);
+    assert.match(document.querySelector('dialog').textContent, /default approver/);
     const select = document.querySelector('[aria-label="Update order delegation"]');
     await change(select, 'ask');
     await update(() => { button('Save access').click(); button('Save access').click(); });

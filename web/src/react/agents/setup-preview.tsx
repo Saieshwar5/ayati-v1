@@ -14,7 +14,7 @@ export function SetupPreview({ draft, preview, busy, run }: { draft: Draft; prev
     <p className="ui-help">Preview for you in the selected conversation. No business action runs. Each real request is checked again when it executes.</p>
     <div className="setup-decisions">{preview.results.map(result => {
       const p = operations.find(item => item.account.id === result.connection && item.permission.operation.id === result.operation)?.permission;
-      return <p key={`${result.connection}/${result.operation}`}><strong>{p?.operation.title}</strong><span>{modes[result.decision]}{result.decision === 'ask' && ` · ${p?.approver_name}`}</span></p>;
+      return <p key={`${result.connection}/${result.operation}`}><strong>{p?.operation.title}</strong><span>{modes[result.decision]}{result.decision === 'ask' && ` · ${p?.approvers?.find(person => person.id === result.approver)?.name ?? p?.approver_name}`}</span></p>;
     })}</div>
     <h3>Try an example</h3>
     <label className="ui-field">Action<select aria-label="Example action" value={selected} onChange={e => { select(e.target.value); setFields({}); }}>

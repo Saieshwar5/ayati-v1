@@ -48,6 +48,9 @@ async fn embedded_gateway_uses_controller_owned_credentials() {
         &w,
         &agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             delegation_revision: None,
             connection: connection.clone(),
             operation: "order.read".into(),

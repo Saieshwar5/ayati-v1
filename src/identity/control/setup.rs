@@ -91,6 +91,9 @@ async fn start(
         .iter()
         .flat_map(|a| {
             a.permissions.iter().map(|p| Choice {
+                approver: None,
+                approver_revision: None,
+                approval_chat: None,
                 connection: a.id.clone(),
                 operation: p.operation.id.clone(),
                 mode: "block".into(),

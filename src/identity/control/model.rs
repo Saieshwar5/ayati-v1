@@ -152,6 +152,12 @@ fn schema(value: &Value) -> Result<()> {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Rule {
+    #[serde(default)]
+    pub approver: Option<String>,
+    #[serde(default)]
+    pub approver_revision: Option<i64>,
+    #[serde(default)]
+    pub approval_chat: Option<String>,
     pub connection: String,
     pub operation: String,
     pub mode: String,

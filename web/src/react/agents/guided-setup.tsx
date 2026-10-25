@@ -80,7 +80,7 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
           <label className="ui-check"><input type="checkbox" checked={form.assistant} onChange={e => setForm(old => ({ ...old, assistant: e.target.checked }))} />Use AI suggestions for this review</label>
           <p className="ui-help">Sends your description and reviewed action names to this agent’s configured model. Normal model usage may apply. Suggestions are editable and cannot activate permissions. Manual review starts with every action blocked.</p>
         </>}
-        {step === 1 && record && <SetupReview draft={record} choices={choices} change={edit} executionAvailable={setup.execution_available} />}
+        {step === 1 && record && <SetupReview draft={record} choices={choices} change={edit} route={(index, patch) => { setChoices(old => old.map((c, i) => i === index ? { ...c, ...patch } : c)); setPreview(undefined); confirm(false); }} executionAvailable={setup.execution_available} />}
         {step === 2 && record && preview && <><SetupPreview draft={record} preview={preview} busy={mutation.busy} run={example => void mutation.run(async () => { const result = await previewDraft(agent.id, record, example); if (alive.current) setPreview(result); })} />
           <Coverage draft={record} /><label className="ui-check"><input type="checkbox" checked={reviewed} onChange={e => confirm(e.target.checked)} />I reviewed these actions, their limits and designated approvers.</label>
         </>}

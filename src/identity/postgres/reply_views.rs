@@ -7,6 +7,7 @@ pub(super) async fn hydrate(
     workspace: &str,
     messages: &mut [Value],
 ) -> Result<()> {
+    super::approval_delivery::hydrate(tx, user, workspace, messages).await?;
     let ids = messages
         .iter()
         .filter(|m| m["kind"] == "agent" && m["state"] == "queued")

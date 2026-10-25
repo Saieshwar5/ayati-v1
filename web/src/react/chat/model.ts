@@ -11,6 +11,7 @@ export type Message = {
     state: 'starting' | 'waiting' | 'responding' | 'interrupted';
     text: string; generation: number;
   } | null;
+  approval?: import('../approvals/approval-card').ApprovalReference;
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null;
 };

@@ -47,12 +47,12 @@ class ManifestTests(unittest.TestCase):
         self.assertIn("release.image_uri", result["missing"])
         self.assertFalse(result["configuration_complete"])
 
-    def test_release_requires_the_guided_permissions_migration(self):
+    def test_release_requires_the_channel_approvals_migration(self):
         data = complete_manifest()
-        self.assertEqual(data["release"]["schema_version"], 20)
+        self.assertEqual(data["release"]["schema_version"], 21)
         migration = (ROOT / "src/identity/postgres/migration.rs").read_text()
-        self.assertIn("m20261025_000020_guided_permissions", migration)
-        data["release"]["schema_version"] = 19
+        self.assertIn("m20261025_000021_channel_approvals", migration)
+        data["release"]["schema_version"] = 20
         self.assertFalse(validate(data, NOW)["schema_ok"])
 
     def test_unknown_secret_fields_are_rejected_without_echoing_them(self):

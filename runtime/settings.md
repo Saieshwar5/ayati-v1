@@ -42,7 +42,8 @@ the latest 100 records for the current workspace, only for Owners. Appearance ke
 its existing device-local persistence. Workspace credentials and provider secrets
 remain server-side. PostgreSQL Owners now use [Workspace Connections](workspace-connections.md) to
 approve operator-configured accounts, verify them and delegate bounded agent setup.
-Self-service account registration/OAuth remains unavailable. Local connector management is rendered in React with the existing request contracts.
+Owners can also authorize [account-action approvers](channel-approvals.md) independently
+from agent setup and source visibility. Self-service account registration/OAuth remains unavailable. Local connector management is rendered in React with the existing request contracts.
 Agent details retains its existing legacy connector integration.
 
 ## Existing installations

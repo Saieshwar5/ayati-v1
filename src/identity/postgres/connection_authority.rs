@@ -13,6 +13,7 @@ pub(super) async fn membership_changed(
     w: &str,
     user: &str,
 ) -> Result<()> {
+    super::approval_authority::membership_changed(db, w, user).await?;
     // Rejoining or a later promotion must not revive an earlier delegation.
     // A removed/recreated grant can reuse revision 1. Require a fresh human preview.
     execute(db,"UPDATE relay_control_drafts d SET preview_revision=NULL WHERE d.workspace=$1 AND d.state='draft' AND (d.user_id=$2 OR EXISTS(SELECT 1 FROM jsonb_array_elements(d.data->'context'->'accounts') a CROSS JOIN LATERAL jsonb_array_elements(a->'permissions') p WHERE p->>'approver'=$2))",vec![w.into(),user.into()]).await?;

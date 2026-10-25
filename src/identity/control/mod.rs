@@ -1,4 +1,6 @@
 //! Shared-workspace authority boundary for supported, reviewed remote MCP operations.
+pub(crate) mod approval_model;
+mod approvals;
 pub(crate) mod broker;
 pub(crate) mod catalog;
 mod connections;
@@ -18,6 +20,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
+        .merge(approvals::routes())
         .merge(setup::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
@@ -61,6 +64,11 @@ async fn snapshot(
     value["execution_available"] = json!(available);
     // Account discovery belongs to the Owner-only workspace settings endpoint.
     value["servers"] = json!([]);
+    if value["can_manage"] == true {
+        let context = pg(&app)?.setup_context(&user, &w, &agent).await?;
+        value["approval_accounts"] = json!(context.accounts);
+        value["approval_channels"] = json!(context.approval_channels);
+    }
     Ok(Json(value))
 }
 #[derive(Deserialize)]

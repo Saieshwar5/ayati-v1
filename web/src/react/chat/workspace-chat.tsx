@@ -13,6 +13,7 @@ import { ConversationPane } from './conversation';
 import { chatRequest, conversationKind, conversationName, type Conversation, type Directory } from './model';
 import './workspace-chat.css';
 import './chat-layout.css';
+import { ApprovalInbox } from '../approvals/approval-inbox';
 import { SearchConversations } from './search-conversations';
 
 export function WorkspaceChat({ href }: { href: string }) {
@@ -23,6 +24,7 @@ export function WorkspaceChat({ href }: { href: string }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState('');
   const [search, setSearch] = useState(false);
+  const [approvals, showApprovals] = useState(false);
   const [chooser, setChooser] = useState<'channel' | 'direct'>();
   const [showList, setShowList] = useState(!agent && !selected);
   const refresh = useRef<() => Promise<void>>(async () => {});
@@ -73,7 +75,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     if ((event.target as Element).closest('a.chat-contact')) setShowList(false);
     if ((event.target as Element).closest('#agent-sidebar-toggle, #agent-list-toggle')) setShowList(value => !value);
   }}>
-    <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1>
+    <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1><Button className="ui-icon" aria-label="My approvals" title="My approvals" disabled={!directory} onClick={() => showApprovals(true)}>✓</Button>
       <Button className="ui-icon chat-search-button" aria-label="Search conversations" title="Search channels, people and agents" disabled={!directory} onClick={() => setSearch(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       </Button>
@@ -92,6 +94,7 @@ export function WorkspaceChat({ href }: { href: string }) {
         : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} back={() => setShowList(true)} />
         : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button><div><span className="chat-welcome-mark">↗</span><h2>{selected ? 'Opening conversation' : 'A place to work together'}</h2><p>{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : 'Message a person, talk to an agent, or bring your team together in a channel.'}</p>{!selected && <Button primary disabled={!directory} onClick={() => setChooser('direct')}>New message</Button>}</div></div>}
     </div>
+    {approvals && <ApprovalInbox close={() => showApprovals(false)} />}
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} privateAgent={openAgent} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} privateAgent={openAgent} />}
   </div>;

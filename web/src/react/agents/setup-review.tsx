@@ -1,7 +1,8 @@
+import { ApprovalRoute, type Route } from '../approvals/approval-route';
 import { modes, type Mode } from './control-model';
 import type { Choice, Draft } from './setup-model';
 
-export function SetupReview({ draft, choices, change, executionAvailable }: { draft: Draft; choices: Choice[]; change: (index: number, mode: Mode) => void; executionAvailable: boolean }) {
+export function SetupReview({ draft, choices, change, route, executionAvailable }: { draft: Draft; choices: Choice[]; change: (index: number, mode: Mode) => void; route?: (index: number, patch: Route) => void; executionAvailable: boolean }) {
   return <section aria-label="Review action permissions">
     <p className="ui-help">Draft only. Review each action before activation. Amount, time and individual-record conditions are not supported.</p>
     {draft.data.notes.length > 0 && <details className="setup-notes"><summary>Suggestion and review notes</summary><ul>{draft.data.notes.map((note, i) => <li key={i}>{note}</li>)}</ul></details>}
@@ -9,12 +10,14 @@ export function SetupReview({ draft, choices, change, executionAvailable }: { dr
       <h3>{account.name}</h3><p className="ui-help">{account.account || 'Configured business account'}</p>
       {account.permissions.map(permission => {
         const index = choices.findIndex(c => c.connection === account.id && c.operation === permission.operation.id);
+        const selectedName = permission.approvers?.find(person => person.id === (choices[index].approver ?? permission.approver))?.name ?? permission.approver_name;
         return <div className="setup-action" key={permission.operation.id}>
           <div><strong>{permission.operation.title}</strong><p>{permission.operation.effect === 'read' ? 'Reads business records' : 'Changes business records'}</p>
-            <p>Your limit: {modes[permission.ceiling]}{permission.approver_name && ` · Ask requests go to ${permission.approver_name}`}</p></div>
+            <p>Your limit: {modes[permission.ceiling]}{selectedName && ` · Ask requests go to ${selectedName}`}</p></div>
           <label className="ui-field">Permission<select aria-label={`${account.name}: ${permission.operation.title} permission`} value={choices[index].mode} disabled={permission.ceiling === 'block'} onChange={e => change(index, e.target.value as Mode)}>
             {Object.entries(modes).map(([mode, label]) => <option key={mode} value={mode} disabled={(mode !== 'block' && !executionAvailable) || (permission.ceiling === 'ask' && mode === 'allow')}>{label}</option>)}
           </select></label>
+          {choices[index].mode === 'ask' && route && <ApprovalRoute label={`${account.name}: ${permission.operation.title}`} route={choices[index]} people={permission.approvers ?? []} channels={draft.data.context.approval_channels ?? []} change={patch => route(index, patch)} />}
           {permission.operation.tool && <details><summary>Connected action details</summary><p>{permission.operation.id} · {permission.operation.tool}</p></details>}
         </div>;
       })}

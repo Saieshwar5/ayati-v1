@@ -2,7 +2,7 @@
 
 The first shared-workspace control slice adds reviewed remote MCP connections,
 per-agent/per-conversation Allow automatically / Ask first / Block rules, exact
-action approvals and durable outcomes. PostgreSQL schema **20** is required by the current checkout.
+action approvals and durable outcomes. PostgreSQL schema **21** is required by the current checkout.
 [Workspace connections and delegation](workspace-connections.md) extends this engine. [Guided reviews](guided-permissions.md) add draft/preview/activation.
 The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents retain the existing tool-free execution path.
@@ -15,7 +15,9 @@ approvals**. Activity shows exact approvals/results; Permissions saves rules for
 one selected conversation per operation. Each operation starts blocked. Owners
 configure rules directly; delegated members configure agents they maintain within
 their operation limit. Ask first names the saving Owner for direct Owner rules,
-or the Owner who granted the member's delegation. Other Owners cannot substitute
+or the Owner who granted the member's delegation by default. [Channel approvals](channel-approvals.md)
+now allow explicit, scoped authorization of selected non-Owner approvers and safe
+channel/inbox delivery. Other Owners cannot substitute
 for that designated approver.
 
 Connection setup validates reviewed remote schemas without executing a business
@@ -127,7 +129,7 @@ The source checks are:
 cargo test --locked --lib
 # Dedicated disposable local PostgreSQL only:
 cargo test --locked --lib identity::postgres -- --ignored --skip embedded_gateway_uses_controller_owned_credentials
-node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs tests/guided_permissions.mjs
+node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs tests/guided_permissions.mjs tests/channel_approvals.mjs
 cd web
 npm test
 npm run build

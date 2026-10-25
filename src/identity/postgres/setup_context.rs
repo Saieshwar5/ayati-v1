@@ -44,7 +44,17 @@ pub(super) async fn context(
             } else {
                 ("block".into(), None, None, None)
             };
+            let approvers = super::approval_authority::eligible(
+                db,
+                w,
+                agent,
+                &id,
+                &operation.id,
+                if owner { None } else { approver.as_deref() },
+            )
+            .await?;
             permissions.push(Permission {
+                approvers,
                 operation,
                 ceiling,
                 approver,
@@ -65,6 +75,7 @@ pub(super) async fn context(
     }
     let conversations = json_rows(db,"SELECT jsonb_build_object('id',c.id,'name',c.name) AS data FROM relay_chats c JOIN relay_chat_agents a ON a.workspace=c.workspace AND a.chat=c.id WHERE c.workspace=$1 AND a.agent=$2 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)) ORDER BY c.id LIMIT 100",vec![w.into(),agent.into(),user.id.clone().into()]).await?;
     Ok(Context {
+        approval_channels: super::approval_authority::channels(db, user, w).await?,
         agent_revision: profile["revision"]
             .as_i64()
             .context("Missing agent revision")?,

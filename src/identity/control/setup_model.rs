@@ -34,6 +34,8 @@ impl Start {
 }
 #[derive(Clone, Deserialize, Serialize)]
 pub(crate) struct Permission {
+    #[serde(default)]
+    pub approvers: Vec<Value>,
     pub operation: Operation,
     pub ceiling: String,
     pub approver: Option<String>,
@@ -53,6 +55,8 @@ pub(crate) struct Account {
 }
 #[derive(Clone, Deserialize, Serialize)]
 pub(crate) struct Context {
+    #[serde(default)]
+    pub approval_channels: Vec<Value>,
     pub agent_revision: i64,
     pub name: String,
     pub responsibility: String,
@@ -64,6 +68,12 @@ pub(crate) struct Context {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Choice {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approver: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approver_revision: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_chat: Option<String>,
     pub connection: String,
     pub operation: String,
     pub mode: String,
@@ -108,6 +118,21 @@ impl Draft {
                     "A choice exceeds the Owner's delegated limit"
                 );
                 rules.push(Rule {
+                    approver: if mode == "ask" {
+                        matches[0].approver.clone()
+                    } else {
+                        None
+                    },
+                    approver_revision: if mode == "ask" {
+                        matches[0].approver_revision
+                    } else {
+                        None
+                    },
+                    approval_chat: if mode == "ask" {
+                        matches[0].approval_chat.clone()
+                    } else {
+                        None
+                    },
                     connection: account.id.clone(),
                     operation: p.operation.id.clone(),
                     mode: mode.clone(),

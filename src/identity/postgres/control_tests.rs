@@ -31,6 +31,9 @@ async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
         &w,
         &agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
@@ -166,6 +169,9 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
             .is_err()
     );
     let rule = Rule {
+        approver: None,
+        approver_revision: None,
+        approval_chat: None,
         delegation_revision: None,
         connection: connection.clone(),
         operation: "order.update".into(),
@@ -201,6 +207,9 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
         &w,
         &job.agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             delegation_revision: None,
             revision: 2,
             mode: "ask".into(),
@@ -318,6 +327,9 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
@@ -338,6 +350,9 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
+            approver: None,
+            approver_revision: None,
+            approval_chat: None,
             delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
