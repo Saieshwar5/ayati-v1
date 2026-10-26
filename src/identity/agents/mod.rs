@@ -26,6 +26,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(list).post(save),
         )
         .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/context-preview",
+            get(context_preview),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/knowledge",
             get(knowledge).post(remember),
         )
@@ -113,6 +117,24 @@ async fn knowledge(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         json!({"notes":pg(&app)?.agent_knowledge(&user,&w,&id).await?}),
+    ))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContextPreview {
+    chat: String,
+}
+async fn context_preview(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Query(input): Query<ContextPreview>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        pg(&app)?
+            .agent_context_preview(&user, &w, &id, &input.chat)
+            .await?,
     ))
 }
 async fn remember(

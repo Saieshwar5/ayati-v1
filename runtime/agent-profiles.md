@@ -41,6 +41,9 @@ No existing profile or history is copied into the new runtime automatically.
   Existing note audiences and source references stay fixed. Editing/forgetting
   sends only the write contract, excluding metadata returned by a read.
   Failed drafts remain available and repeated submission is gated.
+- A [conversation context preview](conversation-context-preview.md) shows current
+  eligible messages and notes without running an agent. It checks the viewer’s
+  current agent/conversation access and is not an earlier task’s exact prompt.
 - Forgetting suppresses the approved note in future retrieval. It does not erase
   facts already quoted in conversation messages, exports, model responses or
   backups, and does not cancel an already-running inference. Dependency-aware

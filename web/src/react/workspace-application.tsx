@@ -9,6 +9,7 @@ import { AccountPage } from './account';
 import { PrivateChat } from './private-chat';
 import { LegacyView } from './legacy-view';
 import './agents/agents.css';
+import './agents/context-preview.css';
 import { AgentsPage } from './agents/directory';
 import { WorkspaceChat } from './chat/workspace-chat';
 import { LibraryUploads } from './library/uploads';

@@ -85,6 +85,9 @@ mod task_progress;
 mod task_progress_tests;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
+mod context_preview;
+#[cfg(test)]
+mod context_preview_tests;
 mod conversation_context;
 #[cfg(test)]
 mod conversation_context_tests;

@@ -4,6 +4,7 @@ import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { chatRequest, type Conversation } from '../chat/model';
 import { base, type Agent } from './model';
+import { ContextPreviewDialog } from './context-preview';
 
 const loadConversations = () => chatRequest<{ chats: Conversation[] }>('/chats');
 type Note = {
@@ -17,6 +18,7 @@ export function Knowledge({ agent }: { agent: Agent }) {
   const load = useCallback(() => identityRequest<{ notes: Note[] }>(path), [path]);
   const { data, error, refresh } = useResource(load);
   const [draft, edit] = useState<Draft>();
+  const [preview, showPreview] = useState(false);
   const mutation = useMutation();
   const conversations = useResource(loadConversations);
   const eligible = conversations.data?.chats?.filter(chat => chat.agents.includes(agent.id)) ?? [];
@@ -45,7 +47,10 @@ export function Knowledge({ agent }: { agent: Agent }) {
       <p className="ui-help">{agent.settings.history === 'since_join'
         ? 'Channel history: only messages since this agent joined.'
         : 'Channel history can include messages from before this agent joined.'}</p>
+      <Button onClick={() => showPreview(true)}>Preview conversation context</Button>
     </section>
+    {preview && <ContextPreviewDialog agent={agent.id} conversations={eligible}
+      conversationError={conversations.error} close={() => showPreview(false)} />}
     <h3>Approved knowledge</h3>
     <p className="ui-help">You choose where each note can be used. A note for every conversation can reach anyone who can talk to this agent. Notes are not learned automatically from private chats.</p>
     {!agent.settings.memory && <p className="ui-help">Approved knowledge is off. Notes stay saved; new work will not use them until enabled in the agent profile.</p>}
