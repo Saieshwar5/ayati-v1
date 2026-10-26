@@ -7,6 +7,7 @@ pub(super) async fn hydrate(
     workspace: &str,
     messages: &mut [Value],
 ) -> Result<()> {
+    super::handoff_views::hydrate(tx, user, workspace, messages).await?;
     super::approval_delivery::hydrate(tx, user, workspace, messages).await?;
     super::question_views::hydrate(tx, user, workspace, messages).await?;
     let ids = messages
@@ -29,8 +30,13 @@ pub(super) async fn hydrate(
     } else {
         ""
     };
+    let handoff_clause = if super::handoff_access::exists(tx).await? {
+        " OR EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=j.workspace AND (h.child=j.reply OR h.root=j.reply))"
+    } else {
+        ""
+    };
     let sql = format!(
-        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause})"
+        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause}{handoff_clause})"
     );
     for row in rows(
         tx,
@@ -63,6 +69,7 @@ pub(super) async fn hydrate(
                 message["response_unavailable"] = Value::Bool(true);
                 continue;
             }
+            message["coordination"] = super::handoff_views::project(tx, user, job).await?;
             if !matches!(
                 message["state"].as_str(),
                 Some("queued" | "complete" | "sent")

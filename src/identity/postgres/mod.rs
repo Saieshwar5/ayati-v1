@@ -97,6 +97,20 @@ mod event_scope_tests;
 mod event_tests;
 mod event_triggers;
 mod feedback;
+mod handoff_access;
+mod handoff_admission;
+#[cfg(test)]
+mod handoff_authority_tests;
+mod handoff_controls;
+mod handoff_lifecycle;
+mod handoff_migration;
+#[cfg(test)]
+mod handoff_migration_tests;
+#[cfg(test)]
+mod handoff_source_tests;
+#[cfg(test)]
+mod handoff_tests;
+mod handoff_views;
 mod history;
 mod import;
 #[cfg(test)]

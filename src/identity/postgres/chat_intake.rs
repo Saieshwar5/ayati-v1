@@ -190,8 +190,13 @@ impl PgStore {
             } else {
                 ""
             };
+            let handoff_clause = if super::handoff_access::exists(tx).await? {
+                " AND NOT EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=relay_chat_messages.workspace AND (h.request_message=relay_chat_messages.id OR h.child=relay_chat_messages.id OR h.root=relay_chat_messages.id))"
+            } else {
+                ""
+            };
             let context_sql = format!(
-                "SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND (NOT $4 OR sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5)) AND state IN ('sent','complete'){event_clause} ORDER BY sequence DESC LIMIT $6) m ORDER BY sequence"
+                "SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND (NOT $4 OR sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5)) AND state IN ('sent','complete'){event_clause}{handoff_clause} ORDER BY sequence DESC LIMIT $6) m ORDER BY sequence"
             );
             let mut lines = rows(
                 tx,

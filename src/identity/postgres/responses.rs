@@ -29,6 +29,19 @@ impl PgStore {
                 super::controlled_attempts::access(&tx, &job).await?;
             }
         }
+        if row.try_get::<Option<Value>>("", "payload")?.is_none()
+            && let Some(mut viewer) = super::handoff_access::message_job(&tx, w, id).await?
+        {
+            ensure!(
+                viewer.chat == chat && viewer.workspace == w,
+                "Handoff message scope mismatch"
+            );
+            viewer.requester = user.id.clone();
+            ensure!(
+                super::source_access::allowed(&tx, &viewer).await?,
+                "Handoff message source unavailable"
+            );
+        }
         let content: String = row.try_get("", "content")?;
         let progress: Option<Value> = row.try_get("", "progress")?;
         let partial = if !matches!(state.as_str(), "queued" | "complete" | "sent") {

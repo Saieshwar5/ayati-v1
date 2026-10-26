@@ -6,6 +6,8 @@ export type Conversation = { id: string; name: string; kind: 'group' | 'channel'
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
 export type Message = {
   source_scope?: string | null;
+  handoff?: import('./handoffs').Handoff;
+  coordination?: import('./handoffs').Coordination;
   id: string; author: string; name: string | null; kind: string;
   content: string; state: string; at: number; sequence?: number;
   revision?: number; can_cancel?: boolean;
@@ -13,7 +15,7 @@ export type Message = {
   response?: import('../results/model').ResponseReference;
   response_unavailable?: boolean;
   progress?: {
-    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'input' | 'resuming' | 'attention';
+    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'input' | 'resuming' | 'attention' | 'handoff';
     text: string; generation?: number;
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;

@@ -12,6 +12,7 @@ impl PgStore {
         let hash = fingerprint(serde_json::to_value(input)?)?;
         let tx = self.workspace_tx(&job.workspace).await?;
         super::control_actions::authorize(&tx, job, true).await?;
+        super::handoff_controls::ready_for_new_work(&tx, job).await?;
         if let Some(row) = query(&tx, "SELECT to_jsonb(q) AS data FROM relay_task_questions q WHERE workspace=$1 AND reply=$2 AND request_key=$3", vec![job.workspace.clone().into(),job.reply.clone().into(),input.key.clone().into()]).await? {
             let data:Value = row.try_get("", "data")?;
             ensure!(data["request_hash"] == hash, "Question key already refers to different content; use a new key for a follow-up");
