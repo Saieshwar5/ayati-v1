@@ -136,3 +136,19 @@ scripted provider.
 prompts, current attribution, unchanged durable payloads, original request cutoff,
 helper versus human identity, automation origin and historical unknown origin.
 The real Goose handoff journey also inspects the helper's actual model input.
+
+## Browser sessions and asynchronous work
+
+Accepted work is attached to its durable requester/task identity, not to the
+continued presence of an open browser login. The local connected case
+`tests/session_work_continuity.mjs` holds one running request and one queued
+request, expires only the fixture person's browser sessions, restarts the
+controller and proves both finish with one attempt/inference each. Expired cookies
+cannot read results or admit more work. Normal sign-in restores the same identity
+and reads saved results without replay; another person cannot read the private DM.
+
+This does not preserve revoked authority. The same case revokes an active task's
+agent grant, observes cancellation and child cleanup, signs in again and confirms
+a new request remains denied. Hosted identity-provider invalidation and real
+provider sessions still need their own acceptance; the fixture uses local
+simulation login and does not extend the application's session lifetime.
