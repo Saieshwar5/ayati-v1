@@ -4,6 +4,22 @@ import { performance } from 'node:perf_hooks';
 
 const unixMicros = () => Math.round((performance.timeOrigin + performance.now()) * 1000);
 
+// Follow the controller's explicit request ID in attributed transcripts. Keep
+// legacy raw prompts for local-runtime and old queued-job compatibility tests.
+export function contextCommand(text) {
+  const marker = 'Conversation evidence (JSON):\n';
+  const line = text.split(marker)[1]?.split('\n')[0];
+  if (line) {
+    const evidence = JSON.parse(line);
+    const request = evidence.messages.find(message => message.id === evidence.request_message);
+    if (!request) throw new Error('Fixture context is missing its explicit request');
+    return request.content;
+  }
+  return text.split('\n\nAuthorized task sources')[0]
+    .replace(/<turn-context>[\s\S]*?<\/turn-context>/g, '')
+    .trim().split('\n').at(-1)?.replace(/^user:\s*/, '');
+}
+
 // A local model fixture, not live inference. The real pinned Goose process
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
 export async function fixtureProvider({ resumableHold = false, key, heartbeat = false } = {}) {
@@ -43,7 +59,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
       : (content ?? []).filter((part) => part.type === 'text').map((part) => part.text).join('\n');
     // Goose may merge consecutive user inputs after a cancelled turn. Match
     // the latest fixture command, not an old "stall" still in that history.
-    const prompt = textContent.split('\n\nAuthorized task sources')[0].replace(/<turn-context>[\s\S]*?<\/turn-context>/g, '').trim().split('\n').at(-1);
+    const prompt = contextCommand(textContent);
     if (unavailable) {
       response.writeHead(403, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));
@@ -63,8 +79,8 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     let text = 'GOOSE_FIXTURE_OK 🦀';
     const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
     const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
-    const controlPrompt = (savedTask ? textContent.split('\n').find(line => /^(?:user:\s*)?control /.test(line)) : prompt)?.replace(/^user:\s*/, '');
-    const originalLine = savedTask ? textContent.split('Saved task continuation')[0].trim().split('\n').at(-1)?.replace(/^user:\s*/, '') : controlPrompt;
+    const originalLine = savedTask ? contextCommand(textContent.split('Saved task continuation')[0]) : prompt;
+    const controlPrompt = originalLine;
     const scriptedCommand = controlScripts.get(originalLine);
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));

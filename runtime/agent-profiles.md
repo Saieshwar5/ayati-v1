@@ -24,9 +24,12 @@ No existing profile or history is copied into the new runtime automatically.
 - Providers are the existing configured OpenAI and Fireworks integrations. Model
   identifiers are editable; supported identifiers depend on the selected provider.
   Credentials stay on the server. Configuration is not proof a provider is reachable.
-- New managed agents receive recent context from the current conversation, capped
-  at 60 messages and 14,000 bytes. The since-joining option filters by the recorded
-  joining sequence. They never receive another channel's transcript.
+- New managed agents receive [attributed context](conversation-context.md) from
+  the current conversation: up to 60 messages and a 14,000-byte serialized history
+  budget, preserving the latest bounded request even if it alone exceeds that
+  budget. Current requester metadata is supplied separately. The since-joining
+  option filters by the recorded joining sequence. They never receive another
+  channel's transcript.
 - Maintainers can add, correct and forget approved notes. Agent-wide notes are
   explicitly usable in every conversation with that agent; conversation notes
   require conversation access and agent participation. Source references must
@@ -35,13 +38,14 @@ No existing profile or history is copied into the new runtime automatically.
 
 ## Explicit remaining work
 
-This is not the complete proposed capabilities platform. The new isolated runtime
-still has no business tools or browser. Browser enablement is rejected server-side.
-Custom MCP setup, per-connection credentials, per-operation grants and approvals,
-provider connection onboarding, isolated browser provisioning, automatic scoped
-memory formation, and searchable older channel history remain unimplemented.
-The UI identifies these limits rather than saving nonfunctional capability toggles.
-Existing local agents retain their established capabilities and approval boundaries.
+This is not the complete proposed capabilities platform. Managed browser
+enablement is still rejected server-side. Business tools now use
+[workspace connections](workspace-connections.md) and
+[server-enforced controls](shared-agent-control.md); their supported operations and
+provider limitations are documented there. Isolated browser provisioning,
+automatic scoped memory formation and searchable older channel history remain
+unimplemented. Existing local agents retain their established capabilities and
+approval boundaries.
 
 Adding tools requires execution-time authorization and durable action receipts:
 recovered conversation jobs must not repeat an uncertain external mutation.
