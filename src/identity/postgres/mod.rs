@@ -20,6 +20,16 @@ mod attention_migration_tests;
 mod attention_scope_tests;
 #[cfg(test)]
 mod attention_tests;
+mod automation_access;
+mod automation_dispatch;
+mod automation_migration;
+#[cfg(test)]
+mod automation_migration_tests;
+#[cfg(test)]
+mod automation_scope_tests;
+#[cfg(test)]
+mod automation_tests;
+mod automations;
 #[cfg(test)]
 mod channel_archive_recovery_tests;
 mod channel_lifecycle;

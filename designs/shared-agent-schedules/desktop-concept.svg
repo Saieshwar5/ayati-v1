@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="960" viewBox="0 0 1440 960">
+  <g>
+    <rect width="1440" height="960" fill="#F1F2F4"/>
+    <g transform="translate(16, 16)">
+      <g transform="translate(8, 8)">
+        <g>
+          <text x="0" y="27" font-family="Inter" font-size="27" font-weight="700" fill="#282D35">C</text>
+        </g>
+      </g>
+      <g transform="translate(8, 71)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Home</text>
+        </g>
+      </g>
+      <g transform="translate(8, 113)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Chat</text>
+        </g>
+      </g>
+      <g transform="translate(8, 155)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" font-weight="700" fill="#282D35">Agents</text>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(88, 16)">
+      <rect width="1336" height="928" rx="18" ry="18" fill="#FFFFFF"/>
+      <g>
+        <g transform="translate(24, 24)">
+          <g>
+            <text x="0" y="23" font-family="Inter" font-size="23" font-weight="700" fill="#282D35">Agents</text>
+          </g>
+        </g>
+        <g transform="translate(24, 76)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Search agents</text>
+          </g>
+        </g>
+        <g transform="translate(24, 116)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Nova · Customer care</text>
+          </g>
+        </g>
+        <g transform="translate(24, 157)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Atlas · Operations</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(250, 0)">
+        <rect width="1" height="928" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(251, 0)">
+        <g transform="translate(28, 28)">
+          <g>
+            <text x="0" y="26" font-family="Inter" font-size="26" font-weight="700" fill="#282D35">Nova</text>
+          </g>
+        </g>
+        <g transform="translate(28, 81)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Overview   Work   Knowledge   Access</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Automation</text>
+          </g>
+        </g>
+        <g transform="translate(28, 139)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 162)">
+          <g>
+            <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Schedules</text>
+          </g>
+        </g>
+        <g transform="translate(28, 211)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Give Nova a routine in an existing</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">conversation. Every run uses current access</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">and tool controls.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 289)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Create schedule</text>
+          </g>
+        </g>
+        <g transform="translate(28, 328)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 351)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Daily delivery review</text>
+          </g>
+        </g>
+        <g transform="translate(28, 392)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Every 24 hours · Asia/Kolkata</text>
+          </g>
+        </g>
+        <g transform="translate(28, 431)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Destination · Delivery operations</text>
+          </g>
+        </g>
+        <g transform="translate(28, 469)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Authorized by · Ananya Rao</text>
+          </g>
+        </g>
+        <g transform="translate(28, 507)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Next run · Tomorrow, 9:00 AM</text>
+          </g>
+        </g>
+        <g transform="translate(28, 545)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Enabled · Pause · View runs</text>
+          </g>
+        </g>
+        <g transform="translate(28, 583)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 606)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Supplier follow-up</text>
+          </g>
+        </g>
+        <g transform="translate(28, 647)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Run once · Tomorrow, 2:30 PM</text>
+          </g>
+        </g>
+        <g transform="translate(28, 686)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Destination · Supplier coordination</text>
+          </g>
+        </g>
+        <g transform="translate(28, 724)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#925514">Blocked · Source access changed</text>
+          </g>
+        </g>
+        <g transform="translate(28, 762)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Ananya must review current authority before</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">resuming.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 820)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 843)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Event triggers</text>
+          </g>
+        </g>
+        <g transform="translate(28, 884)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Connected events are a separate next</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">increment.</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(895, 0)">
+        <rect width="1" height="928" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(896, 0)">
+        <g transform="translate(26, 26)">
+          <g>
+            <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Review schedule</text>
+          </g>
+        </g>
+        <g transform="translate(26, 77)">
+          <g>
+            <text x="0" y="12" font-family="Inter" font-size="12" fill="#626B77">Task instructions</text>
+          </g>
+        </g>
+        <g transform="translate(26, 116)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Review delivery exceptions and prepare a</text>
+          </g>
+          <g transform="translate(0, 21)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">summary. Ask before changing any order.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 178)">
+          <rect width="388" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(26, 203)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">First run · 27 October, 9:00 AM</text>
+          </g>
+        </g>
+        <g transform="translate(26, 244)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Timezone · Asia/Kolkata</text>
+          </g>
+        </g>
+        <g transform="translate(26, 285)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Repeat · Every 24 hours</text>
+          </g>
+        </g>
+        <g transform="translate(26, 326)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Destination · Delivery operations</text>
+          </g>
+        </g>
+        <g transform="translate(26, 367)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Runs with Ananya’s current authority</text>
+          </g>
+        </g>
+        <g transform="translate(26, 408)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Normal questions and exact tool approvals</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">still apply. This does not grant any new</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">permission.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 488)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Runs may use the configured model while you</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">are offline. Reading this review starts no</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">work.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 568)">
+          <rect width="388" height="45" rx="8" ry="8" fill="#292D34"/>
+          <g transform="translate(14, 14)">
+            <g>
+              <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#FFFFFF">Create schedule</text>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

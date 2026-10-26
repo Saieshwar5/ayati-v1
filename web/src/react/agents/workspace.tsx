@@ -10,6 +10,7 @@ import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
 import { AuthoritySummary } from './authority-summary';
 import { AgentWork, useAgentRequests } from './work';
 import { RequestRow } from './request-row';
+import { AutomationLauncher } from './automation/launcher';
 
 export function AgentWorkspace({ agent, revision, back, edit, guide, control, rehearse, openChat, busy, section, selectSection }: {
   agent: Agent; revision: number; back: () => void; edit: () => void; guide: () => void;
@@ -33,7 +34,7 @@ export function AgentWorkspace({ agent, revision, back, edit, guide, control, re
         <AuthoritySummary data={controls.data} error={controls.error} />
         {agent.editable && <Button aria-label={`Set up permissions for ${agent.name}`} onClick={guide}>Set up permissions</Button>}
         <Button aria-label={`Tools and approvals for ${agent.name}`} onClick={control}>Tools and approvals</Button></>}
-      {section === 'Automation' && <><h3>Schedules and triggers</h3><p>This agent currently starts work when a person sends or assigns a request.</p><p className="ui-help">Saved schedules and connected-system event triggers are not available for this managed agent yet. Existing local agents retain their separate automation controls.</p></>}
+      {section === 'Automation' && <AutomationLauncher agent={agent} />}
       {section === 'Environment' && <><h3>Working environment</h3><dl className="agent-facts"><dt>Model</dt><dd>{agent.model}</dd><dt>Knowledge</dt><dd>{agent.settings.memory ? 'Approved knowledge enabled' : 'Approved knowledge disabled'}</dd><dt>Browser and computer</dt><dd>Not connected for this agent</dd><dt>Business email and phone</dt><dd>Not connected</dd></dl><p className="ui-help">The agent keeps its identity and saved work between requests. A pending approval releases its execution worker.</p></>}
       {section === 'Activity' && <AgentWork agent={agent.id} activity />}
     </div>

@@ -4,6 +4,7 @@ mod agents;
 pub mod assignment_launcher;
 pub mod assignment_worker;
 mod attention;
+mod automations;
 mod chat;
 mod collaboration;
 pub(crate) mod control;
@@ -234,6 +235,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
     rehearsals::start(app.clone()).await;
+    automations::start(app.clone()).await;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
@@ -252,6 +254,7 @@ fn router(app: Shared) -> Router {
         .merge(agents::routes())
         .merge(control::routes())
         .merge(attention::routes())
+        .merge(automations::routes())
         .merge(rehearsals::routes())
         .merge(chat::routes())
         .merge(interactions::routes())

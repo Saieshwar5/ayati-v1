@@ -1,0 +1,32 @@
+use super::super::*;
+pub(crate) async fn start(app: Shared) {
+    let database::Database::Postgres(pg) = &app.store else {
+        return;
+    };
+    if !pg.pooled_execution() {
+        return;
+    }
+    let owner = app.clone();
+    app.runtimes
+        .automation_tasks
+        .lock()
+        .await
+        .spawn(async move {
+            let database::Database::Postgres(pg) = &owner.store else {
+                return;
+            };
+            loop {
+                tokio::select! {
+                    _=owner.runtimes.stopping.cancelled()=>break,
+                    _=tokio::time::sleep(std::time::Duration::from_secs(1))=>{},
+                }
+                match pg.dispatch_schedules().await {
+                    Ok(n) if n > 0 => owner.runtimes.chat_wake.notify_one(),
+                    Ok(_) => {}
+                    Err(_) => tracing::warn!(
+                        "Shared schedule admission unavailable; due work remains saved"
+                    ),
+                }
+            }
+        });
+}
