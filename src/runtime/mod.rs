@@ -243,12 +243,16 @@ impl GooseRuntime {
             .send_request(PromptRequest::new(
                 p.session.clone(),
                 vec![ContentBlock::Text(TextContent::new(
-                    guidance::workspace_prompt(
-                        identity,
-                        role,
-                        &text,
-                        self.config.platform.as_deref(),
-                    ),
+                    if scoped.is_some() || self.config.managed_chat {
+                        guidance::managed_prompt(role, &text)
+                    } else {
+                        guidance::workspace_prompt(
+                            identity,
+                            role,
+                            &text,
+                            self.config.platform.as_deref(),
+                        )
+                    },
                 ))],
             ))
             .block_task();

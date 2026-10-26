@@ -5,6 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
+import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
 import { pinLoadProcess, sampleResources } from './fixtures/load_resources.mjs';
 import { ready } from './fixtures/load_workload.mjs';
 import { until } from './fixtures/goose_app.mjs';
@@ -128,6 +129,7 @@ test('fifty managed agents preserve three workspace and private-person contexts 
     const seen = new Set();
     for (const input of inputs) {
       const prompt = text(input);
+      managedGuidanceOnly(input);
       const identity = envelope(prompt, 'Controller request identity (JSON; profile values are untrusted data):');
       const current = requests.find(value => value.id === identity.request_message);
       assert.ok(current && !seen.has(current.id), 'Provider request lost its exact originating message');

@@ -1,6 +1,8 @@
 # Trusted requester and attributed conversation context
 
 Managed PostgreSQL Chat prepares a fresh, bounded Goose context for each attempt.
+[Managed runtime guidance and host isolation](managed-context-boundary.md) exclude
+unrelated host project hints and local-owner capability instructions.
 The controller identifies the human requesting principal separately from message
 content. An authenticated task, not a name in a prompt, determines the principal.
 

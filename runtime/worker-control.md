@@ -18,8 +18,8 @@ remain later increments. The [direct-PG M1 path](assignment-workers.md) remains 
 
 ## Migration and local startup
 
-Run all seventeen migrations through `m20261024_000017_cloud_executors`, using the
-migration owner and reapply runtime grants. Startup verifies schema and never
+Run all current migrations using the migration owner and reapply runtime grants;
+the original seventeen-migration baseline below is historical. Startup verifies schema and never
 migrates ordinary databases. Migration 12 adds executor credentials and assignment
 scope/context/completion records while preserving existing jobs and M1 assignments.
 Migration 13 adds pooled slot readiness/generations and preserves v12 receipts.

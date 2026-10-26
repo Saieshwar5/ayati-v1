@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
+import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
 
 function promptText(request) {
   return request.messages.flatMap(message => typeof message.content === 'string'
@@ -34,6 +35,7 @@ test('real Goose receives trusted requester metadata and attributed isolated con
   await app.startWorker();
   await app.done(first);
   const privatePrompt = promptText(app.provider.requests.at(-1));
+  managedGuidanceOnly(app.provider.requests[0]);
   const firstIdentity = identity(privatePrompt);
   assert.equal(firstIdentity.requesting_principal.id, owner.id);
   assert.equal(firstIdentity.requesting_principal.display_name, 'Alex renamed');
