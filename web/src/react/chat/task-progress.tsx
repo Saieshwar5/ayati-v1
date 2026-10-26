@@ -1,35 +1,14 @@
 import { useState } from 'react';
-import { storageScope, workspaceSession } from '../../workspace-context';
+import { workspaceSession } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { requestLabels } from '../agents/request-model';
 import { ApprovalDialog } from '../approvals/approval-dialog';
 import { QuestionDialog } from '../questions/dialog';
 import { CoordinationView } from './handoffs';
-import { chatRequest, type Message } from './model';
+import { chatRequest } from './model';
 import { useTaskProgress } from './task-progress-state';
 import './task-progress.css';
-export function TaskProgress({ message }: { message: Message }) {
-  const [open, setOpen] = useState(false);
-  if (!message.chat) return null;
-  return (
-    <>
-      {message.has_task && !message.response_unavailable && (
-        <Button className="chat-check-progress" onClick={() => setOpen(true)}>
-          Check progress
-        </Button>
-      )}
-      {open && (
-        <TaskProgressDialog
-          key={storageScope(`${message.chat}.${message.id}`)}
-          chat={message.chat}
-          reply={message.id}
-          close={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
 export function TaskProgressDialog({
   chat,
   reply,

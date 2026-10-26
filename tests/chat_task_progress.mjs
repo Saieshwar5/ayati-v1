@@ -8,7 +8,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until, root } from './fixtures/goose_app.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 test(
-  'Chat progress reads saved work without inference, keeps reader authority separate and composes question, restart, completion and Stop',
+  'Saved progress remains read-only while Chat keeps question/restart/Stop controls without progress launchers',
   {
     skip: !process.env.RELAY_TEST_DATABASE_URL,
     timeout: 180000,
@@ -101,19 +101,10 @@ test(
       url = `${app.base}/w/${w}/?view=chat&conversation=${chat}&message=${job.reply}`;
     await page.goto(url);
     const message = page.locator(`[data-message-id="${job.reply}"]`);
-    await message.getByRole('button', { name: 'Check progress', exact: true }).click();
-    let dialog = page.getByRole('dialog', { name: 'Task progress', exact: true });
-    await dialog.getByRole('heading', { name: 'Queued', exact: true }).waitFor();
-    await dialog.getByRole('button', { name: 'Check now', exact: true }).click();
+    await message.waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Check progress', exact: true }).count(), 0);
+    await app.request(path, reader);
     assert.equal(app.provider.requests.length, 0);
-    await page.keyboard.press('Escape');
-    await dialog.waitFor({ state: 'detached' });
-    assert.equal(
-      await message
-        .getByRole('button', { name: 'Check progress', exact: true })
-        .evaluate((n) => n === document.activeElement),
-      true,
-    );
     app.pass(
       'Actual task flags and source-bound GET permit a channel reader without request permission, deny the wrong conversation and perform no model work',
     );
@@ -130,28 +121,22 @@ test(
     }
     assert.deepEqual(state(), before);
     assert.equal(app.provider.requests.length, count);
-    await message.getByRole('button', { name: 'Check progress', exact: true }).click();
-    dialog = page.getByRole('dialog', { name: 'Task progress', exact: true });
-    await dialog.getByRole('heading', { name: 'Waiting for an answer', exact: true }).waitFor();
-    await dialog.getByText('Worker released while waiting.', { exact: true }).waitFor();
-    await page.screenshot({ path: join(app.data, 'task-progress-input-desktop.png') });
+    await message.getByRole('button', { name: 'Answer question', exact: true }).waitFor();
+    await page.screenshot({ path: join(app.data, 'chat-question-desktop.png') });
     await observer.goto(url);
-    await observer
-      .locator(`[data-message-id="${job.reply}"]`)
-      .getByRole('button', { name: 'Check progress', exact: true })
-      .click();
-    const observed = observer.getByRole('dialog', { name: 'Task progress', exact: true });
+    const observed = observer.locator(`[data-message-id="${job.reply}"]`);
     await observed.getByRole('button', { name: 'View question', exact: true }).waitFor();
-    assert.equal(await observed.getByRole('button', { name: 'Stop request', exact: true }).count(), 0);
+    assert.equal(await observed.getByRole('button', { name: 'Stop reply', exact: true }).count(), 0);
+    assert.equal(await observer.getByRole('button', { name: 'Check progress', exact: true }).count(), 0);
     await observer.setViewportSize({ width: 390, height: 844 });
-    await observer.screenshot({ path: join(app.data, 'task-progress-reader-phone.png') });
+    await observer.screenshot({ path: join(app.data, 'chat-observer-phone.png') });
     assert.equal(await observer.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await app.stop(worker);
     await app.stopApi();
     await app.startApi();
     assert.equal((await app.request(path, reader)).value.state, 'input');
     assert.equal(app.provider.requests.length, count);
-    await dialog.getByRole('button', { name: 'Answer question', exact: true }).click();
+    await message.getByRole('button', { name: 'Answer question', exact: true }).click();
     const answer = page.getByRole('dialog', { name: specification.title, exact: true });
     await answer.getByRole('radio', { name: 'Road', exact: true }).check();
     await answer.getByRole('button', { name: 'Submit answer', exact: true }).click();
@@ -159,9 +144,9 @@ test(
     await answer.getByRole('button', { name: 'Close', exact: true }).click();
     await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
     await app.done(job);
-    await dialog.getByRole('button', { name: 'Check now', exact: true }).click();
-    await dialog.getByRole('heading', { name: 'Completed', exact: true }).waitFor();
-    assert.equal(await dialog.getByRole('button', { name: 'Stop request', exact: true }).count(), 0);
+    const completed = (await app.request(path, reader)).value;
+    assert.equal(completed.state, 'complete');
+    assert.equal(completed.can_cancel, false);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
@@ -172,9 +157,8 @@ test(
     for (let i = 0; i < 3; i++) await app.request(path, reader);
     assert.equal(app.provider.requests.length, finishedCount);
     app.pass(
-      'Saved input progress releases execution, repeated reads preserve the exact job, controller restart retains the wait and nested question review continues the same task to completion',
+      'Saved input progress releases execution, repeated reads preserve the exact job, controller restart retains the wait and Chat question review continues the same task to completion',
     );
-    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     const stopped = await app.send(command, chat);
     await until(
       () => app.sql(`SELECT state FROM relay_chat_jobs WHERE reply='${stopped.reply}'`) === 'waiting',
@@ -183,19 +167,14 @@ test(
     );
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${app.base}/w/${w}/?view=chat&conversation=${chat}&message=${stopped.reply}`);
-    await page
-      .locator(`[data-message-id="${stopped.reply}"]`)
-      .getByRole('button', { name: 'Check progress', exact: true })
-      .click();
-    dialog = page.getByRole('dialog', { name: 'Task progress', exact: true });
-    await dialog.getByRole('button', { name: 'Stop request', exact: true }).click();
+    await page.locator(`[data-message-id="${stopped.reply}"]`).getByRole('button', { name: 'Stop reply', exact: true }).click();
     await app.done(stopped, 'cancelled');
-    await dialog.getByRole('heading', { name: 'Cancelled', exact: true }).waitFor();
-    assert.equal(await dialog.getByRole('button', { name: 'Stop request', exact: true }).count(), 0);
+    const cancelled = (await app.request(`${app.path}/chats/${chat}/messages/${stopped.reply}/progress`, reader)).value;
+    assert.equal(cancelled.state, 'cancelled'); assert.equal(cancelled.can_cancel, false);
     await page.screenshot({ path: join(app.data, 'task-progress-stopped-desktop.png') });
     assert.deepEqual(errors, []);
     app.pass(
-      'The original person stops exactly this saved task; read-only participants receive no Stop authority and small/dark drawers remain bounded',
+      'The original person stops exactly this saved task; read-only participants receive no Stop authority and small/dark Chat views remain bounded',
     );
     await writeFile(
       join(app.data, 'task-progress-evidence.json'),

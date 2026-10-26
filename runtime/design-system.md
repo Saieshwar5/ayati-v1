@@ -41,7 +41,8 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
   `--border-control` (#AEB8C5) for composers, outlined buttons and form controls.
   The Chat directory boundary uses `--border-structure` (#D6DAE0). Each has a
   corresponding dark-theme value. Keep resting borders 1 px; do not thicken
-  every container or add boxes around messages, Agents or Users rows.
+  every container or add boxes around Agents or Users rows. Ordinary agent prose
+  uses the softly filled response box described under Chat.
 - Preserve filled primary actions, borderless icon buttons, soft search fields
   and selected-row fills. Reserve stronger focus emphasis for interaction:
   ordinary controls keep the shared 2 px focus outline; the composer uses its
@@ -155,11 +156,19 @@ and Archived thread title. Archive review belongs near the top of Details and
 shows visible unfinished work. Restore opens future intake only. See
 [Chat organization](chat-organization.md).
 
-Long agent responses use bounded deterministic excerpts and an explicit Read
-response action. Open the saved body in the shared reading dialog, with Expand,
-Copy and an exact complete Markdown download. Reserve the newer-version row so
-incoming work does not shift the reading area. Keep images as small thumbnails
-until explicitly opened in a fit/zoom viewer. See [saved reading](result-reading.md)
+Agent prose uses the selected OpenPencil corner-arrow design: a soft themed fill,
+quiet border and 16 px corners. Long replies have a bounded deterministic excerpt,
+a fading lower edge and a bare corner-arrow icon with a 44 px target. No labelled
+expansion footer or character count. The icon opens the saved body inline and
+reverses to collapse; expanded replies also have a top corner collapse control.
+Short replies use their natural height. On phones, place the box below its author
+row to use the available width. Keep conversation scrolling and preserve drafts.
+
+Remove Check progress launchers from Chat; request activity remains in Agents Work.
+Keep ordinary reply status, Stop, questions and approval controls. Expanded saved
+replies retain exact Copy/Markdown actions and a secondary full reading view.
+New saved versions load explicitly so reading does not jump. Keep images as small
+thumbnails until opened in a fit/zoom viewer. See [saved reading](result-reading.md)
 for source authority, supported files and current limits.
 
 ## Agents and people management

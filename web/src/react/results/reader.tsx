@@ -1,50 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { messageHtml } from '../../markdown';
 import { Button, Dialog } from '../ui';
-import { errorMessage } from '../requests';
-import { denied, query, type ResultSource, type ResponseReference, type SavedResponse } from './model';
+import { query, type ResultSource } from './model';
+import { useSavedResponse } from './use-saved-response';
 export function ResponseReader({ id, source, close }: { id: string; source: ResultSource; close: () => void }) {
-  const [data, setData] = useState<SavedResponse>();
-  const [latest, setLatest] = useState<ResponseReference>();
-  const [error, setError] = useState('');
+  const { data, latest, error, busy, update: reload } = useSavedResponse(id, source);
   const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [retry, setRetry] = useState(0);
   const body = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const abort = new AbortController(); let loading = false, epoch = 0, sourceScope: string | null | undefined;
-    setData(undefined); setLatest(undefined); setError(''); setBusy(true);
-    const load = async (metadata: boolean) => {
-      if (loading || abort.signal.aborted) return;
-      loading = true; const request = ++epoch;
-      try {
-        const next = await source.read<SavedResponse>(query(source.response(id), { metadata }), abort.signal);
-        if (abort.signal.aborted || request !== epoch) return;
-        sourceScope=next.source_scope;
-        if (metadata) setLatest(next);
-        else { setData(next); setLatest(next); setStatus(''); }
-        setError('');
-      } catch (failure) {
-        if (abort.signal.aborted || request !== epoch) return;
-        if (denied(failure)) { setData(undefined); setLatest(undefined); }
-        setError(errorMessage(failure));
-      } finally { if (request === epoch) { loading = false; if (!abort.signal.aborted) setBusy(false); } }
-    };
-    void load(false);
-    const check = (scope?: string | null) => {
-      if (scope !== undefined) {
-        if (scope !== null && sourceScope !== undefined && sourceScope !== null && scope !== sourceScope) return;
-        if (scope !== null && sourceScope === null) return;
-        epoch++; loading=false; setData(undefined); setLatest(undefined); setError(''); setBusy(true); void load(false);
-      } else void load(true);
-    };
-    const timer = window.setInterval(() => { if (!document.hidden) check(); }, 5000);
-    const unsubscribe = source.subscribe?.(check);
-    return () => { abort.abort(); epoch++; window.clearInterval(timer); unsubscribe?.(); };
-  }, [id, source, retry]);
   const newer = data && latest && (latest.version !== data.version || latest.state !== data.state);
-  const update = () => { setRetry(value => value + 1); if (body.current) body.current.scrollTop = 0; };
+  const update = () => { reload(); setStatus(''); if (body.current) body.current.scrollTop = 0; };
   return <Dialog title="Agent response" close={close} status={status}>
     <div className={`result-reader${expanded ? ' result-reader-expanded' : ''}`}>
       <div className="result-toolbar"><span>{data?.state === 'draft' ? 'Saved draft · still working' : data?.state === 'interrupted' ? 'Saved partial response · work interrupted' : data ? 'Saved response' : error ? 'Response unavailable' : 'Loading response…'}</span><Button onClick={() => setExpanded(value => !value)}>{expanded ? 'Reduce' : 'Expand'}</Button>
