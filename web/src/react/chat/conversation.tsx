@@ -21,6 +21,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
   const [files, setFiles] = useState<Attachment[]>([]);
+  const sourceEpoch=useRef(0);
   const [older, setOlder] = useState<Message[]>([]);
   const [focused, setFocused] = useState<Message[]>([]);
   const [focusError, setFocusError] = useState('');
@@ -54,7 +55,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
         .catch(error => { if (!request.signal.aborted) setFocusError(errorMessage(error)); });
     };
     loadFocus();
-    const unsubscribe = subscribeChanges(change => { if (['access', 'reset'].includes(change.kind)) loadFocus(); });
+    const unsubscribe = subscribeChanges(change => { if (['access', 'reset'].includes(change.kind) || (change.kind==='event_access' && change.chat===chat.id)) loadFocus(); });
     return () => { abort.abort(); unsubscribe(); };
   }, [chat.id, focus]);
   useLayoutEffect(() => {
@@ -67,8 +68,9 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     const abort = new AbortController(); let loading = false, queued = false;
     const load = async () => {
       if (loading) { queued = true; return; } loading = true;
+      const epoch=sourceEpoch.current;
       try { const data = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true`, undefined, abort.signal);
-        if (!abort.signal.aborted) {
+        if (!abort.signal.aborted && epoch===sourceEpoch.current) {
           const merged = mergeMessages(data.messages, [...incoming.current.values()]);
           setHistory({ ...data, messages: merged }); acknowledge(chat.id, data.messages); void confirmSent(data.messages).catch(() => {}); setError('');
         }
@@ -77,7 +79,14 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     };
     refresh.current = load; void load();
     const unsubscribe = subscribeChanges(change => {
-      if (change.kind === 'reset' || change.kind === 'access') { incoming.current.clear(); void load(); }
+      if (change.kind==='event_access' && change.chat===chat.id) {
+        sourceEpoch.current++;
+        const clear=(message:Message):Message=>message.source_scope===change.source ? {...message,content:'Response unavailable while source access is checked.',progress:undefined,questions:[],attachments:[],response:undefined,response_unavailable:true,can_cancel:false}:message;
+        incoming.current=new Map([...incoming.current].map(([id,m])=>[id,clear(m)]));
+        setHistory(old=>old ? {...old,messages:old.messages.map(clear)}:old); setOlder(old=>old.map(clear)); setFocused(old=>old.map(clear));
+        void load();
+      }
+      if (change.kind === 'reset' || change.kind === 'access') { sourceEpoch.current++; incoming.current.clear(); setHistory(undefined); setOlder([]); void load(); }
       if (change.chat === chat.id && change.message) {
         const message = change.message; void confirmSent([message]).catch(() => {});
         const previous = incoming.current.get(message.id);
@@ -109,7 +118,8 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const loadOlder = async () => {
     const before = cursor === undefined ? history?.next_before : cursor;
     if (!before || loadingOlder) return; setLoadingOlder(true);
-    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true&before=${before}`); if (alive.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
+    const epoch=sourceEpoch.current;
+    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true&before=${before}`); if (alive.current && epoch===sourceEpoch.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
     catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { if (alive.current) setLoadingOlder(false); }
   };

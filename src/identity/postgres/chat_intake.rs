@@ -185,7 +185,36 @@ impl PgStore {
             let since_join = settings
                 .as_ref()
                 .is_some_and(|s| s["history"] == "since_join");
-            let mut lines=rows(tx,"SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND (NOT $4 OR sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5)) AND state IN ('sent','complete') ORDER BY sequence DESC LIMIT $6) m ORDER BY sequence",vec![workspace.into(),chat.into(),context_thread.into(),since_join.into(),agent.clone().into(),context_limit.into()]).await?.into_iter().map(|r|Ok(format!("{}: {}",r.try_get::<String>("","kind")?,r.try_get::<String>("","content")?))).collect::<Result<Vec<_>>>()?;
+            let event_clause = if super::event_access::exists(tx).await? {
+                " AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace=relay_chat_messages.workspace AND e.reply=relay_chat_messages.id)"
+            } else {
+                ""
+            };
+            let context_sql = format!(
+                "SELECT kind,content FROM (SELECT sequence,kind,content FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND ($3::text IS NULL OR id=$3 OR thread=$3) AND (NOT $4 OR sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5)) AND state IN ('sent','complete'){event_clause} ORDER BY sequence DESC LIMIT $6) m ORDER BY sequence"
+            );
+            let mut lines = rows(
+                tx,
+                &context_sql,
+                vec![
+                    workspace.into(),
+                    chat.into(),
+                    context_thread.into(),
+                    since_join.into(),
+                    agent.clone().into(),
+                    context_limit.into(),
+                ],
+            )
+            .await?
+            .into_iter()
+            .map(|r| {
+                Ok(format!(
+                    "{}: {}",
+                    r.try_get::<String>("", "kind")?,
+                    r.try_get::<String>("", "content")?
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
             while lines.iter().map(String::len).sum::<usize>() > 14000 && lines.len() > 1 {
                 lines.remove(0);
             }

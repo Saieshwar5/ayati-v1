@@ -11,6 +11,7 @@ pub(crate) mod control;
 mod controlled_launcher;
 pub mod controlled_worker;
 mod database;
+mod events;
 pub mod executor;
 mod hosting;
 mod interactions;
@@ -18,6 +19,7 @@ mod library;
 mod login_state;
 mod membership_schema;
 pub mod postgres;
+mod private_config;
 mod profile;
 mod provider;
 mod rehearsals;
@@ -255,6 +257,7 @@ fn router(app: Shared) -> Router {
         .merge(control::routes())
         .merge(attention::routes())
         .merge(automations::routes())
+        .merge(events::routes())
         .merge(rehearsals::routes())
         .merge(chat::routes())
         .merge(interactions::routes())
@@ -330,6 +333,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     }
     if request.method() != axum::http::Method::GET
         && !library_head
+        && !(request.method() == axum::http::Method::POST
+            && events::routes::webhook_path(request.uri().path()))
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(app.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {

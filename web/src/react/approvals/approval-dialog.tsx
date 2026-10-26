@@ -6,13 +6,19 @@ import { ApprovalFields } from './fields';
 import { decideApproval, loadApproval, type Decision } from './model';
 import { states } from '../agents/control-model';
 import './approvals.css';
+import { subscribeChanges } from '../chat/live';
 
 export function ApprovalDialog({ id, close }: { id: string; close: () => void }) {
   const load = useCallback(() => loadApproval(id), [id]);
-  const { data, error, refresh } = useResource(load);
+  const { data, error, refresh, setData } = useResource(load);
   const mutation = useMutation();
   const identities = useRef(new Map<string, string>());
   useEffect(() => { const timer = window.setInterval(() => { if (!document.hidden) void refresh().catch(() => {}); }, 3000); return () => clearInterval(timer); }, [refresh]);
+  useEffect(() => subscribeChanges(change => {
+    if (['access','reset'].includes(change.kind) || (change.kind==='event_access' && (!data || (change.chat===data.chat && data.source_scope===change.source)))) {
+      setData(undefined); void refresh().catch(() => {});
+    }
+  }),[refresh,setData,data?.chat,data?.source_scope]);
   const decide = (decision: Decision) => mutation.run(async () => {
     const key = `${id}/${decision}`, request = identities.current.get(key) ?? crypto.randomUUID();
     identities.current.set(key, request);

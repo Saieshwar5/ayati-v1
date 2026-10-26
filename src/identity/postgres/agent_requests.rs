@@ -92,7 +92,7 @@ async fn project(
     );
     let mut viewer = job.clone();
     viewer.requester = user.id.clone();
-    if !super::library::source_allowed(tx, &viewer).await? {
+    if !super::source_access::allowed(tx, &viewer).await? {
         return Ok(None);
     }
     let current = super::controlled_attempts::access(tx, &job).await.is_ok();
@@ -144,6 +144,6 @@ async fn project(
         && (job.requester == user.id || role(tx, w, &user.id).await? == "Owner");
     let cancellation=query(tx,"SELECT COALESCE(u.display_name,u.email,'Former member') AS name,a.at FROM relay_audit a LEFT JOIN relay_users u ON u.id=a.actor WHERE a.workspace=$1 AND a.action='agent_request_cancelled' AND a.target=$2 ORDER BY a.id DESC LIMIT 1",vec![w.into(),job.reply.clone().into()]).await?.map(|r|->Result<Value>{Ok(json!({"by":r.try_get::<String>("","name")?,"at":r.try_get::<i64>("","at")?}))}).transpose()?;
     Ok(Some(
-        json!({"id":job.reply,"sequence":row.try_get::<i64>("","sequence")?,"chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"source_message":row.try_get::<Option<String>>("","source_message")?,"conversation_name":row.try_get::<String>("","conversation_name")?,"requester":job.requester,"requester_name":row.try_get::<Option<String>>("","requester_name")?,"summary":row.try_get::<Option<String>>("","summary")?.unwrap_or_else(||"Agent request".into()),"state":state,"latest_update":latest.chars().take(1000).collect::<String>(),"created_ms":row.try_get::<i64>("","created_ms")?,"started_ms":row.try_get::<Option<i64>>("","started_ms")?,"finished_ms":row.try_get::<Option<i64>>("","finished_ms")?,"can_cancel":can_cancel,"cancellation":cancellation,"approvals":approvals}),
+        json!({"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"id":job.reply,"sequence":row.try_get::<i64>("","sequence")?,"chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"source_message":row.try_get::<Option<String>>("","source_message")?,"conversation_name":row.try_get::<String>("","conversation_name")?,"requester":job.requester,"requester_name":row.try_get::<Option<String>>("","requester_name")?,"summary":row.try_get::<Option<String>>("","summary")?.unwrap_or_else(||"Agent request".into()),"state":state,"latest_update":latest.chars().take(1000).collect::<String>(),"created_ms":row.try_get::<i64>("","created_ms")?,"started_ms":row.try_get::<Option<i64>>("","started_ms")?,"finished_ms":row.try_get::<Option<i64>>("","finished_ms")?,"can_cancel":can_cancel,"cancellation":cancellation,"approvals":approvals}),
     ))
 }

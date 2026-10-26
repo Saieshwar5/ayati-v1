@@ -8,6 +8,7 @@ import { ScheduleState } from './state-dialog';
 import { ScheduleRuns } from './runs-dialog';
 import { cadence, date, loadClock, loadSchedules, type Routine } from './model';
 import './schedules.css';
+import { EventTriggers } from './events';
 
 type Open = { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
 export function AutomationPane({ agent }: { agent: Agent }) {
@@ -70,7 +71,7 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
     </article>)}
     {resource.data && !resource.data.schedules.length && <p>No routines you may view. Create one explicitly to schedule work.</p>}
     <p className="ui-help">Every run uses current access and independent tool approvals. Pausing a routine and stopping one task are separate actions.</p>
-    <section className="routine-triggers"><h3>Event triggers</h3><p className="ui-help">Connected-system event intake is a separate next increment for shared agents. Existing local agents retain their own trigger controls.</p></section>
+    <EventTriggers agent={agent.id}/>
     {open?.kind === 'create' && resource.data && clock.data && <CreateSchedule agent={agent.id} data={resource.data} clock={clock.data} close={close} saved={resource.refresh} />}
     {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
     {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={resource.refresh} />}

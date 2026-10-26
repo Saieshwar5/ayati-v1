@@ -58,6 +58,7 @@ impl PgStore {
                     .await
                     .is_ok()
         );
+        result["source_scope"] = json!(super::event_access::scope(&tx, w, &job.reply).await?);
         result["reply"] = json!(job.reply);
         result["chat"] = json!(job.chat);
         result["answered_by"] = data["answered_by"].clone();
@@ -166,7 +167,7 @@ pub(super) async fn readable(tx: &DatabaseTransaction, user: &User, job: &Job) -
     let mut viewer = job.clone();
     viewer.requester = user.id.clone();
     ensure!(
-        super::library::source_allowed(tx, &viewer).await?,
+        super::source_access::allowed(tx, &viewer).await?,
         "Question source unavailable"
     );
     Ok(())

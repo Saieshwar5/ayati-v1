@@ -56,3 +56,19 @@ test('preview bounds Unicode and structural long responses without summarizing o
   assert.equal(responsePreview('A short answer').long,false);
   assert.equal(responsePreview('line\n'.repeat(10)).long,true);
 });
+
+test('source-scoped invalidation clears an open reader and fences late pre-revocation metadata',async()=>{
+ let check,old;let calls=0,revoked=false;
+ const adapter={...source(async path=>{
+  calls++;if(revoked)throw Object.assign(new Error('Event source revoked'),{status:403});
+  if(path.includes('metadata=true'))return new Promise(resolve=>{old=resolve;});
+  return {...saved('PRIVATE_EVENT_BODY','complete'),source_scope:'event-source'};
+ }),subscribe:fn=>{check=fn;return()=>{check=undefined;};}};
+ await reactFixture(async({render,update})=>{
+  const {ResponseReader}=await import('../src/react/results/reader.tsx');await render(ResponseReader,{id:'r',source:adapter,close:()=>{}});
+  const initial=calls;await update(()=>check('other-source'));assert.match(document.body.textContent,/PRIVATE_EVENT_BODY/);assert.equal(calls,initial);
+  await update(()=>check());assert.equal(calls,initial+1);revoked=true;
+  await update(()=>check('event-source'));assert.equal(document.querySelector('.result-body'),null);assert.match(document.body.textContent,/Event source revoked/);
+  await update(()=>old({...saved('PRIVATE_STALE_EVENT_BODY','complete'),source_scope:'event-source'}));assert.doesNotMatch(document.body.textContent,/PRIVATE_STALE|PRIVATE_EVENT_BODY/);
+ });
+});

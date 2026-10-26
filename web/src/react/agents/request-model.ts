@@ -2,6 +2,7 @@ import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-cont
 import { base } from './model';
 
 export type AgentRequest = {
+  source_scope?: string | null;
   id: string; sequence: number; chat: string; thread: string | null; source_message: string | null;
   conversation_name: string; requester: string; requester_name: string | null;
   summary: string; state: string; latest_update: string; created_ms: number;

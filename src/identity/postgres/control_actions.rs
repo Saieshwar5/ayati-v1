@@ -216,7 +216,7 @@ pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: boo
         "Agent permission changed"
     );
     ensure!(
-        super::library::source_allowed(db, job).await?,
+        super::source_access::allowed(db, job).await?,
         "Library source access changed"
     );
     ensure!(

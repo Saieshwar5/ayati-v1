@@ -43,7 +43,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
       : (content ?? []).filter((part) => part.type === 'text').map((part) => part.text).join('\n');
     // Goose may merge consecutive user inputs after a cancelled turn. Match
     // the latest fixture command, not an old "stall" still in that history.
-    const prompt = textContent.replace(/<turn-context>[\s\S]*?<\/turn-context>/g, '').trim().split('\n').at(-1);
+    const prompt = textContent.split('\n\nAuthorized task sources')[0].replace(/<turn-context>[\s\S]*?<\/turn-context>/g, '').trim().split('\n').at(-1);
     if (unavailable) {
       response.writeHead(403, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ error: { message: 'PRIVATE_PROVIDER_FAILURE_BODY' } }));

@@ -83,6 +83,19 @@ mod questions;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;
+mod event_access;
+#[cfg(test)]
+mod event_authority_tests;
+mod event_dispatch;
+mod event_intake;
+mod event_migration;
+#[cfg(test)]
+mod event_migration_tests;
+#[cfg(test)]
+mod event_scope_tests;
+#[cfg(test)]
+mod event_tests;
+mod event_triggers;
 mod feedback;
 mod history;
 mod import;
@@ -112,6 +125,7 @@ mod rehearsal_source_tests;
 #[cfg(test)]
 mod rehearsal_tests;
 mod rehearsals;
+mod source_access;
 pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]

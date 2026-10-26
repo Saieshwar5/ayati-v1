@@ -10,7 +10,7 @@ export function ManagedResults({ chat, changed, children }: { chat: string; chan
     href: path => `/api/identity/workspaces/${workspaceId}${path}`,
     response: id => `/chats/${chat}/messages/${encodeURIComponent(id)}/response`,
     file: id => `/objects/${encodeURIComponent(id)}`,
-    subscribe: check => subscribeChanges(change => { if (['access', 'reset'].includes(change.kind)) check(); }),
+    subscribe: check => subscribeChanges(change => { if (['access', 'reset'].includes(change.kind)) check(null); else if (change.kind === 'event_access' && change.chat === chat) check(change.source ?? null); }),
   }), [chat]);
   return <Results source={source} changed={changed}>{children}</Results>;
 }

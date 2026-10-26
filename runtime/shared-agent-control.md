@@ -2,8 +2,9 @@
 
 The first shared-workspace control slice adds reviewed remote MCP connections,
 per-agent/per-conversation Allow automatically / Ask first / Block rules, exact
-action approvals and durable outcomes. Current startup requires PostgreSQL
-schema **23**, including [ordinary task questions](agent-questions.md).
+action approvals and durable outcomes. Current startup follows the schema and
+grants in [PostgreSQL workspaces](postgres-workspaces.md), including
+[ordinary task questions](agent-questions.md).
 [Workspace connections and delegation](workspace-connections.md) extends this engine. [Guided reviews](guided-permissions.md) add draft/preview/activation.
 The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents have no assigned business operations. They may use the separate

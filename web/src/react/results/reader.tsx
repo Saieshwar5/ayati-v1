@@ -13,7 +13,7 @@ export function ResponseReader({ id, source, close }: { id: string; source: Resu
   const [retry, setRetry] = useState(0);
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const abort = new AbortController(); let loading = false, epoch = 0;
+    const abort = new AbortController(); let loading = false, epoch = 0, sourceScope: string | null | undefined;
     setData(undefined); setLatest(undefined); setError(''); setBusy(true);
     const load = async (metadata: boolean) => {
       if (loading || abort.signal.aborted) return;
@@ -21,17 +21,24 @@ export function ResponseReader({ id, source, close }: { id: string; source: Resu
       try {
         const next = await source.read<SavedResponse>(query(source.response(id), { metadata }), abort.signal);
         if (abort.signal.aborted || request !== epoch) return;
+        sourceScope=next.source_scope;
         if (metadata) setLatest(next);
         else { setData(next); setLatest(next); setStatus(''); }
         setError('');
       } catch (failure) {
-        if (abort.signal.aborted) return;
+        if (abort.signal.aborted || request !== epoch) return;
         if (denied(failure)) { epoch++; setData(undefined); setLatest(undefined); }
         setError(errorMessage(failure));
-      } finally { loading = false; if (!abort.signal.aborted) setBusy(false); }
+      } finally { if (request === epoch) { loading = false; if (!abort.signal.aborted) setBusy(false); } }
     };
     void load(false);
-    const check = () => { void load(true); };
+    const check = (scope?: string | null) => {
+      if (scope !== undefined) {
+        if (scope !== null && sourceScope !== undefined && sourceScope !== null && scope !== sourceScope) return;
+        if (scope !== null && sourceScope === null) return;
+        epoch++; loading=false; setData(undefined); setLatest(undefined); setError(''); setBusy(true); void load(false);
+      } else void load(true);
+    };
     const timer = window.setInterval(() => { if (!document.hidden) check(); }, 5000);
     const unsubscribe = source.subscribe?.(check);
     return () => { abort.abort(); epoch++; window.clearInterval(timer); unsubscribe?.(); };

@@ -60,6 +60,11 @@ impl PgStore {
             } else if row.try_get::<String>("", "kind")? == "sample_access" {
                 sample_access_changed |=
                     row.try_get::<Option<String>>("", "audience")?.as_deref() == Some(&user.id);
+            } else if row.try_get::<String>("", "kind")? == "event_access" {
+                let chat: String = row.try_get("", "chat")?;
+                if super::chat::access(&tx, user, w, &chat).await.is_ok() {
+                    output.push(json!({"kind":"event_access","chat":chat,"source":row.try_get::<String>("","message")?}));
+                }
             } else if let Some(id) = row.try_get::<Option<String>>("", "message")? {
                 ids.insert(id);
             }

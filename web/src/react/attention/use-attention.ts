@@ -41,7 +41,7 @@ export function useAttention(view: AttentionView, before: string | null, enabled
     if (enabled) void refresh();
     const timer = enabled ? window.setInterval(() => { if (!document.hidden) void refresh(); }, 5000) : undefined;
     const unsubscribe = subscribeChanges(change => {
-      if (change.kind === 'access' || change.kind === 'reset') invalidate();
+      if (change.kind === 'access' || change.kind === 'reset' || change.kind === 'event_access') invalidate();
       // The periodic read coalesces progress/message bursts. Source revocation
       // uses the existing access event immediately, without a second SSE stream.
     });
