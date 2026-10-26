@@ -14,32 +14,34 @@ export type ContextPreview = {
 };
 
 export function useContextPreview(agent: string, conversation: string) {
-  const [data, setData] = useState<ContextPreview>();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const refresh = useRef(() => {});
   const identity = storageScope('agent-context-preview');
+  const scope = JSON.stringify([identity, agent, conversation]);
+  const [state, setState] = useState<{ scope: string; data?: ContextPreview; error: string; busy: boolean }>({
+    scope, error: '', busy: false,
+  });
+  const refresh = useRef(() => {});
   useEffect(() => {
     let alive = true, generation = 0, loading = false;
     let controller: AbortController | undefined;
-    setData(undefined); setError(''); setBusy(false);
+    setState({ scope, error: '', busy: false });
     const load = async () => {
       if (!alive || loading || !conversation) return;
-      loading = true; setBusy(true);
+      loading = true;
+      setState(previous => ({ scope, data: previous.scope === scope ? previous.data : undefined, error: '', busy: true }));
       const request = ++generation;
       controller = new AbortController();
       const signal = controller.signal;
       try {
         const next = await identityRequest<ContextPreview>(`${base}/${agent}/context-preview?chat=${encodeURIComponent(conversation)}`, undefined, signal);
-        if (alive && !signal.aborted && request === generation) { setData(next); setError(''); }
+        if (alive && !signal.aborted && request === generation) setState({ scope, data: next, error: '', busy: false });
       } catch (failure) {
-        if (alive && !signal.aborted && request === generation) { setData(undefined); setError(errorMessage(failure)); }
+        if (alive && !signal.aborted && request === generation) setState({ scope, error: errorMessage(failure), busy: false });
       } finally {
-        if (alive && request === generation) { loading = false; setBusy(false); }
+        if (alive && request === generation) loading = false;
       }
     };
     const invalidate = () => {
-      generation++; controller?.abort(); loading = false; setData(undefined);
+      generation++; controller?.abort(); loading = false; setState({ scope, error: '', busy: false });
       void load();
     };
     refresh.current = invalidate;
@@ -55,7 +57,10 @@ export function useContextPreview(agent: string, conversation: string) {
       window.clearInterval(timer); window.removeEventListener('focus', focus);
       refresh.current = () => {};
     };
-  }, [agent, conversation, identity]);
+  }, [agent, conversation, scope]);
+  // Fence render-time data and errors, before effect cleanup can run after a switch.
+  const current = state.scope === scope ? state : undefined;
+  const data = current?.data;
   return { data: data?.agent === agent && data.conversation === conversation ? data : undefined,
-    error, busy, refresh: () => refresh.current() };
+    error: current?.error ?? '', busy: current?.busy ?? false, refresh: () => refresh.current() };
 }
