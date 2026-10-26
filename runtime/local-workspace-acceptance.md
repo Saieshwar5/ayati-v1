@@ -73,6 +73,11 @@ inactive. The first standalone session case passed behavior but failed teardown
 when the fixture stopped its restarted controller before its worker drained; the
 case now explicitly drains the executor while its controller remains available.
 
+The optimized release binary also passed all 17 cases in approximately 142
+seconds (`.tmp/bounded-agent-e83euqk2/`), with all 54 owned scopes inactive. Its
+hash matches the release timing run in [bounded-agent-load.md](bounded-agent-load.md).
+The original demo remained running on its existing backend throughout.
+
 An explicit 60-second interrupted context run returned 124 with all seven owned
 scopes verified inactive (`.tmp/bounded-agent-9j4twabd/`). The follow-up deadline run
 (`.tmp/bounded-agent-tw9sivbw/`) returned 124 and recorded all seven scopes inactive.

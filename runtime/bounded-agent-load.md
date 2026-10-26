@@ -39,6 +39,61 @@ the run log. The failed missing-timestamp baseline remains in
 `.tmp/bounded-agent-ulq4890a/`. Debug builds, synthetic inference, shared host
 contention and the documented resource ceilings bound these observations.
 
+### Current-build CPU diagnostic
+
+After the endurance run completed, two serial diagnostics used the same immutable
+current debug binary (`ff35bbee35748e6754cfd312863dd252a66785c4649493fecaee5871fd082027`).
+Each ran 192 requests: 24 samples, two repeats, small/large contexts and concurrency
+1/4. Only the per-executor CPU ceiling changed; both retained four total slots,
+the same memory limits and the same four allowed logical CPUs. These were shared
+host observations without simultaneous endurance/build work, not exclusive CPU
+reservations. Both passed correctness, all owned scopes stopped and no OOM occurred.
+
+| Executor CPU ceiling | Concurrent requests | Per-case p95 model request | Per-case p95 final result |
+| --- | ---: | --- | --- |
+| 1 CPU | 1 | 269–308 ms | 330–376 ms |
+| 1 CPU | 4 | 917–986 ms | 1,002–1,067 ms |
+| 2 CPUs | 1 | 246–264 ms | 307–326 ms |
+| 2 CPUs | 4 | 554–940 ms | 758–1,242 ms |
+
+The larger ceiling helps some startup cases but does not consistently meet 250 ms
+or improve every final-result tail. Do not use this as justification for a cloud
+purchase or a promise of fifty simultaneous starts. Fresh-context/capability
+initialization and queueing still count. Ranges summarize individual case p95s;
+they are not a pooled percentile. The earlier full matrix remains separate evidence.
+
+Evidence: `.tmp/bounded-agent-g9ncnory/` (1 CPU), `.tmp/bounded-agent-5kascyy8/`
+(2 CPUs), and `.tmp/four-hour-sprint/cpu-comparison-summary.json`. Reproduce using
+an explicit identical `--binary`, `--samples 24 --repeats 2 --concurrency 1,4
+--contexts small,large` and `--executor-cpu 100` / `200`. The release-build follow-up
+is recorded separately; these measurements use a debug application build.
+
+### Optimized release follow-up
+
+An offline, locked release build completed locally in 4m09s. Its immutable hash
+was `297925771af072ec533b338b51e96dbb86bd1072fed890457f5cb92dad0c342a`.
+With the same 1-CPU executor profile, 24 samples, two repeats, small/large contexts
+and concurrency 1/4, all 192 requests/eight cases passed correctness and resource
+checks, with no OOM kills. All five owned scopes were recorded inactive.
+
+| Concurrent requests | Per-case p95 model request | Per-case p95 final result |
+| ---: | --- | --- |
+| 1 | 258–786 ms | 319–854 ms |
+| 4 | 875–1,195 ms | 945–1,311 ms |
+
+The release build did not consistently satisfy 250 ms or improve these shared-host
+tails. Controller-handler p95 ranged 35.84–52.93 ms at concurrency one, while
+local handoff and ACP-to-provider-header intervals remained substantial. These
+observations suggest profiling the fresh harness path, not assuming that compiling
+the controller with optimization solves startup. They do not isolate a causal
+performance regression or justify choosing a larger cloud allocation.
+
+Evidence: `.tmp/bounded-agent-b29su01g/` and
+`.tmp/four-hour-sprint/release-summary.json`. The same release binary also passed
+all 17 [workspace acceptance](local-workspace-acceptance.md) cases in
+`.tmp/bounded-agent-e83euqk2/`, with all 54 owned scopes inactive. Real provider
+latency, hosted identity, cloud availability and production capacity remain untested.
+
 Future startup work must preserve fresh task identity, controller capability and
 single-use context. Do not obtain a faster number by reusing an agent's authorized
 session for another task or by silently expanding the resource ceiling.

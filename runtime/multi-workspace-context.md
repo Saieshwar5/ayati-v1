@@ -65,9 +65,23 @@ The original extended run (`.tmp/bounded-agent-z0qunor1/`) completed 34 waves /
 1,734 requests with no idle inference, then correctly received 401 when its
 fixture login expired after an hour. It is a failed 40-wave run, not a pass.
 Its immutable binary predates the host-hint isolation and context-preview changes.
-All seven owned scopes were verified inactive afterward. A corrected current-build
-40-wave run with normal reauthentication and 30-second idle intervals is tracked
-separately; its final report and cleanup must pass before claiming completion. This is local transport/isolation and
+All seven owned scopes were verified inactive afterward.
+
+The corrected current-backend run passed **40 waves / 2,040 requests** with
+30-second idle intervals on 2026-10-26, 12:19–12:50 UTC. It retained 120 normal
+sign-ins, three expired-cookie denials, the held controller restart, final grant
+revocation, exact requester/private markers in every model input, one attempt and
+one inference per healthy task, and zero idle inference. Managed host-guidance
+exclusion is also asserted in every input. Evidence: `.tmp/bounded-agent-pq4q50is/`
+and `.tmp/independent-worker-KgKNk9/`.
+
+All resource phases reported zero OOM kills. Largest scope-lifetime charged-memory
+peaks were controller 45.4 MiB, largest individual executor 409.2 MiB, PostgreSQL
+207.7 MiB and driver 182.7 MiB. These are observations from this debug/scripted
+workload, not additive dedicated allocations or production sizing. The fixture
+reported zero cleanup errors; all seven recorded scopes were independently
+verified inactive. This run started before the runner added structured cleanup
+records, so its cleanup proof is the independent post-run state check. This is local transport/isolation and
 recovery evidence with synthetic inference. It does not establish real-model
 judgment, automatic sensitive-data classification, production tenant isolation,
 fifty running workers, cloud availability or acceptable customer-facing latency.
