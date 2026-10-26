@@ -52,6 +52,18 @@ async fn history_excludes_library_derived_answers_and_generated_source_titles() 
     };
     let receipt = db.library_ask(&owner, &w, &page.id, &ask).await.unwrap();
     let original = db.claim_job().await.unwrap().unwrap();
+    let (identity, prompt) = db.request_context(&original).await.unwrap();
+    assert_eq!(identity["origin"], "human_message");
+    assert_eq!(identity["request_message"], ask.request);
+    let evidence: Value = serde_json::from_str(
+        prompt
+            .split("Conversation evidence (JSON):\n")
+            .nth(1)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(evidence["messages"][0]["content"], ask.question);
+    assert!(!prompt.contains("LIBRARY_PRIVATE_TITLE"));
     db.chat_finish(&original, "LIBRARY_PRIVATE_DERIVED_ANSWER", "complete")
         .await
         .unwrap();

@@ -9,7 +9,7 @@ content. An authenticated task, not a name in a prompt, determines the principal
 Newly queued messages store an attributed JSON transcript: stable message and
 author IDs, human/agent kind, sequence, timestamp, thread, content and display name.
 The explicit request message ID identifies which message the task answers. A
-display name is a profile value observed at intake; it is neither a historical
+display name is a profile value observed when assembling context; it is neither a historical
 identity guarantee nor an authorization claim. Distinct people may share a name.
 Other speakers' email addresses are not included in the transcript.
 
@@ -17,9 +17,18 @@ Before each managed execution, current stored requester ID, display name and
 email are assembled with workspace, agent, task and conversation identifiers.
 The exact running claim, current membership, conversation access, agent grant and
 source rights must still pass. Current identity can reflect a rename while the
-saved transcript retains its earlier profile snapshot. The requester is the human
-responsible for the task, including background and delegated work; this does not
-claim that they personally typed an automation's message.
+durable intake snapshot retains its earlier profile value. Execution rebuilds
+eligible recent evidence from saved messages up to the original task's reply
+sequence; later messages never displace the original request. It reapplies the
+current joining policy and source exclusions without rewriting the queued job.
+
+The requesting principal is the human responsible for the task. `origin` separates
+human messages, agent handoffs, background automation and historical requests.
+`initiating_actor` identifies the actual human or agent sender when known; it is
+null for background automation and historical unknown origin. A helper message is
+stored with its sending agent as author from the start, while its human principal
+remains unchanged. This does not claim a human personally typed an automation's
+message or let a sending agent acquire that person's authority.
 
 Profile values and bodies remain untrusted data. Identity
 context grants no action, approval, source access or verified external-customer
@@ -42,6 +51,10 @@ silently renew their source authority. Conversation titles are omitted from the
 model's identity envelope because a Library conversation title can itself reveal
 the source's name. User-authored facts in ordinary messages are still conversation
 content; this is not an automatic classifier for sensitive payroll/customer data.
+The current task's exact original request is included after its own authority and
+source checks, including a helper's authorized instruction. A Library task uses
+its canonical question separately from explicit authorized sources, rather than
+copying the display message's generated source link into the question.
 
 ## Older-history tools
 
@@ -76,9 +89,14 @@ grant business-operation rights. History queries have a five-second SQL timeout.
 
 ## Compatibility and limits
 
-No schema migration or new memory service is required. Existing queued prompts
-remain unchanged rather than inventing missing historical attribution. Managed
-execution still supplies their current requester metadata. Prepared worker context
+No schema migration or new memory service is required. Existing queued payloads
+remain unchanged. Where the task has an exact request-message link, execution can
+rebuild its evidence even if the old stored prompt used flattened text. Historical
+tasks without that link retain the old prompt and report unknown initiating origin;
+the controller does not guess a sender from prose. Their embedded legacy history
+cannot be safely reconstructed, so it does not gain the new per-message refresh
+guarantee. Drain or stop such old work before relying on the new context contract.
+New Library tasks now also retain the exact request-message link. Prepared worker context
 uses the existing version-1 request/instructions fields; its wire schema does not
 change. The legacy SQLite/local runtime is unchanged.
 
@@ -107,3 +125,8 @@ tests reject caller-selected identity/scope. `node --test
 tests/conversation_history.mjs` exercises the actual pooled Goose/MCP/controller
 path with older evidence, foreign IDs, restart and revocation using a local
 scripted provider.
+
+`cargo test --locked --lib request_context_tests -- --ignored` covers linked old
+prompts, current attribution, unchanged durable payloads, original request cutoff,
+helper versus human identity, automation origin and historical unknown origin.
+The real Goose handoff journey also inspects the helper's actual model input.

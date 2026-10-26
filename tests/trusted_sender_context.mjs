@@ -40,8 +40,9 @@ test('real Goose receives trusted requester metadata and attributed isolated con
   assert.equal(firstIdentity.requesting_principal.email, owner.email);
   assert.equal(firstIdentity.task, first.reply);
   assert.equal(firstIdentity.conversation.id, first.chat);
-  assert.equal(evidence(privatePrompt).messages.at(-1).author.display_name, 'Alex');
-  app.pass('Queued request survives API restart: current requester identity is distinct from its intake profile snapshot');
+  assert.equal(evidence(privatePrompt).messages.at(-1).author.display_name, 'Alex renamed');
+  assert.equal(JSON.parse(first.prompt.split('Conversation evidence (JSON):\n')[1]).messages.at(-1).author.display_name, 'Alex');
+  app.pass('Queued request survives API restart: execution refreshes current identity and message attribution while retaining the original intake snapshot');
 
   await app.request(app.path + '/chat-grants', app.cookie, { user: member.id, agent: app.profile.id, allowed: true });
   await app.request('/api/identity/profile', app.cookie, { display_name: 'Alex' });

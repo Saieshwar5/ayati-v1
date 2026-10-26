@@ -125,25 +125,10 @@ impl PgStore {
             attachments: vec![],
             content: input.task.clone(),
         };
-        let user = User {
-            id: job.requester.clone(),
-            email: String::new(),
-            display_name: None,
-        };
         let child = self
-            .background_in(&tx, &user, &job.workspace, &job.chat, &request)
+            .handoff_in(&tx, job, &request)
             .await?
             .context("Handoff task was not accepted")?;
-        execute(
-            &tx,
-            "UPDATE relay_chat_messages SET author=$3,kind='agent' WHERE workspace=$1 AND id=$2",
-            vec![
-                job.workspace.clone().into(),
-                request.id.clone().into(),
-                job.agent.clone().into(),
-            ],
-        )
-        .await?;
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_agent_handoffs(workspace,id,parent,root,child,request_message,request_key,input_hash,principal,sender,target,chat,thread,task,controls,source,depth,run_cycle,expires_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)",vec![job.workspace.clone().into(),id.clone().into(),job.reply.clone().into(),root.into(),child.reply.clone().into(),request.id.into(),input.key.clone().into(),hash.into(),job.requester.clone().into(),job.agent.clone().into(),input.agent.clone().into(),job.chat.clone().into(),thread.into(),input.task.clone().into(),controls.into(),source.into(),(depth as i32).into(),cycle.into(),expires.into()]).await?;
         audit(

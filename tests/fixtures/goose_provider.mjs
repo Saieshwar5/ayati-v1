@@ -82,7 +82,9 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     const originalLine = savedTask ? contextCommand(textContent.split('Saved task continuation')[0]) : prompt;
     // Automation messages contain a controller-generated title before the
     // configured instruction. Script the instruction, not that display title.
-    const controlPrompt = originalLine?.replace(/^(?:Connected event work|Scheduled work) · [^\n]*\n/, '');
+    const controlPrompt = originalLine
+      ?.replace(/^(?:Connected event work|Scheduled work) · [^\n]*\n/, '')
+      .replace(/^\[Personal Home panel (?:request|change)\]\n[^\n]*\n/, '');
     const scriptedCommand = controlScripts.get(originalLine) ?? controlScripts.get(controlPrompt);
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));

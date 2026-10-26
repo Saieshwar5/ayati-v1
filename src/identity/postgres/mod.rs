@@ -161,6 +161,9 @@ mod rehearsal_source_tests;
 #[cfg(test)]
 mod rehearsal_tests;
 mod rehearsals;
+mod request_context;
+#[cfg(test)]
+mod request_context_tests;
 mod source_access;
 pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
