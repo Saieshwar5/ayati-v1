@@ -46,6 +46,15 @@ pub mod cli;
 mod cloud_executor_tests;
 mod cloud_executors;
 mod collaboration;
+mod communication_access;
+mod communication_endpoints;
+mod communication_inbox;
+mod communication_migration;
+mod communication_outbox;
+#[cfg(test)]
+mod communication_recovery_tests;
+#[cfg(test)]
+mod communication_tests;
 mod connection_authority;
 #[cfg(test)]
 mod connection_authority_tests;

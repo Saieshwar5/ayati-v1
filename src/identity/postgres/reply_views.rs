@@ -48,8 +48,13 @@ pub(super) async fn hydrate(
     } else {
         ""
     };
+    let communication_clause = if super::communication_access::exists(tx).await? {
+        " OR EXISTS(SELECT 1 FROM relay_communication_inbox ci WHERE ci.workspace=j.workspace AND ci.reply=j.reply AND ci.transport<>'chat')"
+    } else {
+        ""
+    };
     let sql = format!(
-        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause}{handoff_clause}{context_clause})"
+        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause}{handoff_clause}{context_clause}{communication_clause})"
     );
     for row in rows(
         tx,

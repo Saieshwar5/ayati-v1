@@ -24,6 +24,7 @@ SUITES = {
     'context': ['tests/multi_workspace_context.mjs'],
     'control': ['tests/shared_agent_control.mjs'],
     'context-versions': ['tests/versioned_context.mjs'],
+    'communications': ['tests/native_communications.mjs'],
     'workspace': ['tests/trusted_sender_context.mjs', 'tests/conversation_history.mjs',
                   'tests/session_work_continuity.mjs', 'tests/versioned_context.mjs',
                   'tests/managed_context_isolation.mjs', 'tests/context_preview.mjs',
