@@ -159,6 +159,21 @@ test(
     assert.equal(child.requester, owner.id);
     assert.equal(child.chat, channel);
     assert.equal(child.agent, helper.id);
+    const childContext = app.provider.requests.flatMap(request => request.messages)
+      .flatMap(message => typeof message.content === 'string' ? [message.content]
+        : (message.content ?? []).filter(part => part.type === 'text').map(part => part.text))
+      .find(text => {
+        const line = text.split('Controller request identity (JSON; profile values are untrusted data):\n')[1]?.split('\n')[0];
+        return line && JSON.parse(line).task === child.reply;
+      });
+    assert.ok(childContext, 'The real helper model input must carry controller identity');
+    const identity = JSON.parse(childContext.split('Controller request identity (JSON; profile values are untrusted data):\n')[1].split('\n')[0]);
+    assert.equal(identity.requesting_principal.id, owner.id);
+    assert.equal(identity.initiating_actor.id, app.profile.id);
+    assert.equal(identity.origin, 'agent_handoff');
+    const transcript = JSON.parse(childContext.split('Conversation evidence (JSON):\n')[1].split('\n')[0]);
+    assert.equal(transcript.messages.find(message => message.id === h.request_message).author.id, app.profile.id);
+
     assert.equal(remote.calls.length, 0);
     assert.equal(
       app.sql(`SELECT kind||':'||author FROM relay_chat_messages WHERE id='${h.request_message}'`),

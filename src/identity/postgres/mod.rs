@@ -85,6 +85,14 @@ mod task_progress;
 mod task_progress_tests;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
+mod conversation_context;
+#[cfg(test)]
+mod conversation_context_tests;
+mod conversation_history;
+#[cfg(test)]
+mod conversation_history_source_tests;
+#[cfg(test)]
+mod conversation_history_tests;
 mod entities;
 mod event_access;
 #[cfg(test)]
@@ -153,6 +161,9 @@ mod rehearsal_source_tests;
 #[cfg(test)]
 mod rehearsal_tests;
 mod rehearsals;
+mod request_context;
+#[cfg(test)]
+mod request_context_tests;
 mod source_access;
 pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
