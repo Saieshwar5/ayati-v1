@@ -1,3 +1,4 @@
+import { ApprovalViewer } from '../approvals/viewer';
 import { ManagedResults } from '../results/managed';
 import { ChannelLifecycle } from './channel-lifecycle';
 import { PendingMessages } from './pending-messages';
@@ -129,7 +130,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const title = conversationName(chat, directory);
   const kind = conversationKind(chat, directory);
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  return <ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section className="chat-conversation" aria-label={`Conversation with ${title}`}>
+  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section className="chat-conversation" aria-label={`Conversation with ${title}`}>
     <header className="chat-pane-header">
       <Button className="chat-back" onClick={back}>‹ Chats</Button>
       <span className={`chat-avatar ${kind.toLowerCase()}`}>
@@ -163,5 +164,5 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
     {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
     {lifecycle && <ChannelLifecycle chat={chat} close={() => setLifecycle(false)} changed={changed} />}
-  </section></ManagedResults>;
+  </section></ManagedResults></ApprovalViewer>;
 }
