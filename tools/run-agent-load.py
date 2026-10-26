@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SUITES = {
     'matrix': ['tests/agent_load.mjs'],
     'faults': ['tests/agent_load_faults.mjs'],
+    'context': ['tests/multi_workspace_context.mjs'],
     'preparation': ['tests/harness_preparation.mjs'],
     'mixed': ['tests/interactive_reserve.mjs'],
     'image': ['tests/image_release.mjs', 'tests/interactive_reserve.mjs', 'tests/agent_load_faults.mjs'],

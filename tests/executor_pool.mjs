@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/goose_app.mjs';
-import { exited, machine, secret } from './fixtures/worker_control.mjs';
+import { exited, machine, secret, controllerToolsOnly } from './fixtures/worker_control.mjs';
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 150000 };
 const rows = app => JSON.parse(app.sql("SELECT COALESCE(json_agg(s ORDER BY slot),'[]') FROM relay_executor_slots s"));
@@ -42,7 +42,11 @@ test('prepared slots dispatch different agents concurrently and replenish withou
   const { a, b } = await twoHeld(app);
   const running = rows(app).filter(s => s.state === 'running');
   assert.equal(running.length, 2);
-  assert.deepEqual(running.map(s => Number(s.pid)).sort(), initial.map(s => Number(s.pid)).sort(), 'A message must use the already prepared Goose process');
+  const activePids = await app.gooseChildren(executor);
+  assert.equal(activePids.length, 2);
+  assert.ok(activePids.every(pid => !initial.some(slot => Number(slot.pid) === pid)),
+    'Managed tool jobs must replace the tool-free reserve with fresh controlled sessions');
+  await app.assertChildrenStopped(initial.map(slot => Number(slot.pid)));
   const queued = await app.send('Reuse a clean slot; do not expose inventory context');
   await delay(1000);
   assert.equal(app.attempts(queued), 0);
@@ -54,10 +58,10 @@ test('prepared slots dispatch different agents concurrently and replenish withou
   assert.ok(next.every(s => !initial.some(old => old.pid === s.pid)));
   const last = JSON.stringify(app.provider.requests.at(-1));
   assert.equal(last.includes('INVENTORY_PRIVATE_SENTINEL'), false);
-  assert.ok(app.provider.requests.every(request => (request.tools ?? []).length === 0));
-  await app.assertChildrenStopped(initial.map(s => Number(s.pid)));
+  for (const request of app.provider.requests) controllerToolsOnly(request);
+  await app.assertChildrenStopped(activePids);
   assert.equal((await app.scratchFiles()).length, 2, 'Only the new ready harness scratch should remain');
-  app.pass('Real ACP sessions are prepared without inference; the same PIDs execute two agents concurrently; clean generations replace used sessions');
+  app.pass('Tool-free reserve preparation invokes no model; fresh controlled sessions serve two agents concurrently and are reaped before clean generations replace them');
   await app.stop(executor);
   await app.assertChildrenStopped(next.map(s => Number(s.pid)));
   assert.equal((await app.scratchFiles()).length, 0);
@@ -151,9 +155,12 @@ test('two executors serve separate workspaces and a recycled slot has no prior t
   await until(() => app.provider.requests.length === 2, 'Independent executors did not run concurrently');
   const running = rows(app).filter(s => s.state === 'running');
   assert.equal(new Set(running.map(s => s.executor)).size, 2);
-  assert.deepEqual(running.map(s => Number(s.pid)).sort(), initial.map(s => Number(s.pid)).sort());
+  await app.assertChildrenStopped(initial.map(s => Number(s.pid)));
   const firstPid = (await app.gooseChildren(first))[0];
-  const firstSlot = running.find(s => Number(s.pid) === firstPid);
+  assert.ok(firstPid && !initial.some(slot => Number(slot.pid) === firstPid));
+  const identity = await app.executorIdentity(first);
+  const firstSlot = running.find(s => s.executor === identity.id && s.incarnation === identity.incarnation);
+  assert.ok(firstSlot, 'Active slot must belong to the actual supervisor incarnation');
   const oldWorkspace = app.sql(`SELECT workspace FROM relay_worker_assignments WHERE id='${firstSlot.assignment}'`);
   app.provider.setHeld(false); await app.done(a); await doneOther(b); await ready(app);
   await app.stop(second);
@@ -184,9 +191,12 @@ test('cancelling a pooled run stops its harness before the slot serves a new req
   app.provider.setHeld(true);
   const cancelled = await app.send('Discard this cancelled private result');
   await until(() => app.provider.requests.length === 1, 'Held inference did not start');
+  const activePids = await app.gooseChildren(executor);
+  assert.equal(activePids.length, 1);
   await app.request(`${app.path}/chats/${cancelled.chat}/messages/${cancelled.reply}/cancel`, app.cookie, {});
   assert.equal((await app.done(cancelled, 'cancelled')).content, 'Request cancelled.');
   await app.assertChildrenStopped([Number(initial.pid)], 10000);
+  await app.assertChildrenStopped(activePids, 10000);
   await ready(app, 1);
   assert.ok(rows(app).some(s => s.slot === initial.slot && s.generation > initial.generation));
   app.provider.setHeld(false);
