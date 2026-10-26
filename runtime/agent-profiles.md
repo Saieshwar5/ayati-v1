@@ -42,9 +42,10 @@ This is not the complete proposed capabilities platform. Managed browser
 enablement is still rejected server-side. Business tools now use
 [workspace connections](workspace-connections.md) and
 [server-enforced controls](shared-agent-control.md); their supported operations and
-provider limitations are documented there. Isolated browser provisioning,
-automatic scoped memory formation and searchable older channel history remain
-unimplemented. Existing local agents retain their established capabilities and
+provider limitations are documented there. Controller-backed agents can now
+search/read [older conversation history](conversation-context.md) under current
+task access. Isolated browser provisioning and automatic scoped memory formation
+remain unimplemented. Existing local agents retain their established capabilities and
 approval boundaries.
 
 Adding tools requires execution-time authorization and durable action receipts:

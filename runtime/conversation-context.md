@@ -21,7 +21,7 @@ saved transcript retains its earlier profile snapshot. The requester is the huma
 responsible for the task, including background and delegated work; this does not
 claim that they personally typed an automation's message.
 
-Profile values, conversation names and bodies remain untrusted data. Identity
+Profile values and bodies remain untrusted data. Identity
 context grants no action, approval, source access or verified external-customer
 identity. The model is instructed not to repeat private contact details without a
 relevant authorized purpose; actual business operations still pass server checks.
@@ -32,7 +32,47 @@ messages. Revision-zero profiles retain their existing 30-message/thread selecti
 The 14,000-byte budget now counts serialized attribution and escaped content. The
 latest explicit request remains intact if it alone exceeds that budget, bounded
 by the existing 12,000-byte input limit and prepared-context limit. Older messages
-are removed first. The existing since-joining and event/handoff exclusions remain.
+are removed first. The existing since-joining policy remains.
+
+General recent history and older-history retrieval exclude Library-derived
+answers, the initial source question/title in a Library-created conversation,
+business-operation answers, event replies and helper requests/results. Those
+records need their source-aware paths; ordinary conversation membership must not
+silently renew their source authority. Conversation titles are omitted from the
+model's identity envelope because a Library conversation title can itself reveal
+the source's name. User-authored facts in ordinary messages are still conversation
+content; this is not an automatic classifier for sensitive payroll/customer data.
+
+## Older-history tools
+
+Controller-backed managed execution supplies `search_conversation_history` and
+`read_conversation_history` alongside the other task tools. Polling compatibility
+workers without the control gateway remain tool-free. The backend binds workspace,
+agent, requester and conversation from the authenticated running task. Supplying a
+different scope in tool arguments is rejected. Each call rechecks the current
+claim/lease, membership, agent participation/grant and source authority.
+
+Search accepts a literal query of up to 256 bytes and an optional `before` cursor.
+It scans at most 256 eligible messages, returning at most 20 attributed excerpts
+of 600 characters each. Matching is case-insensitive, not semantic; `%` and `_`
+are ordinary characters. An empty query browses history. Returned messages are in
+chronological order. Follow `next_before` until null; an empty page with a cursor
+means older evidence remains unsearched. The requested cursor cannot extend past
+the original task's reply sequence, so later unrelated messages do not enter it.
+
+Read accepts an eligible message UUID and optional zero-based character offset.
+It returns up to 4,000 Unicode characters and `next_offset` for the next chunk.
+Offsets are not UTF-8 byte positions. Foreign, missing and excluded IDs return the
+same unavailable result. Returned author names are current profile values, while
+stable IDs and stored message timestamps retain attribution.
+
+Both tools preserve the recent-context selection policy: managed profiles use
+their current conversation, including its threads, with the current since-joining
+restriction; revision-zero profiles retain their narrower thread selection.
+Messages from another channel or private DM are never searched. A legacy channel
+task lacking a recoverable thread cannot use this tool to gain a wider scope.
+Reads create no jobs, action receipts or approvals. They do not send messages or
+grant business-operation rights. History queries have a five-second SQL timeout.
 
 ## Compatibility and limits
 
@@ -42,8 +82,8 @@ execution still supplies their current requester metadata. Prepared worker conte
 uses the existing version-1 request/instructions fields; its wire schema does not
 change. The legacy SQLite/local runtime is unchanged.
 
-This increment does not add automatic memory formation, semantic retrieval, older
-history tools, email/WhatsApp identities or external identity linking. Existing
+This increment does not add automatic memory formation, semantic retrieval,
+email/WhatsApp identities or external identity linking. Existing
 agent-wide maintainer notes still have their documented broader audience; they
 are not automatically learned from private conversation history.
 
@@ -59,3 +99,11 @@ real pinned Goose with a synthetic local inference provider and a disposable
 schema. It inspects actual model input across API restart and multiple speakers.
 This validates context transport and isolation, not real-model business judgment
 or hosted production readiness.
+
+`cargo test --locked --lib conversation_history -- --ignored` covers bounded
+pagination, literal matching, Unicode chunks, task cutoff, source exclusions,
+current joining policy, revocation and unchanged task records. Guest forwarding
+tests reject caller-selected identity/scope. `node --test
+tests/conversation_history.mjs` exercises the actual pooled Goose/MCP/controller
+path with older evidence, foreign IDs, restart and revocation using a local
+scripted provider.

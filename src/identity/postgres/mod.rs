@@ -88,6 +88,11 @@ pub(crate) use executor_dispatch::PoolLimits;
 mod conversation_context;
 #[cfg(test)]
 mod conversation_context_tests;
+mod conversation_history;
+#[cfg(test)]
+mod conversation_history_source_tests;
+#[cfg(test)]
+mod conversation_history_tests;
 mod entities;
 mod event_access;
 #[cfg(test)]

@@ -80,8 +80,10 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
     const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
     const originalLine = savedTask ? contextCommand(textContent.split('Saved task continuation')[0]) : prompt;
-    const controlPrompt = originalLine;
-    const scriptedCommand = controlScripts.get(originalLine);
+    // Automation messages contain a controller-generated title before the
+    // configured instruction. Script the instruction, not that display title.
+    const controlPrompt = originalLine?.replace(/^(?:Connected event work|Scheduled work) · [^\n]*\n/, '');
+    const scriptedCommand = controlScripts.get(originalLine) ?? controlScripts.get(controlPrompt);
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));
       text = JSON.stringify({ rules: setup.actions.filter(a => a.operation !== 'order.delete').map(a => ({ connection: a.connection, operation: a.operation, mode: a.effect === 'read' ? 'allow' : 'ask' })), warnings: ['Fixture suggestion: delete is omitted and must remain blocked.'] });
