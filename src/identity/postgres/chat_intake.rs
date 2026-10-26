@@ -83,6 +83,7 @@ impl PgStore {
             ensure!(original == class.as_str(), "Request class cannot change on replay");
             return Ok(None);
         }
+        super::channel_lifecycle::accepting(&tx, workspace, chat).await?;
         for (kind, id) in
             crate::identity::chat::mentions::parse(&input.content, input.agent.as_deref())?
         {

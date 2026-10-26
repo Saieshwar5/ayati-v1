@@ -65,7 +65,7 @@ export function SearchConversations({ directory, chats, close, opened, privateAg
           <button type="button" className="chat-contact" onClick={() => opened(chat.id)}
             aria-label={`Open channel ${chat.name}`}>
             <span className="chat-avatar channel">#</span>
-            <span>{chat.name}<small>Channel</small></span>
+            <span>{chat.name}<small>{chat.archived ? 'Archived channel' : 'Channel'}</small></span>
           </button>
         </li>)}
         {targets.map(target => {

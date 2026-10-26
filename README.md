@@ -10,12 +10,22 @@ corrections and forgetting through Goose tools and owner controls.
 The full workspace is still being built;
 cloud deployment comes after local stabilization.
 
-[Shared agent control](runtime/shared-agent-control.md) now adds reviewed remote
-MCP operations to PostgreSQL-managed agents: per-conversation Allow/Ask first/Block
-permissions, exact owner approvals and durable action outcomes. Owners configure
-these through Agents → Tools and approvals. It requires schema 18 and a private
-operator-provisioned MCP profile; broader rule predicates, automatic job continuation
-and live cloud/provider acceptance remain separate work.
+[Shared agent control](runtime/shared-agent-control.md) adds reviewed remote MCP
+operations to PostgreSQL-managed agents, with per-conversation Allow/Ask first/Block,
+[explicit approvers](runtime/channel-approvals.md) and durable action receipts.
+[Saved task continuation](runtime/durable-approval-waits.md) releases execution
+while a task waits. [Ordinary questions and forms](runtime/agent-questions.md)
+supply missing facts; they never approve a business action.
+
+The [Agents workspace](runtime/agents-team-workspace.md) shows source-visible work,
+progress and per-request Stop. [Saved reading](runtime/result-reading.md) keeps
+long replies compact and provides exact saved bodies and passive file/image views.
+[Personal pins and channel archive](runtime/chat-organization.md) organize Chat
+while preserving existing work and closing new intake in archived channels.
+These managed workflows are verified locally. Existing private-runtime question
+adapters, broader rule predicates and live cloud/provider acceptance remain open.
+Current shared-workspace startup requires PostgreSQL schema **24**, explicit
+migration/runtime grants and operator-provisioned private MCP profiles for tools.
 
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,
 version recovery and source-based private agent questions to PostgreSQL workspaces.
@@ -382,7 +392,7 @@ Local PostgreSQL workspace storage and migration: [setup and verification](runti
 
 For temporary one-assignment workers, set `AYATI_CHAT_EXECUTION=assigned` and run
 `ayati assignment-launcher`. Each worker renews its ownership, saves an outcome
-and exits. This checkout requires all PostgreSQL migrations through 17; see [assignment workers](runtime/assignment-workers.md)
+and exits. This checkout requires all PostgreSQL migrations through 24; see [assignment workers](runtime/assignment-workers.md)
 for configuration, cancellation, recovery and local-only evidence limits.
 
 For prepared shared sessions, set `AYATI_CHAT_EXECUTION=pooled` on the controller

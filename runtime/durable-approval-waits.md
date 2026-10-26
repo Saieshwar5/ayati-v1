@@ -9,7 +9,8 @@ attempt, including on another executor after a controller restart.
 
 This extends [channel approvals](channel-approvals.md) and the
 [exact action gateway](shared-agent-control.md). This slice introduced schema 22;
-current startup additionally requires [ordinary questions schema 23](agent-questions.md).
+current startup additionally requires [ordinary questions](agent-questions.md)
+and [Chat organization schema 24](chat-organization.md).
 No new provider, dependency, paid inference or cloud resource is required.
 
 ## What people see

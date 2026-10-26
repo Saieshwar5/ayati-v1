@@ -1,4 +1,5 @@
 import { ManagedResults } from '../results/managed';
+import { ChannelLifecycle } from './channel-lifecycle';
 import { PendingMessages } from './pending-messages';
 import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox } from './outbox';
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
@@ -15,7 +16,7 @@ import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
 import { chatRequest, conversationKind, conversationName, type Conversation, type Directory, type History } from './model';
 
-export function ConversationPane({ chat, directory, back, focus }: { chat: Conversation; directory: Directory; back: () => void; focus?: string }) {
+export function ConversationPane({ chat, directory, back, focus, changed = async () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void> }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
@@ -28,6 +29,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
   const [history, setHistory] = useState<History>();
   const [error, setError] = useState('');
   const [details, setDetails] = useState(false);
+  const [lifecycle, setLifecycle] = useState(false);
   const [thread, setThread] = useState<string>();
   const [busy, setBusy] = useState(false);
   const directAgent = chat.kind === 'direct' ? chat.agents[0] ?? '' : '';
@@ -90,6 +92,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
   useLayoutEffect(() => { if (!readingResult.current && bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history, pendingMessages]);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   const send = async () => {
+    if (chat.archived) return;
     if (pending.current || (!draft.trim() && !files.length)) return;
     pending.current = true; setBusy(true); setError('');
     let target: string | undefined;
@@ -131,6 +134,7 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
       </div>
       <Button onClick={() => setDetails(true)}>Details</Button>
     </header>
+    {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={() => setLifecycle(true)}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => { const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }}>
       {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
@@ -140,13 +144,14 @@ export function ConversationPane({ chat, directory, back, focus }: { chat: Conve
     </div>
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
-    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy} sendDisabled={!draft.trim() && !files.length}
+    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
-    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
-    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p><p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
+    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
+    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
+    {lifecycle && <ChannelLifecycle chat={chat} close={() => setLifecycle(false)} changed={changed} />}
   </section></ManagedResults>;
 }

@@ -14,7 +14,7 @@ pub(super) async fn upload(
     bytes: Bytes,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    app.store.chat_messages(&user, &w, &chat).await?;
+    pg(&app)?.check_chat_accepting(&user, &w, &chat).await?;
     check(
         !bytes.is_empty() && bytes.len() <= 10 * 1024 * 1024,
         "Files must contain between 1 byte and 10 MiB",

@@ -128,7 +128,8 @@ Hosted/commercial-model quality and cloud capacity are separate acceptance gates
 
 Stop old binaries and back up identity data before explicitly applying
 `m20261026_000023_agent_questions` with the existing administrator migration/grant
-procedure. Startup verifies schema 23 and never applies migrations automatically.
+procedure. This slice introduced schema 23; current startup requires the full
+[Chat organization schema 24](chat-organization.md) and never applies migrations automatically.
 Upgrade tests preserve a schema-22 approval wait/checkpoint and its later wake-up.
 The ordinary workspace database was not migrated during implementation.
 

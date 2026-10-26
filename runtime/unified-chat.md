@@ -45,7 +45,8 @@ loaded history by message ID. SQLite retains its recent-history window. Thread r
 counts reflect loaded messages, not exhaustive totals. Agent context remains capped at 30 messages and
 14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording,
 with immutable local objects and download-time access checks. Unread counts and live delivery now follow [reliable messaging](reliable-messaging.md). Push
-notifications, typing indicators and channel archival remain unimplemented. Legacy baseline polling was 2.5 seconds for the open conversation and five
+notifications and typing indicators remain unimplemented.
+[Personal pins and guarded channel archive/restore](chat-organization.md) are implemented separately; accepted work retains its original authority. Legacy baseline polling was 2.5 seconds for the open conversation and five
 seconds for the directory, paused when the document is hidden.
 
 ## Storage upgrade
