@@ -11,7 +11,15 @@ The existing original source, private-agent, designated approver, current rule a
 exact-action checks remain authoritative. Keeping a dialog open grants no ability
 to approve. Other screens retain their existing locally owned review dialogs.
 
-Two focused React behavior cases cover row removal/reappearance, zero writes on
-viewing, source denial, late-read fencing and teardown. A connected local browser
-check of channel approval and durable continuation is required before publication.
+Verified independently on the clean prerequisite branch: 163 web checks (two new
+lifetime cases), Rust/web builds, browser-test types and all 809 source-file limits.
+Two connected browser journeys using real pinned Goose with scripted inference
+pass channel review across membership refresh, authorized User decisions,
+restricted observer reads, source revocation, saved receipts, executor replacement,
+controller restart, request changes, Stop and uncertain-write retention. The old
+resuming-label assertion now follows the current Saved update wording.
+
+The review remains open through the harmless reference refresh; it does not retain
+private fields after an access denial. Records are indexed in
+`.tmp/approval-review-refresh/verification.json` before publication.
 No schema, model, tool permission, cloud or normal database change is introduced.
