@@ -1,6 +1,6 @@
 # Hosted deployment foundation
 
-Current application startup requires the full [schema 24](chat-organization.md)
+Current application startup requires the full [schema 25](workspace-attention.md)
 and runtime grants. The older deployment/image evidence below retains its
 original scope; it does not establish acceptance for this new release.
 

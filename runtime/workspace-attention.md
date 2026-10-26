@@ -107,7 +107,7 @@ milestone; the attention feature is a separate chunk.
   and live source revocation. No paid model was used.
 - Five retained process/browser journeys pass for shared questions, the isolated
   controller-local question adapter, archived task continuation and managed/native
-  saved readers. All 709 checked source files are within 500 lines; 68 changed
+  saved readers. All 709 checked source files are within 500 lines; 98 changed
   documentation links resolve.
 
 Evidence is retained in `.tmp/workspace-attention/`; editable OpenPencil concepts

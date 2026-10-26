@@ -136,7 +136,8 @@ Reproduce focused database checks with `cargo test --locked --lib
 chat_organization -- --ignored` and `cargo test --locked --lib
 channel_archive_recovery_tests -- --ignored`, using a disposable
 `RELAY_TEST_DATABASE_URL`. Run `node --test tests/chat_organization.mjs` with the
-built web client/binary. The inactive release manifest now requires schema 24 and
-still has zero active controllers/executors and disabled autoscaling; no cloud
+built web client/binary. This milestone used schema 24; current startup and release
+requirements follow [PostgreSQL setup](postgres-workspaces.md). The inactive
+release manifest still has zero active controllers/executors and disabled autoscaling; no cloud
 activation occurred. Initial pin-time order is supported; custom reorder and
 personal Hide for me remain optional later work.
