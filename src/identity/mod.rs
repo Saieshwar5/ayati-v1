@@ -19,6 +19,7 @@ mod membership_schema;
 pub mod postgres;
 mod profile;
 mod provider;
+mod rehearsals;
 mod resources;
 mod routes;
 mod settings;
@@ -232,6 +233,7 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
+    rehearsals::start(app.clone()).await;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
@@ -250,6 +252,7 @@ fn router(app: Shared) -> Router {
         .merge(agents::routes())
         .merge(control::routes())
         .merge(attention::routes())
+        .merge(rehearsals::routes())
         .merge(chat::routes())
         .merge(interactions::routes())
         .merge(library::routes())

@@ -24,6 +24,9 @@ server API contracts, authentication, and workspace boundaries.
   request progress and Stop, guided creation, profile editing, approved knowledge,
   permission drafts/previews/activation and preserved local-agent lifecycle controls.
   [The workspace contract](agents-team-workspace.md) describes supported tabs.
+- `web/src/react/agents/rehearsals/`: on-demand draft-only sample dialog, saved job
+  context/source review, guarded Start/Stop, personal history and shared reader.
+  Ordinary agent guidance enters its normal prompt without granting tools.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
   teams, setup, local accounts and Owner workspace connections/delegation. The legacy Settings screen and setup
   installer are removed; Agent details retains its existing connector integration.

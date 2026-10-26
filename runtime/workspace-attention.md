@@ -73,8 +73,9 @@ reading cannot retry, reconcile or confirm them.
 
 Apply the migration with the administrator workflow in
 [PostgreSQL setup](postgres-workspaces.md), then reapply runtime grants. Startup
-requires schema 25 and never migrates automatically. Only disposable test
-schemas were migrated here. The inactive AWS manifest also requires 25; its
+never migrates automatically; the current full schema requirement is listed in
+[PostgreSQL setup](postgres-workspaces.md). Only disposable test
+schemas were migrated here. This increment introduced schema 25. The inactive AWS manifest's
 activation controller/executor counts remain zero and activation autoscaling
 remains disabled.
 

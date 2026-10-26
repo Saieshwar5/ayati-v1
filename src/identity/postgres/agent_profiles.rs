@@ -61,7 +61,6 @@ impl PgStore {
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let settings = serde_json::to_value(&input.settings)?;
         let old = query(
             &tx,
             "SELECT revision FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
@@ -70,6 +69,7 @@ impl PgStore {
         .await?;
         if old.is_some() {
             let a = managed_access(&tx, &user.id, w, &input.id, true).await?;
+            let settings = merged_guidance(&input.settings, &a["settings"])?;
             ensure!(
                 a["scope"] == input.scope,
                 "Visibility cannot change; create a separate agent without private history"
@@ -94,6 +94,7 @@ impl PgStore {
             );
             execute(&tx,"UPDATE relay_shared_agents SET name=$3,role=$4,model=$5,settings=$6,revision=revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),settings.into()]).await?;
         } else {
+            let settings = serde_json::to_value(&input.settings)?;
             ensure!(input.revision == 0, "Agent missing");
             ensure!(
                 input.scope == "private"
@@ -186,4 +187,18 @@ impl PgStore {
         row.map(|r| Ok(serde_json::from_value(r.try_get("", "settings")?)?))
             .transpose()
     }
+}
+
+// Older clients do not know these optional job fields. Their full-profile saves
+// retain saved guidance; a new client explicitly clears a field with "".
+fn merged_guidance(requested: &Settings, saved: &Value) -> Result<Value> {
+    let old: Settings = serde_json::from_value(saved.clone())?;
+    let mut next = requested.clone();
+    if next.successful_outcome.is_none() {
+        next.successful_outcome = old.successful_outcome;
+    }
+    if next.routine.is_none() {
+        next.routine = old.routine;
+    }
+    Ok(serde_json::to_value(next)?)
 }

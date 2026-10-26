@@ -1,6 +1,6 @@
 # Hosted deployment foundation
 
-Current application startup requires the full [schema 25](workspace-attention.md)
+Current application startup requires the full [schema 26](agent-job-rehearsal.md)
 and runtime grants. The older deployment/image evidence below retains its
 original scope; it does not establish acceptance for this new release.
 
@@ -138,7 +138,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 
 Keep schema creation/ownership and database administration away from the runtime
-role. Existing deployments must run all migrations through 25 (`m20261026_000025_workspace_attention`)
+role. Existing deployments must run all migrations through 26 (`m20261026_000026_agent_rehearsals`)
 and grants before starting this version. API/worker startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.

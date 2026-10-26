@@ -2,7 +2,9 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twenty-five migrations, including `m20261026_000025_workspace_attention`.
+requires all twenty-six migrations, including `m20261026_000026_agent_rehearsals`.
+[Agent job samples](agent-job-rehearsal.md) retain personal exact execution receipts,
+saved context and fenced tool-free outcomes without creating conversation jobs.
 [Managed-work attention](workspace-attention.md) adds personal source/version read
 and outcome-review receipts without changing task or business-action authority.
 [Personal pins and channel archive](chat-organization.md) add preferences and the

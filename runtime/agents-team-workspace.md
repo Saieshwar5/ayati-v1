@@ -28,6 +28,9 @@ are in [the design record](../designs/agents-workspace/README.md).
   latest history page, and review an exact approval through existing controls.
 - Keep existing profile editing, guided permissions, approved knowledge and
   local-agent lifecycle controls.
+- Save successful-outcome and routine guidance and review it in Overview.
+  Maintainers can explicitly [try a personal draft-only sample](agent-job-rehearsal.md),
+  review its selected context and reopen its saved result without rerunning it.
 
 ## Request API and authority
 

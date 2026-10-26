@@ -91,6 +91,18 @@ pub mod migration;
 mod migration_fixture;
 mod objects;
 mod people;
+mod rehearsal_context;
+mod rehearsal_history;
+mod rehearsal_migration;
+#[cfg(test)]
+mod rehearsal_migration_tests;
+mod rehearsal_queue;
+#[cfg(test)]
+mod rehearsal_source_tests;
+#[cfg(test)]
+mod rehearsal_tests;
+mod rehearsals;
+pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]
 mod reply_output_tests;
