@@ -73,6 +73,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
     rehearsals::start(app.clone()).await;
+    automations::start(app.clone()).await;
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
         app.origin

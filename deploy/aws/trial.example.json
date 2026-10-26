@@ -11,7 +11,7 @@
   "cost_center": "private-trial",
   "budget_usd": null,
   "expires_at": null,
-  "release": {"source_commit": null, "image_uri": null, "schema_version": 26},
+  "release": {"source_commit": null, "image_uri": null, "schema_version": 27},
   "capacity": {
     "controller_type": "t3.medium",
     "controller_count": 1,

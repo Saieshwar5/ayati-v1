@@ -2,7 +2,9 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twenty-six migrations, including `m20261026_000026_agent_rehearsals`.
+requires all twenty-seven migrations, including `m20261026_000027_shared_agent_schedules`.
+[Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
+occurrence receipts through the existing background queue.
 [Agent job samples](agent-job-rehearsal.md) retain personal exact execution receipts,
 saved context and fenced tool-free outcomes without creating conversation jobs.
 [Managed-work attention](workspace-attention.md) adds personal source/version read

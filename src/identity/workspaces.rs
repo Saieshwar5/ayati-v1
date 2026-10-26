@@ -8,6 +8,7 @@ use tower::ServiceExt;
 pub(super) struct Runtimes {
     root: PathBuf,
     pub chat_wake: tokio::sync::Notify,
+    pub automation_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
     pub rehearsal_wake: tokio::sync::Notify,
     pub rehearsal_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
     pub chat_slots: Arc<tokio::sync::Semaphore>,
@@ -23,6 +24,7 @@ impl Runtimes {
             bound: None,
             access_gate: tokio::sync::RwLock::new(()),
             chat_wake: tokio::sync::Notify::new(),
+            automation_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
             rehearsal_wake: tokio::sync::Notify::new(),
             rehearsal_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
             chat_slots: Arc::new(tokio::sync::Semaphore::new(4)),
@@ -101,6 +103,15 @@ impl Runtimes {
         Ok(state)
     }
     pub async fn shutdown(&self) -> Result<()> {
+        self.stopping.cancel();
+        while self
+            .automation_tasks
+            .lock()
+            .await
+            .join_next()
+            .await
+            .is_some()
+        {}
         while self
             .rehearsal_tasks
             .lock()

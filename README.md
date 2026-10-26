@@ -28,9 +28,11 @@ links back to their currently accessible conversations and threads.
 [Agent job samples](runtime/agent-job-rehearsal.md) add saved successful-outcome
 and routine guidance, with explicit asynchronous draft-only tasks using selected
 already-assigned knowledge. Samples have no connected action tools.
+[Shared schedules](runtime/shared-agent-schedules.md) record a human principal and
+source conversation, then admit exact occurrences to ordinary controlled background work.
 These managed workflows are verified locally. Existing private-runtime question
 adapters, broader rule predicates and live cloud/provider acceptance remain open.
-Current shared-workspace startup requires PostgreSQL schema **26**, explicit
+Current shared-workspace startup requires PostgreSQL schema **27**, explicit
 migration/runtime grants and operator-provisioned private MCP profiles for tools.
 
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,

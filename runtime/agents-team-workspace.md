@@ -77,7 +77,8 @@ remains documented in [private Chat workspace](agents-workspace.md).
 
 ## Deliberate limits
 
-Managed-agent schedules, connected event waits,
+[Managed-agent schedules](shared-agent-schedules.md) now use the existing Automation
+tab and controlled pooled background queue. Connected event waits,
 browser/computer adapters and business email/phone are separate increments.
 The relevant tabs state current support rather than showing fictional records.
 The existing profile editor remains; this change does not implement every
