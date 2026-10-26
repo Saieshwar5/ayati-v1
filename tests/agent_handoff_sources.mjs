@@ -194,6 +194,16 @@ test(
     const reader = page.getByRole('dialog', { name: 'Agent response', exact: true });
     await reader.locator('.result-body').filter({ hasText: 'PRIVATE_HELPER_SOURCE_RESULT' }).waitFor();
     await page.screenshot({ path: join(app.data, 'handoff-source-parent-reader-desktop.png') });
+    const progressPath = task => `${app.path}/chats/${channel}/messages/${task}/progress`;
+    const progressRecord = (await app.request(progressPath(parent.reply), app.cookie)).value;
+    assert.equal(progressRecord.source_scope, source.id);
+    const progressPage = await context.newPage();
+    progressPage.on('pageerror', e => errors.push(e.message));
+    await progressPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${channel}&message=${parent.reply}`);
+    await progressPage.locator(`[data-message-id="${parent.reply}"]`).getByRole('button',{name:'Check progress',exact:true}).click();
+    const progressDialog = progressPage.getByRole('dialog',{name:'Task progress',exact:true});
+    await progressDialog.getByRole('heading',{name:'Completed',exact:true}).waitFor();
+    await progressPage.screenshot({path:join(app.data,'handoff-source-progress-desktop.png')});
     const calls = app.provider.requests.length;
     await app.request(`${app.path}/agent-profiles/${helper.id}/control/rules`, app.cookie, {
       connection,
@@ -213,6 +223,10 @@ test(
     assert.equal(await reader.locator('.result-body').count(),0);
     for (const task of [parent.reply, child.reply, h.request_message])
       await app.request(responsePath(task), app.cookie, undefined, 400);
+    await progressDialog.getByRole('button',{name:'Retry',exact:true}).waitFor();
+    assert.equal(await progressDialog.locator('[aria-label="Latest saved update"]').count(),0);
+    for (const task of [parent.reply,child.reply]) await app.request(progressPath(task),app.cookie,undefined,400);
+    await progressPage.screenshot({path:join(app.data,'handoff-source-progress-revoked-desktop.png')});
     await page.screenshot({ path: join(app.data, 'handoff-source-revoked-reader-desktop.png') });
     assert.equal(app.provider.requests.length, calls);
     await app.request(`${app.path}/agent-profiles/${helper.id}/control/rules`, app.cookie, {

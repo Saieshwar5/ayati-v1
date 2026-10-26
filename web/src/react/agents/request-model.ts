@@ -13,7 +13,7 @@ export type AgentRequest = {
 };
 export type RequestPage = { requests: AgentRequest[]; next_before: number | null };
 export const requestLabels: Record<string, string> = {
-  queued: 'Queued', preparing: 'Preparing', running: 'Working', recovering: 'Recovering',
+  queued: 'Queued', preparing: 'Preparing', running: 'Working', recovering: 'Waiting for recovery',
   handoff: 'Waiting for another agent',
   approval: 'Waiting for approval', input: 'Waiting for an answer', waiting: 'Waiting',
   resuming: 'Ready to continue', attention: 'Needs attention', complete: 'Completed',

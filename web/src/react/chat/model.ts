@@ -10,7 +10,7 @@ export type Message = {
   coordination?: import('./handoffs').Coordination;
   id: string; author: string; name: string | null; kind: string;
   content: string; state: string; at: number; sequence?: number;
-  revision?: number; can_cancel?: boolean;
+  revision?: number; can_cancel?: boolean; has_task?: boolean;
   questions?: QuestionReference[];
   response?: import('../results/model').ResponseReference;
   response_unavailable?: boolean;

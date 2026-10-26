@@ -5,6 +5,7 @@ import { workspaceSession } from '../../workspace-context';
 import type { Directory, Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { ReplyProgress } from './reply-progress';
+import { TaskProgress } from './task-progress';
 import { QuestionCards } from '../questions/card';
 import { useResults } from '../results/provider';
 import { ResponsePreview } from '../results/preview';
@@ -20,6 +21,7 @@ export function ChatMessage({ message, directory, replies, openThread, compact =
     {!own && <span className={`chat-avatar ${message.kind}`}>{message.kind === 'agent' ? '✧' : name.slice(0, 1).toUpperCase()}</span>}
     <div>{!own && <header><strong>{own ? 'You' : name}</strong>{message.kind === 'agent' && <span className="chat-agent-label">Agent</span>}<time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></header>}
       {text && !message.approval && (message.kind === 'agent' && openResult && !message.response_unavailable && !message.handoff ? <ResponsePreview id={message.id} text={text} reference={message.response} open={id => openResult({ kind: 'response', id })} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} />
+      <TaskProgress message={message}/>
       {message.handoff && <HandoffCard handoff={message.handoff}/>}
       <CoordinationView data={message.coordination}/>
       {message.approval && <ApprovalCard reference={message.approval} />}

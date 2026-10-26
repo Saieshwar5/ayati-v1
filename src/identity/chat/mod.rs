@@ -6,6 +6,7 @@ mod runner;
 pub(crate) mod store;
 mod stream_limit;
 mod sync;
+mod task_progress;
 #[cfg(test)]
 mod tests;
 use super::*;
@@ -17,6 +18,7 @@ pub(super) use store::schema;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
+        .merge(task_progress::routes())
         .merge(organization::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",

@@ -112,3 +112,6 @@ revocation clears affected readers without closing unrelated setup forms.
 
 [Channel handoffs](channel-agent-handoffs.md) add source-authorized parent/helper
 relationships to Work without granting new request or business authority.
+
+Saved tasks also expose [Check progress in Chat](chat-task-progress.md) through the
+original conversation, independently of permission to request new agent work.

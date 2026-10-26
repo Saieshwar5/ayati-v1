@@ -75,7 +75,7 @@ impl PgStore {
     }
 }
 
-async fn project(
+pub(super) async fn project(
     tx: &DatabaseTransaction,
     user: &User,
     w: &str,
@@ -150,6 +150,6 @@ async fn project(
         .or(row.try_get::<Option<String>>("", "summary")?)
         .unwrap_or_else(|| "Agent request".into());
     Ok(Some(
-        json!({"coordination":coordination,"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"id":job.reply,"sequence":row.try_get::<i64>("","sequence")?,"chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"source_message":coordination["incoming"]["request_message"].as_str().map(str::to_owned).or(row.try_get::<Option<String>>("","source_message")?),"conversation_name":row.try_get::<String>("","conversation_name")?,"requester":job.requester,"requester_name":row.try_get::<Option<String>>("","requester_name")?,"summary":summary,"state":state,"latest_update":latest.chars().take(1000).collect::<String>(),"created_ms":row.try_get::<i64>("","created_ms")?,"started_ms":row.try_get::<Option<i64>>("","started_ms")?,"finished_ms":row.try_get::<Option<i64>>("","finished_ms")?,"can_cancel":can_cancel,"cancellation":cancellation,"approvals":approvals}),
+        json!({"worker_released":job_state == "waiting", "coordination":coordination,"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"id":job.reply,"sequence":row.try_get::<i64>("","sequence")?,"chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"source_message":coordination["incoming"]["request_message"].as_str().map(str::to_owned).or(row.try_get::<Option<String>>("","source_message")?),"conversation_name":row.try_get::<String>("","conversation_name")?,"requester":job.requester,"requester_name":row.try_get::<Option<String>>("","requester_name")?,"summary":summary,"state":state,"latest_update":latest.chars().take(1000).collect::<String>(),"created_ms":row.try_get::<i64>("","created_ms")?,"started_ms":row.try_get::<Option<i64>>("","started_ms")?,"finished_ms":row.try_get::<Option<i64>>("","finished_ms")?,"can_cancel":can_cancel,"cancellation":cancellation,"approvals":approvals}),
     ))
 }

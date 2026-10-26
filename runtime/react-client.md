@@ -12,7 +12,7 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
   feature navigation with browser history and native identity/workspace changes.
 - `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,
-  threads, creation dialogs and trusted approval references; owner-private transcripts retain the legacy bridge.
+  threads, creation dialogs, saved task-progress drawers and trusted approval references; owner-private transcripts retain the legacy bridge.
 - `web/src/react/private-chat.tsx`: no-workspace private-agent fallback.
 - `web/src/react/chat/composer.tsx`: shared React composer across channel, DM, thread
   and private-agent views. Private chat mounts an explicitly owned React island

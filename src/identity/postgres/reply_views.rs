@@ -18,6 +18,14 @@ pub(super) async fn hydrate(
     if ids.is_empty() {
         return Ok(());
     }
+    let task_ids = rows(tx,"SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply IN (SELECT jsonb_array_elements_text($2::jsonb))",vec![workspace.into(),serde_json::json!(ids).into()]).await?.into_iter().map(|r|r.try_get::<String>("","reply")).collect::<std::result::Result<std::collections::HashSet<_>,_>>()?;
+    for message in messages.iter_mut() {
+        message["has_task"] = Value::Bool(
+            message["id"]
+                .as_str()
+                .is_some_and(|id| task_ids.contains(id)),
+        );
+    }
     let owner = role(tx, workspace, &user.id).await? == "Owner";
     let mut jobs = std::collections::HashMap::new();
     let pending = messages
@@ -67,6 +75,7 @@ pub(super) async fn hydrate(
                 message["questions"] = serde_json::json!([]);
                 message["can_cancel"] = Value::Bool(false);
                 message["response_unavailable"] = Value::Bool(true);
+                message["has_task"] = Value::Bool(false);
                 continue;
             }
             message["coordination"] = super::handoff_views::project(tx, user, job).await?;
