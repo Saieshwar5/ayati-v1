@@ -72,6 +72,16 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+.workspace-panels .panel-snapshot:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+@media (min-width: 561px) {
+  /* A brief needs room for its finding as well as the saved-review controls. */
+  .workspace-panels .home-panels:not(.is-arranging) .home-panel-card[data-template='brief'] {
+    grid-row: span 3;
+  }
+}
 .workspace-panel-footer {
   flex-shrink: 0;
   display: grid;

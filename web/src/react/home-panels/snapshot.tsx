@@ -27,9 +27,20 @@ function Chart({ section }: { section: Extract<Section, { kind: 'chart' }> }) {
     </>
   );
 }
-export function PanelContent({ definition }: { definition: PanelDefinition }) {
+export function PanelContent({
+  definition,
+  scrollable = false,
+}: {
+  definition: PanelDefinition;
+  scrollable?: boolean;
+}) {
   return (
-    <div className="panel-snapshot">
+    <div
+      className="panel-snapshot"
+      tabIndex={scrollable ? 0 : undefined}
+      role={scrollable ? 'region' : undefined}
+      aria-label={scrollable ? `${definition.title} saved content` : undefined}
+    >
       <h3>{definition.title}</h3>
       <p className="panel-purpose">{definition.purpose}</p>
       {definition.sections.map((s, i) => (
