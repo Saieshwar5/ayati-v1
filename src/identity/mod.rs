@@ -3,6 +3,7 @@ pub mod adoption;
 mod agents;
 pub mod assignment_launcher;
 pub mod assignment_worker;
+mod attention;
 mod chat;
 mod collaboration;
 pub(crate) mod control;
@@ -248,6 +249,7 @@ fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(control::routes())
+        .merge(attention::routes())
         .merge(chat::routes())
         .merge(interactions::routes())
         .merge(library::routes())

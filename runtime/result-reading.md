@@ -121,7 +121,7 @@ The excluded fixture-specific test runs through
 `tests/reply_stream.mjs` and `tests/agents_workspace.mjs`.
 
 This reader increment introduced no migration and shipped on **schema 23**.
-Current startup requires [schema 24](chat-organization.md). No normal workspace
+Current startup follows [PostgreSQL setup](postgres-workspaces.md). No normal workspace
 database was migrated during its checks, and no cloud or
 paid model was used. This delivers the saved text/file/image reader subset.
 Generated artifact publication, PDF/Word/Excel export, every historical streamed

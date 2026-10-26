@@ -81,7 +81,7 @@ The existing profile editor remains; this change does not implement every
 creation screen in the design archive. No dependency or schema migration is
 introduced by the Agents layout increment. It used schema 22; current
 [questions and forms](agent-questions.md) introduced schema 23 separately, and
-current full startup requires [Chat organization schema 24](chat-organization.md).
+current full startup follows the [PostgreSQL setup requirement](postgres-workspaces.md).
 
 ## Verification
 

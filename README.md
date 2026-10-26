@@ -22,9 +22,12 @@ progress and per-request Stop. [Saved reading](runtime/result-reading.md) keeps
 long replies compact and provides exact saved bodies and passive file/image views.
 [Personal pins and channel archive](runtime/chat-organization.md) organize Chat
 while preserving existing work and closing new intake in archived channels.
+[Home attention](runtime/workspace-attention.md) brings personal questions,
+exact approvals and outcomes together with durable read/review markers and
+links back to their currently accessible conversations and threads.
 These managed workflows are verified locally. Existing private-runtime question
 adapters, broader rule predicates and live cloud/provider acceptance remain open.
-Current shared-workspace startup requires PostgreSQL schema **24**, explicit
+Current shared-workspace startup requires PostgreSQL schema **25**, explicit
 migration/runtime grants and operator-provisioned private MCP profiles for tools.
 
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,

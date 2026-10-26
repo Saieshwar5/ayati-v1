@@ -12,6 +12,14 @@ mod approval_tests;
 #[cfg(test)]
 mod assignment_tests;
 mod assignments;
+mod attention;
+mod attention_migration;
+#[cfg(test)]
+mod attention_migration_tests;
+#[cfg(test)]
+mod attention_scope_tests;
+#[cfg(test)]
+mod attention_tests;
 #[cfg(test)]
 mod channel_archive_recovery_tests;
 mod channel_lifecycle;
