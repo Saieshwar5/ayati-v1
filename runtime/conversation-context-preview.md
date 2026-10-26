@@ -45,7 +45,9 @@ Unix-second timestamps are converted for display, including machine-readable
 `time` elements. Notes use stable record IDs. The preview describes joining policy,
 knowledge-off, paused, archived, empty, loading and denied states explicitly.
 
-Changing conversations aborts outstanding reads and discards other-scope data.
+Viewer/workspace identity, agent and conversation are bound to the stored UI state.
+A render for another scope cannot display the old result or error, even before
+effect cleanup. Changing conversations also aborts outstanding reads.
 Closing removes listeners/timers and aborts work. Access/reset/source notifications
 clear the cached projection before reloading. Visible previews refresh every ten
 seconds and on focus; an explicit refresh also clears and reloads. Failed reads
@@ -58,6 +60,9 @@ Three PostgreSQL cases cover person/workspace/agent denial, ownership versus
 conversation access, current joining/knowledge policy, history bounds, forgotten
 notes, source-dependent exclusions and zero new jobs. UI tests cover explicit
 selection, stale responses, failed/revoked reads, inert content and unmount aborts.
+A committed-render regression changes the authenticated viewer while keeping the
+same agent/conversation mounted and holding the new read; the previous person's
+context must never appear. Ordinary account switching still reloads the document.
 
 `tests/context_preview.mjs` exercises the actual browser/backend and real Goose
 with local scripted inference. It checks preview inspection creates zero jobs or

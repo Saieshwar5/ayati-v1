@@ -74,3 +74,34 @@ test('closing the context owner aborts pending reads and late content cannot rea
     return new Promise(resolve => { finish = resolve; });
   }));
 });
+
+test('a new viewer cannot render the previous viewer context while the replacement read is pending', async () => {
+  let actor = 'first-person', finishSecond;
+  const observed = [];
+  await reactFixture(async ({ render, change }) => {
+    const { createElement, useLayoutEffect } = await import('react');
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { ContextPreviewDialog } = await import('../src/react/agents/context-preview.tsx');
+    function Owner({ revision }) {
+      useLayoutEffect(() => { if (revision) observed.push(document.body.textContent); }, [revision]);
+      return createElement(ContextPreviewDialog, props);
+    }
+    await render(Owner, { revision: 0 });
+    await change(document.querySelector('select'), 'a');
+    assert.match(document.body.textContent, /FIRST_PERSON_PRIVATE_CONTEXT/);
+    actor = 'second-person';
+    await context.enterWorkspace();
+    await render(Owner, { revision: 1 });
+    assert.ok(observed.length > 0);
+    assert.ok(observed.every(text => !text.includes('FIRST_PERSON_PRIVATE_CONTEXT')),
+      'A committed new-viewer render still contained the previous person context');
+    assert.ok(!document.body.textContent.includes('FIRST_PERSON_PRIVATE_CONTEXT'));
+    assert.equal(typeof finishSecond, 'function');
+  }, options(async path => {
+    if (path.endsWith('/session')) return response({ user: { id: actor, display_name: 'Alex' },
+      workspaces: [{ id: workspace, name: 'Workspace', role: 'Member' }] });
+    if (actor === 'first-person') return response(value('a', 'FIRST_PERSON_PRIVATE_CONTEXT'));
+    return new Promise(resolve => { finishSecond = resolve; });
+  }));
+});
