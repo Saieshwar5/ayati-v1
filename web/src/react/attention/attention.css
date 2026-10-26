@@ -1,0 +1,12 @@
+.attention-row { padding: 18px 0; border-bottom: 1px solid var(--border); }
+.attention-row-heading { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; }
+.attention-row-heading strong { overflow-wrap: anywhere; }
+.attention-unread { color: var(--accent); font-size: 11px; flex: none; }
+.attention-row > p { color: var(--muted); font-size: 12px; margin: 8px 0; overflow-wrap: anywhere; }
+.attention-row-actions, .attention-pagination { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.attention-row-actions a { font-size: 12px; }
+.attention-pagination { margin-bottom: 18px; }
+@media (max-width: 480px) {
+  .attention-row-heading { align-items: start; }
+  .attention-row-actions { align-items: stretch; }
+}

@@ -138,7 +138,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 
 Keep schema creation/ownership and database administration away from the runtime
-role. Existing deployments must run all migrations through 24 (`m20261026_000024_chat_organization`)
+role. Existing deployments must run all migrations through 25 (`m20261026_000025_workspace_attention`)
 and grants before starting this version. API/worker startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.

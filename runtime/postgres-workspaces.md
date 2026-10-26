@@ -2,7 +2,9 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twenty-four migrations, including `m20261026_000024_chat_organization`.
+requires all twenty-five migrations, including `m20261026_000025_workspace_attention`.
+[Managed-work attention](workspace-attention.md) adds personal source/version read
+and outcome-review receipts without changing task or business-action authority.
 [Personal pins and channel archive](chat-organization.md) add preferences and the
 closed-intake guard; [ordinary questions](agent-questions.md) were introduced in schema 23.
 [Saved approval waits](durable-approval-waits.md) retain tasks across worker release.

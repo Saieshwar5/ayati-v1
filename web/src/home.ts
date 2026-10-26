@@ -81,6 +81,8 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
       connectionStatus(''); status.dataset.connected = 'true';
     } catch {
       freshAt = 0; disableActions(true); delete status.dataset.connected;
+      fingerprint = '';
+      onNotifications?.({ items: [], total: 0, available: false });
       connectionStatus('Connection lost. Decisions are disabled until the workspace refreshes.');
     } finally {
       loading = false;
@@ -182,7 +184,7 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
       }
     }
     const priority = { Decisions: 0, Problems: 1, Updates: 2 };
-    onNotifications?.({ items: notices.sort((a, b) => priority[a.category] - priority[b.category]), total: decisionCount + outcomeCount });
+    onNotifications?.({ items: notices.sort((a, b) => priority[a.category] - priority[b.category]), total: decisionCount + outcomeCount, available: data.agents.length > 0 });
     view.querySelector('#home-activity-count')!.textContent = `${work.length} active · ${outcomeCount} ${outcomeCount === 1 ? 'outcome' : 'outcomes'} `;
     view.querySelector<HTMLElement>('#home-updates')!.hidden = outcomeCount === 0;
     view.querySelector('#home-recent')!.replaceChildren(...(recent.length ? recent.sort((a, b) => b.task.created_at.localeCompare(a.task.created_at)).slice(0, 8).map(({ entry, task }) => {
