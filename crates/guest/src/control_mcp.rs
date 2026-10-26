@@ -9,6 +9,7 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some(name @ ("search_conversation_history" | "read_conversation_history")) => {
             crate::history_schema::observed(name, input)
         }
+        Some("save_working_context") => crate::working_context_schema::observed(input),
         Some("operations" | "handoff_targets" | "personal_panels") => input == &json!({}),
         Some("save_home_panel") => crate::workspace_mcp::observed(
             &format!("{}panel_write", crate::workspace_mcp::PREFIX),
@@ -48,6 +49,7 @@ impl ServerHandler for ControlTools {
     ) -> std::result::Result<ListToolsResult, ErrorData> {
         Ok(ListToolsResult{tools:vec![
             crate::question_schema::tool(),
+            crate::working_context_schema::tool(),
             crate::history_schema::search_tool(),
             crate::history_schema::read_tool(),
             crate::personal_panel_schema::tool(),

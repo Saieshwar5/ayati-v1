@@ -123,6 +123,8 @@ async fn knowledge(
 #[serde(deny_unknown_fields)]
 struct ContextPreview {
     chat: String,
+    task: Option<String>,
+    claim: Option<String>,
 }
 async fn context_preview(
     State(app): State<Shared>,
@@ -131,6 +133,16 @@ async fn context_preview(
     Query(input): Query<ContextPreview>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    if let (Some(task), Some(claim)) = (&input.task, &input.claim) {
+        return Ok(Json(
+            pg(&app)?
+                .agent_context_detail(&user, &w, &id, &input.chat, task, claim)
+                .await?,
+        ));
+    }
+    if input.task.is_some() || input.claim.is_some() {
+        return Err(anyhow::anyhow!("Choose an exact attempt").into());
+    }
     Ok(Json(
         pg(&app)?
             .agent_context_preview(&user, &w, &id, &input.chat)

@@ -218,6 +218,9 @@ impl PgStore {
                 .await
                 .unwrap_or(false)
             && source_access::allowed(&self.db, job).await.unwrap_or(false)
+            && super::context_attempts::allowed(&self.db, job)
+                .await
+                .unwrap_or(false)
             && access(&self.db, &user, &job.workspace, &job.chat)
                 .await
                 .is_ok()
@@ -269,6 +272,9 @@ impl PgStore {
                 .await
                 .unwrap_or(false)
             && source_access::allowed(tx, job).await.unwrap_or(false)
+            && super::context_attempts::allowed(tx, job)
+                .await
+                .unwrap_or(false)
             && agent_access(tx, &user.id, &job.workspace, &job.agent)
                 .await
                 .unwrap_or(false);

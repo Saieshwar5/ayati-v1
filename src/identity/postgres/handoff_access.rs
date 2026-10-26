@@ -51,12 +51,22 @@ pub(super) async fn source_allowed(db: &impl ConnectionTrait, viewer: &Job) -> R
     }
     let mut source_job = job(db, &viewer.workspace, records[0]["root"].as_str().unwrap()).await?;
     source_job.requester = viewer.requester.clone();
-    if !super::library::source_allowed(db, &source_job).await?
+    if !super::context_attempts::knowledge_allowed(db, &source_job).await?
+        || !super::library::source_allowed(db, &source_job).await?
         || !super::event_access::allowed(db, &source_job).await?
     {
         return Ok(false);
     }
     for h in records {
+        let child = job(
+            db,
+            &viewer.workspace,
+            h["child"].as_str().context("Missing helper source")?,
+        )
+        .await?;
+        if !super::context_attempts::knowledge_allowed(db, &child).await? {
+            return Ok(false);
+        }
         if h["source_revoked"] == true {
             return Ok(false);
         }

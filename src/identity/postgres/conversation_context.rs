@@ -59,6 +59,9 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
 // material. These replies require their original source-aware access paths.
 pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<String> {
     let mut clauses = String::new();
+    if super::context_attempts::exists(db).await? {
+        clauses.push_str(" AND NOT EXISTS(SELECT 1 FROM relay_context_attempts ca WHERE ca.workspace=m.workspace AND ca.task=m.id AND ca.generation<>COALESCE((SELECT jsonb_agg(jsonb_build_array(e.category,e.agent,e.chat,e.revision) ORDER BY e.category,e.agent,e.chat) FROM relay_context_epochs e WHERE e.workspace=ca.workspace AND (e.agent='' OR e.agent=ca.agent) AND (e.chat='' OR e.chat=ca.chat)),'[]'::jsonb))");
+    }
     if super::event_access::exists(db).await? {
         clauses.push_str(
         " AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace=m.workspace AND e.reply=m.id)"
@@ -71,6 +74,7 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
     }
     for (table, reply_column) in [
         ("relay_library_sources", "reply"),
+        ("relay_agent_knowledge", "source_message"),
         ("relay_control_actions", "job"),
     ] {
         if query(
@@ -86,6 +90,8 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
                 // Library asks create a private source conversation. Its initial
                 // question embeds the source title, so protect it with the reply.
                 clauses.push_str(" AND NOT EXISTS(SELECT 1 FROM relay_library_sources s JOIN relay_chat_messages r ON r.workspace=s.workspace AND r.id=s.reply WHERE s.workspace=m.workspace AND r.chat=m.chat AND m.sequence<=r.sequence)");
+            } else if table == "relay_agent_knowledge" {
+                clauses.push_str(" AND NOT EXISTS(SELECT 1 FROM relay_agent_knowledge k WHERE k.workspace=m.workspace AND k.source_message=m.id AND (k.forgotten OR k.revision>0))");
             } else {
                 clauses.push_str(&format!(" AND NOT EXISTS(SELECT 1 FROM {table} s WHERE s.workspace=m.workspace AND s.{reply_column}=m.id)"));
             }

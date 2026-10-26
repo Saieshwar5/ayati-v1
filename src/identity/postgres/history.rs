@@ -15,7 +15,8 @@ impl PgStore {
             let mut job: crate::identity::chat::store::Job = serde_json::from_value(payload)?;
             job.requester = user.id.clone();
             ensure!(
-                super::source_access::allowed(&tx, &job).await?,
+                super::source_access::allowed(&tx, &job).await?
+                    && super::context_attempts::allowed(&tx, &job).await?,
                 "Message source unavailable"
             );
         }

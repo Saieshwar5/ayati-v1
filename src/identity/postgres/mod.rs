@@ -85,9 +85,13 @@ mod task_progress;
 mod task_progress_tests;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
+mod context_attempts;
+mod context_migration;
 mod context_preview;
 #[cfg(test)]
 mod context_preview_tests;
+#[cfg(test)]
+mod context_version_tests;
 mod conversation_context;
 #[cfg(test)]
 mod conversation_context_tests;
@@ -168,6 +172,7 @@ mod request_context;
 #[cfg(test)]
 mod request_context_tests;
 mod source_access;
+mod working_context;
 pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]

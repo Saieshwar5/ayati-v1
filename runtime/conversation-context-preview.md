@@ -4,8 +4,9 @@ Agents → Knowledge → **Preview conversation context** opens a read-only draw
 Choose an accessible conversation with that agent to inspect eligible recent
 messages and approved notes without submitting a task or calling a model.
 
-This is a current projection, not a saved execution receipt, a complete prompt,
-an automatic memory summary or a claim about an earlier task. Actual execution
+The recent-message and note sections remain a current projection. Separate working
+summary and saved-task sections now expose [versioned context](versioned-conversation-context.md)
+under their own current-access checks. This is not a complete raw prompt. Actual execution
 adds its exact request/cutoff, current identity and authorized task sources. A
 paused agent or archived channel can be inspected without enabling new work.
 
@@ -30,8 +31,8 @@ Approved notes use the same selection as execution, only when knowledge is enabl
 The shared selector now includes stable note IDs, revisions and conversation scope,
 orders creation-time ties by ID and counts newline separators in its 16,000-byte
 budget. It retains the existing 20-note maximum and current forget filter. These
-references make the projection inspectable; they do not create durable task/source
-provenance or invalidate facts already copied into historical messages.
+references also anchor saved task snapshots. The versioned-context contract defines
+correction/revocation fencing and the limits of retention and historical reuse.
 
 Reads use the existing workspace transaction boundary and a five-second SQL
 statement timeout. They create no jobs, inference, approvals or audit mutations.
@@ -70,6 +71,7 @@ model calls, an open revoked view clears, model input uses the same permitted no
 selection, forgetting updates the projection, timestamps are current, long text
 expands, focus returns and desktop/narrow/phone-dark layouts stay bounded.
 
-No schema migration, cloud service, paid model or new memory engine is added.
-Durable working-context versions, compaction and correction/forgetting across
-source-derived outputs remain planned.
+The original current-preview slice required no migration. The later
+[versioned-context implementation](versioned-conversation-context.md) adds schema 31,
+protected snapshots, bounded cited summaries and correction/revocation fencing.
+Cloud operation, semantic learning and complete retention/erasure remain unproven.

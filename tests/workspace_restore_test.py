@@ -172,7 +172,7 @@ class RehearsalTests(ObjectFixture, unittest.TestCase):
         self.env = {'PGDATABASE': 'relay_simulation_source'}
         self.output = self.root / 'rehearsal'
         self.before = {'tables': [{'table': 'relay_chat_jobs', 'rows': 1, 'sha256': 'a' * 64}],
-                       'sequences': [{'sequence': 'messages', 'state': '10|t'}], 'schema_version': 30}
+                       'sequences': [{'sequence': 'messages', 'state': '10|t'}], 'schema_version': 31}
         self.calls = []
 
     def fake_command(self, args, env, data=None):

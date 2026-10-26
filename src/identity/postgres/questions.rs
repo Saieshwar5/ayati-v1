@@ -168,7 +168,8 @@ pub(super) async fn readable(tx: &DatabaseTransaction, user: &User, job: &Job) -
     let mut viewer = job.clone();
     viewer.requester = user.id.clone();
     ensure!(
-        super::source_access::allowed(tx, &viewer).await?,
+        super::source_access::allowed(tx, &viewer).await?
+            && super::context_attempts::knowledge_allowed(tx, &viewer).await?,
         "Question source unavailable"
     );
     Ok(())

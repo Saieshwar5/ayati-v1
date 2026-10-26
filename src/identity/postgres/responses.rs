@@ -22,7 +22,8 @@ impl PgStore {
             let mut viewer = job.clone();
             viewer.requester = user.id.clone();
             ensure!(
-                super::source_access::allowed(&tx, &viewer).await?,
+                super::source_access::allowed(&tx, &viewer).await?
+                    && super::context_attempts::allowed(&tx, &viewer).await?,
                 "Response source unavailable"
             );
             if state == "queued" {
@@ -38,7 +39,8 @@ impl PgStore {
             );
             viewer.requester = user.id.clone();
             ensure!(
-                super::source_access::allowed(&tx, &viewer).await?,
+                super::source_access::allowed(&tx, &viewer).await?
+                    && super::context_attempts::allowed(&tx, &viewer).await?,
                 "Handoff message source unavailable"
             );
         }

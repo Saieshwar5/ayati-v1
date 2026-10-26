@@ -119,6 +119,10 @@ pub(crate) struct RemoteRequest {
 }
 pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> Result<Value> {
     match tool {
+        "save_working_context" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.save_working_context(job, &input).await
+        }
         "search_conversation_history" => {
             let input = serde_json::from_value(arguments)?;
             pg.search_conversation_history(job, &input).await
