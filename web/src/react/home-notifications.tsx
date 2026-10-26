@@ -1,7 +1,7 @@
 import { Button } from './ui';
 
 export type HomeNotice = { id: string; agent: string; title: string; category: 'Decisions' | 'Problems' | 'Updates' };
-export type HomeNotificationsState = { items: HomeNotice[]; total: number };
+export type HomeNotificationsState = { items: HomeNotice[]; total: number; available?: boolean };
 
 export function HomeNotifications({ data, open }: {
   data: HomeNotificationsState | null; open: (category: HomeNotice['category']) => void;

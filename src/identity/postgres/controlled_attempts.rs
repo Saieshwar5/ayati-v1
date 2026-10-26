@@ -123,7 +123,8 @@ pub(super) async fn access(
             .await
             .is_ok()
             && super::chat::agent_access(tx, &user.id, &job.workspace, &job.agent).await?
-            && super::library::source_allowed(tx, job).await?,
+            && super::source_access::allowed(tx, job).await?
+            && super::handoff_access::execution_allowed(tx, job).await?,
     )
 }
 

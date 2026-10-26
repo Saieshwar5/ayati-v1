@@ -3,20 +3,27 @@ pub mod adoption;
 mod agents;
 pub mod assignment_launcher;
 pub mod assignment_worker;
+mod attention;
+mod automations;
 mod chat;
 mod collaboration;
 pub(crate) mod control;
 mod controlled_launcher;
 pub mod controlled_worker;
 mod database;
+mod events;
 pub mod executor;
+mod handoffs;
 mod hosting;
+mod interactions;
 mod library;
 mod login_state;
 mod membership_schema;
 pub mod postgres;
+mod private_config;
 mod profile;
 mod provider;
+mod rehearsals;
 mod resources;
 mod routes;
 mod settings;
@@ -230,6 +237,8 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone())?;
+    rehearsals::start(app.clone()).await;
+    automations::start(app.clone()).await;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
@@ -247,7 +256,12 @@ fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(control::routes())
+        .merge(attention::routes())
+        .merge(automations::routes())
+        .merge(events::routes())
+        .merge(rehearsals::routes())
         .merge(chat::routes())
+        .merge(interactions::routes())
         .merge(library::routes())
         .merge(collaboration::routes())
         .merge(simulation::routes())
@@ -320,6 +334,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     }
     if request.method() != axum::http::Method::GET
         && !library_head
+        && !(request.method() == axum::http::Method::POST
+            && events::routes::webhook_path(request.uri().path()))
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(app.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {

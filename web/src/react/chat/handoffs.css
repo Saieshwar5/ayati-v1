@@ -1,0 +1,6 @@
+.channel-handoff { border-top: 1px solid var(--border); padding: 16px 0; margin-top: 12px; min-width: 0; }
+.channel-handoff header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+.channel-handoff header span, .handoff-origin { color: var(--muted); font-size: 12px; }
+.channel-handoff p { margin: 10px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.handoff-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.handoff-origin { margin: 12px 0; overflow-wrap: anywhere; }

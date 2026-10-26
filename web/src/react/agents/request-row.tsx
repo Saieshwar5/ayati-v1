@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
+import { CoordinationView } from '../chat/handoffs';
 import { cancelRequest, requestLabels, requestUrl, type AgentRequest } from './request-model';
 
 export function RequestRow({ request, refresh, compact = false }: {
@@ -17,6 +18,7 @@ export function RequestRow({ request, refresh, compact = false }: {
       <time dateTime={new Date(request.created_ms).toISOString()}> · {new Date(request.created_ms).toLocaleString()}</time>
     </p>
     {!compact && request.latest_update && <p className="agent-work-update">{request.latest_update}</p>}
+    <CoordinationView data={request.coordination} refresh={refresh}/>
     {request.cancellation && <p className="ui-help">Cancellation recorded by {request.cancellation.by}. Effects already dispatched retain their outcomes.</p>}
     <div className="agent-work-actions"><a className="ui-button" href={requestUrl(request)}>Open conversation</a>
       {request.approvals.filter(a => ['pending', 'executing', 'uncertain'].includes(a.state)).map(a =>

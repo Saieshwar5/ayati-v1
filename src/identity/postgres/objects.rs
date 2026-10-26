@@ -10,6 +10,7 @@ impl PgStore {
     ) -> Result<()> {
         let tx = self.workspace_tx(w).await?;
         super::chat::access(&tx, user, w, chat).await?;
+        super::channel_lifecycle::accepting(&tx, w, chat).await?;
         execute(&tx,"INSERT INTO relay_objects(workspace,chat,id,uploader,name,mime,size,checksum,created) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![w.into(),chat.into(),obj.id.clone().into(),user.id.clone().into(),obj.name.clone().into(),obj.mime.clone().into(),obj.size.into(),obj.checksum.clone().into(),now().into()]).await?;
         tx.commit().await?;
         Ok(())

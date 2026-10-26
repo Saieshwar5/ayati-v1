@@ -24,6 +24,8 @@ function dataFor(path) {
   if (path.endsWith('/unread')) return { unread: [] };
   if (path.endsWith('/chats')) return { chats: [] };
   if (path.endsWith('/home')) return { agents: [] };
+  // These legacy Home journeys exercise the explicit private-runtime adapter.
+  if (path.includes('/attention?')) return { available: false, items: [], next_before: null };
   if (path.endsWith('/panels')) return { panels: [], available: true };
   if (path.endsWith('/apps')) return { apps: [], available: true };
   if (path.endsWith('/home/preferences')) return { preferences: null };
@@ -222,6 +224,7 @@ test('Home separates outcomes from decisions and keeps customization behind its 
     try {
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('#home-activity-count')?.textContent.includes('1 outcome'));
+      await until(update, () => document.querySelector('.notification-preview')?.textContent.includes('Daily report'));
       assert.equal(document.querySelector('#home-agents'), null);
       assert.equal(document.querySelectorAll('.home-standard-panels .home-clock-panel').length, 1);
       assert.equal(document.querySelectorAll('.home-standard-panels .home-notifications').length, 1);
@@ -265,6 +268,7 @@ test('Home keeps saved panels, arrangement order and content on a failed refresh
     try {
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelectorAll('[data-panel]').length === 2);
+      await until(update, () => document.querySelector('.notifications-clear'));
       assert.equal(document.querySelector('.home-welcome'), null);
       assert.match(document.querySelector('.notifications-clear').textContent, /all caught up/);
       await click(document.querySelector('.home-location'));
@@ -316,6 +320,7 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
       assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
     if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
     if(path.endsWith('/chats'))return response({chats});
     if(path.endsWith('/messages')){

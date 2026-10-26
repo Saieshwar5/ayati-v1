@@ -12,8 +12,35 @@ mod approval_tests;
 #[cfg(test)]
 mod assignment_tests;
 mod assignments;
+mod attention;
+mod attention_migration;
+#[cfg(test)]
+mod attention_migration_tests;
+#[cfg(test)]
+mod attention_scope_tests;
+#[cfg(test)]
+mod attention_tests;
+mod automation_access;
+mod automation_dispatch;
+mod automation_migration;
+#[cfg(test)]
+mod automation_migration_tests;
+#[cfg(test)]
+mod automation_scope_tests;
+#[cfg(test)]
+mod automation_tests;
+mod automations;
+#[cfg(test)]
+mod channel_archive_recovery_tests;
+mod channel_lifecycle;
 mod chat;
 mod chat_intake;
+mod chat_organization_migration;
+#[cfg(test)]
+mod chat_organization_migration_tests;
+#[cfg(test)]
+mod chat_organization_tests;
+mod chat_pins;
 pub mod cli;
 #[cfg(test)]
 mod cloud_executor_tests;
@@ -44,10 +71,49 @@ mod executor_slots;
 mod preparation_tests;
 #[cfg(test)]
 mod profile_lookup_tests;
+mod question_migration;
+#[cfg(test)]
+mod question_migration_tests;
+#[cfg(test)]
+mod question_source_tests;
+#[cfg(test)]
+mod question_tests;
+mod question_views;
+mod questions;
+mod task_progress;
+#[cfg(test)]
+mod task_progress_tests;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;
+mod event_access;
+#[cfg(test)]
+mod event_authority_tests;
+mod event_dispatch;
+mod event_intake;
+mod event_migration;
+#[cfg(test)]
+mod event_migration_tests;
+#[cfg(test)]
+mod event_scope_tests;
+#[cfg(test)]
+mod event_tests;
+mod event_triggers;
 mod feedback;
+mod handoff_access;
+mod handoff_admission;
+#[cfg(test)]
+mod handoff_authority_tests;
+mod handoff_controls;
+mod handoff_lifecycle;
+mod handoff_migration;
+#[cfg(test)]
+mod handoff_migration_tests;
+#[cfg(test)]
+mod handoff_source_tests;
+#[cfg(test)]
+mod handoff_tests;
+mod handoff_views;
 mod history;
 mod import;
 #[cfg(test)]
@@ -65,11 +131,27 @@ pub mod migration;
 mod migration_fixture;
 mod objects;
 mod people;
+mod rehearsal_context;
+mod rehearsal_history;
+mod rehearsal_migration;
+#[cfg(test)]
+mod rehearsal_migration_tests;
+mod rehearsal_queue;
+#[cfg(test)]
+mod rehearsal_source_tests;
+#[cfg(test)]
+mod rehearsal_tests;
+mod rehearsals;
+mod source_access;
+pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]
 mod reply_output_tests;
 mod reply_views;
 mod resources;
+#[cfg(test)]
+mod response_tests;
+mod responses;
 mod settings;
 mod setup_context;
 mod setup_drafts;

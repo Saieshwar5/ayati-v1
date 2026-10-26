@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="390" height="844" viewBox="0 0 390 844">
+  <g>
+    <rect width="390" height="844" fill="#F1F2F4"/>
+    <g transform="translate(6, 6)">
+      <rect width="378" height="832" rx="14" ry="14" fill="#FFFFFF"/>
+      <g transform="translate(24, 24)">
+        <g>
+          <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Task progress</text>
+        </g>
+        <g transform="translate(316, 0)">
+          <text x="0" y="20" font-family="Inter" font-size="20" fill="#687180">×</text>
+        </g>
+      </g>
+      <g transform="translate(24, 71)">
+        <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">Saved status · Checked just now</text>
+      </g>
+      <g transform="translate(24, 106)">
+        <text x="0" y="21" font-family="Inter" font-size="21" font-weight="700" fill="#282D35">Waiting for approval</text>
+      </g>
+      <g transform="translate(24, 151)">
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Worker released while waiting.</text>
+      </g>
+      <g transform="translate(24, 188)">
+        <text x="0" y="17" font-family="Inter" font-size="17" font-weight="700" fill="#282D35">Update the customer order</text>
+      </g>
+      <g transform="translate(24, 229)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Requested by Ananya · # operations</text>
+      </g>
+      <g transform="translate(24, 265)">
+        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#687180">LATEST SAVED UPDATE</text>
+      </g>
+      <g transform="translate(24, 300)">
+        <g>
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">The exact change is ready for review.</text>
+        </g>
+        <g transform="translate(0, 23)">
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">I will continue after the designated</text>
+        </g>
+        <g transform="translate(0, 46)">
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">person decides.</text>
+        </g>
+      </g>
+      <g transform="translate(24, 384)">
+        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#687180">NEEDS APPROVAL</text>
+      </g>
+      <g transform="translate(24, 419)">
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Update order · Waiting for approval</text>
+      </g>
+      <g transform="translate(24, 456)">
+        <rect width="161" height="41" rx="8" ry="8" fill="#282D35"/>
+        <g transform="translate(12, 12)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Review update order</text>
+        </g>
+      </g>
+      <g transform="translate(24, 517)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Accepted 09:56 · Started 09:56</text>
+      </g>
+      <g transform="translate(24, 553)">
+        <g>
+          <rect width="95" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Check now</text>
+          </g>
+        </g>
+        <g transform="translate(105, 0)">
+          <rect width="105" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Stop request</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(24, 610)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Checking reads saved records.</text>
+        </g>
+        <g transform="translate(0, 21)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">It starts no new agent work.</text>
+        </g>
+      </g>
+      <g transform="translate(24, 667)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">If access changes, this view clears</text>
+        </g>
+        <g transform="translate(0, 21)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">before checking again.</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

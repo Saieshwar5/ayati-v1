@@ -54,7 +54,7 @@ impl Broker {
         let token = crate::identity::provider::random_token();
         let router = Router::new()
             .route("/control", post(exchange))
-            .layer(axum::extract::DefaultBodyLimit::max(16384))
+            .layer(axum::extract::DefaultBodyLimit::max(24576))
             .with_state(BrokerState {
                 access,
                 token: token.clone(),
@@ -119,6 +119,30 @@ pub(crate) struct RemoteRequest {
 }
 pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> Result<Value> {
     match tool {
+        "ask_question" => {
+            let parsed =
+                serde_json::from_value::<crate::identity::interactions::model::Ask>(arguments);
+            let question = match parsed {
+                Ok(question) => question,
+                Err(error) => {
+                    return Ok(
+                        json!({"state":"invalid","message":format!("Invalid question specification: {error}").chars().take(400).collect::<String>()}),
+                    );
+                }
+            };
+            if let Err(error) = question.validate() {
+                return Ok(json!({"state":"invalid","message":error.to_string()}));
+            }
+            pg.ask_question(job, &question).await
+        }
+        "handoff_targets" => {
+            ensure!(arguments == json!({}), "Invalid helper discovery request");
+            pg.handoff_targets(job).await
+        }
+        "request_handoff" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.request_handoff(job, &input).await
+        }
         "operations" => {
             ensure!(arguments == json!({}), "Invalid discovery request");
             pg.control_operations(job).await

@@ -71,7 +71,7 @@ def validate(document: dict, now: datetime | None = None) -> dict:
     exact("scenario.employees", 5)
     exact("scenario.agents", 5)
     exact("scenario.active_test_minutes", 15)
-    exact("release.schema_version", 22)
+    exact("release.schema_version", 29)
     exact("activation.controller_count", 0)
     exact("activation.executor_count", 0)
     exact("activation.autoscaling_enabled", False)

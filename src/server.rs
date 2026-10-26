@@ -3,11 +3,13 @@ mod agents;
 mod apps;
 mod browser;
 mod connections;
+pub(crate) mod file_media;
 mod home;
 mod home_preferences;
 mod intake;
 mod memory;
 mod panels;
+pub(crate) mod responses;
 mod setup;
 mod triggers;
 use axum::{
@@ -74,6 +76,7 @@ pub fn router(state: WebState) -> Router {
         .route("/api/health", get(health))
         .route("/api/state", get(snapshot))
         .route("/api/messages", post(message))
+        .route("/api/messages/{id}/response", get(responses::read))
         .route("/api/tasks/{id}/stop", post(stop))
         .route("/api/tasks/{id}/actions", get(actions))
         .route("/api/events", get(events))
@@ -82,7 +85,7 @@ pub fn router(state: WebState) -> Router {
         .route("/api/vm/start", post(vm_start))
         .route("/api/vm/stop", post(vm_stop))
         .route("/api/files", post(upload))
-        .route("/api/files/{id}", get(download))
+        .route("/api/files/{id}", get(file_media::read))
         .route("/api/files/{id}/preview", get(file_preview))
         .route("/api/shutdown", post(shutdown))
         .fallback_service(ServeDir::new("web/dist").append_index_html_on_directories(true))
@@ -278,30 +281,6 @@ async fn file_preview(
     Path(id): Path<String>,
 ) -> ApiResult<Json<Value>> {
     Ok(Json(json!(state.agent.files.preview(&id).await?)))
-}
-
-async fn download(
-    axum::Extension(state): axum::Extension<WebState>,
-    Path(id): Path<String>,
-) -> ApiResult<Response> {
-    let artifact = state
-        .agent
-        .store
-        .artifact(&id)?
-        .ok_or_else(|| anyhow::anyhow!("File does not exist"))?;
-    let file =
-        tokio::fs::File::open(state.agent.files.archives.join(&artifact.stored_name)).await?;
-    let stream = tokio_util::io::ReaderStream::new(file);
-    let mut headers = HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, "application/octet-stream".parse()?);
-    // Stored filenames may come from shell output. Use a fixed ASCII fallback and encoded UTF-8.
-    let encoded: String = artifact.name.bytes().map(|b| format!("%{b:02X}")).collect();
-    headers.insert(
-        header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"download\"; filename*=UTF-8''{encoded}").parse()?,
-    );
-    headers.insert(header::CACHE_CONTROL, "no-store".parse()?);
-    Ok((headers, Body::from_stream(stream)).into_response())
 }
 
 async fn shutdown(axum::Extension(state): axum::Extension<WebState>) -> Json<Value> {

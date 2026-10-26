@@ -2,7 +2,8 @@
 
 M1.5a adds an opt-in machine API to the Rust controller. A local launcher registers
 an executor, reserves an assignment and sends its child a scoped capability over
-stdin. The child loads controller-prepared context, runs pinned tool-free Goose and
+stdin. The child loads controller-prepared context, runs pinned Goose with only
+its assigned controller forwarding capability when enabled, and
 renews/completes through HTTP. It receives no core PostgreSQL URL, WorkOS key or
 operator bootstrap key. The controller owns all PostgreSQL access.
 
@@ -119,7 +120,7 @@ than authentication. The launcher passes a private JSON envelope to
   The worker keeps a conservative monotonic deadline including request time and a
   one-second clock-rounding margin. HTTP waits cannot extend that safe deadline.
 - A transient controller failure may retry inside the confirmed lease window.
-  Expiry or denial stops/reaps Goose. A longer outage permits a new tool-free
+  Expiry or denial stops/reaps Goose. A longer outage permits a newly authorized
   attempt after fencing; it does not resume arbitrary in-memory state.
 - Run capabilities expire after five minutes and extend only with valid renewal.
   Cancellation/release/expired-owner reconciliation invalidates them and clears
@@ -144,8 +145,10 @@ Responses use 401 for missing/malformed credentials, 403 for denied credentials 
 scope, 409 for state/payload conflict, 422 for schema errors, and 503 for database
 unavailability. Errors omit underlying bodies/secrets. Machine responses are no-store.
 
-Workers retain private scratch and a tool-free execution profile that overrides
-inherited VM/browser/memory/tool settings. Model keys still reach the configured
+Workers retain private scratch and an execution profile that overrides
+inherited VM/browser/memory/tool settings. Only the task-scoped Cuckoo controller
+bridge may expose assigned business requests and [ordinary questions](agent-questions.md);
+owner-private extensions stay disabled. Model keys still reach the configured
 Goose provider; per-run model brokerage remains future work. Process/private-scratch
 isolation is not a microVM boundary.
 

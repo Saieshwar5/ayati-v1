@@ -27,6 +27,13 @@ impl MigratorTrait for Migrator {
             Box::new(GuidedPermissions),
             Box::new(ChannelApprovals),
             Box::new(super::durable_wait_migration::DurableWaits),
+            Box::new(super::question_migration::Questions),
+            Box::new(super::chat_organization_migration::ChatOrganization),
+            Box::new(super::attention_migration::Attention),
+            Box::new(super::rehearsal_migration::Rehearsals),
+            Box::new(super::automation_migration::Automations),
+            Box::new(super::event_migration::Events),
+            Box::new(super::handoff_migration::Handoffs),
         ]
     }
 }

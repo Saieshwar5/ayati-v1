@@ -3,8 +3,8 @@
 This increment adds explicit account-action approval authority, per-operation
 approver/channel selection, saved channel request cards and a restricted **My
 approvals** inbox. It extends [guided permission review](guided-permissions.md)
-and the [shared action gateway](shared-agent-control.md). Current startup requires
-PostgreSQL **schema 22**.
+and the [shared action gateway](shared-agent-control.md). This slice introduced PostgreSQL **schema 22**; current startup requires the
+full [schema 24](chat-organization.md).
 
 ## Owner and creator flow
 

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="960" viewBox="0 0 1440 960">
+  <g>
+    <rect width="1440" height="960" fill="#F1F2F4"/>
+    <g transform="translate(16, 16)">
+      <g transform="translate(8, 8)">
+        <text x="0" y="27" font-family="Inter" font-size="27" font-weight="700" fill="#282D35">C</text>
+      </g>
+      <g transform="translate(8, 73)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Home</text>
+      </g>
+      <g transform="translate(8, 117)">
+        <text x="0" y="10" font-family="Inter" font-size="10" font-weight="700" fill="#282D35">Chat</text>
+      </g>
+      <g transform="translate(8, 161)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Agents</text>
+      </g>
+    </g>
+    <g transform="translate(88, 16)">
+      <rect width="1336" height="928" rx="18" ry="18" fill="#FFFFFF"/>
+      <g>
+        <g transform="translate(24, 24)">
+          <text x="0" y="25" font-family="Inter" font-size="25" font-weight="700" fill="#282D35">Chat</text>
+        </g>
+        <g transform="translate(24, 78)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Search conversations</text>
+        </g>
+        <g transform="translate(24, 119)">
+          <rect width="197" height="42" rx="8" ry="8" fill="#F1F2F4"/>
+          <g transform="translate(12, 12)">
+            <text x="0" y="15" font-family="Inter" font-size="15" font-weight="700" fill="#282D35"># operations</text>
+          </g>
+        </g>
+        <g transform="translate(24, 185)">
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#687180"># customers</text>
+        </g>
+      </g>
+      <g transform="translate(245, 0)">
+        <g transform="translate(28, 28)">
+          <text x="0" y="20" font-family="Inter" font-size="20" font-weight="700" fill="#282D35"># operations</text>
+        </g>
+        <g transform="translate(28, 78)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Connected · Original work stays here</text>
+        </g>
+        <g transform="translate(28, 120)">
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">Ananya · Please prepare the customer quote.</text>
+        </g>
+        <g transform="translate(28, 164)">
+          <text x="0" y="15" font-family="Inter" font-size="15" font-weight="700" fill="#282D35">Nova</text>
+        </g>
+        <g transform="translate(28, 208)">
+          <g>
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">I have prepared the draft. I need your</text>
+          </g>
+          <g transform="translate(0, 23)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">delivery choice before I continue.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 275)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Waiting for an answer · Worker released</text>
+        </g>
+        <g transform="translate(28, 317)">
+          <rect width="118" height="36" rx="8" ry="8" fill="#F1F2F4"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Check progress</text>
+          </g>
+        </g>
+        <g transform="translate(28, 379)"/>
+        <g transform="translate(28, 505)">
+          <rect width="605" height="45" rx="10" ry="10" fill="#F7F8F9"/>
+          <g transform="translate(14, 14)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Your unsent message stays here…</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(906, 0)">
+        <rect width="430" height="928" fill="#FAFAFB"/>
+        <g transform="translate(28, 28)">
+          <g>
+            <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Task progress</text>
+          </g>
+          <g transform="translate(360, 0)">
+            <text x="0" y="20" font-family="Inter" font-size="20" fill="#687180">×</text>
+          </g>
+        </g>
+        <g transform="translate(28, 77)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">Saved controller status · Checked just now</text>
+        </g>
+        <g transform="translate(28, 114)">
+          <text x="0" y="21" font-family="Inter" font-size="21" font-weight="700" fill="#282D35">Waiting for an answer</text>
+        </g>
+        <g transform="translate(28, 161)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Worker released while waiting.</text>
+        </g>
+        <g transform="translate(28, 200)">
+          <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Prepare the customer quote</text>
+        </g>
+        <g transform="translate(28, 241)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Requested by Ananya · # operations</text>
+        </g>
+        <g transform="translate(28, 279)">
+          <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#687180">LATEST SAVED UPDATE</text>
+        </g>
+        <g transform="translate(28, 316)">
+          <g>
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">I have prepared the draft. I need your</text>
+          </g>
+          <g transform="translate(0, 23)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">delivery choice before I continue.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 379)">
+          <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#687180">NEEDS INPUT</text>
+        </g>
+        <g transform="translate(28, 416)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Choose a delivery method · For Ananya</text>
+        </g>
+        <g transform="translate(28, 455)">
+          <rect width="131" height="37" rx="8" ry="8" fill="#282D35"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Answer question</text>
+          </g>
+        </g>
+        <g transform="translate(28, 514)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Accepted 09:56 · Started 09:56</text>
+        </g>
+        <g transform="translate(28, 552)">
+          <g>
+            <rect width="95" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+            <g transform="translate(10, 10)">
+              <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Check now</text>
+            </g>
+          </g>
+          <g transform="translate(107, 0)">
+            <rect width="105" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+            <g transform="translate(10, 10)">
+              <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Stop request</text>
+            </g>
+          </g>
+        </g>
+        <g transform="translate(28, 611)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Checking progress reads saved records.</text>
+          </g>
+          <g transform="translate(0, 21)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">It does not start more agent work.</text>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -200,10 +200,9 @@ impl PgStore {
     }
     pub async fn chats(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
-        role(&tx, workspace, &user.id).await?;
-        let chats=json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into()]).await?;
+        let data = chats_in(&tx, user, workspace).await?;
         tx.commit().await?;
-        Ok(json!({"chats":chats}))
+        Ok(data)
     }
     pub async fn chat_messages(&self, user: &User, workspace: &str, chat: &str) -> Result<Value> {
         self.chat_page(user, workspace, chat, None).await
@@ -215,9 +214,10 @@ impl PgStore {
             display_name: None,
         };
         self.claim_active(job).await.unwrap_or(false)
-            && library::source_allowed(&self.db, job)
+            && super::handoff_access::execution_allowed(&self.db, job)
                 .await
                 .unwrap_or(false)
+            && source_access::allowed(&self.db, job).await.unwrap_or(false)
             && access(&self.db, &user, &job.workspace, &job.chat)
                 .await
                 .is_ok()
@@ -265,7 +265,10 @@ impl PgStore {
             display_name: None,
         };
         let allowed = access(tx, &user, &job.workspace, &job.chat).await.is_ok()
-            && library::source_allowed(tx, job).await.unwrap_or(false)
+            && super::handoff_access::execution_allowed(tx, job)
+                .await
+                .unwrap_or(false)
+            && source_access::allowed(tx, job).await.unwrap_or(false)
             && agent_access(tx, &user.id, &job.workspace, &job.agent)
                 .await
                 .unwrap_or(false);
@@ -280,4 +283,14 @@ impl PgStore {
         execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         Ok(true)
     }
+}
+
+pub(super) async fn chats_in(
+    tx: &DatabaseTransaction,
+    user: &User,
+    workspace: &str,
+) -> Result<Value> {
+    let owner = role(tx, workspace, &user.id).await? == "Owner";
+    let chats=json_rows(tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
+    Ok(json!({"chats":chats}))
 }

@@ -8,6 +8,8 @@ use tokio_stream::wrappers::ReceiverStream;
 #[derive(Deserialize)]
 struct Cursor {
     after: Option<i64>,
+    #[serde(default)]
+    compact: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,7 +57,10 @@ async fn events(
         .and_then(|s| s.to_str().ok())
         .and_then(|s| s.parse().ok())
         .or(query.after);
-    let first = pg.sync_page(&user, &w, after).await?;
+    let mut first = pg.sync_page(&user, &w, after).await?;
+    if query.compact {
+        crate::response::compact_events(&mut first);
+    }
     let (send, receive) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1);
     tokio::spawn(async move {
         let _permit = permit;
@@ -91,7 +96,12 @@ async fn events(
             }
             .await;
             match result {
-                Ok(next) => page = next,
+                Ok(mut next) => {
+                    if query.compact {
+                        crate::response::compact_events(&mut next);
+                    }
+                    page = next;
+                }
                 Err(_) => {
                     let _ = send
                         .send(Ok(Event::default().event("unavailable").data("{}")))

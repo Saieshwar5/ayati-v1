@@ -1,14 +1,16 @@
 import { HomeNotifications, type HomeNotificationsState, type HomeNotice } from './home-notifications';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { workspaceId } from '../workspace-context';
 import { WorkRecords } from './work-records';
 import { HomeToolbar } from './home-toolbar';
+import { AttentionBoundary } from './attention/boundary';
 import { ViewLifetime, setViewLifetime } from '../view-lifetime';
 import type { Profile } from '../agents';
 import type { WorkspacePage } from './workspace-shell';
 
 type Controller = { profile?: (profile: Profile) => void; navigate?: (url: URL) => void };
+const HomeAttention = lazy(() => import('./attention/home-attention').then(module => ({ default: module.HomeAttention })));
 
 async function install(page: WorkspacePage, view: ViewLifetime, onNotifications: (data: HomeNotificationsState) => void): Promise<Controller | void> {
   if (page === 'agents') {
@@ -84,7 +86,9 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   if (page !== 'home') return <div className="feature-host" ref={host} />;
   return <div className="feature-host home-feature">
     {workspaceId && workHost && createPortal(<WorkRecords />, workHost)}
-    {notificationHost && createPortal(<HomeNotifications data={notifications} open={openNotifications} />, notificationHost)}
+    {notificationHost && createPortal(workspaceId
+      ? <AttentionBoundary><Suspense fallback={<HomeNotifications data={null} open={openNotifications} />}><HomeAttention privateData={notifications} openPrivate={openNotifications} /></Suspense></AttentionBoundary>
+      : <HomeNotifications data={notifications} open={openNotifications} />, notificationHost)}
     {homeActions && createPortal(<HomeToolbar ready={ready}
       arrange={() => trigger('[data-arrange]')} add={() => trigger('[data-request-panel]')} />, homeActions)}
     <div className="feature-host" ref={host} />

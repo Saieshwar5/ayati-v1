@@ -2,7 +2,17 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twenty-two migrations, including `m20261026_000022_durable_approval_waits`.
+requires all twenty-nine migrations, including `m20261026_000029_channel_agent_handoffs`.
+[Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
+[Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
+deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
+occurrence receipts through the existing background queue.
+[Agent job samples](agent-job-rehearsal.md) retain personal exact execution receipts,
+saved context and fenced tool-free outcomes without creating conversation jobs.
+[Managed-work attention](workspace-attention.md) adds personal source/version read
+and outcome-review receipts without changing task or business-action authority.
+[Personal pins and channel archive](chat-organization.md) add preferences and the
+closed-intake guard; [ordinary questions](agent-questions.md) were introduced in schema 23.
 [Saved approval waits](durable-approval-waits.md) retain tasks across worker release.
 API-only polling dispatch uses `AYATI_CHAT_EXECUTION=external`; temporary workers
 use `AYATI_CHAT_EXECUTION=assigned` and the local assignment launcher. Reapply runtime

@@ -147,6 +147,21 @@ Stop where supported. Closing a tool does not hand back browser control or resum
 work. See [Unified Chat](unified-chat.md) for current channel/thread capabilities,
 access boundaries and remaining work; a visual component grants no authority.
 
+Personal Pinned rows appear once above Channels and Direct messages, in pin-time
+order. Pin controls are keyboard/touch accessible and keep unread/selected state.
+Archived channels leave active pins and lists; an explicit Archived section keeps
+them reachable with their source permissions. Show closed intake in the root view
+and Archived thread title. Archive review belongs near the top of Details and
+shows visible unfinished work. Restore opens future intake only. See
+[Chat organization](chat-organization.md).
+
+Long agent responses use bounded deterministic excerpts and an explicit Read
+response action. Open the saved body in the shared reading dialog, with Expand,
+Copy and an exact complete Markdown download. Reserve the newer-version row so
+incoming work does not shift the reading area. Keep images as small thumbnails
+until explicitly opened in a fit/zoom viewer. See [saved reading](result-reading.md)
+for source authority, supported files and current limits.
+
 ## Agents and people management
 
 Agents follows the selected **B / Agent workspace** concept: a searchable flat

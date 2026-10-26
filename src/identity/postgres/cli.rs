@@ -65,7 +65,7 @@ impl PgStore {
             anyhow::anyhow!("Run workspace-db migrate before starting Cuckoo PostgreSQL")
         })?;
         ensure!(
-            applied.len() == 22
+            applied.len() == 29
                 && applied[0].try_get::<String>("", "version")?
                     == "m20261020_000001_workspace_foundation"
                 && applied[1].try_get::<String>("", "version")?
@@ -105,7 +105,21 @@ impl PgStore {
                 && applied[20].try_get::<String>("", "version")?
                     == "m20261025_000021_channel_approvals"
                 && applied[21].try_get::<String>("", "version")?
-                    == "m20261026_000022_durable_approval_waits",
+                    == "m20261026_000022_durable_approval_waits"
+                && applied[22].try_get::<String>("", "version")?
+                    == "m20261026_000023_agent_questions"
+                && applied[23].try_get::<String>("", "version")?
+                    == "m20261026_000024_chat_organization"
+                && applied[24].try_get::<String>("", "version")?
+                    == "m20261026_000025_workspace_attention"
+                && applied[25].try_get::<String>("", "version")?
+                    == "m20261026_000026_agent_rehearsals"
+                && applied[26].try_get::<String>("", "version")?
+                    == "m20261026_000027_shared_agent_schedules"
+                && applied[27].try_get::<String>("", "version")?
+                    == "m20261026_000028_shared_agent_events"
+                && applied[28].try_get::<String>("", "version")?
+                    == "m20261026_000029_channel_agent_handoffs",
             "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())

@@ -1,5 +1,6 @@
 //! Private operator-reviewed remote MCP profiles, explicitly bound to one workspace.
 use super::model::Operation;
+use crate::identity::private_config::read as private_file;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -54,23 +55,6 @@ impl Server {
     pub fn public(&self) -> Value {
         json!({"id":self.id,"name":self.name,"account":self.account,"operations":self.operations})
     }
-}
-fn private_file(path: &Path) -> Result<String> {
-    use std::os::unix::fs::MetadataExt;
-    ensure!(
-        path.is_absolute(),
-        "Use an absolute private configuration path"
-    );
-    let meta =
-        std::fs::symlink_metadata(path).context("Private MCP configuration is unavailable")?;
-    ensure!(
-        meta.is_file()
-            && meta.mode() & 0o777 == 0o600
-            && meta.uid() == unsafe { libc::geteuid() }
-            && meta.len() <= 65536,
-        "MCP configuration must be an owned 0600 file under 64 KiB"
-    );
-    std::fs::read_to_string(path).context("Private MCP configuration is unreadable")
 }
 pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
     let Some(path) = std::env::var_os("AYATI_MCP_SERVERS_FILE") else {

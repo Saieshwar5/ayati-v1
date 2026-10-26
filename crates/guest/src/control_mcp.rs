@@ -6,7 +6,18 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub const PREFIX: &str = "ayati_control__";
 pub fn observed(name: &str, input: &Value) -> bool {
     match name.strip_prefix(PREFIX) {
-        Some("operations") => input == &json!({}),
+        Some("operations" | "handoff_targets") => input == &json!({}),
+        Some("ask_question") => input.as_object().is_some_and(|v| {
+            v.len() == 2
+                && v.get("key").is_some_and(Value::is_string)
+                && v.get("specification").is_some_and(Value::is_object)
+        }),
+        Some("request_handoff") => input.as_object().is_some_and(|v| {
+            v.len() == 3
+                && ["key", "agent", "task"]
+                    .iter()
+                    .all(|key| v.get(*key).is_some_and(Value::is_string))
+        }),
         Some("request_action") => input.as_object().is_some_and(|v| {
             v.len() == 3
                 && v.get("connection").is_some_and(Value::is_string)
@@ -29,6 +40,9 @@ impl ServerHandler for ControlTools {
         _: RequestContext<RoleServer>,
     ) -> std::result::Result<ListToolsResult, ErrorData> {
         Ok(ListToolsResult{tools:vec![
+            crate::question_schema::tool(),
+            json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
+            json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),
             json!({"name":"operations","description":"List this task's currently assigned business operations, input fields and permission modes.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_action","description":"Request one supported operation with exact fields. Cuckoo validates current task authority, records it, executes allowed work or creates an exact approval request. Inspect the returned state. Repeating identical fields in the same task returns the original receipt and never retries an uncertain write.","inputSchema":{"type":"object","properties":{"connection":{"type":"string"},"operation":{"type":"string"},"arguments":{"type":"object"}},"required":["connection","operation","arguments"],"additionalProperties":false}})
         ].into_iter().map(|v|serde_json::from_value(v).unwrap()).collect(),..Default::default()})
@@ -51,7 +65,7 @@ impl ServerHandler for ControlTools {
                 "Control forwarding requires loopback"
             );
             let body=json!({"token":std::env::var("AYATI_CONTROL_TOKEN")?,"tool":request.name,"arguments":arguments}).to_string();
-            ensure!(body.len() <= 16000, "Control request exceeds limit");
+            ensure!(body.len() <= 24576, "Control request exceeds limit");
             let mut stream = tokio::net::TcpStream::connect(parsed).await?;
             stream.write_all(format!("POST /control HTTP/1.0\r\nHost: {address}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await?;
             let mut reply = Vec::new();
@@ -78,6 +92,7 @@ impl ServerHandler for ControlTools {
         let mut result = if value["state"].as_str().is_some_and(|s| {
             [
                 "denied",
+                "invalid",
                 "rejected",
                 "invalidated",
                 "uncertain",
@@ -100,4 +115,27 @@ pub async fn serve() -> Result<()> {
         .waiting()
         .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn handoff_forwarding_rejects_unknown_tools_and_caller_selected_authority_fields() {
+        let request =
+            json!({"key":"supplier-review","agent":"agent-id","task":"Review the supplied facts."});
+        assert!(observed("ayati_control__request_handoff", &request));
+        assert!(observed("ayati_control__handoff_targets", &json!({})));
+        for field in ["requester", "parent", "chat", "workspace", "rules"] {
+            let mut forged = request.clone();
+            forged[field] = json!("forged");
+            assert!(!observed("ayati_control__request_handoff", &forged));
+        }
+        assert!(!observed("other__request_handoff", &request));
+        assert!(!observed("ayati_control__direct_agent_call", &request));
+        assert!(!observed(
+            "ayati_control__handoff_targets",
+            &json!({"workspace":"forged"})
+        ));
+    }
 }

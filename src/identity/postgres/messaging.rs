@@ -47,21 +47,33 @@ impl PgStore {
             tx.commit().await?;
             return Ok(json!({"cursor":high,"reset":true,"events":[]}));
         };
-        let events=rows(&tx,"SELECT cursor,chat,message,kind FROM relay_sync_events WHERE workspace=$1 AND cursor>$2 ORDER BY cursor LIMIT 100",vec![w.into(),after.into()]).await?;
+        let events=rows(&tx,"SELECT cursor,chat,message,kind,to_jsonb(e)->>'audience' AS audience FROM relay_sync_events e WHERE workspace=$1 AND cursor>$2 ORDER BY cursor LIMIT 100",vec![w.into(),after.into()]).await?;
         let mut output = vec![];
         let mut cursor = after;
         let mut ids = std::collections::BTreeSet::new();
         let mut access_changed = false;
+        let mut sample_access_changed = false;
         for row in events {
             cursor = row.try_get("", "cursor")?;
             if row.try_get::<String>("", "kind")? == "access" {
                 access_changed = true;
+            } else if row.try_get::<String>("", "kind")? == "sample_access" {
+                sample_access_changed |=
+                    row.try_get::<Option<String>>("", "audience")?.as_deref() == Some(&user.id);
+            } else if row.try_get::<String>("", "kind")? == "event_access" {
+                let chat: String = row.try_get("", "chat")?;
+                if super::chat::access(&tx, user, w, &chat).await.is_ok() {
+                    output.push(json!({"kind":"event_access","chat":chat,"source":row.try_get::<String>("","message")?}));
+                }
             } else if let Some(id) = row.try_get::<Option<String>>("", "message")? {
                 ids.insert(id);
             }
         }
         if access_changed {
             output.push(json!({"kind":"access"}));
+        }
+        if sample_access_changed {
+            output.push(json!({"kind":"sample_access"}));
         }
         if !ids.is_empty() {
             // One authorized batch read, not three queries per message per recipient.

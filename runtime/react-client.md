@@ -12,7 +12,7 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
   feature navigation with browser history and native identity/workspace changes.
 - `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,
-  threads, creation dialogs and trusted approval references; owner-private transcripts retain the legacy bridge.
+  threads, creation dialogs, saved task-progress drawers and trusted approval references; owner-private transcripts retain the legacy bridge.
 - `web/src/react/private-chat.tsx`: no-workspace private-agent fallback.
 - `web/src/react/chat/composer.tsx`: shared React composer across channel, DM, thread
   and private-agent views. Private chat mounts an explicitly owned React island
@@ -24,6 +24,14 @@ server API contracts, authentication, and workspace boundaries.
   request progress and Stop, guided creation, profile editing, approved knowledge,
   permission drafts/previews/activation and preserved local-agent lifecycle controls.
   [The workspace contract](agents-team-workspace.md) describes supported tabs.
+- `web/src/react/agents/automation/`: on-demand shared schedule list, explicit
+  review/create, exact pause/resume and source-authorized run history. Reviewed
+  connected-event triggers add signed source setup, filters, activation and bounded
+  delivery history; provider subscription registration remains an operator step. Existing
+  private-runtime automation keeps its separate compatibility boundary.
+- `web/src/react/agents/rehearsals/`: on-demand draft-only sample dialog, saved job
+  context/source review, guarded Start/Stop, personal history and shared reader.
+  Ordinary agent guidance enters its normal prompt without granting tools.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
   teams, setup, local accounts and Owner workspace connections/delegation. The legacy Settings screen and setup
   installer are removed; Agent details retains its existing connector integration.
@@ -31,6 +39,17 @@ server API contracts, authentication, and workspace boundaries.
   invitation lists, invitations, roles and explicit agent/App/panel grants.
 - `web/src/react/approvals/`: current-access exact review, restricted inbox and
   approver/channel selection shared by workspace conversations and agent setup.
+- `web/src/react/chat/organization-model.ts`, `pin-control.tsx` and
+  `channel-lifecycle.tsx`: personal server pins and guarded archive/restore review.
+  Existing conversation/thread composers retain drafts while closed to new sends.
+- `web/src/react/chat/handoffs.tsx`: source-authorized parent/helper links, honest
+  wait/outcome states and exact helper Stop in channel threads and Agents Work.
+- `web/src/react/questions/`: compact saved references and typed ordinary-answer
+  dialogs, guarded submissions, readable history and source revocation handling.
+  Answers and business approvals retain separate authority.
+- `web/src/react/results/`: bounded reply excerpts, saved-response reader and
+  passive file/image viewing shared by workspace Chat/threads and an explicit
+  private-runtime portal adapter. Legacy transcript DOM retains its existing owner.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
 - `web/src/react/requests.ts`: guarded mutations and reads that discard stale or
   unmounted responses. Mutations are user actions and never mount effects.

@@ -1,14 +1,21 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
+import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; shared?: boolean; scope?: 'private' | 'workspace' };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
-export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[] };
+export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
 export type Message = {
+  source_scope?: string | null;
+  handoff?: import('./handoffs').Handoff;
+  coordination?: import('./handoffs').Coordination;
   id: string; author: string; name: string | null; kind: string;
   content: string; state: string; at: number; sequence?: number;
-  revision?: number; can_cancel?: boolean;
+  revision?: number; can_cancel?: boolean; has_task?: boolean;
+  questions?: QuestionReference[];
+  response?: import('../results/model').ResponseReference;
+  response_unavailable?: boolean;
   progress?: {
-    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'resuming' | 'attention';
+    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'input' | 'resuming' | 'attention' | 'handoff';
     text: string; generation?: number;
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;

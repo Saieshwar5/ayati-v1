@@ -1,9 +1,12 @@
 pub(super) mod execution;
 pub(crate) mod mentions;
+mod organization;
+pub(crate) mod organization_model;
 mod runner;
 pub(crate) mod store;
 mod stream_limit;
 mod sync;
+mod task_progress;
 #[cfg(test)]
 mod tests;
 use super::*;
@@ -15,9 +18,15 @@ pub(super) use store::schema;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
+        .merge(task_progress::routes())
+        .merge(organization::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
             get(focus),
+        )
+        .route(
+            "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}/response",
+            get(response),
         )
         .route(
             "/api/identity/workspaces/{workspace}/chat-directory",
@@ -48,12 +57,29 @@ async fn focus(
     State(app): State<Shared>,
     RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
     headers: axum::http::HeaderMap,
+    axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let super::database::Database::Postgres(pg) = &app.store else {
         return Err(anyhow::anyhow!("Focused history requires PostgreSQL").into());
     };
-    Ok(Json(pg.chat_focus(&user, &w, &chat, &message).await?))
+    let mut data = pg.chat_focus(&user, &w, &chat, &message).await?;
+    if page.compact {
+        crate::response::compact_history(&mut data);
+    }
+    Ok(Json(data))
+}
+async fn response(
+    State(app): State<Shared>,
+    RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(input): axum::extract::Query<crate::server::responses::Read>,
+) -> ApiResult<Response> {
+    let user = identity(&app, &headers).await?;
+    let data = super::collaboration::pg(&app)?
+        .response_body(&user, &w, &chat, &message, input.metadata)
+        .await?;
+    Ok(crate::server::responses::deliver(&message, data, &input))
 }
 async fn cancel(
     State(app): State<Shared>,
@@ -115,7 +141,7 @@ async fn list(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.chats(&user, &workspace).await?))
+    Ok(Json(organization::chats(&app, &user, &workspace).await?))
 }
 async fn create(
     State(app): State<Shared>,
@@ -135,6 +161,8 @@ async fn create(
 #[derive(Deserialize)]
 struct Page {
     before: Option<i64>,
+    #[serde(default)]
+    compact: bool,
 }
 async fn messages(
     State(app): State<Shared>,
@@ -144,9 +172,11 @@ async fn messages(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     if let super::database::Database::Postgres(pg) = &app.store {
-        return Ok(Json(
-            pg.chat_page(&user, &workspace, &chat, page.before).await?,
-        ));
+        let mut data = pg.chat_page(&user, &workspace, &chat, page.before).await?;
+        if page.compact {
+            crate::response::compact_history(&mut data);
+        }
+        return Ok(Json(data));
     }
     check(page.before.is_none(), "Older history requires PostgreSQL")?;
     Ok(Json(

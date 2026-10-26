@@ -2,6 +2,8 @@ import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-cont
 import { base } from './model';
 
 export type AgentRequest = {
+  source_scope?: string | null;
+  coordination?: import('../chat/handoffs').Coordination;
   id: string; sequence: number; chat: string; thread: string | null; source_message: string | null;
   conversation_name: string; requester: string; requester_name: string | null;
   summary: string; state: string; latest_update: string; created_ms: number;
@@ -11,7 +13,8 @@ export type AgentRequest = {
 };
 export type RequestPage = { requests: AgentRequest[]; next_before: number | null };
 export const requestLabels: Record<string, string> = {
-  queued: 'Queued', preparing: 'Preparing', running: 'Working', recovering: 'Recovering',
+  queued: 'Queued', preparing: 'Preparing', running: 'Working', recovering: 'Waiting for recovery',
+  handoff: 'Waiting for another agent',
   approval: 'Waiting for approval', input: 'Waiting for an answer', waiting: 'Waiting',
   resuming: 'Ready to continue', attention: 'Needs attention', complete: 'Completed',
   failed: 'Could not complete', cancelled: 'Cancelled', access_changed: 'Access changed',

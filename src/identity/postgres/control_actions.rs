@@ -24,8 +24,21 @@ impl PgStore {
         let tx = self.read_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
         let operations=json_rows(&tx,"SELECT jsonb_build_object('connection',c.id,'operation',op->>'id','title',op->>'title','effect',op->>'effect','schema',op->'schema','mode',r.mode) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 AND c.enabled AND op->>'id'=r.operation AND r.mode<>'block' ORDER BY c.id,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into()]).await?;
+        let mut visible = vec![];
+        for op in operations {
+            if super::handoff_controls::allowed(
+                &tx,
+                job,
+                op["connection"].as_str().unwrap(),
+                op["operation"].as_str().unwrap(),
+            )
+            .await?
+            {
+                visible.push(op);
+            }
+        }
         tx.commit().await?;
-        Ok(json!({"operations":operations}))
+        Ok(json!({"operations":visible}))
     }
     pub(crate) async fn control_propose(
         &self,
@@ -37,13 +50,50 @@ impl PgStore {
         let request_id = crate::identity::provider::digest(&serde_json::to_string(input)?);
         let tx = self.workspace_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
-        if let Some(action)=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND job=$2 AND request_id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),request_id.clone().into()]).await? {
-            let action:Value=action.try_get("","data")?;
-            ensure!(action["agent"]==job.agent && action["connection"]==input.connection && action["operation"]==input.operation && action["arguments"]==input.arguments,"Action request ID was already used for different work");
-            let visible=visible(&tx,&job.workspace,action["id"].as_str().unwrap()).await?;
-            tx.commit().await?;
-            return Ok(Proposed{action:visible,dispatch:None});
+        super::handoff_controls::ready_for_new_work(&tx, job).await?;
+        ensure!(
+            super::handoff_controls::allowed(&tx, job, &input.connection, &input.operation).await?,
+            "Operation exceeds the sending agents handoff ceilings"
+        );
+        // Object key order can change after model reconstruction or JSONB storage.
+        // Match the exact semantic operation too, including receipts made by older binaries.
+        let (scope, root) = if super::handoff_access::exists(&tx).await? {
+            (
+                "(job=$2 OR job=$6 OR job IN (SELECT child FROM relay_agent_handoffs WHERE workspace=$1 AND root=$6))",
+                Some(super::handoff_access::root(&tx, job).await?),
+            )
+        } else {
+            ("job=$2", None)
+        };
+        let sql = format!(
+            "SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND {scope} AND connection=$3 AND operation=$4 AND arguments=$5 ORDER BY created,id LIMIT 1"
+        );
+        let mut args = vec![
+            job.workspace.clone().into(),
+            job.reply.clone().into(),
+            input.connection.clone().into(),
+            input.operation.clone().into(),
+            input.arguments.clone().into(),
+        ];
+        if let Some(root) = root {
+            args.push(root.into());
         }
+        if let Some(action) = query(&tx, &sql, args).await? {
+            let action: Value = action.try_get("", "data")?;
+            ensure!(
+                action["connection"] == input.connection
+                    && action["operation"] == input.operation
+                    && action["arguments"] == input.arguments,
+                "Action request ID was already used for different work"
+            );
+            let visible = visible(&tx, &job.workspace, action["id"].as_str().unwrap()).await?;
+            tx.commit().await?;
+            return Ok(Proposed {
+                action: visible,
+                dispatch: None,
+            });
+        }
+        ensure!(query(&tx,"SELECT id FROM relay_task_questions WHERE workspace=$1 AND reply=$2 AND state='pending'",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.is_none(), "A saved question needs an answer before requesting more business operations");
         let count: i64 = query(
             &tx,
             "SELECT count(*) AS count FROM relay_control_actions WHERE workspace=$1 AND job=$2",
@@ -178,6 +228,16 @@ impl PgStore {
             job_for_action(&tx, &action).await?
         };
         authorize(&tx, &job, dispatch.origin.is_some()).await?;
+        ensure!(
+            super::handoff_controls::allowed(
+                &tx,
+                &job,
+                action["connection"].as_str().unwrap(),
+                action["operation"].as_str().unwrap()
+            )
+            .await?,
+            "Handoff operation ceiling changed before dispatch"
+        );
         if action["decision"] == "approve" {
             let approver = User {
                 id: action["approver"].as_str().unwrap().into(),
@@ -209,11 +269,15 @@ pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: boo
     };
     super::chat::access(db, &user, &job.workspace, &job.chat).await?;
     ensure!(
+        super::handoff_access::execution_allowed(db, job).await?,
+        "Handoff origin access changed or the helper task ended"
+    );
+    ensure!(
         super::chat::agent_access(db, &job.requester, &job.workspace, &job.agent).await?,
         "Agent permission changed"
     );
     ensure!(
-        super::library::source_allowed(db, job).await?,
+        super::source_access::allowed(db, job).await?,
         "Library source access changed"
     );
     ensure!(

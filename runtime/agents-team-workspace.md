@@ -28,6 +28,9 @@ are in [the design record](../designs/agents-workspace/README.md).
   latest history page, and review an exact approval through existing controls.
 - Keep existing profile editing, guided permissions, approved knowledge and
   local-agent lifecycle controls.
+- Save successful-outcome and routine guidance and review it in Overview.
+  Maintainers can explicitly [try a personal draft-only sample](agent-job-rehearsal.md),
+  review its selected context and reopen its saved result without rerunning it.
 
 ## Request API and authority
 
@@ -74,12 +77,15 @@ remains documented in [private Chat workspace](agents-workspace.md).
 
 ## Deliberate limits
 
-Managed-agent schedules, general questions/forms, connected event waits,
+[Managed-agent schedules](shared-agent-schedules.md) now use the existing Automation
+tab and controlled pooled background queue. Connected event waits,
 browser/computer adapters and business email/phone are separate increments.
 The relevant tabs state current support rather than showing fictional records.
 The existing profile editor remains; this change does not implement every
 creation screen in the design archive. No dependency or schema migration is
-introduced: the required PostgreSQL schema remains **22**.
+introduced by the Agents layout increment. It used schema 22; current
+[questions and forms](agent-questions.md) introduced schema 23 separately, and
+current full startup follows the [PostgreSQL setup requirement](postgres-workspaces.md).
 
 ## Verification
 
@@ -99,3 +105,13 @@ restart history and phone/dark layouts. It uses pinned Goose, a scripted local
 model and an authenticated MCP fixture; this is local application evidence,
 not commercial-model calibration or cloud acceptance. The earlier
 `tests/agents_workspace.mjs` private Chat panel journey is preserved separately.
+
+[Connected events](shared-agent-events.md) now share the Automation pane with schedules,
+using reviewed source/read authority and the same ordinary task controls. Source
+revocation clears affected readers without closing unrelated setup forms.
+
+[Channel handoffs](channel-agent-handoffs.md) add source-authorized parent/helper
+relationships to Work without granting new request or business authority.
+
+Saved tasks also expose [Check progress in Chat](chat-task-progress.md) through the
+original conversation, independently of permission to request new agent work.

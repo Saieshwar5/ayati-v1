@@ -30,6 +30,7 @@ test('a saved request opens its older thread and clears focused history after a 
     assert.match(document.body.textContent, /Recent conversation/);
     assert.deepEqual(writes, []);
   }, { url: `http://localhost/w/${w}/?view=chat`, fetch: async (path, options = {}) => {
+    path = new URL(path, 'http://localhost').pathname;
     if (options.method === 'POST') writes.push(path);
     return response(path.endsWith('/session') ? session : path.endsWith('/messages/reply') ? focused : path.endsWith('/messages/denied') ? { error: 'Source unavailable' } : latest, path.endsWith('/messages/denied') ? 403 : 200);
   } });
@@ -48,6 +49,7 @@ test('unmount aborts a linked history read and its late response cannot reopen p
     assert.equal(document.body.textContent.includes('Saved original response'), false);
     assert.equal(document.querySelector('dialog'), null);
   }, { url: `http://localhost/w/${w}/?view=chat`, fetch: async (path, options = {}) => {
+    path = new URL(path, 'http://localhost').pathname;
     if (path.endsWith('/messages/reply')) return new Promise(finish => pending.push({ finish, signal: options.signal }));
     return response(path.endsWith('/session') ? session : latest);
   } });

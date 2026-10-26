@@ -2,7 +2,8 @@
 
 [Shared control tools](shared-agent-control.md) now add explicit per-agent/conversation
 operations and durable approvals. Tool-free execution remains the default; the
-original conversation-only test evidence below retains its scope. Current schema: 22.
+original conversation-only test evidence below retains its scope. Current startup
+follows [PostgreSQL setup](postgres-workspaces.md).
 
 
 [Durable approval waits](durable-approval-waits.md) now add checkpoint/reconstruction

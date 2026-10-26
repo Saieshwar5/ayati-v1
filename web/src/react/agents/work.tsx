@@ -17,7 +17,7 @@ export function useAgentRequests(agent: string, scope: string, status: string, c
   useEffect(() => {
     const timer = window.setInterval(() => { if (!document.hidden) void resource.refresh().catch(() => {}); }, 5000);
     const unsubscribe = subscribeChanges(change => {
-      if (['access', 'reset'].includes(change.kind)) { resource.setData(undefined); void resource.refresh().catch(() => {}); }
+      if (['access', 'reset','event_access'].includes(change.kind)) { resource.setData(undefined); void resource.refresh().catch(() => {}); }
     });
     return () => { clearInterval(timer); unsubscribe(); };
   }, [resource.refresh, resource.setData]);

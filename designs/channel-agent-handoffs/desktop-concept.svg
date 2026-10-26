@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="960" viewBox="0 0 1440 960">
+  <g>
+    <rect width="1440" height="960" fill="#F1F2F4"/>
+    <g transform="translate(16, 16)">
+      <g transform="translate(8, 8)">
+        <text x="0" y="27" font-family="Inter" font-size="27" font-weight="700" fill="#282D35">C</text>
+      </g>
+      <g transform="translate(8, 73)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Home</text>
+      </g>
+      <g transform="translate(8, 117)">
+        <text x="0" y="10" font-family="Inter" font-size="10" font-weight="700" fill="#282D35">Chat</text>
+      </g>
+      <g transform="translate(8, 161)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Agents</text>
+      </g>
+    </g>
+    <g transform="translate(88, 16)">
+      <rect width="1336" height="928" rx="18" ry="18" fill="#FFFFFF"/>
+      <g>
+        <g transform="translate(24, 24)">
+          <text x="0" y="25" font-family="Inter" font-size="25" font-weight="700" fill="#282D35">Chat</text>
+        </g>
+        <g transform="translate(24, 78)">
+          <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Operations</text>
+        </g>
+        <g transform="translate(24, 121)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Sales &amp; customers</text>
+        </g>
+        <g transform="translate(24, 162)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Delivery planning</text>
+        </g>
+      </g>
+      <g transform="translate(250, 0)">
+        <rect width="1" height="928" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(251, 0)">
+        <g transform="translate(28, 28)">
+          <text x="0" y="25" font-family="Inter" font-size="25" font-weight="700" fill="#282D35">Delivery planning</text>
+        </g>
+        <g transform="translate(28, 80)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">People and agents · original channel / thread</text>
+        </g>
+        <g transform="translate(28, 118)">
+          <g transform="translate(18, 18)">
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Ananya → Nova</text>
+          </g>
+          <g transform="translate(18, 49)">
+            <text x="0" y="16" font-family="Inter" font-size="16" fill="#282D35">Review order delays and propose a safe next step.</text>
+          </g>
+          <g transform="translate(18, 82)">
+            <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#282D35">Original task · working</text>
+          </g>
+          <g transform="translate(18, 112)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">You remain the requester. Each agent needs current permission and uses its own controlled tools.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 286)">
+          <rect width="1029" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 309)">
+          <g transform="translate(18, 18)">
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Nova → Atlas · Agent handoff</text>
+          </g>
+          <g transform="translate(18, 49)">
+            <text x="0" y="16" font-family="Inter" font-size="16" fill="#282D35">Check delivery availability for the delayed order.</text>
+          </g>
+          <g transform="translate(18, 82)">
+            <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#282D35">Atlas is working · Nova is waiting</text>
+          </g>
+          <g transform="translate(18, 112)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Requested by Ananya · linked parent and helper task. Open helper task / Stop helper. No model polling while waiting.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 477)">
+          <rect width="1029" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 500)">
+          <g transform="translate(18, 18)">
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Atlas · Approval required</text>
+          </g>
+          <g transform="translate(18, 49)">
+            <text x="0" y="16" font-family="Inter" font-size="16" fill="#282D35">I can update the dispatch date after approval.</text>
+          </g>
+          <g transform="translate(18, 82)">
+            <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#282D35">Ask first · exact fields · Ananya decides</text>
+          </g>
+          <g transform="translate(18, 112)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">The handoff does not grant tools. Sender limits and Atlas’s own permissions must both allow this action.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 668)">
+          <rect width="1029" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 691)">
+          <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">When Atlas finishes, Nova resumes the original task.</text>
+        </g>
+        <g transform="translate(28, 730)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Stop Nova also stops unfinished helper work. Stopping Atlas returns a cancelled outcome to Nova.</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

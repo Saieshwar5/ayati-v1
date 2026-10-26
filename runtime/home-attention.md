@@ -1,5 +1,10 @@
 # Home and owner attention
 
+This contract describes the retained native/private-runtime attention adapter.
+PostgreSQL-managed workspace questions, exact approvals and outcomes now use
+[personal Home attention](workspace-attention.md), with their own current-source
+audiences and read/review receipts. The private inbox remains explicitly linked.
+
 Start Ayati normally, then choose **Home** in the left rail or open
 `http://127.0.0.1:8765/?view=home` (use your configured port). **Agents** returns
 to chat and agent creation. The root URL opens Home; `/?agent=local-agent` opens chat.

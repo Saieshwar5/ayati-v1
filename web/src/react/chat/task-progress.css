@@ -1,0 +1,76 @@
+.chat-check-progress {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.task-progress {
+  display: grid;
+  gap: 20px;
+  overflow-wrap: anywhere;
+}
+.task-progress p {
+  margin: 0;
+}
+.task-progress section {
+  display: grid;
+  gap: 10px;
+}
+.task-progress h3,
+.task-progress h4 {
+  margin: 0;
+}
+.task-progress h3 {
+  font-size: 21px;
+}
+.task-progress h4 {
+  font-size: 14px;
+}
+.task-progress-update {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.task-progress-reference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 10px;
+  border-top: 1px solid var(--border);
+}
+.task-progress-reference > span {
+  min-width: 0;
+}
+.task-progress-reference small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.task-progress-reference .ui-button {
+  flex-shrink: 0;
+}
+.task-progress-times {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.task-progress-times > div {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.task-progress-times dd {
+  margin: 0;
+  text-align: right;
+}
+.task-progress-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 450px) {
+  .task-progress-reference {
+    flex-wrap: wrap;
+  }
+}

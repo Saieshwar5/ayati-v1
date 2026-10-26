@@ -8,7 +8,9 @@ decision and confirmed action outcome make the original task eligible for a fres
 attempt, including on another executor after a controller restart.
 
 This extends [channel approvals](channel-approvals.md) and the
-[exact action gateway](shared-agent-control.md). Startup requires **schema 22**.
+[exact action gateway](shared-agent-control.md). This slice introduced schema 22;
+current startup additionally requires [ordinary questions](agent-questions.md)
+and [Chat organization schema 24](chat-organization.md).
 No new provider, dependency, paid inference or cloud resource is required.
 
 ## What people see
@@ -117,7 +119,8 @@ Database tests cover decisions racing with release, multiple approvals, recovery
 more than three continuation generations and revocation/regrant. Browser checks
 cover desktop, phone and dark mode; source evidence is retained under `.tmp/`.
 
-This proves the local approval-wait slice of L2. General choice/form/event waits,
+This proves the local approval-wait slice of L2. Ordinary choice/form waits now
+compose with it through [agent questions](agent-questions.md). Broader event waits,
 every-agent/local compatibility, arbitrary artifact reconstruction, automatic
 uncertain-outcome reconciliation, progress inquiries with cross-task context,
 commercial model/provider quality, multi-day soak, usage/billing and cloud

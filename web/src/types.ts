@@ -50,10 +50,10 @@ export async function api<T>(path: string, options?: RequestInit, agent = curren
   if (workspaceId && options?.method && options.method !== 'GET') headers.set('X-Ayati-Request', 'identity');
   const response = await fetch(workspaceUrl(`/api${path}`), { ...options, headers });
   options?.signal?.throwIfAborted();
-  if (response.status === 401) { location.assign('/?view=account&choose=1'); throw new Error('Please sign in again.'); }
+  if (response.status === 401) { location.assign('/?view=account&choose=1'); throw Object.assign(new Error('Please sign in again.'), { status: 401 }); }
   const data = await response.json();
   options?.signal?.throwIfAborted();
-  if (!response.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.');
+  if (!response.ok) throw Object.assign(new Error(data.error ?? 'Something went wrong. Please try again.'), { status: response.status });
   return data as T;
 }
 

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="390" height="844" viewBox="0 0 390 844">
+  <g>
+    <rect width="390" height="844" fill="#FFFFFF"/>
+    <g transform="translate(18, 18)">
+      <g>
+        <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Review event trigger</text>
+      </g>
+    </g>
+    <g transform="translate(18, 67)">
+      <g>
+        <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">When an order is ready</text>
+      </g>
+    </g>
+    <g transform="translate(18, 108)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Company orders · New order event</text>
+      </g>
+    </g>
+    <g transform="translate(18, 147)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Included data: order, status</text>
+      </g>
+    </g>
+    <g transform="translate(18, 186)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Destination · Delivery operations</text>
+      </g>
+    </g>
+    <g transform="translate(18, 225)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Authorized by · Ananya Rao</text>
+      </g>
+    </g>
+    <g transform="translate(18, 264)">
+      <rect width="354" height="1" fill="#E4E7EB"/>
+    </g>
+    <g transform="translate(18, 287)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Prepare a delivery summary. Ask separately</text>
+      </g>
+      <g transform="translate(0, 21)">
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">before changing an order.</text>
+      </g>
+    </g>
+    <g transform="translate(18, 347)">
+      <g>
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Filter · status equals ready</text>
+      </g>
+    </g>
+    <g transform="translate(18, 386)">
+      <g>
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Existing read permission: Allow in this</text>
+      </g>
+      <g transform="translate(0, 20)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">conversation</text>
+      </g>
+    </g>
+    <g transform="translate(18, 444)">
+      <g>
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Data is attached to the original task. New</text>
+      </g>
+      <g transform="translate(0, 20)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">messages do not silently inherit the private</text>
+      </g>
+      <g transform="translate(0, 40)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">event payload.</text>
+      </g>
+    </g>
+    <g transform="translate(18, 522)">
+      <g>
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Normal action approvals still apply. Creating</text>
+      </g>
+      <g transform="translate(0, 20)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">this rule starts no model and registers no</text>
+      </g>
+      <g transform="translate(0, 40)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">provider subscription.</text>
+      </g>
+    </g>
+    <g transform="translate(18, 600)">
+      <rect width="354" height="45" rx="8" ry="8" fill="#292D34"/>
+      <g transform="translate(14, 14)">
+        <g>
+          <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#FFFFFF">Activate event trigger</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
