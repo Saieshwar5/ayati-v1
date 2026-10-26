@@ -48,7 +48,7 @@ python3 tools/workspace_restore.py \
   --source-quiesced
 ```
 
-Use the actual test schema and files root. Schema 31 is the supported contract;
+Use the actual test schema and files root. Schema 32 is the supported contract;
 other versions fail. The source schema is limited to 128 MiB and recorded chat
 files to 256 objects, 10 MiB each and 128 MiB total. Individual PostgreSQL commands
 have a 60-second deadline and bounded captured output. The source must stay

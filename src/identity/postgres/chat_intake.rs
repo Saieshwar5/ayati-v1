@@ -9,18 +9,19 @@ use serde_json::json;
 #[derive(Clone, Copy, PartialEq)]
 enum WorkClass<'a> {
     Interactive,
+    Communication,
     Background,
     Handoff(&'a str),
 }
 impl WorkClass<'_> {
     fn as_str(self) -> &'static str {
         match self {
-            Self::Interactive => "interactive",
+            Self::Interactive | Self::Communication => "interactive",
             Self::Background | Self::Handoff(_) => "background",
         }
     }
     fn background(self) -> bool {
-        !matches!(self, Self::Interactive)
+        !matches!(self, Self::Interactive | Self::Communication)
     }
 }
 impl PgStore {
@@ -62,6 +63,28 @@ impl PgStore {
             .await?;
         tx.commit().await?;
         Ok(job)
+    }
+    pub(super) async fn communication_in(
+        &self,
+        tx: &DatabaseTransaction,
+        user: &User,
+        w: &str,
+        chat: &str,
+        input: &NewMessage,
+    ) -> Result<Option<Job>> {
+        ensure!(
+            query(
+                tx,
+                "SELECT relay_communication_current($1,$2) AS allowed",
+                vec![w.into(), chat.into()]
+            )
+            .await?
+            .context("Missing communication scope")?
+            .try_get::<bool>("", "allowed")?,
+            "Communication audience or authority changed"
+        );
+        self.enqueue_chat_in(tx, user, w, chat, input, WorkClass::Communication)
+            .await
     }
     // Scheduled/event intake shares the ordinary source/target/queue checks and
     // commits its occurrence receipt with the exact source message and job.
@@ -124,6 +147,9 @@ impl PgStore {
             "Message is empty or too long"
         );
         access(tx, user, workspace, chat).await?;
+        if class != WorkClass::Communication {
+            super::communication_access::ordinary_chat(tx, workspace, chat).await?;
+        }
         let (author, kind) = match class {
             WorkClass::Handoff(sender) => (sender, "agent"),
             _ => (user.id.as_str(), "user"),
@@ -262,6 +288,10 @@ impl PgStore {
                 ],
             )
             .await?;
+        }
+        if class == WorkClass::Interactive {
+            super::communication_inbox::record_chat(tx, user, workspace, chat, input, job.as_ref())
+                .await?;
         }
         Ok(job)
     }

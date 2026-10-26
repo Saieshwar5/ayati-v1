@@ -116,6 +116,7 @@ async fn identity_in(tx: &DatabaseTransaction, job: &Job) -> Result<Value> {
             "thread":row.try_get::<Option<String>>("","thread")?},
         "request_message":row.try_get::<Option<String>>("","request_message")?,
         "work_class":class,"origin":origin,
-        "initiating_actor":initiating_actor
+        "initiating_actor":initiating_actor,
+        "communication":super::communication_inbox::context(tx,job).await?
     }))
 }

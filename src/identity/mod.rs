@@ -7,6 +7,7 @@ mod attention;
 mod automations;
 mod chat;
 mod collaboration;
+mod communications;
 pub(crate) mod control;
 mod controlled_launcher;
 pub mod controlled_worker;
@@ -266,6 +267,7 @@ fn router(app: Shared) -> Router {
         .merge(interactions::routes())
         .merge(library::routes())
         .merge(collaboration::routes())
+        .merge(communications::routes())
         .merge(simulation::routes())
         .merge(resources::routes())
         .route("/health/live", get(hosting::live))
