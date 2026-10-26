@@ -33,6 +33,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::rehearsal_migration::Rehearsals),
             Box::new(super::automation_migration::Automations),
             Box::new(super::event_migration::Events),
+            Box::new(super::handoff_migration::Handoffs),
         ]
     }
 }

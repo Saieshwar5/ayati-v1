@@ -135,6 +135,14 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             }
             pg.ask_question(job, &question).await
         }
+        "handoff_targets" => {
+            ensure!(arguments == json!({}), "Invalid helper discovery request");
+            pg.handoff_targets(job).await
+        }
+        "request_handoff" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.request_handoff(job, &input).await
+        }
         "operations" => {
             ensure!(arguments == json!({}), "Invalid discovery request");
             pg.control_operations(job).await

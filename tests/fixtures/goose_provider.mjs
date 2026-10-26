@@ -79,7 +79,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
       const step = steps[results.length];
       if (step) tool = { id: `control-${results.length}`, type: 'function', function: { name: `ayati_control__${step.tool}`, arguments: JSON.stringify(step.arguments) } };
       else text = savedTask ? command.questionCheckpoint && savedTask.actions.length === 0 && command.afterQuestion && !declined ? command.questionCheckpoint
-        : `CONTINUED_RESULT ${JSON.stringify({decisions:savedTask.actions.map(a=>({id:a.id,state:a.state,decision:a.decision})),questions:savedTask.questions?.map(q=>({key:q.key,state:q.state,values:q.values})),results:results.map(result=>result.content)})}` : command.checkpoint ?? `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
+        : `CONTINUED_RESULT ${JSON.stringify({handoffs:savedTask.handoffs?.map(h=>({key:h.key,state:h.state,result:h.result,truncated:h.truncated})),decisions:savedTask.actions.map(a=>({id:a.id,state:a.state,decision:a.decision})),questions:savedTask.questions?.map(q=>({key:q.key,state:q.state,values:q.values})),results:results.map(result=>result.content)})}` : command.checkpoint ?? `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
     }
     if (prompt?.startsWith('workspace ')) {
       const command = JSON.parse(prompt.slice(10));

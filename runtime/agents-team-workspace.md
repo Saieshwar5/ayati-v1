@@ -109,3 +109,6 @@ not commercial-model calibration or cloud acceptance. The earlier
 [Connected events](shared-agent-events.md) now share the Automation pane with schedules,
 using reviewed source/read authority and the same ordinary task controls. Source
 revocation clears affected readers without closing unrelated setup forms.
+
+[Channel handoffs](channel-agent-handoffs.md) add source-authorized parent/helper
+relationships to Work without granting new request or business authority.

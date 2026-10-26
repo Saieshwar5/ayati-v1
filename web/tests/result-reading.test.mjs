@@ -21,7 +21,7 @@ test('reader freezes its saved draft, updates only explicitly, downloads its com
     const url = new URL(document.querySelector('a[download]').href);
     assert.equal(url.searchParams.get('version'),current.version); assert.equal(url.searchParams.get('download'),'true');
     denied = true; await update(()=>check()); assert.equal(document.querySelector('.result-body'),null);
-    assert.match(document.body.textContent,/Source access revoked/); assert.ok(calls >= 4);
+    assert.match(document.body.textContent,/Source access revoked/); assert.equal(button('Retry').disabled,false); assert.match(document.querySelector('.result-toolbar').textContent,/Response unavailable/); assert.ok(calls >= 4);
   });
   assert.equal(check,undefined);
 });

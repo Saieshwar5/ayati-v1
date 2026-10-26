@@ -70,7 +70,20 @@ impl PgStore {
             "Connected event source access changed"
         );
         let sources = if super::event_access::exists(&tx).await? {
-            json_rows(&tx,"SELECT jsonb_build_object('kind','connected_event','id',d.id,'title',t.source_definition->>'name','text',i.data::text) AS data FROM relay_event_deliveries d JOIN relay_event_inbox i ON i.workspace=d.workspace AND i.source=d.source AND i.id=d.event_id JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2 AND i.data IS NOT NULL AND NOT d.revoked",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?
+            let handoff = if super::handoff_access::exists(&tx).await? {
+                " OR d.id IN (SELECT source->>'delivery' FROM relay_agent_handoffs WHERE workspace=$1 AND child=$2 AND NOT source_revoked)"
+            } else {
+                ""
+            };
+            let sql = format!(
+                "SELECT jsonb_build_object('kind','connected_event','id',d.id,'title',t.source_definition->>'name','text',i.data::text) AS data FROM relay_event_deliveries d JOIN relay_event_inbox i ON i.workspace=d.workspace AND i.source=d.source AND i.id=d.event_id JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND (d.reply=$2{handoff}) AND i.data IS NOT NULL AND NOT d.revoked"
+            );
+            json_rows(
+                &tx,
+                &sql,
+                vec![job.workspace.clone().into(), job.reply.clone().into()],
+            )
+            .await?
         } else {
             vec![]
         };

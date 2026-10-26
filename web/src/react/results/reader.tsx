@@ -27,7 +27,7 @@ export function ResponseReader({ id, source, close }: { id: string; source: Resu
         setError('');
       } catch (failure) {
         if (abort.signal.aborted || request !== epoch) return;
-        if (denied(failure)) { epoch++; setData(undefined); setLatest(undefined); }
+        if (denied(failure)) { setData(undefined); setLatest(undefined); }
         setError(errorMessage(failure));
       } finally { if (request === epoch) { loading = false; if (!abort.signal.aborted) setBusy(false); } }
     };
@@ -47,7 +47,7 @@ export function ResponseReader({ id, source, close }: { id: string; source: Resu
   const update = () => { setRetry(value => value + 1); if (body.current) body.current.scrollTop = 0; };
   return <Dialog title="Agent response" close={close} status={status}>
     <div className={`result-reader${expanded ? ' result-reader-expanded' : ''}`}>
-      <div className="result-toolbar"><span>{data?.state === 'draft' ? 'Saved draft · still working' : data?.state === 'interrupted' ? 'Saved partial response · work interrupted' : data ? 'Saved response' : 'Loading response…'}</span><Button onClick={() => setExpanded(value => !value)}>{expanded ? 'Reduce' : 'Expand'}</Button>
+      <div className="result-toolbar"><span>{data?.state === 'draft' ? 'Saved draft · still working' : data?.state === 'interrupted' ? 'Saved partial response · work interrupted' : data ? 'Saved response' : error ? 'Response unavailable' : 'Loading response…'}</span><Button onClick={() => setExpanded(value => !value)}>{expanded ? 'Reduce' : 'Expand'}</Button>
         <Button disabled={!data} onClick={() => { if (data) void navigator.clipboard.writeText(data.body).then(() => setStatus('Response copied.')).catch(() => setStatus('Copy failed. Select and copy the response text.')); }}>Copy</Button>
         {data?.state === 'complete' && <a className="ui-button" href={source.href(query(source.response(id), { download: true, version: data.version }))} download>Download Markdown</a>}
       </div>

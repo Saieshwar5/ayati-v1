@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="390" height="844" viewBox="0 0 390 844">
+  <g>
+    <rect width="390" height="844" fill="#F1F2F4"/>
+    <g transform="translate(6, 6)">
+      <rect width="378" height="832" rx="14" ry="14" fill="#FFFFFF"/>
+      <g transform="translate(20, 20)">
+        <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Delivery planning</text>
+      </g>
+      <g transform="translate(20, 67)">
+        <text x="0" y="12" font-family="Inter" font-size="12" fill="#282D35">Original task · requested by Ananya</text>
+      </g>
+      <g transform="translate(20, 102)">
+        <text x="0" y="17" font-family="Inter" font-size="17" font-weight="700" fill="#282D35">Nova → Atlas</text>
+      </g>
+      <g transform="translate(20, 143)">
+        <g>
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">Check delivery availability for this</text>
+        </g>
+        <g transform="translate(0, 20)">
+          <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">delayed order.</text>
+        </g>
+      </g>
+      <g transform="translate(20, 201)">
+        <rect width="338" height="1" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(20, 222)">
+        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Helper task · waiting for approval</text>
+      </g>
+      <g transform="translate(20, 259)">
+        <g>
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Atlas proposes a dispatch-date</text>
+        </g>
+        <g transform="translate(0, 19)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">update. Ananya must approve the exact</text>
+        </g>
+        <g transform="translate(0, 38)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">fields in Cuckoo.</text>
+        </g>
+      </g>
+      <g transform="translate(20, 334)">
+        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Open helper task</text>
+      </g>
+      <g transform="translate(20, 371)">
+        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">View exact approval</text>
+      </g>
+      <g transform="translate(20, 408)">
+        <rect width="338" height="1" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(20, 429)">
+        <text x="0" y="15" font-family="Inter" font-size="15" font-weight="700" fill="#282D35">Nova is waiting for Atlas</text>
+      </g>
+      <g transform="translate(20, 467)">
+        <g>
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">The worker is released. Nova continues</text>
+        </g>
+        <g transform="translate(0, 19)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">from the saved result after Atlas</text>
+        </g>
+        <g transform="translate(0, 38)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">finishes.</text>
+        </g>
+      </g>
+      <g transform="translate(20, 542)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Each agent keeps its own permissions.</text>
+        </g>
+        <g transform="translate(0, 18)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Asking another agent cannot widen</text>
+        </g>
+        <g transform="translate(0, 36)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">access.</text>
+        </g>
+      </g>
+      <g transform="translate(20, 614)">
+        <rect width="338" height="1" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(20, 635)">
+        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Stop helper task</text>
+      </g>
+      <g transform="translate(20, 672)">
+        <g>
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#282D35">Stopping the original task also stops</text>
+        </g>
+        <g transform="translate(0, 17)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#282D35">unfinished helper work. Confirmed</text>
+        </g>
+        <g transform="translate(0, 34)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#282D35">actions keep their saved receipts.</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

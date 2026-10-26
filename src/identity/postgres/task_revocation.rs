@@ -5,6 +5,7 @@ use crate::identity::chat::store::Job;
 pub(super) async fn inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     super::automation_access::invalidate_inaccessible(tx, w).await?;
     super::event_dispatch::invalidate_inaccessible(tx, w).await?;
+    super::handoff_lifecycle::invalidate_inaccessible(tx, w).await?;
     let event_clause = if super::event_access::exists(tx).await? {
         " OR EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace=j.workspace AND e.reply=j.reply)"
     } else {

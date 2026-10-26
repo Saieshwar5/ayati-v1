@@ -20,7 +20,11 @@ pub(crate) async fn start(app: Shared) {
                     _=owner.runtimes.stopping.cancelled()=>break,
                     _=tokio::time::sleep(std::time::Duration::from_secs(1))=>{},
                 }
-                for result in [pg.dispatch_schedules().await, pg.dispatch_events().await] {
+                for result in [
+                    pg.dispatch_schedules().await,
+                    pg.dispatch_events().await,
+                    pg.reconcile_handoffs().await,
+                ] {
                     match result {
                         Ok(n) if n > 0 => owner.runtimes.chat_wake.notify_one(),
                         Ok(_) => {}

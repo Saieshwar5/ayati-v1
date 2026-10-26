@@ -93,8 +93,8 @@ capacity/SLA/cost acceptance and channel handoffs remain separate increments.
 
 Schema **28**, `m20261026_000028_shared_agent_events`, adds source receipts,
 immutable human-authorized triggers, deliveries and exact state-change receipts.
-Apply the normal explicit migration only to the intended deployment; startup
-rejects older schemas. Tests migrated isolated disposable PostgreSQL schemas.
+Current startup/schema grants follow [PostgreSQL workspaces](postgres-workspaces.md).
+Apply explicit migrations only to the intended deployment. Tests migrated isolated disposable PostgreSQL schemas.
 The native SQLite adapter does not implement these shared event routes.
 
 `AYATI_EVENT_SOURCES_FILE` points to an absolute, owned, regular 0600 JSON file
@@ -173,5 +173,5 @@ process records are recorded there after the complete regression run.
 
 This is local acceptance. Real Composio delivery/subscription registration,
 provider retry behavior, TLS/ingress, refresh, cloud cost/capacity and production
-operations still require separate bounded verification. Channel handoffs are the
-next independent serial increment.
+operations still require separate bounded verification. [Channel handoffs](channel-agent-handoffs.md) extend these tasks with source-
+protected helper work as a separate serial increment.

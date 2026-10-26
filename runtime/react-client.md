@@ -42,6 +42,8 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/chat/organization-model.ts`, `pin-control.tsx` and
   `channel-lifecycle.tsx`: personal server pins and guarded archive/restore review.
   Existing conversation/thread composers retain drafts while closed to new sends.
+- `web/src/react/chat/handoffs.tsx`: source-authorized parent/helper links, honest
+  wait/outcome states and exact helper Stop in channel threads and Agents Work.
 - `web/src/react/questions/`: compact saved references and typed ordinary-answer
   dialogs, guarded submissions, readable history and source revocation handling.
   Answers and business approvals retain separate authority.

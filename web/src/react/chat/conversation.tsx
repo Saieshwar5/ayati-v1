@@ -81,7 +81,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     const unsubscribe = subscribeChanges(change => {
       if (change.kind==='event_access' && change.chat===chat.id) {
         sourceEpoch.current++;
-        const clear=(message:Message):Message=>message.source_scope===change.source ? {...message,content:'Response unavailable while source access is checked.',progress:undefined,questions:[],attachments:[],response:undefined,response_unavailable:true,can_cancel:false}:message;
+        const clear=(message:Message):Message=>message.source_scope===change.source ? {...message,content:'Response unavailable while source access is checked.',coordination:undefined,handoff:undefined,progress:undefined,questions:[],attachments:[],response:undefined,response_unavailable:true,can_cancel:false}:message;
         incoming.current=new Map([...incoming.current].map(([id,m])=>[id,clear(m)]));
         setHistory(old=>old ? {...old,messages:old.messages.map(clear)}:old); setOlder(old=>old.map(clear)); setFocused(old=>old.map(clear));
         void load();

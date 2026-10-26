@@ -37,6 +37,17 @@ pub(super) async fn decision_authority(
     a: &Value,
 ) -> Result<()> {
     viewer(db, user, w, a).await?;
+    let job = super::control_actions::job_for_action(db, a).await?;
+    ensure!(
+        super::handoff_controls::allowed(
+            db,
+            &job,
+            a["connection"].as_str().unwrap(),
+            a["operation"].as_str().unwrap()
+        )
+        .await?,
+        "Handoff operation ceiling changed"
+    );
     ensure!(
         a["approver"] == user.id,
         "Only the designated authorized person can decide this action"

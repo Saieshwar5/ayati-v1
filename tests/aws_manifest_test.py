@@ -49,9 +49,9 @@ class ManifestTests(unittest.TestCase):
 
     def test_release_rejects_previous_application_schemas(self):
         data = complete_manifest()
-        self.assertEqual(data["release"]["schema_version"], 28)
+        self.assertEqual(data["release"]["schema_version"], 29)
         self.assertTrue(validate(data, NOW)["schema_ok"])
-        for previous in (20, 22, 23, 24, 25, 26, 27):
+        for previous in (20, 22, 23, 24, 25, 26, 27, 28):
             with self.subTest(previous=previous):
                 data["release"]["schema_version"] = previous
                 self.assertFalse(validate(data, NOW)["schema_ok"])

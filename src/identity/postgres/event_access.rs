@@ -102,15 +102,19 @@ pub(super) async fn scope(
     if !exists(db).await? {
         return Ok(None);
     }
-    query(
-        db,
-        "SELECT source FROM relay_event_deliveries WHERE workspace=$1 AND reply=$2",
-        vec![w.into(), reply.into()],
-    )
-    .await?
-    .map(|r| r.try_get("", "source"))
-    .transpose()
-    .map_err(Into::into)
+    let handoff = if super::handoff_access::exists(db).await? {
+        " UNION ALL SELECT source->>'source' AS source FROM relay_agent_handoffs WHERE workspace=$1 AND (child=$2 OR root=$2 OR request_message=$2) AND source IS NOT NULL"
+    } else {
+        ""
+    };
+    let sql = format!(
+        "SELECT source FROM relay_event_deliveries WHERE workspace=$1 AND reply=$2{handoff} LIMIT 1"
+    );
+    query(db, &sql, vec![w.into(), reply.into()])
+        .await?
+        .map(|r| r.try_get("", "source"))
+        .transpose()
+        .map_err(Into::into)
 }
 pub(super) async fn allowed(
     db: &impl ConnectionTrait,

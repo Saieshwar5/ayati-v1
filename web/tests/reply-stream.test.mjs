@@ -60,7 +60,7 @@ test('saved approval waits and uncertain outcomes show honest status and retain 
  await reactFixture(async({render,button})=>{
   const context=await import('../src/workspace-context.ts');await context.enterWorkspace();
   const {ReplyProgress}=await import('../src/react/chat/reply-progress.tsx');
-  for(const [state,label] of [['approval','Waiting for approval · Worker released'],['resuming','Decision saved · Waiting to continue'],['attention','Needs attention · External outcome not yet confirmed']]) {
+  for(const [state,label] of [['approval','Waiting for approval · Worker released'],['resuming','Saved update · Waiting to continue'],['attention','Needs attention · External outcome not yet confirmed']]) {
    await render(ReplyProgress,{message:{...message,progress:{state,text:''}}});
    assert.ok(document.querySelector('[role=status]').textContent.includes(label));
    assert.ok(button('Stop reply'));

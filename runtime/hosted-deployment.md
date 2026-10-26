@@ -1,6 +1,6 @@
 # Hosted deployment foundation
 
-Current application startup requires the full [schema 28](shared-agent-events.md)
+Current application startup requires the full [schema 29](channel-agent-handoffs.md)
 and runtime grants. The older deployment/image evidence below retains its
 original scope; it does not establish acceptance for this new release.
 
@@ -138,7 +138,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 
 Keep schema creation/ownership and database administration away from the runtime
-role. Existing deployments must run all migrations through 28 (`m20261026_000028_shared_agent_events`)
+role. Existing deployments must run all migrations through 29 (`m20261026_000029_channel_agent_handoffs`)
 and grants before starting this version. API/worker startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.

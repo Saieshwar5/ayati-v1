@@ -2,7 +2,8 @@
 
 The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
 and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all twenty-eight migrations, including `m20261026_000028_shared_agent_events`.
+requires all twenty-nine migrations, including `m20261026_000029_channel_agent_handoffs`.
+[Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
 deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
 occurrence receipts through the existing background queue.
