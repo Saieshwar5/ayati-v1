@@ -25,7 +25,7 @@ pub(super) async fn viewer(
     let mut job = super::control_actions::job_for_action(db, a).await?;
     job.requester = user.id.clone();
     ensure!(
-        super::library::source_allowed(db, &job).await?,
+        super::source_access::allowed(db, &job).await?,
         "Approval source data is unavailable to this person"
     );
     Ok(())
@@ -67,6 +67,8 @@ pub(super) async fn details(
     let id = a["id"].as_str().unwrap();
     let mut value = super::control_actions::visible(db, w, id).await?;
     let names=query(db,"SELECT c.definition->>'name' AS account,a.name,COALESCE(u.display_name,u.email) AS approver FROM relay_control_connections c JOIN relay_shared_agents a ON a.workspace=c.workspace AND a.id=$3 JOIN relay_users u ON u.id=$4 WHERE c.workspace=$1 AND c.id=$2",vec![w.into(),a["connection"].as_str().unwrap().into(),a["agent"].as_str().unwrap().into(),a["approver"].as_str().unwrap().into()]).await?.context("Approval context unavailable")?;
+    value["source_scope"] =
+        json!(super::event_access::scope(db, w, a["job"].as_str().unwrap()).await?);
     value["agent"] = a["agent"].clone();
     value["agent_name"] = json!(names.try_get::<String>("", "name")?);
     value["account_name"] = json!(names.try_get::<String>("", "account")?);

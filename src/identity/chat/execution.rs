@@ -140,7 +140,9 @@ pub(crate) async fn prepare_traced(
     ensure!(db.chat_job_allowed(job).await, "Request access changed");
     trace.mark("authorize_before");
     let sources = if let Database::Postgres(pg) = db {
-        pg.library_job_context(job).await?
+        let mut sources = pg.library_job_context(job).await?;
+        sources.extend(pg.event_job_context(job).await?);
+        sources
     } else {
         vec![]
     };

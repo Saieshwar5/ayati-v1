@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="960" viewBox="0 0 1440 960">
+  <g>
+    <rect width="1440" height="960" fill="#F1F2F4"/>
+    <g transform="translate(16, 16)">
+      <g transform="translate(8, 8)">
+        <g>
+          <text x="0" y="27" font-family="Inter" font-size="27" font-weight="700" fill="#282D35">C</text>
+        </g>
+      </g>
+      <g transform="translate(8, 71)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Home</text>
+        </g>
+      </g>
+      <g transform="translate(8, 113)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" fill="#282D35">Chat</text>
+        </g>
+      </g>
+      <g transform="translate(8, 155)">
+        <g>
+          <text x="0" y="10" font-family="Inter" font-size="10" font-weight="700" fill="#282D35">Agents</text>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(88, 16)">
+      <rect width="1336" height="928" rx="18" ry="18" fill="#FFFFFF"/>
+      <g>
+        <g transform="translate(24, 24)">
+          <g>
+            <text x="0" y="23" font-family="Inter" font-size="23" font-weight="700" fill="#282D35">Agents</text>
+          </g>
+        </g>
+        <g transform="translate(24, 76)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Nova · Customer care</text>
+          </g>
+        </g>
+        <g transform="translate(24, 117)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Atlas · Operations</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(250, 0)">
+        <rect width="1" height="928" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(251, 0)">
+        <g transform="translate(28, 28)">
+          <g>
+            <text x="0" y="26" font-family="Inter" font-size="26" font-weight="700" fill="#282D35">Nova · Automation</text>
+          </g>
+        </g>
+        <g transform="translate(28, 83)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Schedules · Event triggers</text>
+          </g>
+        </g>
+        <g transform="translate(28, 123)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 148)">
+          <g>
+            <text x="0" y="23" font-family="Inter" font-size="23" font-weight="700" fill="#282D35">Event triggers</text>
+          </g>
+        </g>
+        <g transform="translate(28, 200)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">React to events from approved connected</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">accounts.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 260)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">Create event trigger</text>
+          </g>
+        </g>
+        <g transform="translate(28, 301)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 326)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Order ready for delivery</text>
+          </g>
+        </g>
+        <g transform="translate(28, 369)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Company orders · Delivery operations</text>
+          </g>
+        </g>
+        <g transform="translate(28, 410)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Original person · Ananya Rao</text>
+          </g>
+        </g>
+        <g transform="translate(28, 450)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Enabled · Pause · View deliveries</text>
+          </g>
+        </g>
+        <g transform="translate(28, 490)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 515)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Last delivery</text>
+          </g>
+        </g>
+        <g transform="translate(28, 558)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Question waiting for an answer</text>
+          </g>
+        </g>
+        <g transform="translate(28, 599)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">The original task keeps its source and</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">independent action approvals.</text>
+          </g>
+        </g>
+        <g transform="translate(28, 659)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Open original work</text>
+          </g>
+        </g>
+        <g transform="translate(28, 699)">
+          <rect width="588" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(28, 724)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Provider setup</text>
+          </g>
+        </g>
+        <g transform="translate(28, 767)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">An operator binds an existing signed provider</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">source. This page does not create</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">subscriptions or connect arbitrary URLs.</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(895, 0)">
+        <rect width="1" height="928" fill="#E4E7EB"/>
+      </g>
+      <g transform="translate(896, 0)">
+        <g transform="translate(26, 26)">
+          <g>
+            <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Review event trigger</text>
+          </g>
+        </g>
+        <g transform="translate(26, 75)">
+          <g>
+            <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">When an order is ready</text>
+          </g>
+        </g>
+        <g transform="translate(26, 116)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Company orders · New order event</text>
+          </g>
+        </g>
+        <g transform="translate(26, 155)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Included data: order, status</text>
+          </g>
+        </g>
+        <g transform="translate(26, 194)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Destination · Delivery operations</text>
+          </g>
+        </g>
+        <g transform="translate(26, 233)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Authorized by · Ananya Rao</text>
+          </g>
+        </g>
+        <g transform="translate(26, 272)">
+          <rect width="388" height="1" fill="#E4E7EB"/>
+        </g>
+        <g transform="translate(26, 295)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Prepare a delivery summary. Ask separately</text>
+          </g>
+          <g transform="translate(0, 21)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">before changing an order.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 355)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Filter · status equals ready</text>
+          </g>
+        </g>
+        <g transform="translate(26, 394)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Existing read permission: Allow in this</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">conversation</text>
+          </g>
+        </g>
+        <g transform="translate(26, 452)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Data is attached to the original task. New</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">messages do not silently inherit the private</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">event payload.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 530)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">Normal action approvals still apply. Creating</text>
+          </g>
+          <g transform="translate(0, 20)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">this rule starts no model and registers no</text>
+          </g>
+          <g transform="translate(0, 40)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#626B77">provider subscription.</text>
+          </g>
+        </g>
+        <g transform="translate(26, 608)">
+          <rect width="388" height="45" rx="8" ry="8" fill="#292D34"/>
+          <g transform="translate(14, 14)">
+            <g>
+              <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#FFFFFF">Activate event trigger</text>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

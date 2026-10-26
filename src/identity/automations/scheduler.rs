@@ -20,12 +20,14 @@ pub(crate) async fn start(app: Shared) {
                     _=owner.runtimes.stopping.cancelled()=>break,
                     _=tokio::time::sleep(std::time::Duration::from_secs(1))=>{},
                 }
-                match pg.dispatch_schedules().await {
-                    Ok(n) if n > 0 => owner.runtimes.chat_wake.notify_one(),
-                    Ok(_) => {}
-                    Err(_) => tracing::warn!(
-                        "Shared schedule admission unavailable; due work remains saved"
-                    ),
+                for result in [pg.dispatch_schedules().await, pg.dispatch_events().await] {
+                    match result {
+                        Ok(n) if n > 0 => owner.runtimes.chat_wake.notify_one(),
+                        Ok(_) => {}
+                        Err(_) => tracing::warn!(
+                            "Shared work admission unavailable; accepted work remains saved"
+                        ),
+                    }
                 }
             }
         });

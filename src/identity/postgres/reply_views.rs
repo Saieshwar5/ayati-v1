@@ -24,17 +24,38 @@ pub(super) async fn hydrate(
         .filter(|m| m["kind"] == "agent" && m["state"] == "queued")
         .map(|m| m["id"].clone())
         .collect::<Vec<_>>();
-    for row in rows(tx,"SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply))",vec![workspace.into(),serde_json::json!(ids).into(),serde_json::json!(pending).into()]).await? {
-        let job:Job=serde_json::from_value(row.try_get("","payload")?)?;
-        jobs.insert(job.reply.clone(),job);
+    let event_clause = if super::event_access::exists(tx).await? {
+        " OR EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace=j.workspace AND e.reply=j.reply)"
+    } else {
+        ""
+    };
+    let sql = format!(
+        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause})"
+    );
+    for row in rows(
+        tx,
+        &sql,
+        vec![
+            workspace.into(),
+            serde_json::json!(ids).into(),
+            serde_json::json!(pending).into(),
+        ],
+    )
+    .await?
+    {
+        let job: Job = serde_json::from_value(row.try_get("", "payload")?)?;
+        jobs.insert(job.reply.clone(), job);
     }
     for message in messages.iter_mut().filter(|m| m["kind"] == "agent") {
         if let Some(job) = message["id"].as_str().and_then(|id| jobs.get(id)) {
+            message["source_scope"] =
+                serde_json::json!(super::event_access::scope(tx, workspace, &job.reply).await?);
             let mut viewer = job.clone();
             viewer.requester = user.id.clone();
-            if !super::library::source_allowed(tx, &viewer).await? {
+            if !super::source_access::allowed(tx, &viewer).await? {
                 message["content"] =
                     Value::String("Response unavailable because source access changed.".into());
+                message["response"] = Value::Null;
                 message["progress"] = Value::Null;
                 message["attachments"] = serde_json::json!([]);
                 message["questions"] = serde_json::json!([]);

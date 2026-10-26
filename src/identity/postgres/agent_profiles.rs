@@ -43,12 +43,13 @@ impl PgStore {
     pub async fn agent_profiles(&self, user: &User, w: &str) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
         let owner = role(&tx, w, &user.id).await? == "Owner";
-        let profiles = json_rows(
+        let mut profiles = json_rows(
             &tx,
             include_str!("agent_directory.sql"),
             vec![w.into(), user.id.clone().into(), owner.into()],
         )
         .await?;
+        super::event_access::pending_counts(&tx, user, w, &mut profiles).await?;
         tx.commit().await?;
         Ok(profiles)
     }

@@ -1,4 +1,5 @@
 export type ResponseReference = {
+  source_scope?: string | null;
   schema: 1; id: string; version: string; sequence: number;
   state: 'complete' | 'draft' | 'interrupted'; characters: number; bytes: number;
   long: boolean; available: boolean;
@@ -10,7 +11,7 @@ export type ResultSource = {
   href: (path: string) => string;
   response: (id: string) => string;
   file: (id: string) => string;
-  subscribe?: (check: () => void) => () => void;
+  subscribe?: (check: (scope?: string | null) => void) => () => void;
 };
 export type Selection = { kind: 'response'; id: string } | { kind: 'file'; id: string; name: string };
 export const query = (path: string, values: Record<string, string | boolean>) => `${path}${path.includes('?') ? '&' : '?'}${new URLSearchParams(Object.entries(values).map(([key, value]) => [key, String(value)]))}`;

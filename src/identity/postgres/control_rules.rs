@@ -35,6 +35,18 @@ impl PgStore {
         let connections = json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'server',c.server,'definition',c.definition,'enabled',c.enabled,'revision',c.revision) AS data FROM relay_control_connections c WHERE c.workspace=$1 AND ($3 OR ($5 AND EXISTS(SELECT 1 FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=c.workspace AND d.connection=c.id AND d.user_id=$4 AND d.ceiling<>'block')) OR EXISTS(SELECT 1 FROM relay_control_rules r WHERE r.workspace=c.workspace AND r.connection=c.id AND r.agent=$2 AND EXISTS(SELECT 1 FROM relay_chats ch WHERE ch.workspace=r.workspace AND ch.id=r.chat AND (ch.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people cp WHERE cp.workspace=ch.workspace AND cp.chat=ch.id AND cp.user_id=$4))))) ORDER BY c.id LIMIT 50",vec![w.into(),agent.into(),owner.into(),user.id.clone().into(),can_manage.into()]).await?;
         let rules = json_rows(&tx,"SELECT to_jsonb(r)||jsonb_build_object('approver_name',COALESCE(u.display_name,u.email)) AS data FROM relay_control_rules r JOIN relay_users u ON u.id=r.approver JOIN relay_chats c ON c.workspace=r.workspace AND c.id=r.chat WHERE r.workspace=$1 AND r.agent=$2 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)) ORDER BY r.connection,r.operation",vec![w.into(),agent.into(),user.id.clone().into()]).await?;
         let actions = json_rows(&tx,&format!("SELECT {VIEW} AS data FROM relay_control_actions a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.agent=$2 AND (a.requester=$3 OR NOT EXISTS(SELECT 1 FROM relay_library_sources l WHERE l.workspace=a.workspace AND l.reply=a.job)) AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=a.workspace AND p.chat=a.chat AND p.user_id=$3)) ORDER BY a.created DESC,a.id DESC LIMIT 50"),vec![w.into(),agent.into(),user.id.clone().into()]).await?;
+        let mut visible_actions = vec![];
+        for action in actions {
+            let record =
+                super::approval_delivery::action(&tx, w, action["id"].as_str().unwrap()).await?;
+            if super::approval_delivery::viewer(&tx, user, w, &record)
+                .await
+                .is_ok()
+            {
+                visible_actions.push(action);
+            }
+        }
+        let actions = visible_actions;
         tx.commit().await?;
         Ok(
             json!({"connections":connections,"conversations":conversations,"rules":rules,"actions":actions,"can_manage":can_manage,"can_manage_connections":owner,"delegations":delegations,"viewer":user.id}),

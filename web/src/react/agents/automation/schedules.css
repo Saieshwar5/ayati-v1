@@ -1,5 +1,5 @@
 .shared-schedules { max-width: 980px; min-width: 0; }
-.shared-schedules > .agent-section-heading { align-items: start; gap: 18px; }
+.shared-schedules > .agent-section-heading, .routine-triggers > .agent-section-heading { align-items: start; gap: 18px; }
 .routine-row { padding: 22px 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .routine-row header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .routine-row h4 { margin: 0; font-size: 16px; }
@@ -13,4 +13,4 @@
 .routine-review p { margin: 0; overflow-wrap: anywhere; }
 .routine-triggers { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 24px; }
 .routine-run { padding: 18px 0; border-bottom: 1px solid var(--border); }
-@media (max-width: 600px) { .shared-schedules > .agent-section-heading { flex-wrap: wrap; } .routine-interval { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .shared-schedules > .agent-section-heading, .routine-triggers > .agent-section-heading { flex-wrap: wrap; } .routine-interval { grid-template-columns: 1fr; } }

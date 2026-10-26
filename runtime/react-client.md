@@ -25,7 +25,9 @@ server API contracts, authentication, and workspace boundaries.
   permission drafts/previews/activation and preserved local-agent lifecycle controls.
   [The workspace contract](agents-team-workspace.md) describes supported tabs.
 - `web/src/react/agents/automation/`: on-demand shared schedule list, explicit
-  review/create, exact pause/resume and source-authorized run history. Existing
+  review/create, exact pause/resume and source-authorized run history. Reviewed
+  connected-event triggers add signed source setup, filters, activation and bounded
+  delivery history; provider subscription registration remains an operator step. Existing
   private-runtime automation keeps its separate compatibility boundary.
 - `web/src/react/agents/rehearsals/`: on-demand draft-only sample dialog, saved job
   context/source review, guarded Start/Stop, personal history and shared reader.

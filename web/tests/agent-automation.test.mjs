@@ -12,7 +12,7 @@ const routine={id:'routine',chat:'channel',name:'PRIVATE_DELIVERY_REVIEW',conten
 const directory={schedules:[routine],conversations:[{id:'channel',name:'PRIVATE_DELIVERY_CHANNEL',kind:'channel'}],more_conversations:false,execution_available:true};
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 async function setup(){const context=await import('../src/workspace-context.ts');await context.enterWorkspace();return import('../src/react/agents/automation/create-dialog.tsx');}
-function base(path){if(path.endsWith('/session'))return response(session);if(path.includes('/home/preferences'))return response({preferences:clock});if(path.endsWith('/runs'))return response({runs:[]});if(path.includes('/schedules/'))return response(routine);return response(directory);}
+function base(path){if(path.includes('/event-triggers'))return response({triggers:[],choices:[],execution_available:true});if(path.endsWith('/session'))return response(session);if(path.includes('/home/preferences'))return response({preferences:clock});if(path.endsWith('/runs'))return response({runs:[]});if(path.includes('/schedules/'))return response(routine);return response(directory);}
 const field=label=>[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith(label))?.querySelector('input,textarea,select');
 async function fill(change){await change(field('Routine name'),'Delivery review');await change(field('Task instructions'),'Prepare the delivery summary. Ask separately before changing an order.');}
 

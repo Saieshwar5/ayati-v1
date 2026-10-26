@@ -5,6 +5,7 @@ export type Directory = { users: Participant[]; agents: Participant[]; role: str
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
 export type Message = {
+  source_scope?: string | null;
   id: string; author: string; name: string | null; kind: string;
   content: string; state: string; at: number; sequence?: number;
   revision?: number; can_cancel?: boolean;

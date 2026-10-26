@@ -105,3 +105,7 @@ restart history and phone/dark layouts. It uses pinned Goose, a scripted local
 model and an authenticated MCP fixture; this is local application evidence,
 not commercial-model calibration or cloud acceptance. The earlier
 `tests/agents_workspace.mjs` private Chat panel journey is preserved separately.
+
+[Connected events](shared-agent-events.md) now share the Automation pane with schedules,
+using reviewed source/read authority and the same ordinary task controls. Source
+revocation clears affected readers without closing unrelated setup forms.

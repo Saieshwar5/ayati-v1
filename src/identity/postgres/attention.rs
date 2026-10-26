@@ -161,7 +161,7 @@ async fn project(
         return Ok(None);
     }
     Ok(Some(
-        json!({"kind":kind,"id":id,"version":row.try_get::<String>("","version")?,
+        json!({"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"kind":kind,"id":id,"version":row.try_get::<String>("","version")?,
         "title":row.try_get::<String>("","title")?,"status":row.try_get::<String>("","status")?,
         "at":row.try_get::<i64>("","at")?,"agent":job.agent,"agent_name":row.try_get::<String>("","agent_name")?,
         "chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"reply":job.reply,

@@ -45,7 +45,7 @@ export function AgentsPage() {
   const [rehearsing, rehearse] = useState<Agent>();
   const [revision, setRevision] = useState(0);
   useEffect(() => subscribeChanges(change => {
-    if (change.kind === 'reset') { void refresh().catch(() => {}); return; }
+    if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
     epoch.current++; setData(undefined); local.setData(undefined);
     edit(undefined); editLocal(undefined); guide(undefined); control(undefined);

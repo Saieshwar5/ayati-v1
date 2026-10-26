@@ -14,25 +14,26 @@ function QuestionReview({ path, close }: { path: string; close: () => void }) {
   const load = useCallback(() => identityRequest<Question>(path), [path]);
   const { data, error, refresh, setData } = useResource(load);
   const mutation = useMutation();
-  const current = useRef(path), alive = useRef(false);
+  const current = useRef(path), epoch=useRef(0), alive = useRef(false);
   current.current = path;
   const attempt = useRef<{ payload: string; id: string }>(undefined);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
     const timer = window.setInterval(() => { if (!document.hidden) void refresh().catch(() => {}); }, 5000);
     const unsubscribe = subscribeChanges(change => {
-      if ((change.kind === 'access' || change.kind === 'reset') && (!change.chat || !data || change.chat === data.chat)) {
-        setData(undefined); void refresh().catch(() => {});
+      if (((change.kind === 'access' || change.kind === 'reset') && (!change.chat || !data || change.chat === data.chat)) || (change.kind === 'event_access' && (!data || (change.chat === data.chat && data.source_scope === change.source)))) {
+        epoch.current++; setData(undefined); void refresh().catch(() => {});
       } else if (change.kind === 'message' && change.message?.id === data?.reply) void refresh().catch(() => {});
     });
     return () => { window.clearInterval(timer); unsubscribe(); };
-  }, [refresh, setData, data?.chat, data?.reply]);
+  }, [refresh, setData, data?.chat, data?.reply, data?.source_scope]);
   const respond = (decision: 'answer' | 'decline', values: Record<string, unknown>) => void mutation.run(async () => {
     if (!data?.can_respond) throw new Error('This question is no longer available to answer.');
     const payload = JSON.stringify({ decision, values, revision: data.revision, path });
     if (attempt.current?.payload !== payload) attempt.current = { payload, id: crypto.randomUUID() };
+    const version=epoch.current;
     const saved = await identityRequest<Question>(path, { id: attempt.current.id, revision: data.revision, decision, values });
-    if (alive.current && current.current === path) setData({ ...data, ...saved, can_respond: false });
+    if (alive.current && current.current === path && version===epoch.current) setData({ ...data, ...saved, can_respond: false });
   });
   return <Dialog title={data?.specification.title ?? 'Agent question'} drawer busy={mutation.busy} status={mutation.status} close={close}>
     <Button disabled={mutation.busy} onClick={() => void refresh().catch(() => {})}>Refresh question</Button>

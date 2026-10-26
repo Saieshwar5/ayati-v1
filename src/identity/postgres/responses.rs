@@ -22,7 +22,7 @@ impl PgStore {
             let mut viewer = job.clone();
             viewer.requester = user.id.clone();
             ensure!(
-                super::library::source_allowed(&tx, &viewer).await?,
+                super::source_access::allowed(&tx, &viewer).await?,
                 "Response source unavailable"
             );
             if state == "queued" {
@@ -45,7 +45,9 @@ impl PgStore {
                     .filter(|s| !s.is_empty())
             })
             .unwrap_or(&content);
-        let data = crate::response::body(id, text, &state, row.try_get("", "revision")?, metadata)?;
+        let mut data =
+            crate::response::body(id, text, &state, row.try_get("", "revision")?, metadata)?;
+        data["source_scope"] = serde_json::json!(super::event_access::scope(&tx, w, id).await?);
         tx.commit().await?;
         Ok(data)
     }
