@@ -10,6 +10,7 @@ import type { Profile } from '../agents';
 import type { WorkspacePage } from './workspace-shell';
 
 type Controller = { profile?: (profile: Profile) => void; navigate?: (url: URL) => void };
+const WorkspacePanels = lazy(() => import('./home-panels/panels').then(module => ({ default: module.WorkspacePanels })));
 const HomeAttention = lazy(() => import('./attention/home-attention').then(module => ({ default: module.HomeAttention })));
 
 async function install(page: WorkspacePage, view: ViewLifetime, onNotifications: (data: HomeNotificationsState) => void): Promise<Controller | void> {
@@ -33,6 +34,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const [notifications, setNotifications] = useState<HomeNotificationsState | null>(null);
   const [notificationHost, setNotificationHost] = useState<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [panelsHost, setPanelsHost] = useState<HTMLElement | null>(null);
   const [workHost, setWorkHost] = useState<HTMLElement | null>(null);
   const [homeActions, setHomeActions] = useState<HTMLElement | null>(null);
   const controller = useRef<Controller | void>(undefined);
@@ -44,7 +46,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setReady(false);
-    setWorkHost(null);
+    setWorkHost(null); setPanelsHost(null);
     setNotifications(null); setNotificationHost(null);
     setHomeActions(null);
     // Each effect owns a separate subtree, including Strict Mode remounts. Late
@@ -62,6 +64,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
       if (page === 'home') {
         setHomeActions(node.querySelector('[data-home-actions]'));
         setWorkHost(node.querySelector('[data-work-records]'));
+        setPanelsHost(node.querySelector('[data-workspace-panels]'));
         setNotificationHost(node.querySelector('[data-home-notifications]'));
       }
       consumer?.navigate?.(new URL(latestHref.current));
@@ -85,6 +88,7 @@ export function LegacyView({ page, href, profile }: { page: WorkspacePage; href:
   };
   if (page !== 'home') return <div className="feature-host" ref={host} />;
   return <div className="feature-host home-feature">
+    {workspaceId && panelsHost && createPortal(<AttentionBoundary><Suspense fallback={<p role="status">Opening saved panels…</p>}><WorkspacePanels /></Suspense></AttentionBoundary>, panelsHost)}
     {workspaceId && workHost && createPortal(<WorkRecords />, workHost)}
     {notificationHost && createPortal(workspaceId
       ? <AttentionBoundary><Suspense fallback={<HomeNotifications data={null} open={openNotifications} />}><HomeAttention privateData={notifications} openPrivate={openNotifications} /></Suspense></AttentionBoundary>

@@ -20,6 +20,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
+- `web/src/react/home-panels/`: lazy personal workspace snapshots, exact draft review,
+  source-safe detail readers, explicit agent requests and synchronized personal placement.
+  Adopted local-owner panels retain their compatibility controller.
 - `web/src/react/agents/`: selected team roster/profile workspace, source-scoped
   request progress and Stop, guided creation, profile editing, approved knowledge,
   permission drafts/previews/activation and preserved local-agent lifecycle controls.

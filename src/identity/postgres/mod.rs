@@ -115,6 +115,17 @@ mod handoff_source_tests;
 mod handoff_tests;
 mod handoff_views;
 mod history;
+mod home_migration;
+#[cfg(test)]
+mod home_migration_tests;
+#[cfg(test)]
+mod home_panel_tests;
+mod home_panels;
+mod home_receipts;
+#[cfg(test)]
+mod home_source_tests;
+mod home_sources;
+mod home_views;
 mod import;
 #[cfg(test)]
 mod interactive_reserve_tests;

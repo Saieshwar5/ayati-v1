@@ -1,0 +1,121 @@
+.workspace-panels {
+  padding-block: 18px 28px;
+}
+.workspace-panels-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.workspace-panels-heading h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.workspace-panels-heading > div,
+.workspace-panel-arrange {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workspace-panels .home-panels {
+  margin-block: 16px;
+}
+.workspace-panels .home-panel-card {
+  overflow-wrap: anywhere;
+}
+.workspace-panel-basis {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.workspace-panel-basis a {
+  color: inherit;
+}
+.workspace-panel-draft {
+  color: var(--muted);
+  font-size: 12px;
+}
+.workspace-panel-arrange {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+}
+.workspace-panels-empty {
+  padding: 24px 0;
+  color: var(--muted);
+}
+.workspace-panel-form {
+  display: grid;
+  gap: 16px;
+}
+.workspace-panel-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.workspace-panel-form textarea {
+  resize: vertical;
+  max-height: 260px;
+}
+
+.workspace-panel-field {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-panels .home-panel-card {
+  overflow: hidden;
+}
+.workspace-panels .panel-snapshot {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.workspace-panel-footer {
+  flex-shrink: 0;
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.workspace-panel-footer small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.workspace-panel-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workspace-panel-attribution {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 560px) {
+  .workspace-panels .home-panel-card {
+    height: 360px;
+    max-height: 420px;
+  }
+  .workspace-panels .home-panels.is-arranging .home-panel-card {
+    height: 420px;
+  }
+}
+
+.workspace-panel-footer {
+  line-height: 1.2;
+}
+.workspace-panels .panel-snapshot > h3 {
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+.workspace-panels .home-panel-card[data-template='metric'] .panel-block {
+  margin-block: 6px 0;
+}
+@media (max-width: 560px) {
+  .workspace-panels .home-panel-card[data-template='metric'] {
+    height: 320px;
+  }
+}

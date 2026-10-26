@@ -12,7 +12,7 @@ registerHooks({ load(url, context, next) {
 
 const workspace = '11111111-1111-4111-8111-111111111111';
 const base = `/w/${workspace}/`;
-const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner' }] };
+const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner', adopted: true }] };
 const profiles = ['local-agent', 'assistant-two'].map((id, i) => ({ id, name: i ? 'Ramesh' : 'Relay', state: 'ready', editable: false, revision: 1, role: '', model: 'test', memory: false, browser: false, browser_available: false }));
 const directory = { agents: profiles.map(profile => ({ profile, activity: { pending_approvals: 0, pending_tasks: 0 } })), creation_available: true, limit: 4 };
 const response = data => ({ ok: true, status: 200, json: async () => data });
@@ -26,6 +26,7 @@ function dataFor(path) {
   if (path.endsWith('/home')) return { agents: [] };
   // These legacy Home journeys exercise the explicit private-runtime adapter.
   if (path.includes('/attention?')) return { available: false, items: [], next_before: null };
+  if (path.endsWith('/home-panels')) return { available: false, panels: [] };
   if (path.endsWith('/panels')) return { panels: [], available: true };
   if (path.endsWith('/apps')) return { apps: [], available: true };
   if (path.endsWith('/home/preferences')) return { preferences: null };
