@@ -23,6 +23,7 @@ SUITES = {
     'faults': ['tests/agent_load_faults.mjs'],
     'context': ['tests/multi_workspace_context.mjs'],
     'workspace': ['tests/trusted_sender_context.mjs', 'tests/conversation_history.mjs',
+                  'tests/session_work_continuity.mjs',
                   'tests/managed_context_isolation.mjs', 'tests/context_preview.mjs',
                   'tests/knowledge_audience.mjs', 'tests/agent_questions.mjs',
                   'tests/agent_handoffs.mjs', 'tests/agent_handoff_sources.mjs',

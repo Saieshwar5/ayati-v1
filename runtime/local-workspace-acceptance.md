@@ -16,9 +16,11 @@ resources. Do not interpret synthetic-model responses as business-quality eviden
 
 ## Coverage
 
-The suite currently contains 16 connected cases across 13 files:
+The suite currently contains 17 connected cases across 14 files:
 
 - Trusted requester/message attribution and isolated older-history retrieval.
+- Running/queued work across browser-session expiry and controller restart, followed
+  by real grant revocation; login expiry does not silently cancel accepted work.
 - Managed tool-free and pooled Goose exclusion of host project hints.
 - Browser context preview, approved-note audiences, real editing and forgetting.
 - Durable ordinary questions, bounded handoffs and source-aware helper reads.
@@ -59,10 +61,17 @@ units, timeout continuation, still-active denial and invalid deadline arguments.
 
 ## Evidence on 2026-10-26
 
-The 16-case current-source acceptance run passed in approximately 138 seconds:
+The initial 16-case acceptance run passed in approximately 138 seconds:
 `.tmp/bounded-agent-vi2mjlay/`. All 51 recorded scopes were independently verified
 inactive afterward. This run predates the added structured cleanup result field;
 it is not claimed as evidence of that field.
+
+The expanded current-source 17-case suite passed in approximately 170 seconds
+(`.tmp/bounded-agent-p00mg8bz/`), including the viewer-isolation fix and new
+session-continuity case. Its structured cleanup record verifies every owned scope
+inactive. The first standalone session case passed behavior but failed teardown
+when the fixture stopped its restarted controller before its worker drained; the
+case now explicitly drains the executor while its controller remains available.
 
 An explicit 60-second interrupted context run returned 124 with all seven owned
 scopes verified inactive (`.tmp/bounded-agent-9j4twabd/`). The follow-up deadline run
