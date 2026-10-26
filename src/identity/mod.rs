@@ -11,6 +11,7 @@ pub mod controlled_worker;
 mod database;
 pub mod executor;
 mod hosting;
+mod interactions;
 mod library;
 mod login_state;
 mod membership_schema;
@@ -248,6 +249,7 @@ fn router(app: Shared) -> Router {
         .merge(agents::routes())
         .merge(control::routes())
         .merge(chat::routes())
+        .merge(interactions::routes())
         .merge(library::routes())
         .merge(collaboration::routes())
         .merge(simulation::routes())

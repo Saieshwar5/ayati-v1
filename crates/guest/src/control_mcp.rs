@@ -7,6 +7,11 @@ pub const PREFIX: &str = "ayati_control__";
 pub fn observed(name: &str, input: &Value) -> bool {
     match name.strip_prefix(PREFIX) {
         Some("operations") => input == &json!({}),
+        Some("ask_question") => input.as_object().is_some_and(|v| {
+            v.len() == 2
+                && v.get("key").is_some_and(Value::is_string)
+                && v.get("specification").is_some_and(Value::is_object)
+        }),
         Some("request_action") => input.as_object().is_some_and(|v| {
             v.len() == 3
                 && v.get("connection").is_some_and(Value::is_string)
@@ -29,6 +34,7 @@ impl ServerHandler for ControlTools {
         _: RequestContext<RoleServer>,
     ) -> std::result::Result<ListToolsResult, ErrorData> {
         Ok(ListToolsResult{tools:vec![
+            crate::question_schema::tool(),
             json!({"name":"operations","description":"List this task's currently assigned business operations, input fields and permission modes.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_action","description":"Request one supported operation with exact fields. Cuckoo validates current task authority, records it, executes allowed work or creates an exact approval request. Inspect the returned state. Repeating identical fields in the same task returns the original receipt and never retries an uncertain write.","inputSchema":{"type":"object","properties":{"connection":{"type":"string"},"operation":{"type":"string"},"arguments":{"type":"object"}},"required":["connection","operation","arguments"],"additionalProperties":false}})
         ].into_iter().map(|v|serde_json::from_value(v).unwrap()).collect(),..Default::default()})
@@ -51,7 +57,7 @@ impl ServerHandler for ControlTools {
                 "Control forwarding requires loopback"
             );
             let body=json!({"token":std::env::var("AYATI_CONTROL_TOKEN")?,"tool":request.name,"arguments":arguments}).to_string();
-            ensure!(body.len() <= 16000, "Control request exceeds limit");
+            ensure!(body.len() <= 24576, "Control request exceeds limit");
             let mut stream = tokio::net::TcpStream::connect(parsed).await?;
             stream.write_all(format!("POST /control HTTP/1.0\r\nHost: {address}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await?;
             let mut reply = Vec::new();
@@ -78,6 +84,7 @@ impl ServerHandler for ControlTools {
         let mut result = if value["state"].as_str().is_some_and(|s| {
             [
                 "denied",
+                "invalid",
                 "rejected",
                 "invalidated",
                 "uncertain",

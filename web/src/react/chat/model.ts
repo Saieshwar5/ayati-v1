@@ -1,4 +1,5 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
+import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; shared?: boolean; scope?: 'private' | 'workspace' };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[] };
@@ -7,8 +8,9 @@ export type Message = {
   id: string; author: string; name: string | null; kind: string;
   content: string; state: string; at: number; sequence?: number;
   revision?: number; can_cancel?: boolean;
+  questions?: QuestionReference[];
   progress?: {
-    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'resuming' | 'attention';
+    state: 'starting' | 'waiting' | 'responding' | 'interrupted' | 'approval' | 'input' | 'resuming' | 'attention';
     text: string; generation?: number;
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;

@@ -73,10 +73,13 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     if (scriptedCommand || controlPrompt?.startsWith('control ')) {
       const command = scriptedCommand ?? JSON.parse(controlPrompt.slice(8));
       const results = messages.slice(lastUser + 1).filter(message => message.role === 'tool');
-      const steps = savedTask ? (savedTask.actions.every(a => a.state === 'completed') ? command.after ?? [] : []) : command.steps ?? [command];
+      const declined = savedTask?.questions?.some(question => ['declined', 'invalidated'].includes(question.state));
+      const steps = savedTask ? (!declined && savedTask.actions.every(a => a.state === 'completed')
+        ? savedTask.actions.length === 0 && command.afterQuestion ? command.afterQuestion : command.after ?? [] : []) : command.steps ?? [command];
       const step = steps[results.length];
       if (step) tool = { id: `control-${results.length}`, type: 'function', function: { name: `ayati_control__${step.tool}`, arguments: JSON.stringify(step.arguments) } };
-      else text = savedTask ? `CONTINUED_RESULT ${JSON.stringify({decisions:savedTask.actions.map(a=>({id:a.id,state:a.state,decision:a.decision})),results:results.map(result=>result.content)})}` : command.checkpoint ?? `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
+      else text = savedTask ? command.questionCheckpoint && savedTask.actions.length === 0 && command.afterQuestion && !declined ? command.questionCheckpoint
+        : `CONTINUED_RESULT ${JSON.stringify({decisions:savedTask.actions.map(a=>({id:a.id,state:a.state,decision:a.decision})),questions:savedTask.questions?.map(q=>({key:q.key,state:q.state,values:q.values})),results:results.map(result=>result.content)})}` : command.checkpoint ?? `CONTROL_RESULT ${JSON.stringify(results.map(result => result.content))}`;
     }
     if (prompt?.startsWith('workspace ')) {
       const command = JSON.parse(prompt.slice(10));

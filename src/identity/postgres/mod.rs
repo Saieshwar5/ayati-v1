@@ -44,6 +44,15 @@ mod executor_slots;
 mod preparation_tests;
 #[cfg(test)]
 mod profile_lookup_tests;
+mod question_migration;
+#[cfg(test)]
+mod question_migration_tests;
+#[cfg(test)]
+mod question_source_tests;
+#[cfg(test)]
+mod question_tests;
+mod question_views;
+mod questions;
 mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod entities;

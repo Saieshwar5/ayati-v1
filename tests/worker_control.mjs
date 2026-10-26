@@ -11,6 +11,12 @@ import { machine, executor, secret, exited } from './fixtures/worker_control.mjs
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 120000 };
 const endpoint = (scope, operation) => `/v1/assignments/${scope.assignment}/${operation}`;
+function controllerToolsOnly(request) {
+  // Questions add the controller bridge to otherwise conversation-only work.
+  // Inherited owner browser, memory, file and workspace tools remain absent.
+  assert.deepEqual((request.tools ?? []).map(tool => tool.function?.name).sort(),
+    ['ayati_control__ask_question', 'ayati_control__operations', 'ayati_control__request_action']);
+}
 
 test('machine credentials bind executor/run/slot and preserve idempotent start and final receipts', options, async t => {
   const app = await workerFixture(t, { mode: 'assigned', control: true });
@@ -89,7 +95,7 @@ test('real Goose uses controller APIs without DB credentials through restart, ca
   const first = await app.send('Controller APIs execute one real Goose request');
   assert.match((await app.done(first)).content, /GOOSE_FIXTURE_OK/);
   assert.equal(app.attempts(first), 1);
-  assert.deepEqual(app.provider.requests.at(-1).tools ?? [], []);
+  controllerToolsOnly(app.provider.requests.at(-1));
   app.provider.setHeld(true);
   const count = app.provider.requests.length;
   const held = await app.send('Keep this owner through controller restart');
@@ -186,7 +192,7 @@ test('lost start and completion responses never repeat real model inference', op
   assert.ok(counts.complete >= 2);
   assert.equal(app.provider.requests.length, 1);
   assert.equal(app.attempts(job), 1);
-  assert.deepEqual(app.provider.requests[0].tools ?? [], []);
+  controllerToolsOnly(app.provider.requests[0]);
   for (const credential of [grant.token, registered.registration.token, app.control.bootstrap]) {
     assert.equal(JSON.stringify(app.provider.requests).includes(credential), false);
   }

@@ -3,7 +3,7 @@ use super::*;
 use crate::identity::chat::store::Job;
 
 pub(super) async fn inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
-    let jobs=rows(tx,"SELECT payload FROM relay_chat_jobs j WHERE workspace=$1 AND state<>'finished' AND EXISTS(SELECT 1 FROM relay_task_checkpoints c WHERE c.workspace=j.workspace AND c.reply=j.reply)",vec![w.into()]).await?;
+    let jobs=rows(tx,"SELECT payload FROM relay_chat_jobs j WHERE workspace=$1 AND state<>'finished' AND (EXISTS(SELECT 1 FROM relay_task_checkpoints c WHERE c.workspace=j.workspace AND c.reply=j.reply) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply))",vec![w.into()]).await?;
     for row in jobs {
         let job: Job = serde_json::from_value(row.try_get("", "payload")?)?;
         if super::control_actions::authorize(tx, &job, false)
