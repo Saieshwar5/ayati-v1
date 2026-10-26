@@ -104,7 +104,7 @@ test('saved task releases execution for approval and continues on a different ex
   assert.equal(jobState(original).run_cycle, 1);
   assert.equal(remote.calls.filter(c => c.name === 'update_order').length, 1);
   await review.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'Decision saved · Waiting to continue' }).waitFor();
+  await page.getByRole('status').filter({ hasText: 'Saved update · Waiting to continue' }).waitFor();
   await page.screenshot({ path: join(app.data, 'queued-continuation.png') });
 
   await app.stopApi(); await app.startApi();
