@@ -135,6 +135,14 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             }
             pg.ask_question(job, &question).await
         }
+        "personal_panels" => {
+            ensure!(arguments == json!({}), "Invalid personal panel discovery");
+            pg.personal_panels(job).await
+        }
+        "save_home_panel" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.save_personal_panel(job, &input).await
+        }
         "handoff_targets" => {
             ensure!(arguments == json!({}), "Invalid helper discovery request");
             pg.handoff_targets(job).await

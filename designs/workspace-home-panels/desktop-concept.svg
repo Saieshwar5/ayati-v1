@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="960" viewBox="0 0 1440 960">
+  <g>
+    <rect width="1440" height="960" fill="#F1F2F4"/>
+    <g transform="translate(16, 16)">
+      <g transform="translate(8, 8)">
+        <text x="0" y="27" font-family="Inter" font-size="27" font-weight="700" fill="#282D35">C</text>
+      </g>
+      <g transform="translate(8, 73)">
+        <text x="0" y="10" font-family="Inter" font-size="10" font-weight="700" fill="#282D35">Home</text>
+      </g>
+      <g transform="translate(8, 117)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#687180">Chat</text>
+      </g>
+      <g transform="translate(8, 161)">
+        <text x="0" y="10" font-family="Inter" font-size="10" fill="#687180">Agents</text>
+      </g>
+    </g>
+    <g transform="translate(88, 16)">
+      <rect width="1336" height="928" rx="18" ry="18" fill="#FFFFFF"/>
+      <g transform="translate(32, 32)">
+        <g>
+          <rect width="430" height="150" rx="12" ry="12" fill="#F7F8F9"/>
+          <g transform="translate(24, 24)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Business clock</text>
+          </g>
+          <g transform="translate(24, 53)">
+            <text x="0" y="36" font-family="Inter" font-size="36" font-weight="700" fill="#282D35">10:42 AM</text>
+          </g>
+          <g transform="translate(24, 109)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Monday, 26 October · Device time</text>
+          </g>
+        </g>
+        <g transform="translate(454, 0)">
+          <rect width="818" height="128" rx="12" ry="12" fill="#F7F8F9"/>
+          <g transform="translate(24, 24)">
+            <text x="0" y="18" font-family="Inter" font-size="18" font-weight="700" fill="#282D35">Notifications</text>
+          </g>
+          <g transform="translate(24, 58)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#687180">Nothing needs your attention</text>
+          </g>
+          <g transform="translate(24, 88)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Finished work is available in Recent work.</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(32, 210)">
+        <g>
+          <text x="0" y="23" font-family="Inter" font-size="23" font-weight="700" fill="#282D35">Your workspace panels</text>
+        </g>
+        <g transform="translate(970, 0)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Arrange</text>
+          </g>
+          <g transform="translate(70, 0)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Hidden panels</text>
+          </g>
+          <g transform="translate(182, 0)">
+            <rect width="120" height="37" rx="8" ry="8" fill="#282D35"/>
+            <g transform="translate(10, 10)">
+              <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Ask for a panel</text>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(32, 275)">
+        <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Personal views from your agents. Opening Home reads saved results.</text>
+      </g>
+      <g transform="translate(32, 320)">
+        <g>
+          <rect width="380" height="350" rx="12" ry="12" fill="#FAFAFB"/>
+          <g transform="translate(24, 24)">
+            <text x="0" y="17" font-family="Inter" font-size="17" font-weight="700" fill="#282D35">Orders needing follow-up</text>
+          </g>
+          <g transform="translate(24, 61)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Open orders</text>
+          </g>
+          <g transform="translate(24, 94)">
+            <text x="0" y="42" font-family="Inter" font-size="42" font-weight="700" fill="#282D35">12</text>
+          </g>
+          <g transform="translate(24, 161)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Nova · Saved 10:36 · Personal</text>
+          </g>
+          <g transform="translate(24, 193)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">2 observed operations · Review the basis</text>
+          </g>
+          <g transform="translate(24, 225)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">New revision 2 needs your review.</text>
+          </g>
+          <g transform="translate(24, 257)">
+            <rect width="103" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+            <g transform="translate(10, 10)">
+              <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Review draft</text>
+            </g>
+          </g>
+          <g transform="translate(24, 310)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Open source conversation ↗</text>
+          </g>
+        </g>
+        <g transform="translate(404, 0)">
+          <rect width="868" height="300" rx="12" ry="12" fill="#FAFAFB"/>
+          <g transform="translate(24, 24)">
+            <text x="0" y="18" font-family="Inter" font-size="18" font-weight="700" fill="#282D35">Monday priorities</text>
+          </g>
+          <g transform="translate(24, 62)">
+            <text x="0" y="15" font-family="Inter" font-size="15" font-weight="700" fill="#282D35">Customer follow-ups</text>
+          </g>
+          <g transform="translate(24, 96)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">Review delivery questions before sending the quotes.</text>
+          </g>
+          <g transform="translate(24, 130)">
+            <text x="0" y="15" font-family="Inter" font-size="15" fill="#282D35">The customer updates still require their own approval.</text>
+          </g>
+          <g transform="translate(24, 164)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Atlas · Saved 10:32 · Personal</text>
+          </g>
+          <g transform="translate(24, 196)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Agent findings · Check the basis before relying on them</text>
+          </g>
+          <g transform="translate(24, 228)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Open source conversation ↗</text>
+          </g>
+          <g transform="translate(24, 260)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Hide from my Home</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(32, 698)">
+        <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Your arrangement syncs across devices. Hiding a panel changes only your Home.</text>
+      </g>
+    </g>
+  </g>
+</svg>

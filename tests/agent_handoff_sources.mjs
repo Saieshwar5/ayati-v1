@@ -117,8 +117,9 @@ test(
       steps: [{ tool: 'request_handoff', arguments: { key: 'event-helper', agent: helper.id, task: childPrompt } }],
       checkpoint: 'Atlas is reviewing the authorized event source.',
     });
+    const homePanel = randomUUID();
     app.provider.setControl(childPrompt, {
-      steps: [],
+      steps: [{tool:'save_home_panel',arguments:{id:homePanel,expected_revision:0,title:'PRIVATE_HANDOFF_PANEL_TITLE',purpose:'Source-derived saved view',sections:[{kind:'text',heading:'Source finding',body:'PRIVATE_HANDOFF_PANEL_BODY'}],sources:[]}}],
       checkpoint: 'PRIVATE_HELPER_SOURCE_RESULT ' + 'Saved source evidence. '.repeat(160),
     });
     const path = `${app.path}/agent-profiles/${app.profile.id}/event-triggers`,
@@ -204,6 +205,14 @@ test(
     const progressDialog = progressPage.getByRole('dialog',{name:'Task progress',exact:true});
     await progressDialog.getByRole('heading',{name:'Completed',exact:true}).waitFor();
     await progressPage.screenshot({path:join(app.data,'handoff-source-progress-desktop.png')});
+    await app.request(`${app.path}/home-panels/${homePanel}/review`,app.cookie,{request:randomUUID(),revision:1});
+    const homePage = await context.newPage();
+    homePage.on('pageerror',e=>errors.push(e.message));
+    await homePage.goto(`${app.base}/w/${w}/?view=home`);
+    await homePage.locator(`[data-panel="${homePanel}"]`).getByText('PRIVATE_HANDOFF_PANEL_BODY',{exact:true}).waitFor();
+    await homePage.locator(`[data-panel="${homePanel}"]`).getByRole('button',{name:'Sources and details',exact:true}).click();
+    await homePage.getByRole('dialog',{name:'Saved panel details',exact:true}).getByText('PRIVATE_HANDOFF_PANEL_BODY',{exact:true}).waitFor();
+    await homePage.screenshot({path:join(app.data,'handoff-source-home-panel-desktop.png')});
     const calls = app.provider.requests.length;
     await app.request(`${app.path}/agent-profiles/${helper.id}/control/rules`, app.cookie, {
       connection,
@@ -223,6 +232,9 @@ test(
     assert.equal(await reader.locator('.result-body').count(),0);
     for (const task of [parent.reply, child.reply, h.request_message])
       await app.request(responsePath(task), app.cookie, undefined, 400);
+    await until(async()=>!(await homePage.content()).includes('PRIVATE_HANDOFF_PANEL_BODY'),'Revoked helper source remained in saved Home panel',12000);
+    assert.equal((await app.request(`${app.path}/home-panels`,app.cookie)).value.panels.find(p=>p.id===homePanel).active.available,false);
+    await homePage.screenshot({path:join(app.data,'handoff-source-home-panel-revoked-desktop.png')});
     await progressDialog.getByRole('button',{name:'Retry',exact:true}).waitFor();
     assert.equal(await progressDialog.locator('[aria-label="Latest saved update"]').count(),0);
     for (const task of [parent.reply,child.reply]) await app.request(progressPath(task),app.cookie,undefined,400);
@@ -256,6 +268,7 @@ test(
           parent: parent.reply,
           child: child.reply,
           handoff: h.id,
+          home_panel: homePanel,
           source: source.id,
           model_requests: app.provider.requests.length,
           mcp_calls: remote.calls.length,

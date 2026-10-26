@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="390" height="844" viewBox="0 0 390 844">
+  <g>
+    <rect width="390" height="844" fill="#F1F2F4"/>
+    <g transform="translate(6, 6)">
+      <rect width="378" height="832" rx="14" ry="14" fill="#FFFFFF"/>
+      <g transform="translate(22, 22)">
+        <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Your workspace panels</text>
+      </g>
+      <g transform="translate(22, 71)">
+        <g>
+          <rect width="120" height="37" rx="8" ry="8" fill="#282D35"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Ask for a panel</text>
+          </g>
+        </g>
+        <g transform="translate(132, 0)">
+          <rect width="74" height="37" rx="8" ry="8" fill="#F1F2F4"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#282D35">Arrange</text>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(22, 130)">
+        <rect width="334" height="336" rx="12" ry="12" fill="#F7F8F9"/>
+        <g transform="translate(18, 18)">
+          <text x="0" y="17" font-family="Inter" font-size="17" font-weight="700" fill="#282D35">Orders needing follow-up</text>
+        </g>
+        <g transform="translate(18, 55)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#687180">Open orders</text>
+        </g>
+        <g transform="translate(18, 88)">
+          <text x="0" y="42" font-family="Inter" font-size="42" font-weight="700" fill="#282D35">12</text>
+        </g>
+        <g transform="translate(18, 155)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">Nova · Saved 10:36 · Personal</text>
+        </g>
+        <g transform="translate(18, 186)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">2 observed operations · Review the basis</text>
+        </g>
+        <g transform="translate(18, 217)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">New revision 2 needs your review.</text>
+        </g>
+        <g transform="translate(18, 249)">
+          <rect width="103" height="37" rx="8" ry="8" fill="#282D35"/>
+          <g transform="translate(10, 10)">
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Review draft</text>
+          </g>
+        </g>
+        <g transform="translate(18, 302)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Open source conversation ↗</text>
+        </g>
+      </g>
+      <g transform="translate(22, 488)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">The approved snapshot stays visible</text>
+        </g>
+        <g transform="translate(0, 24)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">while you review a newer draft.</text>
+        </g>
+      </g>
+      <g transform="translate(22, 550)">
+        <rect width="334" height="107" rx="10" ry="10" fill="#F7F8F9"/>
+        <g transform="translate(16, 16)">
+          <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Arrange your Home</text>
+        </g>
+        <g transform="translate(16, 47)">
+          <g>
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Move earlier</text>
+          </g>
+          <g transform="translate(93, 0)">
+            <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Move later</text>
+          </g>
+        </g>
+        <g transform="translate(16, 75)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#282D35">Hide from my Home</text>
+        </g>
+      </g>
+      <g transform="translate(22, 679)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Your arrangement syncs across devices.</text>
+        </g>
+        <g transform="translate(0, 24)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Hiding changes only your Home.</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

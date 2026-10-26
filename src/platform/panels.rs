@@ -58,7 +58,7 @@ struct SavedPanel {
     updates: bool,
 }
 impl PanelDraft {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         self.template()?;
         ensure!(
             !self.updates_enabled || self.publish,
@@ -112,7 +112,7 @@ impl PanelDraft {
         }
         Ok(())
     }
-    fn definition(&self) -> Value {
+    pub(crate) fn definition(&self) -> Value {
         json!({"title":self.title,"purpose":self.purpose,"sections":self.sections,"template":self.template().ok()})
     }
 }

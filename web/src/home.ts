@@ -1,7 +1,7 @@
 import { displayAgentName } from './agents';
 import type { HomeNotificationsState, HomeNotice } from './react/home-notifications';
 import { currentView } from './view-lifetime';
-import { workspaceUrl, canManageResources } from './workspace-context';
+import { workspaceUrl, canManageResources, workspaceId, currentWorkspace } from './workspace-context';
 import './home.css';
 import { type Task, type ChatMessage } from './types';
 import { element } from './view';
@@ -30,7 +30,7 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
     </div>
     <p id="home-error" role="alert"></p>
     <button id="home-decisions" hidden aria-haspopup="dialog">Review attention</button>
-    <section id="home-panels"></section><section data-work-records></section>
+    <section data-workspace-panels></section><section id="home-panels"></section><section data-work-records></section>
 
     <div class="home-footer"><button id="home-history-toggle" class="text-button" aria-expanded="false" aria-controls="home-activity">Recent activity <span id="home-activity-count"></span>⌄</button><button id="home-guide" class="text-button">✧ Ask Cuckoo</button></div>
     <div id="home-activity" hidden><button id="home-updates" class="text-button" aria-haspopup="dialog">Review outcomes</button><section class="home-surface" aria-labelledby="work-title"><h2 id="work-title">Active and queued work</h2><div id="home-work" class="home-list"></div></section>
@@ -44,7 +44,8 @@ export function installHome(onNotifications?: (data: HomeNotificationsState) => 
     activity.hidden = !activity.hidden;
     (event.currentTarget as HTMLElement).setAttribute('aria-expanded', String(!activity.hidden));
   };
-  installHomePanels(view.querySelector('#home-panels')!);
+  if (!workspaceId || currentWorkspace()?.adopted) installHomePanels(view.querySelector('#home-panels')!);
+  else view.querySelector<HTMLElement>('#home-panels')!.hidden = true;
   const status = view.querySelector<HTMLElement>('#home-connection')!;
   const error = view.querySelector<HTMLElement>('#home-error')!;
   const connectionStatus = (message: string): void => { status.textContent = message; view.querySelector('#inbox-connection')!.textContent = message; };

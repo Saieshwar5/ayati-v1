@@ -14,6 +14,7 @@ mod database;
 mod events;
 pub mod executor;
 mod handoffs;
+mod home_panels;
 mod hosting;
 mod interactions;
 mod library;
@@ -257,6 +258,7 @@ fn router(app: Shared) -> Router {
         .merge(agents::routes())
         .merge(control::routes())
         .merge(attention::routes())
+        .merge(home_panels::routes())
         .merge(automations::routes())
         .merge(events::routes())
         .merge(rehearsals::routes())

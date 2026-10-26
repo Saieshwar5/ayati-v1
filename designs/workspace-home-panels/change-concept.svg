@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="390" height="844" viewBox="0 0 390 844">
+  <g>
+    <rect width="390" height="844" fill="#F1F2F4"/>
+    <g transform="translate(12, 12)">
+      <rect width="366" height="820" rx="14" ry="14" fill="#FFFFFF"/>
+      <g transform="translate(24, 24)">
+        <g>
+          <text x="0" y="22" font-family="Inter" font-size="22" font-weight="700" fill="#282D35">Ask for changes</text>
+        </g>
+        <g transform="translate(304, 0)">
+          <text x="0" y="20" font-family="Inter" font-size="20" fill="#687180">×</text>
+        </g>
+      </g>
+      <g transform="translate(24, 73)">
+        <text x="0" y="17" font-family="Inter" font-size="17" font-weight="700" fill="#282D35">Sample order follow-up</text>
+      </g>
+      <g transform="translate(24, 116)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">The request stays with the original</text>
+        </g>
+        <g transform="translate(0, 24)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">agent and conversation.</text>
+        </g>
+      </g>
+      <g transform="translate(24, 178)">
+        <rect width="318" height="138" rx="10" ry="10" fill="#F7F8F9"/>
+        <g transform="translate(16, 16)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Agent</text>
+        </g>
+        <g transform="translate(16, 44)">
+          <text x="0" y="16" font-family="Inter" font-size="16" font-weight="700" fill="#282D35">Nova</text>
+        </g>
+        <g transform="translate(16, 75)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Conversation</text>
+        </g>
+        <g transform="translate(16, 103)">
+          <text x="0" y="16" font-family="Inter" font-size="16" fill="#282D35"># operations</text>
+        </g>
+      </g>
+      <g transform="translate(24, 338)">
+        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#282D35">What should change?</text>
+      </g>
+      <g transform="translate(24, 377)">
+        <rect width="318" height="130" rx="8" ry="8" fill="#F7F8F9"/>
+        <g transform="translate(14, 14)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Describe the change you need…</text>
+        </g>
+      </g>
+      <g transform="translate(24, 529)">
+        <g>
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">Your approved view stays in place</text>
+        </g>
+        <g transform="translate(0, 24)">
+          <text x="0" y="13" font-family="Inter" font-size="13" fill="#687180">while you review a new draft.</text>
+        </g>
+      </g>
+      <g transform="translate(24, 591)">
+        <rect width="318" height="41" rx="8" ry="8" fill="#282D35"/>
+        <g transform="translate(12, 12)">
+          <text x="0" y="14" font-family="Inter" font-size="14" fill="#FFFFFF">Ask agent</text>
+        </g>
+      </g>
+      <g transform="translate(24, 654)">
+        <g>
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">Submitting starts an ordinary task.</text>
+        </g>
+        <g transform="translate(0, 23)">
+          <text x="0" y="12" font-family="Inter" font-size="12" fill="#687180">Opening this form starts no work.</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
