@@ -97,7 +97,7 @@ export function WorkspacePanels() {
               aria-label={definition?.title ?? 'Panel source unavailable'}
               data-template={definition?.template ?? 'brief'}
             >
-              {definition ? <PanelContent definition={definition} /> : <h3>Panel source unavailable</h3>}
+              {definition ? <PanelContent definition={definition} scrollable /> : <h3>Panel source unavailable</h3>}
               {definition && snapshot ? (
                 <div className="workspace-panel-footer">
                   <small

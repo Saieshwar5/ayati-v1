@@ -117,6 +117,14 @@ conversation and Library/event/handoff guards are retained. The React slice is a
 lazy Home portal in the documented compatibility subtree; adopted local-owner
 panels keep their old controller, source and browser-local placement contract.
 Unadopted managed workspaces receive the new explicit request/review controls.
+Managed desktop briefs use three grid rows so a short finding remains visible
+below its title, purpose and heading. Metrics retain their smaller preset and
+phone cards retain their bounded height. Saved content is a named, focusable
+region with a visible keyboard focus indicator; End/PageDown can scroll long
+content while review/details controls remain accessible. The full detail reader
+restores focus to its opening control. See the [readability design](../designs/home-brief-readability/README.md)
+and `tests/home_brief_reading.mjs` for the regression and local browser evidence.
+
 Compact panel content scrolls within its preset while review/details controls stay
 visible. The Sources and details reader shows the complete snapshot and basis
 without publication or inference. Dialog/fetch/subscription lifetimes are owned.
