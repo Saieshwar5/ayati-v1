@@ -22,10 +22,9 @@ of the remote-tool/cloud-worker plan.
 Build the current binary and configure a migrated PostgreSQL database privately
 using [the existing setup](postgres-workspaces.md). Both processes use the same
 `RELAY_DATABASE_URL`. They do not need the same filesystem or data directory.
-The original worker increment used schema version 9. The current checkout also
-requires migration 11 for worker assignments and migration 10 for hosted sign-in
-state; migrate and reapply runtime
-grants before starting either role. See [hosted deployment](hosted-deployment.md).
+The original worker increment used schema version 9. The current checkout requires
+all current migrations, not only the original worker/sign-in additions; migrate
+and reapply runtime grants before starting either role. See [hosted deployment](hosted-deployment.md).
 
 Start the API in one terminal:
 

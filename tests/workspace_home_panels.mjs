@@ -359,13 +359,10 @@ test(
       'Revoked operation left private cached panel visible',
       12000,
     );
-    assert.equal(
-      await page
-        .locator(`[data-panel="${first}"]`)
-        .getByRole('heading', { name: 'Panel source unavailable', exact: true })
-        .count(),
-      1,
-    );
+    // Access invalidation first clears cached panels, then reloads the denied
+    // projection. Wait for that projection rather than racing its empty state.
+    await page.locator(`[data-panel="${first}"]`)
+      .getByRole('heading', { name: 'Panel source unavailable', exact: true }).waitFor();
     await page.getByText('KEEP_UNRELATED_PANEL <img src=x onerror=alert(1)>', { exact: true }).waitFor();
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.screenshot({ path: join(app.data, 'workspace-panels-source-revoked-desktop.png') });

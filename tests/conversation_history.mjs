@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
+import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
 import { until } from './fixtures/goose_app.mjs';
 
 test('real Goose retrieves older attributed history through a scoped controller capability', {
@@ -41,6 +42,7 @@ test('real Goose retrieves older attributed history through a scoped controller 
   const reply = await app.done(job);
   assert.match(reply.content, /OLD_DELIVERY_EVIDENCE/);
   const requests = app.provider.requests;
+  managedGuidanceOnly(app.provider.requests[0]);
   const first = JSON.stringify(requests[0].messages);
   assert.ok(!first.includes('OLD_DELIVERY_EVIDENCE'));
   const tools = requests.flatMap(request => request.messages.filter(m => m.role === 'tool').map(m => m.content));

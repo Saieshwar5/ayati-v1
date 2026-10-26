@@ -31,8 +31,9 @@ falls back to SQLite. The original standalone/local mode is retained.
 This is a local deployment increment, not production cloud tenancy. Private agent
 runtime stores, the agent registry, generated App records, panels and sourced
 memory still use their existing SQLite stores. Existing workspace paths and the
-explicit owner installation binding remain unchanged. Shared agents still have
-conversation-only context with no private files, memory or business tools.
+explicit owner installation binding remain unchanged. Managed agents use scoped conversation context and approved knowledge. Business
+operations use the separate [controller boundary](shared-agent-control.md); private
+local-owner files, browser sessions and shell tools are not inherited.
 
 ## Dependencies and local server
 

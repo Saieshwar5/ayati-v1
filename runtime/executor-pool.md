@@ -2,7 +2,7 @@
 
 Shared-tool extension: [governed MCP operations](shared-agent-control.md) use a fresh
 scoped tool harness and count cold startup separately. Prepared chat stays tool-free.
-Current application schema is 22; earlier measurements below retain their original
+Current application schema is 30; earlier measurements below retain their original
 source/image/migration evidence boundaries.
 
 
@@ -23,8 +23,9 @@ passes the named local ready-capacity targets. The [cold assignment path](worker
 
 ## Setup
 
-Run all seventeen migrations through `m20261024_000017_cloud_executors` with the
-migration owner, then reapply runtime grants as in [PostgreSQL setup](postgres-workspaces.md).
+Run all current migrations with the migration owner, then reapply runtime grants
+as in [PostgreSQL setup](postgres-workspaces.md). This increment originally added
+migration 17; that historical baseline is not the current schema requirement.
 Migration 13 preserves existing dispatch modes, IDs, assignment history and v12
 completion fingerprints. Startup verifies the schema without migrating ordinary
 databases. Drain old binaries and their queued work before switching modes; all
@@ -60,6 +61,8 @@ discovery otherwise loads a parent `.env`. Executors refuse core database URLs a
 WorkOS keys, and the Goose command uses an explicit environment allowlist. The
 bootstrap/executor/slot credentials stay in the Rust supervisor. Goose receives
 the configured model key; per-run model brokerage is still future work.
+[Managed prompt isolation](managed-context-boundary.md) disables automatic host
+hint discovery and uses a private child home in both prepared and controlled paths.
 
 | Setting | Default and bounds | Owner |
 | --- | --- | --- |

@@ -321,6 +321,7 @@ pub(crate) fn runtime_config(
     config.run_timeout = std::time::Duration::from_secs(context.run_seconds);
     config.agent_id = context.agent.clone();
     config.role = context.instructions.clone();
+    config.managed_chat = true;
     if let Some(provider) = &context.provider {
         config.provider = provider.clone();
     }

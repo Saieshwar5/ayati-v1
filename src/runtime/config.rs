@@ -12,6 +12,7 @@ pub const PREPARED_GOOSE_VERSION: &str = "1.54.0+ayati.1";
 pub struct GooseConfig {
     pub(crate) control_tools: Option<crate::identity::control::broker::Endpoint>,
     pub(crate) trace_assignment: Option<String>,
+    pub(crate) managed_chat: bool,
     pub platform: Option<std::sync::Arc<crate::platform::Platform>>,
     pub binary: PathBuf,
     pub agent_id: String,
@@ -49,6 +50,7 @@ impl GooseConfig {
             platform: None,
             control_tools: None,
             trace_assignment: None,
+            managed_chat: false,
             agent_id: "local-agent".into(),
             role: String::new(),
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
@@ -141,8 +143,16 @@ impl GooseConfig {
                 }
             }
         }
+        let isolated_root = self.root.canonicalize()?;
+        if self.managed_chat || prepared {
+            // Pinned Goose discovers ancestor AGENTS.md/.goosehints by default.
+            // Managed requests receive context only through the controller.
+            command
+                .env("CONTEXT_FILE_NAMES", "[]")
+                .env("HOME", &isolated_root);
+        }
         command
-            .env("GOOSE_PATH_ROOT", &self.root)
+            .env("GOOSE_PATH_ROOT", &isolated_root)
             .env("GOOSE_PROVIDER", &self.provider)
             .env("GOOSE_MODEL", &self.model)
             .env("GOOSE_MODE", "approve")
@@ -195,5 +205,51 @@ impl GooseConfig {
                 .unwrap()
                 .clone(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn managed_and_prepared_commands_disable_host_hint_discovery_in_an_isolated_home() {
+        for (managed, prepared) in [(false, false), (true, false), (false, true)] {
+            let directory = tempfile::tempdir().unwrap();
+            let mut config = GooseConfig::from_env(directory.path(), "fixture");
+            config.binary = directory.path().join("fixture-goose");
+            config.managed_chat = managed;
+            let version = if prepared {
+                PREPARED_GOOSE_VERSION
+            } else {
+                GOOSE_VERSION
+            };
+            std::fs::write(
+                &config.binary,
+                format!("#!/bin/sh\nprintf '%s\\n' '{version}'\n"),
+            )
+            .unwrap();
+            std::fs::set_permissions(&config.binary, std::fs::Permissions::from_mode(0o700))
+                .unwrap();
+            let command = config.command_for(prepared).await.unwrap();
+            let env = |name: &str| {
+                command
+                    .as_std()
+                    .get_envs()
+                    .find(|(key, _)| *key == name)
+                    .and_then(|(_, value)| value)
+                    .map(PathBuf::from)
+            };
+            let root = config.root.canonicalize().unwrap();
+            assert_eq!(env("GOOSE_PATH_ROOT"), Some(root.clone()));
+            if managed || prepared {
+                assert_eq!(env("HOME"), Some(root));
+                assert_eq!(env("CONTEXT_FILE_NAMES"), Some(PathBuf::from("[]")));
+            } else {
+                // Local-owner project hints remain an intentional local capability.
+                assert_eq!(env("HOME"), None);
+                assert_eq!(env("CONTEXT_FILE_NAMES"), None);
+            }
+        }
     }
 }

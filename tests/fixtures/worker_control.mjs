@@ -14,6 +14,15 @@ export function controllerToolsOnly(request) {
   ]);
 }
 
+export function managedGuidanceOnly(request) {
+  const text = JSON.stringify(request.messages);
+  assert.ok(text.includes('Managed workspace guidance:'), 'Shared work needs its own product guidance');
+  for (const unavailable of ['permanent guide', 'Owner-configured role:', 'panel_write must',
+    'Use panel_write or app_write', 'publish=true', 'Floating Canvas']) {
+    assert.ok(!text.includes(unavailable), `Local-owner guidance leaked into shared work: ${unavailable}`);
+  }
+}
+
 export const secret = () => randomBytes(32).toString('base64url');
 export async function machine(app, path, token, body, expected = 200, headers = {}) {
   const response = await fetch(app.control.url + path, {
