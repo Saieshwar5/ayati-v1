@@ -316,6 +316,7 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
       assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
     if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
     if(path.endsWith('/chats'))return response({chats});
     if(path.endsWith('/messages')){

@@ -79,6 +79,9 @@ mod reply_output;
 mod reply_output_tests;
 mod reply_views;
 mod resources;
+#[cfg(test)]
+mod response_tests;
+mod responses;
 mod settings;
 mod setup_context;
 mod setup_drafts;

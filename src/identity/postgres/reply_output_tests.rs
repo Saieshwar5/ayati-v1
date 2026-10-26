@@ -92,7 +92,7 @@ async fn source_revocation_redacts_saved_drafts_from_history_and_cursor_replay()
     );
 }
 
-async fn begin() -> (PgStore, User, String, String, String, Update) {
+pub(super) async fn begin() -> (PgStore, User, String, String, String, Update) {
     let (db, owner, w, c, a, e, slot) = setup().await;
     db.chat_send(
         &owner,

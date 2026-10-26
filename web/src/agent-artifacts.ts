@@ -1,7 +1,7 @@
 import type { Artifact } from './types';
 import { currentView } from './view-lifetime';
 import { element } from './view';
-export function installArtifacts(): (files: Artifact[]) => void {
+export function installArtifacts(openFile?: (file: Artifact) => void): (files: Artifact[]) => void {
   const view = currentView();
   const { api, apiUrl } = view;
   let fingerprint = '';
@@ -18,7 +18,7 @@ export function installArtifacts(): (files: Artifact[]) => void {
       const row = element('div', 'artifact-row');
       const open = element('button', 'artifact-open'); open.type = 'button';
       open.append(element('span', 'file-name', file.name), element('small', 'file-meta', `${origin} · ${Math.ceil(file.size / 1024)} KB · ${new Date(file.created_at).toLocaleDateString()}`));
-      open.onclick = () => void preview(file);
+      open.onclick = () => { if (openFile) openFile(file); else void preview(file); };
       const download = element('a', 'artifact-download', '↓'); download.href = apiUrl(`/files/${encodeURIComponent(file.id)}`); download.download = file.name; download.setAttribute('aria-label', `Download ${file.name}`);
       row.append(open, download); list.append(row);
     }

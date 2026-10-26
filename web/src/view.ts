@@ -1,6 +1,7 @@
 import { messageHtml } from './markdown';
 import { workspaceUrl } from './workspace-context.ts';
 import type { Artifact, ChatMessage, Snapshot, Task } from './types';
+import { responsePreview } from './react/results/model';
 
 export function element<K extends keyof HTMLElementTagNameMap>(
   tag: K, className = '', text?: string,
@@ -11,7 +12,8 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Cuckoo'): void {
+export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Cuckoo', preservePosition = false): void {
+  const position = container.scrollTop;
   const atEnd = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
   const nodes: HTMLElement[] = [];
   if (!state.messages.length) {
@@ -59,7 +61,15 @@ export function renderConversation(container: HTMLElement, state: Snapshot, agen
   const queued = state.tasks.filter((task) => task.status === 'queued');
   for (const task of queued) nodes.push(queuedView(task));
   container.replaceChildren(...nodes);
-  if (atEnd) container.scrollTop = container.scrollHeight;
+  measureResponsePreviews(container);
+  if (preservePosition) container.scrollTop = position;
+  else if (atEnd) container.scrollTop = container.scrollHeight;
+}
+export function measureResponsePreviews(container: HTMLElement): void {
+  for (const content of container.querySelectorAll<HTMLElement>('.response-excerpt')) {
+    const button = content.parentElement?.querySelector<HTMLButtonElement>('[data-open-response]');
+    if (button) button.hidden = content.dataset.long !== 'true' && content.scrollHeight <= content.clientHeight + 1;
+  }
 }
 
 function queuedView(task: Task): HTMLElement {
@@ -86,7 +96,9 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
     } catch { /* Preserve ordinary messages that happen to include the marker. */ }
   }
   const content = element('div', 'message-content message-markdown');
-  content.innerHTML = messageHtml(body);
+  const preview = responsePreview(body);
+  if (message.role === 'assistant') { content.classList.add('response-excerpt'); content.dataset.long = String(preview.long); }
+  content.innerHTML = messageHtml(message.role === 'assistant' ? preview.text : body);
   for (const name of attachments) content.append(element('span', 'sent-attachment', `↧ ${name}`));
   if (message.role === 'assistant') {
     const avatar = element('span', 'private-message-avatar', '✧');
@@ -94,6 +106,11 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
     row.append(avatar, element('div', 'speaker', agentName));
   }
   row.append(content);
+  if (message.role === 'assistant') {
+    const button = element('button', 'text-button response-launcher', 'Read response');
+    button.type = 'button'; button.dataset.openResponse = message.id; button.hidden = !preview.long;
+    row.append(button);
+  }
   return row;
 }
 

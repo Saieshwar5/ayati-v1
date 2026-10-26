@@ -11,7 +11,7 @@ pub(super) async fn hydrate(
     super::question_views::hydrate(tx, user, workspace, messages).await?;
     let ids = messages
         .iter()
-        .filter(|m| m["kind"] == "agent" && m["state"] == "queued")
+        .filter(|m| m["kind"] == "agent")
         .map(|m| m["id"].clone())
         .collect::<Vec<_>>();
     if ids.is_empty() {
@@ -19,15 +19,47 @@ pub(super) async fn hydrate(
     }
     let owner = role(tx, workspace, &user.id).await? == "Owner";
     let mut jobs = std::collections::HashMap::new();
-    for row in rows(tx,"SELECT payload FROM relay_chat_jobs WHERE workspace=$1 AND reply IN (SELECT jsonb_array_elements_text($2::jsonb))",vec![workspace.into(),serde_json::json!(ids).into()]).await? {
+    let pending = messages
+        .iter()
+        .filter(|m| m["kind"] == "agent" && m["state"] == "queued")
+        .map(|m| m["id"].clone())
+        .collect::<Vec<_>>();
+    for row in rows(tx,"SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply))",vec![workspace.into(),serde_json::json!(ids).into(),serde_json::json!(pending).into()]).await? {
         let job:Job=serde_json::from_value(row.try_get("","payload")?)?;
         jobs.insert(job.reply.clone(),job);
     }
-    for message in messages
-        .iter_mut()
-        .filter(|m| m["kind"] == "agent" && m["state"] == "queued")
-    {
+    for message in messages.iter_mut().filter(|m| m["kind"] == "agent") {
         if let Some(job) = message["id"].as_str().and_then(|id| jobs.get(id)) {
+            let mut viewer = job.clone();
+            viewer.requester = user.id.clone();
+            if !super::library::source_allowed(tx, &viewer).await? {
+                message["content"] =
+                    Value::String("Response unavailable because source access changed.".into());
+                message["progress"] = Value::Null;
+                message["attachments"] = serde_json::json!([]);
+                message["questions"] = serde_json::json!([]);
+                message["can_cancel"] = Value::Bool(false);
+                message["response_unavailable"] = Value::Bool(true);
+                continue;
+            }
+            if !matches!(
+                message["state"].as_str(),
+                Some("queued" | "complete" | "sent")
+            ) && let Some(text) =
+                super::responses::partial_output(tx, workspace, &job.reply).await?
+            {
+                let mut reference = crate::response::reference(
+                    &job.reply,
+                    &text,
+                    "interrupted",
+                    message["revision"].as_i64().unwrap_or(0),
+                );
+                reference["long"] = Value::Bool(true);
+                message["response"] = reference;
+            }
+            if message["state"] != "queued" {
+                continue;
+            }
             message["can_cancel"] = Value::Bool(owner || job.requester == user.id);
             if message["progress"].is_object()
                 && super::controlled_attempts::access(tx, job).await.is_err()

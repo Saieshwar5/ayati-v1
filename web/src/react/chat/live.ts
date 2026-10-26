@@ -56,7 +56,7 @@ export function startLive() {
   const connect = () => {
     if (stopped || !window.navigator.onLine) return;
     lastEvent = Date.now(); setStatus('Connecting…');
-    stream = new EventSource(`/api/identity/workspaces/${workspaceId}/message-events${cursor ? `?after=${cursor}` : ''}`);
+    stream = new EventSource(`/api/identity/workspaces/${workspaceId}/message-events?compact=true${cursor ? `&after=${cursor}` : ''}`);
     stream.addEventListener('changes', event => {
       if (stopped) return;
       lastEvent = Date.now();

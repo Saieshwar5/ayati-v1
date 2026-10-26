@@ -287,6 +287,25 @@ async fn local_api_rejects_cross_origin_requests_and_serves_safe_downloads() {
         to_bytes(response.into_body(), 1024).await.unwrap(),
         "<script>alert(1)</script>"
     );
+    let archived = fixture.agent.files.archives.join(&file.stored_name);
+    std::fs::remove_file(&archived).unwrap();
+    std::os::unix::fs::symlink("/etc/passwd", &archived).unwrap();
+    let symlink = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/files/{}?metadata=true", file.id))
+                .header("host", "127.0.0.1:8765")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(symlink.status(), StatusCode::BAD_REQUEST);
+    assert!(
+        !String::from_utf8_lossy(&to_bytes(symlink.into_body(), 2048).await.unwrap())
+            .contains("root:x:")
+    );
     let hostile_host = app
         .oneshot(
             Request::builder()
