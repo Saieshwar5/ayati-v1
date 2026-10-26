@@ -58,6 +58,10 @@ source checks, including a helper's authorized instruction. A Library task uses
 its canonical question separately from explicit authorized sources, rather than
 copying the display message's generated source link into the question.
 
+A [read-only context preview](conversation-context-preview.md) makes the current
+conversation selection visible in Agents → Knowledge. It does not impersonate
+another requester or claim to reproduce a historical task.
+
 ## Older-history tools
 
 Controller-backed managed execution supplies `search_conversation_history` and

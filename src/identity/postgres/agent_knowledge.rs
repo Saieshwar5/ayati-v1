@@ -100,18 +100,34 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         managed_access(&tx, &user.id, w, id, false).await?;
         super::chat::access(&tx, user, w, chat).await?;
-        let notes=json_rows(&tx,"SELECT jsonb_build_object('title',title,'content',content,'source',COALESCE(source_message,'Maintainer note')) AS data FROM relay_agent_knowledge WHERE workspace=$1 AND agent=$2 AND (chat=$3 OR chat IS NULL) AND NOT forgotten ORDER BY created_at DESC LIMIT 20",vec![w.into(),id.into(),chat.into()]).await?;
+        let notes = context_notes(&tx, w, id, chat).await?;
         tx.commit().await?;
-        let mut selected = Vec::new();
-        let mut bytes = 0;
-        for note in notes {
-            let text = serde_json::to_string(&note)?;
-            if bytes + text.len() > 16000 {
-                break;
-            }
-            bytes += text.len();
-            selected.push(text);
-        }
-        Ok(selected.join("\n"))
+        Ok(notes
+            .iter()
+            .map(serde_json::to_string)
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .join("\n"))
     }
+}
+
+// Shared by actual execution and the read-only context preview. Scope first,
+// then apply the same deterministic, serialized note budget in both paths.
+pub(super) async fn context_notes(
+    tx: &DatabaseTransaction,
+    w: &str,
+    id: &str,
+    chat: &str,
+) -> Result<Vec<Value>> {
+    let notes=json_rows(tx,"SELECT jsonb_build_object('id',id,'revision',revision,'chat',chat,'title',title,'content',content,'source',COALESCE(source_message,'Maintainer note')) AS data FROM relay_agent_knowledge WHERE workspace=$1 AND agent=$2 AND (chat=$3 OR chat IS NULL) AND NOT forgotten ORDER BY created_at DESC,id DESC LIMIT 20",vec![w.into(),id.into(),chat.into()]).await?;
+    let mut selected = Vec::new();
+    let mut bytes = 0;
+    for note in notes {
+        let size = serde_json::to_vec(&note)?.len() + usize::from(!selected.is_empty());
+        if bytes + size > 16000 {
+            break;
+        }
+        bytes += size;
+        selected.push(note);
+    }
+    Ok(selected)
 }

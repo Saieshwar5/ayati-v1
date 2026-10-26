@@ -1,0 +1,5 @@
+.agent-context-preview section { margin-top: 24px; }
+.agent-context-preview article { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.agent-context-preview article small { display: block; color: var(--muted); margin-top: 4px; }
+.agent-context-preview article p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.agent-context-preview article .ui-button { font-size: 12px; }
