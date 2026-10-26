@@ -10,6 +10,8 @@
 .agent-knowledge article { border-bottom: 1px solid var(--border); padding: 16px 0; }
 .agent-knowledge article p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-knowledge small { display: block; color: var(--muted); margin-top: 6px; }
+.agent-context-description { padding-bottom: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.agent-knowledge-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 620px) { .agent-status { min-width: auto; } .agent-filters { padding: 0 12px; } }
 .agent-section-title { font-size: 15px; margin: 28px 0 8px; }
 

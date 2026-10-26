@@ -35,6 +35,16 @@ No existing profile or history is copied into the new runtime automatically.
   require conversation access and agent participation. Source references must
   belong to the same conversation. Forgotten records remain for audit but are
   excluded from retrieval. Retrieval is capped at 20 notes and 16,000 bytes.
+- The Knowledge tab explains conversation context separately from approved notes.
+  New notes require an explicit conversation audience or a deliberate “Every
+  conversation with this agent” choice; there is no preselected shared audience.
+  Existing note audiences and source references stay fixed. Editing/forgetting
+  sends only the write contract, excluding metadata returned by a read.
+  Failed drafts remain available and repeated submission is gated.
+- Forgetting suppresses the approved note in future retrieval. It does not erase
+  facts already quoted in conversation messages, exports, model responses or
+  backups, and does not cancel an already-running inference. Dependency-aware
+  invalidation and deletion remain separate planned work.
 
 ## Explicit remaining work
 
@@ -68,3 +78,12 @@ permissions using the existing PostgreSQL setup tools.
 Use `tools/company-simulation.sh test` for disposable PostgreSQL schema tests,
 `npm --prefix web test` for UI behavior, and the existing check/build commands.
 These checks do not prove live provider responses or external tool execution.
+
+The explicit-audience UI is covered by `web/tests/knowledge-audience.test.mjs`
+and `tests/knowledge_audience.mjs`. The latter uses a disposable PostgreSQL schema,
+actual browser/backend writes and real Goose with local scripted inference. It
+checks an actual metadata-bearing record can be edited/forgotten, immutable scope,
+non-maintainer denial, private versus shared model input, and exclusion of a
+forgotten note from a new task. The fixture does not repeat the private note in a
+saved assistant answer; it therefore does not claim derivative erasure. Desktop,
+narrow and phone/dark forms plus reload are checked without extra inference.
