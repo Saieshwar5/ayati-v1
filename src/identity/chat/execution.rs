@@ -145,12 +145,8 @@ pub(crate) async fn prepare_traced(
         vec![]
     };
     trace.mark("library_sources");
-    let mut instructions = format!(
-        "Your name is {}.\n{}\nResponsibility: {}",
-        profile.name,
-        crate::identity::agents::config::SYSTEM_GUIDE,
-        profile.role
-    );
+    let mut instructions =
+        crate::identity::agents::config::instructions(&profile.name, &profile.role, None);
     let mut provider = None;
     let mut notes = String::new();
     if let Database::Postgres(pg) = db
@@ -160,10 +156,11 @@ pub(crate) async fn prepare_traced(
         if !settings.provider.is_empty() {
             provider = Some(settings.provider.clone());
         }
-        instructions.push_str(&format!(
-            "\nCustom instructions: {}\nAsk a person when: {}",
-            settings.instructions, settings.escalation
-        ));
+        instructions = crate::identity::agents::config::instructions(
+            &profile.name,
+            &profile.role,
+            Some(&settings),
+        );
         if settings.memory {
             let user = User {
                 id: job.requester.clone(),

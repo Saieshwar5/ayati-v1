@@ -14,6 +14,7 @@ import { AgentWorkspace } from './workspace';
 import { LocalAgentWorkspace } from './local-workspace';
 import { workspaceSections, type WorkspaceSection } from './workspace-tabs';
 import { subscribeChanges } from '../chat/live';
+import { RehearsalLauncher } from './rehearsals/launcher';
 import './workspace.css';
 
 export function AgentsPage() {
@@ -41,12 +42,14 @@ export function AgentsPage() {
   const [editingLocal, editLocal] = useState<Profile>();
   const [controlled, control] = useState<Agent>();
   const [guided, guide] = useState<Agent>();
+  const [rehearsing, rehearse] = useState<Agent>();
   const [revision, setRevision] = useState(0);
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
     epoch.current++; setData(undefined); local.setData(undefined);
     edit(undefined); editLocal(undefined); guide(undefined); control(undefined);
+    rehearse(undefined);
     void refresh().catch(() => {}); if (allowLocal) void local.refresh().catch(() => {});
   }), [setData, local.setData, refresh, local.refresh, allowLocal]);
   useEffect(() => {
@@ -106,7 +109,7 @@ export function AgentsPage() {
     </div><footer>People, purpose and controlled work.</footer></aside>
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
-      {selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
+      {selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} rehearse={() => rehearse(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
       {selectedLocal && <LocalAgentWorkspace key={selectedLocal.id} profile={selectedLocal} section={section} selectSection={selectSection} back={back} edit={() => editLocal(selectedLocal)} />}
       {data && !selected && !selectedLocal && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
@@ -114,5 +117,6 @@ export function AgentsPage() {
     {editingLocal && local.data && <LocalEditor key={editingLocal.id} profile={editingLocal} memoryAvailable={local.data.memory_available} close={() => editLocal(undefined)} saved={async () => { editLocal(undefined); await local.refresh(); }} />}
     {guided && <GuidedSetup key={guided.id} agent={guided} close={closeControls} />}
     {controlled && <AgentControl key={controlled.id} agent={controlled} close={closeControls} />}
+    {rehearsing && <RehearsalLauncher key={rehearsing.id} agent={rehearsing} close={() => rehearse(undefined)} />}
   </div>;
 }

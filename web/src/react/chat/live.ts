@@ -1,7 +1,7 @@
 import { workspaceId, workspaceSession, storageScope } from '../../workspace-context';
 import { chatRequest, type Message } from './model';
 import { flushOutbox, stopOutbox, subscribeSent } from './outbox';
-export type Change = { kind: 'message' | 'access' | 'reset'; chat?: string; message?: Message };
+export type Change = { kind: 'message' | 'access' | 'reset' | 'sample_access'; chat?: string; message?: Message };
 const subscribers = new Set<(change: Change) => void>();
 const statusSubscribers = new Set<() => void>();
 let status = 'Connecting…';

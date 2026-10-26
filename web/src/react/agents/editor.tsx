@@ -30,6 +30,7 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
   const profile = <div className="ui-form">
     <label className="ui-field">Name<input ref={first} required maxLength={80} value={draft.name} onChange={e => change('name', e.target.value)} /></label>
     <label className="ui-field">Responsibility<textarea required rows={4} maxLength={4000} placeholder="What should this agent help you accomplish?" value={draft.role} onChange={e => change('role', e.target.value)} /></label>
+    <label className="ui-field">Successful outcome<textarea rows={2} maxLength={2000} placeholder="What should good work look like?" value={draft.settings.successful_outcome ?? ''} onChange={e => setting('successful_outcome', e.target.value)} /></label>
     <label className="ui-field">Visibility<select disabled={!creating} value={draft.scope} onChange={e => change('scope', e.target.value)}><option value="private">Private · only you</option>{(directory.role === 'Owner' || directory.can_create_workspace || draft.scope === 'workspace') && <option value="workspace">Workspace · people with access</option>}</select></label>
     <p className="ui-help">{draft.scope === 'private' ? 'Visible only to you. Cannot be added to channels. Workspace administrators cannot read this agent.' : 'Can participate in channels. An Owner can grant teammates access in Settings. Personal conversations are never copied into channels.'} Visibility is fixed after creation.</p>
     <div className="agent-avatars" aria-label="Choose avatar">{Object.entries(symbols).map(([key, symbol]) => <Button key={key} aria-label={`${key} avatar`} aria-pressed={draft.settings.avatar === key} onClick={() => { setting('avatar', key); setFile(undefined); }}>{symbol}</Button>)}</div>
@@ -47,11 +48,16 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <label className="ui-field">Channel context<select value={draft.settings.history} onChange={e => setting('history', e.target.value)}><option value="all">Recent history, including before joining</option><option value="since_join">Only messages since joining</option></select></label>
     <p className="ui-help">Responses use a bounded recent context from the current conversation. An agent responds when mentioned or directly messaged.</p>
     <label className="ui-field">Ask a person when<textarea rows={3} maxLength={2000} value={draft.settings.escalation} onChange={e => setting('escalation', e.target.value)} placeholder="For example, when a request is unclear or needs a manager’s decision." /></label>
+    <label className="ui-field">Routine<textarea rows={3} maxLength={2000} value={draft.settings.routine ?? ''} onChange={e => setting('routine', e.target.value)} placeholder="Any steps this agent should usually follow?" /></label>
     <p className="ui-help">These are behavioral instructions. Server permissions independently enforce visibility, conversation access and available tools.</p>
     <label><input type="checkbox" checked={draft.settings.paused} onChange={e => setting('paused', e.target.checked)} /> Pause this agent</label>
   </div>;
   const instructions = <div className="ui-form"><label className="ui-field">Custom instructions<textarea rows={8} maxLength={12000} value={draft.settings.instructions} onChange={e => setting('instructions', e.target.value)} /></label><details><summary>Application instructions</summary><p className="agent-prompt">{directory.system_prompt}</p><p className="ui-help">The runtime also adds the agent identity, responsibility, conversation scope and provider tool guidance.</p></details></div>;
-  const review = <div className="ui-form"><h3>{draft.name || 'Your agent'}</h3><p>{draft.role}</p><p>{draft.scope === 'private' ? 'Only you' : 'Workspace access'} · {draft.model}</p><p>Knowledge {draft.settings.memory ? 'enabled' : 'disabled'} · {draft.settings.paused ? 'Paused' : 'Available for messages'}</p>{instructions}</div>;
+  const review = <div className="ui-form"><h3>{draft.name || 'Your agent'}</h3><p>{draft.role}</p>
+    {draft.settings.successful_outcome && <p>Successful outcome: {draft.settings.successful_outcome}</p>}
+    {draft.settings.escalation && <p>Ask a person when: {draft.settings.escalation}</p>}
+    {draft.settings.routine && <p>Routine: {draft.settings.routine}</p>}
+    <p>{draft.scope === 'private' ? 'Only you' : 'Workspace access'} · {draft.model}</p><p>Knowledge {draft.settings.memory ? 'enabled' : 'disabled'} · {draft.settings.paused ? 'Paused' : 'Available for messages'}</p>{instructions}</div>;
   const steps = [{ title: 'Identity', content: profile }, { title: 'Capabilities', content: capabilities }, { title: 'Controls', content: controls }, { title: 'Review', content: review }];
   return <Dialog drawer title={creating ? 'Create an agent' : draft.name} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={editable && <>
     {creating && step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}

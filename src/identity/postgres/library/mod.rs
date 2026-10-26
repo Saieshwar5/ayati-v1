@@ -1,6 +1,7 @@
 mod actions;
 mod agents;
 mod pages;
+pub(super) mod rehearsals;
 mod sharing;
 mod uploads;
 use super::*;

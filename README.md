@@ -25,9 +25,12 @@ while preserving existing work and closing new intake in archived channels.
 [Home attention](runtime/workspace-attention.md) brings personal questions,
 exact approvals and outcomes together with durable read/review markers and
 links back to their currently accessible conversations and threads.
+[Agent job samples](runtime/agent-job-rehearsal.md) add saved successful-outcome
+and routine guidance, with explicit asynchronous draft-only tasks using selected
+already-assigned knowledge. Samples have no connected action tools.
 These managed workflows are verified locally. Existing private-runtime question
 adapters, broader rule predicates and live cloud/provider acceptance remain open.
-Current shared-workspace startup requires PostgreSQL schema **25**, explicit
+Current shared-workspace startup requires PostgreSQL schema **26**, explicit
 migration/runtime grants and operator-provisioned private MCP profiles for tools.
 
 [Workspace Library](runtime/library.md) adds private pages, shared reference files,

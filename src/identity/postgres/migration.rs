@@ -30,6 +30,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::question_migration::Questions),
             Box::new(super::chat_organization_migration::ChatOrganization),
             Box::new(super::attention_migration::Attention),
+            Box::new(super::rehearsal_migration::Rehearsals),
         ]
     }
 }
