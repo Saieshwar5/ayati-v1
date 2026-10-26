@@ -86,6 +86,10 @@ Cluster files, fixture schemas, reports and failures remain for inspection.
 Temporary user scopes are local test infrastructure; the cloud plan still uses
 the ECS service and controller-owned admission.
 
+For a sequential browser/controller acceptance run, use `--suite workspace`; see
+[local workspace acceptance](local-workspace-acceptance.md) for its exact cases,
+deadlines and the larger browser-driver ceiling.
+
 ## Resource profile
 
 All processes use the first four allowed logical CPUs. Every role has its own

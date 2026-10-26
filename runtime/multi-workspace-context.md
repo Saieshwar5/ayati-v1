@@ -29,6 +29,12 @@ AYATI_CONTEXT_ROUNDS=40 AYATI_CONTEXT_IDLE_SECONDS=90 \
 
 Defaults are three rounds without idle delay. Rounds are bounded to 3–40 and idle
 intervals to 0–90 seconds; every wave also has a 120-second completion deadline.
+Each wave signs the three fixture people in through the normal simulation login
+route and verifies their stable IDs; no session TTL is extended. Wave two expires
+only the disposable schema's sessions and proves old cookies return 401 before
+normal reauthentication. This prevents a long rehearsal from failing merely
+because its original one-hour cookie expired.
+
 The runner copies an immutable application binary, creates an owned private
 PostgreSQL cluster and enforces the existing CPU/memory limits. Only owned test
 processes and infrastructure are stopped; the normal local demo is not touched.
@@ -55,8 +61,13 @@ Evidence: `.tmp/bounded-agent-19ums66x/` (faults),
 `.tmp/bounded-agent-nn_u6b3n/` (20 regressions). Initial failed fixtures remain in
 their earlier evidence directories; they were not treated as product success.
 
-The extended 40-wave run is tracked separately and must not be called passed until
-its final report and cleanup are verified. This is local transport/isolation and
+The original extended run (`.tmp/bounded-agent-z0qunor1/`) completed 34 waves /
+1,734 requests with no idle inference, then correctly received 401 when its
+fixture login expired after an hour. It is a failed 40-wave run, not a pass.
+Its immutable binary predates the host-hint isolation and context-preview changes.
+All seven owned scopes were verified inactive afterward. A corrected current-build
+40-wave run with normal reauthentication and 30-second idle intervals is tracked
+separately; its final report and cleanup must pass before claiming completion. This is local transport/isolation and
 recovery evidence with synthetic inference. It does not establish real-model
 judgment, automatic sensitive-data classification, production tenant isolation,
 fifty running workers, cloud availability or acceptable customer-facing latency.

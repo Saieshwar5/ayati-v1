@@ -22,6 +22,13 @@ SUITES = {
     'matrix': ['tests/agent_load.mjs'],
     'faults': ['tests/agent_load_faults.mjs'],
     'context': ['tests/multi_workspace_context.mjs'],
+    'workspace': ['tests/trusted_sender_context.mjs', 'tests/conversation_history.mjs',
+                  'tests/managed_context_isolation.mjs', 'tests/context_preview.mjs',
+                  'tests/knowledge_audience.mjs', 'tests/agent_questions.mjs',
+                  'tests/agent_handoffs.mjs', 'tests/agent_handoff_sources.mjs',
+                  'tests/agent_events.mjs', 'tests/agent_automation.mjs',
+                  'tests/workspace_home_panels.mjs', 'tests/agent_rehearsals.mjs',
+                  'tests/workspace_restore.mjs'],
     'preparation': ['tests/harness_preparation.mjs'],
     'mixed': ['tests/interactive_reserve.mjs'],
     'image': ['tests/image_release.mjs', 'tests/interactive_reserve.mjs', 'tests/agent_load_faults.mjs'],
@@ -79,10 +86,27 @@ def verify_limits(actual, profile, role):
 
 def stop_scopes(profile):
     # Only this invocation's recorded UUID-prefixed units can be stopped.
-    for unit in reversed(Path(profile['units_file']).read_text().splitlines()):
-        if not re.fullmatch(re.escape(profile['prefix']) + r'-[a-z]+-[a-f0-9]{32}\.scope', unit):
-            raise RuntimeError('Unexpected owned unit name')
-        subprocess.run(['systemctl', '--user', 'stop', unit], capture_output=True)
+    units = list(reversed(Path(profile['units_file']).read_text().splitlines()))
+    if any(not re.fullmatch(re.escape(profile['prefix']) + r'-[a-z]+-[a-f0-9]{32}\.scope', unit)
+           for unit in units):
+        raise RuntimeError('Unexpected owned unit name')
+    results, failures = [], []
+    for unit in units:
+        try:
+            stopped = subprocess.run(['systemctl', '--user', 'stop', unit],
+                                     capture_output=True, timeout=15)
+            state = subprocess.run(['systemctl', '--user', 'show', '--property=ActiveState', '--value', unit],
+                                   capture_output=True, text=True, timeout=5)
+            # Finished transient scopes may already be unloaded; verify their state
+            # rather than requiring stop to succeed on a unit that no longer exists.
+            if state.returncode or state.stdout.strip() != 'inactive':
+                raise RuntimeError('Owned scope remains active or its state could not be verified')
+            results.append({'unit': unit, 'state': 'inactive', 'stop_exit': stopped.returncode})
+        except (subprocess.SubprocessError, OSError, RuntimeError) as error:
+            failures.append(f'{unit}: {error}')
+    if failures:
+        raise RuntimeError('Owned scope cleanup failed: ' + '; '.join(failures))
+    return results
 
 
 def main():
@@ -91,6 +115,8 @@ def main():
     parser.add_argument('--image', help='Immutable sha256 image ID; container mode for image/matrix/mixed/faults/calibration/bridge suites')
     parser.add_argument('--binary', type=Path, default=ROOT / 'target/debug/ayati')
     parser.add_argument('--postgres-bin', type=Path)
+    parser.add_argument('--timeout-seconds', type=int,
+                        help='Whole test-suite deadline, 60–14400 seconds; defaults to 1800, or the bounded context duration')
     parser.add_argument('--samples', type=int, default=24)
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--concurrency', default='1,4,8,16')
@@ -98,6 +124,18 @@ def main():
     parser.add_argument('--executor-cpu', type=int, choices=[100, 200], default=100,
                         help='CPU ceiling per two-slot executor, in percent of one CPU')
     args = parser.parse_args()
+    if args.timeout_seconds is not None and not 60 <= args.timeout_seconds <= 14400:
+        parser.error('Timeout must be 60–14400 seconds')
+    timeout = args.timeout_seconds or 1800
+    if args.suite == 'context' and args.timeout_seconds is None:
+        try:
+            rounds = int(os.environ.get('AYATI_CONTEXT_ROUNDS', '3'))
+            idle = int(os.environ.get('AYATI_CONTEXT_IDLE_SECONDS', '0'))
+            if not 3 <= rounds <= 40 or not 0 <= idle <= 90:
+                raise ValueError()
+        except ValueError:
+            parser.error('Context rounds must be 3–40 and idle seconds 0–90')
+        timeout = 240 + rounds * (120 + idle)
     if args.suite == 'bridge' and os.environ.get('AYATI_TEST_PREPARED_GOOSE_BIN'):
         parser.error('Bridge acceptance requires pinned prepared Goose; unset AYATI_TEST_PREPARED_GOOSE_BIN')
     if args.image and args.suite not in ['image', 'matrix', 'mixed', 'faults', 'calibration', 'bridge']:
@@ -133,6 +171,9 @@ def main():
     roles = {role: {'cpu_percent': 100, 'memory_bytes': mib * 1024 * 1024, 'tasks': 256}
              for role, mib in [('driver', 512), ('controller', 512), ('executor', 1024), ('postgres', 512)]}
     roles['executor']['cpu_percent'] = args.executor_cpu
+    if args.suite == 'workspace':
+        # This acceptance driver owns real Chromium, unlike the load-only driver.
+        roles['driver']['memory_bytes'] = 1024 * 1024 * 1024
     profile = {'version': 1, 'prefix': 'ayati-load-' + uuid.uuid4().hex[:16],
                'cpu_list': ','.join(map(str, cpus)), 'roles': roles, 'units_file': str(units),
                'limits': 'Per-role ceilings, not exclusive reservations; shared CPU and disk remain external contention sources.'}
@@ -153,7 +194,7 @@ def main():
     env.update(PGHOST=str(socket), PGPORT='55439', PGUSER=admin,
                PGDATABASE='postgres', PGPASSWORD='', PGOPTIONS='')
     metadata = {'version': 1, 'began_utc': datetime.now(timezone.utc).isoformat(),
-                'suite': args.suite, 'profile': profile, 'database': dbname,
+                'suite': args.suite, 'profile': profile, 'database': dbname, 'timeout_seconds': timeout,
                 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest() if not args.image else None,
                 'base_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 'exit_code': None, 'errors': []}
@@ -228,10 +269,13 @@ def main():
         save()
         with (evidence / 'run.log').open('w') as log:
             result = subprocess.run(scope(profile, 'driver', command), cwd=ROOT, env=env,
-                                    stdout=log, stderr=subprocess.STDOUT)
+                                    stdout=log, stderr=subprocess.STDOUT, timeout=timeout)
         metadata['exit_code'] = result.returncode
         metadata['postgres_after'] = snapshot(pg.pid)
         verify_limits(metadata['postgres_after'], profile, 'postgres')
+    except subprocess.TimeoutExpired:
+        metadata['errors'].append(f'Test suite exceeded its {timeout}-second deadline')
+        metadata['exit_code'] = 124
     except KeyboardInterrupt:
         metadata['errors'].append('Rehearsal interrupted')
         metadata['exit_code'] = 130
@@ -254,7 +298,11 @@ def main():
                 pg.wait()
                 metadata['errors'].append('Private PostgreSQL required forced stop')
                 metadata['exit_code'] = 1
-        stop_scopes(profile)
+        try:
+            metadata['stopped_scopes'] = stop_scopes(profile)
+        except Exception as error:
+            metadata['errors'].append(str(error))
+            metadata['exit_code'] = 1
         if output:
             output.close()
         metadata['finished_utc'] = datetime.now(timezone.utc).isoformat()

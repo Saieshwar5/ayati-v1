@@ -77,7 +77,7 @@ test('fifty managed agents preserve three workspace and private-person contexts 
   const sample = () => sampleResources([process.pid, app.apiProcess().child.pid, ...fleet.map(e => e.child.pid)]);
   let stopResources = await sample();
   const report = { version: 1, rounds, idle_seconds: idleSeconds, agents: 50, conversations: 51,
-    workspaces: 3, slots: 6, workspace_running_limit: 2, environment, waves: [], resources: [],
+    workspaces: 3, slots: 6, workspace_running_limit: 2, environment, waves: [], resources: [], session_renewals: 0, expired_sessions_denied: 0,
     limits: 'Local scripted inference and debug build. Fifty configured agents do not mean fifty running workers or a cloud latency guarantee.' };
   const save = () => writeFile(join(app.data, 'multi-workspace-context.json'), JSON.stringify(report, null, 2), { mode: 0o600 });
   async function finishResources() {
@@ -93,6 +93,21 @@ test('fifty managed agents preserve three workspace and private-person contexts 
   };
   await save();
   for (let round = 1; round <= rounds; round++) {
+    // Sign in normally instead of extending server TTLs for a long rehearsal.
+    // Force expiry once in this isolated schema so even the short smoke covers it.
+    if (round === 2) {
+      await app.sqlAsync('UPDATE relay_sessions SET expires=0');
+      for (const cookie of cookies) await app.request('/api/identity/session', cookie, undefined, 401);
+      report.expired_sessions_denied += cookies.length;
+    }
+    for (let index = 0; index < people.length; index++) {
+      cookies[index] = await app.login(index);
+      const person = (await app.request('/api/identity/session', cookies[index])).value.user;
+      assert.equal(person.id, people[index].id, 'Reauthentication changed the requesting person');
+      for (const workspace of workspaces) if (workspace.person.id === person.id) workspace.cookie = cookies[index];
+      for (const value of lanes) if (value.person.id === person.id) value.cookie = cookies[index];
+      report.session_renewals++;
+    }
     await ready(app, 6);
     const before = app.provider.requests.length, began = Date.now();
     const requests = lanes.map(value => ({ ...value, id: randomUUID() }));
@@ -158,7 +173,7 @@ test('fifty managed agents preserve three workspace and private-person contexts 
     await save();
     console.log('CONTEXT_WAVE', JSON.stringify(report.waves.at(-1)));
   }
-  await app.request(app.path + '/chat-grants', app.cookie, { user: people[1].id, agent: app.profile.id, allowed: false });
+  await app.request(app.path + '/chat-grants', workspaces[0].cookie, { user: people[1].id, agent: app.profile.id, allowed: false });
   const beforeDenied = app.provider.requests.length;
   await app.request(`${app.path}/chats/${secondPerson.chat}/messages`, secondPerson.cookie, {
     id: randomUUID(), agent: app.profile.id, content: 'A revoked grant cannot authorize a new task.',
