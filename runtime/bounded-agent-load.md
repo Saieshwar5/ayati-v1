@@ -9,6 +9,40 @@ before readiness; the original stock-Goose measurements below remain historical.
 
 ## Reproduce
 
+### Current managed-tool checkpoint, 2026-10-26
+
+Managed Chat now supplies controller tools, including ordinary questions and
+scoped history. Those jobs replace the generic tool-free reserve with a fresh
+controlled Goose session. The historical prepared/tool-free numbers below do not
+describe that path. The executor now carries its controller-issued assignment ID
+to the actual ACP submission point for both paths; previously controlled jobs
+omitted `acp_submit`, so the matrix correctly refused to report complete timings.
+The opt-in trace still contains only fixed labels, assignment IDs and timestamps.
+
+A fresh bounded run after that correction passed all 384 requests in the default
+two-repeat small/large matrix. Every request retained one inference, one attempt,
+its own conversation marker and only its agent's approved knowledge. All 16 cases
+included the controlled cold-start phase and complete correlated timestamps; no
+resource-scope OOM occurred. The 250 ms model-start target was **not met**.
+
+| Concurrent requests / four slots | p95 model request across four cases | p95 final result across four cases |
+| --- | --- | --- |
+| 1 | 287–643 ms | 351–792 ms |
+| 4 | 1,063–1,377 ms | 1,149–1,461 ms |
+| 8 | 2,601–2,933 ms | 2,674–3,013 ms |
+| 16 | 5,537–6,321 ms | 5,631–6,454 ms |
+
+These are ranges of each case's p95, not one pooled percentile. Queueing above
+four slots is intentional; none of this proves fifty simultaneous few-second
+cloud starts. Evidence is `.tmp/bounded-agent-zz__owkd/`, with worker records in
+the run log. The failed missing-timestamp baseline remains in
+`.tmp/bounded-agent-ulq4890a/`. Debug builds, synthetic inference, shared host
+contention and the documented resource ceilings bound these observations.
+
+Future startup work must preserve fresh task identity, controller capability and
+single-use context. Do not obtain a faster number by reusing an agent's authorized
+session for another task or by silently expanding the resource ceiling.
+
 Use Linux with a working systemd user manager, cgroup v2 CPU/memory controllers,
 `taskset`, Node, `psql`, PostgreSQL server tools and the existing pinned Goose
 1.54.0 installation plus the separate

@@ -231,8 +231,12 @@ impl GooseRuntime {
                 offset: None,
             });
         }
-        if let Some(turn) = &scoped {
-            crate::identity::start_trace::point(turn.assignment, "executor", "acp_submit");
+        if let Some(assignment) = scoped
+            .as_ref()
+            .map(|turn| turn.assignment)
+            .or(self.config.trace_assignment.as_deref())
+        {
+            crate::identity::start_trace::point(assignment, "executor", "acp_submit");
         }
         let prompt = p
             .connection

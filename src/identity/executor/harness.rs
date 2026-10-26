@@ -111,8 +111,11 @@ impl Harness {
                 None
             };
             let tool_runtime = if let Some(broker) = &broker {
+                let mut config =
+                    execution::runtime_config(&context, &self.root, Some(broker.endpoint.clone()))?;
+                config.trace_assignment = Some(output.assignment.scope.assignment.clone());
                 Some(Arc::new(GooseRuntime::new(
-                    execution::runtime_config(&context, &self.root, Some(broker.endpoint.clone()))?,
+                    config,
                     self.store.clone(),
                     self.events.clone(),
                 )))

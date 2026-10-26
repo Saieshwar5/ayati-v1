@@ -11,6 +11,7 @@ pub const PREPARED_GOOSE_VERSION: &str = "1.54.0+ayati.1";
 #[derive(Clone)]
 pub struct GooseConfig {
     pub(crate) control_tools: Option<crate::identity::control::broker::Endpoint>,
+    pub(crate) trace_assignment: Option<String>,
     pub platform: Option<std::sync::Arc<crate::platform::Platform>>,
     pub binary: PathBuf,
     pub agent_id: String,
@@ -47,6 +48,7 @@ impl GooseConfig {
         Self {
             platform: None,
             control_tools: None,
+            trace_assignment: None,
             agent_id: "local-agent".into(),
             role: String::new(),
             vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
