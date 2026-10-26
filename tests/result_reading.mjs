@@ -10,6 +10,10 @@ import { setup, until, root } from './fixtures/goose_app.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 const evidence = join(root, '.tmp/result-reading');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+async function openResponse(message) {
+  await message.getByRole('button',{name:'Expand response',exact:true}).click();
+  await message.getByRole('button',{name:'Open response reader',exact:true}).click();
+}
 
 test('long real Goose replies remain compact, freeze while reading and preserve exact saved downloads and passive files', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000,
@@ -38,12 +42,16 @@ test('long real Goose replies remain compact, freeze while reading and preserve 
   const w=app.path.split('/').at(-1), url=`${app.base}/w/${w}/?view=chat&conversation=${job.chat}`;
   await page.goto(url);
   const message=page.locator(`[data-message-id="${job.reply}"]`);
-  await message.getByRole('button',{name:'Read response',exact:true}).waitFor();
-  assert.ok((await message.locator('.response-excerpt').boundingBox()).height<=209);
+  await message.getByRole('button',{name:'Expand response',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Check progress',exact:true}).count(),0);
+  assert.ok((await message.locator('.response-excerpt').boundingBox()).height<=157);
   assert.ok((await message.textContent()).length<900);
   const composer=page.getByRole('textbox',{name:'Message',exact:true}); await composer.fill('KEEP_READER_DRAFT');
   const calls=app.provider.requests.length;
-  await message.getByRole('button',{name:'Read response',exact:true}).click();
+  await message.getByRole('button',{name:'Expand response',exact:true}).click();
+  await message.getByText('Section 55',{exact:true}).waitFor();
+  await page.screenshot({path:join(app.data,'corner-expanded-desktop.png')});
+  await message.getByRole('button',{name:'Open response reader',exact:true}).click();
   const reader=page.getByRole('dialog',{name:'Agent response',exact:true});
   await reader.getByText('Section 55',{exact:true}).waitFor();
   await reader.locator('.result-body').evaluate(node=>{node.scrollTop=280;});
@@ -64,16 +72,34 @@ test('long real Goose replies remain compact, freeze while reading and preserve 
   const old=await fetch(app.base+endpoint+`?download=true&version=${draft.version}`,{headers:{Cookie:app.cookie}}); assert.equal(old.status,409);
   await page.keyboard.press('Escape'); await reader.waitFor({state:'detached'});
   assert.equal(await composer.inputValue(),'KEEP_READER_DRAFT');
-  assert.equal(await message.getByRole('button',{name:'Read response',exact:true}).evaluate(node=>node===document.activeElement),true);
+  assert.equal(await message.getByRole('button',{name:'Open response reader',exact:true}).evaluate(node=>node===document.activeElement),true);
   assert.equal(app.provider.requests.length,calls);
   await app.stop(executor); await app.stopApi(); await app.startApi(); await page.reload();
   assert.equal((await app.request(endpoint,app.cookie)).value.body,first+tail);
   assert.equal(await composer.inputValue(),'KEEP_READER_DRAFT');
-  await message.getByRole('button',{name:'Read response',exact:true}).click(); await reader.getByText('FINAL_SAVED_RESULT 🦀',{exact:true}).waitFor();
+  await openResponse(message); await reader.getByText('FINAL_SAVED_RESULT 🦀',{exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844}); await page.emulateMedia({colorScheme:'dark'});
   await page.screenshot({path:join(app.data,'reader-complete-mobile-dark.png')});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  await page.keyboard.press('Escape'); await page.setViewportSize({width:1440,height:960}); await page.emulateMedia({colorScheme:'light'});
+  await page.keyboard.press('Escape');
+  await message.getByRole('button',{name:'Collapse response',exact:true}).click();
+  for (const [width,height,dark] of [[1440,960,false],[390,844,true],[320,568,false]]) {
+    await page.setViewportSize({width,height}); await page.emulateMedia({colorScheme:dark?'dark':'light'});
+    await message.scrollIntoViewIfNeeded();
+    assert.ok((await message.locator('.chat-response').boundingBox()).height<=226);
+    const arrow=message.getByRole('button',{name:'Expand response',exact:true});
+    const target=await arrow.boundingBox();assert.ok(target.width>=44 && target.height>=44);
+    assert.equal(await arrow.textContent(),'');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.screenshot({path:join(app.data,`corner-compact-${width}.png`)});
+    await arrow.focus();await page.keyboard.press('Enter');
+    await message.getByText('FINAL_SAVED_RESULT 🦀',{exact:true}).waitFor();
+    assert.ok((await message.locator('.chat-response').boundingBox()).height>226);
+    assert.equal(await message.locator('.inline-response-body').evaluate(node=>getComputedStyle(node).overflowY),'visible');
+    await message.getByRole('button',{name:'Collapse response',exact:true}).click();
+    assert.equal(await composer.inputValue(),'KEEP_READER_DRAFT');
+  }
+  await page.setViewportSize({width:1440,height:960}); await page.emulateMedia({colorScheme:'light'});
   app.pass('A real pinned Goose long stream stays compact, preserves a frozen reading position, updates explicitly and downloads the exact final body across controller/browser restart without another inference');
 
   async function upload(name,bytes,mime) {
@@ -115,7 +141,7 @@ test('long real Goose replies remain compact, freeze while reading and preserve 
   const threadJob=JSON.parse(app.sql(`SELECT j.payload FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply WHERE m.thread='${threadRoot}' ORDER BY j.sequence DESC LIMIT 1`)); await app.done(threadJob);
   await page.goto(`${url}&message=${threadJob.reply}`);
   const thread=page.getByRole('dialog',{name:'Thread',exact:true}); await thread.waitFor();
-  await thread.locator(`[data-message-id="${threadJob.reply}"]`).getByRole('button',{name:'Read response',exact:true}).click();
+  await openResponse(thread.locator(`[data-message-id="${threadJob.reply}"]`));
   await reader.getByText('FINAL_SAVED_RESULT 🦀',{exact:true}).waitFor(); await page.keyboard.press('Escape'); await reader.waitFor({state:'detached'}); assert.equal(await thread.isVisible(),true);
   await page.keyboard.press('Escape');await thread.waitFor({state:'detached'});await app.stop(threadWorker);
   app.pass('A real threaded reply opens its saved reader through a deep link; Escape closes only the reader and returns to the original thread');
@@ -137,13 +163,17 @@ test('the private runtime reader retains old saved bodies, preview bounds and ex
   const browser=await chromium.launch({headless:true});t.after(()=>browser.close());
   const page=await browser.newPage({acceptDownloads:true,viewport:{width:1280,height:900}}), errors=[];page.on('pageerror',error=>errors.push(error.message));
   const url=app.base.replace('/api','')+'/?agent=local-agent'; await page.goto(url);
-  const last=page.locator('[data-message-id="reader-message-214"]'); await last.getByRole('button',{name:'Read response',exact:true}).click();
+  const last=page.locator('[data-message-id="reader-message-214"]');
+  await last.getByRole('button',{name:'Expand response',exact:true}).click();
+  await last.getByText('PRIVATE_FINAL_RESULT',{exact:true}).waitFor();
+  await page.screenshot({path:join(evidence,'private-inline-desktop.png')});
+  await last.getByRole('button',{name:'Open response reader',exact:true}).click();
   const reader=page.getByRole('dialog',{name:'Agent response',exact:true});await reader.getByText('PRIVATE_FINAL_RESULT',{exact:true}).waitFor();
   const href=await reader.getByRole('link',{name:'Download Markdown',exact:true}).getAttribute('href');
   const savedDownload=await page.request.get(new URL(href,page.url()).href); assert.equal(savedDownload.status(),200,await savedDownload.text()); assert.equal(await savedDownload.text(),body);
   const event=page.waitForEvent('download');await reader.getByRole('link',{name:'Download Markdown',exact:true}).click();assert.equal(await readFile(await(await event).path(),'utf8'),body);
   await page.screenshot({path:join(evidence,'private-reader-desktop.png')}); await page.keyboard.press('Escape');
-  await app.stop();await app.start();await page.reload();await last.getByRole('button',{name:'Read response',exact:true}).waitFor();
+  await app.stop();await app.start();await page.reload();await last.getByRole('button',{name:'Expand response',exact:true}).waitFor();
   const bytes=await readFile(join(root,'designs/result-reading/reader-concept-mobile.png'));
   const form=new FormData();form.append('file',new Blob([bytes],{type:'image/png'}),'Private image.png');
   const uploaded=await fetch(app.base+'/files',{method:'POST',body:form});assert.equal(uploaded.status,200);const artifact=(await uploaded.json()).artifact;

@@ -51,12 +51,10 @@ test('progress is read only on explicit opening, shows saved waits, preserves fa
   let fail = false;
   await reactFixture(
     async ({ render, button, click }) => {
-      const { TaskProgress } = await setup();
-      const message = { id: 'reply', chat: 'channel', kind: 'agent', state: 'queued', has_task: true };
-      await render(TaskProgress, { message });
+      const { TaskProgressDialog } = await setup();
+      await render(() => null);
       assert.equal(calls.length, 0);
-      assert.ok(button('Check progress'));
-      await click(button('Check progress'));
+      await render(TaskProgressDialog, { chat: 'channel', reply: 'reply', close: () => {} });
       assert.match(document.body.textContent, /PRIVATE_SAVED_PROGRESS/);
       assert.match(document.body.textContent, /Worker released/);
       assert.ok(button('Answer question'));
@@ -68,7 +66,7 @@ test('progress is read only on explicit opening, shows saved waits, preserves fa
       fail = false;
       await click(button('Check now'));
       assert.equal(document.querySelector('[role=alert]'), null);
-      await click(button('Close'));
+      await render(() => null);
       assert.equal(document.querySelector('dialog'), null);
       assert.ok(calls.every((c) => c.method === 'GET'));
       assert.ok(calls.every((c) => c.path.endsWith('/chats/channel/messages/reply/progress')));

@@ -12,10 +12,13 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Cuckoo', preservePosition = false): void {
+export function renderConversation(container: HTMLElement, state: Snapshot, agentName = 'Cuckoo', preservePosition = false,
+  response?: (id: string, text: string) => HTMLElement): void {
   const position = container.scrollTop;
   const atEnd = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
   const nodes: HTMLElement[] = [];
+  const previous = new Map([...container.querySelectorAll<HTMLElement>('[data-message-id]')].map(node => [node.dataset.messageId, node]));
+  const focus = container.contains(document.activeElement) ? document.activeElement as HTMLElement : undefined;
   if (!state.messages.length) {
     const welcome = element('section', 'welcome');
     const mark = element('span', 'cuckoo-brand cuckoo-symbol'); mark.setAttribute('aria-hidden', 'true');
@@ -28,7 +31,7 @@ export function renderConversation(container: HTMLElement, state: Snapshot, agen
   const lastMessage = new Map<string, string>();
   for (const message of state.messages) lastMessage.set(message.task_id, message.id);
   for (const message of state.messages) {
-    if (message.content) nodes.push(messageView(message, agentName));
+    if (message.content) nodes.push(messageView(message, agentName, response, previous.get(message.id)));
     if (lastMessage.get(message.task_id) === message.id) {
       const task = tasks.get(message.task_id);
       if (task && ['failed', 'interrupted', 'stopped'].includes(task.status)) {
@@ -61,6 +64,7 @@ export function renderConversation(container: HTMLElement, state: Snapshot, agen
   const queued = state.tasks.filter((task) => task.status === 'queued');
   for (const task of queued) nodes.push(queuedView(task));
   container.replaceChildren(...nodes);
+  if (focus?.isConnected && document.activeElement !== focus) focus.focus({ preventScroll: true });
   measureResponsePreviews(container);
   if (preservePosition) container.scrollTop = position;
   else if (atEnd) container.scrollTop = container.scrollHeight;
@@ -80,7 +84,12 @@ function queuedView(task: Task): HTMLElement {
   return row;
 }
 
-function messageView(message: ChatMessage, agentName: string): HTMLElement {
+function messageView(message: ChatMessage, agentName: string, response?: (id: string, text: string) => HTMLElement, previous?: HTMLElement): HTMLElement {
+  if (message.role === 'assistant' && response && previous) {
+    previous.querySelector('.speaker')!.textContent = agentName;
+    response(message.id, message.content);
+    return previous;
+  }
   const row = element('article', `message ${message.role}`);
   row.dataset.messageId = message.id;
   let body = message.content;
@@ -105,8 +114,8 @@ function messageView(message: ChatMessage, agentName: string): HTMLElement {
     avatar.setAttribute('aria-hidden', 'true');
     row.append(avatar, element('div', 'speaker', agentName));
   }
-  row.append(content);
-  if (message.role === 'assistant') {
+  row.append(message.role === 'assistant' && response ? response(message.id, message.content) : content);
+  if (message.role === 'assistant' && !response) {
     const button = element('button', 'text-button response-launcher', 'Read response');
     button.type = 'button'; button.dataset.openResponse = message.id; button.hidden = !preview.long;
     row.append(button);

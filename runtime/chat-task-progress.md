@@ -1,11 +1,16 @@
-# Saved task progress in Chat
+# Saved task progress projection
+
+Chat's Check progress launchers were removed with the selected corner-arrow
+response design on 2026-10-26. Existing request activity remains in Agents Work.
+The source-bound read API and reader implementation below are retained; the
+earlier Chat entry-point behavior is historical, not a current transcript action.
 
 Implemented locally as a serial increment after [channel handoffs](channel-agent-handoffs.md),
 PR 75 at `c997744d`. This contract and the selected OpenPencil concepts were saved before application changes.
 
 ## Product behavior
 
-A person opens **Check progress** on an actual saved agent reply in its existing
+The original Chat entry point opened **Check progress** on a saved agent reply in its existing
 channel, direct conversation or thread. A bounded drawer reads the controller's
 saved task records: current phase, latest saved update, original requester,
 accepted/started/finished times, pending input/approval/helper references and the

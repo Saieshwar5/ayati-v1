@@ -12,8 +12,19 @@ in connected OpenPencil before application changes.
 Long agent replies stay compact from their first streamed render. A deterministic
 excerpt never invents a summary. Initial bounds are 900 characters/eight line
 breaks for structural classification, a 320-character excerpt, and a bounded
-208-pixel transcript region; measured overflow also exposes the reader on narrow
-windows. Human input and explicit approval/question controls retain their own
+156-pixel text region inside a softly filled box (up to 226 px with padding and
+its corner control); measured overflow exposes expansion on narrow windows.
+The selected [corner-arrow concept](../designs/agent-response-box/README.md)
+replaces Chat's labelled Read response footer and character count. Short replies
+use their natural height. Long replies fade at the bottom and expand their saved
+body inline through a bare arrow icon with a 44 px keyboard/touch target. A reverse
+arrow collapses; expanded replies also expose a top collapse icon. No inner
+vertical scrollbar is added. On phones, the box spans below its author row.
+
+Expanded replies expose Copy, exact Markdown download and a secondary full reader
+as quiet icons. Questions, approvals, attachments and reply Stop remain separate.
+Chat no longer shows Check progress launchers; existing task APIs and Agents Work
+remain available. Human input and explicit approval/question controls retain their own
 semantics. One saved message identity owns its streamed output.
 
 Full content already persists in PostgreSQL messages/ordered output receipts and
@@ -47,13 +58,25 @@ remote image URLs do not execute or make automatic tracking requests. Unsupporte
 previews retain an authorized original download. File groups remain bounded.
 Downloads recheck current rights and preserve filename, MIME and exact identity.
 
-One reusable React reading/image view serves workspace messages and explicit
-legacy adapters. Legacy code owns its transcript; React owns the new external
-reader portal, with lifetime cleanup and no competing DOM replacement. Close
+One shared saved-response lifecycle serves inline replies and the full reader,
+including source/version checks, aborts, explicit newer-version loading and
+revocation. Workspace messages and threads use the same inline component. The
+private runtime owns its transcript; React owns stable response islands and the
+external reader portal. Refreshes reuse those islands, preserving expansion,
+frozen saved text and focus; removed messages/view teardown unmount their reads.
+Expanding suspends transcript auto-scrolling until all reading views close. Close
 returns to the same conversation, draft, scroll and current launcher. Source
 revocation/identity changes clear pending reads and displayed private content.
 
 ## Verification
+
+The 2026-10-26 corner-arrow refinement passes 183 web tests, production build,
+browser-test types and all 882 source file limits. Connected local journeys cover
+saved reading/files in workspace/thread and private runtime, source-derived helper
+revocation clearing both inline/full views, and read-only progress with retained
+Chat questions, restart and exact Stop. Desktop, 390 px dark and 320 px layouts
+were inspected. Evidence and actual captures are linked from the selected design.
+These use local pinned Goose with scripted inference, not paid/cloud acceptance.
 
 Check short/long/streaming/history/fallback text, code/tables, narrow/short windows,
 source/version conflicts, failed reads, stale responses and unmount cleanup. Run

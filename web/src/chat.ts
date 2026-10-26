@@ -117,7 +117,8 @@ export function installChat(): (profile: import('./agents').Profile) => void {
 
   function draw(): void {
     if (!view.active) return;
-    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen());
+    renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen(), results.response);
+    results.retainResponses(state.messages.filter(message => message.role === 'assistant' && message.content).map(message => message.id));
     renderArtifacts(state.artifacts);
     view.querySelector('#file-count')!.textContent = String(state.artifacts.filter((f) => f.kind !== 'log').length);
     const active = state.tasks.find(task => task.status === 'running');
@@ -174,7 +175,7 @@ export function installChat(): (profile: import('./agents').Profile) => void {
     const update = JSON.parse(event.data) as AgentEvent;
     if (update.kind === 'delta' && update.message_id && update.text) {
       if (!applyDelta(state, update)) { void sync(); return; }
-      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen());
+      renderConversation(conversation, state, view.querySelector('.identity strong')?.textContent ?? 'Cuckoo', results.isOpen(), results.response);
     } else { void sync(); }
   };
 

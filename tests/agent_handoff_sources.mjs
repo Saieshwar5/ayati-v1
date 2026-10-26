@@ -190,21 +190,23 @@ test(
     await page.goto(`${app.base}/w/${w}/?view=chat&conversation=${channel}&message=${parent.reply}`);
     await page
       .locator(`[data-message-id="${parent.reply}"]`)
-      .getByRole('button', { name: 'Read response', exact: true })
+      .getByRole('button', { name: 'Expand response', exact: true })
       .click();
+    await page.locator(`[data-message-id="${parent.reply}"]`).getByRole('button',{name:'Open response reader',exact:true}).click();
     const reader = page.getByRole('dialog', { name: 'Agent response', exact: true });
     await reader.locator('.result-body').filter({ hasText: 'PRIVATE_HELPER_SOURCE_RESULT' }).waitFor();
     await page.screenshot({ path: join(app.data, 'handoff-source-parent-reader-desktop.png') });
     const progressPath = task => `${app.path}/chats/${channel}/messages/${task}/progress`;
     const progressRecord = (await app.request(progressPath(parent.reply), app.cookie)).value;
     assert.equal(progressRecord.source_scope, source.id);
-    const progressPage = await context.newPage();
-    progressPage.on('pageerror', e => errors.push(e.message));
-    await progressPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${channel}&message=${parent.reply}`);
-    await progressPage.locator(`[data-message-id="${parent.reply}"]`).getByRole('button',{name:'Check progress',exact:true}).click();
-    const progressDialog = progressPage.getByRole('dialog',{name:'Task progress',exact:true});
-    await progressDialog.getByRole('heading',{name:'Completed',exact:true}).waitFor();
-    await progressPage.screenshot({path:join(app.data,'handoff-source-progress-desktop.png')});
+    const inlinePage = await context.newPage();
+    inlinePage.on('pageerror', e => errors.push(e.message));
+    await inlinePage.goto(`${app.base}/w/${w}/?view=chat&conversation=${channel}&message=${parent.reply}`);
+    const inlineReply = inlinePage.locator(`[data-message-id="${parent.reply}"]`);
+    assert.equal(await inlinePage.getByRole('button',{name:'Check progress',exact:true}).count(),0);
+    await inlineReply.getByRole('button',{name:'Expand response',exact:true}).click();
+    await inlineReply.locator('.inline-response-body').filter({hasText:'PRIVATE_HELPER_SOURCE_RESULT'}).waitFor();
+    await inlinePage.screenshot({path:join(app.data,'handoff-source-inline-desktop.png')});
     await app.request(`${app.path}/home-panels/${homePanel}/review`,app.cookie,{request:randomUUID(),revision:1});
     const homePage = await context.newPage();
     homePage.on('pageerror',e=>errors.push(e.message));
@@ -235,10 +237,10 @@ test(
     await until(async()=>!(await homePage.content()).includes('PRIVATE_HANDOFF_PANEL_BODY'),'Revoked helper source remained in saved Home panel',12000);
     assert.equal((await app.request(`${app.path}/home-panels`,app.cookie)).value.panels.find(p=>p.id===homePanel).active.available,false);
     await homePage.screenshot({path:join(app.data,'handoff-source-home-panel-revoked-desktop.png')});
-    await progressDialog.getByRole('button',{name:'Retry',exact:true}).waitFor();
-    assert.equal(await progressDialog.locator('[aria-label="Latest saved update"]').count(),0);
+    await until(async()=>!(await inlinePage.content()).includes('PRIVATE_HELPER_SOURCE_RESULT'),'Revoked source remained in expanded inline reply',12000);
+    assert.equal(await inlineReply.locator('.inline-response-body').count(),0);
     for (const task of [parent.reply,child.reply]) await app.request(progressPath(task),app.cookie,undefined,400);
-    await progressPage.screenshot({path:join(app.data,'handoff-source-progress-revoked-desktop.png')});
+    await inlinePage.screenshot({path:join(app.data,'handoff-source-inline-revoked-desktop.png')});
     await page.screenshot({ path: join(app.data, 'handoff-source-revoked-reader-desktop.png') });
     assert.equal(app.provider.requests.length, calls);
     await app.request(`${app.path}/agent-profiles/${helper.id}/control/rules`, app.cookie, {

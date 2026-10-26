@@ -5,14 +5,15 @@ import { workspaceSession } from '../../workspace-context';
 import type { Directory, Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { ReplyProgress } from './reply-progress';
-import { TaskProgress } from './task-progress';
 import { QuestionCards } from '../questions/card';
-import { useResults } from '../results/provider';
-import { ResponsePreview } from '../results/preview';
+import { useResults, useResultSource, useResultReading } from '../results/provider';
+import { InlineResponse } from '../results/inline-response';
 import { HandoffCard, CoordinationView } from './handoffs';
 import { MessageFiles } from '../results/files';
 export function ChatMessage({ message, directory, replies, openThread, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void }) {
   const openResult = useResults();
+  const source = useResultSource();
+  const reading = useResultReading();
   const name = message.kind === 'agent' ? directory.agents.find(agent => agent.id === message.author)?.name ?? message.name ?? 'Agent' : message.name ?? 'Former member';
   const own = message.kind !== 'agent' && message.author === workspaceSession?.user?.id;
   const element = useSeen(message, own);
@@ -20,8 +21,7 @@ export function ChatMessage({ message, directory, replies, openThread, compact =
   return <article ref={element} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && <span className={`chat-avatar ${message.kind}`}>{message.kind === 'agent' ? '✧' : name.slice(0, 1).toUpperCase()}</span>}
     <div>{!own && <header><strong>{own ? 'You' : name}</strong>{message.kind === 'agent' && <span className="chat-agent-label">Agent</span>}<time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></header>}
-      {text && !message.approval && (message.kind === 'agent' && openResult && !message.response_unavailable && !message.handoff ? <ResponsePreview id={message.id} text={text} reference={message.response} open={id => openResult({ kind: 'response', id })} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} />
-      <TaskProgress message={message}/>
+      {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} />
       {message.handoff && <HandoffCard handoff={message.handoff}/>}
       <CoordinationView data={message.coordination}/>
       {message.approval && <ApprovalCard reference={message.approval} />}
