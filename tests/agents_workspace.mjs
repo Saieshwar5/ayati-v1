@@ -25,8 +25,8 @@ test('graphite Agents workspace preserves draft and reading position across excl
   assert.match(await page.locator('.message').last().textContent(), /<img src=x/);
   assert.equal(await page.locator('.message img').count(), 0);
   assert.equal(await page.locator('.agent-preview').count(), 0);
-  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()), '#242630');
-  await page.locator('#input').fill('Preserve my draft across tools');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()), '#22252a');
+  await page.getByRole('textbox', { name: /^Message / }).fill('Preserve my draft across tools');
   await page.locator('#agent-sidebar-toggle').click();
   assert.equal(await page.locator('.agents-list').isVisible(), false);
   await page.locator('#agent-sidebar-toggle').click();
@@ -37,7 +37,7 @@ test('graphite Agents workspace preserves draft and reading position across excl
   await page.getByText('Schedules are up to date.', { exact: true }).waitFor();
   assert.equal(await page.locator('.work-panel[open]').count(), 1);
   assert.equal(await page.locator('#agent-schedules').evaluate(el => el.matches(':modal')), false);
-  assert.equal(await page.locator('#input').inputValue(), 'Preserve my draft across tools');
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(), 'Preserve my draft across tools');
   const chat = await page.locator('.chat').boundingBox(), panel = await page.locator('#agent-schedules').boundingBox();
   assert.ok(chat.x + chat.width <= panel.x + 1);
   await page.locator('#triggers-tab').click();
@@ -69,24 +69,24 @@ test('graphite Agents workspace preserves draft and reading position across excl
   await page.setViewportSize({ width: 1440, height: 960 });
   await until(() => page.locator('#agent-schedules').evaluate(el => !el.matches(':modal') && el.open), 'Automation did not return beside chat');
   await page.keyboard.press('Escape');
-  assert.equal(await page.locator('#input').inputValue(), 'Preserve my draft across tools');
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(), 'Preserve my draft across tools');
   const approvalRun = await app.submit('tool Inspect the synthetic stock');
   await until(async () => (await page.locator('#connection').textContent()) === 'Waiting for your approval', 'Header did not show pending approval');
-  await page.locator('#stop').click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
   assert.equal((await app.done(approvalRun.id)).task.status, 'stopped');
   await until(async () => (await page.locator('#connection').textContent()) === 'Ready', 'Header did not return to Ready');
-  assert.equal(await page.locator('#input').inputValue(), 'Preserve my draft across tools');
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(), 'Preserve my draft across tools');
   await page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Settings', exact: true }).click();
-  await page.locator('#theme').selectOption('dark');
-  await page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Agents', exact: true }).click();
-  assert.equal(await page.locator('#input').inputValue(), 'Preserve my draft across tools');
+  await page.getByRole('radio', { name: 'Dark', exact: true }).check();
+  await page.goto(base + '/?view=chat&agent=local-agent');
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(), 'Preserve my draft across tools');
   await page.screenshot({ path: join(dir, 'conversation-dark.png') });
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await page.locator('#agent-list-toggle').click();
-    await page.getByRole('button', { name: 'Back to conversation' }).click();
+    await page.getByRole('dialog', { name: 'Choose agent' }).getByRole('button', { name: 'Close', exact: true }).click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    assert.ok(await page.locator('#composer').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight));
+    assert.ok(await page.getByRole('form', { name: 'Message composer' }).evaluate(el => el.getBoundingClientRect().bottom <= innerHeight));
   }
   await page.screenshot({ path: join(dir, 'conversation-mobile-dark.png') });
   assert.deepEqual(errors, []);

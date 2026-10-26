@@ -20,8 +20,10 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/account-menu.tsx`: native account popover and workspace switching.
 - `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
   invitation acceptance and account view.
-- `web/src/react/agents/`: PostgreSQL agent directory, guided creation, profile
-  editing, approved knowledge, guided permission drafts/previews/activation and preserved local-agent lifecycle controls.
+- `web/src/react/agents/`: selected team roster/profile workspace, source-scoped
+  request progress and Stop, guided creation, profile editing, approved knowledge,
+  permission drafts/previews/activation and preserved local-agent lifecycle controls.
+  [The workspace contract](agents-team-workspace.md) describes supported tabs.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
   teams, setup, local accounts and Owner workspace connections/delegation. The legacy Settings screen and setup
   installer are removed; Agent details retains its existing connector integration.
@@ -39,7 +41,7 @@ Existing workspace-bound APIs remain authoritative for every access decision.
 
 ## Temporary boundary and remaining conversion
 
-Home/panels, Apps/record frames, no-workspace agent management, private-agent transcripts, Settings,
+Home/panels, Apps/record frames, no-workspace agent management, private-agent transcripts,
 connections, schedules, browser/approvals, memory/files and access-preview demo
 still use their existing TypeScript implementations. `LegacyView` reserves an
 empty `#app` subtree for them. React manages the shell but does not reconcile the
@@ -66,8 +68,8 @@ hashed assets available during production rollouts; replacing local `web/dist`
 while a page is open can require that reload. This does not justify automatic
 reloads on ordinary feature or agent selection.
 
-Next convert Settings and agent management, then Home/panels and Apps, then shared
-and private Chat with their contextual tools. Keep each increment usable and
+Next convert Home/panels and Apps, then private Chat with its contextual tools.
+Keep each increment usable and
 exercise existing behavior before removing its compatibility implementation.
 The application is not yet fully converted to React.
 

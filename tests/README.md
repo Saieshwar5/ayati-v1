@@ -468,3 +468,11 @@ exclusive work panels, Automation tabs, responsive modal/focus behavior, draft
 and reading-position retention, theme persistence and 320/390px layouts. The
 web-owner case in `browser_vm.mjs` covers real browser authority and input after
 panel switching/expansion. `attention_storage` checks private bounded previews.
+
+`RELAY_TEST_DATABASE_URL=... node --test tests/agents_team_workspace.mjs` verifies
+the selected Agents team/profile layout, original channel/thread focus beyond
+the latest history page, saved progress without model work, exact queued/running/
+waiting Stop, private work/count isolation, invalidated approval denial, restart
+history, and mobile/dark layouts. It uses a disposable PostgreSQL schema, pinned
+Goose, a scripted model and an authenticated MCP fixture; no paid inference or
+cloud is needed. See [the request API and limits](../runtime/agents-team-workspace.md).

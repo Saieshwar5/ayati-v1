@@ -5,12 +5,12 @@ import { workspaceId, workspaceSession } from '../../workspace-context';
 import type { Directory, Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { ReplyProgress } from './reply-progress';
-export function ChatMessage({ message, directory, replies, openThread, compact = false }: { compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void }) {
+export function ChatMessage({ message, directory, replies, openThread, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void }) {
   const name = message.kind === 'agent' ? directory.agents.find(agent => agent.id === message.author)?.name ?? message.name ?? 'Agent' : message.name ?? 'Former member';
   const own = message.kind !== 'agent' && message.author === workspaceSession?.user?.id;
   const element = useSeen(message, own);
   const text = message.state === 'queued' ? message.progress?.text || message.content : message.content;
-  return <article ref={element} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
+  return <article ref={element} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && <span className={`chat-avatar ${message.kind}`}>{message.kind === 'agent' ? '✧' : name.slice(0, 1).toUpperCase()}</span>}
     <div>{!own && <header><strong>{own ? 'You' : name}</strong>{message.kind === 'agent' && <span className="chat-agent-label">Agent</span>}<time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></header>}
       {text && !message.approval && <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />}<ReplyProgress message={message} />

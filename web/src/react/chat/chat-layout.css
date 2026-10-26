@@ -61,3 +61,5 @@
 @media(pointer:coarse) { .workspace-chat .chat-directory .ui-icon { min-width:44px; min-height:44px; } .workspace-chat .chat-thread-action { min-width:44px; min-height:44px; } }
 
 .workspace-chat .chat-directory .chat-unread { min-width:20px; padding:3px 5px; border-radius:6px; background:var(--soft); text-align:center; font-size:10px; }
+
+.chat-message-focused { outline: 1px solid var(--focus); outline-offset: -1px; border-radius: 6px; }

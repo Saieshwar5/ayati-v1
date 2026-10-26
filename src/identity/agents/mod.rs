@@ -3,7 +3,7 @@ use super::*;
 use axum::{
     Json,
     body::Bytes,
-    extract::{DefaultBodyLimit, Path as RoutePath},
+    extract::{DefaultBodyLimit, Path as RoutePath, Query},
     http::HeaderMap,
 };
 use config::{SYSTEM_GUIDE, SaveAgent};
@@ -13,6 +13,14 @@ fn pg(app: &App) -> Result<&postgres::PgStore> {
 }
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
+        .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/requests",
+            get(requests),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/requests/{reply}",
+            get(request),
+        )
         .route(
             "/api/identity/workspaces/{w}/agent-profiles",
             get(list).post(save),
@@ -29,6 +37,53 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/agent-profiles/{id}/avatar/{avatar}",
             get(avatar),
         )
+}
+#[derive(serde::Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct RequestPage {
+    before: Option<i64>,
+    scope: Option<String>,
+    status: Option<String>,
+}
+async fn requests(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Query(page): Query<RequestPage>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    check(
+        page.scope
+            .as_deref()
+            .is_none_or(|s| ["mine", "visible"].contains(&s)),
+        "Invalid request scope",
+    )?;
+    check(
+        page.status
+            .as_deref()
+            .is_none_or(|s| ["active", "all"].contains(&s)),
+        "Invalid request filter",
+    )?;
+    Ok(Json(
+        pg(&app)?
+            .agent_requests(
+                &user,
+                &w,
+                &id,
+                page.scope.as_deref() != Some("visible"),
+                page.status.as_deref() != Some("all"),
+                page.before,
+            )
+            .await?,
+    ))
+}
+async fn request(
+    State(app): State<Shared>,
+    RoutePath((w, id, reply)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(pg(&app)?.agent_request(&user, &w, &id, &reply).await?))
 }
 async fn list(
     State(app): State<Shared>,
