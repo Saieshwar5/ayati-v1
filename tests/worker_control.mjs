@@ -7,16 +7,10 @@ import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/goose_app.mjs';
-import { machine, executor, secret, exited } from './fixtures/worker_control.mjs';
+import { machine, executor, secret, exited, controllerToolsOnly } from './fixtures/worker_control.mjs';
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 120000 };
 const endpoint = (scope, operation) => `/v1/assignments/${scope.assignment}/${operation}`;
-function controllerToolsOnly(request) {
-  // Questions add the controller bridge to otherwise conversation-only work.
-  // Inherited owner browser, memory, file and workspace tools remain absent.
-  assert.deepEqual((request.tools ?? []).map(tool => tool.function?.name).sort(),
-    ['ayati_control__ask_question', 'ayati_control__operations', 'ayati_control__request_action']);
-}
 
 test('machine credentials bind executor/run/slot and preserve idempotent start and final receipts', options, async t => {
   const app = await workerFixture(t, { mode: 'assigned', control: true });
