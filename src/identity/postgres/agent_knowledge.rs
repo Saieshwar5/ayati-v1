@@ -75,6 +75,9 @@ impl PgStore {
             ensure!(input.revision == 0 && !input.forgotten, "Knowledge missing");
             execute(&tx,"INSERT INTO relay_agent_knowledge(workspace,agent,id,chat,title,content,source_message,creator_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![w.into(),id.into(),input.id.clone().into(),input.chat.clone().into(),input.title.clone().into(),input.content.clone().into(),input.source_message.clone().into(),user.id.clone().into(),now().into()]).await?;
         }
+        if super::context_attempts::exists(&tx).await? {
+            super::task_revocation::inaccessible(&tx, w).await?;
+        }
         audit(
             &tx,
             &user.id,

@@ -87,7 +87,9 @@ pub(super) async fn allowed(
             return Ok(false);
         }
         job.requester = owner.into();
-        if !super::source_access::allowed(db, &job).await? {
+        if !super::source_access::allowed(db, &job).await?
+            || !super::context_attempts::knowledge_allowed(db, &job).await?
+        {
             return Ok(false);
         }
     }

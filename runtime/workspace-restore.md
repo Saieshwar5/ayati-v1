@@ -48,7 +48,7 @@ python3 tools/workspace_restore.py \
   --source-quiesced
 ```
 
-Use the actual test schema and files root. Schema 30 is the supported contract;
+Use the actual test schema and files root. Schema 31 is the supported contract;
 other versions fail. The source schema is limited to 128 MiB and recorded chat
 files to 256 objects, 10 MiB each and 128 MiB total. Individual PostgreSQL commands
 have a 60-second deadline and bounded captured output. The source must stay
@@ -83,7 +83,7 @@ restricted application role. Synthetic simulation roster and local provider
 configuration are supplied separately by the test, not copied by the backup tool.
 
 Twenty guard/failure tests and the connected rehearsal passed on 2026-10-26.
-The rehearsal compared 71 tables, nine sequences and one private file. Fresh owner
+The earlier schema-30 rehearsal compared 71 tables, nine sequences and one private file. Fresh owner
 and unrelated-user sessions verified Home/layout, question and file access. A new
 executor and the browser showed the saved question and uncertain action with no
 additional model request or repeated external write. Source records remained

@@ -3,8 +3,10 @@ import { identityRequest, storageScope } from '../../workspace-context';
 import { errorMessage } from '../requests';
 import { subscribeChanges } from '../chat/live';
 import { base } from './model';
+import type { ContextAttempt, WorkingContext } from './saved-context';
 
 export type ContextPreview = {
+  attempts?: ContextAttempt[]; working?: WorkingContext;
   mode: 'current_preview'; agent: string; conversation: string; assembled_at: number;
   history_policy: 'all' | 'since_join'; message_limit: number;
   knowledge_enabled: boolean; paused: boolean; archived: boolean;

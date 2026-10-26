@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Button, Dialog } from '../ui';
 import type { Conversation } from '../chat/model';
 import { useContextPreview } from './use-context-preview';
+import { SavedContext, WorkingSummary } from './saved-context';
 
 function EvidenceText({ text }: { text: string }) {
   const [expanded, expand] = useState(false);
@@ -23,7 +24,7 @@ export function ContextPreviewDialog({ agent, conversations, conversationError, 
   return <Dialog drawer title="Conversation context preview" close={close} initialFocus={first}
     footer={<Button disabled={!chat || busy} onClick={refresh}>Refresh preview</Button>}>
     <div className="agent-context-preview">
-      <p className="ui-help">See eligible recent messages and approved notes now. This does not show an earlier task’s exact prompt or start new work.</p>
+      <p className="ui-help">See current eligible evidence and saved task context. Opening this view does not start new work.</p>
       <label className="ui-field">Conversation to preview
         <select ref={first} value={chat} onChange={event => select(event.target.value)}>
           <option value="">Choose a conversation…</option>
@@ -35,6 +36,8 @@ export function ContextPreviewDialog({ agent, conversations, conversationError, 
       {error && <p role="alert">{error}</p>}
       {busy && !data && <p role="status">Loading current context…</p>}
       {data && <>
+        <WorkingSummary working={data.working} />
+        <SavedContext attempts={data.attempts} agent={agent} chat={chat} />
         <p className="ui-help">Previewed <Timestamp seconds={data.assembled_at} />. Channel history: {data.history_policy === 'since_join' ? 'only since this agent joined' : 'including before joining'}.</p>
         {(data.paused || data.archived) && <p className="ui-help">{data.paused ? 'This agent is paused. ' : ''}{data.archived ? 'This channel is archived. ' : ''}Previewing does not enable new work.</p>}
         <section aria-label="Eligible recent messages"><h3>Recent messages · {data.messages.length}</h3>

@@ -43,8 +43,13 @@ pub(super) async fn hydrate(
     } else {
         ""
     };
+    let context_clause = if super::context_attempts::exists(tx).await? {
+        " OR EXISTS(SELECT 1 FROM relay_context_attempts ca WHERE ca.workspace=j.workspace AND ca.task=j.reply)"
+    } else {
+        ""
+    };
     let sql = format!(
-        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause}{handoff_clause})"
+        "SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND (j.reply IN (SELECT jsonb_array_elements_text($3::jsonb)) OR EXISTS(SELECT 1 FROM relay_chat_messages interrupted WHERE interrupted.workspace=j.workspace AND interrupted.id=j.reply AND interrupted.state NOT IN ('queued','complete','sent')) OR EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply){event_clause}{handoff_clause}{context_clause})"
     );
     for row in rows(
         tx,
@@ -66,7 +71,9 @@ pub(super) async fn hydrate(
                 serde_json::json!(super::event_access::scope(tx, workspace, &job.reply).await?);
             let mut viewer = job.clone();
             viewer.requester = user.id.clone();
-            if !super::source_access::allowed(tx, &viewer).await? {
+            if !super::source_access::allowed(tx, &viewer).await?
+                || !super::context_attempts::allowed(tx, &viewer).await?
+            {
                 message["content"] =
                     Value::String("Response unavailable because source access changed.".into());
                 message["response"] = Value::Null;

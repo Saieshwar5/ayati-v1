@@ -262,6 +262,10 @@ impl PgStore {
     }
 }
 pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: bool) -> Result<()> {
+    ensure!(
+        super::context_attempts::allowed(db, job).await?,
+        "Context sources changed; start fresh work"
+    );
     let user = User {
         id: job.requester.clone(),
         email: String::new(),

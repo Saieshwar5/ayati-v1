@@ -86,7 +86,7 @@ impl PgStore {
     ) -> Result<Value> {
         ensure!(input.query.len() <= 256, "Search query exceeds 256 bytes");
         ensure!(input.before.is_none_or(|v| v > 0), "Invalid history cursor");
-        let tx = self.read_tx(&job.workspace).await?;
+        let tx = self.workspace_tx(&job.workspace).await?;
         let scope = scope(&tx, job).await?;
         let before = input.before.unwrap_or(scope.before).min(scope.before);
         let exclusions = super::conversation_context::source_exclusions(&tx).await?;
@@ -138,6 +138,8 @@ impl PgStore {
         let result = json!({"state":"available","conversation":job.chat,"messages":messages,
             "next_before":next,"scanned":result["scanned"],"query":input.query.trim(),
             "scope":"Current task conversation only; source-bearing replies are excluded. Display names are current profile values. Follow next_before to continue scanning older eligible history."});
+        super::context_attempts::record_read(&tx, job, "search_conversation_history", &result)
+            .await?;
         tx.commit().await?;
         Ok(result)
     }
@@ -151,7 +153,7 @@ impl PgStore {
             (0..=1_000_000).contains(&input.offset),
             "Invalid history offset"
         );
-        let tx = self.read_tx(&job.workspace).await?;
+        let tx = self.workspace_tx(&job.workspace).await?;
         let scope = scope(&tx, job).await?;
         let exclusions = super::conversation_context::source_exclusions(&tx).await?;
         let sql = format!(
@@ -192,6 +194,8 @@ impl PgStore {
             // Do not disclose whether a foreign, excluded or missing ID exists.
             json!({"state":"not_found","message":"Message unavailable in this task's eligible conversation history."})
         };
+        super::context_attempts::record_read(&tx, job, "read_conversation_history", &result)
+            .await?;
         tx.commit().await?;
         Ok(result)
     }

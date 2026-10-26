@@ -124,6 +124,7 @@ pub(super) async fn access(
             .is_ok()
             && super::chat::agent_access(tx, &user.id, &job.workspace, &job.agent).await?
             && super::source_access::allowed(tx, job).await?
+            && super::context_attempts::allowed(tx, job).await?
             && super::handoff_access::execution_allowed(tx, job).await?,
     )
 }

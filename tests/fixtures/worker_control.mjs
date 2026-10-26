@@ -10,6 +10,7 @@ export function controllerToolsOnly(request) {
     'ayati_control__operations', 'ayati_control__personal_panels',
     'ayati_control__read_conversation_history', 'ayati_control__request_action',
     'ayati_control__request_handoff', 'ayati_control__save_home_panel',
+    'ayati_control__save_working_context',
     'ayati_control__search_conversation_history',
   ]);
 }

@@ -18,7 +18,7 @@ test('context preview makes no request until a conversation is chosen and ignore
     const { ContextPreviewDialog } = await import('../src/react/agents/context-preview.tsx');
     await render(ContextPreviewDialog, props);
     assert.equal(reads.length, 0);
-    assert.match(document.body.textContent, /does not show an earlier task/);
+    assert.match(document.body.textContent, /does not start new work/);
     await change(document.querySelector('select'), 'a');
     assert.equal(reads.length, 1);
     await change(document.querySelector('select'), 'b');
@@ -104,4 +104,30 @@ test('a new viewer cannot render the previous viewer context while the replaceme
     if (actor === 'first-person') return response(value('a', 'FIRST_PERSON_PRIVATE_CONTEXT'));
     return new Promise(resolve => { finishSecond = resolve; });
   }));
+});
+
+test('saved task evidence opens explicitly and a revocation clears the old snapshot and working summary', async () => {
+  let revoked = false;
+  await reactFixture(async ({ render, change, click, button }) => {
+    const { ContextPreviewDialog } = await import('../src/react/agents/context-preview.tsx');
+    await render(ContextPreviewDialog, props);
+    await change(document.querySelector('select'), 'a');
+    assert.match(document.body.textContent, /MY_WORKING_OBJECTIVE/);
+    assert.ok(!document.body.textContent.includes('SAVED_PRIVATE_EVIDENCE'));
+    await click(button('View saved evidence'));
+    assert.match(document.body.textContent, /SAVED_PRIVATE_EVIDENCE/);
+    assert.match(document.body.textContent, /LATER_RETRIEVED_EVIDENCE/);
+    revoked = true;
+    await click(button('Refresh preview'));
+    assert.ok(!document.body.textContent.includes('SAVED_PRIVATE_EVIDENCE'));
+    assert.ok(!document.body.textContent.includes('MY_WORKING_OBJECTIVE'));
+    assert.match(document.body.textContent, /Outdated or unavailable/);
+    assert.equal(document.querySelectorAll('button[aria-expanded]').length, 0);
+  }, options(async path => { const payload = { ...value('a', 'Current message'),
+    working: revoked ? { revision: 1, available: false } : { revision: 1, available: true,
+      brief: { objective: { text: 'MY_WORKING_OBJECTIVE', sources: ['source-1'] }, decisions: [], questions: [], corrections: [] } },
+    attempts: [{ task: 'task-1', claim: 'claim-1', created_at: 1000, available: !revoked,
+      ...(revoked ? {} : { evidence: { conversation: { messages: [{ id: 'source-1', content: 'SAVED_PRIVATE_EVIDENCE', author: { display_name: 'Alex' } }] }, notes: [] },
+        reads: [{ sequence: 1, tool: 'read_conversation_history', result: { message: { id: 'source-2', content: 'LATER_RETRIEVED_EVIDENCE' } } }] }) }],
+  }; return response(path.includes('task=') ? payload.attempts[0] : payload); }));
 });

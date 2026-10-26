@@ -51,7 +51,7 @@ The controlled fault suite also passed three cases (controller restart, executor
 loss, cancellation/revocation), and the mixed suite passed its five cases with
 96 chats beside held background work. Twenty broader bounded process regressions
 passed after correcting historical fixture assumptions: managed jobs receive the
-explicit nine-tool controller surface, and their fresh controlled Goose PID differs
+explicit reviewed controller tool surface, and their fresh controlled Goose PID differs
 from the generic prepared reserve PID. Tests now verify that actual active children
 are reaped and correlate ownership through supervisor incarnation/assignment rather
 than the old reserve PID. No owner shell/browser/memory extension is permitted.
