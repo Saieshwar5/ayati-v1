@@ -30,7 +30,7 @@ test('Goose creates a custom panel, owner keeps it, and scheduled updates use th
   await page.getByRole('button',{name:'Pause panel updates',exact:true}).waitFor();
   assert.equal(app.provider.requests.length,calls,'Displaying/activating Home must not call the model');
   await mkdir(join(root,'.test-runs/panels'),{recursive:true});await page.screenshot({path:join(root,'.test-runs/panels/mobile.png'),fullPage:true});
-  const updated={...panel,expected_revision:1,sections:[{kind:'metric',label:'At risk',value:'8'}]};
+  const updated={...panel,expected_revision:1,sections:[{kind:'metric',label:panel.sections[0].label,value:'8'}]};
   await approved('schedule_create',{id:randomUUID(),panel_id:panel.id,content:command('panel_write',updated),run_at_ms:Date.now()+1800,interval_seconds:null});
   await until(async()=>(await app.request('/panels')).panels[0]?.active_revision===2,'Scheduled panel refresh did not activate');
   assert.equal((await app.state()).permissions.length,0,'The approved panel policy must avoid repeated update prompts');

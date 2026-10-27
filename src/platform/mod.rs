@@ -9,8 +9,13 @@ mod connections;
 mod consumer_connections;
 pub mod event_sources;
 pub mod home_preferences;
+pub mod panel_presentation;
 pub mod panel_schedules;
+pub mod panel_sections;
 pub mod panel_templates;
+#[cfg(test)]
+mod panel_templates_tests;
+mod panel_validation;
 pub mod panels;
 pub mod triggers;
 pub mod webhook;

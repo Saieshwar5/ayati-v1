@@ -31,6 +31,10 @@ like the platform services it accompanies. No new dependency is needed.
 
 ## Fixed panels and placement
 
+The [general reusable panel system](general-home-panels.md) supersedes the original
+five-template list below. It adds seven canonical families and five Chart variants;
+List/Agenda/Brief remain compatible aliases. The table below is the earlier baseline.
+
 New panel writes and revisions contain exactly one supported section:
 
 | Template | Section | Content limits |

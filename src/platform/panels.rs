@@ -1,3 +1,4 @@
+pub use super::panel_sections::{Point, Section};
 use super::{ExecutionRun, Platform};
 use anyhow::{Context, Result, ensure};
 use rusqlite::{OptionalExtension, params};
@@ -19,32 +20,6 @@ pub struct PanelDraft {
     pub publish: bool,
     #[serde(default)]
     pub updates_enabled: bool,
-}
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Section {
-    Text {
-        heading: String,
-        body: String,
-    },
-    Metric {
-        label: String,
-        value: String,
-    },
-    Table {
-        columns: Vec<String>,
-        rows: Vec<Vec<String>>,
-    },
-    Chart {
-        title: String,
-        points: Vec<Point>,
-    },
-}
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Point {
-    pub label: String,
-    pub value: f64,
 }
 struct SavedPanel {
     id: String,
@@ -82,34 +57,6 @@ impl PanelDraft {
                 && serde_json::to_vec(self)?.len() <= 12000,
             "Panel exceeds the saved view budget"
         );
-        for section in &self.sections {
-            match section {
-                Section::Text { heading, body } => ensure!(
-                    heading.len() <= 200 && body.len() <= 8000,
-                    "Panel text exceeds the view budget"
-                ),
-                Section::Metric { label, value } => ensure!(
-                    label.len() <= 200 && value.len() <= 500,
-                    "Panel metric exceeds the view budget"
-                ),
-                Section::Table { columns, rows } => ensure!(
-                    !columns.is_empty()
-                        && columns.len() <= 12
-                        && rows.len() <= 100
-                        && rows.iter().all(|r| r.len() == columns.len()),
-                    "Panel table must have 1–12 columns and at most 100 matching rows"
-                ),
-                Section::Chart { title, points } => ensure!(
-                    title.len() <= 200
-                        && !points.is_empty()
-                        && points.len() <= 100
-                        && points
-                            .iter()
-                            .all(|p| p.value.is_finite() && p.label.len() <= 100),
-                    "Panel chart exceeds the supported point budget"
-                ),
-            }
-        }
         Ok(())
     }
     pub(crate) fn definition(&self) -> Value {
@@ -128,17 +75,22 @@ impl Platform {
             return Ok(false);
         };
         let definition: Value = serde_json::from_str(&definition)?;
-        if definition["title"] != input.title
-            || definition["purpose"] != input.purpose
-            || (definition.get("template").is_some()
-                && definition["template"] != json!(input.template()?))
-        {
+        if definition["title"] != input.title || definition["purpose"] != input.purpose {
             return Ok(false);
         }
         if definition["sections"]
             .as_array()
             .is_none_or(|s| s.len() != 1)
             || definition["sections"][0]["kind"] != json!(input.sections)[0]["kind"]
+        {
+            return Ok(false);
+        }
+        let mut proposed = input.definition();
+        if definition.get("template").is_none() {
+            proposed.as_object_mut().unwrap().remove("template");
+        }
+        if super::panel_presentation::shape(definition)
+            != super::panel_presentation::shape(proposed)
         {
             return Ok(false);
         }

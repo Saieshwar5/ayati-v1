@@ -18,6 +18,7 @@ fn draft() -> PanelDraft {
         sections: vec![Section::Metric {
             label: "Sample risk".into(),
             value: "7".into(),
+            comparison: None,
         }],
         sources: vec![],
         publish: false,
@@ -59,8 +60,12 @@ async fn panels_are_reviewed_versioned_scoped_and_refresh_only_with_owner_policy
     input.sections = vec![Section::Metric {
         label: "Sample risk".into(),
         value: "8".into(),
+        comparison: None,
     }];
     assert!(p.automatic_panel_update("sales", &json!(input)).unwrap());
+    let mut changed_meaning = json!(input);
+    changed_meaning["sections"][0]["label"] = json!("Unreviewed meaning");
+    assert!(!p.automatic_panel_update("sales", &changed_meaning).unwrap());
     assert!(!p.automatic_panel_update("support", &json!(input)).unwrap());
     p.write_panel(run(), &input).await.unwrap();
     assert_eq!(p.panels(Some("sales")).unwrap()[0]["active_revision"], 2);
@@ -80,6 +85,7 @@ async fn panels_are_reviewed_versioned_scoped_and_refresh_only_with_owner_policy
     input.sections = vec![Section::Metric {
         label: "Sample risk".into(),
         value: "9".into(),
+        comparison: None,
     }];
     assert!(p.write_panel(run(), &input).await.is_err());
     input.expected_revision = 2;

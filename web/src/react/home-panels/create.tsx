@@ -5,6 +5,7 @@ import { errorMessage, useMutation } from '../requests';
 import type { Conversation, Directory } from '../chat/model';
 import { readPanels, type ChangeTarget } from './model';
 import { subscribeChanges } from '../chat/live';
+import { PanelTypeChoice, panelPreference, type PanelChoice } from './type-choice';
 export function AskPanel({
   close,
   target,
@@ -20,6 +21,7 @@ export function AskPanel({
   const [agent, setAgent] = useState(target?.agent ?? '');
   const [chat, setChat] = useState(target?.chat ?? '');
   const [text, setText] = useState('');
+  const [choice, setChoice] = useState<PanelChoice>({ family: '', variant: 'line' });
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const m = useMutation();
@@ -105,7 +107,7 @@ export function AskPanel({
             const instruction = target
               ? `[Personal Home panel change]\nRevise personal panel ${target.id} using expected_revision=${target.revision} and save_home_panel. Keep its original person, agent and conversation. A new draft requires my review; create no schedule.`
               : '[Personal Home panel request]\nPrepare one personal Home draft using save_home_panel. Use a fixed template and current authorized sources. It requires my review on Home; do not publish it or create a schedule.';
-            const content = `${instruction}\n${text.trim()}`;
+            const content = `${instruction}${panelPreference(choice)}\n${text.trim()}`;
             const key = JSON.stringify({ agent, chat, content });
             if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
             const id = attempt.current.id;
@@ -164,6 +166,7 @@ export function AskPanel({
             This agent needs an accessible, unarchived conversation. Add it to a conversation in Chat first.
           </p>
         )}
+        <PanelTypeChoice id={fieldId} value={choice} change={setChoice} disabled={m.busy} />
         <div className="workspace-panel-field">
           <label htmlFor={`${fieldId}-text`}>What should the panel show?</label>
           <textarea

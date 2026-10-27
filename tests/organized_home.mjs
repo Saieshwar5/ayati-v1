@@ -30,7 +30,7 @@ test('business clock, user arrangement and creation mode survive navigation and 
     await app.request('/permissions/'+permission.id,{allow:true}); assert.equal((await app.done(task.id)).task.status,'completed'); panels.push(draft);
   }
   await until(async()=>await page.locator('.home-panel-card').count()===3,'Panels did not load');
-  await page.getByRole('button',{name:'Arrange',exact:true}).click();
+  await page.getByRole('button',{name:'Customize Home',exact:true}).click();
   const orders=page.locator(`[data-panel="${panels[0].id}"]`);
   await orders.getByRole('button',{name:'Top',exact:true}).click();
   assert.equal(await page.locator('.home-panel-card').first().getAttribute('data-panel'),panels[0].id);
@@ -42,7 +42,7 @@ test('business clock, user arrangement and creation mode survive navigation and 
   const order=await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel));
   await page.reload(); await page.locator('.home-panel-card.panel-wide').waitFor();
   assert.deepEqual(await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel)),order);
-  assert.equal(await page.locator('.home-location').textContent(),'Hyderabad ⌄');
+  assert.match(await page.locator('.home-location').textContent(),/Hyderabad.*Asia\/Kolkata/);
   const update = {...panels[0], expected_revision:1, sections:[{kind:'metric',label:'Today',value:'31'}]};
   const updateTask = await app.submit('workspace '+JSON.stringify({tool:'panel_write',arguments:update}));
   const updatePermission = await until(async()=>(await app.state()).permissions[0], 'Update review missing');
@@ -50,15 +50,15 @@ test('business clock, user arrangement and creation mode survive navigation and 
   await until(async()=> (await orders.locator('.panel-metric-value').textContent())==='31', 'Panel did not refresh');
   assert.deepEqual(await page.locator('.home-panel-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.panel)),order,'Agent update preserves owner order');
 
-  await page.getByRole('button',{name:'Add panel',exact:false}).click(); await page.getByRole('dialog').getByRole('link',{name:/Ayati/}).click();
-  assert.equal(await page.locator('#input').inputValue(),'');
-  await page.getByLabel('Panel template').selectOption('agenda');
-  await page.locator('#input').fill('My appointments'); await page.reload();
-  assert.equal(await page.locator('#input').inputValue(),'My appointments');
-  assert.equal(await page.getByLabel('Panel template').inputValue(),'agenda');
+  await page.getByRole('button',{name:'Add panel',exact:false}).click(); await page.getByRole('dialog').locator('a[href*="agent=local-agent"]').click();
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(),'');
+  await page.getByLabel('Panel type').selectOption('table');
+  await page.getByRole('textbox', { name: /^Message / }).fill('My appointments'); await page.reload();
+  assert.equal(await page.getByRole('textbox', { name: /^Message / }).inputValue(),'My appointments');
+  assert.equal(await page.getByLabel('Panel type').inputValue(),'table');
   await page.getByRole('button',{name:'Send message'}).click();
   await until(async()=>JSON.stringify(app.provider.requests.at(-1)).includes('My appointments'),'Creation request not submitted');
-  const request=JSON.stringify(app.provider.requests.at(-1)); assert(request.includes('agenda template')); assert(request.includes('Asia/Kolkata'));
+  const request=JSON.stringify(app.provider.requests.at(-1)); assert(request.includes('table template')); assert(request.includes('Asia/Kolkata'));
   await page.getByRole('button',{name:'Automation',exact:true}).click();
   await page.locator('#schedule-form [name=content]').fill('Check orders tomorrow');
   await page.getByLabel('First run',{exact:true}).fill('2027-01-20T09:00');
