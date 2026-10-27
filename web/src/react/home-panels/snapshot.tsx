@@ -1,32 +1,6 @@
-import type { PanelDefinition, Section } from '../../panel-renderer';
+import type { PanelDefinition } from '../../panel-types';
 import { sourceUrl, type Snapshot } from './model';
-function Chart({ section }: { section: Extract<Section, { kind: 'chart' }> }) {
-  const values = section.points.map((p) => p.value),
-    low = Math.min(...values),
-    high = Math.max(...values);
-  const points = section.points
-    .map(
-      (p, i) =>
-        `${20 + (i * 460) / Math.max(1, section.points.length - 1)},${160 - ((p.value / 2 - low / 2) / (high / 2 - low / 2 || 1)) * 140}`,
-    )
-    .join(' ');
-  return (
-    <>
-      <h4>{section.title}</h4>
-      <svg viewBox="0 0 500 180" role="img" aria-label={section.title}>
-        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" />
-      </svg>
-      <details>
-        <summary>Chart values</summary>
-        {section.points.map((p, i) => (
-          <p key={i}>
-            {p.label}: {p.value}
-          </p>
-        ))}
-      </details>
-    </>
-  );
-}
+import { PanelSection } from './sections';
 export function PanelContent({
   definition,
   scrollable = false,
@@ -45,40 +19,7 @@ export function PanelContent({
       <p className="panel-purpose">{definition.purpose}</p>
       {definition.sections.map((s, i) => (
         <section className={`panel-block panel-${s.kind}`} key={i}>
-          {s.kind === 'text' ? (
-            <>
-              <h4>{s.heading}</h4>
-              <p className="panel-text">{s.body}</p>
-            </>
-          ) : s.kind === 'metric' ? (
-            <>
-              <p>{s.label}</p>
-              <strong className="panel-metric-value">{s.value}</strong>
-            </>
-          ) : s.kind === 'table' ? (
-            <div className="panel-table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    {s.columns.map((c, j) => (
-                      <th key={j}>{c}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {s.rows.map((r, j) => (
-                    <tr key={j}>
-                      {r.map((v, k) => (
-                        <td key={k}>{v}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <Chart section={s} />
-          )}
+          <PanelSection section={s} />
         </section>
       ))}
     </div>

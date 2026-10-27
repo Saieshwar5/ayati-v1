@@ -1,0 +1,325 @@
+{
+  "date": "2026-10-27",
+  "scope": "Editable design only; no application changes",
+  "pages": 4,
+  "artboards_visually_reviewed": 4,
+  "native_check_scope": "same-parent; parent-overflow and sibling-overlap; minimum severity major",
+  "results": {
+    "overview": {
+      "overlap_summary": {
+        "totalNodes": 188,
+        "analyzedNodes": 188,
+        "overlapCount": 0,
+        "byCategory": {
+          "sibling-overlap": 0,
+          "parent-overflow": 0,
+          "overlay": 0
+        },
+        "bySeverity": {
+          "critical": 0,
+          "major": 0,
+          "minor": 0,
+          "info": 0
+        }
+      },
+      "findings": [],
+      "fonts_faithful": true
+    },
+    "chart-variants": {
+      "overlap_summary": {
+        "totalNodes": 164,
+        "analyzedNodes": 164,
+        "overlapCount": 5,
+        "byCategory": {
+          "sibling-overlap": 5,
+          "parent-overflow": 0,
+          "overlay": 0
+        },
+        "bySeverity": {
+          "critical": 0,
+          "major": 5,
+          "minor": 0,
+          "info": 0
+        }
+      },
+      "findings": [
+        {
+          "category": "sibling-overlap",
+          "severity": "major",
+          "message": "\"path\" overlaps \"path\"",
+          "suggestion": "Review stacking and spacing \u2014 this overlap is likely unintended.",
+          "area": 50169,
+          "ratio": 1,
+          "nodeA": {
+            "id": "1908855373:6948",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:6947",
+            "x": 0,
+            "y": 0,
+            "width": 398,
+            "height": 122,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "nodeB": {
+            "id": "1908855373:6949",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:6947",
+            "x": 0,
+            "y": 0,
+            "width": 398,
+            "height": 122,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "intersection": {
+            "x": 105.4578349137296,
+            "y": 301.4578349137296,
+            "width": 401.08433017254083,
+            "height": 125.08433017254083,
+            "area": 50169
+          }
+        },
+        {
+          "category": "sibling-overlap",
+          "severity": "major",
+          "message": "\"path\" overlaps \"path\"",
+          "suggestion": "Review stacking and spacing \u2014 this overlap is likely unintended.",
+          "area": 48556,
+          "ratio": 1,
+          "nodeA": {
+            "id": "1908855373:7007",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7005",
+            "x": 0,
+            "y": 0,
+            "width": 398,
+            "height": 122,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "nodeB": {
+            "id": "1908855373:7006",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7005",
+            "x": 0,
+            "y": 0,
+            "width": 398,
+            "height": 122,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "intersection": {
+            "x": 1139,
+            "y": 303,
+            "width": 398,
+            "height": 122,
+            "area": 48556
+          }
+        },
+        {
+          "category": "sibling-overlap",
+          "severity": "major",
+          "message": "\"path\" overlaps \"path\"",
+          "suggestion": "Review stacking and spacing \u2014 this overlap is likely unintended.",
+          "area": 35721,
+          "ratio": 1,
+          "nodeA": {
+            "id": "1908855373:7066",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "nodeB": {
+            "id": "1908855373:7067",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "intersection": {
+            "x": 564.5,
+            "y": 666.5,
+            "width": 189,
+            "height": 189,
+            "area": 35721
+          }
+        },
+        {
+          "category": "sibling-overlap",
+          "severity": "major",
+          "message": "\"path\" overlaps \"path\"",
+          "suggestion": "Review stacking and spacing \u2014 this overlap is likely unintended.",
+          "area": 35721,
+          "ratio": 1,
+          "nodeA": {
+            "id": "1908855373:7066",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "nodeB": {
+            "id": "1908855373:7068",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "intersection": {
+            "x": 564.5,
+            "y": 666.5,
+            "width": 189,
+            "height": 189,
+            "area": 35721
+          }
+        },
+        {
+          "category": "sibling-overlap",
+          "severity": "major",
+          "message": "\"path\" overlaps \"path\"",
+          "suggestion": "Review stacking and spacing \u2014 this overlap is likely unintended.",
+          "area": 35721,
+          "ratio": 1,
+          "nodeA": {
+            "id": "1908855373:7067",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "nodeB": {
+            "id": "1908855373:7068",
+            "name": "path",
+            "type": "VECTOR",
+            "parentId": "1908855373:7065",
+            "x": 0,
+            "y": 0,
+            "width": 164,
+            "height": 164,
+            "rotation": 0,
+            "opacity": 1,
+            "visible": true,
+            "locked": false
+          },
+          "intersection": {
+            "x": 564.5,
+            "y": 666.5,
+            "width": 189,
+            "height": 189,
+            "area": 35721
+          }
+        }
+      ],
+      "fonts_faithful": true,
+      "reviewed_expected_vector_overlaps": {
+        "count": 5,
+        "reason": "Shared plot bounds: one pair of line series, one area fill with its outline, and three pairs of donut segments. Intentional geometry confirmed in the exported image."
+      },
+      "frame_text_layout_summary": {
+        "totalNodes": 164,
+        "analyzedNodes": 152,
+        "overlapCount": 0,
+        "byCategory": {
+          "sibling-overlap": 0,
+          "parent-overflow": 0,
+          "overlay": 0
+        },
+        "bySeverity": {
+          "critical": 0,
+          "major": 0,
+          "minor": 0,
+          "info": 0
+        }
+      }
+    },
+    "panel-variants": {
+      "overlap_summary": {
+        "totalNodes": 170,
+        "analyzedNodes": 170,
+        "overlapCount": 0,
+        "byCategory": {
+          "sibling-overlap": 0,
+          "parent-overflow": 0,
+          "overlay": 0
+        },
+        "bySeverity": {
+          "critical": 0,
+          "major": 0,
+          "minor": 0,
+          "info": 0
+        }
+      },
+      "findings": [],
+      "fonts_faithful": true
+    },
+    "same-ui-different-data": {
+      "overlap_summary": {
+        "totalNodes": 170,
+        "analyzedNodes": 170,
+        "overlapCount": 0,
+        "byCategory": {
+          "sibling-overlap": 0,
+          "parent-overflow": 0,
+          "overlay": 0
+        },
+        "bySeverity": {
+          "critical": 0,
+          "major": 0,
+          "minor": 0,
+          "info": 0
+        }
+      },
+      "findings": [],
+      "fonts_faithful": true
+    }
+  }
+}

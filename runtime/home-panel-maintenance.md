@@ -31,6 +31,11 @@ handoffs are denied. A separate refresh tool supplies only a section for the
 reviewed template: the controller fixes title, purpose, owner, agent, audience
 and source conversation. Every required source read must complete in this run.
 
+The [general panel families](general-home-panels.md) share this update path.
+Values and records may refresh; reviewed labels, units, chart variants/series,
+table columns/types, comparison direction and progress targets remain fixed until
+a new definition review.
+
 Routine snapshots publish automatically within that agreement. Definition changes
 remain ordinary drafts requiring Keep on Home, and invalidate the old agreement.
 Pause, permission changes and agreement replacement fence later publication.

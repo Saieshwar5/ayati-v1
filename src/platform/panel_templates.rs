@@ -1,4 +1,4 @@
-//! Fixed Home templates. Agents supply data; owners control placement and size.
+//! General Home families with aliases for existing saved definitions.
 use super::panels::{PanelDraft, Section};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
@@ -6,51 +6,40 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum Template {
     Metric,
+    Table,
     List,
     Chart,
     Agenda,
     Brief,
+    Text,
+    Collection,
+    Progress,
+    Timeline,
 }
 impl PanelDraft {
     pub fn template(&self) -> Result<Template> {
         ensure!(
             self.sections.len() == 1,
-            "Choose one Home template with exactly one section: metric, list (table), chart, agenda (table), or brief (text)"
+            "Choose one general Home family with exactly one section: metric, chart, table, collection, progress, timeline or text"
         );
         let inferred = match &self.sections[0] {
-            Section::Metric { .. } => Template::Metric,
-            Section::Table { .. } => Template::List,
+            Section::Metric { .. } | Section::Metrics { .. } => Template::Metric,
+            Section::Table { .. } => Template::Table,
             Section::Chart { .. } => Template::Chart,
-            Section::Text { .. } => Template::Brief,
+            Section::Text { .. } => Template::Text,
+            Section::Collection { .. } => Template::Collection,
+            Section::Progress { .. } => Template::Progress,
+            Section::Timeline { .. } => Template::Timeline,
         };
         let template = self.template.unwrap_or(inferred);
         ensure!(
-            template == inferred || (template == Template::Agenda && inferred == Template::List),
+            template == inferred
+                || (matches!(template, Template::List | Template::Agenda)
+                    && inferred == Template::Table)
+                || (template == Template::Brief && inferred == Template::Text),
             "Section does not match the selected panel template"
         );
-        match &self.sections[0] {
-            Section::Metric { label, value } => ensure!(
-                label.len() <= 80 && value.len() <= 40,
-                "Metric supports an 80-byte label and 40-byte value"
-            ),
-            Section::Table { columns, rows } => ensure!(
-                columns.len() <= 3
-                    && rows.len() <= 8
-                    && columns.iter().all(|v| v.len() <= 60)
-                    && rows.iter().flatten().all(|v| v.len() <= 160),
-                "List/agenda supports up to 3 columns, 8 rows and 160 bytes per cell"
-            ),
-            Section::Chart { title, points } => ensure!(
-                title.len() <= 100
-                    && points.len() <= 12
-                    && points.iter().all(|p| p.label.len() <= 40),
-                "Chart supports up to 12 points and 40-byte labels"
-            ),
-            Section::Text { heading, body } => ensure!(
-                heading.len() <= 100 && body.len() <= 800,
-                "Brief supports a 100-byte heading and 800-byte body"
-            ),
-        }
+        super::panel_validation::validate(&self.sections[0])?;
         Ok(template)
     }
 }

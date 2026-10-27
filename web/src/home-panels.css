@@ -45,6 +45,7 @@
 .home-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row; gap: 14px; align-items: stretch; }
 .home-panel-card { grid-column: span 1; display: flex; flex-direction: column; }
 .home-panel-card[data-template=metric] { grid-column: span 1; }
+.home-panel-card[data-grouped=true].panel-wide { grid-column: 1 / -1; }
 .home-panel-card .panel-footer { margin-top: auto; }
 .home-panel-card > .panel-snapshot { flex: 1; }
 .home-panel-card[data-template=metric] .panel-purpose { font-size: .75rem; }
@@ -62,6 +63,8 @@
 .home-panels.is-empty { grid-auto-rows: auto; }
 .home-panel-card { grid-row: span 3; overflow-y: auto; }
 .home-panel-card[data-template=metric], .home-panel-card[data-template=brief] { grid-row: span 2; }
+.home-panel-card[data-template=metric][data-comparison=true], .home-panel-card[data-grouped=true] { grid-row: span 3; }
+.home-panel-card[data-template=chart] { grid-row: span 4; }
 .home-panel-card[data-template=metric] .panel-purpose { display: none; }
 .home-panel-card[data-template=metric] .panel-block { margin: 8px 0; }
 .home-panel-card[data-template=metric] .panel-footer { gap: 4px; padding-top: 7px; }

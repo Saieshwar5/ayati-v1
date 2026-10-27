@@ -139,6 +139,8 @@ mod handoff_source_tests;
 mod handoff_tests;
 mod handoff_views;
 mod history;
+#[cfg(test)]
+mod home_general_tests;
 mod home_health;
 mod home_maintenance;
 mod home_maintenance_migration;

@@ -7,6 +7,7 @@ import { PanelContent } from './snapshot';
 import { AskPanel } from './create';
 import { PanelReview } from './review';
 import { PanelMaintenance } from './maintenance';
+import { panelTemplate } from '../../panel-layout';
 import '../../home-panels.css';
 import './panels.css';
 export function WorkspacePanels() {
@@ -96,7 +97,9 @@ export function WorkspacePanels() {
               data-panel={panel.id}
               key={panel.id}
               aria-label={definition?.title ?? 'Panel source unavailable'}
-              data-template={definition?.template ?? 'brief'}
+              data-template={panelTemplate(definition)}
+              data-grouped={definition?.sections[0]?.kind === 'metrics' ? 'true' : undefined}
+              data-comparison={definition?.sections[0]?.kind === 'metric' && definition.sections[0].comparison ? 'true' : undefined}
               data-maintained={panel.maintenance?.revision ? 'true' : undefined}
             >
               {definition ? <PanelContent definition={definition} scrollable /> : <h3>Panel source unavailable</h3>}

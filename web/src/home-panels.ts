@@ -57,9 +57,13 @@ export function installHomePanels(container: HTMLElement): void {
     for (const panel of ordered) {
       const card = element('article', 'home-panel-card'); card.dataset.panel = panel.id;
       const template = panelTemplate(panel.active?.definition ?? panel.draft);
+      const grouped = (panel.active?.definition ?? panel.draft)?.sections[0]?.kind === 'metrics';
       card.dataset.template = template;
-      card.classList.toggle('panel-wide', template !== 'metric' && layout.wide.includes(panel.id));
-      if (arranging) arrangement(card, panel.id, ordered.map(p => p.id), layout, template, () => draw(current));
+      card.dataset.grouped = String(grouped);
+      const section = (panel.active?.definition ?? panel.draft)?.sections[0];
+      card.dataset.comparison = String(section?.kind === 'metric' && Boolean(section.comparison));
+      card.classList.toggle('panel-wide', (grouped || template !== 'metric') && layout.wide.includes(panel.id));
+      if (arranging) arrangement(card, panel.id, ordered.map(p => p.id), layout, grouped ? 'metrics' : template, () => draw(current));
       if (panel.active) card.append(renderPanel(panel.active.definition));
       else if (panel.draft) card.append(renderPanel(panel.draft));
       else card.append(element('h3', '', 'Panel source unavailable'), element('p', '', 'Saved content is hidden because its account or operation grant is no longer available.'));

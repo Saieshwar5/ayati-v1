@@ -20,7 +20,8 @@ revises one typed, bounded draft. The controller fixes workspace, human owner,
 maintaining agent and task provenance. Neither models nor agent maintainers can
 select another owner, audience, layout, permission set or publication decision.
 
-Reuse the established Metric/List/Chart/Agenda/Brief validation. Save immutable
+Use the [general Metric/Chart/Table/Collection/Progress/Timeline/Text contract](general-home-panels.md),
+retaining List/Agenda/Brief aliases. Save immutable
 PostgreSQL snapshots independently of workers. Human **Keep on Home** reviews an
 exact revision; each later revision requires review. The previous approved view
 remains until a new exact revision is accepted. No HTML/scripts, arbitrary remote

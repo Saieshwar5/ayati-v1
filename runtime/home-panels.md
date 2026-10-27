@@ -2,8 +2,10 @@ Managed workspace agents now support [durable personal Home panels](workspace-ho
 through PostgreSQL and the scoped control bridge. The contract below describes the
 separate adopted local-owner runtime, including its maintenance and approval flow.
 
-The [Organized Home refinement](organized-home.md) supersedes the older section
-counts below with fixed, single-section templates for new writes and revisions.
+The [general Home panel contract](general-home-panels.md) supersedes the older type
+list below with seven reusable single-section families and five Chart variants.
+Existing formats and the [Organized Home refinement](organized-home.md) remain
+compatible where they do not conflict with that current catalog.
 
 # Agent-created Home panels
 

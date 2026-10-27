@@ -1,0 +1,26 @@
+{
+  "document": "tab-3",
+  "first_page": "1908855373:5553",
+  "pages": {
+    "overview": {
+      "name": "00 \u00b7 General panel library",
+      "id": "1908855373:5553",
+      "root": "1908855373:6232"
+    },
+    "chart-variants": {
+      "name": "01 \u00b7 Chart variants",
+      "id": "1908855373:5741",
+      "root": "1908855373:6926"
+    },
+    "panel-variants": {
+      "name": "02 \u00b7 Panel variants",
+      "id": "1908855373:5895",
+      "root": "1908855373:6582"
+    },
+    "same-ui-different-data": {
+      "name": "03 \u00b7 Same UI, different data",
+      "id": "1908855373:6068",
+      "root": "1908855373:6754"
+    }
+  }
+}

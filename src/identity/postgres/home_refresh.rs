@@ -1,22 +1,10 @@
 use super::*;
+use crate::platform::panel_presentation::shape;
 use crate::{
     identity::{chat::store::Job, home_panels::maintenance::Refresh},
     platform::panels::PanelDraft,
 };
 use serde_json::json;
-
-fn shape(mut definition: Value) -> Value {
-    if let Some(sections) = definition["sections"].as_array_mut() {
-        for section in sections {
-            if let Some(fields) = section.as_object_mut() {
-                for field in ["body", "value", "rows", "points"] {
-                    fields.remove(field);
-                }
-            }
-        }
-    }
-    definition
-}
 impl PgStore {
     pub(crate) async fn refresh_home_panel(&self, job: &Job, input: &Refresh) -> Result<Value> {
         let tx = self.workspace_tx(&job.workspace).await?;

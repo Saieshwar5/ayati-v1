@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-27",
+  "scope": "Local scripted-provider implementation verification; no live business data, paid inference or cloud activation",
+  "branch": "feat/general-home-panels",
+  "base_commit": "aac1d67b",
+  "binary_sha256": "4f0d8e5db200d049d6c10a6ba178bfcf0ddb62e78010c93a59de9cb5c52f9393",
+  "schema_change": false,
+  "dependency_change": false,
+  "canonical_families": 7,
+  "chart_variants": 5,
+  "checks": {
+    "workspace_rust_passed": 188,
+    "root_unit_passed": 109,
+    "guest_passed": 9,
+    "postgres_regressions_passed": 269,
+    "final_focused_home_postgres_passed": 17,
+    "embedded_gateway_companion_passed": 1,
+    "web_passed": 193,
+    "unique_process_browser_journeys_passed": 5,
+    "final_visual_followup_journeys_passed": 4,
+    "production_web_build": true,
+    "browser_test_types": true,
+    "clippy_warnings_denied": true,
+    "source_file_limit": true,
+    "whitespace": true
+  },
+  "important_limits": [
+    "Scripted local inference and local MCP fixture only; no live-provider accuracy claim",
+    "No independent query engine, new integrations, item actions or arbitrary links",
+    "Update controller, guest bridge and web assets together; older code cannot maintain new section kinds"
+  ],
+  "note": "The focused Home and visual follow-up checks overlap earlier suites; counts are not additive."
+}

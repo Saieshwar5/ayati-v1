@@ -5,7 +5,7 @@ import type { PanelDefinition } from './panel-renderer';
 type Layout = { order: string[]; wide: string[] };
 export function panelTemplate(definition?: PanelDefinition | null): string {
   if (definition?.sections.length !== 1) return 'legacy';
-  return definition.template ?? ({ metric: 'metric', table: 'list', chart: 'chart', text: 'brief' }[definition.sections[0].kind]);
+  return definition.template ?? ({ metric: 'metric', metrics: 'metric', table: 'table', chart: 'chart', text: 'text', collection: 'collection', progress: 'progress', timeline: 'timeline' }[definition.sections[0].kind]);
 }
 export function loadLayout(): Layout {
   try {
