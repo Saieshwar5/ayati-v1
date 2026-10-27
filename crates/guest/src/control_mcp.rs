@@ -11,6 +11,13 @@ pub fn observed(name: &str, input: &Value) -> bool {
         }
         Some("save_working_context") => crate::working_context_schema::observed(input),
         Some("operations" | "handoff_targets" | "personal_panels") => input == &json!({}),
+        Some("home_panel_update_context") => input == &json!({}),
+        Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
+            v.len() == 1
+                && v.get("sections")
+                    .and_then(Value::as_array)
+                    .is_some_and(|s| s.len() == 1)
+        }),
         Some("save_home_panel") => crate::workspace_mcp::observed(
             &format!("{}panel_write", crate::workspace_mcp::PREFIX),
             input,
@@ -53,6 +60,8 @@ impl ServerHandler for ControlTools {
             crate::history_schema::search_tool(),
             crate::history_schema::read_tool(),
             crate::personal_panel_schema::tool(),
+            json!({"name":"home_panel_update_context","description":"Read the controller-bound update agreement, fixed panel definition and exact source reads for this maintenance task only. Available only after the human enabled panel updates. It grants no new source authority.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
+            json!({"name":"refresh_home_panel","description":"Publish one bounded data snapshot for this controller-bound Home maintenance task. First perform every exact reviewed source read from home_panel_update_context. Send only sections, preserving headings/columns/template. The controller fixes panel identity, owner, agent, purpose and audience. Ordinary tasks cannot use this tool.","inputSchema":{"type":"object","properties":{"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}}},"required":["sections"],"additionalProperties":false}}),
             json!({"name":"personal_panels","description":"List the original human requester's saved personal panel identities and revisions for this agent in this source conversation only. Data is private to that person; this grants no source authority and returns no cached panel facts.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),

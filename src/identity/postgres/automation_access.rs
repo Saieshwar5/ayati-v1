@@ -80,7 +80,10 @@ pub(super) async fn present(
 // later cannot restart a routine which already lost its standing authority.
 pub(super) async fn invalidate_inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     for data in json_rows(tx,"SELECT to_jsonb(s) AS data FROM relay_agent_schedules s WHERE workspace=$1 AND state='enabled'",vec![w.into()]).await? {
-        let result=authority(tx,&principal(&data)?,w,data["agent"].as_str().unwrap(),data["chat"].as_str().unwrap()).await;
+        let person=principal(&data)?;
+        let result=if super::home_update_access::panel_schedule(tx,w,data["id"].as_str().unwrap()).await? {
+            super::home_update_runs::schedule_authority(tx,&person,w,data["id"].as_str().unwrap()).await
+        } else {authority(tx,&person,w,data["agent"].as_str().unwrap(),data["chat"].as_str().unwrap()).await};
         if let Err(error)=result {
             if error.is::<sea_orm::DbErr>() { return Err(error); }
             execute(tx,"UPDATE relay_agent_schedules SET state='blocked',revision=revision+1,detail='Routine access or destination changed. The original person must review and resume.' WHERE workspace=$1 AND id=$2 AND state='enabled'",vec![w.into(),data["id"].as_str().unwrap().into()]).await?;

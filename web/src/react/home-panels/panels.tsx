@@ -6,6 +6,7 @@ import { saveLayout, type HomeLayout, type ChangeTarget } from './model';
 import { PanelContent } from './snapshot';
 import { AskPanel } from './create';
 import { PanelReview } from './review';
+import { PanelMaintenance } from './maintenance';
 import '../../home-panels.css';
 import './panels.css';
 export function WorkspacePanels() {
@@ -96,6 +97,7 @@ export function WorkspacePanels() {
               key={panel.id}
               aria-label={definition?.title ?? 'Panel source unavailable'}
               data-template={definition?.template ?? 'brief'}
+              data-maintained={panel.maintenance?.revision ? 'true' : undefined}
             >
               {definition ? <PanelContent definition={definition} scrollable /> : <h3>Panel source unavailable</h3>}
               {definition && snapshot ? (
@@ -132,6 +134,7 @@ export function WorkspacePanels() {
                         Ask for changes
                       </Button>
                     )}
+                    {panel.active && <PanelMaintenance panel={panel} refresh={refresh} />}
                   </div>
                 </div>
               ) : (

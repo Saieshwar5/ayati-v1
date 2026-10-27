@@ -45,6 +45,26 @@ const panel = {
   },
 };
 const page = { available: true, panels: [panel], layout: { revision: 0, order: [], wide: [], hidden: [] } };
+test('routine saved-data refresh preserves an open update-agreement draft', async () => {
+  let current = structuredClone(page);
+  current.panels[0].draft = null;
+  current.panels[0].maintenance = {
+    revision: 1, panel_revision: 1, enabled: true, eligible: true, execution_available: true,
+    instructions: 'Saved instructions', interval_seconds: 900, stale_seconds: 1800,
+    scopes: [], status: 'current', checked_ms: 1000, saved_ms: 1000, next_ms: 100000,
+  };
+  await reactFixture(async ({render, button, click, change, update}) => {
+    const {WorkspacePanels} = await setup();
+    await render(WorkspacePanels);
+    await click(button('Panel updates'));
+    await change(document.querySelector('dialog textarea'), 'Keep my unsaved update instructions');
+    current.panels[0].active.generation = 2;
+    current.panels[0].active.definition.sections[0].body = 'A_NEW_ROUTINE_SNAPSHOT';
+    await update(() => window.dispatchEvent(new window.Event('focus')));
+    assert.match(document.body.textContent, /A_NEW_ROUTINE_SNAPSHOT/);
+    assert.equal(document.querySelector('dialog textarea').value, 'Keep my unsaved update instructions');
+  }, {url, fetch: async path => path.endsWith('/session') ? response(session) : response(current)});
+});
 async function setup() {
   const c = await import('../src/workspace-context.ts');
   await c.enterWorkspace();

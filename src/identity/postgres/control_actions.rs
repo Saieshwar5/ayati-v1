@@ -51,6 +51,7 @@ impl PgStore {
         let tx = self.workspace_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
         super::handoff_controls::ready_for_new_work(&tx, job).await?;
+        super::home_update_access::action(&tx, job, input).await?;
         ensure!(
             super::handoff_controls::allowed(&tx, job, &input.connection, &input.operation).await?,
             "Operation exceeds the sending agents handoff ceilings"
@@ -262,6 +263,7 @@ impl PgStore {
     }
 }
 pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: bool) -> Result<()> {
+    super::home_update_access::active(db, job).await?;
     ensure!(
         super::context_attempts::allowed(db, job).await?,
         "Context sources changed; start fresh work"

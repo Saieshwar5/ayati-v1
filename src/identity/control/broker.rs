@@ -118,7 +118,19 @@ pub(crate) struct RemoteRequest {
     pub arguments: Value,
 }
 pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> Result<Value> {
+    pg.home_maintenance_tool(job, tool).await?;
     match tool {
+        "home_panel_update_context" => {
+            ensure!(
+                arguments == json!({}),
+                "Invalid panel update context request"
+            );
+            pg.home_update_context(job).await
+        }
+        "refresh_home_panel" => {
+            pg.refresh_home_panel(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "save_working_context" => {
             let input = serde_json::from_value(arguments)?;
             pg.save_working_context(job, &input).await

@@ -1,5 +1,11 @@
 # Durable personal workspace Home panels
 
+The [personal maintenance increment](home-panel-maintenance.md) adds human-reviewed
+update agreements, manual/fixed-interval agent refreshes, bounded routine snapshots
+and freshness/health. Definition drafts still require Keep on Home; routine data
+snapshots can publish within the separate reviewed agreement. The original P1
+contract below remains the definition/source baseline where not superseded.
+
 Implemented locally after PR 77 (`04781747`), following PR 76. This contract and the selected
 OpenPencil concepts were saved before application edits. This is the first managed-workspace P1 panel increment. Existing adopted
 local-owner panels retain their separate runtime and source contracts.

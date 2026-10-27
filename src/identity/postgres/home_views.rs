@@ -13,6 +13,9 @@ async fn version(
     if !super::home_sources::allowed(tx, w, &user.id, &provenance).await? {
         return Ok(json!({"revision":revision,"available":false}));
     }
+    if let Some(snapshot) = super::home_health::snapshot(tx, user, w, id, revision).await? {
+        return Ok(snapshot);
+    }
     Ok(
         json!({"revision":revision,"available":true,"definition":row.try_get::<Value>("","definition")?,"saved_ms":row.try_get::<i64>("","saved_ms")?,"source_operations":provenance["operations"].as_array().map_or(0,Vec::len),"chat":row.try_get::<String>("","chat")?,"thread":row.try_get::<Option<String>>("","thread")?,"task":row.try_get::<String>("","task")?}),
     )
@@ -27,7 +30,8 @@ impl PgStore {
    let draft=version(&tx,user,w,&id,revision).await?;
    let saved=if active==Some(revision){Some(draft.clone())}else if let Some(n)=active {Some(version(&tx,user,w,&id,n).await?)}else{None};
    let visible=draft["available"]==true || saved.as_ref().is_some_and(|s|s["available"]==true);
-   panels.push(json!({"id":id,"revision":revision,"active_revision":active,"agent":if visible {Some(r.try_get::<String>("","agent")?)}else{None},"agent_name":if visible {Some(r.try_get::<String>("","agent_name")?)}else{None},"draft":if active==Some(revision){None}else{Some(draft)},"active":saved}));
+   let maintenance=if visible && active.is_some() {Some(super::home_health::maintenance(&tx,user,w,&id,self.pooled).await?)}else{None};
+   panels.push(json!({"maintenance":maintenance,"id":id,"revision":revision,"active_revision":active,"agent":if visible {Some(r.try_get::<String>("","agent")?)}else{None},"agent_name":if visible {Some(r.try_get::<String>("","agent_name")?)}else{None},"draft":if active==Some(revision){None}else{Some(draft)},"active":saved}));
   }
         let layout = super::home_receipts::layout(&tx, user, w).await?;
         tx.commit().await?;

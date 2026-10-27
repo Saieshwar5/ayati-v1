@@ -37,6 +37,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::home_migration::HomePanels),
             Box::new(super::context_migration::ConversationContext),
             Box::new(super::communication_migration::Communications),
+            Box::new(super::home_maintenance_migration::HomeMaintenance),
         ]
     }
 }

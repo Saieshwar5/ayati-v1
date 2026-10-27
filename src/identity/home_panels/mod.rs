@@ -1,3 +1,4 @@
+pub(crate) mod maintenance;
 pub(crate) mod model;
 use super::*;
 use axum::{Json, extract::Path as RoutePath};
@@ -13,6 +14,40 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/home-panels/{panel}/review",
             post(review),
         )
+        .route(
+            "/api/identity/workspaces/{w}/home-panels/{panel}/maintenance",
+            post(agreement),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/home-panels/{panel}/refresh",
+            post(refresh),
+        )
+}
+async fn agreement(
+    State(app): State<Shared>,
+    RoutePath((w, panel)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<maintenance::Agreement>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        super::collaboration::pg(&app)?
+            .save_home_agreement(&user, &w, &panel, &input)
+            .await?,
+    ))
+}
+async fn refresh(
+    State(app): State<Shared>,
+    RoutePath((w, panel)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<maintenance::Update>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        super::collaboration::pg(&app)?
+            .update_home_panel(&user, &w, &panel, &input)
+            .await?,
+    ))
 }
 async fn list(
     State(app): State<Shared>,

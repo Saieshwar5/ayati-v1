@@ -93,7 +93,10 @@ sources are not implemented by this styling work. Do not fabricate them.
 Preserve saved panels, supported templates, review, grants, maintenance, removal,
 Recent activity and active-work Stop. Add panel chooses an existing agent and opens
 an unsent creation flow. Placement remains browser-local where implemented;
-server-synchronized placement in the Home plan is still future work. See
+managed workspace panels synchronize personal placement on the server. Their
+[update agreements](home-panel-maintenance.md) name the responsible agent and show
+concise freshness/health. Keep full source arguments and update setup in the
+on-demand dialog; preserve enough space to read the full panel value. See
 [Home panels](home-panels.md), [organized Home](organized-home.md), and
 [Home attention](home-attention.md) for the underlying contracts.
 
