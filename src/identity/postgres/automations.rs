@@ -11,7 +11,7 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
         let mut schedules = Vec::new();
-        for data in json_rows(&tx,"SELECT to_jsonb(s)-'request_hash' AS data FROM relay_agent_schedules s WHERE workspace=$1 AND agent=$2 ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
+        for data in json_rows(&tx,"SELECT to_jsonb(s)-'request_hash' AS data FROM relay_agent_schedules s WHERE workspace=$1 AND agent=$2 AND NOT EXISTS(SELECT 1 FROM relay_home_schedule_bindings b WHERE b.workspace=s.workspace AND b.schedule=s.id) ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
             match present(&tx,user,w,agent,data).await {
                 Ok(mut data) => {
                     let text = data["content"].as_str().unwrap();
@@ -44,6 +44,10 @@ impl PgStore {
         id: &str,
     ) -> Result<Value> {
         uuid(id)?;
+        ensure!(
+            !super::home_update_access::panel_schedule(&self.db, w, id).await?,
+            "Manage personal panel updates from Home"
+        );
         let tx = self.read_tx(w).await?;
         let data = present(&tx, user, w, agent, record(&tx, w, agent, id).await?).await?;
         tx.commit().await?;
@@ -114,6 +118,10 @@ impl PgStore {
         input: &Change,
     ) -> Result<Value> {
         uuid(id)?;
+        ensure!(
+            !super::home_update_access::panel_schedule(&self.db, w, id).await?,
+            "Manage personal panel updates from Home"
+        );
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
         let data = record(&tx, w, agent, id).await?;
@@ -176,6 +184,10 @@ impl PgStore {
         id: &str,
     ) -> Result<Value> {
         uuid(id)?;
+        ensure!(
+            !super::home_update_access::panel_schedule(&self.db, w, id).await?,
+            "Manage personal panel updates from Home"
+        );
         let tx = self.read_tx(w).await?;
         let data = record(&tx, w, agent, id).await?;
         visible(&tx, user, w, agent, &data).await?;

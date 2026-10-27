@@ -23,6 +23,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/home-panels/`: lazy personal workspace snapshots, exact draft review,
   source-safe detail readers, explicit agent requests and synchronized personal placement.
   Adopted local-owner panels retain their compatibility controller.
+  Personal maintenance has explicit review/setup, guarded manual refresh, pause,
+  fixed-interval scheduling and bounded snapshot health; it reuses the same source
+  invalidation and view lifetime.
 - `web/src/react/agents/`: selected team roster/profile workspace, source-scoped
   request progress and Stop, guided creation, profile editing, approved knowledge,
   permission drafts/previews/activation and preserved local-agent lifecycle controls.

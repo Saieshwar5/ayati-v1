@@ -76,6 +76,7 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
         ("relay_library_sources", "reply"),
         ("relay_agent_knowledge", "source_message"),
         ("relay_control_actions", "job"),
+        ("relay_home_update_runs", "reply"),
     ] {
         if query(
             db,

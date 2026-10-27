@@ -139,6 +139,13 @@ mod handoff_source_tests;
 mod handoff_tests;
 mod handoff_views;
 mod history;
+mod home_health;
+mod home_maintenance;
+mod home_maintenance_migration;
+#[cfg(test)]
+mod home_maintenance_scope_tests;
+#[cfg(test)]
+mod home_maintenance_tests;
 mod home_migration;
 #[cfg(test)]
 mod home_migration_tests;
@@ -146,9 +153,12 @@ mod home_migration_tests;
 mod home_panel_tests;
 mod home_panels;
 mod home_receipts;
+mod home_refresh;
 #[cfg(test)]
 mod home_source_tests;
 mod home_sources;
+mod home_update_access;
+mod home_update_runs;
 mod home_views;
 mod import;
 #[cfg(test)]

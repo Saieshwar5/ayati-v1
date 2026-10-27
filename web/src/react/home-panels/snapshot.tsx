@@ -89,6 +89,8 @@ export function SnapshotDetails({ snapshot }: { snapshot: Snapshot }) {
   return (
     <div className="workspace-panel-basis">
       <p>Saved {new Date(snapshot.saved_ms!).toLocaleString()} · Personal</p>
+      {snapshot.checked_ms && <p>Sources read {new Date(snapshot.checked_ms).toLocaleString()}.
+        This records read completion, not the upstream data’s coverage or accuracy.</p>}
       <p>
         {snapshot.source_operations
           ? `${snapshot.source_operations} observed operation${snapshot.source_operations === 1 ? '' : 's'}. Receipts do not prove the interpretation.`
