@@ -49,6 +49,7 @@ pub struct Controller {
     pub worker_providers: Vec<String>,
     pub default_model: String,
     pub library: Library,
+    pub archive: super::Archive,
     pub mcp_servers_file: Option<PathBuf>,
     pub event_sources_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
@@ -186,6 +187,7 @@ impl Controller {
                 .text("AYATI_MODEL")
                 .unwrap_or_else(|| "accounts/fireworks/models/glm-5p3-flash".into()),
             library,
+            archive: super::Archive::read(env, hosted),
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),

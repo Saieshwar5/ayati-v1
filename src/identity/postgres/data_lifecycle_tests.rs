@@ -119,3 +119,117 @@ async fn old_live_update_positions_reload_instead_of_missing_removed_notices() {
     let current = db.sync_page(&owner, &w, Some(high)).await.unwrap();
     assert!(current.get("reset").is_none());
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn old_attempts_are_archived_before_removal_and_the_reply_stays_readable() {
+    use std::io::Read;
+    let (db, owner, w, chat, hash, update) = begin().await;
+    let id = update.assignment.scope.reply.clone();
+    let assignment = update.assignment.scope.assignment.clone();
+    db.complete_controlled(
+        &Completion {
+            assignment: update.assignment.clone(),
+            state: "complete".into(),
+            text: "Kept forever".into(),
+        },
+        &hash,
+    )
+    .await
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let archive = crate::identity::archive::Archive::Local(dir.path().into());
+    // Recent attempts stay.
+    assert_eq!(
+        crate::identity::data_cleanup::archive_attempts(&db, 90, &archive)
+            .await
+            .unwrap(),
+        0
+    );
+    execute(
+        &db.db,
+        "UPDATE relay_worker_assignments SET finished_ms=finished_ms-8640000000 WHERE id=$1",
+        vec![assignment.clone().into()],
+    )
+    .await
+    .unwrap();
+    let records = db.stale_attempts(90, 10).await.unwrap();
+    assert_eq!(records.len(), 1);
+    for secret in [
+        "token_hash",
+        "session",
+        "context",
+        "completion_hash",
+        "request",
+    ] {
+        assert!(
+            records[0].get(secret).is_none(),
+            "{secret} must not be archived"
+        );
+    }
+    assert_eq!(
+        crate::identity::data_cleanup::archive_attempts(&db, 90, &archive)
+            .await
+            .unwrap(),
+        1
+    );
+    // The archive holds the record; the database no longer does.
+    let file = walk(dir.path())
+        .into_iter()
+        .find(|p| p.to_string_lossy().ends_with(".jsonl.gz"))
+        .unwrap();
+    let mut text = String::new();
+    flate2::read::GzDecoder::new(std::fs::File::open(file).unwrap())
+        .read_to_string(&mut text)
+        .unwrap();
+    let archived: Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+    assert_eq!(archived["id"], assignment);
+    assert_eq!(archived["outcome"], "complete");
+    for table in [
+        "relay_worker_assignments WHERE id=$1",
+        "relay_assignment_credentials WHERE assignment=$1",
+    ] {
+        assert!(
+            query(
+                &db.db,
+                &format!("SELECT 1 AS n FROM {table}"),
+                vec![assignment.clone().into()]
+            )
+            .await
+            .unwrap()
+            .is_none()
+        );
+    }
+    // History is untouched: the reply and its job record remain readable.
+    assert_eq!(
+        db.response_body(&owner, &w, &chat, &id, false)
+            .await
+            .unwrap()["body"],
+        "Kept forever"
+    );
+    assert!(
+        query(
+            &db.db,
+            "SELECT reply FROM relay_chat_jobs WHERE reply=$1 AND finished_ms IS NOT NULL",
+            vec![id.into()]
+        )
+        .await
+        .unwrap()
+        .is_some()
+    );
+}
+
+fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(dir)
+        .unwrap()
+        .flatten()
+        .flat_map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path)
+            } else {
+                vec![path]
+            }
+        })
+        .collect()
+}

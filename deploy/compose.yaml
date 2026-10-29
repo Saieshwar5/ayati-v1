@@ -57,6 +57,8 @@ services:
       WORKOS_API_KEY_FILE: /run/secrets/workos_api_key
       CUCKOO_LIBRARY_S3_BUCKET: ${CUCKOO_LIBRARY_S3_BUCKET:-}
       CUCKOO_LIBRARY_S3_ENDPOINT: ${CUCKOO_LIBRARY_S3_ENDPOINT:-}
+      # Optional cold storage for old attempt diagnostics; without it they stay.
+      AYATI_ARCHIVE_S3_BUCKET: ${AYATI_ARCHIVE_S3_BUCKET:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes: [controller-control:/run/controller:ro]
     secrets: [database_url, workos_api_key]

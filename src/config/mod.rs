@@ -1,9 +1,11 @@
 //! Process configuration, read once at startup. Each process validates its own
 //! settings, reports every problem together and refuses other processes' secrets.
+mod archive;
 mod controller;
 mod executor;
 mod reader;
 
+pub use archive::Archive;
 pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
 pub use executor::{Executor, Identity};
 pub(crate) use reader::Reader;

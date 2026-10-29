@@ -180,5 +180,17 @@ only duplicates and delivery notices:
   workspace keeps a floor; a browser asking from before it reloads instead of
   missing changes.
 
+- Attempt diagnostics (one row per execution attempt, with its credential
+  metadata) older than `AYATI_RETAIN_ATTEMPT_DAYS` (default 90), only when an
+  archive is configured: each batch is first written to the archive as gzip JSON
+  Lines (`attempts/YYYY/MM/DD/<first>-<last>.jsonl.gz`, queryable with Athena),
+  then removed. Token hashes, sessions, context and completion fingerprints are
+  never archived. Without an archive, attempts stay in the database.
+
+Configure the archive with `AYATI_ARCHIVE_S3_BUCKET` (private; hosted
+controllers require it) or, for development, an absolute `AYATI_ARCHIVE_LOCAL_ROOT`.
+`AYATI_ARCHIVE_S3_ENDPOINT` selects an S3-compatible endpoint (HTTPS, or loopback
+HTTP for tests). Executors refuse archive settings.
+
 The dispatcher's job indexes cover queued and running work only, so finished
 history does not slow dispatch.

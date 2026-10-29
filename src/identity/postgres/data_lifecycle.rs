@@ -67,4 +67,54 @@ impl PgStore {
         tx.commit().await?;
         Ok(removed as u64)
     }
+
+    /// Finished attempts older than `days`, oldest first, as archive records.
+    /// Secrets and context are excluded: token hashes, session, completion
+    /// fingerprint and request identity stay out of the archive.
+    pub(crate) async fn stale_attempts(&self, days: i64, limit: i64) -> Result<Vec<Value>> {
+        rows(&self.db,"SELECT to_jsonb(a) || jsonb_build_object('executor',c.executor,'incarnation',c.incarnation,
+              'slot',c.slot,'slot_generation',c.slot_generation,'completion_state',c.completion_state,
+              'archive_day',to_char(to_timestamp(a.finished_ms/1000) AT TIME ZONE 'UTC','YYYY/MM/DD')) AS record
+            FROM relay_worker_assignments a LEFT JOIN relay_assignment_credentials c ON c.assignment=a.id
+            WHERE a.state IN ('finished','lost')
+            AND a.finished_ms<(extract(epoch FROM clock_timestamp())*1000)::bigint-$1*86400000
+            ORDER BY a.finished_ms,a.id LIMIT $2",vec![days.into(),limit.into()]).await?
+            .into_iter()
+            .map(|row| Ok(row.try_get("", "record")?))
+            .collect()
+    }
+
+    /// Remove archived attempts and their dependent rows. A dead executor's
+    /// idle slot may still point at an old attempt; that pointer is cleared.
+    pub(crate) async fn remove_attempts(&self, ids: &[String]) -> Result<u64> {
+        let tx = self.db.begin().await?;
+        if !claimed(&tx).await? {
+            return Ok(0);
+        }
+        let ids = Value::from(ids.to_vec());
+        let set = "SELECT jsonb_array_elements_text($1::jsonb)";
+        execute(&tx,&format!("UPDATE relay_executor_slots SET assignment=NULL WHERE assignment IN ({set}) AND state NOT IN ('offered','running')"),vec![ids.clone().into()]).await?;
+        let removable = format!("SELECT a.id FROM relay_worker_assignments a WHERE a.id IN ({set}) AND a.state IN ('finished','lost')
+            AND NOT EXISTS(SELECT 1 FROM relay_executor_slots s WHERE s.assignment=a.id)");
+        execute(
+            &tx,
+            &format!("DELETE FROM relay_assignment_output WHERE assignment IN ({removable})"),
+            vec![ids.clone().into()],
+        )
+        .await?;
+        execute(
+            &tx,
+            &format!("DELETE FROM relay_assignment_credentials WHERE assignment IN ({removable})"),
+            vec![ids.clone().into()],
+        )
+        .await?;
+        let removed = execute(
+            &tx,
+            &format!("DELETE FROM relay_worker_assignments WHERE id IN ({removable})"),
+            vec![ids.into()],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(removed)
+    }
 }
