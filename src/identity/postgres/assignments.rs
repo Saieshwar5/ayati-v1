@@ -28,13 +28,14 @@ impl PgStore {
             FROM expired WHERE expired.claim=a.id AND a.state IN ('launching','running')"#, vec![]).await?;
         execute(tx,"UPDATE relay_assignment_credentials c SET context=NULL,expires=0 FROM relay_worker_assignments a WHERE a.id=c.assignment AND a.state='lost' AND c.expires<>0",vec![]).await?;
         execute(tx,"UPDATE relay_executor_slots s SET state='lost' FROM relay_worker_assignments a WHERE a.id=s.assignment AND a.state='lost' AND s.state<>'lost'",vec![]).await?;
+        super::attempt_resume::park_uncertain(tx).await?;
         let exhausted = rows(
             tx,
             r#"UPDATE relay_chat_jobs SET state='finished',
             finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
-            WHERE dispatch IN ('assigned','pooled') AND state='running' AND attempts>=3
+            WHERE dispatch IN ('assigned','pooled') AND state='running' AND attempts>=$1
             AND lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint RETURNING reply"#,
-            vec![],
+            vec![super::attempt_resume::MAX_ATTEMPTS.into()],
         )
         .await?;
         for row in exhausted {

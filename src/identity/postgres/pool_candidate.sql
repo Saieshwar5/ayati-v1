@@ -3,7 +3,8 @@
 SELECT j.reply,j.workspace,j.attempts,j.generation,j.work_class FROM relay_chat_jobs j
 JOIN relay_shared_agents a ON a.workspace=j.workspace AND a.id=j.payload->>'agent'
 LEFT JOIN workspace_load w ON w.workspace=j.workspace
-WHERE j.dispatch='pooled' AND j.attempts<3
+-- Five attempts (attempt_resume::MAX_ATTEMPTS); each continues from the last.
+WHERE j.dispatch='pooled' AND j.attempts<5
 AND (j.state='queued' OR (j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint))
 AND a.model=$1 AND COALESCE(NULLIF(a.settings->>'provider',''),$2)=$2
 AND NOT EXISTS(SELECT 1 FROM relay_chat_jobs other

@@ -10,6 +10,9 @@ mod approval_delivery;
 #[cfg(test)]
 mod approval_tests;
 mod assignments;
+mod attempt_resume;
+#[cfg(test)]
+mod attempt_resume_tests;
 mod attention;
 mod attention_migration;
 #[cfg(test)]
