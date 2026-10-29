@@ -24,6 +24,8 @@
 .mention-menu button { display:flex; align-items:center; gap:8px; border:0; border-radius:6px; background:none; color:var(--text); padding:9px; width:100%; text-align:left; cursor:pointer; }
 .mention-menu button[aria-selected=true],.mention-menu button:hover { background:var(--selection); }
 .mention-menu strong { font-size:13px; font-weight:500; flex:1; overflow-wrap:anywhere; }
+.mention-menu .face { width:26px; height:26px; font-size:10px; }
+.mention-menu .chat-participant-name { flex:1; font-size:13px; font-weight:500; }
 .mention-menu small { color:var(--muted); font-size:11px; }
 @media(max-width:600px) { .message-composer { margin:10px 10px 14px; padding:6px; } .message-composer textarea { font-size:16px; } }
 /* The private transcript hosts exactly the same React composer. */

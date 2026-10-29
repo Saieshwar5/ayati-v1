@@ -153,6 +153,15 @@ More offers Edit and Delete only on your own messages, plus Copy link. Reactions
 are a fixed set of twelve, shown as chips under the message; they never approve
 or request work. Edits show "edited"; deleting asks first, leaves "Message
 deleted" in place and stops agent work the message started that has not finished.
+
+Notifications are personal. The conversation header's bell offers All new
+messages, @mentions and replies, or Nothing; direct messages default to all and
+channels to mentions. Muted rows show a crossed bell and keep their count. A count
+turns red when something unread is for you (an @mention or an agent's reply to your
+request). Desktop alerts use the browser's notifications while Cuckoo is open, on
+any page, once the person allows them from the one-time prompt in the chat list;
+nothing alerts for the conversation you are reading, your own messages or old
+history. Email for missed messages comes with hosted email delivery.
 Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button

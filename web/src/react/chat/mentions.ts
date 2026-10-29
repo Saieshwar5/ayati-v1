@@ -1,4 +1,4 @@
-export type Mention = { id: string; name: string; kind: 'user' | 'agent' };
+export type Mention = { id: string; name: string; kind: 'user' | 'agent'; photo?: string | null; avatar?: string | null; title?: string; role?: string };
 export type MentionRange = Mention & { start: number; end: number };
 const pattern = /\[@([^\]\n]+)\]\(mention:(user|agent):([a-zA-Z0-9_-]+)\)/g;
 export function decodeMentions(source: string): { text: string; mentions: MentionRange[] } {

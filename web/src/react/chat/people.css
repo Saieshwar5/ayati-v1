@@ -47,3 +47,18 @@
 .profile-card-add label { display: grid; gap: 4px; font-size: 12.5px; }
 .profile-card-add select { padding: 9px 10px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; }
 .profile-card-add .ui-button { justify-self: start; }
+
+/* Notifications: bell menu, muted rows, counts for you, one-time prompt. */
+.chat-notify { position: relative; display: inline-flex; }
+.chat-notify-menu { position: absolute; top: 42px; right: 0; z-index: 5; display: grid; gap: 2px; width: 280px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 8px 24px var(--shadow-deep); }
+.chat-notify-menu button { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.chat-notify-menu button[aria-checked=true] { background: var(--soft); font-weight: 500; }
+.chat-notify-menu button:hover, .chat-notify-menu button:focus-visible { background: var(--selection); }
+.chat-notify-menu small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.chat-muted { display: inline-flex; color: var(--muted); }
+.workspace-chat .chat-directory .chat-unread.chat-unread-mention { background: var(--danger); color: #fff; }
+.chat-alerts-prompt { display: grid; gap: 8px; margin: 0 4px 18px; padding: 12px; border-radius: 12px; background: var(--soft); }
+.chat-alerts-prompt strong { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500; }
+.chat-alerts-prompt p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.chat-alerts-prompt > div { display: flex; gap: 8px; }
+.chat-alerts-prompt .ui-button { min-height: 30px; padding: 4px 12px; font-size: 12px; }
