@@ -17,7 +17,11 @@ async fn shared_transport_keeps_concurrent_capabilities_request_scoped() {
     let supervisor_token = "s".repeat(43);
     let first_token = "a".repeat(43);
     let second_token = "b".repeat(43);
-    let supervisor = Client::new(&url, &supervisor_token).unwrap();
+    let supervisor = Client::new(
+        &crate::config::WorkerControl::for_tests(&url, None),
+        &supervisor_token,
+    )
+    .unwrap();
     let first = supervisor.with_token(&first_token).unwrap();
     let second = supervisor.with_token(&second_token).unwrap();
     assert!(supervisor.with_token("invalid").is_err());

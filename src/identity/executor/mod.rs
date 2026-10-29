@@ -18,7 +18,7 @@ use crate::identity::{
 use anyhow::{Context, Result, ensure};
 use model::{Capacity, Profile};
 use slots::{Control, Done, Slot, State};
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 use tokio::{sync::mpsc, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
@@ -30,8 +30,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
     };
     profile.validate()?;
     let size = settings.slots;
-    let url = config::url(&settings.worker_control.url)?;
-    let key_file = settings.worker_control.key_file.clone();
+    let transport = settings.worker_control.clone();
     let settings = std::sync::Arc::new(settings);
     let data = settings.common.data_dir.as_path();
     std::fs::create_dir_all(data)?;
@@ -50,8 +49,8 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
         token: random_token(),
         pooled: true,
     };
-    register(&url, &key_file, &registration).await?;
-    let client = Client::new(&url, &registration.token)?;
+    register(&transport, &registration).await?;
+    let client = Client::new(&transport, &registration.token)?;
     let base = format!(
         "/v1/executors/{}/{}/pool",
         registration.executor, registration.incarnation
@@ -166,7 +165,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
                         }
                     }
                 }
-                if tokio::time::Instant::now() >= refresh && register(&url, &key_file, &registration).await.is_ok() {
+                if tokio::time::Instant::now() >= refresh && register(&transport, &registration).await.is_ok() {
                     refresh = tokio::time::Instant::now() + Duration::from_secs(300);
                 }
             },
@@ -253,9 +252,12 @@ async fn handle_offer(
             .await;
     }
 }
-async fn register(url: &str, key_file: &Path, registration: &Registration) -> Result<()> {
-    let key = config::key(key_file)?;
-    let _: serde_json::Value = Client::new(url, &key)?
+async fn register(
+    control: &crate::config::WorkerControl,
+    registration: &Registration,
+) -> Result<()> {
+    let key = config::key(&control.key_file)?;
+    let _: serde_json::Value = Client::new(control, &key)?
         .retry("/v1/executors/register", registration, 5)
         .await?;
     Ok(())

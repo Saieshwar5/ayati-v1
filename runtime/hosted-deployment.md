@@ -5,8 +5,8 @@ and runtime grants. The older deployment/image evidence below retains its
 original scope; it does not establish acceptance for this new release.
 
 Agent replies run only on pooled executors (2026-10-29): the Compose template runs
-the controller and an executor that shares its network namespace. It is not yet an
-AWS on-demand task launcher.
+the controller and an independently scaled executor service that reaches it over
+TLS on a private network. It is not yet an AWS on-demand task launcher.
 
 This increment packages the website, controller and executors and
 adds an explicit HTTPS gateway configuration. It prepares a private cloud
@@ -20,7 +20,7 @@ flowchart LR
   Browser --> TLS[HTTPS proxy or load balancer]
   TLS --> API[ayati identity]
   API --> PG[(Managed PostgreSQL)]
-  Executor[ayati executor] -->|loopback worker control| API
+  Executor[ayati executor ×N] -->|TLS worker control, private network| API
   Executor --> Model[Configured model provider]
   API --> Objects[(Private S3 objects)]
 ```
@@ -62,7 +62,9 @@ for migrations, API and workers in a release.
 | `AYATI_PUBLIC_ORIGIN` | Canonical HTTPS origin, such as `https://workspace.example.com`; no path, credentials, query or fragment |
 | `AYATI_BIND_ADDRESS` | Explicit internal listening IP; `0.0.0.0` for a private container network |
 | `RELAY_DATABASE_URL` | Restricted runtime PostgreSQL URL; use provider-required TLS and private networking |
-| `AYATI_WORKER_CONTROL_URL`, `AYATI_WORKER_CONTROL_KEY_FILE` | Loopback worker-control origin and bootstrap key, on the API and every executor ([worker control](worker-control.md)) |
+| `AYATI_WORKER_CONTROL_URL`, `AYATI_WORKER_CONTROL_KEY_FILE` | Worker-control origin (`https://` on a private network, or loopback `http://`) and bootstrap key, on the API and every executor ([worker control](worker-control.md)) |
+| `AYATI_WORKER_CONTROL_LISTEN`, `…_TLS_CERT`, `…_TLS_KEY` | API only: private listen address and TLS files for an `https://` URL |
+| `AYATI_WORKER_CONTROL_CA` | Executors only: the private certificate authority they trust |
 | `WORKOS_CLIENT_ID`, `WORKOS_API_KEY` | API only; configure the exact public `/auth/callback` URL in WorkOS |
 | `AYATI_WORKER_PROVIDERS` | API declaration of executor providers, `openai` and/or `fireworks-ai`, comma separated |
 | `AYATI_MODEL`, `AYATI_GOOSE_PROVIDER` | Operator-tested default model/provider; executors need matching credentials |
@@ -93,9 +95,13 @@ is online or a particular model is available. Keep it consistent with the fleet.
 
 `deploy/compose.yaml` is a single-host deployment/rehearsal template using external
 PostgreSQL and optional external object storage. It exposes the API only on host
-loopback and supplies separate API/executor secrets. A one-shot `control-key`
-service copies the operator's worker-control key into a shared volume owned by
-UID 10001 with mode 0600; the executor joins the API's network namespace. Set a TLS proxy or managed load
+loopback and supplies separate API/executor secrets. Create the worker-control TLS
+set with `tools/worker-control-certs.sh <dir> worker-control` and point
+`AYATI_WORKER_CONTROL_TLS_DIR` at it; the secret files must be readable when Compose
+mounts them. A one-shot `control-key` service installs the bootstrap key and TLS
+files, owned by UID 10001 with mode 0600, into separate API and executor volumes.
+Executors run on an internal `worker` network plus model egress, with no route to
+the database; scale them with `--scale executor=N`. Set a TLS proxy or managed load
 balancer in front before allowing access. It is not a provider infrastructure stack.
 
 Copy `deploy/hosted.env.example` to a private, ignored configuration file and
@@ -147,8 +153,9 @@ role. Existing deployments must run all migrations through 29 (`m20261026_000029
 and grants before starting this version. API startup verifies the schema
 and never migrates automatically. The database holds brief PKCE verifier and
 invitation credentials too: restrict its operational access and backups accordingly.
-The [worker-control API](worker-control.md) is a local-only boundary; this Compose
-template does not establish remote/cloud executor authentication.
+The [worker-control API](worker-control.md) authenticates executors with the bootstrap
+key and per-executor tokens over private-network TLS; this Compose template does not
+yet prove an executor's AWS task identity.
 
 ```sh
 docker compose --env-file /private/ayati/hosted.env -f deploy/compose.yaml up -d api executor

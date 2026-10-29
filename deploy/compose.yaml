@@ -12,28 +12,39 @@ x-runtime: &runtime
   stop_grace_period: 90s
   restart: unless-stopped
 
-# Worker control is loopback-only: executors share the API container's network
-# namespace and authenticate with the bootstrap key copied by control-key.
+# Executors are their own service and reach the API's worker control over TLS
+# on the private `worker` network, trusting only the operator's private CA
+# (tools/worker-control-certs.sh). Scale them with `--scale executor=N`.
 x-worker-control: &worker-control
-  AYATI_WORKER_CONTROL_URL: http://127.0.0.1:8766
-  AYATI_WORKER_CONTROL_KEY_FILE: /run/ayati-control/key
+  AYATI_WORKER_CONTROL_URL: https://worker-control:8766
 
 services:
   control-key:
     <<: *runtime
-    # Runs once as root only to hand the operator's key to the runtime UID.
+    # Runs once as root only to hand the operator's files to the runtime UID.
+    # Separate volumes: executors share that UID and must never read the
+    # controller's TLS key.
     user: "0:0"
     cap_add: [CHOWN, FOWNER]
-    entrypoint: [/usr/bin/install, -o, "10001", -g, "10001", -m, "600",
-      /run/secrets/worker_control_key, /run/ayati-control/key]
-    volumes: [worker-control:/run/ayati-control]
-    secrets: [worker_control_key]
+    entrypoint: [/bin/sh, -ec, 'i="/usr/bin/install -o 10001 -g 10001 -m 600";
+      $$i /run/secrets/worker_control_key /run/controller/key;
+      $$i /run/secrets/worker_control_server_cert /run/controller/server.pem;
+      $$i /run/secrets/worker_control_server_key /run/controller/server.key;
+      $$i /run/secrets/worker_control_key /run/executor/key;
+      $$i /run/secrets/worker_control_ca /run/executor/ca.pem']
+    volumes: [controller-control:/run/controller, executor-control:/run/executor]
+    secrets: [worker_control_key, worker_control_server_cert, worker_control_server_key, worker_control_ca]
+    network_mode: none
     restart: "no"
   api:
     <<: *runtime
     command: [identity]
     environment:
       <<: *worker-control
+      AYATI_WORKER_CONTROL_KEY_FILE: /run/controller/key
+      AYATI_WORKER_CONTROL_LISTEN: 0.0.0.0:8766
+      AYATI_WORKER_CONTROL_TLS_CERT: /run/controller/server.pem
+      AYATI_WORKER_CONTROL_TLS_KEY: /run/controller/server.key
       AYATI_PUBLIC_ORIGIN: ${AYATI_PUBLIC_ORIGIN:?Set the HTTPS public origin}
       AYATI_BIND_ADDRESS: 0.0.0.0
       # Report not ready for 15s before closing; stop within 60s (grace is 90s).
@@ -47,8 +58,11 @@ services:
       CUCKOO_LIBRARY_S3_BUCKET: ${CUCKOO_LIBRARY_S3_BUCKET:-}
       CUCKOO_LIBRARY_S3_ENDPOINT: ${CUCKOO_LIBRARY_S3_ENDPOINT:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
-    volumes: [worker-control:/run/ayati-control:ro]
+    volumes: [controller-control:/run/controller:ro]
     secrets: [database_url, workos_api_key]
+    networks:
+      default: {}
+      worker: {aliases: [worker-control]}
     depends_on:
       control-key: {condition: service_completed_successfully}
     # Put a TLS reverse proxy/load balancer in front; this port is private to the host.
@@ -62,15 +76,18 @@ services:
   executor:
     <<: *runtime
     command: [executor]
-    network_mode: service:api
     environment:
       <<: *worker-control
+      AYATI_WORKER_CONTROL_KEY_FILE: /run/executor/key
+      AYATI_WORKER_CONTROL_CA: /run/executor/ca.pem
       OPENAI_API_KEY_FILE: /run/secrets/model_api_key
       AYATI_GOOSE_PROVIDER: openai
       AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
       AYATI_EXECUTOR_SLOTS: ${AYATI_EXECUTOR_SLOTS:-2}
-    volumes: [worker-control:/run/ayati-control:ro]
+    volumes: [executor-control:/run/executor:ro]
     secrets: [model_api_key]
+    # No route to the database network: only worker control and model egress.
+    networks: [worker, executor-egress]
     depends_on:
       api: {condition: service_healthy}
     healthcheck:
@@ -88,8 +105,13 @@ services:
     secrets: [migration_database_url]
     restart: "no"
 
+networks:
+  worker: {internal: true}
+  executor-egress: {}
+
 volumes:
-  worker-control: {}
+  controller-control: {}
+  executor-control: {}
 
 secrets:
   database_url:
@@ -102,3 +124,10 @@ secrets:
     file: ${AYATI_MODEL_API_KEY_FILE:?Set the model API key file}
   worker_control_key:
     file: ${AYATI_WORKER_CONTROL_KEY_FILE:?Set the worker-control bootstrap key file}
+  # Output of tools/worker-control-certs.sh <dir> worker-control
+  worker_control_ca:
+    file: ${AYATI_WORKER_CONTROL_TLS_DIR:?Set the worker-control TLS directory}/ca.pem
+  worker_control_server_cert:
+    file: ${AYATI_WORKER_CONTROL_TLS_DIR:?Set the worker-control TLS directory}/server.pem
+  worker_control_server_key:
+    file: ${AYATI_WORKER_CONTROL_TLS_DIR:?Set the worker-control TLS directory}/server.key

@@ -78,6 +78,8 @@ export async function workerFixture(t, options = {}) {
     AYATI_TRACE_START:options.traceStart?'1':'0',
   };
   let control;
+  // Settings only the controller (TLS listener) or only executors (trusted CA) may receive.
+  let controllerControl = {}, executorControl = {};
   if (options.control) {
     const listener = createServer().listen(0, '127.0.0.1');
     await once(listener, 'listening');
@@ -88,6 +90,15 @@ export async function workerFixture(t, options = {}) {
     const keyFile = join(data, 'worker-control.key');
     await writeFile(keyFile, bootstrap + '\n', { mode: 0o600 });
     control = { url: `http://127.0.0.1:${controlPort}`, bootstrap, keyFile };
+    if (options.tls) {
+      // A private network link: TLS signed by a private authority executors trust.
+      const certs = join(data, 'worker-control-tls');
+      execFileSync(join(root, 'tools/worker-control-certs.sh'), [certs, 'localhost', '127.0.0.1'], { stdio: 'ignore' });
+      control = { ...control, url: `https://localhost:${controlPort}`, port: controlPort, ca: join(certs, 'ca.pem'), certs };
+      controllerControl = { AYATI_WORKER_CONTROL_LISTEN: `127.0.0.1:${controlPort}`,
+        AYATI_WORKER_CONTROL_TLS_CERT: join(certs, 'server.pem'), AYATI_WORKER_CONTROL_TLS_KEY: join(certs, 'server.key') };
+      executorControl = { AYATI_WORKER_CONTROL_CA: control.ca };
+    }
     env.AYATI_WORKER_CONTROL_URL = control.url;
     env.AYATI_WORKER_CONTROL_KEY_FILE = keyFile;
     env.AYATI_ASSIGNMENT_LEASE_SECONDS = String(options.leaseSeconds??6);
@@ -146,7 +157,7 @@ export async function workerFixture(t, options = {}) {
   async function startApi() {
     api = launch(['simulate', join(data, 'api')], {
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: String(port),
-      ...options.apiEnv,
+      ...controllerControl, ...options.apiEnv,
     });
     await until(async () => {
       assert.equal(api.child.exitCode, null, api.logs);
@@ -227,7 +238,7 @@ export async function workerFixture(t, options = {}) {
       await mkdir(workerData);
       return launch(['executor'], { AYATI_DATA_DIR: workerData, RELAY_DATABASE_URL: undefined,
         RELAY_SIMULATION_DATABASE_URL: undefined, OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret',
-        OPENAI_HOST: provider.url, AYATI_EXECUTOR_SLOTS: '2', ...extra });
+        OPENAI_HOST: provider.url, AYATI_EXECUTOR_SLOTS: '2', ...executorControl, ...extra });
     },
     pass: name => { records.push({ name, passed: true }); console.log('PASS', name); },
     // Only synthetic IDs obtained from this schema are interpolated into fixture SQL.
