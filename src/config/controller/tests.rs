@@ -92,6 +92,10 @@ fn retired_modes_and_executor_settings_are_refused_on_the_controller() {
     assert!(controller(&[("AYATI_CHAT_EXECUTION", "external")]).is_err());
     assert!(controller(&[("AYATI_CHAT_EXECUTION", "scripted")]).is_err());
     assert!(controller(&[("AYATI_EXECUTOR_SLOTS", "2")]).is_err());
+    for key in ["OPENAI_API_KEY", "FIREWORKS_API_KEY"] {
+        let error = controller(&[(key, "x")]).err().unwrap().to_string();
+        assert!(error.contains(key), "{error}");
+    }
 }
 
 #[test]

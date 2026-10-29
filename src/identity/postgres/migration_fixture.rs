@@ -110,3 +110,20 @@ async fn insert_request(
     tx.commit().await?;
     Ok(Some(job))
 }
+
+/// Start a reserved assignment as a historical controller did, so an upgrade
+/// test can hold a running attempt without newer start SQL.
+pub(super) async fn legacy_start(
+    db: &PgStore,
+    scope: &crate::identity::worker_control::model::Scope,
+    session: &str,
+    context: &crate::identity::chat::execution::Prepared,
+) -> Result<()> {
+    let tx = db.db.begin().await?;
+    execute(&tx,"UPDATE relay_worker_assignments SET state='running',started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint,heartbeat_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='launching'",vec![scope.assignment.clone().into()]).await?;
+    execute(&tx,"UPDATE relay_chat_jobs SET lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+120 WHERE claim=$1 AND state='running'",vec![scope.assignment.clone().into()]).await?;
+    execute(&tx,"UPDATE relay_assignment_credentials SET session=$2,context=$3,expires=floor(extract(epoch FROM clock_timestamp()))::bigint+300 WHERE assignment=$1",
+        vec![scope.assignment.clone().into(),session.into(),serde_json::to_value(context)?.into()]).await?;
+    tx.commit().await?;
+    Ok(())
+}

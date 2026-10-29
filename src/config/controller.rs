@@ -1,6 +1,7 @@
 //! `ayati identity` and `ayati simulate`: the only processes with database,
-//! WorkOS, storage and connector access.
-use super::{Common, GooseSettings, Reader, WorkerControl};
+//! WorkOS, storage and connector access. Controllers prepare and record work
+//! but never run Goose, so they hold no model key.
+use super::{Common, Reader, WorkerControl};
 use anyhow::Result;
 use std::{
     net::{IpAddr, Ipv4Addr},
@@ -43,8 +44,6 @@ pub struct Controller {
     /// Providers the executors are configured for (their keys stay on executors).
     pub worker_providers: Vec<String>,
     pub default_model: String,
-    /// Controller-side Goose runs: the setup assistant and job rehearsals.
-    pub goose: GooseSettings,
     pub library: Library,
     pub mcp_servers_file: Option<PathBuf>,
     pub event_sources_file: Option<PathBuf>,
@@ -165,7 +164,6 @@ impl Controller {
             default_model: env
                 .text("AYATI_MODEL")
                 .unwrap_or_else(|| "accounts/fireworks/models/glm-5p3-flash".into()),
-            goose: GooseSettings::read(env),
             library,
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
@@ -181,6 +179,8 @@ impl Controller {
             env.problem("AYATI_DRAIN_SECONDS must be smaller than AYATI_SHUTDOWN_SECONDS");
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
+        // Model keys belong on executors (.env.executor locally).
+        env.refuse(&["OPENAI_API_KEY", "FIREWORKS_API_KEY"], "The controller");
         env.finish("controller")?;
         Ok(config)
     }

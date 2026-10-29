@@ -9,8 +9,6 @@ pub(super) struct Runtimes {
     root: PathBuf,
     pub chat_wake: tokio::sync::Notify,
     pub automation_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
-    pub rehearsal_wake: tokio::sync::Notify,
-    pub rehearsal_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
     pub chat_slots: Arc<tokio::sync::Semaphore>,
     /// Set when a stop is requested: readiness fails while requests still work.
     pub draining: tokio_util::sync::CancellationToken,
@@ -23,8 +21,6 @@ impl Runtimes {
             root,
             chat_wake: tokio::sync::Notify::new(),
             automation_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
-            rehearsal_wake: tokio::sync::Notify::new(),
-            rehearsal_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
             chat_slots: Arc::new(tokio::sync::Semaphore::new(4)),
             draining: tokio_util::sync::CancellationToken::new(),
             stopping: tokio_util::sync::CancellationToken::new(),
@@ -37,14 +33,6 @@ impl Runtimes {
         self.stopping.cancel();
         while self
             .automation_tasks
-            .lock()
-            .await
-            .join_next()
-            .await
-            .is_some()
-        {}
-        while self
-            .rehearsal_tasks
             .lock()
             .await
             .join_next()

@@ -19,9 +19,16 @@ pub(crate) fn require(allowed: bool) -> Result<()> {
     }
 }
 
+/// What an assignment produces: a chat reply or a one-off executor task.
+pub(crate) enum Work {
+    Reply(super::assignments::Assignment),
+    Task(super::executor_tasks::Task),
+}
+
 pub(crate) struct Controlled {
     pub scope: Scope,
-    pub assignment: super::assignments::Assignment,
+    pub work: Work,
+    pub lease_seconds: u64,
     pub session: Option<String>,
     pub context: Option<Value>,
     pub completion_hash: Option<String>,
@@ -66,12 +73,17 @@ impl PgStore {
     }
 }
 
+// A task scope has no chat; its `reply` is the task ID, which is also the
+// context's reply ID. Executors treat both kinds the same way.
 const SCOPE_QUERY: &str =
     "SELECT c.executor,c.incarnation,c.slot,c.slot_generation,a.id AS assignment,a.workspace,a.generation,
-    a.reply,j.payload->>'agent' AS agent,j.payload->>'chat' AS chat,m.thread
+    COALESCE(a.reply,a.task) AS reply,COALESCE(j.payload->>'agent',t.agent) AS agent,
+    COALESCE(j.payload->>'chat','') AS chat,m.thread
     FROM relay_assignment_credentials c JOIN relay_worker_assignments a ON a.id=c.assignment
-    JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
-    JOIN relay_chat_messages m ON m.id=a.reply AND m.workspace=a.workspace WHERE c.assignment=$1";
+    LEFT JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
+    LEFT JOIN relay_chat_messages m ON m.id=a.reply AND m.workspace=a.workspace
+    LEFT JOIN relay_executor_tasks t ON t.id=a.task
+    WHERE c.assignment=$1 AND (j.reply IS NOT NULL OR t.id IS NOT NULL)";
 fn scope_from_row(row: QueryResult) -> Result<Scope> {
     Ok(Scope {
         executor: row.try_get("", "executor")?,
@@ -93,25 +105,31 @@ pub(super) async fn controlled(
     id: &str,
     hash: &str,
 ) -> Result<Controlled> {
-    let row = query(db, &format!("SELECT j.payload,j.run_seconds,a.lease_seconds,c.session,c.context,c.completion_hash,c.completion_state
+    let row = query(db, &format!("SELECT j.payload,j.run_seconds,a.task,a.lease_seconds,c.session,c.context,c.completion_hash,c.completion_state
         FROM relay_assignment_credentials c JOIN relay_executors e ON e.id=c.executor AND e.incarnation=c.incarnation
-        JOIN relay_worker_assignments a ON a.id=c.assignment JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
+        JOIN relay_worker_assignments a ON a.id=c.assignment LEFT JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
         WHERE c.assignment=$1 AND c.token_hash=$2 AND c.expires>{CLOCK} AND e.expires>{CLOCK} AND e.state IN ('serving','draining')"), vec![id.into(),hash.into()]).await?.context(ControlDenied)?;
     let scope = scope_from_row(
         query(db, SCOPE_QUERY, vec![id.into()])
             .await?
             .context(ControlDenied)?,
     )?;
-    let mut job: crate::identity::chat::model::Job =
-        serde_json::from_value(row.try_get("", "payload")?)?;
-    job.claim = Some(id.into());
+    let lease_seconds = row.try_get::<i32>("", "lease_seconds")? as u64;
+    let work = if let Some(task) = row.try_get::<Option<String>>("", "task")? {
+        Work::Task(super::executor_tasks::load(db, &task).await?)
+    } else {
+        let mut job: crate::identity::chat::model::Job =
+            serde_json::from_value(row.try_get("", "payload")?)?;
+        job.claim = Some(id.into());
+        Work::Reply(super::assignments::Assignment {
+            job,
+            run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
+        })
+    };
     Ok(Controlled {
         scope,
-        assignment: super::assignments::Assignment {
-            job,
-            lease_seconds: row.try_get::<i32>("", "lease_seconds")? as u64,
-            run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
-        },
+        work,
+        lease_seconds,
         session: row.try_get("", "session")?,
         context: row.try_get("", "context")?,
         completion_hash: row.try_get("", "completion_hash")?,

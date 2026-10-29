@@ -9,6 +9,16 @@ pub(super) fn hosted(app: &App) -> bool {
 pub(super) fn provider_configured(app: &App, provider: &str) -> bool {
     app.config.worker_providers.iter().any(|p| p == provider)
 }
+/// Whether pooled executors can run work for this provider; an empty provider
+/// means the executors' default.
+pub(super) fn executors_available(app: &App, provider: &str) -> bool {
+    app.store.pooled
+        && if provider.is_empty() {
+            !app.config.worker_providers.is_empty()
+        } else {
+            provider_configured(app, provider)
+        }
+}
 pub(super) async fn live() -> StatusCode {
     StatusCode::OK
 }

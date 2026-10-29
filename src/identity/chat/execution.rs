@@ -1,14 +1,12 @@
-//! Controller-prepared Goose context and the controller-side run used by the
-//! setup assistant and job rehearsals. Chat replies run on pooled executors.
+//! Controller-prepared execution context. The controller only prepares and
+//! records work; every Goose run happens on a pooled executor.
 use super::model::Job;
 use crate::{
     identity::{postgres::PgStore, user::User},
-    journal::Journal,
-    runtime::{GooseRuntime, config::GooseConfig},
+    runtime::config::GooseConfig,
 };
 use anyhow::{Context, Result, ensure};
-use std::{path::Path, sync::Arc};
-use tokio_util::sync::CancellationToken;
+use std::path::Path;
 
 #[derive(serde::Deserialize)]
 pub(in crate::identity) struct Profile {
@@ -169,51 +167,6 @@ pub(crate) async fn prepare_traced(
     }
     trace.mark("context_encoding");
     Ok(context)
-}
-
-/// Pure harness execution: scoped remote callers need no database or identity secrets.
-pub(crate) async fn execute_prepared(
-    context: &Prepared,
-    root: &Path,
-    stopping: &CancellationToken,
-    control: Option<crate::identity::control::broker::Endpoint>,
-    goose: &crate::config::GooseSettings,
-) -> Result<String> {
-    ensure!(
-        context.version == 1 && (1..=86400).contains(&context.run_seconds),
-        "Unsupported execution context"
-    );
-    ensure!(!stopping.is_cancelled(), "Worker is stopping");
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::create_dir_all(root)?;
-    std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
-    let config = runtime_config(context, root, control, goose)?;
-    let prompt = prompt(context);
-    ensure!(
-        config.configured(),
-        "Shared chat needs configured Goose and provider"
-    );
-    let store = Arc::new(Journal::open(&root.join("chat.sqlite"))?);
-    let runtime = GooseRuntime::new(
-        config,
-        store.clone(),
-        tokio::sync::broadcast::channel(256).0,
-    );
-    // The runtime applies the context deadline; Stop cancels the prompt itself.
-    let cancel = stopping.child_token();
-    let result = async {
-        let (claim, reply) = crate::runtime::turn::begin(&store, &context.reply)?;
-        let outcome = runtime.prompt(&claim, &reply, prompt, cancel).await;
-        crate::runtime::turn::finish(&store, &claim, &reply, outcome)
-    }
-    .await;
-    runtime.shutdown().await?;
-    result.map(|text| {
-        format!(
-            "{text}{}",
-            super::super::library::context::citations(&context.workspace, &context.sources)
-        )
-    })
 }
 
 pub(crate) fn runtime_config(

@@ -5,7 +5,6 @@ use crate::identity::chat::model::Job;
 #[derive(Clone, Debug)]
 pub(crate) struct Assignment {
     pub job: Job,
-    pub lease_seconds: u64,
     pub run_seconds: u64,
 }
 
@@ -39,6 +38,9 @@ impl PgStore {
         for row in exhausted {
             execute(tx, "UPDATE relay_chat_messages SET state='failed',content='The agent could not recover this assignment. Send a new request to retry.' WHERE id=$1 AND state='queued'", vec![row.try_get::<String>("", "reply")?.into()]).await?;
         }
+        super::executor_tasks::recover(tx).await?;
+        execute(tx,"UPDATE relay_assignment_credentials c SET context=NULL,expires=0 FROM relay_worker_assignments a WHERE a.id=c.assignment AND a.state='lost' AND c.expires<>0",vec![]).await?;
+        execute(tx,"UPDATE relay_executor_slots s SET state='lost' FROM relay_worker_assignments a WHERE a.id=s.assignment AND a.state='lost' AND s.state<>'lost'",vec![]).await?;
         Ok(())
     }
 
@@ -70,7 +72,6 @@ impl PgStore {
         job.claim = Some(id.into());
         let assignment = Assignment {
             job,
-            lease_seconds,
             run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
         };
         Ok(Some(assignment))

@@ -68,7 +68,7 @@ async fn options(
         .store
         .rehearsal_options(&user, &w, &a, &input.search)
         .await?;
-    data["execution_available"] = json!(super::worker::configured(&app, &data["profile"])?);
+    data["execution_available"] = json!(available(&app, &data["profile"])?);
     Ok(Json(data))
 }
 async fn history(
@@ -97,11 +97,11 @@ async fn start(
     }
     let profile = pg.managed_agent(&user, &w, &a, true).await?;
     check(
-        super::worker::configured(&app, &profile)?,
+        available(&app, &profile)?,
         "The sample model is not configured on this controller. Ask your operator to enable it.",
     )?;
     let result = pg.start_rehearsal(&user, &w, &a, &input).await?;
-    app.runtimes.rehearsal_wake.notify_one();
+    app.runtimes.chat_wake.notify_one();
     Ok(Json(present(result)))
 }
 async fn read(
@@ -139,4 +139,14 @@ async fn response(
         .context("Sample response unavailable")?;
     let body = crate::response::body(&id, text, "complete", 1, input.metadata)?;
     Ok(crate::response::deliver(&id, body, &input))
+}
+
+/// Samples run on pooled executors configured for the agent's provider.
+fn available(app: &App, profile: &Value) -> Result<bool> {
+    let settings: crate::identity::agents::config::Settings =
+        serde_json::from_value(profile["settings"].clone())?;
+    Ok(crate::identity::hosting::executors_available(
+        app,
+        &settings.provider,
+    ))
 }

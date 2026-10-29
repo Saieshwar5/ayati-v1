@@ -1,5 +1,5 @@
 use super::*;
-use setup_model::{Activate, Choice, Draft, Edit, Inventory, Preview, Start};
+use setup_model::{Activate, Choice, Draft, Edit, Inventory, Preview, Start, Suggestion};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route(
@@ -101,13 +101,28 @@ async fn start(
             })
         })
         .collect();
-    let mut draft=Draft { request:input,context,inventories,choices,notes:vec!["This review updates the selected accounts in one conversation. Permissions on other accounts are reviewed separately.".into()] };
-    if draft.request.assistant {
-        setup_assistant::suggest(&mut draft, &w, &agent, &app.config.goose).await?;
+    let mut draft=Draft { request:input,context,inventories,choices,notes:vec!["This review updates the selected accounts in one conversation. Permissions on other accounts are reviewed separately.".into()],suggestion:None };
+    if !draft.request.assistant {
+        return Ok(Json(
+            app.store.setup_create(&user, &w, &agent, &draft).await?,
+        ));
     }
-    Ok(Json(
-        app.store.setup_create(&user, &w, &agent, &draft).await?,
-    ))
+    let provider = draft.context.provider.clone().unwrap_or_default();
+    check(
+        crate::identity::hosting::executors_available(&app, &provider),
+        "AI suggestions need an executor for this agent's model. Use manual review or ask your operator.",
+    )?;
+    draft.suggestion = Some(Suggestion {
+        state: "pending".into(),
+        detail: "Preparing AI suggestions. Every action stays blocked until you review it.".into(),
+    });
+    let suggestion = setup_assistant::context(&draft, &w, &agent);
+    let created = app
+        .store
+        .setup_create_suggested(&user, &w, &agent, &draft, &suggestion)
+        .await?;
+    app.runtimes.chat_wake.notify_one();
+    Ok(Json(created))
 }
 async fn edit(
     State(app): State<Shared>,

@@ -112,8 +112,10 @@ readable by UID 10001; Compose bind-file secrets preserve host file permissions.
 `RELAY_SIMULATION_DATABASE_URL_FILE` is also supported for explicit local
 `simulate` rehearsals; it is not a normal hosted identity configuration.
 Provision real secrets through the hosting secret manager, separately by service.
-An API deployment never needs a model key; an executor never needs a WorkOS or
-database credential.
+An API deployment never needs a model key and refuses to start with
+`OPENAI_API_KEY` or `FIREWORKS_API_KEY`: chat, job samples and AI setup
+suggestions all run on executors. An executor never needs a WorkOS or database
+credential and refuses them too.
 
 The Compose API uses ambient object-storage identity. For a self-hosted S3 service,
 add an API-only override mounting the AWS key files and setting the corresponding

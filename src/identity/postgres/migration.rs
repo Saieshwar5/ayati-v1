@@ -38,6 +38,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::context_migration::ConversationContext),
             Box::new(super::communication_migration::Communications),
             Box::new(super::home_maintenance_migration::HomeMaintenance),
+            Box::new(super::executor_task_migration::ExecutorTasks),
         ]
     }
 }

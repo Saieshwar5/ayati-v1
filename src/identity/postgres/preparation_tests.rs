@@ -212,7 +212,7 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
         scope: scope.clone(),
         session: uuid::Uuid::new_v4().to_string(),
     };
-    old.start_controlled(&request, &digest(&token), &context(&scope))
+    super::migration_fixture::legacy_start(&old, &scope, &request.session, &context(&scope))
         .await
         .unwrap();
     let pool = Registration {

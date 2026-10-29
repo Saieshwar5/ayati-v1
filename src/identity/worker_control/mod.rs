@@ -10,7 +10,12 @@ pub(crate) mod model;
 pub(crate) mod output;
 mod pool;
 mod tools;
-use super::{Shared, chat::execution, postgres::PgStore, provider::digest};
+use super::{
+    Shared,
+    chat::execution,
+    postgres::{PgStore, worker_control::Work},
+    provider::digest,
+};
 use anyhow::{Context, Result, ensure};
 use axum::{
     Json, Router,
@@ -206,22 +211,24 @@ async fn start_assignment(
         .controlled_assignment(&input.scope, &hash)
         .await?;
     trace.mark("scope_lookup");
-    let context = if let Some(context) = record.context {
-        serde_json::from_value(context)?
-    } else {
-        execution::prepare_traced(
-            &state.app.store,
-            &record.assignment.job,
-            record.assignment.run_seconds,
-            &mut trace,
-        )
-        .await?
+    let context = match (record.context, &record.work) {
+        (Some(context), _) => serde_json::from_value(context)?,
+        (None, Work::Reply(assignment)) => {
+            execution::prepare_traced(
+                &state.app.store,
+                &assignment.job,
+                assignment.run_seconds,
+                &mut trace,
+            )
+            .await?
+        }
+        (None, Work::Task(task)) => pg(&state).task_context(task).await?,
     };
     let context = pg(&state).start_controlled(&input, &hash, &context).await?;
     trace.mark("start_commit");
     // The assignment's immutable lease duration was confirmed atomically with
     // context/session ownership, including on an exact start replay.
-    let lease = record.assignment.lease_seconds;
+    let lease = record.lease_seconds;
     trace.finish(&input.scope.assignment, "controller");
     super::start_trace::point(
         &input.scope.assignment,

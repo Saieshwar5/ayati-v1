@@ -21,18 +21,18 @@ are excluded because a rehearsal has no conversation audience.
 
 - Explicit Start saves a durable exact request receipt and returns promptly.
   Queued/running/final states are inspectable without another model request.
-- Reuse the existing pinned Goose tool-free `Prepared` harness used by setup
-  suggestions: explicit empty extensions, no control broker, VM, browser,
-  computer, platform tools, shell, business accounts or autonomous MCP calls.
+- Run on a pooled executor's prepared tool-free Goose session, like a chat
+  reply without tools: no control broker, VM, browser, computer, platform tools,
+  shell, business accounts or autonomous MCP calls. The controller never runs it.
   The result is a draft answer, never a claim that a real action occurred.
 - Saved profile/source versions describe the actual sample context. Sources are
   checked again before use, during execution, before storing output and on read.
   Revocation/withdrawal hides private content and stops publication. Profile
   edits do not rewrite an earlier sample; show the saved version clearly.
-- Use an additive schema for personal rehearsal records, durable status, bounded
-  output and ownership/lease fencing. Run through a small bounded controller-local
-  tool-free worker, following the current setup-assistant precedent. This is not
-  fleet/cloud capacity acceptance. Report unavailable model configuration.
+- Use an additive schema for personal rehearsal records, durable status and
+  bounded output. Each sample is an executor task (`relay_executor_tasks`, schema
+  34): the pool offers it as background work through the same fenced assignment
+  start/renew/complete path as chat replies. Report unavailable executors.
 - Deduplicate Start by exact actor/agent/request/payload. Repeated or lost
   acknowledgments must not trigger another inference. Stop cancels this sample
   only. Stale ownership cannot publish. Expired execution is interrupted and
@@ -54,7 +54,7 @@ Under `/api/identity/workspaces/{w}/agent-profiles/{a}`:
 
 - `GET /rehearsal-options?search=...` returns the current saved job, up to 50
   eligible assigned sources, note metadata, personal active sample ID/state and
-  whether the controller's model configuration is available.
+  whether pooled executors are configured for the agent's provider.
 - `GET /rehearsals?before=...` returns up to 25 personal history entries and an
   opaque cursor. `POST /rehearsals` accepts an exact ID, profile revision, task
   up to 4,000 bytes and up to three source ID/revision/access-revision references.
@@ -66,27 +66,27 @@ Under `/api/identity/workspaces/{w}/agent-profiles/{a}`:
 
 Every read/write authorizes current membership and agent maintainership; private
 agent samples remain private even from a workspace Owner. Source versions and
-approved-note revisions are checked before claim, at heartbeat, before publication
-and on every disclosure. Personal `sample_access` live events contain no resource
+approved-note revisions are checked at executor start, at every lease renewal and
+output, before publication and on every disclosure. Personal `sample_access` live events contain no resource
 IDs, titles or output and clear open sample/reader state while access revalidates.
 Library/note changes immediately invalidate matching queued/running work. Member
 removal or role changes invalidate active samples while retaining the exact
 receipt across rejoin. This prevents old Start acknowledgments from running again.
 
 The queue permits one active sample per actor/agent and ten per workspace.
-Database-coordinated admission permits at most two live sample leases across
-controllers. Execution is limited to 45 seconds, with a 15-second lease and
-one-second authority/ownership checks. Expired leases become interrupted;
-graceful shutdown cancels/drains owned processes. Neither path automatically
-repeats inference. Prepared context is capped at 256 KiB and erased on terminal
+Samples share the executor pool's global, workspace and model limits with chat,
+are offered only when no chat reply fits a ready slot, and never use capacity
+reserved for interactive chat. Execution is limited to 45 seconds under the
+pool's assignment lease. A lost executor's expired lease makes the sample
+interrupted; a controller restart does not interrupt it. Neither path
+automatically repeats inference. Prepared context is capped at 256 KiB and erased on terminal
 state; output is capped at 64 KiB. Selected Library text uses short excerpts;
 enabled agent-wide notes are bounded to 20 notes/16 KiB. Temporary execution
 scratch is removed after each run.
 
-Model availability is required only for new execution. Exact saved replay and
-reading still work when the controller's model key is later unavailable. A
-controller-local helper follows the existing setup-suggestion execution boundary;
-this does not establish cloud/fleet worker isolation or capacity.
+Executor availability is required only for new execution. Exact saved replay and
+reading still work when no executor provider is configured. The controller holds
+no model key.
 
 ## Verification and design
 
@@ -97,15 +97,17 @@ and actual local desktop/phone/dark captures.
 `cargo test --locked --lib rehearsal -- --ignored`, with a disposable
 `RELAY_TEST_DATABASE_URL`, covers exact replay, immutable context, cross-user and
 private-agent denial, Library/note revocation, role/removal/rejoin, bounded shared
-claims, stale publication, Stop, expiry, migration and older-client preservation.
+pool claims, stale publication, Stop, expiry, migration and older-client
+preservation; `executor_task` tests cover chat-first admission and the chat reserve.
 `web/tests/agent-rehearsals.test.mjs` covers explicit review/Start, duplicate/failing
 submissions, saved reads, source invalidation, stale responses and focus.
 
 `node --test tests/agent_rehearsals.mjs` uses real pinned Goose against a scripted
 local model with authenticated MCP fixtures. It checks asynchronous/reopened
-state, exact Markdown bytes, narrow/dark UI, graceful and abrupt restart, expired
-leases without automatic replay, absent model configuration, invented tool calls,
-Stop and zero actual MCP/business operations. Normal questions, approvals,
+state with no model key on the controller, exact Markdown bytes, narrow/dark UI,
+controller restart without interruption, executor loss without automatic replay,
+absent executor configuration, invented tool calls, Stop freeing the executor slot
+and zero actual MCP/business operations. Normal questions, approvals,
 attention, reading and Chat organization retain separate regression journeys.
 
 The final local check passes 96 Rust unit, 172 standalone PostgreSQL, 140 web and

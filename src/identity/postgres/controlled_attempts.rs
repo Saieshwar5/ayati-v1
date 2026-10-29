@@ -1,6 +1,7 @@
 //! Start/renew/finish share the existing assignment transaction and authority rules.
 use super::{
-    worker_control::{CLOCK, controlled, require},
+    executor_tasks as tasks,
+    worker_control::{CLOCK, ControlDenied, Work, controlled, require},
     *,
 };
 use crate::identity::{
@@ -20,18 +21,37 @@ impl PgStore {
         // Workspace serialization also orders access revocation against context delivery.
         let record = controlled(&tx, &scope.assignment, hash).await?;
         require(record.scope == *scope)?;
-        let prepared = if let Some(session) = record.session {
-            require(session == request.session)?;
-            require(active(&tx, &record.assignment.job).await?)?;
-            access(&tx, &record.assignment.job).await?;
+        let replay = if let Some(session) = &record.session {
+            require(*session == request.session)?;
+            true
+        } else {
+            false
+        };
+        match &record.work {
+            Work::Reply(assignment) => {
+                if replay {
+                    require(active(&tx, &assignment.job).await?)?;
+                }
+                access(&tx, &assignment.job).await?;
+            }
+            Work::Task(task) => {
+                require(tasks::running(&tx, task, &scope.assignment).await?)?;
+                if !tasks::allowed(&tx, task).await? {
+                    return deny_task(tx, task, &scope.assignment).await;
+                }
+            }
+        }
+        let prepared = if replay {
             serde_json::from_value(record.context.context("Missing execution context")?)?
         } else {
-            access(&tx, &record.assignment.job).await?;
-            require(
-                self.start_assignment_in(&tx, &scope.assignment, &scope.resource())
-                    .await?
-                    .is_some(),
-            )?;
+            match &record.work {
+                Work::Reply(_) => require(
+                    self.start_assignment_in(&tx, &scope.assignment, &scope.resource())
+                        .await?
+                        .is_some(),
+                )?,
+                Work::Task(task) => tasks::begin(&tx, task, &scope.assignment).await?,
+            }
             execute(&tx,&format!("UPDATE relay_assignment_credentials SET session=$2,context=$3,expires={CLOCK}+300 WHERE assignment=$1"),
                 vec![scope.assignment.clone().into(),request.session.clone().into(),serde_json::to_value(context)?.into()]).await?;
             self.acknowledge_slot(&tx, scope).await?;
@@ -40,7 +60,7 @@ impl PgStore {
         };
         // Initial start and exact replay confirm a full lease in the same commit
         // as context/session ownership. No second authorization transaction is needed.
-        refresh_lease(&tx, scope, record.assignment.lease_seconds).await?;
+        refresh_lease(&tx, scope, &record.work, record.lease_seconds).await?;
         tx.commit().await?;
         Ok(prepared)
     }
@@ -54,10 +74,17 @@ impl PgStore {
         let tx = self.workspace_tx(&scope.workspace).await?;
         let record = controlled(&tx, &scope.assignment, hash).await?;
         require(record.scope == *scope && record.session.as_deref() == Some(&request.session))?;
-        access(&tx, &record.assignment.job).await?;
-        refresh_lease(&tx, scope, record.assignment.lease_seconds).await?;
+        match &record.work {
+            Work::Reply(assignment) => access(&tx, &assignment.job).await?,
+            Work::Task(task) => {
+                if !tasks::allowed(&tx, task).await? {
+                    return deny_task(tx, task, &scope.assignment).await;
+                }
+            }
+        }
+        refresh_lease(&tx, scope, &record.work, record.lease_seconds).await?;
         tx.commit().await?;
-        Ok(record.assignment.lease_seconds)
+        Ok(record.lease_seconds)
     }
 
     pub(crate) async fn complete_controlled(
@@ -80,10 +107,19 @@ impl PgStore {
                 .completion_state
                 .context("Missing completion receipt");
         }
-        require(
-            self.finish_job_in(&tx, &record.assignment.job, &request.text, &request.state)
-                .await?,
-        )?;
+        match &record.work {
+            Work::Reply(assignment) => require(
+                self.finish_job_in(&tx, &assignment.job, &request.text, &request.state)
+                    .await?,
+            )?,
+            Work::Task(task) => {
+                require(tasks::running(&tx, task, &scope.assignment).await?)?;
+                if !tasks::allowed(&tx, task).await? {
+                    return deny_task(tx, task, &scope.assignment).await;
+                }
+                tasks::finish(&tx, task, &scope.assignment, &request.state, &request.text).await?;
+            }
+        }
         let state: String = query(
             &tx,
             "SELECT outcome FROM relay_worker_assignments WHERE id=$1",
@@ -103,6 +139,18 @@ impl PgStore {
         tx.commit().await?;
         Ok(state)
     }
+}
+
+/// A task whose requester lost access is stopped durably before the executor's
+/// request is denied, so the executor halts and no result is published.
+pub(super) async fn deny_task<T>(
+    tx: DatabaseTransaction,
+    task: &tasks::Task,
+    claim: &str,
+) -> Result<T> {
+    tasks::invalidate(&tx, task, claim).await?;
+    tx.commit().await?;
+    Err(ControlDenied.into())
 }
 
 async fn active(tx: &DatabaseTransaction, job: &crate::identity::chat::model::Job) -> Result<bool> {
@@ -134,11 +182,15 @@ pub(super) async fn access(
 async fn refresh_lease(
     tx: &DatabaseTransaction,
     scope: &crate::identity::worker_control::model::Scope,
+    work: &Work,
     seconds: u64,
 ) -> Result<()> {
-    let renewed=execute(tx,&format!("UPDATE relay_chat_jobs SET lease_until={CLOCK}+$3 WHERE workspace=$1 AND claim=$2 AND state='running' AND lease_until>{CLOCK}"),
-        vec![scope.workspace.clone().into(),scope.assignment.clone().into(),(seconds as i64).into()]).await?;
-    require(renewed == 1)?;
+    let renewed = match work {
+        Work::Reply(_) => execute(tx,&format!("UPDATE relay_chat_jobs SET lease_until={CLOCK}+$3 WHERE workspace=$1 AND claim=$2 AND state='running' AND lease_until>{CLOCK}"),
+            vec![scope.workspace.clone().into(),scope.assignment.clone().into(),(seconds as i64).into()]).await? == 1,
+        Work::Task(task) => tasks::refresh(tx, task, &scope.assignment, seconds).await?,
+    };
+    require(renewed)?;
     execute(tx,"UPDATE relay_worker_assignments SET heartbeat_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='running'",vec![scope.assignment.clone().into()]).await?;
     execute(
         tx,
