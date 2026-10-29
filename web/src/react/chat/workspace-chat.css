@@ -13,7 +13,6 @@
 .chat-contact > span:nth-child(2) { min-width:0; flex:1; overflow-wrap:anywhere; }
 .chat-contact small { font-size:10px; color:var(--muted); }
 .chat-avatar { width:30px; height:30px; flex:0 0 30px; border-radius:50%; background:var(--soft); color:var(--muted); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
-.chat-avatar.agent { border-radius:9px; font-size:20px; }
 .chat-avatar.channel { background:transparent; font-size:21px; }
 .chat-content { min-width:0; min-height:0; flex:1; display:flex; background:var(--surface); overflow:hidden; }
 .chat-content #app { padding:0; border:0; border-radius:0; box-shadow:none; background:var(--surface); height:100%; }
@@ -62,7 +61,7 @@
   .chat-back { display:inline-flex; }
   .chat-welcome > .chat-back { justify-self:start; }
   .chat-pane-header { padding:7px 10px; gap:7px; }
-  .chat-pane-header > .chat-avatar { display:none; }
+  .chat-pane-header > .chat-avatar, .chat-header-identity { display:none; }
   .chat-pane-header h2 { font-size:14px; }
   .chat-message-list { padding:18px 12px; }
 }
@@ -108,7 +107,7 @@
 .chat-message .chat-send-error { font-size:12px; }
 
 .chat-message-compact { margin-top:-5px; }
-.chat-message-compact > .chat-avatar { visibility:hidden; }
+.chat-message-compact > .chat-avatar, .chat-message-compact > .chat-message-face { visibility:hidden; }
 .chat-message-compact header { display:none; }
 .chat-file audio { display:block; margin:4px 0; }
 .chat-receipt summary { list-style:none; }

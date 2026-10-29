@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { ConversationFace, ParticipantFace, ParticipantName } from './conversation-face';
 import { displayAgentName } from '../../agents';
 import { workspaceSession } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
@@ -62,7 +63,7 @@ export function SearchConversations({ directory, chats, close, opened }: {
         {showChannels && channels.map(chat => <li key={`chat:${chat.id}`}>
           <button type="button" className="chat-contact" onClick={() => opened(chat.id)}
             aria-label={`Open channel ${chat.name}`}>
-            <span className="chat-avatar channel">#</span>
+            <ConversationFace chat={chat} directory={directory} />
             <span>{chat.name}<small>{chat.archived ? 'Archived channel' : 'Channel'}</small></span>
           </button>
         </li>)}
@@ -72,11 +73,9 @@ export function SearchConversations({ directory, chats, close, opened }: {
           return <li key={`${target.kind}:${target.id}`}>
             <button type="button" className="chat-contact" onClick={() => void direct.choose(target)}
               aria-label={`${action} ${target.name}`}>
-              <span className={`chat-avatar ${target.kind}`}>
-                {target.kind === 'agent' ? '✧' : target.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span>{target.name}<small>
-                {target.kind === 'agent' ? 'Agent' : 'Person'} · {existing ? 'Open conversation' : 'Start conversation'}
+              <ParticipantFace kind={target.kind} who={target} />
+              <span><ParticipantName kind={target.kind} name={target.name} /><small>
+                {(target.kind === 'agent' ? target.role : target.title) || (target.kind === 'agent' ? 'Agent' : 'Person')} · {existing ? 'Open conversation' : 'Start conversation'}
               </small></span>
             </button>
           </li>;

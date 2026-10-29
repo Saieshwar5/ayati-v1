@@ -72,7 +72,7 @@
 @media(max-width:600px) { .chat-message { max-width:100%; } [data-page=chat] .composer-area .message-composer { margin:10px 10px 14px; } }
 /* Keep avatars beside long responses, independent of the screen stylesheet order. */
 .workspace-chat .chat-message { display:grid; grid-template-columns:25px minmax(0,1fr) auto; gap:4px 8px; }
-.workspace-chat .chat-message > .chat-avatar { grid-column:1; grid-row:1; }
+.workspace-chat .chat-message > .chat-avatar, .workspace-chat .chat-message > .chat-message-face { grid-column:1; grid-row:1; }
 .workspace-chat .chat-message > div { grid-column:2; grid-row:1; max-width:100%; }
 .workspace-chat .chat-message .chat-thread-action { grid-column:3; grid-row:1; }
 .workspace-chat .chat-message .chat-thread-count { grid-column:2; grid-row:2; margin:0; }

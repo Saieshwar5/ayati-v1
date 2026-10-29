@@ -1,0 +1,49 @@
+/* Names: one line, with an AI tag beside agents. */
+.chat-participant-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.chat-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-directory .chat-contact > span:nth-child(2) { display: flex; align-items: center; gap: 6px; overflow: hidden; font-size: 13.5px; }
+.chat-directory .chat-contact > span:nth-child(2) > small { margin: 0; }
+.chat-contact-unread > span:nth-child(2) { font-weight: 600; }
+
+/* Workspace directory entry at the foot of the chat list. */
+.chat-people-button { display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 8px 12px 12px; padding: 9px 10px; border-radius: 10px; font-size: 12.5px; }
+.chat-people-button svg { width: 16px; height: 16px; flex: none; }
+.chat-people-button small { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+
+/* Clickable faces and names open a profile. */
+.chat-header-identity, .chat-message-face, .chat-message-author { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.chat-header-identity, .chat-message-face { display: inline-flex; border-radius: 50%; }
+.chat-message-author { font-weight: 600; }
+.chat-message-author:hover { text-decoration: underline; }
+.chat-message-title { color: var(--muted); font-size: 11.5px; }
+
+/* People & agents dialog. */
+.people-directory { display: grid; gap: 12px; }
+.people-directory input[type=search] { width: 100%; padding: 10px 12px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; }
+.people-directory-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.people-directory-filters .ui-button { min-height: 30px; padding: 4px 11px; border-radius: 16px; }
+.people-directory-filters .ui-button[aria-pressed=true] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.people-directory-filters small { margin-left: 4px; opacity: .7; }
+.people-directory ul { display: grid; gap: 2px; max-height: min(52vh, 460px); margin: 0; padding: 0; overflow: auto; list-style: none; }
+.people-directory li { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
+.people-directory li:hover { background: var(--soft); }
+.people-directory-who { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.people-directory-who .chat-avatar { width: 38px; height: 38px; flex: 0 0 38px; font-size: 13px; }
+.people-directory-who > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.people-directory-who small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Profile drawer for a person or an agent. */
+.profile-card { display: grid; gap: 16px; }
+.profile-card-face.face { width: 96px; height: 96px; font-size: 32px; }
+.profile-card-identity h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; }
+.profile-card-identity p { margin: 4px 0 0; color: var(--muted); }
+.profile-card-actions { display: flex; gap: 8px; }
+.profile-card-line { display: grid; gap: 3px; }
+.profile-card-line > span { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.profile-card-line > div { overflow-wrap: anywhere; white-space: pre-line; }
+.profile-card-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile-card-chips > span { padding: 3px 9px; border-radius: 8px; background: var(--soft); font-size: 12.5px; }
+.profile-card-add { display: grid; gap: 8px; }
+.profile-card-add label { display: grid; gap: 4px; font-size: 12.5px; }
+.profile-card-add select { padding: 9px 10px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; }
+.profile-card-add .ui-button { justify-self: start; }

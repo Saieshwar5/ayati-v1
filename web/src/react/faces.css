@@ -1,0 +1,13 @@
+/* People and agents are both round; sizes come from the surrounding layout. */
+:where(.face) { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; font-size: 12px; }
+.face, .ui-avatar.face { border-radius: 50%; overflow: hidden; font-weight: 600; }
+.face > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.face.agent { background: var(--soft); }
+.face-tone-0 { --tone: #3b6fa0; }
+.face-tone-1 { --tone: #3f7a4a; }
+.face-tone-2 { --tone: #a4532f; }
+.face-tone-3 { --tone: #6c4fa0; }
+.face-tone-4 { --tone: #8a6d12; }
+.face-tone-5 { --tone: #2a7a75; }
+.face.person:not(:has(img)) { background: color-mix(in srgb, var(--tone) 16%, var(--surface)); color: color-mix(in srgb, var(--tone) 75%, var(--text)); }
+.ai-tag { display: inline-block; padding: 0 5px; border-radius: 5px; background: var(--selection); color: var(--muted); font-size: 10px; font-weight: 600; line-height: 16px; letter-spacing: .02em; vertical-align: middle; }

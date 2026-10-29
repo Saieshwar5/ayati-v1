@@ -17,16 +17,21 @@ export function useDirectConversation(chats: Conversation[], opened: (id: string
   const alive = useRef(false);
   const attempt = useRef<{ target: string; id: string }>(undefined);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const choose = (target: DirectTarget) => mutation.run(async () => {
+  /** Finds or creates the direct conversation and returns its ID. */
+  const ensure = async (target: DirectTarget) => {
     const existing = existingDirect(chats, target, workspaceSession?.user?.id);
-    if (existing) { opened(existing.id); return; }
+    if (existing) return existing.id;
     const key = JSON.stringify([target.kind, target.id, target.name]);
     if (attempt.current?.target !== key) attempt.current = { target: key, id: crypto.randomUUID() };
     const result = await chatRequest<{ id: string }>('/chats', {
       id: attempt.current.id, kind: 'direct', name: target.name, description: '',
       users: target.kind === 'user' ? [target.id] : [], agents: target.kind === 'agent' ? [target.id] : [],
     });
-    if (alive.current) opened(result.id);
+    return result.id;
+  };
+  const choose = (target: DirectTarget) => mutation.run(async () => {
+    const id = await ensure(target);
+    if (alive.current) opened(id);
   });
-  return { ...mutation, choose };
+  return { ...mutation, choose, ensure };
 }

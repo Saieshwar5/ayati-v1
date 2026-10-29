@@ -1,8 +1,12 @@
-.agent-avatars [aria-pressed="true"] { background: var(--selection); }
 .ui-avatar.agent-profile-avatar { flex-shrink: 0; overflow: hidden; font-size: 24px; }
 .agent-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.agent-avatars { display: flex; gap: 10px; }
-.agent-avatars button { font-size: 24px; min-width: 44px; }
+.agent-pictures { margin: 0; padding: 0; border: 0; }
+.agent-pictures legend { margin-bottom: 6px; font-size: 13px; font-weight: 500; }
+.agent-picture-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 8px; }
+.agent-picture-choice { display: grid; place-items: center; padding: 4px; border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.agent-picture-choice .chat-avatar { width: 40px; height: 40px; }
+.agent-picture-choice[aria-pressed="true"] { border-color: var(--accent); }
+.agent-picture-choice:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .agent-prompt { white-space: pre-wrap; line-height: 1.6; }
 .agent-knowledge { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 20px; }
 .agent-knowledge article { border-bottom: 1px solid var(--border); padding: 16px 0; }

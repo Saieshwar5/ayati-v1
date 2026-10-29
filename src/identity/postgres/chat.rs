@@ -104,7 +104,8 @@ impl PgStore {
     pub async fn directory(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
         let own_role = role(&tx, workspace, &user.id).await?;
-        let users=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'email',u.email,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
+        // Everyone in the workspace sees everyone, with their profile.
+        let users=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'email',u.email,'role',m.role,'title',COALESCE(p.title,''),'about',COALESCE(p.about,''),'photo',p.photo) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id LEFT JOIN relay_member_profiles p ON p.workspace=m.workspace AND p.user_id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
         let grants = if own_role == "Owner" {
             json_rows(&tx,"SELECT jsonb_build_object('user',user_id,'agent',agent) AS data FROM relay_chat_access WHERE workspace=$1",vec![workspace.into()]).await?
         } else {

@@ -1,6 +1,6 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
 import type { QuestionReference } from '../questions/model';
-export type Participant = { id: string; name: string; email?: string; role?: string; scope?: 'private' | 'workspace' };
+export type Participant = { id: string; name: string; email?: string; role?: string; scope?: 'private' | 'workspace'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
@@ -35,4 +35,13 @@ export function conversationKind(chat: Conversation, directory: Directory): 'Cha
   if (chat.kind !== 'direct') return 'Channel';
   const person = directory.users.some(user => chat.users.includes(user.id) && user.id !== workspaceSession?.user?.id);
   return !person && chat.agents.length ? 'Agent' : 'Person';
+}
+
+/** The other person or agent in a direct conversation. */
+export function directPartner(chat: Conversation, directory: Directory): { kind: 'user' | 'agent'; who: Participant } | undefined {
+  if (chat.kind !== 'direct') return undefined;
+  const person = directory.users.find(user => chat.users.includes(user.id) && user.id !== workspaceSession?.user?.id);
+  if (person) return { kind: 'user', who: person };
+  const agent = directory.agents.find(agent => chat.agents.includes(agent.id));
+  return agent ? { kind: 'agent', who: agent } : undefined;
 }

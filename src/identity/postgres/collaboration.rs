@@ -29,7 +29,7 @@ impl PgStore {
         } else {
             ""
         };
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))){filter} ORDER BY a.name"),values).await?;
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope,'avatar',a.settings->>'avatar','manager',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }
@@ -133,24 +133,7 @@ impl PgStore {
             "Choose between one and 100 members"
         );
         let tx = self.workspace_tx(w).await?;
-        super::chat::access(&tx, user, w, chat).await?;
-        super::communication_access::ordinary_chat(&tx, w, chat).await?;
-        let own_role = role(&tx, w, &user.id).await?;
-        let row = query(
-            &tx,
-            "SELECT creator,kind FROM relay_chats WHERE workspace=$1 AND id=$2",
-            vec![w.into(), chat.into()],
-        )
-        .await?
-        .context("Conversation missing")?;
-        ensure!(
-            row.try_get::<String>("", "kind")? != "direct",
-            "Direct-message membership is fixed"
-        );
-        ensure!(
-            own_role == "Owner" || row.try_get::<String>("", "creator")? == user.id,
-            "Only a channel creator or manager may change members"
-        );
+        managed_channel(&tx, user, w, chat).await?;
         ensure!(
             users.contains(&user.id),
             "Keep yourself in the channel while managing it"
@@ -168,6 +151,53 @@ impl PgStore {
             execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![w.into(),chat.into(),member.clone().into()]).await?;
         }
         audit(&tx, &user.id, Some(w), "channel_members_updated", chat).await?;
+        super::task_revocation::inaccessible(&tx, w).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+    /// Sets which agents work in a channel. Removing an agent revokes work
+    /// that the channel no longer permits.
+    pub async fn channel_agents(
+        &self,
+        user: &User,
+        w: &str,
+        chat: &str,
+        agents: &[String],
+    ) -> Result<()> {
+        ensure!(agents.len() <= 20, "Add at most 20 agents to a channel");
+        let tx = self.workspace_tx(w).await?;
+        managed_channel(&tx, user, w, chat).await?;
+        for agent in agents {
+            ensure!(
+                query(&tx,"SELECT 1 AS n FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='workspace'",vec![w.into(),agent.clone().into()]).await?.is_some(),
+                "Only workspace agents can join channels"
+            );
+            ensure!(
+                super::chat::agent_access(&tx, &user.id, w, agent).await?,
+                "Agent is not shared with you"
+            );
+        }
+        let current = rows(
+            &tx,
+            "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2",
+            vec![w.into(), chat.into()],
+        )
+        .await?
+        .iter()
+        .map(|r| r.try_get::<String>("", "agent"))
+        .collect::<Result<Vec<_>, _>>()?;
+        for gone in current.iter().filter(|a| !agents.contains(a)) {
+            execute(
+                &tx,
+                "DELETE FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",
+                vec![w.into(), chat.into(), gone.clone().into()],
+            )
+            .await?;
+        }
+        for agent in agents.iter().filter(|a| !current.contains(a)) {
+            execute(&tx,"INSERT INTO relay_chat_agents(workspace,chat,agent,joined_sequence) VALUES($1,$2,$3,(SELECT COALESCE(max(sequence),0) FROM relay_chat_messages WHERE workspace=$1 AND chat=$2))",vec![w.into(),chat.into(),agent.clone().into()]).await?;
+        }
+        audit(&tx, &user.id, Some(w), "channel_agents_updated", chat).await?;
         super::task_revocation::inaccessible(&tx, w).await?;
         tx.commit().await?;
         Ok(())
@@ -226,4 +256,27 @@ impl PgStore {
         tx.commit().await?;
         Ok(result)
     }
+}
+
+/// Channel membership is managed by its creator or a workspace owner.
+async fn managed_channel(tx: &DatabaseTransaction, user: &User, w: &str, chat: &str) -> Result<()> {
+    super::chat::access(tx, user, w, chat).await?;
+    super::communication_access::ordinary_chat(tx, w, chat).await?;
+    let own_role = role(tx, w, &user.id).await?;
+    let row = query(
+        tx,
+        "SELECT creator,kind FROM relay_chats WHERE workspace=$1 AND id=$2",
+        vec![w.into(), chat.into()],
+    )
+    .await?
+    .context("Conversation missing")?;
+    ensure!(
+        row.try_get::<String>("", "kind")? != "direct",
+        "Direct-message membership is fixed"
+    );
+    ensure!(
+        own_role == "Owner" || row.try_get::<String>("", "creator")? == user.id,
+        "Only a channel creator or manager may change members"
+    );
+    Ok(())
 }

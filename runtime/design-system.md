@@ -119,7 +119,16 @@ composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
 240 px before the existing phone list/conversation switch. Sidebar and conversation
 headers share a 64 px height. Only the conversation header has a bottom divider;
 do not extend it under the sidebar's Chat title. Keep connection status in the
-header. Use 40 px sidebar/header avatars and 36 px incoming-message avatars.
+header. Use 28 px single-line sidebar rows, 40 px header avatars and 36 px
+incoming-message avatars. Unread rows use a bold name and an accent count.
+
+People and agents share the same lists and the same round avatars (`faces.tsx`).
+People show their photo or initials on a tinted circle; agents show an uploaded
+image or a bundled robot (`web/public/agent-avatars/robot-01.svg` to `robot-24`).
+An agent is told apart only by the small `AI` tag after its name — never by a
+separate sidebar section. Private channels show a lock and public channels `#`.
+Names and avatars open a profile drawer; People & agents at the foot of the list
+opens the whole-workspace directory (everyone sees every member).
 
 The search button beside Chat opens a focused dialog for authorized channels,
 people and agents, with category filters and name/email matching. This is directory

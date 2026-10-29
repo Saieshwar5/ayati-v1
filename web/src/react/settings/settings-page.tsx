@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { currentWorkspace, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { navigate } from '../../navigation';
-import { DisplayNameForm } from '../display-name-form';
+import { MyProfile } from './my-profile';
 import { PeoplePage } from '../people';
 import { FeedbackPage } from '../feedback';
 import { WorkspaceGeneral, WorkspaceActivity } from './workspace-settings';
@@ -48,9 +48,8 @@ function slug(label: string) { return label.toLowerCase().replaceAll(' ', '-'); 
 function MyAccount() {
   const user = workspaceSession?.user;
   if (!user) return null;
-  return <section className="settings-account"><h2>My account</h2><p>Your profile across Cuckoo.</p>
-    <div className="settings-profile"><span className="ui-avatar">{(user.display_name || user.email).slice(0, 2).toUpperCase()}</span><div><h3>{user.display_name || user.email}</h3><p>{user.email}</p></div></div>
-    <DisplayNameForm user={user} saved={() => location.reload()} />
+  return <section className="settings-account"><h2>My account</h2><p>How colleagues see you in this workspace.</p>
+    <MyProfile />
     <div className="settings-readonly"><span>Email address</span><strong>{user.email}</strong><p>Used to sign in to your account.</p></div>
   </section>;
 }
