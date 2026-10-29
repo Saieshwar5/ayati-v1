@@ -54,6 +54,10 @@ pub struct Controller {
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
+    /// Seconds between pool metric snapshots; 0 turns them off.
+    pub metrics_seconds: u64,
+    /// JSON logs (containers): metrics are CloudWatch embedded metric lines.
+    pub log_json: bool,
     /// Loopback fake for STS and ECS in local tests; never a real endpoint.
     pub aws_test_endpoint: Option<String>,
     pub trace_start: bool,
@@ -185,6 +189,8 @@ impl Controller {
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),
             aws_test_endpoint: test_endpoint(env),
+            metrics_seconds: env.number("AYATI_METRICS_SECONDS", 60, 0..=3600),
+            log_json: env.text("AYATI_LOG_FORMAT").as_deref() == Some("json"),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
             drain_seconds: env.number("AYATI_DRAIN_SECONDS", 0, 0..=300),

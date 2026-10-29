@@ -117,6 +117,11 @@ test('deployable image runs separate API, migration and pooled executor containe
     const start = records.find(record => record.message === 'Starting');
     assert.equal(start?.role,role);
     assert.ok(start?.release,'Startup line names the image release (unknown when not passed at build)');
+    if (role === 'controller') {
+      const metrics = records.find(record => record._aws?.CloudWatchMetrics);
+      assert.equal(metrics?._aws.CloudWatchMetrics[0].Namespace,'Ayati');
+      assert.ok(Number.isFinite(metrics?.QueuedWork) && Number.isFinite(metrics?.ReadySlots));
+    }
   }
   pass('Containers log one JSON object per line, starting with their role and release');
   // Node fetch does not preserve a custom Host; use HTTP transport to emulate the TLS proxy.
