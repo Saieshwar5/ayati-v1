@@ -49,8 +49,9 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
         token: random_token(),
         pooled: true,
     };
-    register(&transport, &registration).await?;
-    let client = Client::new(&transport, &registration.token)?;
+    let identity = settings.identity;
+    let task = register(&transport, identity, &registration).await?;
+    let client = Client::new(&transport, &registration.token)?.for_task(task);
     let base = format!(
         "/v1/executors/{}/{}/pool",
         registration.executor, registration.incarnation
@@ -165,7 +166,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
                         }
                     }
                 }
-                if tokio::time::Instant::now() >= refresh && register(&transport, &registration).await.is_ok() {
+                if tokio::time::Instant::now() >= refresh && register(&transport, identity, &registration).await.is_ok() {
                     refresh = tokio::time::Instant::now() + Duration::from_secs(300);
                 }
             },
@@ -252,13 +253,36 @@ async fn handle_offer(
             .await;
     }
 }
+/// Register (and periodically re-register) this incarnation. An AWS executor
+/// proves its task identity each time, so a stopped task cannot stay registered;
+/// it returns the bound task ARN to send with later requests.
 async fn register(
     control: &crate::config::WorkerControl,
+    identity: crate::config::Identity,
     registration: &Registration,
-) -> Result<()> {
-    let key = config::key(&control.key_file)?;
-    let _: serde_json::Value = Client::new(control, &key)?
-        .retry("/v1/executors/register", registration, 5)
-        .await?;
-    Ok(())
+) -> Result<Option<String>> {
+    use crate::identity::worker_control::aws_identity;
+    match identity {
+        crate::config::Identity::Bootstrap => {
+            let key = config::key(&control.key_file)?;
+            let _: serde_json::Value = Client::new(control, &key)?
+                .retry("/v1/executors/register", registration, 5)
+                .await?;
+            Ok(None)
+        }
+        crate::config::Identity::Aws => {
+            let credentials = aws_identity::credentials().await?;
+            let input = aws_identity::AwsRegistration {
+                registration: registration.clone(),
+                proof: aws_identity::prove(registration, &credentials)?,
+            };
+            let response: serde_json::Value = Client::new(control, &registration.token)?
+                .retry("/v1/executors/register-aws", &input, 5)
+                .await?;
+            let task = response["task"]
+                .as_str()
+                .context("Controller did not return the bound task")?;
+            Ok(Some(task.to_owned()))
+        }
+    }
 }

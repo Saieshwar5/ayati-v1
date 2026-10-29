@@ -71,9 +71,40 @@ Valid TLS grants nothing by itself: every route still requires the bootstrap key
 an executor token or a per-assignment capability. Browser Origin/Cookie headers,
 wrong Host headers and query strings are rejected; browser sessions cannot
 authenticate it. Network policy (Compose `internal` network, AWS security groups)
-should still admit only executors. Proving an executor's AWS task identity is a
-separate step; the optional [signed transport adapter](../integrations/aws_bridge/README.md)
-is the earlier, alternative design for that hop.
+should still admit only executors.
+
+## Executors on AWS: proven task identity
+
+With `AYATI_EXECUTOR_IDENTITY=aws` an executor needs no bootstrap key. When it
+registers (and again every five minutes) it signs an STS `GetCallerIdentity`
+request with its ECS task-role credentials, covering a digest of its exact
+registration in the signed `x-ayati-registration` header, and sends the signed
+headers to `POST /v1/executors/register-aws` instead of sending them to AWS.
+
+The controller (with `AYATI_CLOUD_WORKERS=1` and the cluster, release and role
+ARNs) checks the headers' shape and binding, sends that exact request to the
+regional STS endpoint itself, and takes the caller ARN from AWS's answer. It then
+calls ECS `DescribeTasks` and `DescribeTaskDefinition` with its own credentials:
+the task must be in the configured cluster, `RUNNING`, on the configured task
+definition, with the configured task role. The registration is bound to that task
+(migration 17) and the executor sends its task ARN with every later request.
+
+Requirements and limits:
+
+- The executor task role's trust policy must allow only `ecs-tasks.amazonaws.com`.
+  The controller derives the task from the role session name; ECS is expected to
+  name task-role sessions after the task ID. Confirm this in the first AWS window.
+  Any other session name is refused.
+- The controller's task role needs `ecs:DescribeTasks` and `ecs:DescribeTaskDefinition`.
+  STS `GetCallerIdentity` needs no permission.
+- STS refuses signatures older than 15 minutes; a replay inside that window only
+  repeats the identical registration.
+- `AYATI_AWS_TEST_ENDPOINT` points STS and ECS at a loopback fake for local tests
+  only; any other value is refused.
+
+The optional [signed transport adapter](../integrations/aws_bridge/README.md) is the
+earlier gateway-based design for this hop; it remains until the native path is
+proven on AWS.
 
 In `deploy/compose.yaml` executors are their own service on an internal `worker`
 network with model egress and no database route; scale them with
