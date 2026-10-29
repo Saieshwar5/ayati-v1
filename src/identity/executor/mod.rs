@@ -1,5 +1,6 @@
 //! Persistent local executor with prepared, single-use Goose slots and durable dispatch.
 mod harness;
+pub mod health;
 pub(crate) mod model;
 mod output;
 #[cfg(test)]
@@ -173,10 +174,13 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
         let report = Capacity {
             slots: slots.iter().filter_map(Slot::report).collect(),
         };
-        if let Err(error) = client
+        let reported = client
             .post::<serde_json::Value>(&format!("{base}/capacity"), &report)
-            .await
-        {
+            .await;
+        if reported.is_ok() {
+            health::record(data, &slots, drained);
+        }
+        if let Err(error) = reported {
             if error.is::<super::worker_control::client::Conflict>() {
                 tracing::warn!(
                     "Readiness transition deferred until the previous lease is reconciled"
@@ -210,6 +214,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
     let _: Result<serde_json::Value> = client
         .post(&format!("{base}/stop"), &serde_json::json!({}))
         .await;
+    health::clear(data);
     stream_stop.cancel();
     listener.abort();
     signal_task.abort();

@@ -32,7 +32,7 @@ tokio-util = { version = "0.7", features = ["compat", "io"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4"] }
 object_store = { version = "=0.14.2", default-features = false, features = ["aws"] }
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }

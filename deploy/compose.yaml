@@ -36,6 +36,9 @@ services:
       <<: *worker-control
       AYATI_PUBLIC_ORIGIN: ${AYATI_PUBLIC_ORIGIN:?Set the HTTPS public origin}
       AYATI_BIND_ADDRESS: 0.0.0.0
+      # Report not ready for 15s before closing; stop within 60s (grace is 90s).
+      AYATI_DRAIN_SECONDS: ${AYATI_DRAIN_SECONDS:-15}
+      AYATI_SHUTDOWN_SECONDS: ${AYATI_SHUTDOWN_SECONDS:-60}
       AYATI_WORKER_PROVIDERS: ${AYATI_WORKER_PROVIDERS:-openai}
       AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
       RELAY_DATABASE_URL_FILE: /run/secrets/database_url
@@ -70,6 +73,12 @@ services:
     secrets: [model_api_key]
     depends_on:
       api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, /opt/ayati/ayati, executor-health]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 60s
   migrate:
     <<: *runtime
     profiles: [maintenance]

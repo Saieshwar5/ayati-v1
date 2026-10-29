@@ -12,6 +12,9 @@ pub(super) struct Runtimes {
     pub rehearsal_wake: tokio::sync::Notify,
     pub rehearsal_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
     pub chat_slots: Arc<tokio::sync::Semaphore>,
+    /// Set when a stop is requested: readiness fails while requests still work.
+    pub draining: tokio_util::sync::CancellationToken,
+    /// Set when draining ends: background loops stop claiming work.
     pub stopping: tokio_util::sync::CancellationToken,
 }
 impl Runtimes {
@@ -23,6 +26,7 @@ impl Runtimes {
             rehearsal_wake: tokio::sync::Notify::new(),
             rehearsal_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
             chat_slots: Arc::new(tokio::sync::Semaphore::new(4)),
+            draining: tokio_util::sync::CancellationToken::new(),
             stopping: tokio_util::sync::CancellationToken::new(),
         }
     }

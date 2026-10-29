@@ -12,14 +12,19 @@ pub(super) fn provider_configured(app: &App, provider: &str) -> bool {
 pub(super) async fn live() -> StatusCode {
     StatusCode::OK
 }
-pub(super) async fn ready(State(app): State<Shared>) -> StatusCode {
+/// Ready for new traffic: not stopping and the database answers. The body names
+/// the reason so operators can tell a planned drain from an outage.
+pub(super) async fn ready(State(app): State<Shared>) -> (StatusCode, &'static str) {
+    if app.runtimes.draining.is_cancelled() {
+        return (StatusCode::SERVICE_UNAVAILABLE, "draining");
+    }
     let probe = app.store.ping();
     if matches!(
         tokio::time::timeout(std::time::Duration::from_secs(3), probe).await,
         Ok(Ok(()))
     ) {
-        StatusCode::OK
+        (StatusCode::OK, "ready")
     } else {
-        StatusCode::SERVICE_UNAVAILABLE
+        (StatusCode::SERVICE_UNAVAILABLE, "database unavailable")
     }
 }

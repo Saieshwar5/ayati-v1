@@ -94,6 +94,29 @@ impl WorkerControl {
     }
 }
 
+/// Log output, read before the other settings so their warnings are logged.
+pub struct Logging {
+    /// One JSON object per line for log collectors; plain text otherwise.
+    pub json: bool,
+    /// Image or build identifier included in the startup line.
+    pub release: Option<String>,
+}
+
+impl Logging {
+    pub fn from_env() -> Result<Self> {
+        let env = Reader::process();
+        let json = match env.text("AYATI_LOG_FORMAT").as_deref() {
+            None | Some("text") => false,
+            Some("json") => true,
+            Some(_) => anyhow::bail!("AYATI_LOG_FORMAT must be text or json"),
+        };
+        Ok(Self {
+            json,
+            release: env.text("AYATI_RELEASE"),
+        })
+    }
+}
+
 /// The migration command only needs the administrator database URL.
 pub fn migration_database_url() -> Result<String> {
     let mut env = Reader::process();
@@ -103,14 +126,14 @@ pub fn migration_database_url() -> Result<String> {
 }
 
 /// Load the local development file for this command: `.env.executor` for
-/// executors, which must not see the controller's `.env` secrets, and `.env`
-/// otherwise. Containers set `AYATI_DOTENV=0` so settings come only from the
-/// task environment and its secrets.
+/// executors and their health probe, which must not see the controller's `.env`
+/// secrets, and `.env` otherwise. Containers set `AYATI_DOTENV=0` so settings
+/// come only from the task environment and its secrets.
 pub fn load_dotenv(command: &str) {
     if std::env::var("AYATI_DOTENV").as_deref() == Ok("0") {
         return;
     }
-    let file = if command == "executor" {
+    let file = if matches!(command, "executor" | "executor-health") {
         ".env.executor"
     } else {
         ".env"
