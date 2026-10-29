@@ -1,10 +1,10 @@
 //! `ayati identity` and `ayati simulate`: the only processes with database,
 //! WorkOS, storage and connector access. Controllers prepare and record work
 //! but never run Goose, so they hold no model key.
-use super::{Common, Reader, WorkerControl};
+use super::{Common, Reader, WorkerControl, absolute};
 use anyhow::Result;
 use std::{
-    net::{IpAddr, Ipv4Addr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
 };
 
@@ -40,6 +40,10 @@ pub struct Controller {
     pub workos: Option<(String, String)>,
     pub execution: Execution,
     pub worker_control: Option<WorkerControl>,
+    /// Where worker control listens; defaults to the URL's loopback address.
+    pub worker_listen: Option<SocketAddr>,
+    /// Certificate and private key for an `https://` worker control URL.
+    pub worker_tls: Option<TlsFiles>,
     pub pool: Pool,
     /// Providers the executors are configured for (their keys stay on executors).
     pub worker_providers: Vec<String>,
@@ -55,6 +59,12 @@ pub struct Controller {
     pub drain_seconds: u64,
     /// After a stop signal: total seconds before unfinished work is abandoned.
     pub shutdown_seconds: u64,
+}
+
+#[derive(Clone)]
+pub struct TlsFiles {
+    pub certificate: PathBuf,
+    pub key: PathBuf,
 }
 
 /// Executor pool admission, leases and per-assignment duration.
@@ -135,6 +145,7 @@ impl Controller {
                 "Pooled execution needs AYATI_WORKER_CONTROL_URL and AYATI_WORKER_CONTROL_KEY_FILE",
             );
         }
+        let (worker_listen, worker_tls) = worker_listener(env, worker_control.as_ref());
         let pool = Pool::read(env);
         let worker_providers: Vec<String> = env
             .text("AYATI_WORKER_PROVIDERS")
@@ -159,6 +170,8 @@ impl Controller {
             workos,
             execution,
             worker_control,
+            worker_listen,
+            worker_tls,
             pool,
             worker_providers,
             default_model: env
@@ -253,6 +266,43 @@ impl CloudWorkers {
     }
 }
 
+/// Worker control serves TLS exactly when its URL is `https://`; executors on
+/// other machines then reach it through a private listen address.
+fn worker_listener(
+    env: &mut Reader,
+    control: Option<&WorkerControl>,
+) -> (Option<SocketAddr>, Option<TlsFiles>) {
+    let listen = env.text("AYATI_WORKER_CONTROL_LISTEN").and_then(|value| {
+        let parsed = value.parse::<SocketAddr>();
+        if parsed.is_err() {
+            env.problem("AYATI_WORKER_CONTROL_LISTEN must be an IP:port address");
+        }
+        parsed.ok()
+    });
+    let tls = match (
+        absolute(env, "AYATI_WORKER_CONTROL_TLS_CERT"),
+        absolute(env, "AYATI_WORKER_CONTROL_TLS_KEY"),
+    ) {
+        (Some(certificate), Some(key)) => Some(TlsFiles { certificate, key }),
+        (None, None) => None,
+        _ => {
+            env.problem("Set both AYATI_WORKER_CONTROL_TLS_CERT and AYATI_WORKER_CONTROL_TLS_KEY");
+            None
+        }
+    };
+    let https = control.is_some_and(WorkerControl::https);
+    if https != tls.is_some() {
+        env.problem("Worker control uses TLS exactly when AYATI_WORKER_CONTROL_URL is https://");
+    }
+    if listen.is_some_and(|address| !address.ip().is_loopback()) && !https {
+        env.problem("Worker control needs TLS to listen beyond loopback");
+    }
+    if control.is_some_and(|c| c.ca_file.is_some()) {
+        env.problem("AYATI_WORKER_CONTROL_CA belongs to executors");
+    }
+    (listen, tls)
+}
+
 /// HTTPS public origin (behind a TLS proxy) or loopback-only local HTTP.
 fn origin(env: &mut Reader, port: u16) -> (String, IpAddr) {
     let local = IpAddr::V4(Ipv4Addr::LOCALHOST);
@@ -289,14 +339,6 @@ fn origin(env: &mut Reader, port: u16) -> (String, IpAddr) {
             (format!("http://127.0.0.1:{port}"), bind)
         }
     }
-}
-
-fn absolute(env: &mut Reader, name: &str) -> Option<PathBuf> {
-    let path = PathBuf::from(env.text(name)?);
-    if !path.is_absolute() {
-        env.problem(format!("{name} must be an absolute path"));
-    }
-    Some(path)
 }
 
 #[cfg(test)]

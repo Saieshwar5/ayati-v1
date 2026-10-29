@@ -88,8 +88,9 @@ simulation database; see [company simulation](runtime/company-simulation.md).
   read-only preflight tools. No AWS resources are created by preparation.
 - [Packaged signed bridge](runtime/packaged-worker-bridge.md) for executor identity.
 
-Worker control still accepts loopback connections only. Authenticated remote
-executors are the next deployment proof.
+Executors on other machines reach worker control over TLS on a private network
+([worker control](runtime/worker-control.md#executors-on-other-machines-private-network-tls));
+proving an executor's AWS task identity is the next deployment proof.
 
 ## Verification
 

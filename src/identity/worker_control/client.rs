@@ -24,19 +24,34 @@ impl std::error::Error for Conflict {}
 #[derive(Clone)]
 pub(crate) struct Client {
     http: reqwest::Client,
+    /// The offer stream stays open, so it has no overall request timeout.
+    stream: reqwest::Client,
     url: String,
     token: String,
 }
+/// Both clients share one rule: plain HTTP only to loopback, otherwise HTTPS
+/// trusting only the operator's private certificate authority.
+fn builder(
+    endpoint: &config::Endpoint,
+    ca: Option<&std::path::Path>,
+) -> Result<reqwest::ClientBuilder> {
+    let builder = reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(2));
+    match (endpoint.tls, ca) {
+        (true, Some(ca)) => super::tls::trust(builder, ca),
+        (true, None) => {
+            anyhow::bail!("An https:// worker control URL needs a certificate authority")
+        }
+        (false, _) => Ok(builder),
+    }
+}
 impl Client {
     pub(crate) async fn events(&self, path: &str) -> Result<reqwest::Response> {
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(Duration::from_secs(2))
-            .build()?;
         let response = tokio::time::timeout(
             Duration::from_secs(2),
-            client
+            self.stream
                 .get(format!("{}{path}", self.url))
                 .bearer_auth(&self.token)
                 .send(),
@@ -53,15 +68,16 @@ impl Client {
         );
         Ok(response)
     }
-    pub fn new(url: &str, token: &str) -> Result<Self> {
+    pub fn new(control: &crate::config::WorkerControl, token: &str) -> Result<Self> {
         super::model::token(token)?;
+        let endpoint = config::url(&control.url)?;
+        let ca = control.ca_file.as_deref();
         Ok(Self {
-            http: reqwest::Client::builder()
-                .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
+            http: builder(&endpoint, ca)?
                 .timeout(Duration::from_secs(2))
                 .build()?,
-            url: config::url(url)?,
+            stream: builder(&endpoint, ca)?.build()?,
+            url: endpoint.origin,
             token: token.into(),
         })
     }
@@ -71,6 +87,7 @@ impl Client {
         // request supplies its own capability; cloning only shares connections.
         Ok(Self {
             http: self.http.clone(),
+            stream: self.stream.clone(),
             url: self.url.clone(),
             token: token.into(),
         })

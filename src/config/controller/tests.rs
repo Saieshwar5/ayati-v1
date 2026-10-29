@@ -150,3 +150,46 @@ fn controllers_only_run_pooled_and_simulations_default_to_scripted() {
         assert!(Execution::parse(Some(retired), false).is_err());
     }
 }
+
+#[test]
+fn worker_control_uses_tls_exactly_for_private_network_urls() {
+    let https = [
+        ("AYATI_WORKER_CONTROL_URL", "https://worker.internal:8766"),
+        ("AYATI_WORKER_CONTROL_LISTEN", "0.0.0.0:8766"),
+        ("AYATI_WORKER_CONTROL_TLS_CERT", "/private/server.pem"),
+        ("AYATI_WORKER_CONTROL_TLS_KEY", "/private/server.key"),
+    ];
+    let config = controller(&https).unwrap();
+    assert_eq!(config.worker_listen, Some("0.0.0.0:8766".parse().unwrap()));
+    assert!(config.worker_tls.is_some());
+    // An https URL without TLS files, TLS on a plain URL, or plain HTTP beyond loopback.
+    assert!(controller(&https[..2]).is_err());
+    assert!(controller(&[https[2], https[3]]).is_err());
+    assert!(controller(&[("AYATI_WORKER_CONTROL_LISTEN", "0.0.0.0:8766")]).is_err());
+    assert!(controller(&[("AYATI_WORKER_CONTROL_CA", "/private/ca.pem")]).is_err());
+
+    let executor = |extra: &[(&str, &str)]| {
+        let pairs: Vec<_> = [
+            ("AYATI_MODEL", "fixture"),
+            ("AYATI_WORKER_CONTROL_URL", "https://worker.internal:8766"),
+            (
+                "AYATI_WORKER_CONTROL_KEY_FILE",
+                "/private/worker-control.key",
+            ),
+        ]
+        .into_iter()
+        .chain(extra.iter().copied())
+        .collect();
+        Executor::read(&mut Reader::from_pairs(&pairs))
+    };
+    assert!(executor(&[]).is_err(), "https needs the private authority");
+    assert!(executor(&[("AYATI_WORKER_CONTROL_CA", "/private/ca.pem")]).is_ok());
+    let error = executor(&[
+        ("AYATI_WORKER_CONTROL_CA", "/private/ca.pem"),
+        ("AYATI_WORKER_CONTROL_TLS_KEY", "/private/server.key"),
+    ])
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(error.contains("AYATI_WORKER_CONTROL_TLS_KEY"), "{error}");
+}

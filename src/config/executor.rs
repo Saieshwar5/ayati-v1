@@ -15,6 +15,9 @@ const CONTROLLER_ONLY: &[&str] = &[
     "AYATI_EVENT_SOURCES_FILE",
     "CUCKOO_LIBRARY_S3_BUCKET",
     "CUCKOO_LIBRARY_LOCAL_ROOT",
+    "AYATI_WORKER_CONTROL_TLS_KEY",
+    "AYATI_WORKER_CONTROL_TLS_CERT",
+    "AYATI_WORKER_CONTROL_LISTEN",
 ];
 
 #[derive(Clone)]
@@ -42,6 +45,12 @@ impl Executor {
                 "Executors need AYATI_WORKER_CONTROL_URL and AYATI_WORKER_CONTROL_KEY_FILE",
             );
         }
+        if worker_control
+            .as_ref()
+            .is_some_and(|c| c.https() && c.ca_file.is_none())
+        {
+            env.problem("An https:// worker control URL needs AYATI_WORKER_CONTROL_CA");
+        }
         let model = env.required("AYATI_MODEL");
         let config = Self {
             common,
@@ -56,6 +65,7 @@ impl Executor {
             worker_control: worker_control.unwrap_or(WorkerControl {
                 url: String::new(),
                 key_file: PathBuf::new(),
+                ca_file: None,
             }),
         };
         env.refuse(CONTROLLER_ONLY, "Executors");

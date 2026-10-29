@@ -26,6 +26,11 @@ test('deployable image runs separate API, migration and pooled executor containe
     // Synthetic files in a private directory; readable by the image's non-root UID.
     await writeFile(path,value,{mode:0o444}); return path;
   };
+  // Private worker-control TLS from the operator tool; the server key is readable
+  // by the image's UID only through control-key's private install.
+  const tlsDir = join(data,'worker-control-tls');
+  execFileSync(join(root,'tools/worker-control-certs.sh'),[tlsDir,'worker-control'],{stdio:'ignore'});
+  execFileSync('chmod',['0444',join(tlsDir,'server.key')]);
   const env = {
     AYATI_IMAGE: process.env.AYATI_CONTAINER_IMAGE ?? 'ayati:hosted-local',
     AYATI_PUBLIC_ORIGIN: 'https://workspace.example.test', AYATI_LOCAL_PORT: String(port),
@@ -37,6 +42,7 @@ test('deployable image runs separate API, migration and pooled executor containe
     AYATI_MODEL_API_KEY_FILE: await secret('model-key','$(touch /tmp/secret-executed)'),
     // control-key hands this to UID 10001 with mode 0600 inside the shared volume.
     AYATI_WORKER_CONTROL_KEY_FILE: await secret('worker-control-key',randomBytes(32).toString('base64url')),
+    AYATI_WORKER_CONTROL_TLS_DIR: tlsDir,
   };
   const envFile = join(data,'.env');
   await writeFile(envFile,Object.entries(env).map(([k,v]) => `${k}=${v}`).join('\n'));
@@ -87,6 +93,14 @@ test('deployable image runs separate API, migration and pooled executor containe
   const ready = () => until(() => Number(sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
     'Executor did not report prepared capacity',90000);
   await healthy('api'); await ready(); await healthy('executor');
+  // The executor reaches worker control over TLS but has no route to the database.
+  assert.throws(() => compose(['exec','-T','executor','/opt/ayati/bridge/bin/python','-c',
+    "import socket; socket.create_connection(('db',5432),2)"]));
+  compose(['up','-d','--no-recreate','--scale','executor=2','executor']);
+  await until(() => Number(sql("SELECT count(*) FROM relay_executor_slots s JOIN relay_executors e ON e.id=s.executor AND e.incarnation=s.incarnation WHERE s.state='ready' AND e.state='serving'")) >= 4,
+    'A second executor did not add ready slots',90000);
+  compose(['up','-d','--no-recreate','--scale','executor=1','executor']);
+  pass('Executors are a separate service on a private TLS link with no database route, and scale independently');
   assert.equal(compose(['exec','-T','api','id','-u']),'10001');
   assert.equal(compose(['exec','-T','executor','id','-u']),'10001');
   assert.equal(compose(['exec','-T','executor','/opt/ayati/goose','--version']),'1.54.0');
@@ -118,14 +132,14 @@ test('deployable image runs separate API, migration and pooled executor containe
   assert.match(login.headers['set-cookie'][0],/; Secure/);
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   compose(['rm','-sf','api']);
-  compose(['up','-d','api']); await healthy('api');
-  // The executor shares the API network namespace, so it is recreated with it.
-  compose(['up','-d','--force-recreate','executor']); await ready();
+  compose(['up','-d','--no-deps','api']); await healthy('api');
+  // The executor is not recreated: it reconnects to the replacement on its own.
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   assert.equal((await get('/auth/callback?error=access_denied',cookie)).status,303);
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'0');
   assert.equal((await get('/index.html')).status,200);
   pass('Replacing the API container loses scratch only; shared login state and packaged website remain available');
+  await healthy('executor');
   const drained = compose(['ps','-q','executor']);
   compose(['stop','-t','20','executor']);
   assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',drained]),'0');

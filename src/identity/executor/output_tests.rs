@@ -14,7 +14,11 @@ fn output(url: &str) -> Output {
     let id = || uuid::Uuid::new_v4().to_string();
     Output {
         trace: crate::identity::start_trace::StartTrace::new(),
-        client: Client::new(url, &crate::identity::provider::random_token()).unwrap(),
+        client: Client::new(
+            &crate::config::WorkerControl::for_tests(url, None),
+            &crate::identity::provider::random_token(),
+        )
+        .unwrap(),
         assignment: AssignedRequest {
             scope: Scope {
                 executor: id(),

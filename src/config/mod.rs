@@ -62,11 +62,29 @@ impl GooseSettings {
     }
 }
 
-/// Loopback controller ↔ executor transport and its operator bootstrap key.
+/// Controller ↔ executor transport and its operator bootstrap key. The URL is
+/// `http://` on a loopback IP for local development, otherwise `https://` to a
+/// private host whose certificate is signed by `ca_file`.
 #[derive(Clone)]
 pub struct WorkerControl {
     pub url: String,
     pub key_file: PathBuf,
+    /// The only certificate authority an executor trusts for an `https://` URL.
+    pub ca_file: Option<PathBuf>,
+}
+
+impl WorkerControl {
+    pub fn https(&self) -> bool {
+        self.url.starts_with("https://")
+    }
+    #[cfg(test)]
+    pub(crate) fn for_tests(url: &str, ca_file: Option<PathBuf>) -> Self {
+        Self {
+            url: url.into(),
+            key_file: PathBuf::new(),
+            ca_file,
+        }
+    }
 }
 
 impl WorkerControl {
@@ -81,7 +99,14 @@ impl WorkerControl {
                 if !key_file.is_absolute() {
                     env.problem("AYATI_WORKER_CONTROL_KEY_FILE must be an absolute path");
                 }
-                Some(Self { url, key_file })
+                if !url.starts_with("http://") && !url.starts_with("https://") {
+                    env.problem("AYATI_WORKER_CONTROL_URL must be an http:// or https:// origin");
+                }
+                Some(Self {
+                    url,
+                    key_file,
+                    ca_file: absolute(env, "AYATI_WORKER_CONTROL_CA"),
+                })
             }
             (None, None) => None,
             _ => {
@@ -115,6 +140,14 @@ impl Logging {
             release: env.text("AYATI_RELEASE"),
         })
     }
+}
+
+pub(crate) fn absolute(env: &mut Reader, name: &str) -> Option<PathBuf> {
+    let path = PathBuf::from(env.text(name)?);
+    if !path.is_absolute() {
+        env.problem(format!("{name} must be an absolute path"));
+    }
+    Some(path)
 }
 
 /// The migration command only needs the administrator database URL.

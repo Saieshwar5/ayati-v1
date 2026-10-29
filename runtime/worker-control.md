@@ -42,16 +42,44 @@ PY
 
 Then start the controller and one or more executors; the
 [executor pool guide](executor-pool.md) lists their exact environments. A
-PostgreSQL controller refuses to start without this listener. In containers the
-executor shares the controller's network namespace, and a one-shot helper hands
-the key to the runtime UID (see `deploy/compose.yaml`).
+PostgreSQL controller refuses to start without this listener.
 
-The listener accepts explicit loopback IPs only. It refuses non-loopback binds,
-credentials in URLs, redirects and proxy settings. Browser Origin/Cookie headers,
+## Executors on other machines (private network, TLS)
+
+Executors are an independent fleet: any number reach a controller over a private
+network. Worker control then serves TLS signed by an operator-owned private
+certificate authority, and executors trust only that authority:
+
+~~~sh
+tools/worker-control-certs.sh /absolute/private/worker-control-tls worker-control
+~~~
+
+| Process | Settings |
+| --- | --- |
+| Controller | `AYATI_WORKER_CONTROL_URL=https://worker-control:8766` (the name executors use; checked against each request's Host header), `AYATI_WORKER_CONTROL_LISTEN=0.0.0.0:8766`, `AYATI_WORKER_CONTROL_TLS_CERT=…/server.pem`, `AYATI_WORKER_CONTROL_TLS_KEY=…/server.key` (0600, owned by the process user) |
+| Executor | The same URL, `AYATI_WORKER_CONTROL_CA=…/ca.pem`, and the bootstrap key file |
+
+Rules, enforced at startup: TLS is used exactly when the URL is `https://`; plain
+HTTP is allowed only on a loopback IP; only TLS may listen beyond loopback; an
+`https://` executor requires the CA and refuses public roots, plain HTTP and
+redirects; executors refuse the controller's TLS key, certificate and listen
+address, and controllers refuse the CA setting. TLS handshakes run off the accept
+path, so a silent client cannot stall others. The tool deletes the CA private key;
+issue a new set to rotate.
+
+Valid TLS grants nothing by itself: every route still requires the bootstrap key,
+an executor token or a per-assignment capability. Browser Origin/Cookie headers,
 wrong Host headers and query strings are rejected; browser sessions cannot
-authenticate it. This same-host trust model is not AWS authentication. The
-optional [signed transport adapter](../integrations/aws_bridge/README.md) carries
-it between hosts.
+authenticate it. Network policy (Compose `internal` network, AWS security groups)
+should still admit only executors. Proving an executor's AWS task identity is a
+separate step; the optional [signed transport adapter](../integrations/aws_bridge/README.md)
+is the earlier, alternative design for that hop.
+
+In `deploy/compose.yaml` executors are their own service on an internal `worker`
+network with model egress and no database route; scale them with
+`--scale executor=N`. A one-shot helper installs the bootstrap key, TLS key and
+certificate for the API and the key and CA for executors into separate volumes,
+because both run as UID 10001.
 
 ## Machine protocol
 

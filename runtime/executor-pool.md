@@ -33,9 +33,10 @@ Queued jobs retain their accepted mode and are not silently converted.
 
 Create the private operator bootstrap file exactly as in [worker control](worker-control.md#migration-and-local-startup).
 Set `AYATI_WORKER_CONTROL_URL` and `AYATI_WORKER_CONTROL_KEY_FILE` on the controller
-and executors. The listener accepts only explicit loopback IPs; this does not
-authorize an exposed network. Containers share one network namespace (see
-`deploy/compose.yaml`).
+and executors. Without TLS the listener accepts only explicit loopback IPs; with
+TLS executors on other machines connect over a private network
+([worker control](worker-control.md#executors-on-other-machines-private-network-tls)),
+as in `deploy/compose.yaml`.
 
 Configure the controller with its private database and WorkOS setup:
 

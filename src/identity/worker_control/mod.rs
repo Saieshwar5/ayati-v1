@@ -9,6 +9,7 @@ mod hub;
 pub(crate) mod model;
 pub(crate) mod output;
 mod pool;
+mod tls;
 mod tools;
 use super::{
     Shared,
@@ -89,17 +90,29 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let Some(settings) = app.config.worker_control.clone() else {
         return Ok(None);
     };
-    let origin = config::url(&settings.url)?;
-    let host = origin.strip_prefix("http://").unwrap().to_string();
-    let address = config::address(&host)?;
+    let endpoint = config::url(&settings.url)?;
+    let address = match app.config.worker_listen {
+        Some(address) => address,
+        None => endpoint
+            .host
+            .parse()
+            .context("Set AYATI_WORKER_CONTROL_LISTEN for a named worker control host")?,
+    };
+    let address = config::listen(address, endpoint.tls)?;
     ensure!(
         app.store.pooled,
         "Worker control requires PostgreSQL and pooled execution"
     );
     let key = config::key(&settings.key_file)?;
+    let tls = match (&app.config.worker_tls, endpoint.tls) {
+        (Some(files), true) => Some(tls::server_config(&files.certificate, &files.key)?),
+        (None, false) => None,
+        _ => anyhow::bail!("Worker control uses TLS exactly when its URL is https://"),
+    };
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .context("Worker control port unavailable")?;
+    let host = endpoint.host;
     let pool = app.config.pool.clone();
     let state = Arc::new(Control {
         app: app.clone(),
@@ -118,21 +131,39 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     };
     let coordinator = tokio::spawn(pool::dispatch(state, limits, pool.expiry_seconds));
     let stopping = app.runtimes.stopping.clone();
+    let listener = match tls {
+        Some(config) => Listening::Tls(tls::Listener::new(listener, config)?),
+        None => Listening::Plain(listener),
+    };
     Ok(Some(tokio::spawn(async move {
         let stopped = stopping.clone();
-        if axum::serve(listener, router)
-            .with_graceful_shutdown(async move {
-                stopped.cancelled().await;
-                shutdown_hub.close();
-            })
-            .await
-            .is_err()
-        {
-            tracing::error!("Local worker control server stopped unexpectedly");
+        let shutdown = async move {
+            stopped.cancelled().await;
+            shutdown_hub.close();
+        };
+        let served = match listener {
+            Listening::Plain(listener) => {
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown)
+                    .await
+            }
+            Listening::Tls(listener) => {
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown)
+                    .await
+            }
+        };
+        if served.is_err() {
+            tracing::error!("Worker control server stopped unexpectedly");
             stopping.cancel();
         }
         let _ = coordinator.await;
     })))
+}
+/// Loopback HTTP for local development, or TLS on a private network.
+enum Listening {
+    Plain(tokio::net::TcpListener),
+    Tls(tls::Listener),
 }
 fn routes(state: StateData) -> Router {
     Router::new()
