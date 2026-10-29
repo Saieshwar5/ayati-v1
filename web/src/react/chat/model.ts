@@ -21,6 +21,7 @@ export type Message = {
   approval?: import('../approvals/approval-card').ApprovalReference;
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null;
+  edited_at?: number | null; reactions?: { emoji: string; count: number; mine: boolean }[];
 };
 export type History = { messages: Message[]; agents: string[]; next_before?: number | null };
 export const chatRequest = <T>(path: string, body?: unknown, signal?: AbortSignal) => identityRequest<T>(`/workspaces/${workspaceId}${path}`, body, signal);
