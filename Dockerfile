@@ -63,8 +63,8 @@ COPY --chmod=755 deploy/container-entrypoint.sh ./entrypoint.sh
 ENV PYTHONPATH=/opt/ayati/integrations PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
     AYATI_PREPARED_GOOSE_BIN=/opt/ayati/prepared-goose/goose \
-    AYATI_RUNTIME=goose AYATI_EXECUTION=host AYATI_CHAT_EXECUTION=external \
-    AYATI_BROWSER=0 AYATI_MEMORY=0 AYATI_PROOF_TOOL=0 AYATI_PORT=8765
+    AYATI_RUNTIME=goose AYATI_CHAT_EXECUTION=external \
+    AYATI_PROOF_TOOL=0 AYATI_PORT=8765
 USER 10001:10001
 EXPOSE 8765
 ENTRYPOINT ["/opt/ayati/entrypoint.sh"]

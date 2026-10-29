@@ -8,8 +8,8 @@ Feature specifications still govern permissions, persistence and execution.
 
 ## Shared workspace shell
 
-- Keep the quiet global navigation rail visible across Home, Apps, Chat, Agents,
-  Settings. It sits on the light grey outer canvas, without its own
+- Keep the quiet global navigation rail visible across Home, Chat, Agents,
+  Library and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
@@ -76,8 +76,8 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
 
 Saved custom panels are the main content. A permanent Business clock and
 Notifications row precedes them. Both standard panels remain outside Customize:
-they cannot be removed, resized or reordered. The business location/timezone uses
-the existing owner editor. The clock has a subtle soft fill; notifications and
+they cannot be removed, resized or reordered. The clock shows device time until a
+shared business location setting exists. The clock has a subtle soft fill; notifications and
 custom panels use white bordered surfaces with clear titles and consistent gaps.
 
 Do not restore the agent/user directory, agent presence row, large prompt hero or
@@ -90,14 +90,14 @@ results, with at most three rows. View all opens the existing inbox. Counts are
 pending requests/outcomes, not unread messages. User mentions and chat notification
 sources are not implemented by this styling work. Do not fabricate them.
 
-Preserve saved panels, supported templates, review, grants, maintenance, removal,
-Recent activity and active-work Stop. Add panel chooses an existing agent and opens
+Preserve saved panels, supported templates, review, grants, maintenance and
+removal. Add panel chooses an existing agent and opens
 an unsent creation flow. Placement remains browser-local where implemented;
 managed workspace panels synchronize personal placement on the server. Their
 [update agreements](home-panel-maintenance.md) name the responsible agent and show
 concise freshness/health. Keep full source arguments and update setup in the
 on-demand dialog; preserve enough space to read the full panel value. See
-[Home panels](home-panels.md), [organized Home](organized-home.md), and
+[workspace Home panels](workspace-home-panels.md) and
 [Home attention](home-attention.md) for the underlying contracts.
 
 ## Chat
@@ -119,16 +119,14 @@ composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
 240 px before the existing phone list/conversation switch. Sidebar and conversation
 headers share a 64 px height. Only the conversation header has a bottom divider;
 do not extend it under the sidebar's Chat title. Keep connection status in the
-header. Use 40 px sidebar/header avatars and 36 px incoming-message avatars,
-with a smaller private-agent header avatar where needed on phones.
+header. Use 40 px sidebar/header avatars and 36 px incoming-message avatars.
 
 The search button beside Chat opens a focused dialog for authorized channels,
 people and agents, with category filters and name/email matching. This is directory
 search, not message-history search. Typing and filtering do not write. Choosing
 an existing direct conversation reopens it; a result labelled Start conversation
 uses the same guarded creation operation as New message. Keep failed queries,
-block duplicate submissions, ignore late navigation after closing, and retain
-owner-only private-agent access. New message is the labelled plus beside Direct
+block duplicate submissions and ignore late navigation after closing. New message is the labelled plus beside Direct
 messages; Create channel is the labelled plus beside Channels. Both have accessible
 names and hover labels. Escape closes search and restores the trigger's focus;
 arrow keys move between the query and results, with native keyboard activation.
@@ -187,23 +185,16 @@ See [behavior and authority](agents-team-workspace.md).
 
 Settings → Workspace → People uses the same directory language. People and invitations remain separate
 tabs; inviting opens a focused dialog. Details opens the member drawer. Keep
-workspace membership, roles, agent access and App/panel grants distinct. Preserve
+workspace membership, roles and agent access distinct. Preserve
 explicit saves, pending states, validation and confirmation for destructive actions.
 
-## Apps and Settings
-
-Apps uses bordered launch tiles: icon, name, short description, actual state and
-an obvious Open or Preview action. Use the app identity rather than unrelated card
-colors to distinguish entries. Give tiles subtle hover/focus border emphasis.
-Manage holds release and access controls. Opening an app retains the existing
-large sandboxed surface; preview and active records stay isolated. Activation
-still applies to the exact reviewed release.
+## Settings
 
 Settings follows approved Option B: everyone sees Personal; only Owners see the
 Workspace scope. Use a compact segmented scope control followed by flat category
 navigation and one bounded, locally scrolling detail area. Personal contains My
 account, Appearance and Help & feedback. Workspace contains General, People,
-Access, Connections, Activity, Teams and Local setup. Hide owner-only sections for
+Access, Connections, Activity and Teams. Hide owner-only sections for
 Users and enforce the same boundary on the server. Use Owner/User role labels.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin

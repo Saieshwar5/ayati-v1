@@ -1,5 +1,4 @@
 import { chatRequest } from '../../chat/model';
-import { api } from '../../../types';
 import { workspaceUrl } from '../../../workspace-context';
 import type { BusinessClock } from '../../../business-time';
 export type ScheduleInput = { id: string; chat: string; name: string; content: string; first_ms: number; interval_seconds: number | null; timezone: string };
@@ -12,9 +11,9 @@ export const loadSchedule = (agent: string, id: string) => chatRequest<Routine>(
 export const saveSchedule = (agent: string, input: ScheduleInput) => chatRequest<Routine>(path(agent), input);
 export const changeSchedule = (agent: string, id: string, input: { request: string; revision: number; enabled: boolean }) => chatRequest<{ id: string; state: string; revision: number }>(`${path(agent)}/${encodeURIComponent(id)}/state`, input);
 export const loadRuns = (agent: string, id: string) => chatRequest<{ runs: Run[] }>(`${path(agent)}/${encodeURIComponent(id)}/runs`);
-export async function loadClock(): Promise<BusinessClock> {
-  const data = await api<{ preferences: BusinessClock | null }>('/home/preferences');
-  return data.preferences ?? { location: 'Device time', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour12: true };
+/** Schedules use the viewer's device timezone until a shared business clock exists. */
+export function deviceClock(): BusinessClock {
+  return { location: 'Device time', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour12: true };
 }
 export function date(ms: number, timezone: string) {
   try { return new Date(ms).toLocaleString(undefined, { timeZone: timezone, dateStyle: 'medium', timeStyle: 'short' }); }

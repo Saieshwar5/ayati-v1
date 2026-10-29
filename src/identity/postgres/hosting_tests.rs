@@ -316,18 +316,6 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
         403
     );
     assert!(!root.path().join("workspaces").exists());
-    assert_eq!(
-        call(
-            &first,
-            "GET",
-            &format!("/api/identity/workspaces/{w}/resource-access"),
-            cookie,
-            vec![]
-        )
-        .await
-        .0,
-        503
-    );
     let bytes = b"durable hosted attachment";
     let (status, _, object) = call(
         &first,

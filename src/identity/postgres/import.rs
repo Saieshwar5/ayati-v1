@@ -85,11 +85,6 @@ const TABLES: &[Table] = &[
         ],
     },
     Table {
-        source: "resource_grants",
-        target: "relay_resource_grants",
-        columns: &["workspace", "user", "kind", "resource", "access"],
-    },
-    Table {
         source: "audit",
         target: "relay_audit",
         columns: &["actor", "workspace", "action", "target", "at"],

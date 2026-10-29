@@ -1,7 +1,7 @@
 # Local identity and workspace server
 
 Run `cargo run -- identity` after building the client with `cd web && npm run build`.
-Open `http://127.0.0.1:8765/`. It opens the client behind an authenticated workspace gateway. Workspace runtimes are loaded on demand; unscoped local-owner APIs remain blocked. A process already
+Open `http://127.0.0.1:8765/`. It opens the client behind an authenticated workspace gateway; unscoped business APIs remain blocked. A process already
 using the port must be stopped separately, or choose another `AYATI_PORT` and
 register its corresponding callback with WorkOS.
 
@@ -68,7 +68,7 @@ or background email reconciliation yet. Invitation emails are generic applicatio
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.
 
-Each workspace keeps a separate runtime and business store under `identity/workspaces/<id>`. See [workspace client integration](workspace-client-integration.md) for the request boundary and remaining sharing/execution limits.
+See [workspace client integration](workspace-client-integration.md) for the request boundary.
 The original browser-only preview remains at `?view=access-preview` in the
 regular client and is not used as authentication by this server.
 
@@ -90,10 +90,8 @@ These results do not establish production readiness or tenant-safe agent executi
 
 ## PostgreSQL local backend
 
-The existing client can now use PostgreSQL for identity, memberships, shared chat,
-resource grants and durable shared-reply jobs. See [local PostgreSQL setup and
-migration](postgres-workspaces.md). Private agent and App stores remain SQLite;
-this does not establish cloud readiness.
+The client uses PostgreSQL for identity, memberships, shared chat and durable
+shared-reply jobs. See [local PostgreSQL setup and migration](postgres-workspaces.md).
 
 ## Display names
 

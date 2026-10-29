@@ -41,25 +41,9 @@ async fn execute(app: &Shared, job: &Job) -> Result<String> {
             super::super::library::context::citations(&job.workspace, &sources)
         ));
     }
-    let profile = match execution::managed_profile(&app.store, job).await? {
-        Some(profile) => profile,
-        None => {
-            // Only the embedded compatibility path can consult the local registry.
-            let state = app.runtimes.get(&job.workspace, super::port(app)).await?;
-            let profile = state
-                .workspace
-                .context("Workspace unavailable")?
-                .profiles()?
-                .into_iter()
-                .find(|p| p.id == job.agent && p.state == "ready")
-                .context("Agent unavailable")?;
-            execution::Profile {
-                name: profile.name,
-                role: profile.role,
-                model: profile.model,
-            }
-        }
-    };
+    let profile = execution::managed_profile(&app.store, job)
+        .await?
+        .context("Agent unavailable")?;
     let mut root = app.runtimes.chat_root(&job.workspace).join(&job.reply);
     if let Some(claim) = &job.claim {
         root = root.join(claim);

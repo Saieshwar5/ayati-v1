@@ -87,9 +87,6 @@ VM path all pass. The 8 existing prototype browser journeys and HTTP smoke pass,
 as do fmt, clippy, web/e2e type/build and source-length checks. These are local
 fixture checks, not live AI/business or hosted CI results.
 
-The following L3 increment adds [scheduler/event receipts, local active-work
-leases and safe idle release](scheduled-work.md), upgrading the database to schema 4.
-The counts above record the first L3 increment, before that addition.
 No live provider quality, multi-user access, production isolation, power-loss
 hardware durability or cloud failover is established. Browser ownership and
 connector reconciliation remain later increments. Schema 4 rejects newer databases; use backups and a tested

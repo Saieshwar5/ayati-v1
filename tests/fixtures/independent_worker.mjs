@@ -67,7 +67,7 @@ export async function workerFixture(t, options = {}) {
   t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
-    AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_MODEL: options.model ?? 'fixture',
+    AYATI_RUNTIME: 'goose', AYATI_MODEL: options.model ?? 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
     AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
     AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
@@ -160,9 +160,8 @@ export async function workerFixture(t, options = {}) {
       AYATI_DATA_DIR: workerData,
       AYATI_WORKER_HEALTH_FILE: join(workerData, 'worker.health'),
       OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret', OPENAI_HOST: provider.url,
-      // Deliberately inherited local capabilities must all be disabled for shared work.
-      AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/vm.json',
-      AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
+      // A deliberately inherited proof tool must stay disabled for shared work.
+      AYATI_PROOF_TOOL: '1',
       ...extra,
     });
     worker.healthFile = join(workerData, 'worker.health');

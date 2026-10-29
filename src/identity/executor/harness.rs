@@ -33,10 +33,6 @@ impl Harness {
             .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0-ayati.1/goose"));
         config.provider = profile.provider.clone();
         config.agent_id = "prepared-chat".into();
-        config.vm_manifest = None;
-        config.browser = false;
-        config.memory = false;
-        config.platform = None;
         config.proof_tool = false;
         ensure!(
             config.configured(),

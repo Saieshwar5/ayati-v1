@@ -178,7 +178,7 @@ test('lost start and completion responses never repeat real model inference', op
   await once(proxy, 'listening');
   t.after(() => { proxy.closeAllConnections(); proxy.close(); });
   const worker = await app.startControlled({ url: `http://127.0.0.1:${proxy.address().port}`, scope: grant.scope, token: grant.token }, {
-    AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/vm.json', AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
+    AYATI_PROOF_TOOL: '1',
   });
   assert.equal(await exited(worker), 0, worker.logs);
   assert.match((await app.done(job)).content, /GOOSE_FIXTURE_OK/);

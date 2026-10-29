@@ -16,14 +16,14 @@ test('workspace URLs and drafts stay scoped to both the account and workspace', 
     const a = await import('../src/workspace-context.ts?first');
     assert.equal(await a.enterWorkspace(), true);
     assert.equal(a.workspaceUrl('/api/events?agent=a'), `/w/${first}/api/events?agent=a`);
-    assert.equal(a.canManageResources(), true);
+    assert.equal(a.currentWorkspace()?.role, 'Owner');
     const key = a.storageScope('draft');
     assert.equal(saved.get('relay.last-workspace.one'), first);
     globalThis.location = { pathname: `/w/${second}/`, replace: () => assert.fail('unexpected redirect') };
     const b = await import('../src/workspace-context.ts?second');
     await b.enterWorkspace();
     assert.notEqual(b.storageScope('draft'), key);
-    assert.equal(b.canManageResources(), false);
+    assert.equal(b.currentWorkspace()?.role, 'Member');
     user = 'two';
     const c = await import('../src/workspace-context.ts?other-user');
     await c.enterWorkspace();

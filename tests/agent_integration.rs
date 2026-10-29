@@ -1,17 +1,5 @@
-use axum::{
-    Json, Router,
-    body::{Body, to_bytes},
-    extract::State,
-    http::{Request, StatusCode},
-    routing::post,
-};
-use ayati::{
-    agent::Agent,
-    files::Files,
-    model::CompatibleModel,
-    server::{WebState, router},
-    storage::Store,
-};
+use axum::{Json, Router, body::Body, extract::State, routing::post};
+use ayati::{agent::Agent, files::Files, model::CompatibleModel, storage::Store};
 use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
@@ -19,8 +7,6 @@ use std::{
     time::Duration,
 };
 use tempfile::TempDir;
-use tokio_util::sync::CancellationToken;
-use tower::ServiceExt;
 
 #[derive(Clone, Default)]
 struct ProviderState {
@@ -226,97 +212,6 @@ async fn stopping_queued_work_prevents_a_second_model_request() {
     assert_eq!(finished(&fixture.agent, &first.id).await, "stopped");
     assert_eq!(finished(&fixture.agent, &second.id).await, "stopped");
     assert_eq!(fixture.provider.requests.lock().unwrap().len(), 1);
-}
-
-#[tokio::test]
-async fn local_api_rejects_cross_origin_requests_and_serves_safe_downloads() {
-    let fixture = setup(vec![]).await;
-    let (file, _) = fixture
-        .agent
-        .files
-        .upload("<script>.html", b"<script>alert(1)</script>")
-        .await
-        .unwrap();
-    let app = router(WebState {
-        workspace: None,
-        agent: fixture.agent.clone(),
-        model_ready: true,
-        model_name: "fixture".into(),
-        port: 8765,
-        shutdown: CancellationToken::new(),
-    });
-    let blocked = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/messages")
-                .method("POST")
-                .header("host", "127.0.0.1:8765")
-                .header("origin", "https://attacker.invalid")
-                .header("content-type", "application/json")
-                .body(Body::from(r#"{"content":"hello"}"#))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(blocked.status(), StatusCode::FORBIDDEN);
-    assert!(fixture.agent.store.messages().unwrap().is_empty());
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/files/{}", file.id))
-                .header("host", "127.0.0.1:8765")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response.headers()["content-type"],
-        "application/octet-stream"
-    );
-    assert!(
-        response.headers()["content-disposition"]
-            .to_str()
-            .unwrap()
-            .starts_with("attachment;")
-    );
-    assert_eq!(
-        to_bytes(response.into_body(), 1024).await.unwrap(),
-        "<script>alert(1)</script>"
-    );
-    let archived = fixture.agent.files.archives.join(&file.stored_name);
-    std::fs::remove_file(&archived).unwrap();
-    std::os::unix::fs::symlink("/etc/passwd", &archived).unwrap();
-    let symlink = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/files/{}?metadata=true", file.id))
-                .header("host", "127.0.0.1:8765")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(symlink.status(), StatusCode::BAD_REQUEST);
-    assert!(
-        !String::from_utf8_lossy(&to_bytes(symlink.into_body(), 2048).await.unwrap())
-            .contains("root:x:")
-    );
-    let hostile_host = app
-        .oneshot(
-            Request::builder()
-                .uri("/api/state")
-                .header("host", "attacker.invalid:8765")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(hostile_host.status(), StatusCode::FORBIDDEN);
 }
 
 #[test]

@@ -84,7 +84,7 @@ pub(super) async fn download(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,
     headers: HeaderMap,
-    Query(input): Query<crate::server::file_media::Read>,
+    Query(input): Query<crate::media::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     check(uuid::Uuid::parse_str(&id).is_ok(), "Invalid file ID")?;
@@ -126,7 +126,7 @@ pub(super) async fn download(
     };
     // Object storage can take time. Recheck membership/publication before releasing bytes.
     pg(&app)?.object(&user, &w, &id).await?;
-    Ok(crate::server::file_media::deliver(
+    Ok(crate::media::deliver(
         data,
         &object.name,
         &object.mime,

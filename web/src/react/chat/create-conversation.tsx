@@ -5,9 +5,9 @@ import { useMutation } from '../requests';
 import { chatRequest, type Conversation, type Directory } from './model';
 import { useDirectConversation, type DirectTarget } from './direct-conversation';
 
-export function CreateConversation({ directory, chats = [], mode, close, created, privateAgent }: {
+export function CreateConversation({ directory, chats = [], mode, close, created }: {
   directory: Directory; chats?: Conversation[]; mode: 'channel' | 'direct'; close: () => void;
-  created: (id: string) => void; privateAgent: (id: string) => void;
+  created: (id: string) => void;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -15,11 +15,11 @@ export function CreateConversation({ directory, chats = [], mode, close, created
   const [selected, setSelected] = useState<string[]>([]);
   const mutation = useMutation();
   const id = useRef(crypto.randomUUID());
-  const direct = useDirectConversation(directory, chats, created, privateAgent);
+  const direct = useDirectConversation(chats, created);
   const busy = mode === 'direct' ? direct.busy : mutation.busy;
   const status = mode === 'direct' ? direct.status : mutation.status;
   const users = directory.users.filter(user => user.id !== workspaceSession?.user?.id);
-  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' ? agent.shared || directory.role === 'Owner' : agent.scope !== 'private').map(agent => ({ ...agent, kind: 'agent' as const }))];
+  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' || agent.scope !== 'private').map(agent => ({ ...agent, kind: 'agent' as const }))];
   const create = (members: string[], title: string) => mutation.run(async () => {
     const users = members.filter(key => key.startsWith('user:')).map(key => key.slice(5));
     const agents = members.filter(key => key.startsWith('agent:')).map(key => key.slice(6));

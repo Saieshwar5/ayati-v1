@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AgentEditor } from './editor';
 import { defaults, loadAgents, type Agent } from './model';
-import { currentWorkspace, identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
-import type { Profile } from '../../agents';
+import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
-import { loadLocalAgents, LocalEditor, type LocalDirectory } from './local-agents';
 import { AgentControl } from './control';
 import { GuidedSetup } from './guided-setup';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspace } from './workspace';
-import { LocalAgentWorkspace } from './local-workspace';
 import { workspaceSections, type WorkspaceSection } from './workspace-tabs';
 import { subscribeChanges } from '../chat/live';
 import { RehearsalLauncher } from './rehearsals/launcher';
@@ -19,9 +16,6 @@ import './workspace.css';
 
 export function AgentsPage() {
   const { data, error, refresh, setData } = useResource(loadAgents);
-  const allowLocal = currentWorkspace()?.role === 'Owner' && !workspaceSession?.simulation;
-  const loadLocal = useCallback(() => allowLocal ? loadLocalAgents() : Promise.resolve<LocalDirectory>({ agents: [], creation_available: false, memory_available: false }), [allowLocal]);
-  const local = useResource(loadLocal);
   const mutation = useMutation();
   const epoch = useRef(0);
   useEffect(() => () => { epoch.current++; }, []);
@@ -39,7 +33,6 @@ export function AgentsPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [editing, edit] = useState<Agent>();
-  const [editingLocal, editLocal] = useState<Profile>();
   const [controlled, control] = useState<Agent>();
   const [guided, guide] = useState<Agent>();
   const [rehearsing, rehearse] = useState<Agent>();
@@ -47,25 +40,22 @@ export function AgentsPage() {
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
-    epoch.current++; setData(undefined); local.setData(undefined);
-    edit(undefined); editLocal(undefined); guide(undefined); control(undefined);
+    epoch.current++; setData(undefined);
+    edit(undefined); guide(undefined); control(undefined);
     rehearse(undefined);
-    void refresh().catch(() => {}); if (allowLocal) void local.refresh().catch(() => {});
-  }), [setData, local.setData, refresh, local.refresh, allowLocal]);
+    void refresh().catch(() => {});
+  }), [setData, refresh]);
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (!document.hidden) { void refresh().catch(() => {}); if (allowLocal) void local.refresh().catch(() => {}); }
+      if (!document.hidden) void refresh().catch(() => {});
     }, 10000);
     return () => clearInterval(timer);
-  }, [refresh, local.refresh, allowLocal]);
+  }, [refresh]);
   const agents = (data?.agents ?? []).map(agent => ({ ...agent, settings: { ...defaults, ...agent.settings } }));
-  const locals = local.error ? [] : local.data?.agents ?? [];
-  const key = selectedKey ?? (data ? agents[0] ? `m:${agents[0].id}` : locals[0] ? `l:${locals[0].profile.id}` : undefined : undefined);
+  const key = selectedKey ?? (data && agents[0] ? `m:${agents[0].id}` : undefined);
   const selected = agents.find(a => `m:${a.id}` === key);
-  const selectedLocal = locals.find(a => `l:${a.profile.id}` === key)?.profile;
   const match = (name: string, role: string) => `${name} ${role}`.toLowerCase().includes(query.toLowerCase());
   const filtered = agents.filter(a => (filter === 'all' || a.scope === filter) && match(a.name, a.role));
-  const localFiltered = filter === 'workspace' ? [] : locals.filter(a => match(a.profile.name, a.profile.role));
   const select = (next: string) => {
     epoch.current++; setSelected(next); setShowProfile(true);
     if (next !== key) setSection(savedSection(next));
@@ -103,18 +93,13 @@ export function AgentsPage() {
         <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small><small className="agent-roster-state">{agent.settings.paused ? 'Paused' : agent.pending ? `${agent.pending} visible requests` : agent.scope === 'private' ? 'Only you' : 'Workspace'}</small></span>
       </Button>)}
       {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create an agent and give it a responsibility.'}</p>}
-      {allowLocal && <><h2>Existing local agents</h2>{local.error && <p role="alert">{local.error}<Button onClick={() => void local.refresh().catch(() => {})}>Retry local agents</Button></p>}
-        {localFiltered.map(({ profile }) => <Button className="agent-team-row" key={profile.id} aria-label={`Open local agent ${profile.name}`} aria-current={key === `l:${profile.id}` ? 'true' : undefined} onClick={() => select(`l:${profile.id}`)}><span className="ui-avatar">✦</span><span><strong>{profile.name}</strong><small>{profile.role}</small><small className="agent-roster-state">Local · {profile.state}</small></span></Button>)}
-        {local.data?.creation_available && <a className="ui-button" href={workspaceUrl('/?view=agents&legacy=1')}>Create a local agent</a>}</>}
     </div><footer>People, purpose and controlled work.</footer></aside>
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
       {selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} rehearse={() => rehearse(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
-      {selectedLocal && <LocalAgentWorkspace key={selectedLocal.id} profile={selectedLocal} section={section} selectSection={selectSection} back={back} edit={() => editLocal(selectedLocal)} />}
-      {data && !selected && !selectedLocal && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
+      {data && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
     {editing && data && <AgentEditor creating={!data.agents.some(a => a.id === editing.id)} key={editing.id} agent={editing} directory={data} close={() => edit(undefined)} saved={async () => { const id = editing.id; edit(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
-    {editingLocal && local.data && <LocalEditor key={editingLocal.id} profile={editingLocal} memoryAvailable={local.data.memory_available} close={() => editLocal(undefined)} saved={async () => { editLocal(undefined); await local.refresh(); }} />}
     {guided && <GuidedSetup key={guided.id} agent={guided} close={closeControls} />}
     {controlled && <AgentControl key={controlled.id} agent={controlled} close={closeControls} />}
     {rehearsing && <RehearsalLauncher key={rehearsing.id} agent={rehearsing} close={() => rehearse(undefined)} />}

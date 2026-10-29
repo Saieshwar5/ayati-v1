@@ -78,28 +78,3 @@ test('Chat omits progress launchers while retaining reply cancellation and ordin
     assert.match(document.querySelector('.chat-response').textContent,/Saved short reply/);
   });
 });
-
-test('private transcript refreshes preserve the expanded response island, focus and saved body, then dispose its reads',async()=>{
-  await reactFixture(async({button,click,update})=>{
-    const {ViewLifetime}=await import('../src/view-lifetime.ts');
-    const {mountLegacyResults}=await import('../src/react/results/legacy.tsx');
-    const {renderConversation}=await import('../src/view.ts');
-    const transcript=document.createElement('div');document.body.append(transcript);
-    const view=new ViewLifetime(transcript);let calls=0;
-    view.api=async()=>{calls++;return saved('PRIVATE_FROZEN_BODY');};
-    const responses=mountLegacyResults(view);
-    const state={messages:[{id:'reply',task_id:'task',role:'assistant',content:'Preview '.repeat(200),state:'streaming'}],tasks:[],artifacts:[]};
-    await update(()=>renderConversation(transcript,state,'Agent',false,responses.response));
-    assert.equal(calls,0);await click(button('Expand response'));
-    const body=document.querySelector('.inline-response-body'), control=button('Collapse response');
-    await update(()=>{
-      control.focus();state.messages[0].content+='New stream text';
-      renderConversation(transcript,state,'Renamed agent',responses.isOpen(),responses.response);
-    });
-    assert.equal(document.querySelector('.inline-response-body'),body);assert.equal(document.activeElement,control);
-    assert.match(body.textContent,/PRIVATE_FROZEN_BODY/);assert.equal(responses.isOpen(),true);
-    await click(button('Collapse response from top'));assert.equal(responses.isOpen(),false);
-    await update(()=>{responses.retainResponses([]);view.dispose();});transcript.remove();
-    assert.equal(document.querySelector('.inline-response-body'),null);
-  });
-});

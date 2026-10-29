@@ -28,14 +28,7 @@ pub(crate) struct ChatTurn<'a> {
 impl GooseRuntime {
     fn require_chat_only(&self) -> Result<()> {
         ensure!(
-            self.vm.is_none()
-                && self.config.platform.is_none()
-                && self.config.control_tools.is_none()
-                && !self.config.memory
-                && !self.config.browser
-                && !self.config.proof_tool
-                && !self.shared.memory_enabled()
-                && !self.shared.browser_enabled(),
+            self.config.control_tools.is_none() && !self.config.proof_tool,
             "Prepared sessions require the tool-free shared chat profile"
         );
         Ok(())

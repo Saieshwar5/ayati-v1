@@ -1,6 +1,14 @@
-//! Passive image derivatives. Original bytes and source permissions remain separate.
+//! Passive file delivery and image derivatives. Callers select and authorize the
+//! source first; original bytes and source permissions remain separate.
 use anyhow::{Context, Result, ensure};
+use axum::{
+    Json,
+    http::{HeaderMap, header},
+    response::{IntoResponse, Response},
+};
 use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
+use serde::Deserialize;
+use serde_json::json;
 use std::{
     io::Cursor,
     sync::{Arc, LazyLock},
@@ -68,6 +76,92 @@ fn decode_thumbnail(bytes: &[u8]) -> Result<Vec<u8>> {
     Ok(output.into_inner())
 }
 
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Read {
+    // Clients may still name the selected agent; reading never depends on it.
+    #[serde(rename = "agent")]
+    _agent: Option<String>,
+    #[serde(default)]
+    pub metadata: bool,
+    #[serde(default)]
+    pub access: bool,
+    #[serde(default)]
+    pub thumbnail: bool,
+    #[serde(default)]
+    pub inline: bool,
+    #[serde(default)]
+    pub preview: bool,
+    pub version: Option<String>,
+}
+impl Read {
+    pub(crate) fn version(&self, checksum: &str) -> Result<()> {
+        ensure!(
+            self.version.as_ref().is_none_or(|v| v == checksum),
+            "Stored file version changed. Reopen the file."
+        );
+        Ok(())
+    }
+}
+pub(crate) fn deliver(bytes: Vec<u8>, name: &str, mime: &str, input: &Read) -> Result<Response> {
+    if input.preview {
+        let supported = name.rsplit('.').next().is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "txt"
+                    | "md"
+                    | "csv"
+                    | "json"
+                    | "log"
+                    | "yaml"
+                    | "yml"
+                    | "toml"
+                    | "xml"
+                    | "html"
+                    | "svg"
+                    | "rs"
+                    | "py"
+                    | "js"
+                    | "ts"
+                    | "css"
+            )
+        });
+        let end = bytes.len().min(64 * 1024);
+        let text = if supported && !bytes[..end].contains(&0) {
+            Some(String::from_utf8_lossy(&bytes[..end]).into_owned())
+        } else {
+            None
+        };
+        return Ok(Json(json!({"text":text,"truncated":bytes.len()>end})).into_response());
+    }
+    let passive = matches!(
+        mime,
+        "image/png" | "image/jpeg" | "audio/wav" | "audio/webm"
+    );
+    let mime = if input.thumbnail {
+        "image/png"
+    } else if passive {
+        mime
+    } else {
+        "application/octet-stream"
+    };
+    let encoded: String = name.bytes().map(|b| format!("%{b:02X}")).collect();
+    let disposition = if input.thumbnail || input.inline && passive {
+        "inline"
+    } else {
+        "attachment"
+    };
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, mime.parse()?);
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        format!("{disposition}; filename=\"download\"; filename*=UTF-8''{encoded}").parse()?,
+    );
+    headers.insert(header::CACHE_CONTROL, "private, no-store".parse()?);
+    headers.insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse()?);
+    Ok((headers, bytes).into_response())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +197,23 @@ mod tests {
             .write_to(&mut png, ImageFormat::Png)
             .unwrap();
         assert!(decode_thumbnail(png.get_ref()).is_err());
+    }
+
+    #[test]
+    fn active_content_downloads_as_an_opaque_attachment() {
+        let html = b"<script>alert(1)</script>".to_vec();
+        let response = deliver(html, "<script>.html", mime(b"<script>"), &Read::default()).unwrap();
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "application/octet-stream"
+        );
+        let disposition = response.headers()[header::CONTENT_DISPOSITION]
+            .to_str()
+            .unwrap();
+        assert!(disposition.starts_with("attachment;"));
+        assert_eq!(
+            response.headers()[header::X_CONTENT_TYPE_OPTIONS],
+            "nosniff"
+        );
     }
 }

@@ -1,26 +1,26 @@
 import { useState } from 'react';
-import { currentWorkspace, workspaceId, workspaceSession, workspaceUrl } from '../../workspace-context';
+import { currentWorkspace, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { navigate } from '../../navigation';
 import { DisplayNameForm } from '../display-name-form';
 import { PeoplePage } from '../people';
 import { FeedbackPage } from '../feedback';
 import { WorkspaceGeneral, WorkspaceActivity } from './workspace-settings';
-import { RuntimeSettings, ConnectionSettings } from './runtime-settings';
+import { WorkspaceConnections } from './workspace-connections';
 import { WorkspaceTeams } from './workspace-teams';
 import './settings.css';
 
 type Scope = 'personal' | 'workspace';
 const personal = ['My account', 'Appearance', 'Help & feedback'];
-const workspace = ['General', 'People', 'Access', 'Connections', 'Activity', 'Teams', 'Local setup'];
+const workspace = ['General', 'People', 'Access', 'Connections', 'Activity', 'Teams'];
 export function SettingsPage({ href }: { href: string }) {
   const url = new URL(href);
-  const [workspaceName, setWorkspaceName] = useState(currentWorkspace()?.name ?? 'Local workspace');
-  const owner = !workspaceId || currentWorkspace()?.role === 'Owner';
+  const [workspaceName, setWorkspaceName] = useState(currentWorkspace()?.name ?? '');
+  const owner = currentWorkspace()?.role === 'Owner';
   const legacy = url.searchParams.get('view');
   const requestedScope = url.searchParams.get('scope') ?? (legacy === 'people' || legacy === 'users' || legacy === 'company' ? 'workspace' : 'personal');
   const scope: Scope = requestedScope === 'workspace' && owner ? 'workspace' : 'personal';
   const requestedSection = legacy === 'people' || legacy === 'users' ? 'people' : legacy === 'company' ? 'teams' : legacy === 'feedback' ? 'help-&-feedback' : url.searchParams.get('section') ?? (url.hash === '#theme' ? 'appearance' : '');
-  const sections = scope === 'personal' ? personal.filter(label => label !== 'My account' || workspaceSession?.user) : workspace.filter(label => workspaceId || ['Connections', 'Local setup'].includes(label));
+  const sections = scope === 'personal' ? personal.filter(label => label !== 'My account' || workspaceSession?.user) : workspace;
   const section = sections.find(label => slug(label) === requestedSection) ?? sections[0];
   const select = (nextScope: Scope, nextSection?: string) => navigate(workspaceUrl(`/?view=settings&scope=${nextScope}${nextSection ? `&section=${slug(nextSection)}` : ''}`));
   return <main className="settings-page settings-react" aria-label="Settings">
@@ -37,10 +37,10 @@ export function SettingsPage({ href }: { href: string }) {
       {sections.map(label => <button key={label} type="button" aria-current={label === section ? 'page' : undefined} onClick={() => select(scope, label)}>{label}</button>)}
     </nav>
     <div className="settings-detail" key={`${scope}:${section}`}>
-      {scope === 'personal' ? section === 'My account' ? <MyAccount /> : section === 'Appearance' ? <Appearance /> : workspaceId ? <FeedbackPage /> : <section><h2>Help</h2><p>Ask Cuckoo from the help button in the workspace rail.</p></section>
+      {scope === 'personal' ? section === 'My account' ? <MyAccount /> : section === 'Appearance' ? <Appearance /> : <FeedbackPage />
         : section === 'People' || section === 'Access' ? <PeoplePage accessOnly={section === 'Access'} />
         : section === 'General' ? <WorkspaceGeneral renamed={name => { const entry = currentWorkspace(); if (entry) entry.name = name; setWorkspaceName(name); }} /> : section === 'Activity' ? <WorkspaceActivity />
-        : section === 'Teams' ? <WorkspaceTeams /> : section === 'Connections' ? <ConnectionSettings /> : <RuntimeSettings />}
+        : section === 'Teams' ? <WorkspaceTeams /> : <WorkspaceConnections />}
     </div>
   </main>;
 }

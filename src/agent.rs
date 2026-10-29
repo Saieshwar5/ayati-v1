@@ -1,10 +1,4 @@
-mod browser;
-mod context;
-mod environment;
 mod intake;
-mod leases;
-mod memory;
-mod profile;
 mod worker;
 
 use crate::{
@@ -43,12 +37,7 @@ pub struct Agent {
     shell: Shell,
     wake: Notify,
     closing: AtomicBool,
-    environment_stopping: AtomicBool,
-    memory_editing: AtomicBool,
-    environment_generation: std::sync::atomic::AtomicU64,
     environment: tokio::sync::Mutex<()>,
-    leases: leases::Leases,
-    idle_timeout: Option<std::time::Duration>,
     shutdown: CancellationToken,
     owner_id: String,
     cancellation: Mutex<HashMap<String, CancellationToken>>,
@@ -56,9 +45,6 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn platform(&self) -> Option<Arc<crate::platform::Platform>> {
-        self.goose.as_ref().and_then(|g| g.platform())
-    }
     pub fn identity(&self) -> &str {
         self.goose.as_ref().map_or("local-agent", |g| g.identity())
     }
@@ -68,16 +54,15 @@ impl Agent {
         model: Arc<dyn Model>,
         context_bytes: usize,
     ) -> Arc<Self> {
-        Self::start_inner(store, files, Some(model), None, context_bytes, None)
+        Self::start_inner(store, files, Some(model), None, context_bytes)
     }
 
     pub fn start_goose(
         store: Arc<Store>,
         files: Arc<Files>,
         config: crate::runtime::config::GooseConfig,
-        idle_timeout: Option<std::time::Duration>,
     ) -> Arc<Self> {
-        Self::start_inner(store, files, None, Some(config), 0, idle_timeout)
+        Self::start_inner(store, files, None, Some(config), 0)
     }
 
     fn start_inner(
@@ -86,7 +71,6 @@ impl Agent {
         model: Option<Arc<dyn Model>>,
         config: Option<crate::runtime::config::GooseConfig>,
         context_bytes: usize,
-        idle_timeout: Option<std::time::Duration>,
     ) -> Arc<Self> {
         let (events, _) = broadcast::channel(512);
         let runnable = config.as_ref().is_none_or(|config| config.configured());
@@ -101,12 +85,7 @@ impl Agent {
             model,
             wake: Notify::new(),
             closing: AtomicBool::new(false),
-            environment_stopping: AtomicBool::new(false),
-            memory_editing: AtomicBool::new(false),
-            environment_generation: std::sync::atomic::AtomicU64::new(0),
             environment: tokio::sync::Mutex::new(()),
-            leases: leases::Leases::new(),
-            idle_timeout,
             shutdown: CancellationToken::new(),
             owner_id: uuid::Uuid::new_v4().to_string(),
             cancellation: Mutex::new(HashMap::new()),

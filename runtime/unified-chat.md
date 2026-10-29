@@ -23,7 +23,7 @@ permitted agent. Existing named shared conversations remain visible as channels;
 their membership and history are unchanged. New message lists workspace people and
 agents available to the requester. Human DMs and granted member-to-agent DMs use a
 canonical participant key, so either person reopens the same conversation, including
-under concurrent creation. Owner agent selection retains the existing private runtime.
+under concurrent creation.
 On PostgreSQL, channel creators/managers can update people membership, and managers
 can rename channels, switch private/public visibility and restrict posting to managers.
 Public visibility includes existing history and published files. SQLite retains fixed
@@ -62,8 +62,7 @@ both the original schema and the new conversation metadata and thread columns.
 
 ## Validation
 
-Client regression checks cover persistent navigation across private agents, channels
-and DMs, isolated drafts, stale-response rejection, channel member selection and
+Client regression checks cover persistent navigation across channels and DMs, isolated drafts, stale-response rejection, channel member selection and
 thread submission. SQLite and real PostgreSQL tests cover membership, duplicate
 messages, concurrent DM creation, foreign thread rejection, thread context isolation,
 revocation and import. Live-provider agent behavior remains separately testable; a

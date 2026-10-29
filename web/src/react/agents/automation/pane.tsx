@@ -6,7 +6,7 @@ import { subscribeChanges } from '../../chat/live';
 import { CreateSchedule } from './create-dialog';
 import { ScheduleState } from './state-dialog';
 import { ScheduleRuns } from './runs-dialog';
-import { cadence, date, loadClock, loadSchedules, type Routine } from './model';
+import { cadence, date, deviceClock, loadSchedules, type Routine } from './model';
 import './schedules.css';
 import { EventTriggers } from './events';
 
@@ -17,8 +17,7 @@ export function AutomationPane({ agent }: { agent: Agent }) {
 function ScheduleWorkspace({ agent }: { agent: Agent }) {
   const load = useCallback(() => loadSchedules(agent.id), [agent.id]);
   const resource = useResource(load);
-  const clockLoad = useCallback(loadClock, []);
-  const clock = useResource(clockLoad);
+  const [clock] = useState(deviceClock);
   const [open, setOpen] = useState<Open>();
   const opener = useRef<HTMLElement | null>(null), refreshButton = useRef<HTMLButtonElement | null>(null);
   const focusTimer = useRef<number | undefined>(undefined);
@@ -42,19 +41,17 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
       if (change.kind !== 'access' && change.kind !== 'reset') return;
       setOpen(undefined); resource.setData(undefined); void resource.refresh().catch(() => {});
     });
-    const updateClock = () => void clock.refresh().catch(() => {});
-    window.addEventListener('business-clock-changed', updateClock);
-    return () => { clearInterval(timer); window.clearTimeout(focusTimer.current); access(); window.removeEventListener('business-clock-changed', updateClock); };
-  }, [resource.refresh, resource.setData, clock.refresh]);
-  const ready = Boolean(resource.data && !resource.error && clock.data && !clock.error);
+    return () => { clearInterval(timer); window.clearTimeout(focusTimer.current); access(); };
+  }, [resource.refresh, resource.setData]);
+  const ready = Boolean(resource.data && !resource.error);
   return <section className="shared-schedules" aria-label={`${agent.name} automation`}>
     <header className="agent-section-heading"><div><h3>Schedules</h3><p>Give {agent.name} a routine in an existing conversation.</p></div>
       <Button disabled={!ready || !resource.data?.execution_available} onClick={() => show({ kind: 'create' })}>Create schedule</Button>
     </header>
-    {resource.error && <p role="alert">{resource.error}</p>}{clock.error && <p role="alert">Business timezone could not load. {clock.error}</p>}
+    {resource.error && <p role="alert">{resource.error}</p>}
     {!resource.data && !resource.error && <p role="status">Loading saved routines…</p>}
     {resource.data?.execution_available === false && <p role="status">Shared scheduled work needs pooled background execution. Saved routines remain readable; new execution is unavailable here.</p>}
-    <Button ref={refreshButton} onClick={() => { void resource.refresh().catch(() => {}); if (clock.error) void clock.refresh().catch(() => {}); }}>Refresh schedules</Button>
+    <Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button>
     {resource.data?.schedules.map(routine => <article className="routine-row" key={routine.id} aria-label={`Routine: ${routine.name}`}>
       <header><h4>{routine.name}</h4><span>{routine.state === 'completed' ? 'One-time occurrence accepted' : routine.state}</span></header>
       <p className="routine-instructions">{routine.content}{routine.instructions_long && '…'}</p>
@@ -72,7 +69,7 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
     {resource.data && !resource.data.schedules.length && <p>No routines you may view. Create one explicitly to schedule work.</p>}
     <p className="ui-help">Every run uses current access and independent tool approvals. Pausing a routine and stopping one task are separate actions.</p>
     <EventTriggers agent={agent.id}/>
-    {open?.kind === 'create' && resource.data && clock.data && <CreateSchedule agent={agent.id} data={resource.data} clock={clock.data} close={close} saved={resource.refresh} />}
+    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
     {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
     {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={resource.refresh} />}
   </section>;

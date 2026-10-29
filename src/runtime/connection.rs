@@ -16,21 +16,6 @@ impl GooseRuntime {
         self.connect_with_preparation(true).await
     }
     async fn connect_with_preparation(&self, prepared: bool) -> Result<Process> {
-        ensure!(
-            !prepared || self.vm.is_none(),
-            "Generic preparation requires the local shared chat runtime"
-        );
-        let authority_revision = self
-            .config
-            .platform
-            .as_ref()
-            .map(|p| p.authority_revision(&self.config.agent_id))
-            .transpose()?
-            .unwrap_or(0);
-        let mut effective = self.config.clone();
-        effective.memory = self.shared.memory_enabled();
-        effective.browser = self.shared.browser_enabled();
-        effective.validate_browser()?;
         let profile = self.shared.store.profile_edit()?;
         let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
         let model = profile
@@ -38,34 +23,15 @@ impl GooseRuntime {
             .and_then(|p| p.model.as_deref())
             .unwrap_or(&self.config.model);
         let connection_id = uuid::Uuid::new_v4().to_string();
-        let (memory_server, memory_port) = if self.vm.is_none() {
-            if let Some(memory) = &self.memory
-                && (effective.memory || effective.platform.is_some())
-            {
-                let (server, port) = crate::memory::HostMemoryServer::start(memory.clone()).await?;
-                (Some(server), port)
-            } else {
-                (None, 0)
-            }
-        } else {
-            (None, 0)
-        };
-        let mut child = if let Some(vm) = &self.vm {
-            vm.connect(&connection_id, model).await?
-        } else {
-            let mut config = effective.clone();
+        let mut child = {
+            let mut config = self.config.clone();
             config.model = model.into();
             let mut command = if prepared {
                 config.prepared_command().await?
             } else {
                 config.command().await?
             };
-            if effective.memory || effective.platform.is_some() {
-                command
-                    .env("AYATI_MEMORY_ADDRESS", format!("127.0.0.1:{memory_port}"))
-                    .env("AYATI_MEMORY_TOKEN", &connection_id);
-            }
-            if let Some(control) = &effective.control_tools {
+            if let Some(control) = &self.config.control_tools {
                 command
                     .env("AYATI_CONTROL_ADDRESS", &control.address)
                     .env("AYATI_CONTROL_TOKEN", &control.token);
@@ -130,7 +96,6 @@ impl GooseRuntime {
             group: child.id().unwrap() as i32,
             child,
             driver,
-            _memory_server: memory_server,
         };
         let setup = async {
             let connection = receive
@@ -146,12 +111,8 @@ impl GooseRuntime {
                     && init.agent_capabilities.load_session,
                 "Pinned Goose lacks the required ACP v1 session-loading capability"
             );
-            let cwd = if self.vm.is_some() {
-                std::path::PathBuf::from("/var/lib/ayati/workspace")
-            } else {
-                self.config.workspace.canonicalize()?
-            };
-            let mut meta = effective.session_meta()?;
+            let cwd = self.config.workspace.canonicalize()?;
+            let mut meta = self.config.session_meta()?;
             if prepared {
                 meta.insert("ayatiPrepare".into(), serde_json::json!(1));
             }
@@ -159,30 +120,11 @@ impl GooseRuntime {
             if role_revision > 0 {
                 settings["role_revision"] = serde_json::json!(role_revision);
             }
-            if effective.memory {
-                settings["memory_adapter"] = serde_json::json!(1);
-            }
-            if effective.platform.is_some() {
-                settings["workspace_adapter"] = serde_json::json!(1);
-            }
-            if effective.control_tools.is_some() {
+            if self.config.control_tools.is_some() {
                 settings["control_adapter"] = serde_json::json!(1);
             }
-            if authority_revision > 0 {
-                settings["authority_revision"] = serde_json::json!(authority_revision);
-            }
-            if effective.browser {
-                settings["browser_adapter"] = serde_json::json!(1);
-            }
-            if let Some(path) = &self.config.vm_manifest {
-                settings["vm_manifest"] = serde_json::json!(path);
-            }
             let settings = settings.to_string();
-            let saved = if effective.platform.is_some() {
-                self.shared.store.workspace_runtime_session(&settings)?
-            } else {
-                self.shared.store.runtime_session(&settings)?
-            };
+            let saved = self.shared.store.runtime_session(&settings)?;
             ensure!(
                 !prepared || saved.is_none(),
                 "Prepared slots require a fresh empty session"
@@ -224,7 +166,6 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
-                authority_revision,
                 role_revision,
                 connection_id,
                 connection,

@@ -5,9 +5,8 @@ PostgreSQL-managed workspace questions, exact approvals and outcomes now use
 [personal Home attention](workspace-attention.md), with their own current-source
 audiences and read/review receipts. The private inbox remains explicitly linked.
 
-Start Ayati normally, then choose **Home** in the left rail or open
-`http://127.0.0.1:8765/?view=home` (use your configured port). **Agents** returns
-to chat and agent creation. The root URL opens Home; `/?agent=local-agent` opens chat.
+Sign in, open a workspace and choose **Home** in the left rail
+(`/w/<workspace-id>/?view=home`). Home is also the workspace's default page.
 
 Home shows every registered agent, including preparation failures, and combines:
 

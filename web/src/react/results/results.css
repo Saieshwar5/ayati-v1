@@ -21,7 +21,6 @@
 .inline-response-body { overflow-wrap:anywhere; }
 .chat-response .result-note { padding:0 0 12px; }
 .chat-response .message-markdown :is(pre,table) { max-width:100%; }
-.private-response { min-width:0; max-width:100%; }
 .chat-message:has(.chat-response-long) { width:100%; max-width:100%; }
 .chat-message:has(.chat-response-long) > div { flex:1; }
 @media(max-width:600px) {

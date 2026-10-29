@@ -1,5 +1,11 @@
 //! Saved response presentation. This module grants no source or operation authority.
 use anyhow::{Result, ensure};
+use axum::{
+    Json,
+    http::{HeaderMap, StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use serde::Deserialize;
 use serde_json::{Value, json};
 pub(crate) const MAX_BODY: usize = 512 * 1024;
 pub(crate) const PREVIEW_CHARS: usize = 900;
@@ -151,4 +157,61 @@ mod tests {
             "interrupted"
         );
     }
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Read {
+    // Clients may still name the selected agent; reading never depends on it.
+    #[serde(rename = "agent")]
+    _agent: Option<String>,
+    #[serde(default)]
+    pub metadata: bool,
+    #[serde(default)]
+    pub download: bool,
+    pub version: Option<String>,
+}
+pub(crate) fn deliver(id: &str, data: Value, input: &Read) -> Response {
+    if input
+        .version
+        .as_ref()
+        .is_some_and(|version| data["version"] != *version)
+    {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({"error":"This saved version changed. Open the latest saved response."})),
+        )
+            .into_response();
+    }
+    let mut response = if input.download {
+        if data["state"] != "complete" || data["body"].as_str().is_none() {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"error":"Open a complete saved response before downloading."})),
+            )
+                .into_response();
+        }
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8".parse().unwrap(),
+        );
+        let name = crate::response::checksum(id.as_bytes());
+        headers.insert(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"response-{}.md\"", &name[..12])
+                .parse()
+                .unwrap(),
+        );
+        (headers, data["body"].as_str().unwrap().to_owned()).into_response()
+    } else {
+        Json(data).into_response()
+    };
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, "private, no-store".parse().unwrap());
+    response
+        .headers_mut()
+        .insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse().unwrap());
+    response
 }

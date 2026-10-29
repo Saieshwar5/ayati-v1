@@ -279,7 +279,7 @@ async fn durable_claims_recover_and_fence_stale_workers() {
 }
 #[tokio::test]
 #[ignore = "requires local PostgreSQL"]
-async fn revocation_cancels_pending_results_and_resource_sessions() {
+async fn revocation_cancels_pending_results() {
     let db = fixture().await;
     let owner = user(&db, "owner").await;
     let member = user(&db, "member").await;
@@ -296,17 +296,6 @@ async fn revocation_cancels_pending_results_and_resource_sessions() {
     db.chat_grant(&owner, &w, &member.id, "agent-one", true)
         .await
         .unwrap();
-    db.resource_grant(&owner, &w, &member.id, "app", "app-one", Some("read"))
-        .await
-        .unwrap();
-    db.app_session_save(&member, &w, "app-one", "hash", "doc")
-        .await
-        .unwrap();
-    assert!(
-        db.app_session_bound(&member, &w, "app-one", "hash", false)
-            .await
-            .unwrap()
-    );
     db.chat_send(&member, &w, &c, &message("hello", Some("agent-one")))
         .await
         .unwrap();
@@ -321,23 +310,7 @@ async fn revocation_cancels_pending_results_and_resource_sessions() {
         "cancelled"
     );
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
-    assert!(
-        db.app_session_bound(&member, &w, "app-one", "hash", false)
-            .await
-            .is_err()
-    );
     join(&db, &owner, &w, &member, "User").await;
-    assert!(
-        db.resource_allowed(&member, &w, "app", "app-one")
-            .await
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        !db.app_session_bound(&member, &w, "app-one", "hash", false)
-            .await
-            .unwrap()
-    );
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
 }
 #[tokio::test]

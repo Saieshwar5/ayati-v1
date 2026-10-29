@@ -18,10 +18,7 @@ pub fn observed(name: &str, input: &Value) -> bool {
                     .and_then(Value::as_array)
                     .is_some_and(|s| s.len() == 1)
         }),
-        Some("save_home_panel") => crate::workspace_mcp::observed(
-            &format!("{}panel_write", crate::workspace_mcp::PREFIX),
-            input,
-        ),
+        Some("save_home_panel") => crate::panel_schema::panel_write_input(input),
         Some("ask_question") => input.as_object().is_some_and(|v| {
             v.len() == 2
                 && v.get("key").is_some_and(Value::is_string)

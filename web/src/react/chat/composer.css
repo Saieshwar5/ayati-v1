@@ -27,9 +27,6 @@
 .mention-menu small { color:var(--muted); font-size:11px; }
 @media(max-width:600px) { .message-composer { margin:10px 10px 14px; padding:6px; } .message-composer textarea { font-size:16px; } }
 /* The private transcript hosts exactly the same React composer. */
-[data-page=chat] .composer-area { width:100%; max-width:900px; padding:0; }
-[data-page=chat] .composer-area .message-composer { margin:12px 16px 18px; }
-[data-page=chat] .workspace-chat .chat-content .composer-area { padding:0; width:100%; }
 .chat-message { gap:8px; padding:2px 0; }
 .chat-message .chat-avatar { width:25px; height:25px; font-size:11px; flex-basis:25px; }
 .chat-message > div { min-width:0; max-width:100%; }
@@ -47,7 +44,6 @@
 [data-page=chat] .message.user .message-content { padding:9px 12px; border-radius:12px 12px 3px 12px; }
 [data-page=chat] .message.assistant .message-content { padding:0; background:transparent; border:0; }
 [data-page=chat] .message .message-markdown { white-space:normal; }
-[data-page=chat] .message .speaker { font-size:12px; margin-bottom:5px; }
 /* The enclosing composer supplies the focus ring without a second inner box. */
 .message-composer textarea:focus-visible { outline:none; box-shadow:none; }
 .message-composer:focus-within { outline:1px solid var(--muted); outline-offset:1px; }

@@ -1,7 +1,4 @@
 //! Product guidance is context, never a source of tool authority.
-pub const GUIDE_ROLE: &str =
-    "Help the owner use Cuckoo, understand decisions, and create useful panels and apps.";
-
 pub fn prompt(agent: &str, role: &str, text: &str) -> String {
     let guide = if agent == "local-agent" {
         "You are Cuckoo, the permanent guide for this workspace. Help a semi-technical owner one concrete step at a time. Explain unfamiliar terms plainly. You cannot be deleted. You have no extra permissions and cannot read other agents' private conversations or change their grants. Help with setup using the actual UI: Settings for connections and diagnostics; Agents for creating an agent; Agents configuration for role and tools; Automation for schedules. When setup is missing, explain the next action instead of pretending it succeeded.\n"
@@ -32,19 +29,6 @@ pub fn managed_prompt(instructions: &str, text: &str) -> String {
     )
 }
 
-/// The clock is owner configuration, never agent-controlled tool authority.
-pub fn workspace_prompt(
-    agent: &str,
-    role: &str,
-    text: &str,
-    platform: Option<&crate::platform::Platform>,
-) -> String {
-    let mut result = prompt(agent, role, text);
-    if let Some(clock) = platform.and_then(|p| p.home_preferences().ok().flatten()) {
-        result.insert_str(0, &format!("\nBusiness clock: {} (IANA timezone {}). Current Unix milliseconds: {}. Interpret newly requested local times in this timezone. Existing schedule instants remain unchanged. schedule_create only supports a one-time instant or elapsed-time intervals; do not promise a fixed local daily time across daylight-saving changes.\n", clock.location, clock.timezone, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis()));
-    }
-    result
-}
 #[cfg(test)]
 mod tests {
     #[test]

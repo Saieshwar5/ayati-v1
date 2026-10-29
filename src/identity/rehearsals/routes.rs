@@ -128,7 +128,7 @@ async fn response(
     State(app): State<Shared>,
     RoutePath((w, a, id)): RoutePath<(String, String, String)>,
     headers: HeaderMap,
-    Query(input): Query<crate::server::responses::Read>,
+    Query(input): Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     let data = pg(&app)?.rehearsal(&user, &w, &a, &id).await?;
@@ -140,5 +140,5 @@ async fn response(
         .as_str()
         .context("Sample response unavailable")?;
     let body = crate::response::body(&id, text, "complete", 1, input.metadata)?;
-    Ok(crate::server::responses::deliver(&id, body, &input))
+    Ok(crate::response::deliver(&id, body, &input))
 }
