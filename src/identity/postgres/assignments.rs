@@ -9,7 +9,9 @@ pub(crate) struct Assignment {
 }
 
 pub(super) async fn admission_gate(tx: &DatabaseTransaction) -> Result<()> {
+    let started = std::time::Instant::now();
     query(tx, "SELECT pg_advisory_xact_lock(hashtextextended(current_database() || '/' || current_schema() || '/relay_assignments',0))", vec![]).await?;
+    super::pool_metrics::admission_waited(started.elapsed());
     Ok(())
 }
 

@@ -187,6 +187,18 @@ and record IDs, never secret values or message contents. `RUST_LOG` adjusts
 verbosity (default `ayati=info`). Locally the default is readable text
 (`AYATI_LOG_FORMAT=text`).
 
+Every `AYATI_METRICS_SECONDS` (default 60; 0 turns it off) each controller logs
+pool and database load as one CloudWatch embedded metric format line in namespace
+`Ayati`, with no dimensions: `QueuedWork`, `OldestQueuedSeconds`, `ReadySlots`,
+`BusySlots`, `Executors`, `AdmissionWaits`, `AdmissionWaitAverage`/`Max`
+(milliseconds waiting for the global admission lock since the last line),
+`DatabaseConnections` and `DatabaseBytes`. Every controller reports the same global
+queue and slot figures, so alarm and scale on the Maximum statistic; admission
+waits are per controller. The ECS `awslogs` driver is expected to extract these
+metrics (confirm in the first AWS window). Every tenth line, the ten largest tables
+are logged by size. Scale executors on `OldestQueuedSeconds` and `QueuedWork`, not
+CPU.
+
 ## Supervision, replacement and recovery
 
 - `GET /health/live` checks HTTP responsiveness without a database probe.

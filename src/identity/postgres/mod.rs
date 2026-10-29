@@ -74,6 +74,10 @@ mod executor_slot_tests;
 mod executor_slots;
 mod executor_task_migration;
 mod executor_tasks;
+mod pool_metrics;
+#[cfg(test)]
+mod pool_metrics_tests;
+pub(crate) use pool_metrics::PoolSnapshot;
 #[cfg(test)]
 mod preparation_tests;
 #[cfg(test)]

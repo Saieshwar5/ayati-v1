@@ -16,6 +16,7 @@ mod hosting;
 mod interactions;
 mod library;
 mod login_state;
+mod metrics;
 pub mod postgres;
 mod private_config;
 mod process_lock;
@@ -200,6 +201,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
+    metrics::start(app.clone());
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
