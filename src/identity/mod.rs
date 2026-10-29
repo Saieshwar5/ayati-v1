@@ -26,7 +26,6 @@ mod process_lock;
 mod profile;
 mod provider;
 mod rehearsals;
-mod resources;
 mod routes;
 mod settings;
 pub mod simulation;
@@ -249,7 +248,6 @@ fn router(app: Shared) -> Router {
         .merge(collaboration::routes())
         .merge(communications::routes())
         .merge(simulation::routes())
-        .merge(resources::routes())
         .route("/health/live", get(hosting::live))
         .route("/health/ready", get(hosting::ready))
         .route(

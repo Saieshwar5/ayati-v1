@@ -11,7 +11,6 @@ pub(super) fn configured(profile: &serde_json::Value) -> Result<bool> {
     if !settings.provider.is_empty() {
         config.provider = settings.provider;
     }
-    config.vm_manifest = None;
     Ok(config.configured())
 }
 pub(crate) async fn start(app: Shared) {

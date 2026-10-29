@@ -54,7 +54,6 @@ impl LocalProvider {
             .env_clear()
             .env("AYATI_DATA_DIR", &root)
             .env("AYATI_RUNTIME", "goose")
-            .env("AYATI_EXECUTION", "host")
             .env("AYATI_CHAT_EXECUTION", "assigned")
             .env("AYATI_GOOSE_BIN", &self.goose)
             .stdin(if grant.is_some() {

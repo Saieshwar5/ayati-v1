@@ -53,7 +53,7 @@ export async function restoredWorkspace(t, app, profiles) {
     cwd: app.data, stdio: ['ignore', 'pipe', 'pipe'], env: {
       PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: new URL(app.base).port,
-      AYATI_RUNTIME: 'goose', AYATI_EXECUTION: 'host', AYATI_CHAT_EXECUTION: 'pooled',
+      AYATI_RUNTIME: 'goose', AYATI_CHAT_EXECUTION: 'pooled',
       AYATI_MODEL: 'fixture', AYATI_GOOSE_PROVIDER: 'openai',
       AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
       AYATI_PREPARED_GOOSE_BIN: join(root, '.cache/goose/v1.54.0-ayati.1/goose'),

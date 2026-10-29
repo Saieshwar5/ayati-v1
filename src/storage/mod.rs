@@ -4,7 +4,6 @@ mod claim_updates;
 pub mod intake;
 pub mod memory;
 pub mod profile;
-mod responses;
 pub mod runtime;
 pub mod schedule_history;
 pub mod work;

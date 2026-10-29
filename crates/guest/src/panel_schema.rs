@@ -1,4 +1,5 @@
-//! One advertised data contract for local and managed personal panel tools.
+//! One advertised data contract for managed personal panel tools.
+use serde_json::Value;
 pub const TEMPLATES: &[&str] = &[
     "metric",
     "chart",
@@ -31,3 +32,40 @@ pub const GUIDE: &str = concat!(
     "Refreshes preserve the reviewed family, labels, units, variants, series names, columns, comparison direction and targets. ",
     "Only values and records change without a new definition review."
 );
+
+/// Exact argument shape for saving a Home panel draft.
+pub fn panel_write_input(input: &Value) -> bool {
+    let Some(input) = input.as_object() else {
+        return false;
+    };
+    (6..=9).contains(&input.len())
+        && input.keys().all(|key| {
+            [
+                "id",
+                "title",
+                "purpose",
+                "expected_revision",
+                "sections",
+                "template",
+                "sources",
+                "publish",
+                "updates_enabled",
+            ]
+            .contains(&key.as_str())
+        })
+        && input
+            .get("template")
+            .is_none_or(|v| v.as_str().is_some_and(|s| TEMPLATES.contains(&s)))
+        && ["publish", "updates_enabled"]
+            .iter()
+            .all(|key| input.get(*key).is_none_or(Value::is_boolean))
+        && ["id", "title", "purpose"]
+            .iter()
+            .all(|k| input.get(*k).is_some_and(Value::is_string))
+        && input
+            .get("expected_revision")
+            .is_some_and(|v| v.as_i64().is_some())
+        && ["sections", "sources"]
+            .iter()
+            .all(|k| input.get(*k).is_some_and(Value::is_array))
+}

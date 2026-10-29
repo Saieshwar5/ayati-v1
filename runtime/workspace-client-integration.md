@@ -1,111 +1,45 @@
-# Authenticated Relay client
+# Authenticated workspace client
 
-`ayati identity` serves the original Home panels, Apps, private agent conversations
-and Settings behind `/w/<workspace-id>/`. The black Relay branding and shared
-navigation now expose Home, Apps, Chat, Agents, Users and Settings. Sign-in and
-workspace selection open this client, not a replacement dashboard.
+`ayati identity` serves the web client behind `/w/<workspace-id>/`. Sign-in and
+workspace selection open this client. The account menu holds workspace
+switching, email, appearance and sign-out. Switching workspaces performs a full document
+navigation. Drafts, uploads, controller tokens, receipts and Home layouts are
+scoped by user and workspace.
 
-The single profile button at the bottom combines workspace switching, email,
-account/appearance links and sign-out. Only the profile avatar is visible when
-closed; workspace identity and switching appear inside the account menu.
-There is no permanent account header. Menus dismiss with Escape or an outside
-click; switching still performs a full document navigation.
+## One backend shape
 
-## Isolated workspaces
+Locally and in the cloud the controller serves the same shared product from
+PostgreSQL: Chat, shared agents, approvals, questions, Home attention and panels,
+Library, schedules and events. Agent work runs on executors (see
+[executor pool](executor-pool.md)).
 
-Each workspace has an independent store under
-`AYATI_DATA_DIR/identity/workspaces/<id>`. Workspaces do not inherit host VM,
-browser, files, tools or connectors.
-
-Workspace switching performs a full document navigation. Drafts, uploads,
-controller tokens, receipts and Home layouts are scoped by user and workspace.
-
-## Chat, Agents and Users
-
-Chat keeps the original owner-only agent conversations accessible as private
-chats. New conversations can include workspace people and explicitly permitted
-agents. They have persistent membership and messages, idempotent sends and local
-per-conversation drafts. Sending to everyone does not wake an agent; selecting
-an agent explicitly asks it to reply.
-
-Shared replies use the existing Goose runtime in a fresh, conversation-only
-context. They receive only bounded shared transcript history, never private
-agent history, memory, files, tools or the owner's VM. Agent access is checked
-before dispatch, during execution and before publication. Revocation cancels
-publication; removal clears conversation membership and grants. Pending replies
-are marked failed after restart rather than replayed. Agent requests are bounded
-and timed out. Tool-enabled shared work, editable group membership, unread counts,
-notifications, attachments and threads are not implemented yet.
-
-Agents provides creation, configuration, retry, archive, restore and removal.
-The built-in guide cannot be removed. Archive stops its runtime. Removal is a
-retained tombstone; files, conversations and App data are not erased. The existing
-local four-agent registry limit still applies, including retained agents. Agent
-creation requires the existing VM setup. Only owners manage agent configuration.
-
-Users retains invitation and role management and adds explicit agent-chat, App
-and panel access. Owners have implicit management authority. Other people receive
-only granted published Apps and active panels. App access can be read-only or
-read/write/delete records; neither permits code or schema changes. App document
-and record sessions are bound to the authenticated member, workspace and App.
-Private agent conversations, files, approvals and connectors remain owner-only.
+There is no per-workspace private runtime. The single-user daemon's private
+agents, local Apps and panels, memory, browser, VM and connector screens were
+removed on 2026-10-29. Their shared replacements are built feature by feature
+(D221 Step 9) rather than proxied to old local stores.
 
 ## Request boundary
 
 Every business request uses `/w/<id>/api/...` and validates the authenticated
 session and current membership. A workspace or agent ID is never authorization.
-Mutations require same-origin Origin and `X-Ayati-Request: identity`. Resource
-grants are checked on each request; revocation and member record operations use
-a shared lock. The inner business router receives fresh route parameters so
-workspace wildcard parameters cannot break App or agent handlers.
+Mutations require same-origin Origin and `X-Ayati-Request: identity`.
 
-SSE streams recheck local session/membership at most one second apart and provider
-status every 15 seconds. Logout and access loss close streams. Unscoped business
-APIs and host shutdown remain unavailable. Legacy connectors are available only
-to the explicitly bound owner; fresh workspaces need provider-specific setup.
+`/w/<id>/api/context` returns the user, workspace and role. Older workspace API
+paths with no shared implementation behave exactly as in hosted mode:
 
-## Validation and limits
+- `GET` of `home`, `home/preferences`, `apps`, `panels` and `agents` returns an
+  empty view (`apps`/`panels` report `"available": false`).
+- Every other legacy path returns `503` with a "not available yet" error.
 
-Rust fixture checks cover independent storage,
-cross-workspace denial, shared conversation membership and deduplication,
-revocation, restart recovery, published-only App access, member-bound App sessions,
-read/write restrictions and retained agent removal. Existing App, Home panel,
-profile, registry and durable-work regression suites also pass. Client unit tests,
-production build and browser-test type checking pass.
+The company simulation additionally lists its scripted shared agents at
+`/api/agents`. Unscoped business APIs and host shutdown are unavailable.
 
-This remains a local pilot. Automated fixtures do not prove VM provisioning,
-backup VM boot recovery or production tenancy. See `identity-workspaces.md` for
-hosted deployment requirements. Preserve the distinction between working private
-agent tools and conversation-only shared agent replies.
+## Validation
 
-Live local verification on 2026-10-20: the bound owner opened the original Diet
-Tracker App and ramesh's saved private conversation. A new owner-only Chat received
-a real Goose reply and retained the exchange after reload. Users showed both
-existing memberships and the new access controls. No employee permissions were
-changed for verification, and no new invitations were sent. The final library
-suite passed 44 tests, with 23 focused existing feature tests and six client test
-files also passing. Desktop and narrow Chat layout checks were performed.
+Rust gateway tests cover hosted-equivalent empty views and `503` answers, session
+and same-origin requirements, and membership loss. PostgreSQL regressions cover
+cross-workspace denial, shared conversation membership, revocation and restart
+recovery.
 
-## Compact management interface
-
-The quiet navigation rail and account menu wrap the same authenticated client.
-Users now presents members and invitations as separate lists. Invite person opens
-a dialog; Details opens a single person's Membership, Agents and Apps & panels.
-Only the owner sees resource grants; admins retain member invitation/removal and
-members get read-only details. Grant changes save individually with visible status
-and revert visually on error. Inviting or merely opening a drawer grants no App,
-panel or agent access. The backend remains the authority for every request.
-
-Agents uses a list and tabbed configuration drawer, retaining profile revisions,
-create request IDs and capability availability. Apps moves releases and agent
-record grants into Manage while preserving scoped previews and exact-release
-activation. Settings categories are tabbed. See [design system](design-system.md)
-for layout and responsive behavior.
-
-The web test suite includes isolated Users role/grant/invitation failures and agent
-profile revision conflicts. Those tests simulate writes; routine visual verification
-must not invite real people or change live grants just to exercise the layout.
-
-The [React migration](react-client.md) now owns the shell, account/workspace flows
-and Users screens. Existing Home, Apps and agent tools remain reachable through
-an explicit compatibility subtree while their interfaces are converted in stages.
+The [React migration](react-client.md) owns the shell, account/workspace flows,
+Users and the shared screens.

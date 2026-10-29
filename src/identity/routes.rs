@@ -272,7 +272,6 @@ pub(super) async fn change(
     Json(input): Json<Change>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let _access = app.runtimes.access_gate.write().await;
     app.store
         .change(&user, &workspace, &target, input.role.as_deref())
         .await?;

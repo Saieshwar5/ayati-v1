@@ -81,10 +81,7 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
         config.session_meta().unwrap()["enabledExtensions"],
         json!([])
     );
-    assert!(!config.browser && !config.memory && !config.proof_tool);
-    assert!(
-        config.vm_manifest.is_none() && config.platform.is_none() && config.control_tools.is_none()
-    );
+    assert!(!config.proof_tool && config.control_tools.is_none());
     let mut stale = claim.clone();
     stale.token = uuid::Uuid::new_v4().to_string();
     assert!(!db.heartbeat_rehearsal(&stale).await.unwrap());

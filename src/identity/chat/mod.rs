@@ -73,13 +73,13 @@ async fn response(
     State(app): State<Shared>,
     RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
     headers: axum::http::HeaderMap,
-    axum::extract::Query(input): axum::extract::Query<crate::server::responses::Read>,
+    axum::extract::Query(input): axum::extract::Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     let data = super::collaboration::pg(&app)?
         .response_body(&user, &w, &chat, &message, input.metadata)
         .await?;
-    Ok(crate::server::responses::deliver(&message, data, &input))
+    Ok(crate::response::deliver(&message, data, &input))
 }
 async fn cancel(
     State(app): State<Shared>,
@@ -103,13 +103,6 @@ async fn directory(
     let mut directory = app.store.directory(&user, &workspace).await?;
     directory["agents"] = json!(agents);
     Ok(Json(directory))
-}
-fn port(app: &App) -> u16 {
-    app.origin
-        .rsplit(':')
-        .next()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(8765)
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

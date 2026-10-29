@@ -41,44 +41,9 @@ async fn ownership_and_revocation_are_scoped_to_each_workspace() {
     assert!(db.workspace_settings(&b, &wa).await.is_err());
     assert!(db.workspace_settings(&a, &wb).await.is_err());
     assert!(db.change(&b, &wa, &b.id, Some("Owner")).await.is_err());
-    db.resource_grant(&a, &wa, &b.id, "app", "shared-app", Some("write"))
-        .await
-        .unwrap();
-    db.app_session_save(&b, &wa, "shared-app", "first", "first-doc")
-        .await
-        .unwrap();
-    db.resource_grant(&b, &wb, &a.id, "app", "shared-app", Some("read"))
-        .await
-        .unwrap();
-    db.app_session_save(&a, &wb, "shared-app", "second", "second-doc")
-        .await
-        .unwrap();
     db.change(&a, &wa, &b.id, Some("Owner")).await.unwrap();
-    assert!(
-        !db.app_session_bound(&b, &wa, "shared-app", "first", false)
-            .await
-            .unwrap()
-    );
-    db.app_session_save(&b, &wa, "shared-app", "replacement", "replacement-doc")
-        .await
-        .unwrap();
     db.change(&a, &wa, &b.id, None).await.unwrap();
-    assert!(
-        db.resource_allowed(&b, &wa, "app", "shared-app")
-            .await
-            .is_err()
-    );
-    assert!(
-        db.app_session_bound(&b, &wa, "shared-app", "replacement", false)
-            .await
-            .is_err()
-    );
     assert_eq!(db.role(&wb, &b.id).await.unwrap(), "Owner");
-    assert!(
-        db.app_session_bound(&a, &wb, "shared-app", "second", false)
-            .await
-            .unwrap()
-    );
     assert_eq!(
         db.snapshot(&b).await.unwrap()["workspaces"]
             .as_array()
@@ -86,19 +51,8 @@ async fn ownership_and_revocation_are_scoped_to_each_workspace() {
             .len(),
         1
     );
-    // A fresh invitation restores membership, never obsolete resource grants/sessions.
     join(&db, &a, &wa, &b, "User").await;
-    assert_eq!(
-        db.resource_allowed(&b, &wa, "app", "shared-app")
-            .await
-            .unwrap(),
-        None
-    );
-    assert!(
-        !db.app_session_bound(&b, &wa, "shared-app", "replacement", false)
-            .await
-            .unwrap()
-    );
+    assert_eq!(db.role(&wa, &b.id).await.unwrap(), "User");
 }
 
 #[tokio::test]

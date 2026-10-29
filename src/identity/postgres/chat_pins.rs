@@ -2,21 +2,16 @@ use super::*;
 use crate::identity::chat::organization_model::{Pin, PinKind, SavePins};
 use serde_json::json;
 impl PgStore {
-    pub(crate) async fn chat_pins(&self, user: &User, w: &str, local: &[String]) -> Result<Value> {
+    pub(crate) async fn chat_pins(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
-        let data = read_in(&tx, user, w, local).await?;
+        let data = read_in(&tx, user, w).await?;
         tx.commit().await?;
         Ok(data)
     }
-    pub(crate) async fn organized_chats(
-        &self,
-        user: &User,
-        w: &str,
-        local: &[String],
-    ) -> Result<Value> {
+    pub(crate) async fn organized_chats(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let mut data = super::chat::chats_in(&tx, user, w).await?;
-        data["preferences"] = read_in(&tx, user, w, local).await?;
+        data["preferences"] = read_in(&tx, user, w).await?;
         tx.commit().await?;
         Ok(data)
     }
@@ -24,14 +19,13 @@ impl PgStore {
         &self,
         user: &User,
         w: &str,
-        local: &[String],
         input: &SavePins,
     ) -> Result<Value> {
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
         ensure!(
-            visible(&tx, user, w, &input.pins, local).await? == input.pins,
+            visible(&tx, user, w, &input.pins).await? == input.pins,
             "A pinned conversation is no longer available. Refresh your conversations."
         );
         execute(&tx,"INSERT INTO relay_chat_preferences(workspace,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",vec![w.into(),user.id.clone().into()]).await?;
@@ -60,12 +54,7 @@ impl PgStore {
         Ok(json!({"available":true,"revision":revision,"pins":input.pins}))
     }
 }
-async fn read_in(
-    tx: &DatabaseTransaction,
-    user: &User,
-    w: &str,
-    local: &[String],
-) -> Result<Value> {
+async fn read_in(tx: &DatabaseTransaction, user: &User, w: &str) -> Result<Value> {
     role(tx, w, &user.id).await?;
     let row = query(
         tx,
@@ -81,31 +70,20 @@ async fn read_in(
     } else {
         (0, vec![])
     };
-    let pins = visible(tx, user, w, &pins, local).await?;
+    let pins = visible(tx, user, w, &pins).await?;
     Ok(json!({"available":true,"revision":revision,"pins":pins}))
 }
-async fn visible(
-    tx: &DatabaseTransaction,
-    user: &User,
-    w: &str,
-    pins: &[Pin],
-    local: &[String],
-) -> Result<Vec<Pin>> {
-    let owner = role(tx, w, &user.id).await? == "Owner";
+async fn visible(tx: &DatabaseTransaction, user: &User, w: &str, pins: &[Pin]) -> Result<Vec<Pin>> {
+    role(tx, w, &user.id).await?;
     let ids = pins
         .iter()
         .filter(|p| p.kind == PinKind::Chat)
         .map(|p| p.id.clone())
         .collect::<Vec<_>>();
     let accessible=rows(tx,"SELECT c.id FROM relay_chats c WHERE c.workspace=$1 AND c.id IN(SELECT jsonb_array_elements_text($2::jsonb)) AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3))",vec![w.into(),json!(ids).into(),user.id.clone().into()]).await?.into_iter().map(|r|r.try_get::<String>("","id")).collect::<std::result::Result<std::collections::HashSet<_>,_>>()?;
-    // Local IDs are supplied only by the authenticated runtime catalog at the HTTP
-    // boundary; a stored preference or model output cannot populate this list.
     Ok(pins
         .iter()
-        .filter(|p| match p.kind {
-            PinKind::Chat => accessible.contains(&p.id),
-            PinKind::LocalAgent => owner && local.contains(&p.id),
-        })
+        .filter(|p| accessible.contains(&p.id))
         .cloned()
         .collect())
 }

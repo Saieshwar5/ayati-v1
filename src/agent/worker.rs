@@ -17,15 +17,8 @@ impl Agent {
                         .cancellation
                         .lock()
                         .map_err(|_| anyhow::anyhow!("Agent state unavailable"))?;
-                    if agent.closing.load(Ordering::SeqCst)
-                        || agent.environment_stopping.load(Ordering::SeqCst)
-                        || agent.memory_editing.load(Ordering::SeqCst)
-                        || agent.goose.as_ref().is_some_and(|g| g.browser_owned())
-                    {
+                    if agent.closing.load(Ordering::SeqCst) {
                         return Ok(None);
-                    }
-                    if let Some(platform) = agent.platform() {
-                        platform.fence_trigger_jobs(agent.identity(), &agent.store)?;
                     }
                     let claim = agent.store.claim_next(&agent.owner_id)?;
                     Ok(claim.map(|claim| {
@@ -47,24 +40,12 @@ impl Agent {
                     break;
                 }
                 let Some((claim, cancel)) = next else {
-                    if let Err(error) = agent.release_idle_environment().await {
-                        tracing::warn!(%error, "Idle VM release failed");
-                    }
                     drop(environment);
                     tokio::select! {
                         _ = notified => {},
                         _ = agent.shutdown.cancelled() => {},
-                        _ = tokio::time::sleep(std::time::Duration::from_secs(1)), if agent.idle_timeout.is_some() && agent.goose.as_ref().is_some_and(|g| g.is_vm()) => {},
                     }
                     continue;
-                };
-                let lease = match agent.leases.acquire("run", &claim.task_id) {
-                    Ok(lease) => lease,
-                    Err(error) => {
-                        tracing::error!(%error, "Could not acquire environment ownership");
-                        agent.begin_shutdown();
-                        break;
-                    }
                 };
                 let result = agent.run(&claim, cancel.clone()).await;
                 let status = if cancel.is_cancelled() {
@@ -87,7 +68,6 @@ impl Agent {
                     active.remove(&claim.task_id);
                 }
                 agent.emit("state", &claim.task_id, None, None);
-                drop(lease);
                 drop(environment);
             }
         });
@@ -126,7 +106,7 @@ impl Agent {
         Ok(())
     }
 
-    // Explicit VM Stop cancels queued work too. Service shutdown below parks it.
+    // Stop cancels queued work too. Service shutdown below parks it.
     pub fn stop_all(&self) -> Result<()> {
         let active = self
             .cancellation
@@ -143,9 +123,6 @@ impl Agent {
     pub fn begin_shutdown(&self) {
         self.closing.store(true, Ordering::SeqCst);
         self.shutdown.cancel();
-        if let Some(goose) = &self.goose {
-            goose.request_vm_stop();
-        }
         if let Ok(active) = self.cancellation.lock() {
             if let Err(error) = self.store.interrupt_active_work() {
                 tracing::error!(%error,"Could not record service interruption");
@@ -167,5 +144,21 @@ impl Agent {
             }
         })
         .await;
+    }
+
+    pub async fn shutdown_runtime(&self) -> Result<()> {
+        let _environment = self.environment.lock().await;
+        if let Some(goose) = &self.goose {
+            goose.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    fn ensure_accepting(&self) -> Result<()> {
+        anyhow::ensure!(
+            !self.closing.load(Ordering::SeqCst),
+            "Ayati is stopping; retry after restart"
+        );
+        Ok(())
     }
 }

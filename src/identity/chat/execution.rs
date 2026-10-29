@@ -289,7 +289,7 @@ pub(crate) async fn execute_prepared(
     );
     let store = Arc::new(crate::storage::Store::open(&root.join("chat.sqlite"))?);
     let files = Arc::new(Files::new(root, store.clone())?);
-    let agent = Agent::start_goose(store.clone(), files, config, None);
+    let agent = Agent::start_goose(store.clone(), files, config);
     let result = async {
         let task = agent.submit_once(&prompt, Some(&context.reply))?;
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(seconds);
@@ -353,10 +353,6 @@ pub(crate) fn runtime_config(
         config.provider = provider.clone();
     }
     // Shared work only receives this job's broker, never local-owner extensions.
-    config.vm_manifest = None;
-    config.browser = false;
-    config.memory = false;
-    config.platform = None;
     config.proof_tool = false;
     config.control_tools = control;
     Ok(config)

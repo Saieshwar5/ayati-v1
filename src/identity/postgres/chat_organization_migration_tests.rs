@@ -43,7 +43,7 @@ async fn organization_upgrade_preserves_populated_v23_history_and_unfinished_wor
         .unwrap();
     assert_eq!(current["archived"], false);
     assert_eq!(current["archive_revision"], 0);
-    assert_eq!(db.chat_pins(&owner, &w, &[]).await.unwrap()["revision"], 0);
+    assert_eq!(db.chat_pins(&owner, &w).await.unwrap()["revision"], 0);
     let history = db.chat_messages(&owner, &w, &chat).await.unwrap();
     assert!(history.to_string().contains("Preserved old request"));
     let claimed = db.claim_job().await.unwrap().unwrap();
@@ -60,11 +60,8 @@ async fn organization_upgrade_preserves_populated_v23_history_and_unfinished_wor
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn object_save_rechecks_archive_after_upload_and_private_pin_reads_do_not_grant_access() {
-    use crate::identity::{
-        chat::organization_model::{Lifecycle, Pin, PinKind, SavePins},
-        collaboration::Object,
-    };
+async fn object_save_rechecks_archive_after_upload_and_pin_reads_do_not_grant_access() {
+    use crate::identity::{chat::organization_model::Lifecycle, collaboration::Object};
     let (db, owner, w, _, job) = super::control_tests::setup("ask").await;
     let object = Object {
         id: uuid::Uuid::new_v4().to_string(),
@@ -94,24 +91,6 @@ async fn object_save_rechecks_archive_after_upload_and_private_pin_reads_do_not_
             .is_err()
     );
     assert!(db.object(&owner, &w, &object.id).await.is_err());
-    let local = vec!["local-agent".to_owned()];
-    let pins = SavePins {
-        request: uuid::Uuid::new_v4().to_string(),
-        revision: 0,
-        pins: vec![Pin {
-            kind: PinKind::LocalAgent,
-            id: local[0].clone(),
-        }],
-    };
-    db.save_chat_pins(&owner, &w, &local, &pins).await.unwrap();
-    assert_eq!(
-        db.chat_pins(&owner, &w, &local).await.unwrap()["pins"][0]["id"],
-        "local-agent"
-    );
-    assert_eq!(
-        db.chat_pins(&owner, &w, &[]).await.unwrap()["pins"],
-        serde_json::json!([])
-    );
-    let stranger = user(&db, "local-pin-stranger").await;
-    assert!(db.chat_pins(&stranger, &w, &local).await.is_err());
+    let stranger = user(&db, "pin-stranger").await;
+    assert!(db.chat_pins(&stranger, &w).await.is_err());
 }

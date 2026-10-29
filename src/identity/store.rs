@@ -62,7 +62,6 @@ impl Store {
         super::membership_schema::migrate(&mut db)?;
         super::profile::schema(&db)?;
         super::chat::schema(&db)?;
-        super::resources::schema(&db)?;
         db.execute("UPDATE chat_messages SET state='failed',content='Request interrupted by a server restart. Send a new request to retry.' WHERE kind='agent' AND state='queued'", [])?;
         Ok(Self(Mutex::new(db)))
     }
@@ -288,10 +287,6 @@ impl Store {
             )?;
             ensure!(count > 1, "A workspace must keep at least one Owner");
         }
-        tx.execute(
-            "DELETE FROM member_app_sessions WHERE workspace=?1 AND user=?2",
-            params![workspace, target],
-        )?;
         if let Some(assigned) = assigned {
             tx.execute(
                 "UPDATE members SET role=?3 WHERE workspace=?1 AND user=?2",
@@ -300,14 +295,6 @@ impl Store {
         } else {
             tx.execute(
                 "DELETE FROM chat_access WHERE workspace=?1 AND user=?2",
-                params![workspace, target],
-            )?;
-            tx.execute(
-                "DELETE FROM resource_grants WHERE workspace=?1 AND user=?2",
-                params![workspace, target],
-            )?;
-            tx.execute(
-                "DELETE FROM member_app_sessions WHERE workspace=?1 AND user=?2",
                 params![workspace, target],
             )?;
             tx.execute("DELETE FROM chat_people WHERE user=?2 AND chat IN (SELECT id FROM chats WHERE workspace=?1)", params![workspace,target])?;

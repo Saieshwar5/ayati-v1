@@ -16,8 +16,8 @@ async function fixture(t) {
   await writeFile(profiles, '[]', { mode: 0o600 }); await writeFile(bearer, remote.token, { mode: 0o600 });
   const controllerEnv={
     OPENAI_API_KEY: provider.key, OPENAI_HOST: provider.url, AYATI_MCP_SERVERS_FILE: profiles,
-    // The sample's server-owned harness must disable inherited local capabilities.
-    AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/sample-vm.json', AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
+    // The sample's server-owned harness must disable the inherited proof tool.
+    AYATI_PROOF_TOOL: '1',
   };
   const app = await workerFixture(t, { provider, mode: 'pooled', control: true, apiEnv:controllerEnv });
   const w = app.path.split('/').at(-1), a = app.profile.id, connection = randomUUID(), control = `${app.path}/agent-profiles/${a}/control`;
