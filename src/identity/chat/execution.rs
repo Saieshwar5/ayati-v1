@@ -2,8 +2,8 @@
 use super::store::Job;
 use crate::{
     identity::{database::Database, store::User},
+    journal::Journal,
     runtime::{GooseRuntime, config::GooseConfig},
-    storage::Store,
 };
 use anyhow::{Context, Result, ensure};
 use std::{path::Path, sync::Arc};
@@ -285,7 +285,7 @@ pub(crate) async fn execute_prepared(
         config.configured(),
         "Shared chat needs configured Goose and provider"
     );
-    let store = Arc::new(Store::open(&root.join("chat.sqlite"))?);
+    let store = Arc::new(Journal::open(&root.join("chat.sqlite"))?);
     let runtime = GooseRuntime::new(
         config,
         store.clone(),

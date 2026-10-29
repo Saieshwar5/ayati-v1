@@ -1,22 +1,9 @@
-use super::{Store, work::RunClaim};
-use anyhow::{Context, Result, ensure};
+use super::{Journal, work::RunClaim};
+use anyhow::{Result, ensure};
 use rusqlite::{OptionalExtension, params};
-use serde::Serialize;
 use serde_json::Value;
 
-#[derive(Serialize)]
-pub struct ActionRecord {
-    pub id: String,
-    pub call_id: String,
-    pub name: String,
-    pub arguments: Value,
-    pub status: String,
-    pub result: Option<Value>,
-    pub decision: Option<String>,
-    pub evidence: &'static str,
-}
-
-impl Store {
+impl Journal {
     pub(super) fn close_pending_actions(
         connection: &rusqlite::Connection,
         task: Option<&str>,
@@ -90,43 +77,5 @@ impl Store {
             params![claim.task_id,claim.token,call,status,output,claim.owner_id],
         )?;
         Ok(())
-    }
-
-    pub fn actions(&self, task: &str) -> Result<Vec<ActionRecord>> {
-        self.task(task)?.context("Request does not exist")?;
-        let connection = self.connection()?;
-        let mut query = connection.prepare(
-            "SELECT a.id,a.call_id,a.name,a.arguments,a.status,a.result,p.decision,a.run_token FROM tool_attempts a LEFT JOIN permissions p ON p.id=a.permission_id WHERE a.task_id=?1 ORDER BY a.rowid LIMIT 128",
-        )?;
-        let rows = query.query_map([task], |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get::<_, String>(3)?,
-                r.get(4)?,
-                r.get::<_, Option<String>>(5)?,
-                r.get(6)?,
-                r.get::<_, Option<String>>(7)?,
-            ))
-        })?;
-        rows.map(|row| {
-            let (id, call_id, name, arguments, status, result, decision, token) = row?;
-            Ok(ActionRecord {
-                id,
-                call_id,
-                name,
-                arguments: serde_json::from_str(&arguments).unwrap_or(Value::String(arguments)),
-                status,
-                result: result.map(|r| serde_json::from_str(&r).unwrap_or(Value::String(r))),
-                decision,
-                evidence: if token.is_some() {
-                    "runtime_observation"
-                } else {
-                    "prototype_tool"
-                },
-            })
-        })
-        .collect()
     }
 }

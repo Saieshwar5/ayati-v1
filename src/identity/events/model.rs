@@ -48,7 +48,7 @@ impl Trigger {
             "Event filters exceed their supported size"
         );
         for (key, value) in filter {
-            crate::platform::identifier(key)?;
+            crate::identity::identifier(key)?;
             ensure!(
                 !value.is_array() && !value.is_object(),
                 "Use exact scalar event filters"

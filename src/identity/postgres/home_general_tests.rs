@@ -1,7 +1,7 @@
 use super::{home_maintenance_tests::*, tests::*};
 use crate::{
     identity::home_panels::{maintenance::Refresh, model::Review},
-    platform::panels::PanelDraft,
+    panels::PanelDraft,
 };
 use serde_json::json;
 

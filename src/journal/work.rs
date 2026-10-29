@@ -1,4 +1,4 @@
-use super::{Store, Task, runtime::LOCAL_CONVERSATION};
+use super::{Journal, Task, runtime::LOCAL_CONVERSATION};
 use anyhow::{Context, Result, ensure};
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
 use uuid::Uuid;
@@ -25,39 +25,7 @@ impl std::fmt::Display for IntakeError {
 }
 impl std::error::Error for IntakeError {}
 
-impl Store {
-    pub fn stop_queued_work(&self, id: &str, detail: &str) -> Result<()> {
-        self.connection()?.execute(
-            "UPDATE tasks SET status='stopped',detail=?2 WHERE id=?1 AND status='queued'",
-            params![id, detail],
-        )?;
-        Ok(())
-    }
-    pub(super) fn migrate_work(connection: &mut rusqlite::Connection, version: i64) -> Result<()> {
-        if version < 3 {
-            let tx = connection.transaction()?;
-            tx.execute_batch(include_str!("work.sql"))?;
-            tx.commit()?;
-        }
-        let tx = connection.transaction()?;
-        tx.execute("UPDATE tasks SET status='interrupted',detail='Ayati restarted during work; check action outcomes before continuing.' WHERE status='running'", [])?;
-        tx.execute(
-            "UPDATE messages SET state='interrupted' WHERE state='streaming'",
-            [],
-        )?;
-        tx.execute(
-            "UPDATE permissions SET decision='cancelled' WHERE decision='pending'",
-            [],
-        )?;
-        Self::close_pending_actions(&tx, None)?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    pub fn enqueue(&self, text: &str) -> Result<Task> {
-        self.accept_input(text, None)
-    }
-
+impl Journal {
     pub fn accept_input(&self, text: &str, request_id: Option<&str>) -> Result<Task> {
         Self::validate_input(text)?;
         let request = request_id
@@ -69,9 +37,6 @@ impl Store {
         let mut connection = self.connection()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let id = Self::accept_input_in(&tx, text, &request)?;
-        // Deliberate chat resumes a paused agent, but retrying a terminal job
-        // cannot undo VM Stop or resurrect its dispatch.
-        tx.execute("UPDATE dispatch_control SET paused=0 WHERE EXISTS(SELECT 1 FROM tasks WHERE id=?1 AND status='queued')", [&id])?;
         tx.commit()?;
         drop(connection);
         self.task(&id)?.context("Task was not saved")
@@ -132,7 +97,7 @@ impl Store {
         let mut connection = self.connection()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let id: Option<String> = tx.query_row(
-            "SELECT t.id FROM tasks t JOIN input_receipts r ON r.task_id=t.id WHERE t.status='queued' AND (SELECT paused FROM dispatch_control WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') ORDER BY t.rowid LIMIT 1",
+            "SELECT t.id FROM tasks t JOIN input_receipts r ON r.task_id=t.id WHERE t.status='queued' AND NOT EXISTS(SELECT 1 FROM tasks WHERE status='running') ORDER BY t.rowid LIMIT 1",
             [], |r| r.get(0),
         ).optional()?;
         let Some(id) = id else {
@@ -200,70 +165,5 @@ impl Store {
         )?;
         tx.commit()?;
         Ok(true)
-    }
-
-    pub fn stop_work(&self, task: &str) -> Result<()> {
-        let mut connection = self.connection()?;
-        let tx = connection.transaction()?;
-        tx.execute("UPDATE tasks SET status='stopped',detail='Stopped by you' WHERE id=?1 AND status IN ('queued','running')", [task])?;
-        tx.execute(
-            "UPDATE permissions SET decision='cancelled' WHERE task_id=?1 AND decision='pending'",
-            [task],
-        )?;
-        Self::close_pending_actions(&tx, Some(task))?;
-        tx.execute(
-            "UPDATE messages SET state='stopped' WHERE task_id=?1 AND state='streaming'",
-            [task],
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    pub fn interrupt_active_work(&self) -> Result<()> {
-        self.interrupt_work(
-            "Service stopped during work; inspect action outcomes before continuing.",
-        )
-    }
-
-    pub fn interrupt_for_owner_browser(&self) -> Result<()> {
-        self.interrupt_work("Waiting for owner browser control; inspect outcomes and send a follow-up after handing back.")
-    }
-
-    fn interrupt_work(&self, detail: &str) -> Result<()> {
-        let mut connection = self.connection()?;
-        let tx = connection.transaction()?;
-        tx.execute(
-            "UPDATE tasks SET status='interrupted',detail=?1 WHERE status='running'",
-            [detail],
-        )?;
-        tx.execute(
-            "UPDATE permissions SET decision='cancelled' WHERE decision='pending'",
-            [],
-        )?;
-        Self::close_pending_actions(&tx, None)?;
-        tx.execute(
-            "UPDATE messages SET state='interrupted' WHERE state='streaming'",
-            [],
-        )?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    pub fn stop_all_work(&self) -> Result<()> {
-        let mut connection = self.connection()?;
-        let tx = connection.transaction()?;
-        tx.execute("UPDATE dispatch_control SET paused=1 WHERE id=1", [])?;
-        tx.execute("UPDATE tasks SET status='stopped',detail='Agent VM stopped by you' WHERE status IN ('queued','running')", [])?;
-        tx.execute(
-            "UPDATE permissions SET decision='cancelled' WHERE decision='pending'",
-            [],
-        )?;
-        Self::close_pending_actions(&tx, None)?;
-        tx.execute(
-            "UPDATE messages SET state='stopped' WHERE state='streaming'",
-            [],
-        )?;
-        tx.commit()?;
-        Ok(())
     }
 }

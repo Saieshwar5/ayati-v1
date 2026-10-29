@@ -1,9 +1,9 @@
 //! One request in a private per-run journal: accept, claim, reply and read back.
-use crate::storage::{Store, work::RunClaim};
+use crate::journal::{Journal, work::RunClaim};
 use anyhow::{Context, Result, ensure};
 
 /// Record exactly one request, keyed by its controller reply ID, and claim it.
-pub(crate) fn begin(store: &Store, request: &str) -> Result<(RunClaim, String)> {
+pub(crate) fn begin(store: &Journal, request: &str) -> Result<(RunClaim, String)> {
     let task = store.accept_input("Controller-scoped shared request", Some(request))?;
     let claim = store
         .claim_next(&uuid::Uuid::new_v4().to_string())?
@@ -18,7 +18,7 @@ pub(crate) fn begin(store: &Store, request: &str) -> Result<(RunClaim, String)> 
 
 /// Close the claim with the prompt outcome and return the completed reply text.
 pub(crate) fn finish(
-    store: &Store,
+    store: &Journal,
     claim: &RunClaim,
     reply: &str,
     result: Result<()>,

@@ -16,7 +16,7 @@ pub fn verify(
         secret.len() >= 16 && body.len() <= 64000,
         "Webhook verification is unavailable or oversized"
     );
-    super::identifier(id)?;
+    crate::identity::identifier(id)?;
     let time: i64 = timestamp.parse()?;
     ensure!(
         (now as i128 - time as i128).abs() <= 300,
@@ -33,4 +33,25 @@ pub fn verify(
         .any(|v| hmac::verify(&key, &bytes, &v).is_ok());
     ensure!(valid, "Invalid webhook signature");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_fresh_exact_signature_is_accepted() {
+        let secret = "whsec_fixture_secret";
+        let key = hmac::Key::new(hmac::HMAC_SHA256, secret.as_bytes());
+        let sign = |body: &[u8]| {
+            let mut bytes = b"msg_1.1000.".to_vec();
+            bytes.extend_from_slice(body);
+            format!("v1,{}", STANDARD.encode(hmac::sign(&key, &bytes)))
+        };
+        let signature = sign(b"{}");
+        assert!(verify(secret, "msg_1", "1000", &signature, b"{}", 1100).is_ok());
+        assert!(verify(secret, "msg_1", "1000", &signature, b"{ }", 1100).is_err());
+        assert!(verify(secret, "msg_1", "1000", &signature, b"{}", 1400).is_err());
+        assert!(verify("short", "msg_1", "1000", &signature, b"{}", 1100).is_err());
+    }
 }

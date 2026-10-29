@@ -6,6 +6,7 @@ pub(crate) mod catalog;
 mod connections;
 pub(crate) mod connections_model;
 mod mcp;
+mod mcp_reply;
 pub(crate) mod model;
 mod setup;
 mod setup_assistant;

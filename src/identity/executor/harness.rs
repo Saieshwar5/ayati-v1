@@ -2,8 +2,8 @@
 use super::model::Profile;
 use crate::{
     identity::chat::execution::{self, Prepared},
+    journal::Journal,
     runtime::{GooseRuntime, config::GooseConfig},
-    storage::Store,
 };
 use anyhow::{Result, ensure};
 use std::{
@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 pub(super) struct Harness {
     runtime: Arc<GooseRuntime>,
-    store: Arc<Store>,
+    store: Arc<Journal>,
     root: PathBuf,
     profile: Profile,
     pub pid: u32,
@@ -38,7 +38,7 @@ impl Harness {
             config.configured(),
             "Prepared executor requires pinned Goose and a configured provider"
         );
-        let store = Arc::new(Store::open(&root.join("chat.sqlite"))?);
+        let store = Arc::new(Journal::open(&root.join("chat.sqlite"))?);
         let events = tokio::sync::broadcast::channel(256).0;
         let runtime = Arc::new(GooseRuntime::new(config, store.clone(), events.clone()));
         let pid = runtime.prepare_chat().await?;

@@ -1,4 +1,4 @@
-use super::panel_sections::*;
+use super::sections::*;
 use anyhow::{Result, ensure};
 use std::collections::HashSet;
 

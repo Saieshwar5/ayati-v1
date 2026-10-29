@@ -1,4 +1,4 @@
-use super::{panel_presentation::shape, panels::PanelDraft};
+use super::{PanelDraft, presentation::shape};
 use serde_json::{Value, json};
 
 fn draft(section: Value) -> PanelDraft {

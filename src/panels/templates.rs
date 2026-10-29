@@ -1,5 +1,5 @@
 //! General Home families with aliases for existing saved definitions.
-use super::panels::{PanelDraft, Section};
+use super::{PanelDraft, Section};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -39,7 +39,7 @@ impl PanelDraft {
                 || (template == Template::Brief && inferred == Template::Text),
             "Section does not match the selected panel template"
         );
-        super::panel_validation::validate(&self.sections[0])?;
+        super::validation::validate(&self.sections[0])?;
         Ok(template)
     }
 }

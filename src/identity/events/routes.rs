@@ -139,7 +139,7 @@ async fn receive(
     let source = catalog::source(&w, &id).map_err(|_| unavailable())?;
     let secret = source.secret().map_err(|_| unavailable())?;
     let event_id = header(&headers, "webhook-id")?;
-    crate::platform::webhook::verify(
+    super::webhook::verify(
         &secret,
         event_id,
         header(&headers, "webhook-timestamp")?,

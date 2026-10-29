@@ -3,11 +3,9 @@ mod connection;
 mod events;
 pub(crate) mod guidance;
 pub(crate) mod prepared;
-pub mod proof_tool;
-pub mod provider;
 pub(crate) mod turn;
 
-use crate::storage::{Store, work::RunClaim};
+use crate::journal::{Journal, work::RunClaim};
 use agent_client_protocol::{Agent, ConnectionTo, schema::v1::*};
 use anyhow::{Context, Result, ensure};
 use config::GooseConfig;
@@ -65,13 +63,7 @@ impl Drop for ProcessResources {
 }
 
 impl GooseRuntime {
-    pub async fn clear_working_context(&self) {
-        self.process.lock().await.take();
-    }
-    pub fn identity(&self) -> &str {
-        &self.config.agent_id
-    }
-    pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
+    pub fn new(config: GooseConfig, store: Arc<Journal>, events: broadcast::Sender<Event>) -> Self {
         let control_tools = config.control_tools.is_some();
         let proof_tool = config.proof_tool;
         Self {

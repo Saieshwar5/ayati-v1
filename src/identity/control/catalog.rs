@@ -69,7 +69,7 @@ pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
             ids.insert((&server.workspace, &server.id)),
             "Duplicate MCP server identity"
         );
-        crate::platform::identifier(&server.id)?;
+        crate::identity::identifier(&server.id)?;
         super::endpoint(&server.url)?;
         ensure!(
             !server.name.trim().is_empty()

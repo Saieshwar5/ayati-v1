@@ -1,5 +1,5 @@
 use super::Turn;
-use crate::storage::Store;
+use crate::journal::Journal;
 use agent_client_protocol::schema::v1::*;
 use std::sync::{Arc, Mutex, atomic::Ordering};
 use tokio::sync::broadcast;
@@ -17,7 +17,7 @@ pub struct Event {
 pub struct RuntimeEvents {
     pub control_tools: bool,
     pub active: Mutex<Option<Arc<Turn>>>,
-    pub store: Arc<Store>,
+    pub store: Arc<Journal>,
     pub events: broadcast::Sender<Event>,
     pub proof_tool: bool,
 }

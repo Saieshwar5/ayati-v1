@@ -7,7 +7,7 @@ async fn main() -> Result<()> {
         return ayati_guest::control_mcp::serve().await;
     }
     if std::env::args().nth(1).as_deref() == Some("mcp") {
-        return ayati::runtime::proof_tool::serve().await;
+        return ayati_guest::proof_tool::serve().await;
     }
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
