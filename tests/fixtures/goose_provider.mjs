@@ -107,11 +107,6 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
       if (result) text = `WORKSPACE_RESULT ${JSON.stringify(result.content)}`;
       else tool = { id: 'workspace-call', type: 'function', function: { name: `ayati_workspace__${command.tool}`, arguments: JSON.stringify(command.arguments) } };
     }
-    if (/^tool\b/.test(prompt ?? '')) {
-      const result = messages.slice(lastUser + 1).find((message) => message.role === 'tool');
-      if (result) text = `TOOL_RESULT ${JSON.stringify(result.content)}`;
-      else tool = { id: 'fixture-call', type: 'function', function: { name: 'ayati_proof__get_demo_business', arguments: '{}' } };
-    }
     if (prompt?.startsWith('browser ')) {
       const command = JSON.parse(prompt.slice(8));
       const results = messages.slice(lastUser + 1).filter((message) => message.role === 'tool');

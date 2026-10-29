@@ -103,7 +103,7 @@ async fn start(
         .collect();
     let mut draft=Draft { request:input,context,inventories,choices,notes:vec!["This review updates the selected accounts in one conversation. Permissions on other accounts are reviewed separately.".into()] };
     if draft.request.assistant {
-        setup_assistant::suggest(&mut draft, &w, &agent).await?;
+        setup_assistant::suggest(&mut draft, &w, &agent, &app.config.goose).await?;
     }
     Ok(Json(
         app.store.setup_create(&user, &w, &agent, &draft).await?,

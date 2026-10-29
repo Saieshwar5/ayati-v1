@@ -19,7 +19,6 @@ pub struct RuntimeEvents {
     pub active: Mutex<Option<Arc<Turn>>>,
     pub store: Arc<Journal>,
     pub events: broadcast::Sender<Event>,
-    pub proof_tool: bool,
 }
 
 impl RuntimeEvents {
@@ -173,7 +172,6 @@ impl RuntimeEvents {
         let tool = observed
             .pointer("/_meta/goose/toolCall/toolName")
             .and_then(|v| v.as_str());
-        let proof_allowed = self.proof_tool && tool == Some("ayati_proof__get_demo_business");
         let control_allowed = self.control_tools
             && tool.is_some_and(|name| {
                 ayati_guest::control_mcp::observed(
@@ -181,8 +179,7 @@ impl RuntimeEvents {
                     observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
                 )
             });
-        if !(proof_allowed || control_allowed) || observed.get("rawInput") != action.get("rawInput")
-        {
+        if !control_allowed || observed.get("rawInput") != action.get("rawInput") {
             return cancelled();
         }
         let automatic = control_allowed;

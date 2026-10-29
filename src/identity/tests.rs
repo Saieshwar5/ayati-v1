@@ -8,7 +8,9 @@ fn app() -> Shared {
         library: Default::default(),
         provider: Provider::test_provider(),
         store: postgres::PgStore::disconnected(),
-        origin: "http://127.0.0.1:8765".into(),
+        config: std::sync::Arc::new(crate::config::Controller::for_tests(
+            "http://127.0.0.1:8765",
+        )),
         simulation: None,
         runtimes: workspaces::Runtimes::new(
             std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),

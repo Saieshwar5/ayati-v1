@@ -33,7 +33,10 @@ pub(super) async fn login(
         ("client_id", app.provider.client_id.as_str()),
         ("response_type", "code"),
         ("provider", "authkit"),
-        ("redirect_uri", &format!("{}/auth/callback", app.origin)),
+        (
+            "redirect_uri",
+            &format!("{}/auth/callback", app.config.origin),
+        ),
         ("state", &state),
         ("code_challenge", &digest(&verifier)),
         ("code_challenge_method", "S256"),

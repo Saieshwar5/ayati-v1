@@ -28,7 +28,6 @@ mod shutdown;
 pub mod simulation;
 pub(crate) mod start_trace;
 pub mod user;
-mod worker_config;
 mod worker_control;
 mod workspaces;
 
@@ -54,10 +53,10 @@ struct Pending {
     expires: i64,
 }
 struct App {
+    config: Arc<crate::config::Controller>,
     library: library::Storage,
     provider: Provider,
     store: postgres::PgStore,
-    origin: String,
     runtimes: workspaces::Runtimes,
     simulation: Option<simulation::Simulation>,
 }
@@ -159,15 +158,23 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
     }
     Ok(user)
 }
-pub async fn serve(data: &Path, port: u16) -> Result<()> {
+/// Process-wide settings read by code that has no `App`: start tracing and the
+/// operator-owned connector and event-source catalogs.
+fn configure_process(config: &crate::config::Controller) {
+    start_trace::enable(config.trace_start);
+    control::catalog::configure(config.mcp_servers_file.clone());
+    events::catalog::configure(config.event_sources_file.clone());
+}
+
+pub async fn serve(config: crate::config::Controller) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let hosting = hosting::Hosting::from_env(port)?;
-    let provider = Provider::from_env()?;
-    let listener = tokio::net::TcpListener::bind((hosting.bind, port))
+    let (client_id, key) = config.workos.clone().context("WorkOS is not configured")?;
+    let provider = Provider::new(client_id, key)?;
+    let listener = tokio::net::TcpListener::bind((config.bind, config.common.port))
         .await
         .context("Identity port is in use. Stop the other server or choose AYATI_PORT")?;
-    std::fs::create_dir_all(data)?;
-    let installation = data.canonicalize()?;
+    std::fs::create_dir_all(&config.common.data_dir)?;
+    let installation = config.common.data_dir.canonicalize()?;
     let data = installation.join("identity");
     std::fs::create_dir_all(&data)?;
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o700))?;
@@ -178,22 +185,18 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let url = std::env::var("RELAY_DATABASE_URL").context(
-        "Set RELAY_DATABASE_URL; for local development run ./tools/local-postgres.sh start, migrate and env",
-    )?;
-    let mut store = postgres::PgStore::connect(&url).await?;
-    store.pooled = worker_config::Mode::from_env(false)? == worker_config::Mode::Pooled;
-    store.verify_schema().await?;
+    let store = postgres::PgStore::open(&config).await?;
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
+    configure_process(&config);
     let app = Arc::new(App {
-        library: library::Storage::from_env()?,
+        library: library::Storage::from_settings(&config.library)?,
         provider,
         store,
-        origin: hosting.origin,
+        config: Arc::new(config),
         runtimes,
         simulation: None,
     });
-    tracing::info!("Identity workspace: {}/?view=account", app.origin);
+    tracing::info!("Identity workspace: {}/?view=account", app.config.origin);
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone());
     rehearsals::start(app.clone()).await;
@@ -285,6 +288,7 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let health = request.method() == axum::http::Method::GET
         && matches!(request.uri().path(), "/health/live" | "/health/ready");
     let host = app
+        .config
         .origin
         .split_once("://")
         .map(|(_, host)| host)
@@ -296,7 +300,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
         && !library_head
         && !(request.method() == axum::http::Method::POST
             && events::routes::webhook_path(request.uri().path()))
-        && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(app.origin.as_str())
+        && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
+            != Some(app.config.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {
         return StatusCode::FORBIDDEN.into_response();

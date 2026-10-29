@@ -1,9 +1,8 @@
 use super::*;
 
 /// Explicit migrations; never run destructive schema synchronization on API startup.
-pub async fn run(action: &str) -> Result<()> {
-    let url = std::env::var("RELAY_DATABASE_URL").context("Set RELAY_DATABASE_URL privately")?;
-    let db = PgStore::connect(&url).await?;
+pub async fn run(url: &str, action: &str) -> Result<()> {
+    let db = PgStore::connect(url).await?;
     match action {
         "migrate" => {
             db.migrate().await?;

@@ -94,7 +94,7 @@ async fn list(
     let user = identity(&app, &headers).await?;
     let role = workspaces::membership(&app, &user, &w).await?;
     Ok(Json(
-        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"can_create_workspace":app.store.can_create_workspace_agent(&user,&w).await?,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured("openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured("fireworks-ai")}],"default_model":default_model()}),
+        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"can_create_workspace":app.store.can_create_workspace_agent(&user,&w).await?,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":app.config.default_model}),
     ))
 }
 async fn save(
@@ -193,10 +193,4 @@ async fn avatar(
         .headers_mut()
         .insert("x-content-type-options", "nosniff".parse()?);
     Ok(response)
-}
-
-/// Model suggested for new agents; each profile stores its own model.
-fn default_model() -> String {
-    std::env::var("AYATI_MODEL")
-        .unwrap_or_else(|_| "accounts/fireworks/models/glm-5p3-flash".into())
 }

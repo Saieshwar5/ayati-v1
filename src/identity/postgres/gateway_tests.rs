@@ -15,7 +15,7 @@ async fn app(origin: &str) -> Arc<App> {
         library: Default::default(),
         provider: Provider::test_provider(),
         store: fixture().await,
-        origin: origin.into(),
+        config: std::sync::Arc::new(crate::config::Controller::for_tests(origin)),
         runtimes: Runtimes::new(std::env::temp_dir().join(uuid::Uuid::new_v4().to_string())),
         simulation: None,
     })

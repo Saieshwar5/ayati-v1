@@ -159,12 +159,7 @@ async fn receive(
             StatusCode::UNAUTHORIZED,
         )
     })?;
-    let limit = std::env::var("AYATI_EVENT_RECEIPT_LIMIT")
-        .unwrap_or_else(|_| "100000".into())
-        .parse::<i64>()
-        .ok()
-        .filter(|v| (1..=1_000_000).contains(v))
-        .ok_or_else(unavailable)?;
+    let limit = app.config.event_receipt_limit;
     match app
         .store
         .accept_event(&source, event_id, &payload, limit)

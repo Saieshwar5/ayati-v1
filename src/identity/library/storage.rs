@@ -16,23 +16,13 @@ pub enum Storage {
 }
 
 impl Storage {
-    pub fn from_env() -> Result<Self> {
-        let local = std::env::var_os("CUCKOO_LIBRARY_LOCAL_ROOT");
-        let bucket = std::env::var("CUCKOO_LIBRARY_S3_BUCKET")
-            .ok()
-            .filter(|s| !s.is_empty());
-        ensure!(
-            local.is_none() || bucket.is_none(),
-            "Configure only one Library storage backend"
-        );
-        if let Some(bucket) = bucket {
+    /// Build the configured backend; `Library` already rejected conflicting choices.
+    pub fn from_settings(settings: &crate::config::Library) -> Result<Self> {
+        if let Some(bucket) = settings.s3_bucket.clone() {
             let mut builder = AmazonS3Builder::from_env()
                 .with_bucket_name(bucket)
                 .with_allow_http(false);
-            if let Some(endpoint) = std::env::var("CUCKOO_LIBRARY_S3_ENDPOINT")
-                .ok()
-                .filter(|s| !s.is_empty())
-            {
+            if let Some(endpoint) = settings.s3_endpoint.clone() {
                 let url = reqwest::Url::parse(&endpoint).context("Invalid Library S3 endpoint")?;
                 ensure!(
                     url.scheme() == "https"
@@ -50,12 +40,7 @@ impl Storage {
                 )
             });
         }
-        if let Some(root) = local {
-            let root = PathBuf::from(root);
-            ensure!(
-                root.is_absolute(),
-                "CUCKOO_LIBRARY_LOCAL_ROOT must be an absolute development storage path"
-            );
+        if let Some(root) = settings.local_root.clone() {
             std::fs::create_dir_all(&root)?;
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))?;

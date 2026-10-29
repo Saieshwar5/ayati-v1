@@ -1,7 +1,7 @@
 use super::*;
 use crate::identity::{
     chat::model::{Job, NewMessage},
-    handoffs::model::{Request, wait_seconds},
+    handoffs::model::Request,
 };
 use serde_json::json;
 async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Result<Value> {
@@ -111,7 +111,7 @@ impl PgStore {
         let expires = parent
             .and_then(|h| h["expires_ms"].as_i64())
             .or_else(|| tree.first().and_then(|h| h["expires_ms"].as_i64()))
-            .unwrap_or(now() * 1000 + wait_seconds()? * 1000);
+            .unwrap_or(now() * 1000 + self.handoff_wait_seconds * 1000);
         ensure!(
             expires > now() * 1000,
             "The root handoff deadline has expired"

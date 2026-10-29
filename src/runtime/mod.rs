@@ -65,7 +65,6 @@ impl Drop for ProcessResources {
 impl GooseRuntime {
     pub fn new(config: GooseConfig, store: Arc<Journal>, events: broadcast::Sender<Event>) -> Self {
         let control_tools = config.control_tools.is_some();
-        let proof_tool = config.proof_tool;
         Self {
             config,
             shared: Arc::new(RuntimeEvents {
@@ -73,7 +72,6 @@ impl GooseRuntime {
                 active: Mutex::new(None),
                 store,
                 events,
-                proof_tool,
             }),
             process: tokio::sync::Mutex::new(None),
         }
