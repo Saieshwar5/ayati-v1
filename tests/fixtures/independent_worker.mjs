@@ -22,7 +22,6 @@ export async function workerFixture(t, options = {}) {
   assert.equal(admin.searchParams.has('options'), false, 'Use a base test database URL');
   await mkdir(join(root, '.tmp'), { recursive: true });
   const data = await mkdtemp(join(root, '.tmp/independent-worker-'));
-  await writeFile(join(data, '.env'), ''); // Prevent dotenv from finding a real parent .env.
   await symlink(join(root, 'web'), join(data, 'web'));
   const schema = 'relay_worker_' + randomUUID().replaceAll('-', '');
   function sql(input, url = admin.href) {
@@ -67,6 +66,8 @@ export async function workerFixture(t, options = {}) {
   t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
+    // Never read a developer's .env or .env.executor from a parent directory.
+    AYATI_DOTENV: '0',
     AYATI_MODEL: options.model ?? 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
     AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
@@ -90,7 +91,7 @@ export async function workerFixture(t, options = {}) {
     env.AYATI_WORKER_CONTROL_URL = control.url;
     env.AYATI_WORKER_CONTROL_KEY_FILE = keyFile;
     env.AYATI_ASSIGNMENT_LEASE_SECONDS = String(options.leaseSeconds??6);
-    env.AYATI_ASSIGNMENT_CAPACITY = String(options.capacity ?? 2);
+    env.AYATI_EXECUTOR_CAPACITY = String(options.capacity ?? 2);
     env.AYATI_EXECUTOR_WORKSPACE_LIMIT = String(options.workspaceLimit ?? 2);
     env.AYATI_EXECUTOR_MODEL_LIMIT = String(options.modelLimit ?? 2);
     env.AYATI_EXECUTOR_CHAT_RESERVE = String(options.chatReserve ?? 0);

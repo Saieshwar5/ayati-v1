@@ -68,7 +68,7 @@ async fn options(
         .store
         .rehearsal_options(&user, &w, &a, &input.search)
         .await?;
-    data["execution_available"] = json!(super::worker::configured(&data["profile"])?);
+    data["execution_available"] = json!(super::worker::configured(&app, &data["profile"])?);
     Ok(Json(data))
 }
 async fn history(
@@ -97,7 +97,7 @@ async fn start(
     }
     let profile = pg.managed_agent(&user, &w, &a, true).await?;
     check(
-        super::worker::configured(&profile)?,
+        super::worker::configured(&app, &profile)?,
         "The sample model is not configured on this controller. Ask your operator to enable it.",
     )?;
     let result = pg.start_rehearsal(&user, &w, &a, &input).await?;

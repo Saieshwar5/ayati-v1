@@ -6,7 +6,9 @@ fn app(store: postgres::PgStore, root: &std::path::Path) -> Shared {
         library: Default::default(),
         provider: Provider::test_provider(),
         store,
-        origin: "http://127.0.0.1:8765".into(),
+        config: std::sync::Arc::new(crate::config::Controller::for_tests(
+            "http://127.0.0.1:8765",
+        )),
         simulation: None,
         runtimes: Runtimes::new(root.join("workspaces")),
     })

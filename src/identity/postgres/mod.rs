@@ -228,6 +228,7 @@ pub struct PgStore {
     /// company simulation, which claims polling jobs inside the controller.
     pub(crate) pooled: bool,
     pub(crate) assignment_seconds: u64,
+    pub(crate) handoff_wait_seconds: i64,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -239,7 +240,17 @@ impl PgStore {
             changes: tokio::sync::broadcast::channel(256).0,
             pooled: false,
             assignment_seconds: 180,
+            handoff_wait_seconds: 604_800,
         }
+    }
+    /// Connect with the controller's execution and store policy, then verify the schema.
+    pub(crate) async fn open(config: &crate::config::Controller) -> Result<Self> {
+        let mut store = Self::connect(&config.database_url).await?;
+        store.pooled = config.execution == crate::config::Execution::Pooled;
+        store.assignment_seconds = config.pool.run_seconds;
+        store.handoff_wait_seconds = config.handoff_wait_seconds;
+        store.verify_schema().await?;
+        Ok(store)
     }
     pub async fn connect(url: &str) -> Result<Self> {
         ensure!(
@@ -261,12 +272,8 @@ impl PgStore {
             db,
             changes: tokio::sync::broadcast::channel(256).0,
             pooled: false,
-            assignment_seconds: super::worker_config::seconds(
-                "AYATI_ASSIGNMENT_RUN_SECONDS",
-                180,
-                1,
-                86400,
-            )?,
+            assignment_seconds: 180,
+            handoff_wait_seconds: 604_800,
         })
     }
 

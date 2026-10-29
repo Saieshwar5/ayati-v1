@@ -42,7 +42,6 @@ export async function restoredWorkspace(t, app, profiles) {
   });
   const data = dirname(report.target_files);
   // Synthetic test metadata is supplied separately; the backup never copies credentials.
-  await writeFile(join(data, '.env'), '', { mode: 0o600 });
   await writeFile(join(data, 'SIMULATION'), '/' + report.target_database, { mode: 0o600 });
   await writeFile(join(data, 'company.json'), await readFile(join(app.data, 'api/company.json')), { mode: 0o600 });
   const runtime = new URL(admin);
@@ -51,14 +50,14 @@ export async function restoredWorkspace(t, app, profiles) {
   runtime.searchParams.set('options', `-c search_path=${schema}`);
   const child = spawn(join(root, 'target/debug/ayati'), ['simulate', data], {
     cwd: app.data, stdio: ['ignore', 'pipe', 'pipe'], env: {
-      PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
+      PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info', AYATI_DOTENV: '0',
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: new URL(app.base).port,
       AYATI_CHAT_EXECUTION: 'pooled',
       AYATI_MODEL: 'fixture', AYATI_GOOSE_PROVIDER: 'openai',
       AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
       AYATI_PREPARED_GOOSE_BIN: join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
       AYATI_WORKER_CONTROL_URL: app.control.url, AYATI_WORKER_CONTROL_KEY_FILE: app.control.keyFile,
-      AYATI_ASSIGNMENT_LEASE_SECONDS: '15', AYATI_ASSIGNMENT_CAPACITY: '1',
+      AYATI_ASSIGNMENT_LEASE_SECONDS: '15', AYATI_EXECUTOR_CAPACITY: '1',
       AYATI_EXECUTOR_WORKSPACE_LIMIT: '1', AYATI_EXECUTOR_MODEL_LIMIT: '1',
       AYATI_EXECUTOR_CHAT_RESERVE: '0', AYATI_MCP_SERVERS_FILE: profiles,
     },

@@ -74,14 +74,18 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
             .contains("A clear sourced draft")
     );
     let root = tempfile::tempdir().unwrap();
-    let config =
-        crate::identity::chat::execution::runtime_config(&claim.prepared, root.path(), None)
-            .unwrap();
+    let config = crate::identity::chat::execution::runtime_config(
+        &claim.prepared,
+        root.path(),
+        None,
+        &crate::config::Controller::for_tests("http://127.0.0.1:8765").goose,
+    )
+    .unwrap();
     assert_eq!(
         config.session_meta().unwrap()["enabledExtensions"],
         json!([])
     );
-    assert!(!config.proof_tool && config.control_tools.is_none());
+    assert!(config.control_tools.is_none());
     let mut stale = claim.clone();
     stale.token = uuid::Uuid::new_v4().to_string();
     assert!(!db.heartbeat_rehearsal(&stale).await.unwrap());

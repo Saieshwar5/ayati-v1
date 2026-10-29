@@ -47,7 +47,7 @@ fn app(db: PgStore, root: &Path, provider: &str, storage: identity::library::Sto
         library: storage,
         provider: Provider::fixture(provider.into()),
         store: db,
-        origin: ORIGIN.into(),
+        config: std::sync::Arc::new(crate::config::Controller::for_tests(ORIGIN)),
         runtimes: identity::workspaces::Runtimes::new(root.join("workspaces")),
         simulation: None,
     })

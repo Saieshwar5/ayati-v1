@@ -29,8 +29,6 @@ struct Control {
     app: Shared,
     bootstrap_hash: String,
     host: String,
-    lease: u64,
-    capacity: usize,
     hub: std::sync::Arc<hub::Hub>,
 }
 type StateData = Arc<Control>;
@@ -82,70 +80,38 @@ fn credential(headers: &HeaderMap) -> Result<String> {
     Ok(digest(token))
 }
 pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<()>>> {
-    let origin = std::env::var("AYATI_WORKER_CONTROL_URL").ok();
-    let key = std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE");
-    if origin.is_none() && key.is_none() {
-        ensure!(
-            !app.store.pooled,
-            "Pooled execution requires the worker-control listener"
-        );
+    // Config validation already required this for pooled execution.
+    let Some(settings) = app.config.worker_control.clone() else {
         return Ok(None);
-    }
-    let origin = config::url(&origin.context("Worker control requires AYATI_WORKER_CONTROL_URL")?)?;
+    };
+    let origin = config::url(&settings.url)?;
     let host = origin.strip_prefix("http://").unwrap().to_string();
     let address = config::address(&host)?;
     ensure!(
         app.store.pooled,
         "Worker control requires PostgreSQL and pooled execution"
     );
-    let key = config::key(std::path::Path::new(
-        &key.context("Worker control requires AYATI_WORKER_CONTROL_KEY_FILE")?,
-    ))?;
+    let key = config::key(&settings.key_file)?;
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .context("Worker control port unavailable")?;
+    let pool = app.config.pool.clone();
     let state = Arc::new(Control {
         app: app.clone(),
         bootstrap_hash: digest(&key),
         host,
-        lease: super::worker_config::seconds("AYATI_ASSIGNMENT_LEASE_SECONDS", 120, 6, 300)?,
-        capacity: super::worker_config::seconds("AYATI_ASSIGNMENT_CAPACITY", 2, 1, 16)? as usize,
         hub: std::sync::Arc::new(hub::Hub::default()),
     });
     let router = routes(state.clone());
     let shutdown_hub = state.hub.clone();
-    let coordinator = {
-        let capacity = super::worker_config::seconds(
-            "AYATI_EXECUTOR_CAPACITY",
-            state.capacity as u64,
-            1,
-            1024,
-        )? as usize;
-        let limits = super::postgres::PoolLimits {
-            capacity,
-            lease: state.lease,
-            chat_reserve: super::worker_config::seconds("AYATI_EXECUTOR_CHAT_RESERVE", 0, 0, 1023)?
-                as usize,
-            workspace: super::worker_config::seconds(
-                "AYATI_EXECUTOR_WORKSPACE_LIMIT",
-                capacity as u64,
-                1,
-                1024,
-            )? as usize,
-            model: super::worker_config::seconds(
-                "AYATI_EXECUTOR_MODEL_LIMIT",
-                capacity as u64,
-                1,
-                1024,
-            )? as usize,
-        };
-        ensure!(
-            limits.chat_reserve < limits.capacity.min(limits.workspace).min(limits.model),
-            "AYATI_EXECUTOR_CHAT_RESERVE must be smaller than global, workspace and model limits"
-        );
-        let expiry = super::worker_config::seconds("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6, 120)?;
-        tokio::spawn(pool::dispatch(state, limits, expiry))
+    let limits = super::postgres::PoolLimits {
+        capacity: pool.capacity,
+        lease: pool.lease_seconds,
+        chat_reserve: pool.chat_reserve,
+        workspace: pool.workspace_limit,
+        model: pool.model_limit,
     };
+    let coordinator = tokio::spawn(pool::dispatch(state, limits, pool.expiry_seconds));
     let stopping = app.runtimes.stopping.clone();
     Ok(Some(tokio::spawn(async move {
         let stopped = stopping.clone();

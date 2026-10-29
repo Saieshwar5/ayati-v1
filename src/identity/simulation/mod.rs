@@ -22,10 +22,9 @@ pub struct Simulation {
     pub root: PathBuf,
     pub paused: std::sync::atomic::AtomicBool,
 }
-pub async fn serve(root: &Path, port: u16) -> Result<()> {
-    let url = std::env::var("RELAY_SIMULATION_DATABASE_URL")
-        .context("Set RELAY_SIMULATION_DATABASE_URL to a dedicated relay_simulation_* database")?;
-    let parsed = reqwest::Url::parse(&url)?;
+pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()> {
+    let port = config.common.port;
+    let parsed = reqwest::Url::parse(&config.database_url)?;
     check(
         parsed
             .path()
@@ -57,16 +56,15 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
             "This simulation directory belongs to another database",
         )?;
     }
-    let mut store = postgres::PgStore::connect(&url).await?;
-    store.pooled = worker_config::Mode::from_env(true)? == worker_config::Mode::Pooled;
-    store.verify_schema().await?;
+    let store = postgres::PgStore::open(&config).await?;
+    super::configure_process(&config);
     std::fs::write(&marker, database_name)?;
     let simulation = seed::prepare(&root, &store).await?;
     let app = Arc::new(App {
-        library: library::Storage::from_env()?,
+        library: library::Storage::from_settings(&config.library)?,
         provider: Provider::simulation(),
         store,
-        origin: format!("http://127.0.0.1:{port}"),
+        config: Arc::new(config),
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
         simulation: Some(simulation),
     });
@@ -76,7 +74,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     automations::start(app.clone()).await;
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
-        app.origin
+        app.config.origin
     );
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))

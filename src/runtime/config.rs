@@ -19,26 +19,21 @@ pub struct GooseConfig {
     pub workspace: PathBuf,
     pub provider: String,
     pub model: String,
-    pub proof_tool: bool,
     pub run_timeout: std::time::Duration,
 }
 
 impl GooseConfig {
-    pub fn from_env(data: &Path, model: &str) -> Self {
+    pub fn new(data: &Path, model: &str, goose: &crate::config::GooseSettings) -> Self {
         Self {
             control_tools: None,
             trace_assignment: None,
             agent_id: "local-agent".into(),
             role: String::new(),
-            binary: std::env::var_os("AYATI_GOOSE_BIN")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0/goose")),
+            binary: goose.binary.clone(),
             root: data.join("goose"),
             workspace: data.join("workspace"),
-            provider: std::env::var("AYATI_GOOSE_PROVIDER")
-                .unwrap_or_else(|_| "fireworks-ai".into()),
+            provider: goose.provider.clone(),
             model: model.into(),
-            proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
             run_timeout: std::time::Duration::from_secs(180),
         }
     }
@@ -129,9 +124,6 @@ impl GooseConfig {
     // can enable default developer/configured tools; isolate it for upgrade tests.
     pub fn session_meta(&self) -> Result<serde_json::Map<String, serde_json::Value>> {
         let mut extensions = Vec::new();
-        if self.proof_tool {
-            extensions.push(serde_json::json!({"type":"mcp","server":{"name":"ayati_proof","command":std::env::current_exe()?,"args":["mcp"],"env":[]}}));
-        }
         if self.control_tools.is_some() {
             extensions.push(serde_json::json!({"type":"mcp","server":{"name":"ayati_control","command":std::env::current_exe()?,"args":["control-mcp"],"env":[]}}));
         }
@@ -152,8 +144,11 @@ mod tests {
     async fn every_command_disables_host_hint_discovery_in_an_isolated_home() {
         for prepared in [false, true] {
             let directory = tempfile::tempdir().unwrap();
-            let mut config = GooseConfig::from_env(directory.path(), "fixture");
-            config.binary = directory.path().join("fixture-goose");
+            let goose = crate::config::GooseSettings {
+                binary: directory.path().join("fixture-goose"),
+                provider: "fireworks-ai".into(),
+            };
+            let config = GooseConfig::new(directory.path(), "fixture", &goose);
             let version = if prepared {
                 PREPARED_GOOSE_VERSION
             } else {

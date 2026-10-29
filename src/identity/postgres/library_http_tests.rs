@@ -69,7 +69,7 @@ async fn library_http_upload_download_ranges_revocation_and_mutation_guards() {
         library: identity::library::Storage::Local(root.path().join("objects")),
         provider: identity::Provider::simulation(),
         store: db,
-        origin: ORIGIN.into(),
+        config: std::sync::Arc::new(crate::config::Controller::for_tests(ORIGIN)),
         runtimes: identity::workspaces::Runtimes::new(root.path().join("workspaces")),
         simulation: Some(identity::simulation::Simulation {
             employees: vec![],

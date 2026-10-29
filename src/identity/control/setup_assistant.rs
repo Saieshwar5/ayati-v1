@@ -59,7 +59,12 @@ pub(super) fn apply(draft: &mut Draft, text: &str) -> Result<()> {
     draft.rules()?;
     Ok(())
 }
-pub(super) async fn suggest(draft: &mut Draft, w: &str, agent: &str) -> Result<()> {
+pub(super) async fn suggest(
+    draft: &mut Draft,
+    w: &str,
+    agent: &str,
+    goose: &crate::config::GooseSettings,
+) -> Result<()> {
     let _permit = CAPACITY
         .try_acquire()
         .context("The setup assistant is busy; try again shortly or use manual review")?;
@@ -77,6 +82,7 @@ pub(super) async fn suggest(draft: &mut Draft, w: &str, agent: &str) -> Result<(
         &dir,
         &CancellationToken::new(),
         None,
+        goose,
     )
     .await;
     crate::identity::chat::execution::cleanup(&dir).await;

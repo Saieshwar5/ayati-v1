@@ -54,7 +54,8 @@ stored in Git.
 python3 tools/build-prepared-goose.py
 npm ci --prefix web
 npm run build --prefix web
-cp -n .env.example .env          # then edit it locally; never commit secrets
+cp -n .env.example .env          # controller settings; never commit secrets
+cp -n .env.executor.example .env.executor  # executor settings
 ./tools/local-postgres.sh start
 ./tools/local-postgres.sh migrate
 ./tools/local-postgres.sh env    # prints the private database URLs
@@ -66,10 +67,12 @@ and follow [the executor pool guide](runtime/executor-pool.md) for the exact
 controller and executor environments. In short:
 
 ```sh
-AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
-AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
-  AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
+cargo run --locked -- identity   # reads .env
+cargo run --locked -- executor   # reads .env.executor
 ```
+
+Each process validates its own settings at startup, reports every problem at
+once, and refuses settings that belong to the other process.
 
 Sign-in uses WorkOS (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`). For a scripted company
 without provider accounts, use `ayati simulate <directory>` with a dedicated

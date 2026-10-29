@@ -55,9 +55,10 @@ AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
   AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
 ~~~
 
-Use an isolated environment and an empty private `.env` fence: normal dotenv
-discovery otherwise loads a parent `.env`. Executors refuse core database URLs and
-WorkOS keys, and the Goose command uses an explicit environment allowlist. The
+Locally the executor reads `.env.executor` (see `.env.executor.example`), never
+the controller's `.env`; containers set `AYATI_DOTENV=0` and read no file.
+Executors refuse database URLs, WorkOS keys, connector catalogs and Library
+storage settings, and the Goose command uses an explicit environment allowlist. The
 bootstrap/executor/slot credentials stay in the Rust supervisor. Goose receives
 the configured model key; per-run model brokerage is still future work.
 [Managed prompt isolation](managed-context-boundary.md) disables automatic host
@@ -68,7 +69,7 @@ hint discovery and uses a private child home in both prepared and controlled pat
 | `AYATI_EXECUTOR_SLOTS` | 2; 1–16 | Each executor |
 | `AYATI_PREPARED_GOOSE_BIN` | `.cache/goose/v1.54.0-ayati.1/goose` | Executor; preparation variant only |
 | `AYATI_GOOSE_PROVIDER`, `AYATI_MODEL` | One immutable provider/model profile per executor | Executor |
-| `AYATI_EXECUTOR_CAPACITY` | `AYATI_ASSIGNMENT_CAPACITY` (2); 1–1024 | Controller, global active pool limit |
+| `AYATI_EXECUTOR_CAPACITY` | 2; 1–1024 | Controller, global active pool limit |
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
 | `AYATI_EXECUTOR_MODEL_LIMIT` | Pool capacity; 1–1024 | Controller, provider/model pair |
 | `AYATI_EXECUTOR_CHAT_RESERVE` | 0; below global/workspace/model limits | Controller; [background admission](interactive-reserve.md) |

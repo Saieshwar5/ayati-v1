@@ -11,14 +11,9 @@ pub(crate) struct CloudRegistration {
 }
 
 impl CloudRegistration {
-    fn validate(&self) -> Result<()> {
-        ensure!(
-            std::env::var("AYATI_CLOUD_WORKERS").as_deref() == Ok("1"),
-            "Cloud bridge is disabled"
-        );
-        let cluster = std::env::var("AYATI_AWS_EXECUTOR_CLUSTER_ARN")?;
-        let release = std::env::var("AYATI_AWS_EXECUTOR_RELEASE_ARN")?;
-        let role = std::env::var("AYATI_AWS_EXECUTOR_ROLE_ARN")?;
+    fn validate(&self, cloud: Option<&crate::config::CloudWorkers>) -> Result<()> {
+        let cloud = cloud.context("Cloud bridge is disabled")?;
+        let (cluster, release, role) = (&cloud.cluster_arn, &cloud.release_arn, &cloud.role_arn);
         let (base, name) = cluster
             .rsplit_once(":cluster/")
             .context("Invalid cloud cluster")?;
@@ -48,7 +43,7 @@ impl CloudRegistration {
         );
         ensure!(
             self.principal_arn == format!("arn:aws:sts::{account}:assumed-role/{role_name}/{id}")
-                && self.release_arn == release,
+                && &self.release_arn == release,
             "Wrong cloud principal or release"
         );
         self.registration.validate()
@@ -61,7 +56,7 @@ pub(super) async fn register(
     Json(input): Json<CloudRegistration>,
 ) -> Api<Value> {
     super::super::postgres::worker_control::require(credential(&headers)? == state.bootstrap_hash)?;
-    input.validate()?;
+    input.validate(state.app.config.cloud.as_ref())?;
     super::super::postgres::worker_control::require(
         input.registration.pooled && pg(&state).pooled,
     )?;

@@ -40,17 +40,8 @@ impl Provider {
             .unwrap();
         provider
     }
-    pub fn from_env() -> Result<Self> {
-        let key = std::env::var("WORKOS_API_KEY")
-            .or_else(|_| std::env::var("WORK_OS_API_KEY"))
-            .context("Set WORKOS_API_KEY or WORK_OS_API_KEY in .env")?;
-        let client_id = std::env::var("WORKOS_CLIENT_ID")
-            .or_else(|_| std::env::var("WORK_OS_CLIENT_ID"))
-            .context("Set WORKOS_CLIENT_ID in .env")?;
-        ensure!(
-            !key.is_empty() && client_id.starts_with("client_"),
-            "Invalid WorkOS configuration"
-        );
+    /// WorkOS client for a validated client ID and API key.
+    pub fn new(client_id: String, key: String) -> Result<Self> {
         Ok(Self {
             client: Client::builder()
                 .timeout(Duration::from_secs(20))

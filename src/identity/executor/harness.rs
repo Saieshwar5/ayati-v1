@@ -1,6 +1,7 @@
 //! One prepared Goose process/session per use. Never reset or reuse a tenant transcript.
 use super::model::Profile;
 use crate::{
+    config::{Executor, GooseSettings},
     identity::chat::execution::{self, Prepared},
     journal::Journal,
     runtime::{GooseRuntime, config::GooseConfig},
@@ -17,23 +18,28 @@ pub(super) struct Harness {
     store: Arc<Journal>,
     root: PathBuf,
     profile: Profile,
+    /// Plain pinned Goose for runs that need controller tools.
+    goose: GooseSettings,
     pub pid: u32,
     events: tokio::sync::broadcast::Sender<crate::runtime::Event>,
 }
 impl Harness {
-    pub async fn prepare(root: &Path, profile: &Profile) -> Result<Self> {
+    pub async fn prepare(root: &Path, profile: &Profile, config: &Executor) -> Result<Self> {
         use std::os::unix::fs::PermissionsExt;
         std::fs::create_dir_all(root)?;
         std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
         // Stop dotenv discovery at this fresh, owned scratch boundary.
         std::fs::write(root.join(".env"), "")?;
-        let mut config = GooseConfig::from_env(root, &profile.model);
-        config.binary = std::env::var_os("AYATI_PREPARED_GOOSE_BIN")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0-ayati.1/goose"));
-        config.provider = profile.provider.clone();
+        let prepared = GooseSettings {
+            binary: config.prepared_goose.clone(),
+            provider: profile.provider.clone(),
+        };
+        let goose = GooseSettings {
+            binary: config.goose.binary.clone(),
+            provider: profile.provider.clone(),
+        };
+        let mut config = GooseConfig::new(root, &profile.model, &prepared);
         config.agent_id = "prepared-chat".into();
-        config.proof_tool = false;
         ensure!(
             config.configured(),
             "Prepared executor requires pinned Goose and a configured provider"
@@ -47,6 +53,7 @@ impl Harness {
             store,
             root: root.into(),
             profile: profile.clone(),
+            goose,
             pid,
             events,
         })
@@ -107,8 +114,12 @@ impl Harness {
                 None
             };
             let tool_runtime = if let Some(broker) = &broker {
-                let mut config =
-                    execution::runtime_config(&context, &self.root, Some(broker.endpoint.clone()))?;
+                let mut config = execution::runtime_config(
+                    &context,
+                    &self.root,
+                    Some(broker.endpoint.clone()),
+                    &self.goose,
+                )?;
                 config.trace_assignment = Some(output.assignment.scope.assignment.clone());
                 Some(Arc::new(GooseRuntime::new(
                     config,

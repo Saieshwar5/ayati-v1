@@ -8,7 +8,6 @@ mod slots;
 mod stream;
 use crate::identity::{
     provider::random_token,
-    worker_config,
     worker_control::{
         client::Client,
         config,
@@ -22,29 +21,18 @@ use std::{path::Path, time::Duration};
 use tokio::{sync::mpsc, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
-pub async fn serve(data: &Path) -> Result<()> {
-    for name in [
-        "RELAY_DATABASE_URL",
-        "RELAY_SIMULATION_DATABASE_URL",
-        "WORKOS_API_KEY",
-        "WORK_OS_API_KEY",
-    ] {
-        ensure!(
-            std::env::var_os(name).is_none(),
-            "Executors must not receive {name}"
-        );
-    }
+pub async fn serve(settings: crate::config::Executor) -> Result<()> {
+    super::start_trace::enable(settings.trace_start);
     let profile = Profile {
-        provider: std::env::var("AYATI_GOOSE_PROVIDER").unwrap_or_else(|_| "fireworks-ai".into()),
-        model: std::env::var("AYATI_MODEL").context("Executor requires AYATI_MODEL")?,
+        provider: settings.goose.provider.clone(),
+        model: settings.model.clone(),
     };
     profile.validate()?;
-    let size = worker_config::seconds("AYATI_EXECUTOR_SLOTS", 2, 1, 16)? as usize;
-    let url = config::url(&std::env::var("AYATI_WORKER_CONTROL_URL")?)?;
-    let key_file = std::path::PathBuf::from(
-        std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE")
-            .context("Executor requires its private local bootstrap file")?,
-    );
+    let size = settings.slots;
+    let url = config::url(&settings.worker_control.url)?;
+    let key_file = settings.worker_control.key_file.clone();
+    let settings = std::sync::Arc::new(settings);
+    let data = settings.common.data_dir.as_path();
     std::fs::create_dir_all(data)?;
     let _lock = super::process_lock::exclusive(&data.join("executor.lock"))?;
     // After a crash no old session is reusable. The exclusive data-directory lock
@@ -89,7 +77,7 @@ pub async fn serve(data: &Path) -> Result<()> {
         stream_stop.clone(),
     ));
     let mut slots = (0..size)
-        .map(|_| Slot::new(profile.clone()))
+        .map(|_| Slot::new(profile.clone(), settings.clone()))
         .collect::<Vec<_>>();
     let mut jobs = JoinSet::new();
     for (index, slot) in slots.iter().enumerate() {

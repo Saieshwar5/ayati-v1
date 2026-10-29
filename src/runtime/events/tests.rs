@@ -24,7 +24,6 @@ fn old_connections_cannot_attach_events_to_a_new_claim_in_the_same_session() {
         }))),
         store: store.clone(),
         events,
-        proof_tool: false,
         control_tools: false,
     };
     let update = || {
@@ -81,7 +80,6 @@ async fn unlisted_tools_cannot_create_an_approval_even_when_reported_by_goose() 
             }))),
             store: store.clone(),
             events,
-            proof_tool: false,
             control_tools: false,
         };
         let request = serde_json::from_value(serde_json::json!({"sessionId":"session","toolCall":{"toolCallId":"call","title":"Use tool","rawInput":{}},"options":[{"optionId":"allow","name":"Allow","kind":"allow_once"}]})).unwrap();

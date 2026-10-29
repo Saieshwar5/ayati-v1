@@ -109,7 +109,8 @@ impl GooseRuntime {
             if prepared {
                 meta.insert("ayatiPrepare".into(), serde_json::json!(1));
             }
-            let mut settings = serde_json::json!({"provider":self.config.provider,"model":model,"proof_tool":self.config.proof_tool,"adapter":1});
+            let mut settings =
+                serde_json::json!({"provider":self.config.provider,"model":model,"adapter":1});
             if self.config.control_tools.is_some() {
                 settings["control_adapter"] = serde_json::json!(1);
             }

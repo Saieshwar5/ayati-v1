@@ -56,11 +56,19 @@ impl Server {
         json!({"id":self.id,"name":self.name,"account":self.account,"operations":self.operations})
     }
 }
+static FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// Set once at controller startup; the file is reread on each use so reviewed
+/// operator edits apply without a restart.
+pub(crate) fn configure(path: Option<std::path::PathBuf>) {
+    if let Some(path) = path {
+        let _ = FILE.set(path);
+    }
+}
 pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
-    let Some(path) = std::env::var_os("AYATI_MCP_SERVERS_FILE") else {
+    let Some(path) = FILE.get() else {
         return Ok(vec![]);
     };
-    let servers: Vec<Server> = serde_json::from_str(&private_file(Path::new(&path))?)
+    let servers: Vec<Server> = serde_json::from_str(&private_file(path)?)
         .map_err(|_| anyhow::anyhow!("Invalid private MCP server configuration"))?;
     ensure!(servers.len() <= 50, "Too many MCP profiles");
     let mut ids = std::collections::HashSet::new();

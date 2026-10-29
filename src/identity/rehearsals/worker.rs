@@ -2,11 +2,12 @@ use super::super::*;
 use postgres::RehearsalClaim;
 use tokio_util::sync::CancellationToken;
 
-pub(super) fn configured(profile: &serde_json::Value) -> Result<bool> {
+pub(super) fn configured(app: &App, profile: &serde_json::Value) -> Result<bool> {
     let settings: agents::config::Settings = serde_json::from_value(profile["settings"].clone())?;
-    let mut config = crate::runtime::config::GooseConfig::from_env(
+    let mut config = crate::runtime::config::GooseConfig::new(
         &std::env::temp_dir(),
         profile["model"].as_str().context("Missing model")?,
+        &app.config.goose,
     );
     if !settings.provider.is_empty() {
         config.provider = settings.provider;
@@ -14,9 +15,6 @@ pub(super) fn configured(profile: &serde_json::Value) -> Result<bool> {
     Ok(config.configured())
 }
 pub(crate) async fn start(app: Shared) {
-    if !true {
-        return;
-    }
     let owner = app.clone();
     app.runtimes.rehearsal_tasks.lock().await.spawn(async move {
         run_loop(owner).await;
@@ -35,6 +33,7 @@ async fn run_loop(app: Shared) {
                     Ok(Some(claim)) => {
                         tasks.spawn(run_one(
                             pg.clone(),
+                            app.config.goose.clone(),
                             claim,
                             app.runtimes.stopping.child_token(),
                         ));
@@ -56,7 +55,12 @@ async fn run_loop(app: Shared) {
     }
     while tasks.join_next().await.is_some() {}
 }
-async fn run_one(pg: postgres::PgStore, claim: RehearsalClaim, stopping: CancellationToken) {
+async fn run_one(
+    pg: postgres::PgStore,
+    goose: crate::config::GooseSettings,
+    claim: RehearsalClaim,
+    stopping: CancellationToken,
+) {
     let root = std::env::temp_dir().join(format!("ayati-agent-sample-{}", uuid::Uuid::new_v4()));
     let cancelled = stopping.child_token();
     let result = async {
@@ -64,7 +68,8 @@ async fn run_one(pg: postgres::PgStore, claim: RehearsalClaim, stopping: Cancell
         tokio::fs::write(root.join(".env"), "").await?;
         // runtime_config supplies an explicit empty Goose extension list. No
         // business broker/owner extension can be obtained from this record.
-        let work = chat::execution::execute_prepared(&claim.prepared, &root, &cancelled, None);
+        let work =
+            chat::execution::execute_prepared(&claim.prepared, &root, &cancelled, None, &goose);
         tokio::pin!(work);
         let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(1));
         loop {

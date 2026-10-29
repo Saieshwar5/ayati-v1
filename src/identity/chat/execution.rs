@@ -177,6 +177,7 @@ pub(crate) async fn execute_prepared(
     root: &Path,
     stopping: &CancellationToken,
     control: Option<crate::identity::control::broker::Endpoint>,
+    goose: &crate::config::GooseSettings,
 ) -> Result<String> {
     ensure!(
         context.version == 1 && (1..=86400).contains(&context.run_seconds),
@@ -186,7 +187,7 @@ pub(crate) async fn execute_prepared(
     use std::os::unix::fs::PermissionsExt;
     std::fs::create_dir_all(root)?;
     std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
-    let config = runtime_config(context, root, control)?;
+    let config = runtime_config(context, root, control, goose)?;
     let prompt = prompt(context);
     ensure!(
         config.configured(),
@@ -219,20 +220,20 @@ pub(crate) fn runtime_config(
     context: &Prepared,
     root: &Path,
     control: Option<crate::identity::control::broker::Endpoint>,
+    goose: &crate::config::GooseSettings,
 ) -> Result<GooseConfig> {
     ensure!(
         context.control_tools == control.is_some(),
         "Missing controller tool capability"
     );
-    let mut config = GooseConfig::from_env(root, &context.model);
+    let mut config = GooseConfig::new(root, &context.model, goose);
     config.run_timeout = std::time::Duration::from_secs(context.run_seconds);
     config.agent_id = context.agent.clone();
     config.role = context.instructions.clone();
     if let Some(provider) = &context.provider {
         config.provider = provider.clone();
     }
-    // Shared work only receives this job's broker, never local-owner extensions.
-    config.proof_tool = false;
+    // Shared work only receives this job's broker, never other extensions.
     config.control_tools = control;
     Ok(config)
 }
