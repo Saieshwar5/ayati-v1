@@ -40,6 +40,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4"] }
 object_store = { version = "=0.14.2", default-features = false, features = ["aws"] }
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
+# Executor AWS task identity (D227 slice 7b): official SDK credentials and SigV4
+# signing. The two read-only ECS calls are signed requests, not the very large
+# ECS SDK crate. One modern HTTPS client, no legacy TLS stack.
+aws-sigv4 = "1"
+aws-credential-types = "1"
+aws-config = { version = "1", default-features = false, features = ["rt-tokio", "behavior-version-latest", "default-https-client"] }
+aws-smithy-runtime-api = "1"
 
 [dev-dependencies]
 tempfile = "3"

@@ -18,12 +18,24 @@ const CONTROLLER_ONLY: &[&str] = &[
     "AYATI_WORKER_CONTROL_TLS_KEY",
     "AYATI_WORKER_CONTROL_TLS_CERT",
     "AYATI_WORKER_CONTROL_LISTEN",
+    "AYATI_CLOUD_WORKERS",
+    "AYATI_AWS_TEST_ENDPOINT",
 ];
+
+/// How an executor proves it may register with worker control.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Identity {
+    /// The operator's shared bootstrap key file (local and Compose).
+    Bootstrap,
+    /// Its ECS task identity, checked with STS and ECS (cloud workers).
+    Aws,
+}
 
 #[derive(Clone)]
 pub struct Executor {
     pub common: Common,
     pub worker_control: WorkerControl,
+    pub identity: Identity,
     pub model: String,
     pub slots: usize,
     /// Plain Goose for tool-enabled runs; `prepared_goose` for ready slots.
@@ -39,7 +51,15 @@ impl Executor {
 
     pub(crate) fn read(env: &mut Reader) -> Result<Self> {
         let common = Common::read(env);
-        let worker_control = WorkerControl::read(env);
+        let identity = match env.text("AYATI_EXECUTOR_IDENTITY").as_deref() {
+            None | Some("bootstrap") => Identity::Bootstrap,
+            Some("aws") => Identity::Aws,
+            Some(_) => {
+                env.problem("AYATI_EXECUTOR_IDENTITY must be bootstrap or aws");
+                Identity::Bootstrap
+            }
+        };
+        let worker_control = WorkerControl::read(env, identity == Identity::Bootstrap);
         if worker_control.is_none() {
             env.problem(
                 "Executors need AYATI_WORKER_CONTROL_URL and AYATI_WORKER_CONTROL_KEY_FILE",
@@ -54,6 +74,7 @@ impl Executor {
         let model = env.required("AYATI_MODEL");
         let config = Self {
             common,
+            identity,
             model: model.unwrap_or_default(),
             slots: env.number("AYATI_EXECUTOR_SLOTS", 2usize, 1..=16),
             goose: GooseSettings::read(env),

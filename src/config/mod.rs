@@ -5,7 +5,7 @@ mod executor;
 mod reader;
 
 pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
-pub use executor::Executor;
+pub use executor::{Executor, Identity};
 pub(crate) use reader::Reader;
 
 use anyhow::Result;
@@ -68,6 +68,7 @@ impl GooseSettings {
 #[derive(Clone)]
 pub struct WorkerControl {
     pub url: String,
+    /// Operator bootstrap key; an executor proving its AWS identity has none.
     pub key_file: PathBuf,
     /// The only certificate authority an executor trusts for an `https://` URL.
     pub ca_file: Option<PathBuf>,
@@ -88,15 +89,20 @@ impl WorkerControl {
 }
 
 impl WorkerControl {
-    /// Both settings or neither; a half-configured listener is an error.
-    pub(crate) fn read(env: &mut Reader) -> Option<Self> {
-        match (
-            env.text("AYATI_WORKER_CONTROL_URL"),
-            env.text("AYATI_WORKER_CONTROL_KEY_FILE"),
-        ) {
+    /// Both settings or neither; a half-configured listener is an error. An
+    /// executor proving its AWS identity (`key == false`) must have no key file.
+    pub(crate) fn read(env: &mut Reader, key: bool) -> Option<Self> {
+        let key_file = env.text("AYATI_WORKER_CONTROL_KEY_FILE");
+        if !key && key_file.is_some() {
+            env.problem(
+                "An executor proving its AWS identity uses no AYATI_WORKER_CONTROL_KEY_FILE",
+            );
+        }
+        let key_file = if key { key_file } else { Some(String::new()) };
+        match (env.text("AYATI_WORKER_CONTROL_URL"), key_file) {
             (Some(url), Some(key_file)) => {
                 let key_file = PathBuf::from(key_file);
-                if !key_file.is_absolute() {
+                if key && !key_file.is_absolute() {
                     env.problem("AYATI_WORKER_CONTROL_KEY_FILE must be an absolute path");
                 }
                 if !url.starts_with("http://") && !url.starts_with("https://") {

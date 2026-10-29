@@ -65,6 +65,7 @@ for migrations, API and workers in a release.
 | `AYATI_WORKER_CONTROL_URL`, `AYATI_WORKER_CONTROL_KEY_FILE` | Worker-control origin (`https://` on a private network, or loopback `http://`) and bootstrap key, on the API and every executor ([worker control](worker-control.md)) |
 | `AYATI_WORKER_CONTROL_LISTEN`, `…_TLS_CERT`, `…_TLS_KEY` | API only: private listen address and TLS files for an `https://` URL |
 | `AYATI_WORKER_CONTROL_CA` | Executors only: the private certificate authority they trust |
+| `AYATI_EXECUTOR_IDENTITY` | Executors: `bootstrap` (key file) or `aws` (proven ECS task identity, [worker control](worker-control.md#executors-on-aws-proven-task-identity)) |
 | `WORKOS_CLIENT_ID`, `WORKOS_API_KEY` | API only; configure the exact public `/auth/callback` URL in WorkOS |
 | `AYATI_WORKER_PROVIDERS` | API declaration of executor providers, `openai` and/or `fireworks-ai`, comma separated |
 | `AYATI_MODEL`, `AYATI_GOOSE_PROVIDER` | Operator-tested default model/provider; executors need matching credentials |

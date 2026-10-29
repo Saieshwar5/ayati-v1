@@ -54,6 +54,8 @@ pub struct Controller {
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
+    /// Loopback fake for STS and ECS in local tests; never a real endpoint.
+    pub aws_test_endpoint: Option<String>,
     pub trace_start: bool,
     /// After a stop signal: seconds to keep serving while reporting not ready.
     pub drain_seconds: u64,
@@ -139,7 +141,7 @@ impl Controller {
                     Execution::Pooled
                 }
             };
-        let worker_control = WorkerControl::read(env);
+        let worker_control = WorkerControl::read(env, true);
         if execution == Execution::Pooled && worker_control.is_none() {
             env.problem(
                 "Pooled execution needs AYATI_WORKER_CONTROL_URL and AYATI_WORKER_CONTROL_KEY_FILE",
@@ -182,6 +184,7 @@ impl Controller {
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),
+            aws_test_endpoint: test_endpoint(env),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
             drain_seconds: env.number("AYATI_DRAIN_SECONDS", 0, 0..=300),
@@ -264,6 +267,24 @@ impl CloudWorkers {
             role_arn: role_arn?,
         })
     }
+}
+
+fn test_endpoint(env: &mut Reader) -> Option<String> {
+    let value = env.text("AYATI_AWS_TEST_ENDPOINT")?;
+    let loopback = reqwest::Url::parse(&value).is_ok_and(|url| {
+        url.scheme() == "http"
+            && url
+                .host_str()
+                .and_then(|host| host.parse::<IpAddr>().ok())
+                .is_some_and(|ip| ip.is_loopback())
+    });
+    if !loopback {
+        env.problem("AYATI_AWS_TEST_ENDPOINT must be a loopback http:// URL");
+    }
+    if !env.present("AYATI_CLOUD_WORKERS") {
+        env.problem("AYATI_AWS_TEST_ENDPOINT needs AYATI_CLOUD_WORKERS=1");
+    }
+    Some(value)
 }
 
 /// Worker control serves TLS exactly when its URL is `https://`; executors on

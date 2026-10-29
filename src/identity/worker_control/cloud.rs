@@ -11,7 +11,7 @@ pub(crate) struct CloudRegistration {
 }
 
 impl CloudRegistration {
-    fn validate(&self, cloud: Option<&crate::config::CloudWorkers>) -> Result<()> {
+    pub(super) fn validate(&self, cloud: Option<&crate::config::CloudWorkers>) -> Result<()> {
         let cloud = cloud.context("Cloud bridge is disabled")?;
         let (cluster, release, role) = (&cloud.cluster_arn, &cloud.release_arn, &cloud.role_arn);
         let (base, name) = cluster

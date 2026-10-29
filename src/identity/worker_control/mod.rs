@@ -1,5 +1,8 @@
 //! Separate, opt-in local machine API. Browser sessions and origins confer no access.
 pub(crate) mod attempt;
+pub(crate) mod aws_identity;
+#[cfg(test)]
+mod aws_identity_tests;
 pub(crate) mod client;
 #[cfg(test)]
 mod client_tests;
@@ -36,6 +39,8 @@ struct Control {
     bootstrap_hash: String,
     host: String,
     hub: std::sync::Arc<hub::Hub>,
+    /// Present when cloud executors may prove their AWS task identity.
+    aws: Option<aws_identity::Verifier>,
 }
 type StateData = Arc<Control>;
 struct Error(anyhow::Error);
@@ -114,11 +119,19 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
         .context("Worker control port unavailable")?;
     let host = endpoint.host;
     let pool = app.config.pool.clone();
+    let aws = match &app.config.cloud {
+        Some(cloud) => Some(
+            aws_identity::Verifier::new(cloud, app.config.aws_test_endpoint.as_deref(), None)
+                .await?,
+        ),
+        None => None,
+    };
     let state = Arc::new(Control {
         app: app.clone(),
         bootstrap_hash: digest(&key),
         host,
         hub: std::sync::Arc::new(hub::Hub::default()),
+        aws,
     });
     let router = routes(state.clone());
     let shutdown_hub = state.hub.clone();
@@ -172,6 +185,7 @@ fn routes(state: StateData) -> Router {
         .route("/v1/assignments/{id}/tools", post(tools::invoke))
         .route("/v1/executors/register", post(register))
         .route("/v1/executors/register-cloud", post(cloud::register))
+        .route("/v1/executors/register-aws", post(register_aws))
         .route("/v1/assignments/{assignment}/start", post(start_assignment))
         .route("/v1/assignments/{assignment}/renew", post(renew))
         .route("/v1/assignments/{assignment}/complete", post(complete))
@@ -192,7 +206,7 @@ async fn guard(State(state): State<StateData>, request: Request<Body>, next: Nex
         StatusCode::UNAUTHORIZED.into_response()
     } else if !matches!(
         request.uri().path(),
-        "/v1/executors/register" | "/v1/executors/register-cloud"
+        "/v1/executors/register" | "/v1/executors/register-cloud" | "/v1/executors/register-aws"
     ) && pg(&state)
         .cloud_credential_allowed(
             &credential(headers).unwrap(),
@@ -225,6 +239,26 @@ async fn register(
     super::postgres::worker_control::require(input.pooled == pg(&state).pooled)?;
     pg(&state).register_executor(&input).await?;
     Ok(Json(json!({"registered":true})))
+}
+/// An executor that proves its ECS task identity needs no shared bootstrap key.
+/// Its bearer is the executor token it is registering; the binding to the task
+/// is immutable and checked on every later request.
+async fn register_aws(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Json(input): Json<aws_identity::AwsRegistration>,
+) -> Api<Value> {
+    super::postgres::worker_control::require(
+        credential(&headers)? == digest(&input.registration.token),
+    )?;
+    let verifier = state.aws.as_ref().context("Cloud executors are disabled")?;
+    let cloud = verifier.verify(&input).await.map_err(|error| {
+        tracing::warn!(stage = %error, "Executor AWS identity proof refused");
+        super::postgres::worker_control::ControlDenied
+    })?;
+    super::postgres::worker_control::require(cloud.registration.pooled && pg(&state).pooled)?;
+    pg(&state).register_cloud_executor(&cloud).await?;
+    Ok(Json(json!({"registered":true,"task":cloud.task_arn})))
 }
 async fn start_assignment(
     State(state): State<StateData>,

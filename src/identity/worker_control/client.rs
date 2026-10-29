@@ -28,6 +28,9 @@ pub(crate) struct Client {
     stream: reqwest::Client,
     url: String,
     token: String,
+    /// A cloud executor's bound ECS task, sent with every request so the
+    /// controller can match each capability to its registration.
+    task: Option<String>,
 }
 /// Both clients share one rule: plain HTTP only to loopback, otherwise HTTPS
 /// trusting only the operator's private certificate authority.
@@ -51,8 +54,7 @@ impl Client {
     pub(crate) async fn events(&self, path: &str) -> Result<reqwest::Response> {
         let response = tokio::time::timeout(
             Duration::from_secs(2),
-            self.stream
-                .get(format!("{}{path}", self.url))
+            self.task(self.stream.get(format!("{}{path}", self.url)))
                 .bearer_auth(&self.token)
                 .send(),
         )
@@ -79,7 +81,18 @@ impl Client {
             stream: builder(&endpoint, ca)?.build()?,
             url: endpoint.origin,
             token: token.into(),
+            task: None,
         })
+    }
+    pub fn for_task(mut self, task: Option<String>) -> Self {
+        self.task = task;
+        self
+    }
+    fn task(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.task {
+            Some(task) => request.header("x-ayati-cloud-task", task),
+            None => request,
+        }
     }
     pub fn with_token(&self, token: &str) -> Result<Self> {
         super::model::token(token)?;
@@ -90,6 +103,7 @@ impl Client {
             stream: self.stream.clone(),
             url: self.url.clone(),
             token: token.into(),
+            task: self.task.clone(),
         })
     }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: &impl Serialize) -> Result<T> {
@@ -102,8 +116,7 @@ impl Client {
         seconds: u64,
     ) -> Result<T> {
         let mut response = self
-            .http
-            .post(format!("{}{path}", self.url))
+            .task(self.http.post(format!("{}{path}", self.url)))
             .bearer_auth(&self.token)
             .json(body)
             .timeout(Duration::from_secs(seconds))

@@ -193,3 +193,50 @@ fn worker_control_uses_tls_exactly_for_private_network_urls() {
     .to_string();
     assert!(error.contains("AYATI_WORKER_CONTROL_TLS_KEY"), "{error}");
 }
+
+#[test]
+fn aws_identity_needs_no_key_and_the_test_endpoint_stays_on_loopback() {
+    let aws = [
+        ("AYATI_MODEL", "fixture"),
+        ("AYATI_WORKER_CONTROL_URL", "https://worker.internal:8766"),
+        ("AYATI_WORKER_CONTROL_CA", "/private/ca.pem"),
+        ("AYATI_EXECUTOR_IDENTITY", "aws"),
+    ];
+    let executor = Executor::read(&mut Reader::from_pairs(&aws)).unwrap();
+    assert_eq!(executor.identity, crate::config::Identity::Aws);
+    let with_key: Vec<_> = aws
+        .iter()
+        .copied()
+        .chain([(
+            "AYATI_WORKER_CONTROL_KEY_FILE",
+            "/private/worker-control.key",
+        )])
+        .collect();
+    assert!(Executor::read(&mut Reader::from_pairs(&with_key)).is_err());
+    let cloud = [
+        ("AYATI_CLOUD_WORKERS", "1"),
+        (
+            "AYATI_AWS_EXECUTOR_CLUSTER_ARN",
+            "arn:aws:ecs:ap-south-1:123456789012:cluster/ayati-test",
+        ),
+        (
+            "AYATI_AWS_EXECUTOR_RELEASE_ARN",
+            "arn:aws:ecs:ap-south-1:123456789012:task-definition/ayati-test:1",
+        ),
+        (
+            "AYATI_AWS_EXECUTOR_ROLE_ARN",
+            "arn:aws:iam::123456789012:role/ayati-test-executor",
+        ),
+    ];
+    let with = |endpoint: &str| {
+        let pairs: Vec<_> = cloud
+            .iter()
+            .copied()
+            .chain([("AYATI_AWS_TEST_ENDPOINT", endpoint)])
+            .collect();
+        controller(&pairs)
+    };
+    assert!(with("http://127.0.0.1:9000").is_ok());
+    assert!(with("https://sts.amazonaws.com").is_err());
+    assert!(controller(&[("AYATI_AWS_TEST_ENDPOINT", "http://127.0.0.1:9000")]).is_err());
+}
