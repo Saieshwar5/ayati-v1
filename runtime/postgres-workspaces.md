@@ -1,8 +1,9 @@
 # Local PostgreSQL workspace foundation
 
 The durable shared-reply queue feeds [pooled executors](executor-pool.md). The current checkout
-requires all thirty-four migrations, including `m20261029_000034_executor_tasks`, which
-lets the pool run one-off tool-free tasks such as [job samples](agent-job-rehearsal.md).
+requires all thirty-five migrations, including `m20261029_000034_executor_tasks`, which
+lets the pool run one-off tool-free tasks such as [job samples](agent-job-rehearsal.md),
+and `m20261029_000035_data_lifecycle` (below).
 [Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
 deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
@@ -164,3 +165,20 @@ New company features require PostgreSQL; SQLite keeps its previous local scope.
 The dedicated simulation helper does not migrate the ordinary workspace database.
 See [company simulation](company-simulation.md) for API behavior, local object-store
 limits, validation results, replay and backup/restore procedures.
+
+## Data lifecycle
+
+History is kept: messages, replies, approvals, questions, samples, setup reviews,
+schedules, job records and audit. A controller background job (every five minutes;
+a database lock lets only one controller work at a time, in small batches) removes
+only duplicates and delivery notices:
+
+- Streamed reply chunks, ten minutes after a reply stops. The message holds the
+  final text; a stopped reply's partial text is first saved in
+  `relay_reply_partials`, so readers see exactly the same reply.
+- Live-update notices older than `AYATI_RETAIN_SYNC_DAYS` (default 30). Each
+  workspace keeps a floor; a browser asking from before it reloads instead of
+  missing changes.
+
+The dispatcher's job indexes cover queued and running work only, so finished
+history does not slow dispatch.

@@ -42,8 +42,11 @@ impl PgStore {
     pub async fn sync_page(&self, user: &User, w: &str, after: Option<i64>) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let high = query(&tx,"SELECT coalesce((SELECT cursor FROM relay_sync_clocks WHERE workspace=$1),0) AS cursor",vec![w.into()]).await?.context("Missing clock")?.try_get::<i64>("","cursor")?;
-        let Some(after) = after.filter(|n| *n >= 0 && *n <= high) else {
+        let clock = query(&tx,"SELECT coalesce((SELECT cursor FROM relay_sync_clocks WHERE workspace=$1),0) AS cursor,
+            coalesce((SELECT floor FROM relay_sync_clocks WHERE workspace=$1),0) AS floor",vec![w.into()]).await?.context("Missing clock")?;
+        let (high, floor): (i64, i64) = (clock.try_get("", "cursor")?, clock.try_get("", "floor")?);
+        // Notices before the floor were removed (D226): reload rather than miss them.
+        let Some(after) = after.filter(|n| *n >= floor && *n <= high) else {
             tx.commit().await?;
             return Ok(json!({"cursor":high,"reset":true,"events":[]}));
         };

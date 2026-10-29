@@ -12,6 +12,7 @@ mod handoffs;
 mod home_panels;
 mod identifier;
 pub(crate) use identifier::identifier;
+mod data_cleanup;
 mod hosting;
 mod interactions;
 mod library;
@@ -202,6 +203,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
     metrics::start(app.clone());
+    data_cleanup::start(app.clone());
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
