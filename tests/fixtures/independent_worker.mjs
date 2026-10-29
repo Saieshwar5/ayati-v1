@@ -11,6 +11,14 @@ import { loadProfile, limitCommand } from './load_limits.mjs';
 import { imageRuntime } from './image_runtime.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
+
+async function freePort() {
+  const listener = createServer().listen(0, '127.0.0.1');
+  await once(listener, 'listening');
+  const { port } = listener.address();
+  await new Promise(resolve => listener.close(resolve));
+  return port;
+}
 const binary = process.env.AYATI_TEST_BIN ?? join(root, 'target/debug/ayati');
 
 export async function workerFixture(t, options = {}) {
@@ -116,10 +124,7 @@ export async function workerFixture(t, options = {}) {
     GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO relay_app;
     REVOKE UPDATE,DELETE ON ${schema}.relay_audit FROM relay_app;
     REVOKE INSERT,UPDATE,DELETE ON ${schema}.seaql_migrations FROM relay_app;`);
-  const listener = createServer().listen(0, '127.0.0.1');
-  await once(listener, 'listening');
-  const port = listener.address().port;
-  await new Promise(resolve => listener.close(resolve));
+  const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const children = [];
   function launch(args, extra, input) {
@@ -165,10 +170,11 @@ export async function workerFixture(t, options = {}) {
       catch { return false; }
     }, 'API did not start');
   }
-  async function request(path, cookie, body, expected = 200, method) {
-    const response = await fetch(base + path, {
+  // Each controller checks the browser Origin against its own origin.
+  const requestAt = at => async (path, cookie, body, expected = 200, method) => {
+    const response = await fetch(at + path, {
       method: method ?? (body === undefined ? 'GET' : 'POST'),
-      headers: { Cookie: cookie ?? '', Origin: base, 'X-Ayati-Request': 'identity',
+      headers: { Cookie: cookie ?? '', Origin: at, 'X-Ayati-Request': 'identity',
         'Content-Type': 'application/json', Connection: 'close' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -176,7 +182,8 @@ export async function workerFixture(t, options = {}) {
     assert.equal(response.status, expected, text);
     const value = text ? (response.headers.get('content-type')?.includes('application/json') ? JSON.parse(text) : text) : null;
     return { value, cookie: response.headers.get('set-cookie')?.split(';')[0] };
-  }
+  };
+  const request = requestAt(base);
   async function login(number) {
     return (await request(`/api/identity/simulation/employees/${number}/login`, '', {})).cookie;
   }
@@ -225,6 +232,26 @@ export async function workerFixture(t, options = {}) {
       const record = containers.bridge(directory, control, provider);
       children.push(record);
       return record;
+    },
+    /** A further controller replica on the same database, with its own
+     * website and worker-control ports, as a second cloud task would run. */
+    async startController(extra = {}) {
+      assert.ok(options.control && !options.tls, 'Replicas use loopback worker control');
+      const dir = join(data, 'controller-' + randomUUID());
+      await mkdir(dir, { mode: 0o700 });
+      // Reuse the seeded company: its roster prevents seeding it a second time.
+      await writeFile(join(dir, 'company.json'), await readFile(join(data, 'api', 'company.json')), { mode: 0o600 });
+      await writeFile(join(dir, 'SIMULATION'), new URL(runtime.href).pathname, { mode: 0o600 });
+      const [webPort, controlPort] = [await freePort(), await freePort()];
+      const controlUrl = `http://127.0.0.1:${controlPort}`, at = `http://127.0.0.1:${webPort}`;
+      const record = launch(['simulate', dir], { RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: String(webPort),
+        AYATI_WORKER_CONTROL_URL: controlUrl, ...options.apiEnv, ...extra });
+      await until(async () => {
+        assert.equal(record.child.exitCode, null, record.logs);
+        try { return (await fetch(at + '/api/identity/simulation', { headers: { Connection: 'close' } })).ok; }
+        catch { return false; }
+      }, 'Controller replica did not start');
+      return { record, base: at, controlUrl, request: requestAt(at) };
     },
     startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',

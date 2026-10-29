@@ -8,7 +8,7 @@ and real pinned Goose, run:
 
 ~~~sh
 node --test --test-concurrency=1 tests/executor_pool.mjs tests/controller_drain.mjs tests/worker_control_tls.mjs \
-  tests/executor_aws_identity.mjs
+  tests/executor_aws_identity.mjs tests/multi_controller.mjs
 ~~~
 
 It checks prepared PID dispatch, concurrent sessions and independent supervisors,
