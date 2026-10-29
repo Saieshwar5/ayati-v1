@@ -8,13 +8,42 @@ async fn main() -> Result<()> {
     }
     let command = std::env::args().nth(1).unwrap_or_else(|| "help".into());
     config::load_dotenv(&command);
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "ayati=info".into()),
-        )
-        .init();
-    match command.as_str() {
+    let logging = config::Logging::from_env()?;
+    init_logging(&logging);
+    // Health probes run every few seconds; only long-running roles announce themselves.
+    let role = match command.as_str() {
+        "identity" | "simulate" => Some("controller"),
+        "executor" => Some("executor"),
+        "workspace-db" => Some("migration"),
+        _ => None,
+    };
+    if let Some(role) = role {
+        let release = logging.release.as_deref().unwrap_or("unknown");
+        tracing::info!(role, command, release, "Starting");
+    }
+    let result = run(&command).await;
+    if let (true, Some(role), Err(error)) = (logging.json, role, &result) {
+        // A JSON collector would split the default multi-line error output.
+        // Errors name settings and stages, never secret values or message contents.
+        tracing::error!(role, error = format!("{error:#}"), "Stopped with an error");
+        std::process::exit(1);
+    }
+    result
+}
+
+fn init_logging(logging: &config::Logging) {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "ayati=info".into());
+    let builder = tracing_subscriber::fmt().with_env_filter(filter);
+    if logging.json {
+        builder.json().flatten_event(true).init();
+    } else {
+        builder.init();
+    }
+}
+
+async fn run(command: &str) -> Result<()> {
+    match command {
         "workspace-db" => {
             ayati::identity::postgres::cli::run(
                 &config::migration_database_url()?,

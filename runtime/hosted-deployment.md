@@ -37,7 +37,8 @@ through worker control; they need no database, bucket or WorkOS credentials.
 From the repository root, with a working Docker/BuildKit daemon:
 
 ```sh
-docker build --platform linux/amd64 -t ayati:hosted-local .
+docker build --platform linux/amd64 --build-arg AYATI_RELEASE=$(git rev-parse --short HEAD) \
+  -t ayati:hosted-local .
 ```
 
 The Dockerfile pins Node 26.2.0, Rust 1.98.0 and Debian Trixie base image digests,
@@ -164,6 +165,17 @@ APIs continue to enforce their existing PostgreSQL permissions.
 PDF extraction keeps its existing bubblewrap isolation. Some container hosts
 disallow nested user namespaces; then extraction fails closed. Do not relax the
 container security profile merely to make that optional extractor work.
+
+## Logs
+
+The image sets `AYATI_LOG_FORMAT=json`: one JSON object per line on stdout, with
+`timestamp`, `level`, `message`, `target` and named fields such as `assignment`,
+`slot` or `stage`. Each long-running process first logs `Starting` with its `role`
+(`controller`, `executor` or `migration`) and `release`, and a fatal error is logged
+as `Stopped with an error` before it exits with code 1. Logs name settings, stages
+and record IDs, never secret values or message contents. `RUST_LOG` adjusts
+verbosity (default `ayati=info`). Locally the default is readable text
+(`AYATI_LOG_FORMAT=text`).
 
 ## Supervision, replacement and recovery
 

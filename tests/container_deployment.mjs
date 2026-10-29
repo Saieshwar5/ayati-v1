@@ -97,6 +97,14 @@ test('deployable image runs separate API, migration and pooled executor containe
   const executorId = compose(['ps','-q','executor']);
   assert.equal(docker(['inspect','--format','{{.HostConfig.ReadonlyRootfs}}',executorId]),'true');
   pass('Same image runs as UID 10001 with read-only root, pinned Goose, separate role secrets and pooled executor registration');
+  for (const [service,role] of [['api','controller'],['executor','executor']]) {
+    const lines = docker(['logs',compose(['ps','-q',service])],{stdio:['pipe','pipe','pipe']}).split('\n').filter(Boolean);
+    const records = lines.map(line => JSON.parse(line)); // Every line is one JSON object.
+    const start = records.find(record => record.message === 'Starting');
+    assert.equal(start?.role,role);
+    assert.ok(start?.release,'Startup line names the image release (unknown when not passed at build)');
+  }
+  pass('Containers log one JSON object per line, starting with their role and release');
   // Node fetch does not preserve a custom Host; use HTTP transport to emulate the TLS proxy.
   const get = (path,cookie='') => new Promise((resolve,reject) => {
     httpGet({host:'127.0.0.1',port,path,headers:{Host:'workspace.example.test',Cookie:cookie,Connection:'close'}},res => {

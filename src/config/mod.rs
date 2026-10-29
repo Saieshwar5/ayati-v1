@@ -94,6 +94,29 @@ impl WorkerControl {
     }
 }
 
+/// Log output, read before the other settings so their warnings are logged.
+pub struct Logging {
+    /// One JSON object per line for log collectors; plain text otherwise.
+    pub json: bool,
+    /// Image or build identifier included in the startup line.
+    pub release: Option<String>,
+}
+
+impl Logging {
+    pub fn from_env() -> Result<Self> {
+        let env = Reader::process();
+        let json = match env.text("AYATI_LOG_FORMAT").as_deref() {
+            None | Some("text") => false,
+            Some("json") => true,
+            Some(_) => anyhow::bail!("AYATI_LOG_FORMAT must be text or json"),
+        };
+        Ok(Self {
+            json,
+            release: env.text("AYATI_RELEASE"),
+        })
+    }
+}
+
 /// The migration command only needs the administrator database URL.
 pub fn migration_database_url() -> Result<String> {
     let mut env = Reader::process();
