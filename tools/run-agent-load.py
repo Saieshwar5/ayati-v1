@@ -41,6 +41,7 @@ SUITES = {
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
                     'tests/executor_pool.mjs', 'tests/controller_drain.mjs',
                     'tests/worker_control_tls.mjs', 'tests/executor_aws_identity.mjs',
+                    'tests/multi_controller.mjs',
                     'tests/hosted_deployment.mjs'],
 }
 
