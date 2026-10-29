@@ -17,7 +17,10 @@ test('guided AI review covers every tool, previews without effects and activates
   const directory = await mkdtemp(join(root, '.tmp/guided-profile-'));
   const profiles = join(directory, 'servers.json'); const bearer = join(directory, 'bearer');
   await writeFile(profiles, '[]', { mode: 0o600 }); await writeFile(bearer, remote.token, { mode: 0o600 });
-  const app = await workerFixture(t, { provider, mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15, apiEnv: { AYATI_MCP_SERVERS_FILE: profiles, OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url } });
+  const app = await workerFixture(t, { provider, mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15, apiEnv: { AYATI_MCP_SERVERS_FILE: profiles, AYATI_WORKER_PROVIDERS: 'openai' } });
+  // The controller has no model key: AI suggestions and replies run on this executor.
+  const worker = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+  await until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0, 'Executor did not report a ready slot', 35000);
   const w = app.path.split('/').at(-1);
   await writeFile(profiles, JSON.stringify([{ id: 'orders', workspace: w, name: 'Company orders', account: 'Northstar test store', url: remote.url, bearer_file: bearer, operations: remote.operations }]));
   const connection = randomUUID();
@@ -53,6 +56,7 @@ test('guided AI review covers every tool, previews without effects and activates
   await wizard.getByLabel('Work conversation', { exact: true }).selectOption(app.conversation);
   await wizard.getByLabel('Use AI suggestions for this review', { exact: true }).check();
   await wizard.getByRole('button', { name: 'Create review draft', exact: true }).click();
+  await wizard.getByText('AI suggestions are ready for your review.', { exact: true }).waitFor({ timeout: 45000 });
   await wizard.getByLabel('Company orders: Read order permission', { exact: true }).waitFor();
   assert.equal(await wizard.getByLabel('Company orders: Read order permission', { exact: true }).inputValue(), 'allow');
   assert.equal(await wizard.getByLabel('Company orders: Update order permission', { exact: true }).inputValue(), 'ask');
@@ -62,6 +66,7 @@ test('guided AI review covers every tool, previews without effects and activates
   assert.equal((await snapshot()).rules.length, 0);
   assert.ok(provider.requests.length > 0);
   assert.ok(provider.requests.every(request => (request.tools ?? []).length === 0), 'Suggestion model must have no tools');
+  assert.deepEqual(await app.gooseChildren(app.apiProcess()), [], 'The controller never runs Goose');
   await wizard.getByRole('button', { name: 'Save draft', exact: true }).click();
   await wizard.getByRole('status').filter({ hasText: 'Draft saved' }).waitFor();
   await wizard.getByRole('button', { name: 'Close', exact: true }).click();
@@ -81,7 +86,7 @@ test('guided AI review covers every tool, previews without effects and activates
   await page.screenshot({ path: join(app.data, 'guided-preview-desktop.png') });
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await page.screenshot({ path: join(app.data, 'guided-preview-dark.png') });
-  app.pass('Real tool-free Goose creates a reviewable draft; omissions and unsupported tools stay blocked; saved review survives reload and preview performs zero business actions');
+  app.pass('Real tool-free Goose on an executor creates a reviewable draft; omissions and unsupported tools stay blocked; saved review survives reload and preview performs zero business actions');
 
   await wizard.getByLabel('I reviewed these actions, their limits and designated approvers.', { exact: true }).check();
   await wizard.getByRole('button', { name: 'Activate reviewed permissions', exact: true }).click();
@@ -91,7 +96,6 @@ test('guided AI review covers every tool, previews without effects and activates
   const receipt = await app.request(`${setup}/drafts/${saved.id}/activate`, app.cookie, { revision: saved.revision, reviewed: true });
   assert.equal(receipt.value.draft, saved.id);
   assert.ok((await snapshot()).rules.every(rule => rule.revision === 1));
-  const worker = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
   async function send(operation, args) {
     const job = await app.send(`control ${JSON.stringify({ tool: 'request_action', arguments: { connection, operation, arguments: args } })}`);
     await until(async () => (await app.history()).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Guided agent did not finish', 35000);

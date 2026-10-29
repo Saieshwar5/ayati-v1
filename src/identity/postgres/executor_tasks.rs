@@ -1,4 +1,4 @@
-//! One-off executor tasks that are not chat replies. The pool offers them as
+//! One-off executor tasks that are not chat replies (samples, setup suggestions). The pool offers them as
 //! background work; each purpose supplies its access check, its context and
 //! where the result is saved. A task never automatically reruns inference.
 use super::{
@@ -11,16 +11,20 @@ use crate::identity::chat::execution::Prepared;
 pub(crate) enum Purpose {
     /// A draft-only sample of an agent's job (`relay_agent_rehearsals`).
     Sample,
+    /// AI suggestions for a permission review (`relay_control_drafts`).
+    SetupSuggestion,
 }
 impl Purpose {
     fn as_str(self) -> &'static str {
         match self {
             Self::Sample => "sample",
+            Self::SetupSuggestion => "setup_suggestion",
         }
     }
     fn parse(value: &str) -> Result<Self> {
         match value {
             "sample" => Ok(Self::Sample),
+            "setup_suggestion" => Ok(Self::SetupSuggestion),
             _ => anyhow::bail!("Unknown executor task purpose"),
         }
     }
@@ -119,6 +123,9 @@ pub(super) async fn running(tx: &DatabaseTransaction, task: &Task, claim: &str) 
 pub(super) async fn allowed(tx: &DatabaseTransaction, task: &Task) -> Result<bool> {
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::allowed(tx, task, &task.actor()).await,
+        Purpose::SetupSuggestion => {
+            super::setup_suggestions::allowed(tx, task, &task.actor()).await
+        }
     }
 }
 
@@ -126,6 +133,7 @@ pub(super) async fn allowed(tx: &DatabaseTransaction, task: &Task) -> Result<boo
 pub(super) async fn context(db: &impl ConnectionTrait, task: &Task) -> Result<Prepared> {
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::context(db, task).await,
+        Purpose::SetupSuggestion => super::setup_suggestions::context(db, task).await,
     }
 }
 
@@ -136,6 +144,7 @@ pub(super) async fn begin(tx: &DatabaseTransaction, task: &Task, claim: &str) ->
     ensure!(started == 1, "Assignment already started");
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::started(tx, task, claim).await,
+        Purpose::SetupSuggestion => Ok(()),
     }
 }
 
@@ -160,6 +169,7 @@ pub(super) async fn finish(
     close(tx, task, claim, state).await?;
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::finished(tx, task, state, text).await,
+        Purpose::SetupSuggestion => super::setup_suggestions::finished(tx, task, state, text).await,
     }
 }
 
@@ -169,6 +179,7 @@ pub(super) async fn invalidate(tx: &DatabaseTransaction, task: &Task, claim: &st
     close(tx, task, claim, "cancelled").await?;
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::invalidate(tx, &task.workspace, &task.id).await,
+        Purpose::SetupSuggestion => super::setup_suggestions::invalidate(tx, task).await,
     }
 }
 
@@ -222,9 +233,12 @@ pub(super) async fn recover(tx: &DatabaseTransaction) -> Result<()> {
         finished(tx, &task.id).await?;
         match task.purpose {
             Purpose::Sample => super::rehearsal_queue::interrupted(tx, &task).await?,
+            Purpose::SetupSuggestion => super::setup_suggestions::interrupted(tx, &task).await?,
         }
     }
     execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='sample'
         AND NOT EXISTS(SELECT 1 FROM relay_agent_rehearsals r WHERE r.workspace=t.workspace AND r.id=t.id AND r.state='queued')",vec![]).await?;
+    execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='setup_suggestion'
+        AND NOT EXISTS(SELECT 1 FROM relay_control_drafts d WHERE d.workspace=t.workspace AND d.id=t.id AND d.suggestion_context IS NOT NULL)",vec![]).await?;
     Ok(())
 }

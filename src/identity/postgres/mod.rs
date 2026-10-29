@@ -202,6 +202,9 @@ mod settings;
 mod setup_context;
 mod setup_drafts;
 #[cfg(test)]
+mod setup_suggestion_tests;
+mod setup_suggestions;
+#[cfg(test)]
 mod setup_tests;
 mod source_access;
 mod task_continuation;

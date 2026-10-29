@@ -1,6 +1,9 @@
 //! Draft persistence, side-effect-free previews and atomic activation.
 use super::*;
-use crate::identity::control::setup_model::{Activate, Draft, Edit, Preview, Start};
+use crate::identity::{
+    chat::execution::Prepared,
+    control::setup_model::{Activate, Draft, Edit, Preview, Start},
+};
 use serde_json::json;
 pub(super) const VIEW: &str = "jsonb_build_object('id',id,'revision',revision,'data',data,'state',state,'receipt',receipt,'previewed',COALESCE(preview_revision=revision,false))";
 
@@ -80,6 +83,34 @@ impl PgStore {
         agent: &str,
         draft: &Draft,
     ) -> Result<Value> {
+        self.create_draft(user, w, agent, draft, None).await
+    }
+    /// Save a blocked draft and queue AI suggestions for it on an executor.
+    pub(crate) async fn setup_create_suggested(
+        &self,
+        user: &User,
+        w: &str,
+        agent: &str,
+        draft: &Draft,
+        suggestion: &Prepared,
+    ) -> Result<Value> {
+        ensure!(
+            suggestion.reply == draft.request.id
+                && suggestion.workspace == w
+                && suggestion.agent == agent,
+            "Suggestion context does not match the draft"
+        );
+        self.create_draft(user, w, agent, draft, Some(suggestion))
+            .await
+    }
+    async fn create_draft(
+        &self,
+        user: &User,
+        w: &str,
+        agent: &str,
+        draft: &Draft,
+        suggestion: Option<&Prepared>,
+    ) -> Result<Value> {
         draft.request.validate()?;
         draft.rules()?;
         let tx = self.workspace_tx(w).await?;
@@ -97,7 +128,16 @@ impl PgStore {
                 "Draft identity already used"
             );
         } else {
-            execute(&tx,"INSERT INTO relay_control_drafts(workspace,agent,user_id,id,data) VALUES($1,$2,$3,$4,$5)",vec![w.into(),agent.into(),user.id.clone().into(),draft.request.id.clone().into(),data.into()]).await?;
+            execute(&tx,"INSERT INTO relay_control_drafts(workspace,agent,user_id,id,data,suggestion_context) VALUES($1,$2,$3,$4,$5,$6)",vec![w.into(),agent.into(),user.id.clone().into(),draft.request.id.clone().into(),data.into(),suggestion.map(serde_json::to_value).transpose()?.into()]).await?;
+            if let Some(context) = suggestion {
+                super::executor_tasks::enqueue(
+                    &tx,
+                    super::executor_tasks::Purpose::SetupSuggestion,
+                    &user.id,
+                    context,
+                )
+                .await?;
+            }
             audit(
                 &tx,
                 &user.id,

@@ -1,6 +1,6 @@
 -- Dispatch and lease ledger for one-off, tool-free executor work that is not a
 -- chat reply. Each purpose keeps its own request, context and result (samples in
--- relay_agent_rehearsals). Only executors run tasks, and a task never
+-- relay_agent_rehearsals, setup suggestions in relay_control_drafts). Only executors run tasks, and a task never
 -- automatically reruns inference.
 CREATE TABLE relay_executor_tasks (
  id TEXT PRIMARY KEY,
@@ -20,6 +20,10 @@ CREATE TABLE relay_executor_tasks (
 CREATE INDEX relay_executor_tasks_ready ON relay_executor_tasks(model,sequence) WHERE state='queued';
 CREATE INDEX relay_executor_tasks_running ON relay_executor_tasks(workspace,lease_until)
  WHERE state='running';
+
+-- Setup suggestions keep their tool-free context with the draft while pending.
+ALTER TABLE relay_control_drafts ADD COLUMN suggestion_context JSONB
+ CHECK(octet_length(suggestion_context::text)<=262144);
 
 -- An assignment produces exactly one chat reply or one task.
 ALTER TABLE relay_worker_assignments

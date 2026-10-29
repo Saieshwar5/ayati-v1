@@ -84,6 +84,14 @@ pub(crate) struct Inventory {
     pub tools: Vec<String>,
     pub unsupported: Vec<String>,
 }
+/// Progress of optional AI suggestions, which an executor prepares after the
+/// draft is saved with every action blocked.
+#[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+pub(crate) struct Suggestion {
+    /// `pending`, `ready`, `failed` or `discarded` (the draft was edited first).
+    pub state: String,
+    pub detail: String,
+}
 #[derive(Clone, Deserialize, Serialize)]
 pub(crate) struct Draft {
     pub request: Start,
@@ -91,6 +99,8 @@ pub(crate) struct Draft {
     pub inventories: Vec<Inventory>,
     pub choices: Vec<Choice>,
     pub notes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<Suggestion>,
 }
 impl Draft {
     pub fn rules(&self) -> Result<Vec<Rule>> {

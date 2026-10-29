@@ -9,7 +9,7 @@ mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
 mod setup;
-mod setup_assistant;
+pub(crate) mod setup_assistant;
 pub(crate) mod setup_model;
 use super::*;
 use anyhow::ensure;
