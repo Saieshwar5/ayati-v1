@@ -130,7 +130,14 @@ Executors are trusted operator processes in this local boundary.
 - SIGTERM withdraws idle capacity and preserves already offered/running work,
   then closes prepared sessions and exits. SIGKILL kills child Goose processes
   through the Linux parent-death boundary. Another executor recovers expired
-  tool-free work with a new attempt, up to the existing three-attempt limit.
+  work with a new attempt, up to five attempts. The retry continues instead of
+  starting over: its instructions include the text the lost attempt(s) streamed
+  and the controller's receipts for every operation, with "do not repeat them".
+  All tools run through the controller, so no per-step executor checkpoint is
+  needed. If an operation was still executing or is uncertain, the task is not
+  retried: it waits in the `attention` phase with a checkpoint and resumes when
+  the controller finishes the operation; an uncertain write waits for a person
+  (no reconciliation step exists yet; the requester can stop the task).
   Restarting with the same exclusively locked data directory clears old session
   scratch before preparing new slots; abandoned directories on other hosts require
   the deployment's disk/task lifecycle cleanup.
