@@ -72,6 +72,8 @@ mod executor_dispatch;
 #[cfg(test)]
 mod executor_slot_tests;
 mod executor_slots;
+mod executor_task_migration;
+mod executor_tasks;
 #[cfg(test)]
 mod preparation_tests;
 #[cfg(test)]
@@ -119,6 +121,8 @@ mod event_scope_tests;
 #[cfg(test)]
 mod event_tests;
 mod event_triggers;
+#[cfg(test)]
+mod executor_task_tests;
 mod feedback;
 mod handoff_access;
 mod handoff_admission;
@@ -184,16 +188,13 @@ mod rehearsal_source_tests;
 #[cfg(test)]
 mod rehearsal_tests;
 mod rehearsals;
-mod request_context;
-#[cfg(test)]
-mod request_context_tests;
-mod source_access;
-mod working_context;
-pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]
 mod reply_output_tests;
 mod reply_views;
+mod request_context;
+#[cfg(test)]
+mod request_context_tests;
 #[cfg(test)]
 mod response_tests;
 mod responses;
@@ -202,6 +203,7 @@ mod setup_context;
 mod setup_drafts;
 #[cfg(test)]
 mod setup_tests;
+mod source_access;
 mod task_continuation;
 #[cfg(test)]
 mod task_continuation_tests;
@@ -210,6 +212,7 @@ mod work;
 pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;
+mod working_context;
 
 use super::user::{User, now};
 use anyhow::{Context, Result, ensure};

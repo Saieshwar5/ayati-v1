@@ -1,7 +1,8 @@
 # Local PostgreSQL workspace foundation
 
 The durable shared-reply queue feeds [pooled executors](executor-pool.md). The current checkout
-requires all thirty-three migrations, including `m20261027_000033_home_panel_maintenance`.
+requires all thirty-four migrations, including `m20261029_000034_executor_tasks`, which
+lets the pool run one-off tool-free tasks such as [job samples](agent-job-rehearsal.md).
 [Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
 deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic

@@ -199,7 +199,6 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     tracing::info!("Identity workspace: {}/?view=account", app.config.origin);
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone());
-    rehearsals::start(app.clone()).await;
     automations::start(app.clone()).await;
     shutdown::serve(app, listener, control).await
 }

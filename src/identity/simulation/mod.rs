@@ -70,7 +70,6 @@ pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()>
     });
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone());
-    rehearsals::start(app.clone()).await;
     automations::start(app.clone()).await;
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
