@@ -21,7 +21,10 @@ export function InlineResponse({ id, text, reference, source, reading, openReade
   useLayoutEffect(() => {
     if (expanded || !content.current) return;
     const node = content.current;
-    const measure = () => setOverflow(node.scrollHeight > node.clientHeight + 1);
+    // Once this text overflows it stays readable: becoming readable widens the
+    // message, which can stop the overflow and would otherwise flip every frame.
+    let overflowed = false;
+    const measure = () => { overflowed ||= node.scrollHeight > node.clientHeight + 1; setOverflow(overflowed); };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure); observer.observe(node);

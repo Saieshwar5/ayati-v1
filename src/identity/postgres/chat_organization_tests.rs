@@ -252,3 +252,25 @@ async fn archive_requires_current_source_and_creator_or_owner_authority() {
             .is_err()
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn archiving_keeps_saved_work_and_questions_current() {
+    let (db, owner, w, _, job) = setup("ask").await;
+    let epochs = || async {
+        query(&db.db, "SELECT COALESCE(sum(revision),0)::bigint AS n FROM relay_context_epochs WHERE workspace=$1", vec![w.clone().into()])
+            .await.unwrap().map(|r| r.try_get::<i64>("", "n").unwrap()).unwrap_or(0)
+    };
+    let before = epochs().await;
+    db.channel_lifecycle(&owner, &w, &job.chat, Some(&lifecycle(true, 0)))
+        .await
+        .unwrap();
+    db.channel_lifecycle(&owner, &w, &job.chat, Some(&lifecycle(false, 1)))
+        .await
+        .unwrap();
+    assert_eq!(
+        epochs().await,
+        before,
+        "archive and restore change intake, not who can read"
+    );
+}

@@ -215,3 +215,34 @@ async fn reactions_are_per_person_idempotent_and_never_start_work() {
             .any(|r| r["emoji"] == "🎉")
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn author_edits_and_deletes_keep_answers_already_given() {
+    let db = fixture().await;
+    let owner = user(&db, "keep-answers").await;
+    let w = workspace(&db, &owner).await;
+    let c = chat(&db, &owner, &w, vec![], vec![]).await;
+    let first = message("Typo in this mesage", None);
+    let second = message("Something to remove", None);
+    db.chat_send(&owner, &w, &c, &first).await.unwrap();
+    db.chat_send(&owner, &w, &c, &second).await.unwrap();
+    let generation = || async {
+        query(
+            &db.db,
+            "SELECT COALESCE(sum(revision),0)::bigint AS n FROM relay_context_epochs WHERE workspace=$1",
+            vec![w.clone().into()],
+        )
+        .await
+        .unwrap()
+        .map(|r| r.try_get::<i64>("", "n").unwrap())
+        .unwrap_or(0)
+    };
+    let before = generation().await;
+    db.edit_message(&owner, &w, &c, &first.id, "Typo in this message")
+        .await
+        .unwrap();
+    db.delete_message(&owner, &w, &c, &second.id).await.unwrap();
+    // Earlier agent answers in this conversation are not withdrawn.
+    assert_eq!(generation().await, before);
+}

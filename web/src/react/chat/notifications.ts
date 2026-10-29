@@ -50,9 +50,12 @@ function viewingConversation(chat: string) {
     && url.searchParams.get('view') === 'chat' && url.searchParams.get('conversation') === chat;
 }
 
-function show(change: Change) {
+async function show(change: Change) {
   const message = change.message, id = change.chat;
   if (!message || !id || alerted.has(message.id)) return;
+  // A new conversation's first message can arrive before the list refreshes.
+  if (!chats.has(id)) await load();
+  if (alerted.has(message.id)) return;
   const chat = chats.get(id);
   const level = levels.get(id) ?? (chat ? defaultLevel(chat) : 'none');
   if (!shouldAlert(message, chat, level, viewingConversation(id))) return;
@@ -72,7 +75,7 @@ export function startDesktopAlerts() {
   const unsubscribe = subscribeChanges(change => {
     if (stopped) return;
     if (change.kind === 'access' || change.kind === 'reset') { window.clearTimeout(reload); reload = window.setTimeout(() => void load(), 500); return; }
-    if (change.kind === 'message' && Notification.permission === 'granted') show(change);
+    if (change.kind === 'message' && Notification.permission === 'granted') void show(change);
   });
   return () => { stopped = true; unsubscribe(); window.clearTimeout(reload); };
 }
