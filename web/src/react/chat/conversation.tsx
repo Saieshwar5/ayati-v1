@@ -18,8 +18,10 @@ import { errorMessage } from '../requests';
 import { chatRequest, conversationName, directPartner, type Conversation, type Directory, type History } from './model';
 import { ConversationFace, ParticipantName } from './conversation-face';
 import { useShowProfile } from './profile-card';
+import { NotifyMenu } from './notify-controls';
+import type { Level } from './notifications';
 
-export function ConversationPane({ chat, directory, back, focus, changed = async () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void> }) {
+export function ConversationPane({ chat, directory, back, focus, changed = async () => {}, level, levelChanged = () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void>; level?: Level; levelChanged?: (level: Level) => void }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
@@ -148,6 +150,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
           <p className="chat-connection" role="status">{connection}</p>
         </div>
       </div>
+      <NotifyMenu chat={chat} level={level} changed={levelChanged} />
       <Button onClick={() => setDetails(true)}>Details</Button>
     </header>
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={() => setLifecycle(true)}>Restore channel</Button>}</div>}

@@ -42,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::data_lifecycle_migration::DataLifecycle),
             Box::new(super::chat_people_migration::ChatPeople),
             Box::new(super::message_action_migration::MessageActions),
+            Box::new(super::chat_notification_migration::ChatNotifications),
         ]
     }
 }

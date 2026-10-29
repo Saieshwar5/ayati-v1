@@ -36,6 +36,10 @@ mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 mod chat;
 mod chat_intake;
+mod chat_notification_migration;
+#[cfg(test)]
+mod chat_notification_tests;
+mod chat_notifications;
 mod chat_organization_migration;
 #[cfg(test)]
 mod chat_organization_migration_tests;

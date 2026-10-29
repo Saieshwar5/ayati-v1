@@ -1,4 +1,5 @@
 import { startLive } from './chat/live';
+import { startDesktopAlerts } from './chat/notifications';
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { WorkspaceShell } from './workspace-shell';
@@ -19,6 +20,7 @@ export function WorkspaceApplication() {
   const page = workspacePage(new URL(href));
   useEffect(installNavigation, []);
   useEffect(startLive, []);
+  useEffect(startDesktopAlerts, []);
   useEffect(() => {
     document.documentElement.dataset.page = page;
     const title = page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
