@@ -76,19 +76,9 @@ pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()>
         "Company simulation: {}/index.html?view=simulation",
         app.config.origin
     );
-    let stopping = app.runtimes.stopping.clone();
-    axum::serve(listener, router(app.clone()))
-        .with_graceful_shutdown(async move {
-            tokio::select! { _ = shutdown::signal() => {}, _ = stopping.cancelled() => {} }
-            stopping.cancel();
-        })
-        .await?;
-    if let Some(control) = control {
-        control.await?;
-    }
-    app.runtimes.shutdown().await?;
+    let result = super::shutdown::serve(app, listener, control).await;
     drop(lock);
-    Ok(())
+    result
 }
 pub(super) fn routes() -> Router<Shared> {
     Router::new()

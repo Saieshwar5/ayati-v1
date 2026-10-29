@@ -201,18 +201,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     chat::start_dispatcher(app.clone());
     rehearsals::start(app.clone()).await;
     automations::start(app.clone()).await;
-    let stopping = app.runtimes.stopping.clone();
-    axum::serve(listener, router(app.clone()))
-        .with_graceful_shutdown(async move {
-            tokio::select! { _ = shutdown::signal() => {}, _ = stopping.cancelled() => {} }
-            stopping.cancel();
-        })
-        .await?;
-    app.runtimes.shutdown().await?;
-    if let Some(control) = control {
-        control.await?;
-    }
-    Ok(())
+    shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
     Router::new()

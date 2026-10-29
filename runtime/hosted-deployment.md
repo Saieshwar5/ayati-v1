@@ -168,10 +168,13 @@ container security profile merely to make that optional extractor work.
 ## Supervision, replacement and recovery
 
 - `GET /health/live` checks HTTP responsiveness without a database probe.
-- `GET /health/ready` probes the database with a three-second deadline.
+- `GET /health/ready` returns 200 `ready`, or 503 with `draining` (a stop was
+  requested) or `database unavailable` (three-second probe deadline).
 - `ayati api-health` probes internal loopback readiness without trusting proxy headers.
-- Executor readiness is reported to the controller as prepared slots
-  (`relay_executor_slots`); there is no separate executor health command yet.
+- `ayati executor-health` passes when the local executor's last capacity report
+  to its controller was accepted within 15 seconds, it is not draining and at
+  least one slot is ready or running. It reads a status file in the executor's
+  data directory and makes no network request.
 
 Only the two read-only health GETs bypass the public Host check; they expose no
 account, credential or diagnostic details. Readiness is not a model, storage,
@@ -179,8 +182,20 @@ WorkOS or end-to-end availability test. Monitor those dependencies separately.
 Docker health status alone does not restart an unhealthy process; select the
 hosting supervisor's recovery policy and alerts during the private cloud rehearsal.
 
-SIGTERM drains API requests; an executor drains its slots and stops Goose first. Compose
-allows 90 seconds. A forced kill still relies on lease expiry, and crash scratch
+On SIGTERM the controller stops in stages:
+
+1. Readiness reports `draining` while every request is still served, for
+   `AYATI_DRAIN_SECONDS` (0 by default; 15 in Compose) so the load balancer
+   stops routing new users first.
+2. Background loops stop claiming work, Chat sync streams close (browsers
+   reconnect to another controller), the port closes and running work finishes.
+3. If that takes longer than `AYATI_SHUTDOWN_SECONDS` after the signal (60 by
+   default), the process exits with an error and leaves unfinished work to
+   lease recovery, before Compose's 90-second forced kill.
+
+Replies already running on executors are not interrupted by a controller stop;
+executors reconnect to the replacement. An executor drains its slots and stops
+Goose first. A forced kill still relies on lease expiry, and crash scratch
 requires controlled reconciliation. Do not blindly replay business actions.
 
 Before a schema change, take a verified backup and rehearse restoration. Migration

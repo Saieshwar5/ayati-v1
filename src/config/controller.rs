@@ -52,6 +52,10 @@ pub struct Controller {
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
     pub trace_start: bool,
+    /// After a stop signal: seconds to keep serving while reporting not ready.
+    pub drain_seconds: u64,
+    /// After a stop signal: total seconds before unfinished work is abandoned.
+    pub shutdown_seconds: u64,
 }
 
 /// Executor pool admission, leases and per-assignment duration.
@@ -169,8 +173,13 @@ impl Controller {
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
+            drain_seconds: env.number("AYATI_DRAIN_SECONDS", 0, 0..=300),
+            shutdown_seconds: env.number("AYATI_SHUTDOWN_SECONDS", 60, 1..=600),
             common,
         };
+        if config.drain_seconds >= config.shutdown_seconds {
+            env.problem("AYATI_DRAIN_SECONDS must be smaller than AYATI_SHUTDOWN_SECONDS");
+        }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         env.finish("controller")?;
         Ok(config)

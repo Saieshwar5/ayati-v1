@@ -95,6 +95,14 @@ fn retired_modes_and_executor_settings_are_refused_on_the_controller() {
 }
 
 #[test]
+fn the_drain_delay_fits_inside_the_shutdown_limit() {
+    let config = controller(&[]).unwrap();
+    assert_eq!((config.drain_seconds, config.shutdown_seconds), (0, 60));
+    assert!(controller(&[("AYATI_DRAIN_SECONDS", "15")]).is_ok());
+    assert!(controller(&[("AYATI_DRAIN_SECONDS", "60")]).is_err());
+}
+
+#[test]
 fn executors_refuse_controller_secrets_and_need_worker_control() {
     let base = [
         ("AYATI_MODEL", "fixture"),

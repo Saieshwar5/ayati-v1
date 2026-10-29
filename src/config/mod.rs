@@ -103,14 +103,14 @@ pub fn migration_database_url() -> Result<String> {
 }
 
 /// Load the local development file for this command: `.env.executor` for
-/// executors, which must not see the controller's `.env` secrets, and `.env`
-/// otherwise. Containers set `AYATI_DOTENV=0` so settings come only from the
-/// task environment and its secrets.
+/// executors and their health probe, which must not see the controller's `.env`
+/// secrets, and `.env` otherwise. Containers set `AYATI_DOTENV=0` so settings
+/// come only from the task environment and its secrets.
 pub fn load_dotenv(command: &str) {
     if std::env::var("AYATI_DOTENV").as_deref() == Ok("0") {
         return;
     }
-    let file = if command == "executor" {
+    let file = if matches!(command, "executor" | "executor-health") {
         ".env.executor"
     } else {
         ".env"

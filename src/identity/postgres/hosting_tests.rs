@@ -342,12 +342,17 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
         200
     );
     assert!(!fresh.path().join("workspaces").exists());
-    // Liveness stays up while readiness fails after losing the database pool.
+    let ready = || identity::hosting::ready(axum::extract::State(second.clone()));
+    assert_eq!(ready().await, (StatusCode::OK, "ready"));
+    // Liveness stays up while readiness fails after losing the database pool,
+    // and a requested stop is reported as a drain rather than an outage.
     second.store.db.clone().close().await.unwrap();
     assert_eq!(
-        identity::hosting::ready(axum::extract::State(second.clone())).await,
-        StatusCode::SERVICE_UNAVAILABLE
+        ready().await,
+        (StatusCode::SERVICE_UNAVAILABLE, "database unavailable")
     );
+    second.runtimes.draining.cancel();
+    assert_eq!(ready().await, (StatusCode::SERVICE_UNAVAILABLE, "draining"));
     assert_eq!(identity::hosting::live().await, StatusCode::OK);
     server.abort();
 }

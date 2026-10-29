@@ -30,6 +30,7 @@ test('deployable image runs separate API, migration and pooled executor containe
     AYATI_IMAGE: process.env.AYATI_CONTAINER_IMAGE ?? 'ayati:hosted-local',
     AYATI_PUBLIC_ORIGIN: 'https://workspace.example.test', AYATI_LOCAL_PORT: String(port),
     AYATI_WORKER_PROVIDERS: 'openai', AYATI_MODEL: 'fixture', WORKOS_CLIENT_ID:'client_fixture',
+    AYATI_DRAIN_SECONDS: '3',
     AYATI_DATABASE_URL_FILE: await secret('database-url','postgresql://relay_app:fixture-runtime@db:5432/ayati'),
     AYATI_MIGRATION_DATABASE_URL_FILE: await secret('migration-url','postgresql://postgres:fixture-admin@db:5432/ayati'),
     AYATI_WORKOS_API_KEY_FILE: await secret('identity-key','fixture-unused-key'),
@@ -85,7 +86,7 @@ test('deployable image runs separate API, migration and pooled executor containe
   // Prepared Goose sessions make no model request before reporting ready.
   const ready = () => until(() => Number(sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
     'Executor did not report prepared capacity',90000);
-  await healthy('api'); await ready();
+  await healthy('api'); await ready(); await healthy('executor');
   assert.equal(compose(['exec','-T','api','id','-u']),'10001');
   assert.equal(compose(['exec','-T','executor','id','-u']),'10001');
   assert.equal(compose(['exec','-T','executor','/opt/ayati/goose','--version']),'1.54.0');
@@ -99,7 +100,8 @@ test('deployable image runs separate API, migration and pooled executor containe
   // Node fetch does not preserve a custom Host; use HTTP transport to emulate the TLS proxy.
   const get = (path,cookie='') => new Promise((resolve,reject) => {
     httpGet({host:'127.0.0.1',port,path,headers:{Host:'workspace.example.test',Cookie:cookie,Connection:'close'}},res => {
-      res.resume(); res.on('end',()=>resolve({status:res.statusCode,headers:res.headers}));
+      let body = ''; res.setEncoding('utf8'); res.on('data',chunk => { body += chunk; });
+      res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body}));
     }).on('error',reject);
   });
   const login = await get('/auth/login');
@@ -120,6 +122,16 @@ test('deployable image runs separate API, migration and pooled executor containe
   compose(['stop','-t','20','executor']);
   assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',drained]),'0');
   pass('The executor drains its prepared slots through the controller on SIGTERM');
+  const stopped = compose(['ps','-q','api']);
+  docker(['kill','--signal','TERM',stopped]);
+  const draining = await get('/health/ready');
+  assert.deepEqual([draining.status,draining.body],[503,'draining']);
+  assert.equal((await get('/health/live')).status,200);
+  await until(() => docker(['inspect','--format','{{.State.Running}}',stopped]) === 'false',
+    'API did not stop after draining',30000);
+  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',stopped]),'0');
+  pass('A stopping API reports draining while still serving, then exits cleanly');
+  compose(['up','-d','api']); await healthy('api');
   compose(['stop','-t','5','db']);
   assert.throws(() => compose(['exec','-T','api','/opt/ayati/ayati','api-health']));
   assert.equal((await get('/health/live')).status,200);

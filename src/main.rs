@@ -40,6 +40,9 @@ async fn main() -> Result<()> {
             );
             ayati::identity::executor::serve(config::Executor::from_env()?).await
         }
+        "executor-health" => {
+            ayati::identity::executor::health::check(&config::Common::from_env()?.data_dir)
+        }
         "api-health" => {
             reqwest::Client::builder()
                 .no_proxy()
@@ -56,7 +59,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check>  Manage the PostgreSQL schema\n\nConfiguration: .env for the controller, .env.executor for executors (see .env.example and .env.executor.example)."
+                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati executor-health Check that the local executor reports usable slots\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check>  Manage the PostgreSQL schema\n\nConfiguration: .env for the controller, .env.executor for executors (see .env.example and .env.executor.example)."
             );
             Ok(())
         }
