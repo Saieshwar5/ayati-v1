@@ -1,94 +1,19 @@
 // Opt-in: disposable local containers, synthetic secrets, no live identity/model requests.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
-import { once } from 'node:events';
 import { get as httpGet } from 'node:http';
-import { join, resolve } from 'node:path';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { composeStack } from './fixtures/compose_stack.mjs';
 import { until } from './fixtures/polling.mjs';
 
 test('deployable image runs separate API, migration and pooled executor containers', {
   timeout: 240000, skip: process.env.AYATI_CONTAINER_TEST !== '1',
 }, async t => {
-  const root = resolve(import.meta.dirname,'..');
-  await mkdir(join(root,'.tmp'),{recursive:true});
-  const data = await mkdtemp(join(root,'.tmp/container-deployment-'));
-  const name = 'ayati-test-' + randomUUID().slice(0,8);
-  const listener = createServer().listen(0,'127.0.0.1');
-  await once(listener,'listening');
-  const port = listener.address().port;
-  await new Promise(resolve => listener.close(resolve));
-  const secret = async (name,value) => {
-    const path = join(data,name);
-    // Synthetic files in a private directory; readable by the image's non-root UID.
-    await writeFile(path,value,{mode:0o444}); return path;
-  };
-  // Private worker-control TLS from the operator tool; the server key is readable
-  // by the image's UID only through control-key's private install.
-  const tlsDir = join(data,'worker-control-tls');
-  execFileSync(join(root,'tools/worker-control-certs.sh'),[tlsDir,'worker-control'],{stdio:'ignore'});
-  execFileSync('chmod',['0444',join(tlsDir,'server.key')]);
-  const env = {
-    AYATI_IMAGE: process.env.AYATI_CONTAINER_IMAGE ?? 'ayati:hosted-local',
-    AYATI_PUBLIC_ORIGIN: 'https://workspace.example.test', AYATI_LOCAL_PORT: String(port),
-    AYATI_WORKER_PROVIDERS: 'openai', AYATI_MODEL: 'fixture', WORKOS_CLIENT_ID:'client_fixture',
-    AYATI_DRAIN_SECONDS: '3',
-    AYATI_DATABASE_URL_FILE: await secret('database-url','postgresql://relay_app:fixture-runtime@db:5432/ayati'),
-    AYATI_MIGRATION_DATABASE_URL_FILE: await secret('migration-url','postgresql://postgres:fixture-admin@db:5432/ayati'),
-    AYATI_WORKOS_API_KEY_FILE: await secret('identity-key','fixture-unused-key'),
-    AYATI_MODEL_API_KEY_FILE: await secret('model-key','$(touch /tmp/secret-executed)'),
-    // control-key hands this to UID 10001 with mode 0600 inside the shared volume.
-    AYATI_WORKER_CONTROL_KEY_FILE: await secret('worker-control-key',randomBytes(32).toString('base64url')),
-    AYATI_WORKER_CONTROL_TLS_DIR: tlsDir,
-  };
-  const envFile = join(data,'.env');
-  await writeFile(envFile,Object.entries(env).map(([k,v]) => `${k}=${v}`).join('\n'));
-  const override = join(data,'rehearsal.yaml');
-  await writeFile(override,`services:
-  db:
-    image: postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
-    environment:
-      POSTGRES_DB: ayati
-      POSTGRES_PASSWORD: fixture-admin
-    tmpfs: [/var/lib/postgresql]
-`);
-  const args = ['compose','--project-name',name,'--env-file',envFile,
-    '-f',join(root,'deploy/compose.yaml'),'-f',override];
-  const docker = (input,options = {}) => execFileSync('docker',input,{
-    encoding:'utf8',timeout:90000,maxBuffer:2*1024*1024,stdio:['pipe','pipe','pipe'],...options,
-  }).trim();
-  const compose = (input,options) => docker([...args,...input],options);
-  const sql = input => compose(['exec','-T','db','psql','-U','postgres','-d','ayati','-At','-v','ON_ERROR_STOP=1'],{input});
-  const checks = [];
-  const pass = name => { checks.push(name); console.log('PASS',name); };
-  t.after(async () => {
-    try { await writeFile(join(data,'containers.log'),compose(['logs','--no-color'])); } catch {}
-    try { compose(['--profile','maintenance','down','--volumes','--remove-orphans']); }
-    finally {
-      await writeFile(join(data,'report.json'),JSON.stringify({passed:t.passed,checks},null,2));
-      console.log('Retained container evidence:',data);
-    }
-  });
-  compose(['config','--quiet']);
-  compose(['up','-d','db']);
-  await until(() => { try { compose(['exec','-T','db','pg_isready','-h','127.0.0.1','-U','postgres']); return true; } catch { return false; } },'Fixture database did not start',30000);
-  sql("CREATE ROLE relay_app LOGIN PASSWORD 'fixture-runtime';");
-  compose(['--profile','maintenance','run','--rm','migrate']);
-  sql(`GRANT USAGE ON SCHEMA public TO relay_app;
-    GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
-    GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
-    REVOKE UPDATE,DELETE ON relay_audit FROM relay_app;
-    REVOKE INSERT,UPDATE,DELETE ON seaql_migrations FROM relay_app;`);
-  assert.equal(sql("SELECT has_schema_privilege('relay_app','public','CREATE')"),'f');
+  const stack = await composeStack(t, { prefix: 'container-deployment' });
+  const { port, compose, docker, sql, pass } = stack;
+  await stack.migrate();
   pass('Explicit migration container creates the schema; runtime role has no DDL/migration authority');
   compose(['up','-d','api','executor']);
-  const healthy = async service => until(() => {
-    const id = compose(['ps','-q',service]);
-    return id && docker(['inspect','--format','{{.State.Health.Status}}',id]) === 'healthy';
-  },service+' container did not become healthy',45000);
+  const healthy = stack.healthy;
   // Prepared Goose sessions make no model request before reporting ready.
   const ready = () => until(() => Number(sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
     'Executor did not report prepared capacity',90000);

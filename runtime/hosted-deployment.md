@@ -176,6 +176,27 @@ PDF extraction keeps its existing bubblewrap isolation. Some container hosts
 disallow nested user namespaces; then extraction fails closed. Do not relax the
 container security profile merely to make that optional extractor work.
 
+## Several API replicas (rehearsal)
+
+`deploy/compose.replicas.yaml` runs the API as several replicas behind a Caddy proxy
+standing in for the cloud load balancer:
+
+```sh
+AYATI_UPSTREAMS="ayati-api-1:8765 ayati-api-2:8765" docker compose \
+  -f deploy/compose.yaml -f deploy/compose.replicas.yaml \
+  up -d --scale api=2 --scale executor=2
+```
+
+Executors reach any replica through the shared `worker-control` name on the private
+`worker` network; when a replica dies, their next connection resolves to a live one.
+The proxy lists replicas explicitly (`AYATI_UPSTREAMS`, Compose's container names)
+because Caddy does not run active health checks for DNS-discovered upstreams; its
+one-second `/health/ready` checks stop new requests to a draining replica, and it
+retries another replica for connection failures. The container test
+`tests/container_replicas.mjs` measured about three seconds from a replica's loss to
+its executor reporting through the other one, and no failed requests across a
+rolling replacement of both replicas.
+
 ## Logs
 
 The image sets `AYATI_LOG_FORMAT=json`: one JSON object per line on stdout, with
@@ -255,7 +276,7 @@ RELAY_TEST_DATABASE_URL='<local disposable administrator URL>' \
   cargo test --locked --lib identity::postgres -- --ignored --test-threads=4
 RELAY_TEST_DATABASE_URL='<local relay_simulation_* administrator URL>' \
   node --test tests/hosted_deployment.mjs tests/executor_pool.mjs
-AYATI_CONTAINER_TEST=1 node --test tests/container_deployment.mjs
+AYATI_CONTAINER_TEST=1 node --test tests/container_deployment.mjs tests/container_replicas.mjs
 ```
 
 The container test uses the built image and disposable PostgreSQL 18.6, synthetic
