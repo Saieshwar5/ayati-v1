@@ -23,14 +23,8 @@ impl Hosting {
         )?;
         if hosting.origin.starts_with("https://") {
             anyhow::ensure!(
-                std::env::var("RELAY_DATABASE_URL").is_ok()
-                    && matches!(
-                        super::worker_config::Mode::from_env(true)?,
-                        super::worker_config::Mode::External
-                            | super::worker_config::Mode::Assigned
-                            | super::worker_config::Mode::Pooled
-                    ),
-                "Hosted identity requires PostgreSQL and external or assigned chat execution"
+                std::env::var("RELAY_DATABASE_URL").is_ok(),
+                "Hosted identity requires PostgreSQL"
             );
             anyhow::ensure!(
                 std::env::var_os("CUCKOO_LIBRARY_LOCAL_ROOT").is_none(),
@@ -71,21 +65,13 @@ impl Hosting {
 pub(super) fn hosted(app: &App) -> bool {
     app.origin.starts_with("https://")
 }
-pub(super) fn provider_configured(provider: &str, key: &str) -> bool {
-    if matches!(
-        super::worker_config::Mode::from_env(true),
-        Ok(super::worker_config::Mode::External
-            | super::worker_config::Mode::Assigned
-            | super::worker_config::Mode::Pooled)
-    ) {
-        // Operator-declared capability, not a live worker availability probe.
-        std::env::var("AYATI_WORKER_PROVIDERS")
-            .unwrap_or_default()
-            .split(',')
-            .any(|p| p == provider)
-    } else {
-        std::env::var(key).is_ok_and(|s| !s.trim().is_empty())
-    }
+/// Operator-declared executor capability, not a live availability probe.
+/// Provider keys live only on executors.
+pub(super) fn provider_configured(provider: &str) -> bool {
+    std::env::var("AYATI_WORKER_PROVIDERS")
+        .unwrap_or_default()
+        .split(',')
+        .any(|p| p == provider)
 }
 pub(super) async fn live() -> StatusCode {
     StatusCode::OK

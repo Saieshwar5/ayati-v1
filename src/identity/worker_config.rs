@@ -1,38 +1,31 @@
 //! Explicit dispatch selection; assignment policy is fixed when work is accepted.
 use anyhow::{Context, Result, ensure};
 
+/// How agent replies run. Controllers always dispatch to pooled executors; only
+/// the company simulation may answer with scripted replies inside the controller.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Mode {
-    Embedded,
-    External,
-    Assigned,
     Pooled,
+    Scripted,
 }
 impl Mode {
-    pub fn parse(value: Option<&str>, postgres: bool) -> Result<Self> {
-        let mode = match value.unwrap_or("embedded") {
-            "embedded" => Self::Embedded,
-            "external" => Self::External,
-            "assigned" => Self::Assigned,
-            "pooled" => Self::Pooled,
-            _ => {
-                anyhow::bail!("AYATI_CHAT_EXECUTION must be embedded, external, assigned or pooled")
+    pub fn parse(value: Option<&str>, simulation: bool) -> Result<Self> {
+        Ok(match (value, simulation) {
+            (None, false) | (Some("pooled"), _) => Self::Pooled,
+            (None, true) | (Some("scripted"), true) => Self::Scripted,
+            (Some("scripted"), false) => {
+                anyhow::bail!("Scripted replies are only available in ayati simulate")
             }
-        };
-        ensure!(
-            postgres || mode == Self::Embedded,
-            "External/assigned chat execution requires RELAY_DATABASE_URL"
-        );
-        Ok(mode)
+            _ => anyhow::bail!("AYATI_CHAT_EXECUTION must be pooled (or scripted in a simulation)"),
+        })
     }
-    pub fn from_env(postgres: bool) -> Result<Self> {
+    pub fn from_env(simulation: bool) -> Result<Self> {
         Self::parse(
             std::env::var("AYATI_CHAT_EXECUTION").ok().as_deref(),
-            postgres,
+            simulation,
         )
     }
 }
-
 pub(crate) fn seconds(name: &str, default: u64, min: u64, max: u64) -> Result<u64> {
     parse_seconds(name, std::env::var(name).ok().as_deref(), default, min, max)
 }
@@ -62,7 +55,15 @@ mod tests {
         for value in ["0", "86401", "-1", "forever"] {
             assert!(parse_seconds("duration", Some(value), 180, 1, 86400).is_err());
         }
-        assert!(Mode::parse(Some("assigned"), false).is_err());
-        assert_eq!(Mode::parse(Some("assigned"), true).unwrap(), Mode::Assigned);
+    }
+    #[test]
+    fn controllers_only_run_pooled_and_simulations_default_to_scripted() {
+        assert_eq!(Mode::parse(None, false).unwrap(), Mode::Pooled);
+        assert_eq!(Mode::parse(Some("pooled"), true).unwrap(), Mode::Pooled);
+        assert_eq!(Mode::parse(None, true).unwrap(), Mode::Scripted);
+        assert!(Mode::parse(Some("scripted"), false).is_err());
+        for retired in ["embedded", "external", "assigned"] {
+            assert!(Mode::parse(Some(retired), false).is_err());
+        }
     }
 }

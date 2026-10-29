@@ -153,9 +153,7 @@ impl Remote {
                 "Remote MCP result exceeds 64 KiB"
             );
             bytes.extend_from_slice(&chunk);
-            if let Some(value) =
-                crate::platform::composio_mcp::parse_reply(&bytes, sse, id.unwrap())?
-            {
+            if let Some(value) = super::mcp_reply::parse_reply(&bytes, sse, id.unwrap())? {
                 return Ok(value);
             }
         }

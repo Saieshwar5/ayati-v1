@@ -144,8 +144,8 @@ The example fixes only the scenario and candidate shape. Fill and verify:
 - Numeric total budget and UTC expiry within 24 hours. The owner's low-cost
   preference is not translated into an invented approved dollar limit.
 
-The candidate controller settings use `AYATI_CHAT_EXECUTION=pooled`, not the older
-Compose polling mode. M2 must deliver private mounted secret files, verified RDS
+The candidate controller settings use pooled executors, like the local Compose
+template. M2 must deliver private mounted secret files, verified RDS
 hostname/CA TLS, WorkOS and scoped storage setup. The existing entrypoint reads
 files but is not a Secrets Manager client. Do not copy the administrator DB URL
 to the controller or any DB/WorkOS secret to an executor.

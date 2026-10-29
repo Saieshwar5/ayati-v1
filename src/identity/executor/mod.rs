@@ -70,7 +70,7 @@ pub async fn serve(data: &Path) -> Result<()> {
     let draining = CancellationToken::new();
     let signal = draining.clone();
     let signal_task = tokio::spawn(async move {
-        super::worker::shutdown_signal().await;
+        super::shutdown::signal().await;
         signal.cancel();
     });
     let stream_stop = CancellationToken::new();

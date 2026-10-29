@@ -43,11 +43,8 @@ saves retain the local draft; duplicate submissions are guarded synchronously.
 Saved/declined/invalidated questions stay inspectable with current access. Stale
 reads and unmounted dialogs cannot reveal another identity's data.
 
-The first execution adapter targets PostgreSQL managed private/workspace agents
-through embedded or authenticated controller execution. Existing database-only
-workers remain conversation-only. Existing local private-runtime interaction
-adapters require separate proof; this increment must not claim universal U1d
-support. Exact approval cards continue using their existing gateway and routing.
+The execution adapter targets PostgreSQL managed private/workspace agents on
+pooled executors through authenticated worker control. Exact approval cards continue using their existing gateway and routing.
 
 ## Tool and answer contract
 
@@ -114,10 +111,7 @@ remain; oversized combined context fails explicitly instead of dropping facts.
 | --- | --- |
 | PostgreSQL managed workspace agent, channel/thread | Real Goose form, multiple choice, saved answer, restart/replacement and separate exact write approval |
 | PostgreSQL managed private agent, private DM | Same renderer and gateway; closed choices, No, decline, Stop, private access and no business connections |
-| Controller-local broker execution adapter | Real Goose through an isolated compatibility worker using the embedded execution path; no remote control gateway or business connection |
-| Ordinary embedded simulation API | Intentionally retains deterministic simulation replies; not evidence of hosted embedded Goose acceptance |
-| Legacy database-only workers | Retain their default conversation-only mode; no newly advertised question adapter |
-| Existing local private runtime/SQLite | Separate adapter remains open; U1d is incomplete |
+| Scripted company simulation | Deterministic simulation replies; not evidence of Goose question handling |
 
 No respondent reassignment, question editing, answer revisions, expiry, nested
 forms, voting or automatic arbitrary text-to-answer conversion is introduced.

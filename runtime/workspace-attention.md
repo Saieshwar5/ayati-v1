@@ -119,8 +119,7 @@ test without its loopback fixture; that failure is retained. The correctly scope
 standalone PostgreSQL command passes and does not claim S3 acceptance.
 
 Reproduce with `cargo test --locked --lib`, `npm test --prefix web`, and
-`RELAY_TEST_DATABASE_URL=... cargo test --locked --lib identity::postgres:: --
---ignored --skip embedded_gateway_uses_controller_owned_credentials`. Run
+`./tools/local-postgres.sh test`. Run
 `node --test tests/workspace_attention.mjs` with the same disposable database,
 built binary/client and installed pinned Goose executables. Its database name
 must begin `relay_simulation_`; it creates a new isolated schema and retains

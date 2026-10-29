@@ -14,7 +14,7 @@ impl PgStore {
     ) -> Result<Value> {
         ensure!(self.pooled, "Event intake requires pooled execution");
         source.validate()?;
-        crate::platform::identifier(id)?;
+        crate::identity::identifier(id)?;
         let data = source.project(id, event)?;
         let hash = fingerprint(event)?;
         let w = &source.workspace;

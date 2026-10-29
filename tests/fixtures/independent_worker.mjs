@@ -67,10 +67,11 @@ export async function workerFixture(t, options = {}) {
   t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
-    AYATI_RUNTIME: 'goose', AYATI_MODEL: options.model ?? 'fixture',
+    AYATI_MODEL: options.model ?? 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
     AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
-    AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',
+    // Unset runs the simulation's scripted replies; 'pooled' uses real executors.
+    ...(options.mode ? { AYATI_CHAT_EXECUTION: options.mode } : {}),
     AYATI_ASSIGNMENT_RUN_SECONDS: String(options.runSeconds ?? 180),
     AYATI_DATA_DIR: join(data, 'migration'),
     AYATI_TRACE_START:options.traceStart?'1':'0',
@@ -152,38 +153,6 @@ export async function workerFixture(t, options = {}) {
       catch { return false; }
     }, 'API did not start');
   }
-  async function startWorker(extra = {}) {
-    const workerData = join(data, 'worker-' + randomUUID());
-    await mkdir(workerData);
-    const worker = launch(['worker'], {
-      RELAY_DATABASE_URL: runtime.href,
-      AYATI_DATA_DIR: workerData,
-      AYATI_WORKER_HEALTH_FILE: join(workerData, 'worker.health'),
-      OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret', OPENAI_HOST: provider.url,
-      // A deliberately inherited proof tool must stay disabled for shared work.
-      AYATI_PROOF_TOOL: '1',
-      ...extra,
-    });
-    worker.healthFile = join(workerData, 'worker.health');
-    await until(() => {
-      assert.equal(worker.child.exitCode, null, worker.logs);
-      try {
-        execFileSync(binary, ['worker-health'], { cwd: data, env: { ...env, AYATI_WORKER_HEALTH_FILE: worker.healthFile }, stdio: 'pipe' });
-        return true;
-      } catch { return false; }
-    }, 'Worker did not start');
-    return worker;
-  }
-  async function startAssignmentRole(args, extra = {}) {
-    const workerData = join(data, 'assignment-' + randomUUID());
-    await mkdir(workerData);
-    return launch(args, {
-      RELAY_DATABASE_URL: runtime.href, AYATI_DATA_DIR: workerData,
-      AYATI_CHAT_EXECUTION: 'assigned', AYATI_ASSIGNMENT_LEASE_SECONDS: '6',
-      AYATI_ASSIGNMENT_CAPACITY: '2', OPENAI_API_KEY: 'fixture-not-a-secret',
-      OPENAI_HOST: provider.url, ...extra,
-    });
-  }
   async function request(path, cookie, body, expected = 200, method) {
     const response = await fetch(base + path, {
       method: method ?? (body === undefined ? 'GET' : 'POST'),
@@ -248,27 +217,16 @@ export async function workerFixture(t, options = {}) {
     startHosted: extra => launch(['identity'], { RELAY_DATABASE_URL: runtime.href,
       WORKOS_CLIENT_ID: 'client_fixture', WORKOS_API_KEY: 'fixture-unused-key',
       AYATI_DATA_DIR: join(data, 'hosted-' + randomUUID()), ...extra }),
-    sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), startWorker, stop,
+    sql: input => sql(input, scoped.href), startApi, stopApi: () => stop(api), stop,
     sqlAsync:input=>sqlAsync(input,scoped.href),
     apiProcess:()=>api,
     processes:()=>[...children],
-    startLauncher: extra => startAssignmentRole(['assignment-launcher'], extra),
-    startAssignment: (id, extra) => startAssignmentRole(['worker', '--assignment', id], extra),
     async startExecutor(extra = {}) {
       const workerData = join(data, 'executor-' + randomUUID());
       await mkdir(workerData);
       return launch(['executor'], { AYATI_DATA_DIR: workerData, RELAY_DATABASE_URL: undefined,
         RELAY_SIMULATION_DATABASE_URL: undefined, OPENAI_API_KEY: provider.key ?? 'fixture-not-a-secret',
         OPENAI_HOST: provider.url, AYATI_EXECUTOR_SLOTS: '2', ...extra });
-    },
-    async startControlled(grant, extra = {}) {
-      const workerData = join(data, 'controlled-' + randomUUID());
-      await mkdir(workerData);
-      return launch(['worker', '--controller-assignment'], {
-        AYATI_DATA_DIR: workerData, AYATI_WORKER_CONTROL_URL: undefined, AYATI_WORKER_CONTROL_KEY_FILE: undefined,
-        RELAY_DATABASE_URL: undefined, RELAY_SIMULATION_DATABASE_URL: undefined,
-        OPENAI_API_KEY: 'fixture-not-a-secret', OPENAI_HOST: provider.url, ...extra,
-      }, grant);
     },
     pass: name => { records.push({ name, passed: true }); console.log('PASS', name); },
     // Only synthetic IDs obtained from this schema are interpolated into fixture SQL.

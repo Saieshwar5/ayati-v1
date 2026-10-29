@@ -119,8 +119,8 @@ impl PgStore {
                 w.into(),
                 reply.clone().into(),
                 serde_json::to_value(job)?.into(),
-                if self.pooled {"pooled"} else if self.assigned {"assigned"} else {"polling"}.into(),
-                (if self.pooled || self.assigned {self.assignment_seconds as i32} else {180}).into(),
+                if self.pooled { "pooled" } else { "polling" }.into(),
+                (if self.pooled { self.assignment_seconds as i32 } else { 180 }).into(),
                 input.request.clone().into(),
             ],
         )

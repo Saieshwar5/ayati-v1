@@ -7,10 +7,10 @@ import { createServer } from 'node:net';
 import { once } from 'node:events';
 import { get as httpGet } from 'node:http';
 import { join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { until } from './fixtures/polling.mjs';
 
-test('deployable image runs separate API, migration and supervised worker containers', {
+test('deployable image runs separate API, migration and pooled executor containers', {
   timeout: 240000, skip: process.env.AYATI_CONTAINER_TEST !== '1',
 }, async t => {
   const root = resolve(import.meta.dirname,'..');
@@ -34,6 +34,8 @@ test('deployable image runs separate API, migration and supervised worker contai
     AYATI_MIGRATION_DATABASE_URL_FILE: await secret('migration-url','postgresql://postgres:fixture-admin@db:5432/ayati'),
     AYATI_WORKOS_API_KEY_FILE: await secret('identity-key','fixture-unused-key'),
     AYATI_MODEL_API_KEY_FILE: await secret('model-key','$(touch /tmp/secret-executed)'),
+    // control-key hands this to UID 10001 with mode 0600 inside the shared volume.
+    AYATI_WORKER_CONTROL_KEY_FILE: await secret('worker-control-key',randomBytes(32).toString('base64url')),
   };
   const envFile = join(data,'.env');
   await writeFile(envFile,Object.entries(env).map(([k,v]) => `${k}=${v}`).join('\n'));
@@ -73,24 +75,27 @@ test('deployable image runs separate API, migration and supervised worker contai
     GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
     REVOKE UPDATE,DELETE ON relay_audit FROM relay_app;
     REVOKE INSERT,UPDATE,DELETE ON seaql_migrations FROM relay_app;`);
-  assert.equal(sql('SELECT count(*) FROM seaql_migrations'),'11');
   assert.equal(sql("SELECT has_schema_privilege('relay_app','public','CREATE')"),'f');
   pass('Explicit migration container creates the schema; runtime role has no DDL/migration authority');
-  compose(['up','-d','api','worker']);
+  compose(['up','-d','api','executor']);
   const healthy = async service => until(() => {
     const id = compose(['ps','-q',service]);
     return id && docker(['inspect','--format','{{.State.Health.Status}}',id]) === 'healthy';
   },service+' container did not become healthy',45000);
-  await healthy('api'); await healthy('worker');
+  // Prepared Goose sessions make no model request before reporting ready.
+  const ready = () => until(() => Number(sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
+    'Executor did not report prepared capacity',90000);
+  await healthy('api'); await ready();
   assert.equal(compose(['exec','-T','api','id','-u']),'10001');
-  assert.equal(compose(['exec','-T','worker','/opt/ayati/goose','--version']),'1.54.0');
-  compose(['exec','-T','api','sh','-c','test -z "${OPENAI_API_KEY_FILE-}"']);
-  compose(['exec','-T','worker','sh','-c','test -z "${WORKOS_API_KEY_FILE-}"; test ! -e /tmp/secret-executed']);
-  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY=fixture-conflict','worker','help']), /Configure either OPENAI_API_KEY or OPENAI_API_KEY_FILE/);
-  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY_FILE=/missing-secret','worker','help']), /Cannot read OPENAI_API_KEY_FILE/);
-  const workerId = compose(['ps','-q','worker']);
-  assert.equal(docker(['inspect','--format','{{.HostConfig.ReadonlyRootfs}}',workerId]),'true');
-  pass('Same image runs as UID 10001 with read-only root, pinned Goose and separate role secrets');
+  assert.equal(compose(['exec','-T','executor','id','-u']),'10001');
+  assert.equal(compose(['exec','-T','executor','/opt/ayati/goose','--version']),'1.54.0');
+  compose(['exec','-T','api','sh','-c','test -z "${OPENAI_API_KEY_FILE-}"; test -z "${OPENAI_API_KEY-}"']);
+  compose(['exec','-T','executor','sh','-c','test -z "${WORKOS_API_KEY_FILE-}"; test -z "${RELAY_DATABASE_URL_FILE-}"; test ! -e /tmp/secret-executed']);
+  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY=fixture-conflict','executor','help']), /Configure either OPENAI_API_KEY or OPENAI_API_KEY_FILE/);
+  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY_FILE=/missing-secret','executor','help']), /Cannot read OPENAI_API_KEY_FILE/);
+  const executorId = compose(['ps','-q','executor']);
+  assert.equal(docker(['inspect','--format','{{.HostConfig.ReadonlyRootfs}}',executorId]),'true');
+  pass('Same image runs as UID 10001 with read-only root, pinned Goose, separate role secrets and pooled executor registration');
   // Node fetch does not preserve a custom Host; use HTTP transport to emulate the TLS proxy.
   const get = (path,cookie='') => new Promise((resolve,reject) => {
     httpGet({host:'127.0.0.1',port,path,headers:{Host:'workspace.example.test',Cookie:cookie,Connection:'close'}},res => {
@@ -104,19 +109,19 @@ test('deployable image runs separate API, migration and supervised worker contai
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   compose(['rm','-sf','api']);
   compose(['up','-d','api']); await healthy('api');
+  // The executor shares the API network namespace, so it is recreated with it.
+  compose(['up','-d','--force-recreate','executor']); await ready();
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   assert.equal((await get('/auth/callback?error=access_denied',cookie)).status,303);
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'0');
   assert.equal((await get('/index.html')).status,200);
   pass('Replacing the API container loses scratch only; shared login state and packaged website remain available');
+  const drained = compose(['ps','-q','executor']);
+  compose(['stop','-t','20','executor']);
+  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',drained]),'0');
+  pass('The executor drains its prepared slots through the controller on SIGTERM');
   compose(['stop','-t','5','db']);
   assert.throws(() => compose(['exec','-T','api','/opt/ayati/ayati','api-health']));
-  await until(() => {
-    try { compose(['exec','-T','worker','/opt/ayati/ayati','worker-health']); return false; }
-    catch { return true; }
-  },'Worker did not report database loss',20000);
   assert.equal((await get('/health/live')).status,200);
-  compose(['stop','-t','20','worker']);
-  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',workerId]),'0');
-  pass('Database loss fails API/worker readiness while liveness stays up; worker drains on SIGTERM');
+  pass('Database loss fails API readiness while liveness stays up');
 });

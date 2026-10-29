@@ -1,26 +1,10 @@
 # Tests
 
-## Temporary assignment workers
-
-The backend [assignment worker contract](../runtime/assignment-workers.md) describes
-the separate real-Goose/PG process rehearsal. With a dedicated local
-RELAY_TEST_DATABASE_URL whose database starts with relay_simulation_:
-
-~~~sh
-cargo build --locked --bin ayati
-node --test --test-concurrency=1 tests/assignment_workers.mjs
-~~~
-
-It checks startup from zero workers, one-assignment exit, ownership renewal,
-competing launchers, cancellation/revocation and process-loss recovery. Set
-AYATI_ASSIGNMENT_SOAK_SECONDS=185 to cover the former three-minute ACP limit.
-The provider is scripted and all database records are disposable. This does not
-test AWS, paid models, browser tools or business-effect checkpoint continuation.
-
 ## Prepared shared executors
 
-The [executor pool contract](../runtime/executor-pool.md) describes M1.5b. With the
-same dedicated disposable database and real pinned Goose, run:
+The [executor pool contract](../runtime/executor-pool.md) describes M1.5b. With a
+dedicated local RELAY_TEST_DATABASE_URL whose database starts with relay_simulation_
+and real pinned Goose, run:
 
 ~~~sh
 node --test --test-concurrency=1 tests/executor_pool.mjs
@@ -212,8 +196,6 @@ Goose asks for ordinary typed facts, releases its worker, resumes the original
 channel/thread after saved answers and controller restart, then obtains separate
 exact business approval before one write/verification. It covers all form fields,
 closed and multiple choices, enabled alternatives, managed private agents, No /
-close / decline / Stop, current source access, keyboard and phone/dark UI. A
-second case exercises the controller-local broker in an isolated compatibility
-worker; the embedded simulation API intentionally remains deterministic. Both
-use disposable schema 23 and scripted providers, with no cloud or paid inference.
+close / decline / Stop, current source access, keyboard and phone/dark UI. It
+uses disposable schema 23 and scripted providers, with no cloud or paid inference.
 See [contracts, migration and adapter limits](../runtime/agent-questions.md).

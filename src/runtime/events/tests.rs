@@ -5,9 +5,10 @@ use tokio_util::sync::CancellationToken;
 #[test]
 fn old_connections_cannot_attach_events_to_a_new_claim_in_the_same_session() {
     let dir = tempfile::tempdir().unwrap();
-    let store = Arc::new(Store::open(&dir.path().join("state.sqlite")).unwrap());
-    let task = store.enqueue("Current job").unwrap();
+    let store = Arc::new(Journal::open(&dir.path().join("state.sqlite")).unwrap());
+    store.accept_input("Current job", None).unwrap();
     let claim = store.claim_next("owner").unwrap().unwrap();
+    let ended = claim.clone();
     let reply = store.add_claim_reply(&claim).unwrap();
     let (events, mut receive) = broadcast::channel(8);
     let runtime = RuntimeEvents {
@@ -45,7 +46,8 @@ fn old_connections_cannot_attach_events_to_a_new_claim_in_the_same_session() {
             .journal_failed
             .load(Ordering::SeqCst)
     );
-    store.stop_work(&task.id).unwrap();
+    // A finished claim no longer accepts output, even from its own connection.
+    store.finish_work(&ended, "stopped", "").unwrap();
     runtime.notification("new-connection", update()).unwrap();
     assert_eq!(store.messages().unwrap()[1].content, "");
     assert!(receive.try_recv().is_err());
@@ -58,8 +60,8 @@ async fn unlisted_tools_cannot_create_an_approval_even_when_reported_by_goose() 
         "ayati_browser__agent_browser_snapshot",
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let store = Arc::new(Store::open(&dir.path().join("state.sqlite")).unwrap());
-        store.enqueue("Request").unwrap();
+        let store = Arc::new(Journal::open(&dir.path().join("state.sqlite")).unwrap());
+        store.accept_input("Request", None).unwrap();
         let claim = store.claim_next("owner").unwrap().unwrap();
         let reply = store.add_claim_reply(&claim).unwrap();
         let (events, _) = broadcast::channel(8);

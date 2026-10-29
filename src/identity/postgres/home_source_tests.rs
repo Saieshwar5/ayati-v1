@@ -1,7 +1,7 @@
 use super::{control_tests::setup, tests::*, *};
 use crate::{
     identity::library::model::{AskItem, SavePage, ShareItem},
-    platform::panels::PanelDraft,
+    panels::PanelDraft,
 };
 use serde_json::json;
 fn draft() -> PanelDraft {

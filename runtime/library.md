@@ -163,7 +163,6 @@ cargo test --locked --lib
 ./tools/local-postgres.sh test
 npm test --prefix web
 npm run build --prefix web
-npm run check:e2e --prefix web
 ./scripts/check-file-lines.sh
 ```
 

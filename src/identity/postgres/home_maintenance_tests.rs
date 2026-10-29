@@ -8,7 +8,7 @@ use crate::{
             model::Review,
         },
     },
-    platform::panels::PanelDraft,
+    panels::PanelDraft,
 };
 use serde_json::json;
 

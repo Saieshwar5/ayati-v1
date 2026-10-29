@@ -16,20 +16,13 @@ impl GooseRuntime {
         self.connect_with_preparation(true).await
     }
     async fn connect_with_preparation(&self, prepared: bool) -> Result<Process> {
-        let profile = self.shared.store.profile_edit()?;
-        let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
-        let model = profile
-            .as_ref()
-            .and_then(|p| p.model.as_deref())
-            .unwrap_or(&self.config.model);
+        let model = &self.config.model;
         let connection_id = uuid::Uuid::new_v4().to_string();
         let mut child = {
-            let mut config = self.config.clone();
-            config.model = model.into();
             let mut command = if prepared {
-                config.prepared_command().await?
+                self.config.prepared_command().await?
             } else {
-                config.command().await?
+                self.config.command().await?
             };
             if let Some(control) = &self.config.control_tools {
                 command
@@ -117,9 +110,6 @@ impl GooseRuntime {
                 meta.insert("ayatiPrepare".into(), serde_json::json!(1));
             }
             let mut settings = serde_json::json!({"provider":self.config.provider,"model":model,"proof_tool":self.config.proof_tool,"adapter":1});
-            if role_revision > 0 {
-                settings["role_revision"] = serde_json::json!(role_revision);
-            }
             if self.config.control_tools.is_some() {
                 settings["control_adapter"] = serde_json::json!(1);
             }
@@ -166,7 +156,6 @@ impl GooseRuntime {
         };
         match tokio::time::timeout(Duration::from_secs(30), setup).await {
             Ok(Ok((connection, session))) => Ok(Process {
-                role_revision,
                 connection_id,
                 connection,
                 session,

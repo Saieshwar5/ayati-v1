@@ -98,12 +98,8 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let host = origin.strip_prefix("http://").unwrap().to_string();
     let address = config::address(&host)?;
     ensure!(
-        matches!(app.store, Database::Postgres(_))
-            && matches!(
-                super::worker_config::Mode::from_env(true)?,
-                super::worker_config::Mode::Assigned | super::worker_config::Mode::Pooled
-            ),
-        "Worker control requires PostgreSQL and assigned execution"
+        matches!(&app.store, Database::Postgres(pg) if pg.pooled),
+        "Worker control requires PostgreSQL and pooled execution"
     );
     let key = config::key(std::path::Path::new(
         &key.context("Worker control requires AYATI_WORKER_CONTROL_KEY_FILE")?,
@@ -121,7 +117,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     });
     let router = routes(state.clone());
     let shutdown_hub = state.hub.clone();
-    let coordinator = if pg(&state).pooled {
+    let coordinator = {
         let capacity = super::worker_config::seconds(
             "AYATI_EXECUTOR_CAPACITY",
             state.capacity as u64,
@@ -151,9 +147,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
             "AYATI_EXECUTOR_CHAT_RESERVE must be smaller than global, workspace and model limits"
         );
         let expiry = super::worker_config::seconds("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6, 120)?;
-        Some(tokio::spawn(pool::dispatch(state, limits, expiry)))
-    } else {
-        None
+        tokio::spawn(pool::dispatch(state, limits, expiry))
     };
     let stopping = app.runtimes.stopping.clone();
     Ok(Some(tokio::spawn(async move {
@@ -169,9 +163,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
             tracing::error!("Local worker control server stopped unexpectedly");
             stopping.cancel();
         }
-        if let Some(coordinator) = coordinator {
-            let _ = coordinator.await;
-        }
+        let _ = coordinator.await;
     })))
 }
 fn routes(state: StateData) -> Router {
@@ -181,14 +173,6 @@ fn routes(state: StateData) -> Router {
         .route("/v1/assignments/{id}/tools", post(tools::invoke))
         .route("/v1/executors/register", post(register))
         .route("/v1/executors/register-cloud", post(cloud::register))
-        .route(
-            "/v1/executors/{executor}/{incarnation}/reserve",
-            post(reserve),
-        )
-        .route(
-            "/v1/executors/{executor}/{incarnation}/release",
-            post(release),
-        )
         .route("/v1/assignments/{assignment}/start", post(start_assignment))
         .route("/v1/assignments/{assignment}/renew", post(renew))
         .route("/v1/assignments/{assignment}/complete", post(complete))
@@ -242,36 +226,6 @@ async fn register(
     super::postgres::worker_control::require(input.pooled == pg(&state).pooled)?;
     pg(&state).register_executor(&input).await?;
     Ok(Json(json!({"registered":true})))
-}
-async fn reserve(
-    State(state): State<StateData>,
-    Path((executor, incarnation)): Path<(String, String)>,
-    headers: HeaderMap,
-    Json(input): Json<Reservation>,
-) -> Api<Option<Scope>> {
-    super::postgres::worker_control::require(!pg(&state).pooled)?;
-    pg(&state)
-        .executor_allowed(&executor, &incarnation, &credential(&headers)?)
-        .await?;
-    Ok(Json(
-        pg(&state)
-            .reserve_controlled(&executor, &incarnation, &input, state.lease, state.capacity)
-            .await?,
-    ))
-}
-async fn release(
-    State(state): State<StateData>,
-    Path((executor, incarnation)): Path<(String, String)>,
-    headers: HeaderMap,
-    Json(input): Json<Release>,
-) -> Api<Value> {
-    pg(&state)
-        .executor_allowed(&executor, &incarnation, &credential(&headers)?)
-        .await?;
-    pg(&state)
-        .release_controlled(&executor, &incarnation, &input.scope, &input.reason)
-        .await?;
-    Ok(Json(json!({"released":true})))
 }
 async fn start_assignment(
     State(state): State<StateData>,

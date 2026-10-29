@@ -9,7 +9,7 @@ pub(crate) struct Request {
 }
 impl Request {
     pub fn validate(&self) -> Result<()> {
-        crate::platform::identifier(&self.key)?;
+        crate::identity::identifier(&self.key)?;
         ensure!(
             self.key.len() <= 64,
             "Use a stable handoff key up to 64 bytes"

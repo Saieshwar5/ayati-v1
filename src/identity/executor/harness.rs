@@ -2,10 +2,10 @@
 use super::model::Profile;
 use crate::{
     identity::chat::execution::{self, Prepared},
+    journal::Journal,
     runtime::{GooseRuntime, config::GooseConfig},
-    storage::Store,
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -14,11 +14,11 @@ use tokio_util::sync::CancellationToken;
 
 pub(super) struct Harness {
     runtime: Arc<GooseRuntime>,
-    store: Arc<Store>,
+    store: Arc<Journal>,
     root: PathBuf,
     profile: Profile,
     pub pid: u32,
-    events: tokio::sync::broadcast::Sender<crate::agent::Event>,
+    events: tokio::sync::broadcast::Sender<crate::runtime::Event>,
 }
 impl Harness {
     pub async fn prepare(root: &Path, profile: &Profile) -> Result<Self> {
@@ -38,7 +38,7 @@ impl Harness {
             config.configured(),
             "Prepared executor requires pinned Goose and a configured provider"
         );
-        let store = Arc::new(Store::open(&root.join("chat.sqlite"))?);
+        let store = Arc::new(Journal::open(&root.join("chat.sqlite"))?);
         let events = tokio::sync::broadcast::channel(256).0;
         let runtime = Arc::new(GooseRuntime::new(config, store.clone(), events.clone()));
         let pid = runtime.prepare_chat().await?;
@@ -96,10 +96,10 @@ impl Harness {
                 output.trace.mark("tool_harness_cold_start");
                 Some(
                     crate::identity::control::broker::Broker::start(
-                        crate::identity::control::broker::Access::Remote(
-                            output.client.clone(),
-                            output.assignment.clone(),
-                        ),
+                        crate::identity::control::broker::Access {
+                            client: output.client.clone(),
+                            assignment: output.assignment.clone(),
+                        },
                     )
                     .await?,
                 )
@@ -118,18 +118,7 @@ impl Harness {
             } else {
                 None
             };
-            let task = self
-                .store
-                .accept_input("Controller-scoped shared request", Some(&context.reply))?;
-            let claim = self
-                .store
-                .claim_next(&uuid::Uuid::new_v4().to_string())?
-                .context("Prepared claim unavailable")?;
-            ensure!(
-                claim.task_id == task.id,
-                "Prepared session must contain only its assigned task"
-            );
-            let reply = self.store.add_claim_reply(&claim)?;
+            let (claim, reply) = crate::runtime::turn::begin(&self.store, &context.reply)?;
             output.trace.mark("local_setup");
             let assignment = output.assignment.scope.assignment.clone();
             crate::identity::start_trace::point(&assignment, "executor", "local_setup_done");
@@ -154,7 +143,6 @@ impl Harness {
                         cancel.clone(),
                         crate::runtime::prepared::ChatTurn {
                             assignment: &assignment,
-                            agent: &context.agent,
                             instructions: &context.instructions,
                             timeout: std::time::Duration::from_secs(context.run_seconds),
                         },
@@ -166,23 +154,7 @@ impl Harness {
             if let Some(runtime) = tool_runtime {
                 runtime.shutdown().await?;
             }
-            self.store.finish_work(
-                &claim,
-                if result.is_ok() {
-                    "completed"
-                } else {
-                    "failed"
-                },
-                "",
-            )?;
-            result?;
-            let text = self
-                .store
-                .messages()?
-                .into_iter()
-                .find(|m| m.id == reply && m.state == "complete")
-                .context("Prepared session produced no completed reply")?
-                .content;
+            let text = crate::runtime::turn::finish(&self.store, &claim, &reply, result)?;
             Ok(format!(
                 "{text}{}",
                 crate::identity::library::context::citations(&context.workspace, &context.sources)

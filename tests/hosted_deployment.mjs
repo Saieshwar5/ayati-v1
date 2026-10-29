@@ -13,7 +13,7 @@ import { until } from './fixtures/polling.mjs';
 test('HTTPS gateway and durable login state survive a real API process replacement', {
   timeout: 90000, skip: !process.env.RELAY_TEST_DATABASE_URL,
 }, async t => {
-  const fixture = await workerFixture(t);
+  const fixture = await workerFixture(t, { mode: 'pooled', control: true });
   await fixture.stopApi();
   const listener = createServer().listen(0, '127.0.0.1');
   await once(listener, 'listening');

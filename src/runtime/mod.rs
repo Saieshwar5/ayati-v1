@@ -3,16 +3,13 @@ mod connection;
 mod events;
 pub(crate) mod guidance;
 pub(crate) mod prepared;
-pub mod proof_tool;
-pub mod provider;
+pub(crate) mod turn;
 
-use crate::{
-    agent::Event,
-    storage::{Store, work::RunClaim},
-};
+use crate::journal::{Journal, work::RunClaim};
 use agent_client_protocol::{Agent, ConnectionTo, schema::v1::*};
 use anyhow::{Context, Result, ensure};
 use config::GooseConfig;
+pub use events::Event;
 use events::RuntimeEvents;
 use std::{
     sync::{
@@ -42,7 +39,6 @@ struct Turn {
 }
 
 struct Process {
-    role_revision: i64,
     connection_id: String,
     connection: ConnectionTo<Agent>,
     session: SessionId,
@@ -67,13 +63,7 @@ impl Drop for ProcessResources {
 }
 
 impl GooseRuntime {
-    pub async fn clear_working_context(&self) {
-        self.process.lock().await.take();
-    }
-    pub fn identity(&self) -> &str {
-        &self.config.agent_id
-    }
-    pub fn new(config: GooseConfig, store: Arc<Store>, events: broadcast::Sender<Event>) -> Self {
+    pub fn new(config: GooseConfig, store: Arc<Journal>, events: broadcast::Sender<Event>) -> Self {
         let control_tools = config.control_tools.is_some();
         let proof_tool = config.proof_tool;
         Self {
@@ -108,22 +98,15 @@ impl GooseRuntime {
         scoped: Option<prepared::ChatTurn<'_>>,
     ) -> Result<()> {
         let task = &claim.task_id;
-        let profile = self.shared.store.profile_edit()?;
-        let role_revision = profile.as_ref().map_or(0, |p| p.role_revision);
-        let role = profile
+        let role = scoped
             .as_ref()
-            .map_or(self.config.role.as_str(), |p| p.role.as_str());
-        let role = scoped.as_ref().map_or(role, |turn| turn.instructions);
-        let identity = scoped
-            .as_ref()
-            .map_or(self.config.agent_id.as_str(), |turn| turn.agent);
+            .map_or(self.config.role.as_str(), |turn| turn.instructions);
         let timeout = scoped
             .as_ref()
             .map_or(self.config.run_timeout, |turn| turn.timeout);
         let mut process = self.process.lock().await;
         if process.as_mut().is_some_and(|p| {
-            p.role_revision != role_revision
-                || p.resources.driver.is_finished()
+            p.resources.driver.is_finished()
                 || p.resources.child.try_wait().ok().flatten().is_some()
         }) {
             process.take();
@@ -153,7 +136,7 @@ impl GooseRuntime {
         });
         *self.shared.active.lock().unwrap() = Some(turn.clone());
         if scoped.is_some() || self.config.control_tools.is_some() {
-            let _ = self.shared.events.send(crate::agent::Event {
+            let _ = self.shared.events.send(Event {
                 kind: "prompt".into(),
                 task_id: claim.task_id.clone(),
                 message_id: Some(reply.into()),
@@ -173,11 +156,7 @@ impl GooseRuntime {
             .send_request(PromptRequest::new(
                 p.session.clone(),
                 vec![ContentBlock::Text(TextContent::new(
-                    if scoped.is_some() || self.config.managed_chat {
-                        guidance::managed_prompt(role, &text)
-                    } else {
-                        guidance::prompt(identity, role, &text)
-                    },
+                    guidance::managed_prompt(role, &text),
                 ))],
             ))
             .block_task();

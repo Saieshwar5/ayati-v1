@@ -1,6 +1,6 @@
 //! Durable local executor registration and assignment capabilities, stored only as hashes.
 use super::*;
-use crate::identity::worker_control::model::{self, Registration, Reservation, Scope};
+use crate::identity::worker_control::model::{Registration, Scope};
 pub(super) const CLOCK: &str = "floor(extract(epoch FROM clock_timestamp()))::bigint";
 
 #[derive(Debug)]
@@ -55,51 +55,6 @@ impl PgStore {
             vec![executor.into(),incarnation.into(),hash.into()]).await?.is_some())
     }
 
-    pub(crate) async fn reserve_controlled(
-        &self,
-        executor: &str,
-        incarnation: &str,
-        request: &Reservation,
-        lease: u64,
-        capacity: usize,
-    ) -> Result<Option<Scope>> {
-        model::uuid(&request.request)?;
-        model::token(&request.token)?;
-        ensure!(
-            (6..=300).contains(&lease) && (1..=16).contains(&capacity),
-            "Invalid assignment policy"
-        );
-        let hash = super::super::provider::digest(&request.token);
-        let tx = self.db.begin().await?;
-        super::assignments::admission_gate(&tx).await?;
-        if let Some(row) = query(&tx, "SELECT assignment,token_hash FROM relay_assignment_credentials WHERE executor=$1 AND incarnation=$2 AND request=$3",
-            vec![executor.into(),incarnation.into(),request.request.clone().into()]).await? {
-            require(row.try_get::<String>("", "token_hash")? == hash)?;
-            let id: String = row.try_get("", "assignment")?;
-            // Executor authentication permits replaying this reservation's metadata
-            // even after the run capability expires; it never revives that capability.
-            let scope = scope_from_row(query(&tx,SCOPE_QUERY,vec![id.into()]).await?.context(ControlDenied)?)?;
-            tx.commit().await?;
-            return Ok(Some(scope));
-        }
-        let Some(id) = self.reserve_assignment_in(&tx, lease, capacity).await? else {
-            tx.commit().await?;
-            return Ok(None);
-        };
-        execute(&tx, &format!("INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,request,token_hash,expires)
-            VALUES($1,$2,$3,$4,$5,$6,{CLOCK}+300)"), vec![id.clone().into(), executor.into(),incarnation.into(),
-                uuid::Uuid::new_v4().to_string().into(),request.request.clone().into(),hash.clone().into()]).await?;
-        let record = controlled(&tx, &id, &hash).await?;
-        execute(
-            &tx,
-            "UPDATE relay_worker_assignments SET resource_id=$2 WHERE id=$1",
-            vec![id.into(), record.scope.resource().into()],
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(Some(record.scope))
-    }
-
     pub(crate) async fn controlled_assignment(
         &self,
         scope: &Scope,
@@ -108,25 +63,6 @@ impl PgStore {
         let record = controlled(&self.db, &scope.assignment, hash).await?;
         require(&record.scope == scope)?;
         Ok(record)
-    }
-
-    pub(crate) async fn release_controlled(
-        &self,
-        executor: &str,
-        incarnation: &str,
-        scope: &Scope,
-        reason: &str,
-    ) -> Result<()> {
-        require(scope.executor == executor && scope.incarnation == incarnation)?;
-        // Launcher credentials may reconcile an expired run capability after its child has exited.
-        let stored = scope_from_row(
-            query(&self.db, SCOPE_QUERY, vec![scope.assignment.clone().into()])
-                .await?
-                .context(ControlDenied)?,
-        )?;
-        require(stored == *scope)?;
-        self.release_assignment(&scope.assignment, reason, Some(&scope.resource()))
-            .await
     }
 }
 
@@ -172,7 +108,6 @@ pub(super) async fn controlled(
     Ok(Controlled {
         scope,
         assignment: super::assignments::Assignment {
-            id: id.into(),
             job,
             lease_seconds: row.try_get::<i32>("", "lease_seconds")? as u64,
             run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,

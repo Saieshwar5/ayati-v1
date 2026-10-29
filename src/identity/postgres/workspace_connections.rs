@@ -45,7 +45,7 @@ impl PgStore {
         w: &str,
         input: &SystemApproval,
     ) -> Result<()> {
-        crate::platform::identifier(&input.server)?;
+        crate::identity::identifier(&input.server)?;
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         let old = query(

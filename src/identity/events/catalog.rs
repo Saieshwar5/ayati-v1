@@ -55,7 +55,7 @@ impl Source {
         );
         let mut fields = std::collections::HashSet::new();
         for field in &self.fields {
-            crate::platform::identifier(field)?;
+            crate::identity::identifier(field)?;
             ensure!(fields.insert(field), "Duplicate projected event field");
         }
         Ok(())

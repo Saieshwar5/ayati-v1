@@ -9,8 +9,6 @@ mod approval_authority;
 mod approval_delivery;
 #[cfg(test)]
 mod approval_tests;
-#[cfg(test)]
-mod assignment_tests;
 mod assignments;
 mod attention;
 mod attention_migration;
@@ -61,8 +59,6 @@ mod connection_authority_tests;
 #[cfg(test)]
 mod connection_migration_tests;
 pub(crate) mod control_actions;
-#[cfg(test)]
-mod control_execution_tests;
 mod control_rules;
 #[cfg(test)]
 mod control_tests;
@@ -229,7 +225,8 @@ use std::time::Duration;
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
-    pub(crate) assigned: bool,
+    /// Agent replies go to pooled executors. False only for the scripted
+    /// company simulation, which claims polling jobs inside the controller.
     pub(crate) pooled: bool,
     pub(crate) assignment_seconds: u64,
 }
@@ -253,10 +250,7 @@ impl PgStore {
         Ok(Self {
             db,
             changes: tokio::sync::broadcast::channel(256).0,
-            assigned: super::worker_config::Mode::from_env(true)?
-                == super::worker_config::Mode::Assigned,
-            pooled: super::worker_config::Mode::from_env(true)?
-                == super::worker_config::Mode::Pooled,
+            pooled: false,
             assignment_seconds: super::worker_config::seconds(
                 "AYATI_ASSIGNMENT_RUN_SECONDS",
                 180,

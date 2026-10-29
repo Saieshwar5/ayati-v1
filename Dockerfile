@@ -13,7 +13,6 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY src/ ./src/
-COPY web/src/app-runtime.js ./web/src/app-runtime.js
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --locked --release --bin ayati -j "$BUILD_JOBS" && cp target/release/ayati /ayati
@@ -63,7 +62,6 @@ COPY --chmod=755 deploy/container-entrypoint.sh ./entrypoint.sh
 ENV PYTHONPATH=/opt/ayati/integrations PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
     AYATI_PREPARED_GOOSE_BIN=/opt/ayati/prepared-goose/goose \
-    AYATI_RUNTIME=goose AYATI_CHAT_EXECUTION=external \
     AYATI_PROOF_TOOL=0 AYATI_PORT=8765
 USER 10001:10001
 EXPOSE 8765

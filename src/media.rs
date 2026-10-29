@@ -14,6 +14,8 @@ use std::{
     sync::{Arc, LazyLock},
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+/// Largest stored file the client may read or preview.
+pub(crate) const MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;
 static PREVIEWS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(2)));
 pub(crate) fn preview_permit() -> Result<OwnedSemaphorePermit> {
     PREVIEWS
@@ -40,7 +42,7 @@ pub(crate) async fn thumbnail(bytes: Vec<u8>, permit: OwnedSemaphorePermit) -> R
 }
 fn decode_thumbnail(bytes: &[u8]) -> Result<Vec<u8>> {
     ensure!(
-        bytes.len() <= crate::files::MAX_FILE_BYTES as usize,
+        bytes.len() <= MAX_FILE_BYTES as usize,
         "Image exceeds preview byte limit"
     );
     let format = match mime(bytes) {

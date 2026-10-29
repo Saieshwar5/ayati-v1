@@ -2,10 +2,16 @@
 use super::*;
 use crate::identity::chat::store::Job;
 
+/// The request/token pair a retired assigned worker used to reserve work.
+pub(super) struct LegacyReservation {
+    pub request: String,
+    pub token: String,
+}
+
 pub(super) async fn legacy_reservation(
     db: &PgStore,
     executor: &crate::identity::worker_control::model::Registration,
-    request: &crate::identity::worker_control::model::Reservation,
+    request: &LegacyReservation,
     lease: i32,
 ) -> Result<crate::identity::worker_control::model::Scope> {
     use crate::identity::worker_control::model::Scope;
@@ -59,6 +65,31 @@ pub(super) async fn legacy_request(
     agent: &str,
     content: &str,
 ) -> Result<Option<Job>> {
+    let dispatch = if db.pooled { "pooled" } else { "polling" };
+    insert_request(db, user, workspace, chat, agent, content, dispatch).await
+}
+
+/// A request queued for the retired assigned workers, for upgrade tests.
+pub(super) async fn legacy_assigned_request(
+    db: &PgStore,
+    user: &User,
+    workspace: &str,
+    chat: &str,
+    agent: &str,
+    content: &str,
+) -> Result<Option<Job>> {
+    insert_request(db, user, workspace, chat, agent, content, "assigned").await
+}
+
+async fn insert_request(
+    db: &PgStore,
+    user: &User,
+    workspace: &str,
+    chat: &str,
+    agent: &str,
+    content: &str,
+    dispatch: &str,
+) -> Result<Option<Job>> {
     let tx = db.db.begin().await?;
     execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7)",
         vec![uuid::Uuid::new_v4().to_string().into(),workspace.into(),chat.into(),user.id.clone().into(),content.into(),now().into(),agent.into()]).await?;
@@ -75,7 +106,7 @@ pub(super) async fn legacy_request(
         claim: None,
     };
     execute(&tx,"INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds) VALUES($1,$2,$3,$4,$5)",
-        vec![workspace.into(),job.reply.clone().into(),serde_json::to_value(&job)?.into(),if db.assigned {"assigned"} else if db.pooled {"pooled"} else {"polling"}.into(),(db.assignment_seconds as i32).into()]).await?;
+        vec![workspace.into(),job.reply.clone().into(),serde_json::to_value(&job)?.into(),dispatch.into(),(db.assignment_seconds as i32).into()]).await?;
     tx.commit().await?;
     Ok(Some(job))
 }

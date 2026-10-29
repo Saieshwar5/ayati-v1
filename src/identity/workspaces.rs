@@ -29,9 +29,6 @@ impl Runtimes {
     pub fn object_root(&self, id: &str) -> PathBuf {
         self.root.join(id).join("objects")
     }
-    pub fn chat_root(&self, id: &str) -> PathBuf {
-        self.root.join(id).join("shared-chat")
-    }
     pub async fn shutdown(&self) -> Result<()> {
         self.stopping.cancel();
         while self
