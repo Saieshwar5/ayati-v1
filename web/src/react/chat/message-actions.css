@@ -1,0 +1,39 @@
+/* Hover/focus toolbar at the message's top edge. */
+.chat-message-toolbar { position: absolute; top: -6px; left: calc(100% + 6px); z-index: 2; display: flex; opacity: 0; pointer-events: none; align-items: center; gap: 1px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 14px var(--shadow-deep); }
+.chat-message-own .chat-message-toolbar { left: auto; right: calc(100% + 6px); }
+.chat-message:hover > .chat-message-toolbar, .chat-message:focus-within > .chat-message-toolbar { opacity: 1; pointer-events: auto; }
+.chat-message-tool { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 4px; border: 0; border-radius: 7px; background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+.chat-message-tool:hover, .chat-message-tool:focus-visible, .chat-message-tool[aria-expanded=true] { background: var(--selection); color: var(--text); }
+.chat-message-more, .chat-reaction-picker { position: relative; display: inline-flex; }
+.chat-message-menu { position: absolute; top: 32px; right: 0; z-index: 3; display: grid; min-width: 168px; padding: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px var(--shadow-deep); }
+.chat-message-own .chat-message-menu { right: auto; left: 0; }
+.chat-message-toolbar.opens-up .chat-message-menu, .chat-message-toolbar.opens-up .chat-reaction-menu { top: auto; bottom: 32px; }
+.chat-message-menu button { padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.chat-message-menu button:hover, .chat-message-menu button:focus-visible { background: var(--soft); }
+.chat-message-menu button.danger { color: var(--danger); }
+.chat-reaction-menu { position: absolute; top: 32px; right: 0; z-index: 3; display: grid; grid-template-columns: repeat(6, 32px); gap: 2px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px var(--shadow-deep); }
+.chat-reactions .chat-reaction-menu { top: auto; bottom: 32px; right: auto; left: 0; }
+.chat-reaction-menu button { height: 32px; border: 0; border-radius: 8px; background: none; font-size: 17px; cursor: pointer; }
+.chat-reaction-menu button:hover, .chat-reaction-menu button:focus-visible { background: var(--soft); }
+
+/* Reactions under the message. */
+.chat-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 6px; }
+.chat-message-own .chat-reactions { justify-content: flex-end; }
+.chat-reaction { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.chat-reaction[aria-pressed=true] { border-color: color-mix(in srgb, var(--working) 40%, var(--border)); background: color-mix(in srgb, var(--working) 10%, var(--surface)); color: var(--text); }
+.chat-reactions .chat-reaction-picker .chat-message-tool { height: 24px; min-width: 26px; border: 1px solid var(--border); border-radius: 12px; }
+
+/* Edited, deleted and editing states. */
+.chat-message-edited { color: var(--muted); font-size: 10.5px; }
+.chat-message-deleted { margin: 0; color: var(--muted); font-style: italic; }
+.chat-message-edit { display: grid; gap: 8px; min-width: min(480px, 70vw); }
+.chat-message-edit textarea { width: 100%; padding: 9px 11px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; resize: vertical; }
+.chat-message-edit > div { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Narrow screens have no room beside a message: sit on its top edge. */
+@media (max-width: 600px) {
+  .chat-message-toolbar, .chat-message-own .chat-message-toolbar { top: -16px; left: auto; right: 0; }
+}
+@media (pointer: coarse) {
+  .chat-message-tool { min-width: 40px; height: 40px; }
+}

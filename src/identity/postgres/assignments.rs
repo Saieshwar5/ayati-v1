@@ -95,24 +95,30 @@ impl PgStore {
                 || role(&tx, workspace, &user.id).await? == "Owner",
             "Only the requester or owner can cancel this request"
         );
-        let row = query(&tx, "UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND reply=$2 AND state!='finished' RETURNING claim", vec![workspace.into(),reply.into()]).await?;
-        if let Some(row) = row {
-            execute(&tx,"UPDATE relay_control_actions SET state='invalidated',result='\"Original task was stopped; no pending operation was dispatched.\"'::jsonb WHERE workspace=$1 AND job=$2 AND state='pending'",vec![workspace.into(),reply.into()]).await?;
-            if let Some(claim) = row.try_get::<Option<String>>("", "claim")? {
-                execute(&tx, "UPDATE relay_worker_assignments SET state='finished',outcome='cancelled',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![claim.clone().into()]).await?;
-                execute(&tx,"UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",vec![claim.into()]).await?;
-            }
-            execute(&tx, "UPDATE relay_chat_messages SET state='cancelled',content='Request cancelled.' WHERE workspace=$1 AND id=$2 AND state='queued'", vec![workspace.into(),reply.into()]).await?;
-            audit(
-                &tx,
-                &user.id,
-                Some(workspace),
-                "agent_request_cancelled",
-                reply,
-            )
-            .await?;
-        }
+        stop_reply(&tx, &user.id, workspace, reply).await?;
         tx.commit().await?;
         Ok(())
     }
+}
+
+/// Stops an agent reply that has not finished: its job, any running attempt and
+/// pending operations. Returns whether there was anything to stop.
+pub(super) async fn stop_reply(
+    tx: &DatabaseTransaction,
+    actor: &str,
+    workspace: &str,
+    reply: &str,
+) -> Result<bool> {
+    let row = query(tx, "UPDATE relay_chat_jobs SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND reply=$2 AND state!='finished' RETURNING claim", vec![workspace.into(),reply.into()]).await?;
+    if let Some(row) = row {
+        execute(tx,"UPDATE relay_control_actions SET state='invalidated',result='\"Original task was stopped; no pending operation was dispatched.\"'::jsonb WHERE workspace=$1 AND job=$2 AND state='pending'",vec![workspace.into(),reply.into()]).await?;
+        if let Some(claim) = row.try_get::<Option<String>>("", "claim")? {
+            execute(tx, "UPDATE relay_worker_assignments SET state='finished',outcome='cancelled',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state IN ('launching','running')", vec![claim.clone().into()]).await?;
+            execute(tx,"UPDATE relay_assignment_credentials SET context=NULL,expires=0 WHERE assignment=$1",vec![claim.into()]).await?;
+        }
+        execute(tx, "UPDATE relay_chat_messages SET state='cancelled',content='Request cancelled.' WHERE workspace=$1 AND id=$2 AND state='queued'", vec![workspace.into(),reply.into()]).await?;
+        audit(tx, actor, Some(workspace), "agent_request_cancelled", reply).await?;
+        return Ok(true);
+    }
+    Ok(false)
 }

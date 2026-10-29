@@ -147,6 +147,12 @@ attachments and voice controls must reserve transcript space rather than cover
 messages. Keep own time and delivery indicators together on a predictable metadata
 line; omit the repeated own name/avatar. Retain visible reply counts and reveal
 ordinary reply actions on hover/focus, keeping them available on touch devices.
+The message toolbar sits beside a message on hover or focus (on its top edge on
+phones): three quick reactions, a reaction picker, reply in thread and More.
+More offers Edit and Delete only on your own messages, plus Copy link. Reactions
+are a fixed set of twelve, shown as chips under the message; they never approve
+or request work. Edits show "edited"; deleting asks first, leaves "Message
+deleted" in place and stops agent work the message started that has not finished.
 Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button

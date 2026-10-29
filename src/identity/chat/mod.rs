@@ -1,5 +1,6 @@
 pub(super) mod execution;
 pub(crate) mod mentions;
+mod message_actions;
 pub(crate) mod model;
 mod organization;
 pub(crate) mod organization_model;
@@ -16,6 +17,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(sync::routes())
         .merge(task_progress::routes())
         .merge(organization::routes())
+        .merge(message_actions::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
             get(focus),

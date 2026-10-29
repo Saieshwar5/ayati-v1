@@ -41,6 +41,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::executor_task_migration::ExecutorTasks),
             Box::new(super::data_lifecycle_migration::DataLifecycle),
             Box::new(super::chat_people_migration::ChatPeople),
+            Box::new(super::message_action_migration::MessageActions),
         ]
     }
 }
