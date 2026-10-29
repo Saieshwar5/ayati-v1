@@ -7,9 +7,7 @@ import { acknowledgeAttention, attentionKey, attentionLabel, attentionSource, ty
 import { useAttention } from './use-attention';
 import './attention.css';
 
-export function AttentionInbox({ close, privateInbox, privateCount = 0 }: {
-  close: () => void; privateInbox?: () => void; privateCount?: number;
-}) {
+export function AttentionInbox({ close }: { close: () => void }) {
   const [view, setView] = useState<AttentionView>('needs_you');
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [selected, select] = useState<AttentionItem>();
@@ -75,7 +73,6 @@ export function AttentionInbox({ close, privateInbox, privateCount = 0 }: {
       {data?.next_before && <Button disabled={loading} onClick={() => setCursors(current => [...current, data.next_before])}>Older items</Button>}
       <Button disabled={loading} onClick={() => { if (cursors.length > 1) setCursors([null]); else void refresh(); }}>Refresh attention</Button>
     </nav>
-    {privateInbox && <Button onClick={privateInbox}>Private runtime inbox{privateCount ? ` · ${privateCount}` : ''}</Button>}
     <p className="ui-help">Pending requests stay here after reading. Successful work appears in Recent work. Reviewing an outcome does not change or restart the task.</p>
     {selected?.kind === 'question' && <QuestionDialog key={selected.id} id={selected.id} close={back} />}
     {selected?.kind === 'approval' && <ApprovalDialog key={selected.id} id={selected.id} close={back} />}

@@ -71,9 +71,7 @@ Owners retain a separate Existing local agents roster. Those agents use their
 existing private runtime, saved profile and access boundary. Work/Activity reads
 the latest 100 private tasks from the selected agent's state API, and Stop uses
 its existing task endpoint. Knowledge, access, automation, files and computer
-tools link to the existing private Chat controls. They are not silently converted
-into workspace business-operation grants. The older contextual panel contract
-remains documented in [private Chat workspace](agents-workspace.md).
+tools are not silently converted into workspace business-operation grants.
 
 ## Deliberate limits
 

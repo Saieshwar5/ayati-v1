@@ -4,8 +4,8 @@ Cuckoo provides workspaces for one or many people. Option B in
 [the approved design](../designs/settings/README.md) is the current Settings reference.
 
 Everyone has Settings → Personal: My account, Appearance and Help & feedback.
-Only Owners see Workspace: General, People, Access, Connections, Activity, Teams
-and Local setup. The global rail contains Home, Apps, Chat, Agents and Settings.
+Only Owners see Workspace: General, People, Access, Connections, Activity and
+Teams. The global rail contains Home, Chat, Agents, Library and Settings.
 People discovery remains in Chat; membership administration lives in Settings.
 Account-menu workspace switching and sign-out remain available to everyone.
 

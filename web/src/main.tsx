@@ -11,7 +11,7 @@ import './style.css';
 import './workspace.css';
 import './workspace-menus.css';
 import './brand.css';
-import './access-preview.css';
+import './account.css';
 import './app-ui.css';
 import './agent-manager.css';
 
@@ -25,16 +25,8 @@ async function start(): Promise<void> {
   flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Cuckoo…</main>));
   if (new URLSearchParams(location.search).get("view") === "simulation") { root.render(<StrictMode><SimulationPage /></StrictMode>); return; }
   if (!await enterWorkspace()) return;
-  const params = new URLSearchParams(location.search);
-  const requested = params.get('view');
-  if (!workspaceId && requested === 'account') {
-    root.render(<StrictMode><AccountPage /></StrictMode>); return;
-  }
-  if (requested === 'access-preview') {
-    flushSync(() => root.render(<div id="app" />));
-    await import('./access-preview').then(module => module.installAccessPreview()); return;
-  }
-  if (params.get('guide') === '1' && window.self !== window.top) document.documentElement.classList.add('guide-mode');
+  // Outside a workspace the account page is the sign-in and workspace chooser.
+  if (!workspaceId) { root.render(<StrictMode><AccountPage /></StrictMode>); return; }
   root.render(<StrictMode><WorkspaceApplication /></StrictMode>);
 }
 

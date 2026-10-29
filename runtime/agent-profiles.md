@@ -2,9 +2,6 @@
 
 The PostgreSQL workspace Agents page supports personal and workspace profiles.
 Creation and editing use `/api/identity/workspaces/{workspace}/agent-profiles`.
-The local-owner runtime remains visible in a separate section of the same page;
-its existing conversations, files, Apps, browser and connector controls are retained.
-No existing profile or history is copied into the new runtime automatically.
 
 ## Implemented boundaries
 
@@ -58,15 +55,14 @@ enablement is still rejected server-side. Business tools now use
 provider limitations are documented there. Controller-backed agents can now
 search/read [older conversation history](conversation-context.md) under current
 task access. Isolated browser provisioning and automatic scoped memory formation
-remain unimplemented. Existing local agents retain their established capabilities and
-approval boundaries.
+remain unimplemented.
 
 Adding tools requires execution-time authorization and durable action receipts:
 recovered conversation jobs must not repeat an uncertain external mutation.
 Tool descriptions and model output must never authorize an operation. A channel
 reader's identity, the requester, the maintainer and the approving person are
-separate roles. No local-owner runtime or personal browser session should be
-attached to a shared job as a shortcut.
+separate roles. No personal browser session should be attached to a shared job
+as a shortcut.
 
 ## Migration and validation
 

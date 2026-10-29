@@ -16,31 +16,12 @@
 .access-button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .access-button:disabled { opacity: .5; cursor: not-allowed; }
 .access-card > .access-button, .access-card form > .access-button { width: 100%; margin: 6px 0; }
-.access-layout { display: flex; min-height: calc(100dvh - 44px); }
-.access-sidebar { flex: 0 0 240px; padding: 28px 18px; display: flex; flex-direction: column; gap: 16px; background: var(--surface); border-right: 1px solid var(--border); }
-.access-sidebar > .access-button { overflow-wrap: anywhere; }
-.access-sidebar nav { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.access-sidebar nav .access-button { justify-content: flex-start; border: 0; }
-.access-sidebar [aria-current=page] { background: var(--selection); font-weight: 600; }
 .access-content { padding: clamp(24px, 5vw, 64px); width: min(100%, 1000px); min-width: 0; }
 .access-panel { background: var(--surface); border: 1px solid var(--border); padding: 26px; border-radius: var(--radius); margin: 24px 0; }
-.access-panel h2, .access-person strong { overflow-wrap: anywhere; }
-.access-welcome { padding: clamp(24px, 4vw, 44px); }
-.access-welcome > p { line-height: 1.7; max-width: 490px; }
-.access-eyebrow { color: var(--muted); display: block; font-size: 11px; letter-spacing: 1.4px; margin-bottom: 24px; }
-.access-person { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 0; border-top: 1px solid var(--border); }
-.access-person > div:first-child { min-width: 0; }
-.access-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.access-person strong, .access-invitation strong { font-size: 14px; overflow-wrap: anywhere; }
-.access-invitation { border-top: 1px solid var(--border); padding: 20px 0; }
+.access-panel h2 { overflow-wrap: anywhere; }
 @media (max-width: 700px) {
-  .access-layout { flex-direction: column; }
-  .access-sidebar { flex-basis: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; gap: 10px; }
-  .access-sidebar nav { flex-direction: row; flex-wrap: wrap; }
-  .access-sidebar > .access-help { margin: 0; }
   .access-content { padding: 24px 16px; }
   .access-card { padding: 26px; margin: 28px auto; }
-  .access-person { align-items: flex-start; flex-direction: column; }
   .access-demo { padding: 12px 16px; }
 }
 

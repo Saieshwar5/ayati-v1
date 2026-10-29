@@ -122,21 +122,3 @@ test('switching selected agent during Open in Chat cannot create or navigate a s
     return response(read(path));
   } });
 });
-
-test('existing local Work uses the selected private runtime and its existing stop endpoint', async () => {
-  const calls = []; let stopped = false;
-  await reactFixture(async ({ render, button, click }) => {
-    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { LocalAgentWorkspace } = await import('../src/react/agents/local-workspace.tsx');
-    await render(LocalAgentWorkspace, { profile: { id: 'local-two', name: 'Private helper', role: 'Track reports', model: 'fixture', state: 'ready', memory: true, browser: false }, section: 'Work', selectSection() {}, back() {}, edit() {} });
-    await click(button('Work')); await click(button('Stop request'));
-    assert.equal(button('Stop request'), undefined);
-    assert.ok(calls.some(c => c.path.endsWith('/tasks/task-one/stop')));
-    assert.ok(calls.every(c => c.agent === 'local-two'));
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
-    if (path.endsWith('/session')) return response(session);
-    calls.push({ path, agent: options.headers.get('X-Ayati-Agent') });
-    if (options.method === 'POST') { stopped = true; return response({ ok: true }); }
-    return response({ tasks: stopped ? [] : [{ id: 'task-one', status: 'running', detail: 'Checking report totals', created_at: '2026-10-26T00:00:00Z' }], messages: [], artifacts: [] });
-  } });
-});
