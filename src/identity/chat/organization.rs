@@ -12,18 +12,10 @@ pub(super) fn routes() -> Router<Shared> {
         )
 }
 pub(super) async fn chats(app: &App, user: &User, w: &str) -> ApiResult<Value> {
-    if let super::super::database::Database::Postgres(pg) = &app.store {
-        return Ok(pg.organized_chats(user, w).await?);
-    }
-    let mut data = app.store.chats(user, w).await?;
-    data["preferences"] = json!({"available":false,"revision":0,"pins":[]});
-    Ok(data)
+    Ok(app.store.organized_chats(user, w).await?)
 }
 pub(super) async fn read_pins(app: &App, user: &User, w: &str) -> ApiResult<Value> {
-    let super::super::database::Database::Postgres(pg) = &app.store else {
-        return Ok(json!({"available":false,"revision":0,"pins":[]}));
-    };
-    Ok(pg.chat_pins(user, w).await?)
+    Ok(app.store.chat_pins(user, w).await?)
 }
 async fn pins(
     State(app): State<Shared>,
@@ -41,7 +33,7 @@ async fn save_pins(
     Json(input): Json<SavePins>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = super::super::collaboration::pg(&app)?;
+    let pg = &app.store;
     Ok(Json(pg.save_chat_pins(&user, &w, &input).await?))
 }
 async fn lifecycle(
@@ -51,9 +43,7 @@ async fn lifecycle(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::super::collaboration::pg(&app)?
-            .channel_lifecycle(&user, &w, &chat, None)
-            .await?,
+        app.store.channel_lifecycle(&user, &w, &chat, None).await?,
     ))
 }
 async fn change_lifecycle(
@@ -64,7 +54,7 @@ async fn change_lifecycle(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::super::collaboration::pg(&app)?
+        app.store
             .channel_lifecycle(&user, &w, &chat, Some(&input))
             .await?,
     ))

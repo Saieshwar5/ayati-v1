@@ -281,7 +281,7 @@ async fn automation_private_agent_routines_remain_private_from_workspace_owners(
         .chat_create(
             &member,
             &w,
-            &crate::identity::chat::store::NewChat {
+            &crate::identity::chat::model::NewChat {
                 id: uuid::Uuid::new_v4().to_string(),
                 name: "Personal automation".into(),
                 kind: "direct".into(),

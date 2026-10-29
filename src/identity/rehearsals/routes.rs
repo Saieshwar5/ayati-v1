@@ -30,9 +30,6 @@ pub(super) fn routes() -> Router<Shared> {
             get(response),
         )
 }
-fn pg(app: &App) -> Result<&postgres::PgStore> {
-    collaboration::pg(app)
-}
 fn present(mut data: Value) -> Value {
     if let Some(text) = data["output"].as_str() {
         data["response"] =
@@ -67,7 +64,8 @@ async fn options(
     Query(input): Query<Search>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut data = pg(&app)?
+    let mut data = app
+        .store
         .rehearsal_options(&user, &w, &a, &input.search)
         .await?;
     data["execution_available"] = json!(super::worker::configured(&data["profile"])?);
@@ -81,7 +79,7 @@ async fn history(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?
+        app.store
             .rehearsal_history(&user, &w, &a, input.before.as_deref())
             .await?,
     ))
@@ -93,7 +91,7 @@ async fn start(
     Json(input): Json<Start>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = pg(&app)?;
+    let pg = &app.store;
     if let Some(saved) = pg.rehearsal_existing(&user, &w, &a, &input).await? {
         return Ok(Json(present(saved)));
     }
@@ -113,7 +111,7 @@ async fn read(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(present(
-        pg(&app)?.rehearsal(&user, &w, &a, &id).await?,
+        app.store.rehearsal(&user, &w, &a, &id).await?,
     )))
 }
 async fn stop(
@@ -122,7 +120,7 @@ async fn stop(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.stop_rehearsal(&user, &w, &a, &id).await?))
+    Ok(Json(app.store.stop_rehearsal(&user, &w, &a, &id).await?))
 }
 async fn response(
     State(app): State<Shared>,
@@ -131,7 +129,7 @@ async fn response(
     Query(input): Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
-    let data = pg(&app)?.rehearsal(&user, &w, &a, &id).await?;
+    let data = app.store.rehearsal(&user, &w, &a, &id).await?;
     check(
         data["state"] == "completed",
         "This sample has no completed response",

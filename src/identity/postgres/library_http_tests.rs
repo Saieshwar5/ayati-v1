@@ -68,9 +68,8 @@ async fn library_http_upload_download_ranges_revocation_and_mutation_guards() {
     let app = std::sync::Arc::new(identity::App {
         library: identity::library::Storage::Local(root.path().join("objects")),
         provider: identity::Provider::simulation(),
-        store: identity::database::Database::Postgres(db),
+        store: db,
         origin: ORIGIN.into(),
-        pending: Default::default(),
         runtimes: identity::workspaces::Runtimes::new(root.path().join("workspaces")),
         simulation: Some(identity::simulation::Simulation {
             employees: vec![],

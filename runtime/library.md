@@ -9,7 +9,6 @@ reference. This increment delivers the deliberately smaller first release.
 Library is a React feature in the existing workspace shell. PostgreSQL workspaces,
 including solo workspaces, support native pages, private/selected/workspace sharing,
 file uploads, protected downloads, stars, search, trash/restore and page history.
-The legacy SQLite/local-owner deployment shows an explicit unavailable state.
 
 Pages use headings, paragraphs, lists, checklists, links and basic formatting.
 Tiptap owns the editor DOM. Structured content is validated by Rust before storage;

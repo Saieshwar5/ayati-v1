@@ -3,7 +3,7 @@ use super::{
     tests::*,
     *,
 };
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 async fn state(db: &PgStore, job: &Job) -> Value {

@@ -1,6 +1,6 @@
 //! Read-only evidence tools bound to the controller's exact running task.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde::Deserialize;
 use serde_json::json;
 

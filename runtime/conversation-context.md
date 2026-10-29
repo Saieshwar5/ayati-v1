@@ -104,7 +104,7 @@ cannot be safely reconstructed, so it does not gain the new per-message refresh
 guarantee. Drain or stop such old work before relying on the new context contract.
 New Library tasks now also retain the exact request-message link. Prepared worker context
 uses the existing version-1 request/instructions fields; its wire schema does not
-change. The legacy SQLite/local runtime is unchanged.
+change.
 
 This increment does not add automatic memory formation, semantic retrieval,
 email/WhatsApp identities or external identity linking. Existing

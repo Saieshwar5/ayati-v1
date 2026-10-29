@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
     match std::env::args().nth(1).as_deref().unwrap_or("help") {
         "workspace-db" => {
             ayati::identity::postgres::cli::run(
-                &config.data_dir,
                 &std::env::args().nth(2).unwrap_or_else(|| "check".into()),
             )
             .await
@@ -57,7 +56,7 @@ async fn main() -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\n\nConfiguration: .env (see .env.example)."
+                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check>  Manage the PostgreSQL schema\n\nConfiguration: .env (see .env.example)."
             );
             Ok(())
         }

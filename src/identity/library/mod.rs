@@ -13,15 +13,6 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 pub(super) use storage::Storage;
 
-fn pg(app: &App) -> ApiResult<&postgres::PgStore> {
-    match &app.store {
-        database::Database::Postgres(pg) => Ok(pg),
-        _ => Err(Error(
-            anyhow::anyhow!("Library requires a PostgreSQL workspace deployment"),
-            StatusCode::SERVICE_UNAVAILABLE,
-        )),
-    }
-}
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route(
@@ -82,12 +73,8 @@ async fn list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &w).await?;
-    if !matches!(app.store, database::Database::Postgres(_)) {
-        return Ok(Json(
-            json!({"available":false,"items":[],"more":false,"storage":"unconfigured"}),
-        ));
-    }
-    let mut result = pg(&app)?
+    let mut result = app
+        .store
         .library_list(
             &user,
             &w,
@@ -110,7 +97,7 @@ async fn detail(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.library_get(&user, &w, &id).await?))
+    Ok(Json(app.store.library_get(&user, &w, &id).await?))
 }
 async fn save(
     State(app): State<Shared>,
@@ -119,7 +106,7 @@ async fn save(
     Json(input): Json<SavePage>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.library_save(&user, &w, &input).await?))
+    Ok(Json(app.store.library_save(&user, &w, &input).await?))
 }
 async fn share(
     State(app): State<Shared>,
@@ -128,7 +115,7 @@ async fn share(
     Json(input): Json<ShareItem>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.library_share(&user, &w, &id, &input).await?))
+    Ok(Json(app.store.library_share(&user, &w, &id, &input).await?))
 }
 async fn action(
     State(app): State<Shared>,
@@ -138,7 +125,7 @@ async fn action(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?.library_action(&user, &w, &id, &input).await?,
+        app.store.library_action(&user, &w, &id, &input).await?,
     ))
 }
 async fn versions(
@@ -147,7 +134,7 @@ async fn versions(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.library_versions(&user, &w, &id).await?))
+    Ok(Json(app.store.library_versions(&user, &w, &id).await?))
 }
 async fn version(
     State(app): State<Shared>,
@@ -156,7 +143,7 @@ async fn version(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?.library_version(&user, &w, &id, version).await?,
+        app.store.library_version(&user, &w, &id, version).await?,
     ))
 }
 async fn ask(
@@ -166,7 +153,7 @@ async fn ask(
     Json(input): Json<AskItem>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let result = pg(&app)?.library_ask(&user, &w, &id, &input).await?;
+    let result = app.store.library_ask(&user, &w, &id, &input).await?;
     app.runtimes.chat_wake.notify_one();
     Ok(Json(result))
 }

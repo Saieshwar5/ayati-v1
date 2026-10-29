@@ -57,18 +57,16 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
             "This simulation directory belongs to another database",
         )?;
     }
-    let mut pg = postgres::PgStore::connect(&url).await?;
-    pg.pooled = worker_config::Mode::from_env(true)? == worker_config::Mode::Pooled;
-    pg.verify_schema().await?;
+    let mut store = postgres::PgStore::connect(&url).await?;
+    store.pooled = worker_config::Mode::from_env(true)? == worker_config::Mode::Pooled;
+    store.verify_schema().await?;
     std::fs::write(&marker, database_name)?;
-    let store = database::Database::Postgres(pg);
     let simulation = seed::prepare(&root, &store).await?;
     let app = Arc::new(App {
         library: library::Storage::from_env()?,
         provider: Provider::simulation(),
         store,
         origin: format!("http://127.0.0.1:{port}"),
-        pending: Mutex::new(HashMap::new()),
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
         simulation: Some(simulation),
     });

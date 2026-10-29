@@ -256,18 +256,9 @@ async fn job_guidance_survives_older_clients_and_enters_normal_prompt_without_gr
     .await
     .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    let prepared = crate::identity::chat::execution::prepare(
-        &crate::identity::database::Database::Postgres(db.clone()),
-        &job,
-        crate::identity::chat::execution::Profile {
-            name: input.name.clone(),
-            role: input.role.clone(),
-            model: input.model.clone(),
-        },
-        45,
-    )
-    .await
-    .unwrap();
+    let prepared = crate::identity::chat::execution::prepare(&db, &job, 45)
+        .await
+        .unwrap();
     assert!(prepared.instructions.contains("A clear sourced draft"));
     assert!(prepared.instructions.contains("Check the supplied facts"));
     assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());

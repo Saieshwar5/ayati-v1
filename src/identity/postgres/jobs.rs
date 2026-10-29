@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 impl PgStore {
     pub async fn claim_job(&self) -> Result<Option<Job>> {
         let tx = self.db.begin().await?;

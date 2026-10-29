@@ -59,7 +59,7 @@ impl PgStore {
         let attempts =
             super::context_attempts::inspect(&tx, user, workspace, agent, conversation, None)
                 .await?;
-        let job = crate::identity::chat::store::Job {
+        let job = crate::identity::chat::model::Job {
             workspace: workspace.into(),
             agent: agent.into(),
             chat: conversation.into(),

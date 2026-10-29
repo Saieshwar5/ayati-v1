@@ -60,9 +60,7 @@ async fn list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let (sources, error) = sources(&w);
-    let mut data = collaboration::pg(&app)?
-        .event_triggers(&user, &w, &a, &sources)
-        .await?;
+    let mut data = app.store.event_triggers(&user, &w, &a, &sources).await?;
     data["catalog_error"] = json!(error);
     Ok(Json(data))
 }
@@ -75,7 +73,7 @@ async fn create(
     let user = identity(&app, &headers).await?;
     let source = catalog::source(&w, &input.source).ok();
     Ok(Json(
-        collaboration::pg(&app)?
+        app.store
             .save_event_trigger(&user, &w, &a, &input, source.as_ref())
             .await?,
     ))
@@ -88,7 +86,7 @@ async fn details(
     let user = identity(&app, &headers).await?;
     let (sources, _) = sources(&w);
     Ok(Json(
-        collaboration::pg(&app)?
+        app.store
             .event_trigger_details(&user, &w, &a, &id, &sources)
             .await?,
     ))
@@ -102,7 +100,7 @@ async fn change(
     let user = identity(&app, &headers).await?;
     let (sources, _) = sources(&w);
     Ok(Json(
-        collaboration::pg(&app)?
+        app.store
             .change_event_trigger(&user, &w, &a, &id, &input, &sources)
             .await?,
     ))
@@ -113,11 +111,7 @@ async fn runs(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?
-            .event_runs(&user, &w, &a, &id)
-            .await?,
-    ))
+    Ok(Json(app.store.event_runs(&user, &w, &a, &id).await?))
 }
 fn header<'a>(headers: &'a HeaderMap, name: &str) -> ApiResult<&'a str> {
     headers
@@ -145,7 +139,7 @@ async fn receive(
         header(&headers, "webhook-timestamp")?,
         header(&headers, "webhook-signature")?,
         &body,
-        store::now(),
+        user::now(),
     )
     .map_err(|_| {
         Error(
@@ -171,7 +165,8 @@ async fn receive(
         .ok()
         .filter(|v| (1..=1_000_000).contains(v))
         .ok_or_else(unavailable)?;
-    match collaboration::pg(&app)?
+    match app
+        .store
         .accept_event(&source, event_id, &payload, limit)
         .await
     {

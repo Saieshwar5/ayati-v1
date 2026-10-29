@@ -1,18 +1,15 @@
 pub(super) mod execution;
 pub(crate) mod mentions;
+pub(crate) mod model;
 mod organization;
 pub(crate) mod organization_model;
-pub(crate) mod store;
 mod stream_limit;
 mod sync;
 mod task_progress;
-#[cfg(test)]
-mod tests;
 use super::*;
 use axum::{Json, extract::Path as RoutePath};
 use serde::Deserialize;
 use serde_json::{Value, json};
-pub(super) use store::schema;
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
@@ -59,9 +56,7 @@ async fn focus(
     axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let super::database::Database::Postgres(pg) = &app.store else {
-        return Err(anyhow::anyhow!("Focused history requires PostgreSQL").into());
-    };
+    let pg = &app.store;
     let mut data = pg.chat_focus(&user, &w, &chat, &message).await?;
     if page.compact {
         crate::response::compact_history(&mut data);
@@ -75,7 +70,8 @@ async fn response(
     axum::extract::Query(input): axum::extract::Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
-    let data = super::collaboration::pg(&app)?
+    let data = app
+        .store
         .response_body(&user, &w, &chat, &message, input.metadata)
         .await?;
     Ok(crate::response::deliver(&message, data, &input))
@@ -86,7 +82,7 @@ async fn cancel(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = super::collaboration::pg(&app)?;
+    let pg = &app.store;
     pg.cancel_assignment(&user, &workspace, &chat, &reply)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -139,7 +135,7 @@ async fn create(
     State(app): State<Shared>,
     RoutePath(workspace): RoutePath<String>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewChat>,
+    Json(input): Json<model::NewChat>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &workspace).await?;
@@ -163,31 +159,24 @@ async fn messages(
     axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    if let super::database::Database::Postgres(pg) = &app.store {
-        let mut data = pg.chat_page(&user, &workspace, &chat, page.before).await?;
-        if page.compact {
-            crate::response::compact_history(&mut data);
-        }
-        return Ok(Json(data));
+    let mut data = app
+        .store
+        .chat_page(&user, &workspace, &chat, page.before)
+        .await?;
+    if page.compact {
+        crate::response::compact_history(&mut data);
     }
-    check(page.before.is_none(), "Older history requires PostgreSQL")?;
-    Ok(Json(
-        app.store.chat_messages(&user, &workspace, &chat).await?,
-    ))
+    Ok(Json(data))
 }
 async fn send(
     State(app): State<Shared>,
     RoutePath((workspace, chat)): RoutePath<(String, String)>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewMessage>,
+    Json(input): Json<model::NewMessage>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
-    if let super::database::Database::Postgres(pg) = &app.store {
-        pg.check_chat(&user, &workspace, &chat).await?;
-    } else {
-        app.store.chat_messages(&user, &workspace, &chat).await?;
-    }
+    app.store.check_chat(&user, &workspace, &chat).await?;
     if let Some(id) = &input.agent {
         super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
     }
@@ -199,22 +188,19 @@ async fn send(
     {
         app.runtimes.chat_wake.notify_one();
     }
-    if let super::database::Database::Postgres(pg) = &app.store {
-        return Ok(Json(
-            json!({"ok":true,"message":pg.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
-        ));
-    }
-    Ok(Json(json!({"ok":true})))
+    Ok(Json(
+        json!({"ok":true,"message":app.store.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
+    ))
 }
 
 async fn background(
     State(app): State<Shared>,
     RoutePath((workspace, chat)): RoutePath<(String, String)>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewMessage>,
+    Json(input): Json<model::NewMessage>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = super::collaboration::pg(&app)?;
+    let pg = &app.store;
     pg.check_chat(&user, &workspace, &chat).await?;
     let agent = input
         .agent
@@ -237,7 +223,7 @@ async fn background(
 /// control; only the scripted company simulation answers inside the controller.
 pub(super) fn start_dispatcher(app: Shared) {
     sync::start(app.clone());
-    if app.simulation.is_some() && !super::collaboration::pg(&app).is_ok_and(|pg| pg.pooled) {
+    if app.simulation.is_some() && !app.store.pooled {
         super::simulation::dispatch::start(app);
     }
 }

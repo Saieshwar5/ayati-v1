@@ -1,7 +1,7 @@
 //! Each Goose invocation gets a fresh loopback-only capability, bound to its exact job.
 use super::model::ActionRequest;
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     postgres::PgStore,
     worker_control::{client::Client, model::AssignedRequest},
 };

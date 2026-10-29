@@ -50,7 +50,7 @@ async fn events(
             StatusCode::TOO_MANY_REQUESTS,
         )
     })?;
-    let pg = super::super::collaboration::pg(&app)?;
+    let pg = &app.store;
     let mut wake = pg.changes.subscribe();
     let after = headers
         .get("last-event-id")
@@ -91,7 +91,7 @@ async fn events(
             // Revalidate the cookie/session as well as membership on every replay/live batch.
             let result = async {
                 let current = identity(&app, &headers).await?;
-                let pg = super::super::collaboration::pg(&app)?;
+                let pg = &app.store;
                 Ok::<_, Error>(pg.sync_page(&current, &w, Some(cursor)).await?)
             }
             .await;
@@ -128,7 +128,7 @@ async fn receipt(
     Json(input): Json<Receipt>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    super::super::collaboration::pg(&app)?
+    app.store
         .acknowledge(&user, &w, &c, &input.ids, input.seen)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -139,11 +139,7 @@ async fn details(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        super::super::collaboration::pg(&app)?
-            .receipt_details(&user, &w, &c, &id)
-            .await?,
-    ))
+    Ok(Json(app.store.receipt_details(&user, &w, &c, &id).await?))
 }
 async fn unread(
     State(app): State<Shared>,
@@ -151,21 +147,12 @@ async fn unread(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        super::super::collaboration::pg(&app)?
-            .unread(&user, &w)
-            .await?,
-    ))
+    Ok(Json(app.store.unread(&user, &w).await?))
 }
 pub(super) fn start(app: Shared) {
-    if !matches!(app.store, super::super::database::Database::Postgres(_)) {
-        return;
-    }
     tokio::spawn(async move {
         loop {
-            if let super::super::database::Database::Postgres(pg) = &app.store {
-                tokio::select! {_=app.runtimes.stopping.cancelled()=>break,_=pg.listen_changes()=>{}}
-            }
+            tokio::select! {_=app.runtimes.stopping.cancelled()=>break,_=app.store.listen_changes()=>{}}
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
@@ -178,7 +165,5 @@ async fn capabilities(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &w).await?;
-    Ok(Json(
-        json!({"live":matches!(app.store,super::super::database::Database::Postgres(_))}),
-    ))
+    Ok(Json(json!({"live":true})))
 }

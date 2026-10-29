@@ -77,19 +77,7 @@ pub(super) async fn live() -> StatusCode {
     StatusCode::OK
 }
 pub(super) async fn ready(State(app): State<Shared>) -> StatusCode {
-    let probe = async {
-        match &app.store {
-            database::Database::Postgres(pg) => pg.ping().await,
-            database::Database::Sqlite(store) => {
-                store
-                    .0
-                    .lock()
-                    .unwrap()
-                    .query_row("SELECT 1", [], |_| Ok(()))?;
-                Ok(())
-            }
-        }
-    };
+    let probe = app.store.ping();
     if matches!(
         tokio::time::timeout(std::time::Duration::from_secs(3), probe).await,
         Ok(Ok(()))

@@ -22,7 +22,7 @@ async fn grant(
     Json(input): Json<approval_model::ApproverGrant>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.control_approver_grant(&user, &w, &input).await?;
+    app.store.control_approver_grant(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn inbox(
@@ -31,7 +31,7 @@ async fn inbox(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.approval_inbox(&user, &w).await?))
+    Ok(Json(app.store.approval_inbox(&user, &w).await?))
 }
 async fn details(
     State(app): State<Shared>,
@@ -39,7 +39,7 @@ async fn details(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.approval_details(&user, &w, &id).await?))
+    Ok(Json(app.store.approval_details(&user, &w, &id).await?))
 }
 async fn decision(
     State(app): State<Shared>,
@@ -48,9 +48,10 @@ async fn decision(
     Json(input): Json<model::Decision>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let value = pg(&app)?.approval_details(&user, &w, &id).await?;
-    let action = pg(&app)?
+    let value = app.store.approval_details(&user, &w, &id).await?;
+    let action = app
+        .store
         .control_decide(&user, &w, value["agent"].as_str().unwrap(), &id, &input)
         .await?;
-    Ok(Json(dispatch(pg(&app)?, &w, action).await?))
+    Ok(Json(dispatch(&app.store, &w, action).await?))
 }

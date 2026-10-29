@@ -1,6 +1,6 @@
 //! Fenced pooled assignment attempts. No provider calls in transactions.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Assignment {

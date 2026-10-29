@@ -242,7 +242,7 @@ async fn background_intake_is_authorized_immutable_idempotent_and_separately_bou
         db.chat_background(&owner, &w, &c, &rejected)
             .await
             .unwrap_err()
-            .is::<crate::identity::chat::store::BackgroundQueueFull>()
+            .is::<crate::identity::chat::model::BackgroundQueueFull>()
     );
     assert!(
         query(
@@ -268,7 +268,7 @@ async fn background_intake_is_authorized_immutable_idempotent_and_separately_bou
         db.chat_send(&owner, &w, &c, &message("All full", Some(&a)))
             .await
             .unwrap_err()
-            .is::<crate::identity::chat::store::QueueFull>()
+            .is::<crate::identity::chat::model::QueueFull>()
     );
 }
 

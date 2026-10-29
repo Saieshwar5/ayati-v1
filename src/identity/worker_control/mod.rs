@@ -10,7 +10,7 @@ pub(crate) mod model;
 pub(crate) mod output;
 mod pool;
 mod tools;
-use super::{Shared, chat::execution, database::Database, postgres::PgStore, provider::digest};
+use super::{Shared, chat::execution, postgres::PgStore, provider::digest};
 use anyhow::{Context, Result, ensure};
 use axum::{
     Json, Router,
@@ -66,10 +66,7 @@ impl IntoResponse for Error {
     }
 }
 fn pg(control: &Control) -> &PgStore {
-    let Database::Postgres(pg) = &control.app.store else {
-        unreachable!()
-    };
-    pg
+    &control.app.store
 }
 fn credential(headers: &HeaderMap) -> Result<String> {
     ensure!(
@@ -89,7 +86,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let key = std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE");
     if origin.is_none() && key.is_none() {
         ensure!(
-            !matches!(&app.store,Database::Postgres(pg) if pg.pooled),
+            !app.store.pooled,
             "Pooled execution requires the worker-control listener"
         );
         return Ok(None);
@@ -98,7 +95,7 @@ pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<
     let host = origin.strip_prefix("http://").unwrap().to_string();
     let address = config::address(&host)?;
     ensure!(
-        matches!(&app.store, Database::Postgres(pg) if pg.pooled),
+        app.store.pooled,
         "Worker control requires PostgreSQL and pooled execution"
     );
     let key = config::key(std::path::Path::new(
@@ -246,14 +243,9 @@ async fn start_assignment(
     let context = if let Some(context) = record.context {
         serde_json::from_value(context)?
     } else {
-        let profile = execution::managed_profile(&state.app.store, &record.assignment.job)
-            .await?
-            .context("Agent unavailable")?;
-        trace.mark("profile_lookup");
         execution::prepare_traced(
             &state.app.store,
             &record.assignment.job,
-            profile,
             record.assignment.run_seconds,
             &mut trace,
         )

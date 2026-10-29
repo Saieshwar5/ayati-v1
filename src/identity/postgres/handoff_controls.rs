@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 pub(super) async fn snapshot(db: &impl ConnectionTrait, job: &Job) -> Result<Value> {
     let rules=json_rows(db,"SELECT to_jsonb(r)||jsonb_build_object('connection_revision',c.revision) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 ORDER BY r.connection,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into()]).await?;

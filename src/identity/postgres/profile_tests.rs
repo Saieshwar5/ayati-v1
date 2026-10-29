@@ -1,6 +1,5 @@
 use super::tests::{chat, fixture, message, user, workspace};
 use super::*;
-use crate::identity::store::Store;
 use sea_orm_migration::MigratorTrait;
 
 #[tokio::test]
@@ -94,28 +93,4 @@ async fn display_name_migration_upgrades_existing_accounts() {
         Some("Existing person")
     );
     db.migrate().await.unwrap();
-}
-
-#[tokio::test]
-#[ignore = "requires local PostgreSQL"]
-async fn older_sqlite_import_accepts_accounts_without_display_name_column() {
-    let db = fixture().await;
-    let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("old.sqlite");
-    let source = Store::open(&path).unwrap();
-    let old = source
-        .login("legacy", "old@example.test", "a", "sid")
-        .unwrap();
-    drop(source);
-    let raw = rusqlite::Connection::open(&path).unwrap();
-    raw.execute("ALTER TABLE users DROP COLUMN display_name", [])
-        .unwrap();
-    drop(raw);
-    db.import_sqlite(&path).await.unwrap();
-    let imported = db
-        .login("legacy", "old@example.test", "b", "sid")
-        .await
-        .unwrap();
-    assert_eq!(imported.id, old.id);
-    assert!(imported.display_name.is_none());
 }

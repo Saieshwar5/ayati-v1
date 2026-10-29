@@ -28,7 +28,7 @@ fn simulated(app: &App) -> ApiResult<&postgres::PgStore> {
             StatusCode::NOT_FOUND,
         ));
     }
-    Ok(collaboration::pg(app)?)
+    Ok(&app.store)
 }
 async fn status(
     State(app): State<Shared>,
@@ -36,11 +36,7 @@ async fn status(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?
-            .communication_status(&user, &w)
-            .await?,
-    ))
+    Ok(Json(app.store.communication_status(&user, &w).await?))
 }
 async fn endpoint(
     State(app): State<Shared>,

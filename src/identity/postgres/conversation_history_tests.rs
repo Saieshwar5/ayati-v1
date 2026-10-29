@@ -1,5 +1,5 @@
 use super::{tests::*, *};
-use crate::identity::{chat::store::Job, control::broker::invoke};
+use crate::identity::{chat::model::Job, control::broker::invoke};
 use serde_json::json;
 
 async fn search(db: &PgStore, job: &Job, query: &str, before: Option<i64>) -> Value {

@@ -7,12 +7,6 @@ use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
 pub(super) use catalog::{agents, validate_agent};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-pub(super) fn pg(app: &App) -> Result<&postgres::PgStore> {
-    match &app.store {
-        database::Database::Postgres(pg) => Ok(pg),
-        _ => anyhow::bail!("This company feature requires PostgreSQL"),
-    }
-}
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(work::routes())
@@ -70,7 +64,7 @@ async fn agent_create(
     Json(input): Json<AgentInput>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .save_shared_agent(&user, &w, &input.id, &input.name, &input.role, &input.model)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -88,7 +82,7 @@ async fn team_list(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(json!({"teams":pg(&app)?.teams(&user,&w).await?})))
+    Ok(Json(json!({"teams":app.store.teams(&user,&w).await?})))
 }
 async fn team_save(
     State(app): State<Shared>,
@@ -97,7 +91,7 @@ async fn team_save(
     Json(input): Json<TeamInput>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .save_team(&user, &w, &input.id, &input.name, &input.users)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -114,7 +108,7 @@ async fn members(
     Json(input): Json<Members>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .channel_members(&user, &w, &chat, &input.users)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -173,7 +167,7 @@ async fn feedback_list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        json!({"feedback":pg(&app)?.feedback(&user,&w).await?}),
+        json!({"feedback":app.store.feedback(&user,&w).await?}),
     ))
 }
 async fn feedback_add(
@@ -183,7 +177,7 @@ async fn feedback_add(
     Json(input): Json<Feedback>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.add_feedback(&user, &w, &input).await?;
+    app.store.add_feedback(&user, &w, &input).await?;
     Ok(Json(json!({"ok":true})))
 }
 #[derive(Deserialize)]
@@ -199,7 +193,7 @@ async fn feedback_update(
     Json(input): Json<Status>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .feedback_status(&user, &w, &id, &input.status, input.revision)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -210,8 +204,8 @@ async fn metrics(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut counts = pg(&app)?.company_counts(&user, &w).await?;
-    counts["queue"] = pg(&app)?.queue_metrics(&user, &w).await?;
+    let mut counts = app.store.company_counts(&user, &w).await?;
+    counts["queue"] = app.store.queue_metrics(&user, &w).await?;
     Ok(Json(counts))
 }
 #[derive(Deserialize, Serialize)]

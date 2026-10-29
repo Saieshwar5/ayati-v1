@@ -19,7 +19,7 @@ async fn list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        json!({"work":pg(&app)?.company_work(&user,&w).await?}),
+        json!({"work":app.store.company_work(&user,&w).await?}),
     ))
 }
 #[derive(Deserialize)]
@@ -36,7 +36,7 @@ async fn update(
     Json(input): Json<Update>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .work_update(
             &user,
             &w,
@@ -61,7 +61,7 @@ async fn grant(
     Json(input): Json<Grant>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .work_grant(&user, &w, &chat, &input.agent, input.allowed)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -81,7 +81,7 @@ async fn settings(
     Json(input): Json<Settings>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .channel_settings(
             &user,
             &w,

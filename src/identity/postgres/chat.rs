@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::{Job, NewChat};
+use crate::identity::chat::model::{Job, NewChat};
 use serde_json::json;
 
 pub(super) async fn access(

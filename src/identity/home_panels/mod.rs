@@ -2,7 +2,7 @@ pub(crate) mod maintenance;
 pub(crate) mod model;
 use super::*;
 use axum::{Json, extract::Path as RoutePath};
-use serde_json::{Value, json};
+use serde_json::Value;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route("/api/identity/workspaces/{w}/home-panels", get(list))
@@ -31,7 +31,7 @@ async fn agreement(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::collaboration::pg(&app)?
+        app.store
             .save_home_agreement(&user, &w, &panel, &input)
             .await?,
     ))
@@ -44,7 +44,7 @@ async fn refresh(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::collaboration::pg(&app)?
+        app.store
             .update_home_panel(&user, &w, &panel, &input)
             .await?,
     ))
@@ -55,9 +55,7 @@ async fn list(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let database::Database::Postgres(pg) = &app.store else {
-        return Ok(Json(json!({"available":false,"panels":[]})));
-    };
+    let pg = &app.store;
     Ok(Json(pg.home_panels(&user, &w).await?))
 }
 async fn layout(
@@ -67,11 +65,7 @@ async fn layout(
     Json(input): Json<model::Layout>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        super::collaboration::pg(&app)?
-            .save_home_layout(&user, &w, &input)
-            .await?,
-    ))
+    Ok(Json(app.store.save_home_layout(&user, &w, &input).await?))
 }
 async fn review(
     State(app): State<Shared>,
@@ -81,7 +75,7 @@ async fn review(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::collaboration::pg(&app)?
+        app.store
             .review_home_panel(&user, &w, &panel, &input)
             .await?,
     ))

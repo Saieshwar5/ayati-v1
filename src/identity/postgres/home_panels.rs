@@ -1,5 +1,5 @@
 use super::*;
-use crate::{identity::chat::store::Job, panels::PanelDraft};
+use crate::{identity::chat::model::Job, panels::PanelDraft};
 use serde_json::json;
 impl PgStore {
     pub(crate) async fn save_personal_panel(&self, job: &Job, input: &PanelDraft) -> Result<Value> {

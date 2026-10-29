@@ -62,7 +62,7 @@ impl PgStore {
     }
     pub(crate) async fn event_job_context(
         &self,
-        job: &crate::identity::chat::store::Job,
+        job: &crate::identity::chat::model::Job,
     ) -> Result<Vec<Value>> {
         let tx = self.read_tx(&job.workspace).await?;
         ensure!(

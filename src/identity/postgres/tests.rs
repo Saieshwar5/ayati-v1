@@ -1,12 +1,9 @@
 //! These tests deliberately require a real, disposable PostgreSQL database.
 use super::*;
-use crate::identity::{
-    chat::store::{NewChat, NewMessage},
-    store::Store,
-};
+use crate::identity::chat::model::{NewChat, NewMessage};
 use sea_orm::ConnectionTrait;
 
-pub(super) async fn fixture() -> PgStore {
+pub(in crate::identity) async fn fixture() -> PgStore {
     let url = std::env::var("RELAY_TEST_DATABASE_URL")
         .expect("Set RELAY_TEST_DATABASE_URL to a disposable PostgreSQL database");
     let admin = PgStore::connect(&url).await.unwrap();
@@ -28,7 +25,7 @@ pub(super) async fn fixture() -> PgStore {
     runtime.verify_schema().await.unwrap();
     runtime
 }
-pub(super) async fn user(db: &PgStore, name: &str) -> User {
+pub(in crate::identity) async fn user(db: &PgStore, name: &str) -> User {
     db.login(
         name,
         &format!("{name}@example.test"),
@@ -38,11 +35,17 @@ pub(super) async fn user(db: &PgStore, name: &str) -> User {
     .await
     .unwrap()
 }
-pub(super) async fn workspace(db: &PgStore, owner: &User) -> String {
+pub(in crate::identity) async fn workspace(db: &PgStore, owner: &User) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     db.create(owner, "Test business", &id).await.unwrap()
 }
-pub(super) async fn join(db: &PgStore, owner: &User, w: &str, member: &User, role: &str) {
+pub(in crate::identity) async fn join(
+    db: &PgStore,
+    owner: &User,
+    w: &str,
+    member: &User,
+    role: &str,
+) {
     let invite = db
         .reserve_invite(owner, w, &member.email, role)
         .await
@@ -312,87 +315,6 @@ async fn revocation_cancels_pending_results() {
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
     join(&db, &owner, &w, &member, "User").await;
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
-}
-#[tokio::test]
-#[ignore = "requires local PostgreSQL"]
-async fn sqlite_import_preserves_ids_and_history_without_sessions() {
-    let db = fixture().await;
-    let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("identity.sqlite");
-    let old = Store::open(&path).unwrap();
-    let owner = old
-        .login("owner", "owner@example.test", "secret-session-hash", "sid")
-        .unwrap();
-    let w = uuid::Uuid::new_v4().to_string();
-    old.create(&owner, "Original business", &w).unwrap();
-    let c = old
-        .chat_create(
-            &owner,
-            &w,
-            &NewChat {
-                kind: "group".into(),
-                description: String::new(),
-                id: uuid::Uuid::new_v4().to_string(),
-                name: "Original chat".into(),
-                users: vec![],
-                agents: vec![],
-            },
-        )
-        .unwrap();
-    old.update_profile(&owner, "Imported person").unwrap();
-    old.chat_send(&owner, &w, &c, &message("Keep this history", None))
-        .unwrap();
-    drop(old);
-    let counts = db.import_sqlite(&path).await.unwrap();
-    assert_eq!(counts["users"], 1);
-    let imported = db
-        .login("owner", "owner@example.test", "new-hash", "sid")
-        .await
-        .unwrap();
-    assert_eq!(imported.display_name.as_deref(), Some("Imported person"));
-    assert_eq!(db.role(&w, &owner.id).await.unwrap(), "Owner");
-    assert_eq!(
-        db.chat_messages(&owner, &w, &c).await.unwrap()["messages"][0]["content"],
-        "Keep this history"
-    );
-    assert!(db.session("secret-session-hash").await.unwrap().is_none());
-    assert!(db.import_sqlite(&path).await.is_err());
-    let source =
-        rusqlite::Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .unwrap();
-    assert_eq!(
-        source
-            .query_row("SELECT content FROM chat_messages", [], |r| r
-                .get::<_, String>(0))
-            .unwrap(),
-        "Keep this history"
-    );
-}
-#[tokio::test]
-#[ignore = "requires local PostgreSQL"]
-async fn invalid_import_rolls_back_all_target_records() {
-    let db = fixture().await;
-    let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("identity.sqlite");
-    let old = Store::open(&path).unwrap();
-    old.login("owner", "owner@example.test", "hash", "sid")
-        .unwrap();
-    old.0
-        .lock()
-        .unwrap()
-        .execute(
-            "INSERT INTO chat_people VALUES('missing-chat','missing-user')",
-            [],
-        )
-        .unwrap();
-    assert!(db.import_sqlite(&path).await.is_err());
-    let count: i64 = query(&db.db, "SELECT count(*) AS total FROM relay_users", vec![])
-        .await
-        .unwrap()
-        .unwrap()
-        .try_get("", "total")
-        .unwrap();
-    assert_eq!(count, 0);
 }
 
 #[tokio::test]

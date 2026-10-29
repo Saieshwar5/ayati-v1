@@ -1,7 +1,7 @@
 //! Ordinary facts and their designated respondent remain separate from approvals.
 use super::*;
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     interactions::model::{Ask, Specification, Submission},
 };
 use serde_json::json;

@@ -1,6 +1,6 @@
 use super::*;
 use crate::identity::{
-    chat::store::{Job, NewMessage},
+    chat::model::{Job, NewMessage},
     home_panels::maintenance::Update,
 };
 use serde_json::json;

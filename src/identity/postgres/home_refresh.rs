@@ -1,7 +1,7 @@
 use super::*;
 use crate::panels::presentation::shape;
 use crate::{
-    identity::{chat::store::Job, home_panels::maintenance::Refresh},
+    identity::{chat::model::Job, home_panels::maintenance::Refresh},
     panels::PanelDraft,
 };
 use serde_json::json;

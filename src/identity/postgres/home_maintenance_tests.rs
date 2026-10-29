@@ -1,7 +1,7 @@
 use super::{tests::*, *};
 use crate::{
     identity::{
-        chat::store::Job,
+        chat::model::Job,
         control::model::{ActionRequest, Rule},
         home_panels::{
             maintenance::{Agreement, Refresh, Update},

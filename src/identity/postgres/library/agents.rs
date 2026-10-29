@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 pub(in crate::identity::postgres) async fn source_allowed(
     db: &impl ConnectionTrait,

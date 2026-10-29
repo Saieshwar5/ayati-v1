@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 impl PgStore {
     pub(crate) async fn response_body(
         &self,

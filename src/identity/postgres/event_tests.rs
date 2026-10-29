@@ -114,13 +114,13 @@ impl Setup {
             .await
             .unwrap()
     }
-    pub async fn claim(&self) -> crate::identity::chat::store::Job {
+    pub async fn claim(&self) -> crate::identity::chat::model::Job {
         let mut job = self.job().await;
         job.claim = Some(uuid::Uuid::new_v4().to_string());
         execute(&self.db.db,"UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=1,lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300 WHERE reply=$1",vec![job.reply.clone().into(),job.claim.clone().into()]).await.unwrap();
         job
     }
-    pub async fn job(&self) -> crate::identity::chat::store::Job {
+    pub async fn job(&self) -> crate::identity::chat::model::Job {
         let row=query(&self.db.db,"SELECT j.payload FROM relay_chat_jobs j JOIN relay_event_deliveries d ON d.workspace=j.workspace AND d.reply=j.reply ORDER BY j.sequence LIMIT 1",vec![]).await.unwrap().unwrap();
         serde_json::from_value(row.try_get("", "payload").unwrap()).unwrap()
     }

@@ -29,8 +29,8 @@ async fn snapshot(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let context = pg(&app)?.setup_context(&user, &w, &agent).await?;
-    let draft = pg(&app)?.setup_last_draft(&user, &w, &agent).await?;
+    let context = app.store.setup_context(&user, &w, &agent).await?;
+    let draft = app.store.setup_last_draft(&user, &w, &agent).await?;
     Ok(Json(
         json!({"context":context,"draft":draft,"execution_available":execution_available(&app)?}),
     ))
@@ -79,10 +79,11 @@ async fn start(
 ) -> ApiResult<Json<Value>> {
     input.validate()?;
     let user = identity(&app, &headers).await?;
-    if let Some(old) = pg(&app)?.setup_existing(&user, &w, &agent, &input).await? {
+    if let Some(old) = app.store.setup_existing(&user, &w, &agent, &input).await? {
         return Ok(Json(old));
     }
-    let context = pg(&app)?
+    let context = app
+        .store
         .setup_selected_context(&user, &w, &agent, &input)
         .await?;
     let inventories = inventories(&w, &context).await?;
@@ -105,7 +106,7 @@ async fn start(
         setup_assistant::suggest(&mut draft, &w, &agent).await?;
     }
     Ok(Json(
-        pg(&app)?.setup_create(&user, &w, &agent, &draft).await?,
+        app.store.setup_create(&user, &w, &agent, &draft).await?,
     ))
 }
 async fn edit(
@@ -116,7 +117,7 @@ async fn edit(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?.setup_edit(&user, &w, &agent, &id, &input).await?,
+        app.store.setup_edit(&user, &w, &agent, &id, &input).await?,
     ))
 }
 async fn preview(
@@ -127,7 +128,7 @@ async fn preview(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?
+        app.store
             .setup_preview(&user, &w, &agent, &id, &input)
             .await?,
     ))
@@ -139,7 +140,7 @@ async fn activate(
     Json(input): Json<Activate>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let saved = pg(&app)?.setup_draft(&user, &w, &agent, &id).await?;
+    let saved = app.store.setup_draft(&user, &w, &agent, &id).await?;
     if saved["state"] != "activated" {
         let draft: Draft = serde_json::from_value(saved["data"].clone())?;
         check(
@@ -153,7 +154,7 @@ async fn activate(
         )?;
     }
     Ok(Json(
-        pg(&app)?
+        app.store
             .setup_activate(&user, &w, &agent, &id, &input)
             .await?,
     ))

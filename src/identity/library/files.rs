@@ -13,7 +13,7 @@ pub(super) async fn start(
         "File storage is not configured. You can still create pages.",
     )?;
     Ok(Json(
-        pg(&app)?.library_upload_start(&user, &w, &input).await?,
+        app.store.library_upload_start(&user, &w, &input).await?,
     ))
 }
 pub(super) async fn status(
@@ -22,7 +22,7 @@ pub(super) async fn status(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut session = pg(&app)?.library_upload_session(&user, &w, &id).await?;
+    let mut session = app.store.library_upload_session(&user, &w, &id).await?;
     if let Some(value) = session.as_object_mut() {
         value.remove("object_key");
     }
@@ -34,7 +34,7 @@ pub(super) async fn cancel(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.library_upload_cancel(&user, &w, &id).await?))
+    Ok(Json(app.store.library_upload_cancel(&user, &w, &id).await?))
 }
 pub(super) async fn upload(
     State(app): State<Shared>,
@@ -48,7 +48,7 @@ pub(super) async fn upload(
         )
     })?;
     let user = identity(&app, request.headers()).await?;
-    let session = pg(&app)?.library_upload_session(&user, &w, &id).await?;
+    let session = app.store.library_upload_session(&user, &w, &id).await?;
     let bytes = axum::body::to_bytes(request.into_body(), MAX_FILE)
         .await
         .context("File exceeds the 25 MiB limit or transfer was interrupted")?;
@@ -58,7 +58,7 @@ pub(super) async fn upload(
         "Selected file does not match this upload; reselect the original file",
     )?;
     if session["state"] == "stored" {
-        return Ok(Json(pg(&app)?.library_get(&user, &w, &id).await?));
+        return Ok(Json(app.store.library_get(&user, &w, &id).await?));
     }
     let key = session["object_key"]
         .as_str()
@@ -72,7 +72,7 @@ pub(super) async fn upload(
     let mime = extract::mime(&bytes);
     let (text, readiness) = extract::text(&bytes, mime).await;
     Ok(Json(
-        pg(&app)?
+        app.store
             .library_upload_finish(&user, &w, &id, mime, &text, readiness)
             .await?,
     ))
@@ -95,7 +95,7 @@ pub(super) async fn download(
         )
     })?;
     let user = identity(&app, &headers).await?;
-    let item = pg(&app)?.library_file(&user, &w, &id).await?;
+    let item = app.store.library_file(&user, &w, &id).await?;
     let bytes = tokio::time::timeout(
         std::time::Duration::from_secs(60),
         app.library.get(
@@ -112,7 +112,7 @@ pub(super) async fn download(
         "Stored file failed its integrity check",
     )?;
     // A revocation during the storage read must fence the outgoing response too.
-    pg(&app)?.library_file(&user, &w, &id).await?;
+    app.store.library_file(&user, &w, &id).await?;
     let size = bytes.len();
     let range = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
     let (start, end) = if let Some(range) = range {

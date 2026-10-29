@@ -1,6 +1,6 @@
 //! Draft reads use the same current requester/source authority as output writes.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 pub(super) async fn hydrate(
     tx: &DatabaseTransaction,
     user: &User,
