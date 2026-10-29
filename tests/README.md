@@ -184,6 +184,15 @@ manager and cgroup v2, and fail instead of falling back to unbounded execution.
 
 ## Shared workspace journeys
 
+`python tools/run-agent-load.py --suite chat` (or `RELAY_TEST_DATABASE_URL=... node
+--test tests/chat_collaboration.mjs`) walks the whole people-and-agents story in
+real browsers: a profile with a photo, the everyone-visible directory, pinning a
+person, a direct message raising a desktop alert, a channel gaining an agent, a
+member asking it and getting the answer, live reactions and edits, a private channel
+staying private while people stay visible, and the phone layout. Members join through
+the simulation's invite and accept path; invitation email needs hosted WorkOS. The
+suite also runs `tests/chat_organization.mjs` (pins and archive).
+
 `RELAY_TEST_DATABASE_URL=... node --test tests/agents_team_workspace.mjs` verifies
 the selected Agents team/profile layout, original channel/thread focus beyond
 the latest history page, saved progress without model work, exact queued/running/

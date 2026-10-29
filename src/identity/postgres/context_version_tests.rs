@@ -227,14 +227,14 @@ async fn context_versions_fence_assembly_races_and_regrant() {
     let tx = db.workspace_tx(&w).await.unwrap();
     execute(
         &tx,
-        "UPDATE relay_chats SET archived=true WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_chats SET visibility='public' WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), c.clone().into()],
     )
     .await
     .unwrap();
     execute(
         &tx,
-        "UPDATE relay_chats SET archived=false WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_chats SET visibility='private' WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), c.clone().into()],
     )
     .await
@@ -362,14 +362,14 @@ async fn context_access_epochs_do_not_replace_independent_artifact_source_rights
     prepared(&db, &job).await;
     execute(
         &db.db,
-        "UPDATE relay_chats SET archived=true WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_chats SET visibility='public' WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), c.clone().into()],
     )
     .await
     .unwrap();
     execute(
         &db.db,
-        "UPDATE relay_chats SET archived=false WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_chats SET visibility='private' WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), c.clone().into()],
     )
     .await

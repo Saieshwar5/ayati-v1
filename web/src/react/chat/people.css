@@ -62,3 +62,9 @@
 .chat-alerts-prompt p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 .chat-alerts-prompt > div { display: flex; gap: 8px; }
 .chat-alerts-prompt .ui-button { min-height: 30px; padding: 4px 12px; font-size: 12px; }
+
+/* Header summary stays on one line, so narrow headers keep their title. */
+.workspace-chat .chat-pane-header > div:not(.chat-notify) { min-width: 0; flex: 1; }
+.workspace-chat .chat-header-meta .chat-kind { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-chat .chat-pane-header h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .workspace-chat .chat-header-meta .chat-connection { display: none; } }
