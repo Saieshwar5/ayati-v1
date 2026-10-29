@@ -1,6 +1,6 @@
 //! Seed historical schemas without using newer intake or registration SQL.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 /// The request/token pair a retired assigned worker used to reserve work.
 pub(super) struct LegacyReservation {

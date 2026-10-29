@@ -1,5 +1,5 @@
 use super::*;
-pub(super) async fn prepare(root: &Path, store: &database::Database) -> Result<Simulation> {
+pub(super) async fn prepare(root: &Path, store: &postgres::PgStore) -> Result<Simulation> {
     let roster = root.join("company.json");
     if roster.exists() {
         let value: Value = serde_json::from_slice(&std::fs::read(roster)?)?;

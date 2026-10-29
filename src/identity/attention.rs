@@ -2,7 +2,7 @@
 use super::*;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -81,11 +81,7 @@ async fn list(
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &w).await?;
     input.cursor()?;
-    let database::Database::Postgres(pg) = &app.store else {
-        return Ok(Json(
-            json!({"available":false,"items":[],"next_before":null}),
-        ));
-    };
+    let pg = &app.store;
     Ok(Json(pg.attention(&user, &w, &input).await?))
 }
 async fn acknowledge(
@@ -95,8 +91,6 @@ async fn acknowledge(
     Json(input): Json<Acknowledge>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let database::Database::Postgres(pg) = &app.store else {
-        return Err(anyhow::anyhow!("Managed-work attention requires PostgreSQL").into());
-    };
+    let pg = &app.store;
     Ok(Json(pg.acknowledge_attention(&user, &w, &input).await?))
 }

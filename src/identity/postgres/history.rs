@@ -12,7 +12,7 @@ impl PgStore {
         super::chat::access(&tx, user, w, chat).await?;
         let row=query(&tx,"SELECT m.sequence,j.payload FROM relay_chat_messages m LEFT JOIN relay_chat_jobs j ON j.workspace=m.workspace AND j.reply=m.id WHERE m.workspace=$1 AND m.chat=$2 AND m.id=$3",vec![w.into(),chat.into(),message.into()]).await?.context("Message unavailable")?;
         if let Some(payload) = row.try_get::<Option<Value>>("", "payload")? {
-            let mut job: crate::identity::chat::store::Job = serde_json::from_value(payload)?;
+            let mut job: crate::identity::chat::model::Job = serde_json::from_value(payload)?;
             job.requester = user.id.clone();
             ensure!(
                 super::source_access::allowed(&tx, &job).await?

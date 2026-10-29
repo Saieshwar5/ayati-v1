@@ -102,7 +102,7 @@ pub(super) async fn controlled(
             .await?
             .context(ControlDenied)?,
     )?;
-    let mut job: crate::identity::chat::store::Job =
+    let mut job: crate::identity::chat::model::Job =
         serde_json::from_value(row.try_get("", "payload")?)?;
     job.claim = Some(id.into());
     Ok(Controlled {

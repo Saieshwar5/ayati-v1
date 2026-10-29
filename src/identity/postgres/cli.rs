@@ -1,8 +1,7 @@
 use super::*;
-use std::path::Path;
 
-/// Explicit migrations/imports, never run destructive schema synchronization on API startup.
-pub async fn run(data: &Path, action: &str) -> Result<()> {
+/// Explicit migrations; never run destructive schema synchronization on API startup.
+pub async fn run(action: &str) -> Result<()> {
     let url = std::env::var("RELAY_DATABASE_URL").context("Set RELAY_DATABASE_URL privately")?;
     let db = PgStore::connect(&url).await?;
     match action {
@@ -14,55 +13,11 @@ pub async fn run(data: &Path, action: &str) -> Result<()> {
             db.verify_schema().await?;
             println!("PostgreSQL workspace schema is ready.");
         }
-        "import" => {
-            let root = data.canonicalize()?.join("identity");
-            let _lock = crate::identity::process_lock::exclusive(&root.join("server.lock"))?;
-            db.verify_schema().await?;
-            // Fence SQLite before committing PostgreSQL: a crash between these operations
-            // must never silently resume writes against the old database.
-            use std::io::Write;
-            let mut fence = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(root.join("postgres-identity"))?;
-            fence.write_all(b"PostgreSQL identity cutover started. Verify import and configure RELAY_DATABASE_URL before restart.\n")?;
-            fence.sync_all()?;
-            std::fs::File::open(&root)?.sync_all()?;
-            let counts = db.import_sqlite(&root.join("identity.sqlite")).await?;
-            println!(
-                "Identity import verified: {counts}. Sign in again; existing business files remain in place."
-            );
-        }
-        _ => anyhow::bail!("Use workspace-db migrate, check or import"),
+        _ => anyhow::bail!("Use workspace-db migrate or check"),
     }
     Ok(())
 }
-/// Whether an earlier SQLite identity store holds users that PostgreSQL must have imported.
-pub(in crate::identity) fn sqlite_identity_exists(path: &Path) -> Result<bool> {
-    if !path.exists() {
-        return Ok(false);
-    }
-    let db =
-        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    Ok(db.query_row("SELECT EXISTS(SELECT 1 FROM users)", [], |r| r.get(0))?)
-}
-
 impl PgStore {
-    pub async fn verify_import(&self) -> Result<()> {
-        ensure!(
-            query(
-                &self.db,
-                "SELECT source_id FROM relay_imports WHERE source_id='sqlite-identity-v1'",
-                vec![]
-            )
-            .await?
-            .is_some(),
-            "Complete workspace-db import before starting against existing SQLite identity data"
-        );
-        Ok(())
-    }
-
     pub async fn verify_schema(&self) -> Result<()> {
         let applied = rows(
             &self.db,

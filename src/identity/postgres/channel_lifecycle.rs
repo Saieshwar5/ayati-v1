@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::{organization_model::Lifecycle, store::Job};
+use crate::identity::chat::{model::Job, organization_model::Lifecycle};
 use serde_json::json;
 pub(super) async fn accepting(tx: &impl ConnectionTrait, w: &str, chat: &str) -> Result<()> {
     let row = query(

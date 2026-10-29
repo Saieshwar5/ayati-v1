@@ -30,13 +30,13 @@ cookie. Only verified email identities are admitted. Internal users are keyed by
 provider user ID, never automatically merged by email.
 
 The browser receives an opaque HttpOnly SameSite=Lax cookie. Only its hash is saved
-in SQLite. Local sessions last one hour; provider sessions are checked on each
+in PostgreSQL. Local sessions last one hour; provider sessions are checked on each
 protected request and revoked on logout. Provider access/refresh tokens are not
 persisted. Provider failures deny access; existing cookies are not automatically
 deleted on transient failure. The client can retry by reloading or sign in again.
 
-By default SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, workspaces,
-memberships, invitations and audit entries. Directory permissions are 0700.
+PostgreSQL holds users, sessions, workspaces, memberships, invitations and audit
+entries; `ayati identity` requires `RELAY_DATABASE_URL`.
 Workspace creation and owner membership are transactional and request-idempotent.
 Workspace IDs never confer access. Reads and writes check current membership.
 Users cannot administer people. Owners can appoint other Owners and change or remove
@@ -88,10 +88,10 @@ invitation cancellation/expiry/replay, inviter authority changes, workspace
 creation idempotency, session removal, PKCE/state binding and request guards.
 These results do not establish production readiness or tenant-safe agent execution.
 
-## PostgreSQL local backend
+## PostgreSQL
 
-The client uses PostgreSQL for identity, memberships, shared chat and durable
-shared-reply jobs. See [local PostgreSQL setup and migration](postgres-workspaces.md).
+All controller state lives in PostgreSQL. See
+[local PostgreSQL setup and migration](postgres-workspaces.md).
 
 ## Display names
 
@@ -109,8 +109,7 @@ fallback. Identity, membership, grants and message ownership still use stable us
 IDs; a name never grants access. Only the currently authenticated person can
 change their name through `POST /api/identity/profile` with `{ "display_name": "…" }`.
 
-SQLite adds the nullable column on open. PostgreSQL requires the explicit forward
-migration before starting the updated server: run `workspace-db migrate` with the
-administrator connection (or `./tools/local-postgres.sh migrate` for this local
-setup). SQLite imports preserve chosen names and accept older source schemas
-without the column. No provider profile write or email change is performed.
+PostgreSQL requires the explicit forward migration before starting the updated
+server: run `workspace-db migrate` with the administrator connection (or
+`./tools/local-postgres.sh migrate` for this local setup). No provider profile
+write or email change is performed.

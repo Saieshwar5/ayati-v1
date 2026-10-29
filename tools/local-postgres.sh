@@ -72,7 +72,9 @@ SQL
         ;;
     test)
         cd "$relay_root"
-        RELAY_TEST_DATABASE_URL="$relay_test" cargo test --locked --lib identity::postgres -- --ignored
+        # Every ignored library test needs this database, except the S3 emulator check.
+        RELAY_TEST_DATABASE_URL="$relay_test" cargo test --locked --lib identity:: -- --ignored \
+            --skip library::storage::tests::s3_compatible_objects_support_conditional_creation_and_integrity
         ;;
     env)
         printf 'RELAY_DATABASE_URL=%s\nRELAY_ADMIN_DATABASE_URL=%s\nRELAY_TEST_DATABASE_URL=%s\n' "$relay_runtime" "$relay_admin" "$relay_test"

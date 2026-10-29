@@ -56,8 +56,6 @@ purpose, unique direct participant keys and message thread roots. Run
 administrator connection), then restart Relay. Startup requires all six current migrations, including company
 collaboration and queue telemetry. See [company simulation](company-simulation.md).
 The migration is additive and retains all existing messages and memberships.
-SQLite fallback upgrades its local schema on open. Offline SQLite import supports
-both the original schema and the new conversation metadata and thread columns.
 
 ## Validation
 

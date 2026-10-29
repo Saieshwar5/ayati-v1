@@ -1,6 +1,6 @@
 use super::*;
 use crate::identity::{
-    chat::store::{Job, NewMessage},
+    chat::model::{Job, NewMessage},
     handoffs::model::{Request, wait_seconds},
 };
 use serde_json::json;

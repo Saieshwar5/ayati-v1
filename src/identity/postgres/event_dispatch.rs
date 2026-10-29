@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::NewMessage;
+use crate::identity::chat::model::NewMessage;
 use serde_json::json;
 pub(super) async fn cancel_pending(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
     execute(db,"UPDATE relay_event_deliveries SET state='cancelled',detail='Event trigger paused before this delivery was admitted.' WHERE workspace=$1 AND trigger_id=$2 AND state='pending'",vec![w.into(),id.into()]).await?;
@@ -134,8 +134,8 @@ impl PgStore {
             }
             Err(error) => {
                 nested.rollback().await?;
-                if error.is::<crate::identity::chat::store::QueueFull>()
-                    || error.is::<crate::identity::chat::store::BackgroundQueueFull>()
+                if error.is::<crate::identity::chat::model::QueueFull>()
+                    || error.is::<crate::identity::chat::model::BackgroundQueueFull>()
                 {
                     tx.commit().await?;
                     return Ok(false);

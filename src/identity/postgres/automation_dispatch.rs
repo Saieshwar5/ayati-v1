@@ -1,7 +1,7 @@
 //! Atomic schedule occurrence admission. Execution remains in the ordinary worker pool.
 use super::automation_access::{authority, principal, record};
 use super::*;
-use crate::identity::{automations::model::due, chat::store::NewMessage};
+use crate::identity::{automations::model::due, chat::model::NewMessage};
 pub(super) async fn cancel_unstarted(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<()> {
     let replies=rows(tx,"UPDATE relay_chat_jobs j SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE j.workspace=$1 AND j.state='queued' AND j.run_cycle=0 AND j.attempts=0 AND EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.schedule=$2 AND o.reply=j.reply) RETURNING j.reply",vec![w.into(),id.into()]).await?;
     for row in replies {
@@ -101,8 +101,8 @@ impl PgStore {
             }
             Err(error) => {
                 intake.rollback().await?;
-                if error.is::<crate::identity::chat::store::QueueFull>()
-                    || error.is::<crate::identity::chat::store::BackgroundQueueFull>()
+                if error.is::<crate::identity::chat::model::QueueFull>()
+                    || error.is::<crate::identity::chat::model::BackgroundQueueFull>()
                 {
                     execute(&tx,"UPDATE relay_agent_schedules SET detail='Waiting for background queue capacity. The due occurrence remains saved.' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
                     tx.commit().await?;

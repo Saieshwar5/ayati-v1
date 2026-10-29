@@ -1,7 +1,7 @@
 //! Exact persisted requests; action admission and external dispatch have separate ownership.
 use super::*;
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     control::model::{ActionRequest, Operation},
 };
 use serde_json::json;

@@ -17,16 +17,11 @@ Reapply runtime grants after migration. The [worker-control API](worker-control.
 keeps core database credentials with the controller; only initialized compatible
 executor slots receive work, with durable slot generations.
 
-Relay can serve its existing React client using PostgreSQL for accounts, sessions,
-workspaces, memberships, invitations, shared conversations, human resource grants,
-App-session bindings, audit records and durable shared-reply jobs. Set
-`RELAY_DATABASE_URL` privately to enable it. A configured connection failure never
-falls back to SQLite. The original standalone/local mode is retained.
-
-This is a local deployment increment, not production cloud tenancy. Private agent
-runtime stores, the agent registry, generated App records, panels and sourced
-memory still use their existing SQLite stores. Existing workspace paths and the
-explicit owner installation binding remain unchanged. Managed agents use scoped conversation context and approved knowledge. Business
+The controller stores accounts, sessions, workspaces, memberships, invitations,
+conversations, agents, Library pages, audit records and durable reply jobs in
+PostgreSQL. `ayati identity` requires `RELAY_DATABASE_URL` and refuses to start
+without it; there is no SQLite fallback (removed 2026-10-29). Executors keep only a
+private per-run journal. Managed agents use scoped conversation context and approved knowledge. Business
 operations use the separate [controller boundary](shared-agent-control.md); private
 local-owner files, browser sessions and shell tools are not inherited.
 
@@ -34,8 +29,8 @@ local-owner files, browser sessions and shell tools are not inherited.
 
 Pinned SeaORM and sea-orm-migration 2.0.4 (MIT OR Apache-2.0) use PostgreSQL through
 SQLx 0.9 and the existing Tokio runtime. SeaORM entities cover stable account and
-workspace records; parameterized SQL handles explicit authorization transactions,
-imports and queue claims. One pool per backend has at most ten connections.
+workspace records; parameterized SQL handles explicit authorization transactions
+and queue claims. One pool per backend has at most ten connections.
 This increment was exercised with PostgreSQL 18.6.
 
 Install PostgreSQL server and client tools with your operating system package
@@ -63,37 +58,12 @@ history writes from the application role. Cloud credentials, TLS and deployment
 roles require a separate configuration; these local settings are not a template
 for exposing the database on a network.
 
-## Schema changes and import
+## Schema changes
 
 Migrations are explicitly versioned with SeaORM Migrator. API startup validates
 the schema and rejects unknown versions; it does not alter tables automatically.
 The first migration deliberately refuses destructive down migration. A new schema
 change needs a forward migration, tested against an existing populated database.
-
-To migrate an existing local installation:
-
-1. Stop `ayati identity` and the standalone server; pause any active work.
-2. Take a verified backup of `AYATI_DATA_DIR/identity/identity.sqlite` and keep the
-   original business directories and installation binding in place.
-3. Initialize an empty PostgreSQL target with the migration command and grants.
-4. With the target URL set, run `cargo run --locked -- workspace-db import`.
-5. Run `cargo run --locked -- workspace-db check`, then `ayati identity`.
-6. Sign in again. Browser sessions and temporary App sessions are not imported.
-
-Import acquires the existing local server/daemon locks, reads SQLite without
-writing it, verifies integrity, imports in one PostgreSQL transaction, checks
-record counts and preserves IDs and ordering. Invalid references, partial data or
-a nonempty target abort the import. It neither merges users by email nor sends
-invitations. Old queued replies become failed because they have no recoverable
-job payload. Original SQLite files remain available for recovery.
-
-The `identity/postgres-identity` fence is synced before import commits. Once present,
-startup refuses SQLite fallback and requires a completed PostgreSQL import. If an
-import fails or its commit result is uncertain, inspect the target import record
-and restore/reconcile deliberately; do not simply delete the fence and resume both
-stores. Returning to SQLite after new PostgreSQL writes requires reconciliation.
-Ownership adoption/release commands reject a migrated installation until they have
-a PostgreSQL-aware implementation.
 
 ## Isolation and concurrency
 

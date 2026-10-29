@@ -27,7 +27,7 @@ async fn snapshot(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut value = pg(&app)?.workspace_connections(&user, &w).await?;
+    let mut value = app.store.workspace_connections(&user, &w).await?;
     // Broken operator configuration must not hide the controls for revoking access.
     value["servers"] = match catalog::servers(&w) {
         Ok(servers) => json!(servers.iter().map(|s| s.public()).collect::<Vec<_>>()),
@@ -49,13 +49,13 @@ async fn approve(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        pg(&app)?.role(&w, &user.id).await? == "Owner",
+        app.store.role(&w, &user.id).await? == "Owner",
         "Only workspace Owners can approve systems",
     )?;
     if input.approved {
         catalog::server(&w, &input.server)?;
     }
-    pg(&app)?.control_system(&user, &w, &input).await?;
+    app.store.control_system(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn connect(
@@ -66,7 +66,7 @@ async fn connect(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     if !input.enabled {
-        pg(&app)?
+        app.store
             .workspace_connection_save(&user, &w, &input, None)
             .await?;
         return Ok(Json(json!({"saved":true})));
@@ -76,7 +76,7 @@ async fn connect(
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
     crate::identity::worker_control::model::uuid(&input.id)?;
-    pg(&app)?.connection_preflight(&user, &w, &input).await?;
+    app.store.connection_preflight(&user, &w, &input).await?;
     let server = catalog::server(&w, &input.server)?;
     let fingerprint = server.fingerprint()?;
     tokio::time::timeout(std::time::Duration::from_secs(30), async {
@@ -94,7 +94,7 @@ async fn connect(
         catalog::server(&w, &input.server)?.fingerprint()? == fingerprint,
         "Connection changed during verification",
     )?;
-    pg(&app)?
+    app.store
         .workspace_connection_save(&user, &w, &input, Some((server.public(), &fingerprint)))
         .await?;
     Ok(Json(json!({"saved":true})))
@@ -106,7 +106,7 @@ async fn creator(
     Json(input): Json<Creator>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.control_creator(&user, &w, &input).await?;
+    app.store.control_creator(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn delegate(
@@ -116,6 +116,6 @@ async fn delegate(
     Json(input): Json<Delegation>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.control_delegate(&user, &w, &input).await?;
+    app.store.control_delegate(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
 }

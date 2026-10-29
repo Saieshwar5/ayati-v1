@@ -1,6 +1,6 @@
 use super::*;
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     communications::model::{Outcome, Receipt},
 };
 use serde_json::json;

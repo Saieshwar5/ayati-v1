@@ -1,7 +1,7 @@
 //! Scripted replies for the company simulation, claimed inside the controller.
 //! Product controllers never run agents here; they dispatch to pooled executors.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 pub(in crate::identity) fn start(app: Shared) {
     tokio::spawn(async move {
@@ -18,18 +18,16 @@ pub(in crate::identity) fn start(app: Shared) {
             {
                 continue;
             }
-            if let database::Database::Postgres(pg) = &app.store {
-                // Reserve capacity before claiming: never lease jobs waiting for a local slot.
-                while let Ok(slot) = app.runtimes.chat_slots.clone().try_acquire_owned() {
-                    match pg.claim_job().await {
-                        Ok(Some(job)) => {
-                            tokio::spawn(run(app.clone(), job, slot));
-                        }
-                        Ok(None) => break,
-                        Err(_) => {
-                            tracing::warn!("Shared work database unavailable; dispatch will retry");
-                            break;
-                        }
+            // Reserve capacity before claiming: never lease jobs waiting for a local slot.
+            while let Ok(slot) = app.runtimes.chat_slots.clone().try_acquire_owned() {
+                match app.store.claim_job().await {
+                    Ok(Some(job)) => {
+                        tokio::spawn(run(app.clone(), job, slot));
+                    }
+                    Ok(None) => break,
+                    Err(_) => {
+                        tracing::warn!("Shared work database unavailable; dispatch will retry");
+                        break;
                     }
                 }
             }
@@ -47,9 +45,7 @@ async fn run(app: Shared, job: Job, slot: tokio::sync::OwnedSemaphorePermit) {
         ),
     };
     if app.runtimes.stopping.is_cancelled() {
-        if let database::Database::Postgres(pg) = &app.store {
-            let _ = pg.release_job(&job).await;
-        }
+        let _ = app.store.release_job(&job).await;
     } else if app.store.chat_finish(&job, &text, state).await.is_err() {
         tracing::error!("Could not save shared reply");
     }
@@ -62,7 +58,7 @@ async fn reply(app: &Shared, job: &Job) -> Result<String> {
         app.store.chat_job_allowed(job).await,
         "Request access changed"
     );
-    let sources = collaboration::pg(app)?.library_job_context(job).await?;
+    let sources = app.store.library_job_context(job).await?;
     let text = execute(app, job).await?;
     Ok(format!(
         "{text}{}",

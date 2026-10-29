@@ -105,13 +105,13 @@ impl PgStore {
     }
 }
 
-async fn active(tx: &DatabaseTransaction, job: &crate::identity::chat::store::Job) -> Result<bool> {
+async fn active(tx: &DatabaseTransaction, job: &crate::identity::chat::model::Job) -> Result<bool> {
     Ok(query(tx,&format!("SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND claim=$3 AND state='running' AND lease_until>{CLOCK}"),
         vec![job.workspace.clone().into(),job.reply.clone().into(),job.claim.clone().into()]).await?.is_some())
 }
 pub(super) async fn access(
     tx: &DatabaseTransaction,
-    job: &crate::identity::chat::store::Job,
+    job: &crate::identity::chat::model::Job,
 ) -> Result<()> {
     let user = User {
         id: job.requester.clone(),

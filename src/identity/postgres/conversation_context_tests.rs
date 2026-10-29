@@ -1,5 +1,5 @@
 use super::{tests::*, *};
-use crate::identity::{chat::store::Job, database::Database};
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 fn evidence(job: &Job) -> Value {
@@ -70,18 +70,9 @@ async fn context_attribution_distinguishes_same_names_and_ignores_forged_identit
     assert_eq!(identity["request_message"], input.id);
     assert_eq!(identity["conversation"]["id"], c);
     assert!(identity["requesting_principal"].get("role").is_none());
-    let prepared = crate::identity::chat::execution::prepare(
-        &Database::Postgres(db.clone()),
-        &job,
-        crate::identity::chat::execution::Profile {
-            name: "Pool agent".into(),
-            role: "Fixture".into(),
-            model: "fixture".into(),
-        },
-        30,
-    )
-    .await
-    .unwrap();
+    let prepared = crate::identity::chat::execution::prepare(&db, &job, 30)
+        .await
+        .unwrap();
     assert!(prepared.request.contains("Alex renamed"));
     assert!(prepared.request.contains(&input.id));
     assert!(
@@ -110,7 +101,7 @@ async fn context_attribution_keeps_private_conversations_and_agent_authors_disti
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await
         .unwrap();
-    let mut direct = crate::identity::chat::store::NewChat {
+    let mut direct = crate::identity::chat::model::NewChat {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Private conversation".into(),
         kind: "direct".into(),

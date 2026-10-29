@@ -94,7 +94,7 @@ async fn archived_questions_and_exact_approvals_resume_the_same_original_task() 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn restore_cannot_revive_stopped_waits_or_make_direct_chats_archivable() {
-    use crate::identity::chat::store::NewChat;
+    use crate::identity::chat::model::NewChat;
     let (db, owner, w, _, job) = setup("ask").await;
     let question = db.ask_question(&job, &question()).await.unwrap();
     let id = question["id"].as_str().unwrap();

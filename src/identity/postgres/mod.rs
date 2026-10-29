@@ -158,7 +158,6 @@ mod home_sources;
 mod home_update_access;
 mod home_update_runs;
 mod home_views;
-mod import;
 #[cfg(test)]
 mod interactive_reserve_tests;
 mod jobs;
@@ -212,7 +211,7 @@ pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;
 
-use super::store::{User, now};
+use super::user::{User, now};
 use anyhow::{Context, Result, ensure};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction,
@@ -231,6 +230,17 @@ pub struct PgStore {
     pub(crate) assignment_seconds: u64,
 }
 impl PgStore {
+    /// A store whose every query fails, for HTTP tests that must reject a
+    /// request before it reaches PostgreSQL.
+    #[cfg(test)]
+    pub(crate) fn disconnected() -> Self {
+        Self {
+            db: DatabaseConnection::default(),
+            changes: tokio::sync::broadcast::channel(256).0,
+            pooled: false,
+            assignment_seconds: 180,
+        }
+    }
     pub async fn connect(url: &str) -> Result<Self> {
         ensure!(
             url.starts_with("postgres://") || url.starts_with("postgresql://"),
@@ -365,7 +375,7 @@ async fn audit(
 }
 
 #[cfg(test)]
-mod tests;
+pub(in crate::identity) mod tests;
 
 #[cfg(test)]
 mod profile_tests;
@@ -385,6 +395,8 @@ mod ownership_tests;
 #[cfg(test)]
 mod workspace_scenario_tests;
 
+#[cfg(test)]
+mod gateway_tests;
 #[cfg(test)]
 mod hosting_tests;
 #[cfg(test)]

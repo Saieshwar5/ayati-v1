@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::{chat::store::Job, events::catalog};
+use crate::identity::{chat::model::Job, events::catalog};
 use serde_json::json;
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(

@@ -1,10 +1,6 @@
 use super::*;
 pub(in crate::identity) async fn agents(app: &App, user: &User, w: &str) -> Result<Vec<Value>> {
-    let profiles = if let database::Database::Postgres(pg) = &app.store {
-        pg.allowed_shared_agents(user, w).await?
-    } else {
-        vec![]
-    };
+    let profiles = app.store.allowed_shared_agents(user, w).await?;
     let mut allowed = Vec::new();
     for profile in profiles {
         if profile["shared"] == true
@@ -28,12 +24,12 @@ pub(in crate::identity) async fn validate_agent(
     w: &str,
     id: &str,
 ) -> Result<()> {
-    if let database::Database::Postgres(pg) = &app.store
-        && pg
-            .allowed_shared_agents(user, w)
-            .await?
-            .iter()
-            .any(|p| p["id"] == id)
+    if app
+        .store
+        .allowed_shared_agents(user, w)
+        .await?
+        .iter()
+        .any(|p| p["id"] == id)
     {
         return Ok(());
     }

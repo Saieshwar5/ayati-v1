@@ -1,28 +1,24 @@
 use super::*;
 use tower::ServiceExt;
 
-fn setup(root: &std::path::Path) -> (Shared, User, User, String, String) {
-    let store = Store::open(&root.join("identity.sqlite")).unwrap();
-    let owner = store
-        .login("owner", "owner@example.com", "owner_hash", "owner_session")
-        .unwrap();
-    let other = store
-        .login("other", "other@example.com", "other_hash", "other_session")
-        .unwrap();
-    let first = uuid::Uuid::new_v4().to_string();
-    let second = uuid::Uuid::new_v4().to_string();
-    store.create(&owner, "First", &first).unwrap();
-    store.create(&other, "Second", &second).unwrap();
-    let app = Arc::new(App {
+fn app(store: postgres::PgStore, root: &std::path::Path) -> Shared {
+    Arc::new(App {
         library: Default::default(),
         provider: Provider::test_provider(),
-        store: store.into(),
+        store,
         origin: "http://127.0.0.1:8765".into(),
-        pending: Mutex::new(HashMap::new()),
         simulation: None,
         runtimes: Runtimes::new(root.join("workspaces")),
-    });
-    (app, owner, other, first, second)
+    })
+}
+async fn setup(root: &std::path::Path) -> (Shared, User, User, String) {
+    use postgres::tests::{fixture, user, workspace};
+    let store = fixture().await;
+    let owner = user(&store, "owner").await;
+    let other = user(&store, "other").await;
+    let first = workspace(&store, &owner).await;
+    workspace(&store, &other).await;
+    (app(store, root), owner, other, first)
 }
 fn request(method: Method, path: &str) -> Request<Body> {
     Request::builder()
@@ -39,9 +35,10 @@ async fn body(response: Response) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 #[tokio::test]
+#[ignore = "requires local PostgreSQL"]
 async fn unported_workspace_routes_answer_like_the_hosted_gateway() {
     let temp = tempfile::tempdir().unwrap();
-    let (app, owner, _, first, _) = setup(temp.path());
+    let (app, owner, _, first) = setup(temp.path()).await;
     let call = |rest: &str, method: Method| {
         dispatch_for(
             app.clone(),
@@ -76,9 +73,10 @@ async fn unported_workspace_routes_answer_like_the_hosted_gateway() {
     assert!(!temp.path().join("workspaces").join(&first).exists());
 }
 #[tokio::test]
+#[ignore = "requires local PostgreSQL"]
 async fn workspace_routes_require_current_membership() {
     let temp = tempfile::tempdir().unwrap();
-    let (app, owner, other, first, _) = setup(temp.path());
+    let (app, owner, other, first) = setup(temp.path()).await;
     let call = |user: User| {
         dispatch_for(
             app.clone(),
@@ -89,24 +87,19 @@ async fn workspace_routes_require_current_membership() {
         )
     };
     assert_eq!(call(other.clone()).await.status(), StatusCode::FORBIDDEN);
-    let invite = app
-        .store
-        .sqlite()
-        .reserve_invite(&owner, &first, &other.email, "User")
-        .unwrap();
-    app.store.sqlite().delivered(&invite, Some("sent")).unwrap();
-    app.store.sqlite().accept(&other, &invite).unwrap();
+    postgres::tests::join(&app.store, &owner, &first, &other, "User").await;
     assert_eq!(body(call(other.clone()).await).await, json!({"agents":[]}));
     app.store
-        .sqlite()
         .change(&owner, &first, &other.id, None)
+        .await
         .unwrap();
     assert_eq!(call(other).await.status(), StatusCode::FORBIDDEN);
 }
 #[tokio::test]
 async fn workspace_gateway_requires_session_and_same_origin_mutations() {
     let temp = tempfile::tempdir().unwrap();
-    let (app, _, _, first, _) = setup(temp.path());
+    let app = app(postgres::PgStore::disconnected(), temp.path());
+    let first = uuid::Uuid::new_v4().to_string();
     let uri = format!("/w/{first}/api/home");
     assert_eq!(
         router(app.clone())
@@ -136,7 +129,7 @@ async fn workspace_gateway_requires_session_and_same_origin_mutations() {
 #[tokio::test]
 async fn root_preserves_explicit_workspace_chooser() {
     let temp = tempfile::tempdir().unwrap();
-    let (app, _, _, _, _) = setup(temp.path());
+    let app = app(postgres::PgStore::disconnected(), temp.path());
     let response = router(app)
         .oneshot(request(Method::GET, "/?view=account&choose=1"))
         .await

@@ -40,15 +40,9 @@ pub(super) fn routes() -> Router<Shared> {
             post(decide),
         )
 }
-fn pg(app: &App) -> Result<&postgres::PgStore> {
-    let database::Database::Postgres(pg) = &app.store else {
-        anyhow::bail!("Shared tools require PostgreSQL");
-    };
-    Ok(pg)
-}
 /// Business tools reach agents only through pooled executors' worker control.
 fn execution_available(app: &App) -> Result<bool> {
-    Ok(pg(app)?.pooled)
+    Ok(app.store.pooled)
 }
 async fn snapshot(
     State(app): State<Shared>,
@@ -56,13 +50,13 @@ async fn snapshot(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut value = pg(&app)?.control_snapshot(&user, &w, &agent).await?;
+    let mut value = app.store.control_snapshot(&user, &w, &agent).await?;
     let available = execution_available(&app)?;
     value["execution_available"] = json!(available);
     // Account discovery belongs to the Owner-only workspace settings endpoint.
     value["servers"] = json!([]);
     if value["can_manage"] == true {
-        let context = pg(&app)?.setup_context(&user, &w, &agent).await?;
+        let context = app.store.setup_context(&user, &w, &agent).await?;
         value["approval_accounts"] = json!(context.accounts);
         value["approval_channels"] = json!(context.approval_channels);
     }
@@ -82,13 +76,13 @@ async fn connect(
     Json(input): Json<Connection>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.managed_agent(&user, &w, &agent, true).await?;
+    app.store.managed_agent(&user, &w, &agent, true).await?;
     check(
-        pg(&app)?.role(&w, &user.id).await? == "Owner",
+        app.store.role(&w, &user.id).await? == "Owner",
         "Only workspace owners can connect business tools",
     )?;
     if !input.enabled {
-        pg(&app)?
+        app.store
             .control_disconnect(&user, &w, &agent, &input.id)
             .await?;
         return Ok(Json(json!({"saved":true})));
@@ -97,7 +91,7 @@ async fn connect(
         execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
-    let approved = pg(&app)?.workspace_connections(&user, &w).await?;
+    let approved = app.store.workspace_connections(&user, &w).await?;
     check(
         approved["systems"].as_array().is_some_and(|rows| {
             rows.iter()
@@ -113,7 +107,7 @@ async fn connect(
             .map_err(|_| anyhow::anyhow!("Remote MCP connection could not be verified"))?;
         remote.verify(&server.operations).await?;
     }
-    pg(&app)?
+    app.store
         .control_connect(&user, &w, &agent, &input.id, server.public(), &fingerprint)
         .await?;
     Ok(Json(json!({"saved":true})))
@@ -129,7 +123,7 @@ async fn rule(
         input.mode == "block" || execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
-    pg(&app)?.control_rule(&user, &w, &agent, &input).await?;
+    app.store.control_rule(&user, &w, &agent, &input).await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn decide(
@@ -139,10 +133,11 @@ async fn decide(
     Json(input): Json<Decision>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let proposed = pg(&app)?
+    let proposed = app
+        .store
         .control_decide(&user, &w, &agent, &action, &input)
         .await?;
-    Ok(Json(dispatch(pg(&app)?, &w, proposed).await?))
+    Ok(Json(dispatch(&app.store, &w, proposed).await?))
 }
 pub(crate) async fn dispatch(
     pg: &postgres::PgStore,

@@ -46,9 +46,8 @@ fn app(db: PgStore, root: &Path, provider: &str, storage: identity::library::Sto
     Arc::new(App {
         library: storage,
         provider: Provider::fixture(provider.into()),
-        store: identity::database::Database::Postgres(db),
+        store: db,
         origin: ORIGIN.into(),
-        pending: Default::default(),
         runtimes: identity::workspaces::Runtimes::new(root.join("workspaces")),
         simulation: None,
     })
@@ -99,12 +98,6 @@ async fn call(
             .to_vec(),
     )
 }
-fn pg(app: &App) -> &PgStore {
-    let identity::database::Database::Postgres(pg) = &app.store else {
-        unreachable!()
-    };
-    pg
-}
 
 #[tokio::test]
 #[ignore = "requires local PostgreSQL"]
@@ -130,7 +123,6 @@ async fn sign_in_survives_api_replacement_but_state_and_sessions_cannot_be_repla
         .unwrap()
         .1
         .into_owned();
-    assert!(first.pending.lock().unwrap().is_empty());
     drop(first);
     let second = app(replacement, root.path(), &provider, Default::default());
     let callback = format!("/auth/callback?code=fixture-code&state={state}");
@@ -156,7 +148,7 @@ async fn sign_in_survives_api_replacement_but_state_and_sessions_cannot_be_repla
     // A separate API connection and empty scratch root retain the durable session.
     let new_root = tempfile::tempdir().unwrap();
     let third = app(
-        reopen(pg(&second)).await,
+        reopen(&second.store).await,
         new_root.path(),
         &provider,
         Default::default(),
@@ -174,7 +166,7 @@ async fn sign_in_survives_api_replacement_but_state_and_sessions_cannot_be_repla
         invitation: None,
         expires: now() + 60,
     };
-    pg(&third).save_login_flow(&hash, &pending).await.unwrap();
+    third.store.save_login_flow(&hash, &pending).await.unwrap();
     call(
         &third,
         "GET",
@@ -183,10 +175,10 @@ async fn sign_in_survives_api_replacement_but_state_and_sessions_cannot_be_repla
         vec![],
     )
     .await;
-    assert!(pg(&third).take_login_flow(&hash).await.unwrap().is_none());
+    assert!(third.store.take_login_flow(&hash).await.unwrap().is_none());
     let mut expired = pending;
     expired.expires = now() - 1;
-    pg(&third).save_login_flow(&hash, &expired).await.unwrap();
+    third.store.save_login_flow(&hash, &expired).await.unwrap();
     call(
         &third,
         "GET",
@@ -331,7 +323,7 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
         .unwrap()
         .to_owned();
     let fresh = tempfile::tempdir().unwrap();
-    let second = app(reopen(pg(&first)).await, fresh.path(), &provider, storage);
+    let second = app(reopen(&first.store).await, fresh.path(), &provider, storage);
     drop(first);
     let download = format!("/api/identity/workspaces/{w}/objects/{id}");
     let (status, _, saved) = call(&second, "GET", &download, cookie, vec![]).await;
@@ -351,7 +343,7 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
     );
     assert!(!fresh.path().join("workspaces").exists());
     // Liveness stays up while readiness fails after losing the database pool.
-    pg(&second).db.clone().close().await.unwrap();
+    second.store.db.clone().close().await.unwrap();
     assert_eq!(
         identity::hosting::ready(axum::extract::State(second.clone())).await,
         StatusCode::SERVICE_UNAVAILABLE

@@ -1,8 +1,7 @@
 use super::{tests::*, *};
 use crate::identity::{
-    chat::execution::{Profile, prepare},
+    chat::execution::prepare,
     communications::model::{Binding, Endpoint, Message, Outcome, Transport},
-    database::Database,
 };
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
@@ -108,18 +107,7 @@ async fn communications_dispatch_rechecks_context_and_database_fences_exact_enve
     .await
     .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    prepare(
-        &Database::Postgres(db.clone()),
-        &job,
-        Profile {
-            name: "Agent".into(),
-            role: "Help".into(),
-            model: "fixture".into(),
-        },
-        180,
-    )
-    .await
-    .unwrap();
+    prepare(&db, &job, 180).await.unwrap();
     db.chat_finish(&job, "Reply from older context", "complete")
         .await
         .unwrap();

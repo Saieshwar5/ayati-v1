@@ -1,8 +1,6 @@
 use super::super::*;
 pub(crate) async fn start(app: Shared) {
-    let database::Database::Postgres(pg) = &app.store else {
-        return;
-    };
+    let pg = &app.store;
     if !pg.pooled_execution() {
         return;
     }
@@ -12,9 +10,7 @@ pub(crate) async fn start(app: Shared) {
         .lock()
         .await
         .spawn(async move {
-            let database::Database::Postgres(pg) = &owner.store else {
-                return;
-            };
+            let pg = &owner.store;
             loop {
                 tokio::select! {
                     _=owner.runtimes.stopping.cancelled()=>break,

@@ -1,27 +1,12 @@
 use super::{tests::*, *};
 use crate::identity::{
-    chat::{
-        execution::{Profile, prepare},
-        store::Job,
-    },
+    chat::{execution::prepare, model::Job},
     control::broker::invoke,
-    database::Database,
 };
 use serde_json::json;
 
 async fn prepared(db: &PgStore, job: &Job) -> crate::identity::chat::execution::Prepared {
-    prepare(
-        &Database::Postgres(db.clone()),
-        job,
-        Profile {
-            name: "HR".into(),
-            role: "Respect evidence".into(),
-            model: "stale-caller-model".into(),
-        },
-        180,
-    )
-    .await
-    .unwrap()
+    prepare(db, job, 180).await.unwrap()
 }
 async fn task(db: &PgStore, owner: &User, w: &str, c: &str, a: &str, text: &str) -> Job {
     db.chat_send(owner, w, c, &message(text, Some(a)))

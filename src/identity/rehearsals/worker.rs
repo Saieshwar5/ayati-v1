@@ -14,7 +14,7 @@ pub(super) fn configured(profile: &serde_json::Value) -> Result<bool> {
     Ok(config.configured())
 }
 pub(crate) async fn start(app: Shared) {
-    if !matches!(app.store, database::Database::Postgres(_)) {
+    if !true {
         return;
     }
     let owner = app.clone();
@@ -23,9 +23,7 @@ pub(crate) async fn start(app: Shared) {
     });
 }
 async fn run_loop(app: Shared) {
-    let database::Database::Postgres(pg) = &app.store else {
-        return;
-    };
+    let pg = &app.store;
     let mut tasks = tokio::task::JoinSet::new();
     loop {
         if app.runtimes.stopping.is_cancelled() {

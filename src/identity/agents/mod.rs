@@ -8,9 +8,6 @@ use axum::{
 };
 use config::{SYSTEM_GUIDE, SaveAgent};
 use serde_json::{Value, json};
-fn pg(app: &App) -> Result<&postgres::PgStore> {
-    collaboration::pg(app)
-}
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route(
@@ -69,7 +66,7 @@ async fn requests(
         "Invalid request filter",
     )?;
     Ok(Json(
-        pg(&app)?
+        app.store
             .agent_requests(
                 &user,
                 &w,
@@ -87,7 +84,7 @@ async fn request(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.agent_request(&user, &w, &id, &reply).await?))
+    Ok(Json(app.store.agent_request(&user, &w, &id, &reply).await?))
 }
 async fn list(
     State(app): State<Shared>,
@@ -97,7 +94,7 @@ async fn list(
     let user = identity(&app, &headers).await?;
     let role = workspaces::membership(&app, &user, &w).await?;
     Ok(Json(
-        json!({"agents":pg(&app)?.agent_profiles(&user,&w).await?,"role":role,"can_create_workspace":pg(&app)?.can_create_workspace_agent(&user,&w).await?,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured("openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured("fireworks-ai")}],"default_model":default_model()}),
+        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"can_create_workspace":app.store.can_create_workspace_agent(&user,&w).await?,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured("openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured("fireworks-ai")}],"default_model":default_model()}),
     ))
 }
 async fn save(
@@ -107,7 +104,7 @@ async fn save(
     Json(input): Json<SaveAgent>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.save_agent_profile(&user, &w, &input).await?))
+    Ok(Json(app.store.save_agent_profile(&user, &w, &input).await?))
 }
 async fn knowledge(
     State(app): State<Shared>,
@@ -116,7 +113,7 @@ async fn knowledge(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        json!({"notes":pg(&app)?.agent_knowledge(&user,&w,&id).await?}),
+        json!({"notes":app.store.agent_knowledge(&user,&w,&id).await?}),
     ))
 }
 #[derive(serde::Deserialize)]
@@ -135,7 +132,7 @@ async fn context_preview(
     let user = identity(&app, &headers).await?;
     if let (Some(task), Some(claim)) = (&input.task, &input.claim) {
         return Ok(Json(
-            pg(&app)?
+            app.store
                 .agent_context_detail(&user, &w, &id, &input.chat, task, claim)
                 .await?,
         ));
@@ -144,7 +141,7 @@ async fn context_preview(
         return Err(anyhow::anyhow!("Choose an exact attempt").into());
     }
     Ok(Json(
-        pg(&app)?
+        app.store
             .agent_context_preview(&user, &w, &id, &input.chat)
             .await?,
     ))
@@ -156,7 +153,7 @@ async fn remember(
     Json(input): Json<postgres::KnowledgeInput>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?
+    app.store
         .save_agent_knowledge(&user, &w, &id, &input)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -178,7 +175,7 @@ async fn upload(
         return Err(anyhow::anyhow!("Choose a PNG, JPEG or WebP avatar").into());
     };
     Ok(Json(
-        json!({"avatar":pg(&app)?.agent_avatar_save(&user,&w,&id,mime,bytes.to_vec()).await?}),
+        json!({"avatar":app.store.agent_avatar_save(&user,&w,&id,mime,bytes.to_vec()).await?}),
     ))
 }
 async fn avatar(
@@ -187,7 +184,7 @@ async fn avatar(
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
-    let (mime, bytes) = pg(&app)?.agent_avatar(&user, &w, &id, &avatar).await?;
+    let (mime, bytes) = app.store.agent_avatar(&user, &w, &id, &avatar).await?;
     let mut response = bytes.into_response();
     response
         .headers_mut()

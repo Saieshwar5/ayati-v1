@@ -1,6 +1,6 @@
 //! Panel maintenance is an additional ceiling, never a source of business grants.
 use super::*;
-use crate::identity::{chat::store::Job, control::model::ActionRequest};
+use crate::identity::{chat::model::Job, control::model::ActionRequest};
 use serde_json::json;
 
 pub(super) async fn binding(db: &impl ConnectionTrait, job: &Job) -> Result<Option<Value>> {

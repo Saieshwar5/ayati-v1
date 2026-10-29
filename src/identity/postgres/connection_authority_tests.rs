@@ -107,7 +107,7 @@ impl Setup {
             delegation_revision: Some(grant_revision),
         }
     }
-    async fn job(&self) -> crate::identity::chat::store::Job {
+    async fn job(&self) -> crate::identity::chat::model::Job {
         self.db
             .chat_send(
                 &self.member,

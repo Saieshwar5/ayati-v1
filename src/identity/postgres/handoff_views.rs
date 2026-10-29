@@ -1,6 +1,6 @@
 //! Only source-authorized channel projections may disclose handoff details.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 pub(super) async fn project(db: &impl ConnectionTrait, user: &User, job: &Job) -> Result<Value> {
     let mut viewer = job.clone();

@@ -1,6 +1,6 @@
 //! Batch reference projection; field values are retrieved only in an authorized review.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 pub(super) async fn hydrate(
     tx: &DatabaseTransaction,

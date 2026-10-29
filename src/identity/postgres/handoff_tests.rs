@@ -1,5 +1,5 @@
 use super::{tests::*, *};
-use crate::identity::{chat::store::Job, handoffs::model::Request};
+use crate::identity::{chat::model::Job, handoffs::model::Request};
 pub(super) struct Setup {
     pub db: PgStore,
     pub owner: User,
@@ -16,7 +16,7 @@ pub(super) async fn setup() -> Setup {
         .chat_create(
             &owner,
             &w,
-            &crate::identity::chat::store::NewChat {
+            &crate::identity::chat::model::NewChat {
                 id: uuid::Uuid::new_v4().to_string(),
                 name: "Handoff operations".into(),
                 kind: "channel".into(),

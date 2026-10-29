@@ -1,6 +1,6 @@
 //! Revoking source/request access permanently stops saved continuations, including regrant races.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 pub(super) async fn inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     super::automation_access::invalidate_inaccessible(tx, w).await?;

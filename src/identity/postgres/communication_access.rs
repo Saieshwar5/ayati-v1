@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(

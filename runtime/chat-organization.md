@@ -80,8 +80,7 @@ question/approval continuation, Stop and restore without revival. The real
 Goose/scripted-local-model browser journey verifies the connected interaction and
 desktop/phone/dark layouts. No cloud or paid inference was used.
 
-Schema **24** is required for current application startup. SQLite identity-only
-organization support is unavailable, with an explicit API capability and UI message. No external-channel
+Schema **24** is required for current application startup. No external-channel
 provider, new scheduling/delegation adapter or universal cloud acceptance is implied.
 
 ## API and migration

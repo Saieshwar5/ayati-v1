@@ -6,7 +6,6 @@ mod chat;
 mod collaboration;
 mod communications;
 pub(crate) mod control;
-mod database;
 mod events;
 pub mod executor;
 mod handoffs;
@@ -17,7 +16,6 @@ mod hosting;
 mod interactions;
 mod library;
 mod login_state;
-mod membership_schema;
 pub mod postgres;
 mod private_config;
 mod process_lock;
@@ -28,9 +26,8 @@ mod routes;
 mod settings;
 mod shutdown;
 pub mod simulation;
-mod sqlite_access;
 pub(crate) mod start_trace;
-pub mod store;
+pub mod user;
 mod worker_config;
 mod worker_control;
 mod workspaces;
@@ -46,13 +43,9 @@ use axum::{
     routing::{get, post},
 };
 use provider::{Provider, digest, random_token};
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, Mutex},
-};
-use store::{Store, User, now};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tower_http::services::ServeDir;
+use user::{User, now};
 
 struct Pending {
     state: String,
@@ -63,9 +56,8 @@ struct Pending {
 struct App {
     library: library::Storage,
     provider: Provider,
-    store: database::Database,
+    store: postgres::PgStore,
     origin: String,
-    pending: Mutex<HashMap<String, Pending>>,
     runtimes: workspaces::Runtimes,
     simulation: Option<simulation::Simulation>,
 }
@@ -93,8 +85,8 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
             StatusCode::NOT_FOUND
         } else if error.is::<library::model::Conflict>() {
             StatusCode::CONFLICT
-        } else if error.is::<chat::store::QueueFull>()
-            || error.is::<chat::store::BackgroundQueueFull>()
+        } else if error.is::<chat::model::QueueFull>()
+            || error.is::<chat::model::BackgroundQueueFull>()
         {
             StatusCode::TOO_MANY_REQUESTS
         } else {
@@ -186,30 +178,18 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let store = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
-        let mut pg = postgres::PgStore::connect(&url).await?;
-        pg.pooled = worker_config::Mode::from_env(false)? == worker_config::Mode::Pooled;
-        pg.verify_schema().await?;
-        if data.join("postgres-identity").exists()
-            || postgres::cli::sqlite_identity_exists(&data.join("identity.sqlite"))?
-        {
-            pg.verify_import().await?;
-        }
-        database::Database::Postgres(pg)
-    } else {
-        anyhow::ensure!(
-            !data.join("postgres-identity").exists(),
-            "Identity was migrated; configure RELAY_DATABASE_URL to avoid stale SQLite data"
-        );
-        Store::open(&data.join("identity.sqlite"))?.into()
-    };
+    let url = std::env::var("RELAY_DATABASE_URL").context(
+        "Set RELAY_DATABASE_URL; for local development run ./tools/local-postgres.sh start, migrate and env",
+    )?;
+    let mut store = postgres::PgStore::connect(&url).await?;
+    store.pooled = worker_config::Mode::from_env(false)? == worker_config::Mode::Pooled;
+    store.verify_schema().await?;
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
     let app = Arc::new(App {
         library: library::Storage::from_env()?,
         provider,
         store,
         origin: hosting.origin,
-        pending: Mutex::new(HashMap::new()),
         runtimes,
         simulation: None,
     });
@@ -406,8 +386,3 @@ fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
             .iter()
             .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
 }
-
-#[cfg(test)]
-mod hosting_tests;
-#[cfg(test)]
-mod ownership_tests;
