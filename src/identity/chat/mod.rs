@@ -2,7 +2,6 @@ pub(super) mod execution;
 pub(crate) mod mentions;
 mod organization;
 pub(crate) mod organization_model;
-mod runner;
 pub(crate) mod store;
 mod stream_limit;
 mod sync;
@@ -192,16 +191,13 @@ async fn send(
     if let Some(id) = &input.agent {
         super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
     }
-    if let Some(job) = app
+    if app
         .store
         .chat_send(&user, &workspace, &chat, &input)
         .await?
+        .is_some()
     {
-        if matches!(app.store, super::database::Database::Sqlite(_)) {
-            tokio::spawn(runner::run(app.clone(), job));
-        } else {
-            app.runtimes.chat_wake.notify_one();
-        }
+        app.runtimes.chat_wake.notify_one();
     }
     if let super::database::Database::Postgres(pg) = &app.store {
         return Ok(Json(
@@ -237,46 +233,11 @@ async fn background(
     ))
 }
 
-/// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.
-pub(super) fn start_dispatcher(app: Shared) -> Result<()> {
-    let embedded = super::worker::embedded_mode(
-        std::env::var("AYATI_CHAT_EXECUTION").ok().as_deref(),
-        matches!(app.store, super::database::Database::Postgres(_)),
-    )?;
+/// Start chat change sync. Pooled executors receive agent replies through worker
+/// control; only the scripted company simulation answers inside the controller.
+pub(super) fn start_dispatcher(app: Shared) {
     sync::start(app.clone());
-    if !embedded || !matches!(app.store, super::database::Database::Postgres(_)) {
-        return Ok(());
+    if app.simulation.is_some() && !super::collaboration::pg(&app).is_ok_and(|pg| pg.pooled) {
+        super::simulation::dispatch::start(app);
     }
-    tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = app.runtimes.stopping.cancelled() => break,
-                _ = app.runtimes.chat_wake.notified() => {},
-                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
-            }
-            if app
-                .simulation
-                .as_ref()
-                .is_some_and(|sim| sim.paused.load(std::sync::atomic::Ordering::Acquire))
-            {
-                continue;
-            }
-            if let super::database::Database::Postgres(pg) = &app.store {
-                // Reserve capacity before claiming: never lease jobs waiting for a local slot.
-                while let Ok(slot) = app.runtimes.chat_slots.clone().try_acquire_owned() {
-                    match pg.claim_job().await {
-                        Ok(Some(job)) => {
-                            tokio::spawn(runner::run_claimed(app.clone(), job, slot));
-                        }
-                        Ok(None) => break,
-                        Err(_) => {
-                            tracing::warn!("Shared work database unavailable; dispatch will retry");
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    });
-    Ok(())
 }

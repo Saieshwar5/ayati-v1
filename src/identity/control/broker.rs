@@ -20,10 +20,12 @@ pub(crate) struct Endpoint {
     pub address: String,
     pub token: String,
 }
+/// The executor's controller session for one assignment. Tool calls are
+/// forwarded to the controller, which alone holds database and provider access.
 #[derive(Clone)]
-pub(crate) enum Access {
-    Local(PgStore, Job),
-    Remote(Client, AssignedRequest),
+pub(crate) struct Access {
+    pub client: Client,
+    pub assignment: AssignedRequest,
 }
 pub(crate) struct Broker {
     task: tokio::task::JoinHandle<()>,
@@ -82,22 +84,18 @@ async fn exchange(
                 && input.token == state.token,
             "Tool capability denied"
         );
-        match &state.access {
-            Access::Local(pg, job) => invoke(pg, job, &input.tool, input.arguments).await,
-            Access::Remote(client, assignment) => {
-                client
-                    .post_timeout(
-                        &format!("/v1/assignments/{}/tools", assignment.scope.assignment),
-                        &RemoteRequest {
-                            assignment: assignment.clone(),
-                            tool: input.tool,
-                            arguments: input.arguments,
-                        },
-                        45,
-                    )
-                    .await
-            }
-        }
+        let Access { client, assignment } = &state.access;
+        client
+            .post_timeout::<Value>(
+                &format!("/v1/assignments/{}/tools", assignment.scope.assignment),
+                &RemoteRequest {
+                    assignment: assignment.clone(),
+                    tool: input.tool,
+                    arguments: input.arguments,
+                },
+                45,
+            )
+            .await
     }
     .await;
     match result {

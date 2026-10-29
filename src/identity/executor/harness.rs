@@ -96,10 +96,10 @@ impl Harness {
                 output.trace.mark("tool_harness_cold_start");
                 Some(
                     crate::identity::control::broker::Broker::start(
-                        crate::identity::control::broker::Access::Remote(
-                            output.client.clone(),
-                            output.assignment.clone(),
-                        ),
+                        crate::identity::control::broker::Access {
+                            client: output.client.clone(),
+                            assignment: output.assignment.clone(),
+                        },
                     )
                     .await?,
                 )

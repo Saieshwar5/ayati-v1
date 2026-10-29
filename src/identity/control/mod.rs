@@ -46,13 +46,9 @@ fn pg(app: &App) -> Result<&postgres::PgStore> {
     };
     Ok(pg)
 }
-fn execution_available() -> Result<bool> {
-    use super::worker_config::Mode;
-    Ok(match Mode::from_env(true)? {
-        Mode::Embedded | Mode::Pooled => true,
-        Mode::Assigned => std::env::var_os("AYATI_WORKER_CONTROL_URL").is_some(),
-        Mode::External => false,
-    })
+/// Business tools reach agents only through pooled executors' worker control.
+fn execution_available(app: &App) -> Result<bool> {
+    Ok(pg(app)?.pooled)
 }
 async fn snapshot(
     State(app): State<Shared>,
@@ -61,7 +57,7 @@ async fn snapshot(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let mut value = pg(&app)?.control_snapshot(&user, &w, &agent).await?;
-    let available = execution_available()?;
+    let available = execution_available(&app)?;
     value["execution_available"] = json!(available);
     // Account discovery belongs to the Owner-only workspace settings endpoint.
     value["servers"] = json!([]);
@@ -98,7 +94,7 @@ async fn connect(
         return Ok(Json(json!({"saved":true})));
     }
     check(
-        execution_available()?,
+        execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
     let approved = pg(&app)?.workspace_connections(&user, &w).await?;
@@ -130,7 +126,7 @@ async fn rule(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        input.mode == "block" || execution_available()?,
+        input.mode == "block" || execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
     pg(&app)?.control_rule(&user, &w, &agent, &input).await?;

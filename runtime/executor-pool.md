@@ -18,8 +18,7 @@ ordinary/cold/VM paths retain stock 1.54.0.
 M1.5c adds [durable live replies](reply-streaming.md). AWS identity, remote transport,
 capacity autoscaling and release/live-provider speed calibration remain later work.
 The [bounded preparation follow-up](bounded-agent-load.md#preparation-follow-up)
-passes the named local ready-capacity targets. The [cold assignment path](worker-control.md) and
-[polling workers](independent-chat-worker.md) remain available.
+passes the named local ready-capacity targets. This is the only agent execution path.
 
 ## Setup
 
@@ -35,13 +34,13 @@ Queued jobs retain their accepted mode and are not silently converted.
 Create the private operator bootstrap file exactly as in [worker control](worker-control.md#migration-and-local-startup).
 Set `AYATI_WORKER_CONTROL_URL` and `AYATI_WORKER_CONTROL_KEY_FILE` on the controller
 and executors. The listener accepts only explicit loopback IPs; this does not
-authorize an exposed network or work across separate container network namespaces.
+authorize an exposed network. Containers share one network namespace (see
+`deploy/compose.yaml`).
 
 Configure the controller with its private database and WorkOS setup:
 
 ~~~sh
-AYATI_CHAT_EXECUTION=pooled AYATI_WORKER_PROVIDERS=openai \
-  cargo run --locked -- identity
+AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
 ~~~
 
 Build `python3 tools/build-prepared-goose.py` first. Migration 15 withdraws old

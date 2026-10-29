@@ -8,11 +8,14 @@ import { join } from 'node:path';
 test('fixture cleanup stops all owned processes and saves evidence after one stop times out',
   { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 45000 }, async () => {
     const hooks = [];
-    const app = await workerFixture({ after: hook => hooks.push(hook) }, { mode: 'external' });
+    const app = await workerFixture({ after: hook => hooks.push(hook) }, { mode: 'pooled', control: true });
     const errors = [];
     try {
-      const blocked = await app.startWorker();
-      await app.startWorker();
+      const blocked = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+      await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+      // Executors handle SIGTERM once registered; cleanup before that is a different case.
+      await until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) === 2,
+        'Executors did not report ready slots', 30000);
       blocked.child.kill('SIGSTOP');
       for (const hook of hooks) {
         try { await hook(); } catch (error) { errors.push(error); }

@@ -1,15 +1,11 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 mod agents;
-pub mod assignment_launcher;
-pub mod assignment_worker;
 mod attention;
 mod automations;
 mod chat;
 mod collaboration;
 mod communications;
 pub(crate) mod control;
-mod controlled_launcher;
-pub mod controlled_worker;
 mod database;
 mod events;
 pub mod executor;
@@ -30,14 +26,13 @@ mod provider;
 mod rehearsals;
 mod routes;
 mod settings;
+mod shutdown;
 pub mod simulation;
 mod sqlite_access;
 pub(crate) mod start_trace;
 pub mod store;
-pub mod worker;
 mod worker_config;
 mod worker_control;
-pub mod worker_health;
 mod workspaces;
 
 use anyhow::{Context, Result};
@@ -192,7 +187,8 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
     let store = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
-        let pg = postgres::PgStore::connect(&url).await?;
+        let mut pg = postgres::PgStore::connect(&url).await?;
+        pg.pooled = worker_config::Mode::from_env(false)? == worker_config::Mode::Pooled;
         pg.verify_schema().await?;
         if data.join("postgres-identity").exists()
             || postgres::cli::sqlite_identity_exists(&data.join("identity.sqlite"))?
@@ -219,13 +215,13 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
     });
     tracing::info!("Identity workspace: {}/?view=account", app.origin);
     let control = worker_control::start(app.clone()).await?;
-    chat::start_dispatcher(app.clone())?;
+    chat::start_dispatcher(app.clone());
     rehearsals::start(app.clone()).await;
     automations::start(app.clone()).await;
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
-            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
+            tokio::select! { _ = shutdown::signal() => {}, _ = stopping.cancelled() => {} }
             stopping.cancel();
         })
         .await?;

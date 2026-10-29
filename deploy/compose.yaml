@@ -12,24 +12,42 @@ x-runtime: &runtime
   stop_grace_period: 90s
   restart: unless-stopped
 
+# Worker control is loopback-only: executors share the API container's network
+# namespace and authenticate with the bootstrap key copied by control-key.
+x-worker-control: &worker-control
+  AYATI_WORKER_CONTROL_URL: http://127.0.0.1:8766
+  AYATI_WORKER_CONTROL_KEY_FILE: /run/ayati-control/key
+
 services:
+  control-key:
+    <<: *runtime
+    # Runs once as root only to hand the operator's key to the runtime UID.
+    user: "0:0"
+    cap_add: [CHOWN, FOWNER]
+    entrypoint: [/usr/bin/install, -o, "10001", -g, "10001", -m, "600",
+      /run/secrets/worker_control_key, /run/ayati-control/key]
+    volumes: [worker-control:/run/ayati-control]
+    secrets: [worker_control_key]
+    restart: "no"
   api:
     <<: *runtime
     command: [identity]
     environment:
+      <<: *worker-control
       AYATI_PUBLIC_ORIGIN: ${AYATI_PUBLIC_ORIGIN:?Set the HTTPS public origin}
       AYATI_BIND_ADDRESS: 0.0.0.0
-      AYATI_CHAT_EXECUTION: external
       AYATI_WORKER_PROVIDERS: ${AYATI_WORKER_PROVIDERS:-openai}
       AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
-      AYATI_GOOSE_PROVIDER: ${AYATI_GOOSE_PROVIDER:-openai}
       RELAY_DATABASE_URL_FILE: /run/secrets/database_url
       WORKOS_CLIENT_ID: ${WORKOS_CLIENT_ID:?Set the WorkOS client ID}
       WORKOS_API_KEY_FILE: /run/secrets/workos_api_key
       CUCKOO_LIBRARY_S3_BUCKET: ${CUCKOO_LIBRARY_S3_BUCKET:-}
       CUCKOO_LIBRARY_S3_ENDPOINT: ${CUCKOO_LIBRARY_S3_ENDPOINT:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+    volumes: [worker-control:/run/ayati-control:ro]
     secrets: [database_url, workos_api_key]
+    depends_on:
+      control-key: {condition: service_completed_successfully}
     # Put a TLS reverse proxy/load balancer in front; this port is private to the host.
     ports: ["127.0.0.1:${AYATI_LOCAL_PORT:-8765}:8765"]
     healthcheck:
@@ -38,23 +56,20 @@ services:
       timeout: 6s
       retries: 3
       start_period: 20s
-  worker:
+  executor:
     <<: *runtime
-    command: [worker]
+    command: [executor]
+    network_mode: service:api
     environment:
-      RELAY_DATABASE_URL_FILE: /run/secrets/database_url
+      <<: *worker-control
       OPENAI_API_KEY_FILE: /run/secrets/model_api_key
       AYATI_GOOSE_PROVIDER: openai
       AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
-      AYATI_WORKER_CONCURRENCY: ${AYATI_WORKER_CONCURRENCY:-4}
-      AYATI_WORKER_HEALTH_FILE: /var/lib/ayati/worker.health
-    secrets: [database_url, model_api_key]
-    healthcheck:
-      test: [CMD, /opt/ayati/ayati, worker-health]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 20s
+      AYATI_EXECUTOR_SLOTS: ${AYATI_EXECUTOR_SLOTS:-2}
+    volumes: [worker-control:/run/ayati-control:ro]
+    secrets: [model_api_key]
+    depends_on:
+      api: {condition: service_healthy}
   migrate:
     <<: *runtime
     profiles: [maintenance]
@@ -63,6 +78,9 @@ services:
       RELAY_DATABASE_URL_FILE: /run/secrets/migration_database_url
     secrets: [migration_database_url]
     restart: "no"
+
+volumes:
+  worker-control: {}
 
 secrets:
   database_url:
@@ -73,3 +91,5 @@ secrets:
     file: ${AYATI_WORKOS_API_KEY_FILE:?Set the WorkOS API key file}
   model_api_key:
     file: ${AYATI_MODEL_API_KEY_FILE:?Set the model API key file}
+  worker_control_key:
+    file: ${AYATI_WORKER_CONTROL_KEY_FILE:?Set the worker-control bootstrap key file}

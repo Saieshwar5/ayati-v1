@@ -134,10 +134,7 @@ cannot retract bytes someone already legitimately viewed or downloaded.
   visually inspected. Evidence/logs remain under `.tmp/result-reading/`.
 
 Reproduce with `cargo test --locked --lib`, web check/build/test commands and,
-with a disposable `RELAY_TEST_DATABASE_URL`, `cargo test --locked --lib
-identity::postgres:: -- --ignored --skip embedded_gateway_uses_controller_owned_credentials`.
-The excluded fixture-specific test runs through
-`node --test tests/shared_agent_control.mjs`. Reader journeys run with
+`./tools/local-postgres.sh test`. Reader journeys run with
 `node --test tests/result_reading.mjs`; retained journeys are
 `tests/reply_stream.mjs` and `tests/agents_workspace.mjs`.
 

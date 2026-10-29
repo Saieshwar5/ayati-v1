@@ -1,4 +1,5 @@
 //! Explicit, isolated local company rehearsal. Never selected by normal identity mode.
+pub(in crate::identity) mod dispatch;
 mod executor;
 mod reports;
 mod seed;
@@ -56,7 +57,8 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
             "This simulation directory belongs to another database",
         )?;
     }
-    let pg = postgres::PgStore::connect(&url).await?;
+    let mut pg = postgres::PgStore::connect(&url).await?;
+    pg.pooled = worker_config::Mode::from_env(true)? == worker_config::Mode::Pooled;
     pg.verify_schema().await?;
     std::fs::write(&marker, database_name)?;
     let store = database::Database::Postgres(pg);
@@ -71,7 +73,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
         simulation: Some(simulation),
     });
     let control = worker_control::start(app.clone()).await?;
-    chat::start_dispatcher(app.clone())?;
+    chat::start_dispatcher(app.clone());
     rehearsals::start(app.clone()).await;
     automations::start(app.clone()).await;
     tracing::info!(
@@ -81,7 +83,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     let stopping = app.runtimes.stopping.clone();
     axum::serve(listener, router(app.clone()))
         .with_graceful_shutdown(async move {
-            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
+            tokio::select! { _ = shutdown::signal() => {}, _ = stopping.cancelled() => {} }
             stopping.cancel();
         })
         .await?;

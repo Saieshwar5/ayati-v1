@@ -32,7 +32,7 @@ async fn snapshot(
     let context = pg(&app)?.setup_context(&user, &w, &agent).await?;
     let draft = pg(&app)?.setup_last_draft(&user, &w, &agent).await?;
     Ok(Json(
-        json!({"context":context,"draft":draft,"execution_available":execution_available()?}),
+        json!({"context":context,"draft":draft,"execution_available":execution_available(&app)?}),
     ))
 }
 async fn inventories(w: &str, context: &setup_model::Context) -> Result<Vec<Inventory>> {
@@ -143,7 +143,7 @@ async fn activate(
     if saved["state"] != "activated" {
         let draft: Draft = serde_json::from_value(saved["data"].clone())?;
         check(
-            execution_available()? || draft.choices.iter().all(|c| c.mode == "block"),
+            execution_available(&app)? || draft.choices.iter().all(|c| c.mode == "block"),
             "Business tools require controller-managed execution",
         )?;
         let inventory = inventories(&w, &draft.context).await?;

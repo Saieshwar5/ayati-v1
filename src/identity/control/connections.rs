@@ -38,7 +38,7 @@ async fn snapshot(
             json!([])
         }
     };
-    value["execution_available"] = json!(execution_available()?);
+    value["execution_available"] = json!(execution_available(&app)?);
     Ok(Json(value))
 }
 async fn approve(
@@ -72,7 +72,7 @@ async fn connect(
         return Ok(Json(json!({"saved":true})));
     }
     check(
-        execution_available()?,
+        execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
     crate::identity::worker_control::model::uuid(&input.id)?;

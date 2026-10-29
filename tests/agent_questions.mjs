@@ -201,27 +201,3 @@ test('ordinary questions release execution, survive restart, reconstruct answers
   assert.deepEqual(errors, []); assert.equal(JSON.stringify(app.provider.requests).includes(remote.token), false);
   assert.equal(app.processes().some(process => process.logs.includes(remote.token)), false);
 });
-
-test('controller-local broker adapter supports durable questions without business connections or remote gateway', {
-  skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 90000,
-}, async t => {
-  // Simulate intentionally keeps embedded replies deterministic. Exercise the
-  // same local-broker/execute_bounded path in an isolated compatibility worker.
-  const app = await workerFixture(t, { mode: 'external', runSeconds: 30 });
-  const worker = await app.startWorker({ AYATI_CHAT_EXECUTION: 'embedded' });
-  const prompt = 'Ask whether to include the optional summary.';
-  app.provider.setControl(prompt, { steps: [{ tool: 'ask_question', arguments: { key: 'include-summary', specification: {
-    version: 1, kind: 'single_choice', title: 'Include the optional summary?', options: [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }],
-  } } }], checkpoint: 'The optional summary question is saved.' });
-  const task = await app.send(prompt);
-  await until(() => app.sql(`SELECT state FROM relay_chat_jobs WHERE reply='${task.reply}'`) === 'waiting', 'Embedded question did not release execution', 35000);
-  const question = JSON.parse(app.sql(`SELECT row_to_json(q) FROM relay_task_questions q WHERE reply='${task.reply}'`));
-  const modelCalls = app.provider.requests.length;
-  await new Promise(resolve => setTimeout(resolve, 600)); assert.equal(app.provider.requests.length, modelCalls);
-  await app.request(`${app.path}/questions/${question.id}`, app.cookie, { id: randomUUID(), revision: 1, decision: 'answer', values: { choices: ['yes'] } });
-  assert.match((await app.done(task)).content, /"choices":\["yes"\]/);
-  assert.equal(app.sql(`SELECT count(*) FROM relay_control_connections`), '0');
-  assert.equal(app.sql(`SELECT count(*) FROM relay_task_checkpoints WHERE reply='${task.reply}'`), '1');
-  await app.stop(worker);
-  app.pass('The controller-local broker execution adapter asks and reconstructs without configured business tools, a remote control gateway or idle model polling; exercised in an isolated compatibility worker');
-});

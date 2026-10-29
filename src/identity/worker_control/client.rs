@@ -133,21 +133,6 @@ impl Client {
             }
         }
     }
-    pub async fn reserve(
-        &self,
-        executor: &Registration,
-        reservation: &Reservation,
-    ) -> Result<Option<Scope>> {
-        self.retry(
-            &format!(
-                "/v1/executors/{}/{}/reserve",
-                executor.executor, executor.incarnation
-            ),
-            reservation,
-            5,
-        )
-        .await
-    }
     pub async fn release(
         &self,
         executor: &Registration,

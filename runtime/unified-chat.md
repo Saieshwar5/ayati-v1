@@ -1,9 +1,8 @@
 # Unified workspace Chat
 
-PostgreSQL-managed agent requests can run in an
-[independent worker](independent-chat-worker.md). Set `AYATI_CHAT_EXECUTION=external`
-on the API and start `ayati worker` separately. Embedded execution remains the
-default; both paths share conversation validation, source grants and reply claims.
+Agent requests run on [pooled executors](executor-pool.md) through
+[worker control](worker-control.md), with the controller's conversation
+validation, source grants and reply claims.
 
 Workspace Chat uses a persistent React directory for Channels and Direct messages.
 Switching conversations changes only the conversation surface. The workspace rail,

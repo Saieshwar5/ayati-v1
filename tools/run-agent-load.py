@@ -39,9 +39,7 @@ SUITES = {
     'calibration': ['tests/provider_calibration.mjs'],
     'bridge': ['tests/aws_worker_bridge.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
-                    'tests/executor_pool.mjs', 'tests/worker_control.mjs',
-                    'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
-                    'tests/hosted_deployment.mjs'],
+                    'tests/executor_pool.mjs', 'tests/hosted_deployment.mjs'],
 }
 
 

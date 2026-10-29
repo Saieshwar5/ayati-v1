@@ -66,7 +66,7 @@ and follow [the executor pool guide](runtime/executor-pool.md) for the exact
 controller and executor environments. In short:
 
 ```sh
-AYATI_CHAT_EXECUTION=pooled AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
+AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
 AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
   AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
 ```

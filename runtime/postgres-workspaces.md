@@ -1,7 +1,6 @@
 # Local PostgreSQL workspace foundation
 
-The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
-and [temporary assignment workers](assignment-workers.md). The current checkout
+The durable shared-reply queue feeds [pooled executors](executor-pool.md). The current checkout
 requires all thirty-three migrations, including `m20261027_000033_home_panel_maintenance`.
 [Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
@@ -14,13 +13,9 @@ and outcome-review receipts without changing task or business-action authority.
 [Personal pins and channel archive](chat-organization.md) add preferences and the
 closed-intake guard; [ordinary questions](agent-questions.md) were introduced in schema 23.
 [Saved approval waits](durable-approval-waits.md) retain tasks across worker release.
-API-only polling dispatch uses `AYATI_CHAT_EXECUTION=external`; temporary workers
-use `AYATI_CHAT_EXECUTION=assigned` and the local assignment launcher. Reapply runtime
-grants after migration; existing polling jobs are preserved in their original mode.
-The opt-in [controller-scoped worker API](worker-control.md) keeps core database
-credentials with the controller and preserves direct-PG worker compatibility.
-The [prepared executor pool](executor-pool.md) uses `AYATI_CHAT_EXECUTION=pooled`;
-only initialized compatible slots receive work, with durable slot generations.
+Reapply runtime grants after migration. The [worker-control API](worker-control.md)
+keeps core database credentials with the controller; only initialized compatible
+executor slots receive work, with durable slot generations.
 
 Relay can serve its existing React client using PostgreSQL for accounts, sessions,
 workspaces, memberships, invitations, shared conversations, human resource grants,
