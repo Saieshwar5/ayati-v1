@@ -165,15 +165,8 @@ async fn upload(
     bytes: Bytes,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mime = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        "image/png"
-    } else if bytes.starts_with(b"\xff\xd8\xff") {
-        "image/jpeg"
-    } else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
-        "image/webp"
-    } else {
-        return Err(anyhow::anyhow!("Choose a PNG, JPEG or WebP avatar").into());
-    };
+    let mime = crate::identity::pictures::picture_mime(&bytes)
+        .ok_or_else(|| anyhow::anyhow!("Choose a PNG, JPEG or WebP avatar"))?;
     Ok(Json(
         json!({"avatar":app.store.agent_avatar_save(&user,&w,&id,mime,bytes.to_vec()).await?}),
     ))
@@ -185,12 +178,5 @@ async fn avatar(
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     let (mime, bytes) = app.store.agent_avatar(&user, &w, &id, &avatar).await?;
-    let mut response = bytes.into_response();
-    response
-        .headers_mut()
-        .insert(header::CONTENT_TYPE, mime.parse()?);
-    response
-        .headers_mut()
-        .insert("x-content-type-options", "nosniff".parse()?);
-    Ok(response)
+    Ok(crate::identity::pictures::picture_response(&mime, bytes)?)
 }

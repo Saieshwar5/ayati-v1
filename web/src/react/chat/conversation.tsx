@@ -6,7 +6,7 @@ import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox } from './outbox'
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ChatComposer } from './attachments';
 import { requestAgent } from './mentions';
-import { ChannelMembers, ChannelSettings } from './members';
+import { ChannelAgents, ChannelMembers, ChannelSettings } from './members';
 import type { Attachment, Message } from './model';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { storageScope } from '../../workspace-context';
@@ -15,7 +15,9 @@ import { ChatThread } from './thread';
 import { mergeMessages, newerMessage } from './message-state';
 import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
-import { chatRequest, conversationKind, conversationName, type Conversation, type Directory, type History } from './model';
+import { chatRequest, conversationName, directPartner, type Conversation, type Directory, type History } from './model';
+import { ConversationFace, ParticipantName } from './conversation-face';
+import { useShowProfile } from './profile-card';
 
 export function ConversationPane({ chat, directory, back, focus, changed = async () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void> }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
@@ -128,18 +130,21 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
   const title = conversationName(chat, directory);
-  const kind = conversationKind(chat, directory);
+  const partner = directPartner(chat, directory);
+  const showProfile = useShowProfile();
+  const summary = partner ? (partner.kind === 'agent' ? partner.who.role : partner.who.title || 'Direct message')
+    : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`, chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section className="chat-conversation" aria-label={`Conversation with ${title}`}>
     <header className="chat-pane-header">
       <Button className="chat-back" onClick={back}>‹ Chats</Button>
-      <span className={`chat-avatar ${kind.toLowerCase()}`}>
-        {kind === 'Channel' ? '#' : kind === 'Agent' ? '✧' : title.slice(0, 1).toUpperCase()}
-      </span>
+      {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} onClick={() => showProfile({ kind: partner.kind, id: partner.who.id })}>
+        <ConversationFace chat={chat} directory={directory} />
+      </button> : <ConversationFace chat={chat} directory={directory} />}
       <div>
-        <h2 title={title}>{title}</h2>
+        <h2 title={title}>{partner ? <ParticipantName kind={partner.kind} name={title} /> : title}</h2>
         <div className="chat-header-meta">
-          <small className="chat-kind">{kind}</small>
+          <small className="chat-kind">{summary}</small>
           <p className="chat-connection" role="status">{connection}</p>
         </div>
       </div>
@@ -162,7 +167,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
-    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
+    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /><ChannelAgents chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
     {lifecycle && <ChannelLifecycle chat={chat} close={() => setLifecycle(false)} changed={changed} />}
   </section></ManagedResults></ApprovalViewer>;
 }

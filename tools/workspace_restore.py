@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import uuid
 
 MAX_BYTES = 128 * 1024 * 1024
-SCHEMA_VERSION = 35
+SCHEMA_VERSION = 36
 COMMAND_SECONDS = 60
 
 
@@ -126,7 +126,7 @@ def snapshot(env, schema):
     tables = sql(env, f"SELECT tablename FROM pg_tables WHERE schemaname='{name}' ORDER BY tablename COLLATE \"C\";").decode().splitlines()
     require('seaql_migrations' in tables, 'Workspace migration records are missing')
     versions = sql(env, f'SELECT version FROM {identifier(name)}.seaql_migrations ORDER BY version;').decode().splitlines()
-    require(len(versions) == SCHEMA_VERSION and versions[-1] == 'm20261029_000035_data_lifecycle',
+    require(len(versions) == SCHEMA_VERSION and versions[-1] == 'm20261030_000036_chat_people',
             'Use the current supported workspace schema 35')
     total = int(sql(env, f"SELECT coalesce(sum(pg_total_relation_size(c.oid)),0) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='{name}' AND c.relkind IN ('r','m');"))
     require(total <= MAX_BYTES, 'Simulation schema exceeds the 128 MiB rehearsal bound')

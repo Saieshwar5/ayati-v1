@@ -20,9 +20,14 @@
 .settings-people .desk-content { padding:0; overflow:visible; }
 .settings-people .ui-tabs { border-bottom:1px solid var(--border); padding-bottom:14px; margin-top:12px; }
 .settings-people .ui-row { min-height:72px; }
-.settings-profile { display:flex; align-items:center; gap:18px; padding:24px 0; border-top:1px solid var(--border); margin-top:24px; }
-.settings-profile .ui-avatar { width:60px; height:60px; flex-basis:60px; }
-.settings-profile h3,.settings-profile p { margin:4px 0; }
+.my-profile { max-width:640px; margin-top:24px; padding-top:24px; border-top:1px solid var(--border); }
+.my-profile .ui-fieldset { display:grid; gap:16px; }
+.my-profile .ui-field small { margin-left:6px; color:var(--muted); font-weight:400; }
+.my-profile .ui-field textarea { resize:vertical; }
+.my-profile .ui-button.primary { justify-self:start; }
+.my-profile-photo { display:flex; align-items:center; gap:18px; }
+.my-profile-face.face { width:80px; height:80px; font-size:26px; }
+.my-profile-photo-actions { display:flex; gap:8px; }
 .settings-account .account-profile-form { max-width:640px; }
 .settings-account .access-field input,.settings-general input { width:100%; padding:12px; color:var(--text); background:var(--surface); border:1px solid var(--border-control); border-radius:8px; }
 .settings-account .access-button { width:auto; padding:10px 18px; margin:12px 0; }

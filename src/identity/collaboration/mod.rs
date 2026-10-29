@@ -23,6 +23,10 @@ pub(super) fn routes() -> Router<Shared> {
             post(members),
         )
         .route(
+            "/api/identity/workspaces/{w}/chats/{chat}/agents",
+            post(channel_agents),
+        )
+        .route(
             "/api/identity/workspaces/{w}/feedback",
             get(feedback_list).post(feedback_add),
         )
@@ -110,6 +114,23 @@ async fn members(
     let user = identity(&app, &headers).await?;
     app.store
         .channel_members(&user, &w, &chat, &input.users)
+        .await?;
+    Ok(Json(json!({"ok":true})))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChannelAgents {
+    agents: Vec<String>,
+}
+async fn channel_agents(
+    State(app): State<Shared>,
+    RoutePath((w, chat)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<ChannelAgents>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store
+        .channel_agents(&user, &w, &chat, &input.agents)
         .await?;
     Ok(Json(json!({"ok":true})))
 }

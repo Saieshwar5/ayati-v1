@@ -1,8 +1,6 @@
-import { symbols, base, type Agent } from './model';
+import { AgentFace } from '../faces';
+import type { Agent } from './model';
 
 export function AgentAvatar({ agent }: { agent: Agent }) {
-  const avatar = agent.settings.avatar;
-  return <span className="ui-avatar agent-profile-avatar">
-    {symbols[avatar] ?? <img alt="" src={`/api/identity${base}/${agent.id}/avatar/${avatar}`} />}
-  </span>;
+  return <AgentFace agent={{ id: agent.id, name: agent.name, avatar: agent.settings.avatar }} className="ui-avatar agent-profile-avatar" />;
 }

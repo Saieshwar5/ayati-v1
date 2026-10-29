@@ -41,6 +41,9 @@ mod chat_organization_migration;
 mod chat_organization_migration_tests;
 #[cfg(test)]
 mod chat_organization_tests;
+mod chat_people_migration;
+#[cfg(test)]
+mod chat_people_tests;
 mod chat_pins;
 pub mod cli;
 #[cfg(test)]
@@ -81,6 +84,7 @@ mod executor_slot_tests;
 mod executor_slots;
 mod executor_task_migration;
 mod executor_tasks;
+pub mod member_profiles;
 mod pool_metrics;
 #[cfg(test)]
 mod pool_metrics_tests;

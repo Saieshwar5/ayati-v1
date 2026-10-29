@@ -20,7 +20,8 @@ async function fixture(role, run) {
     if(path.endsWith('/session'))data={user:{id:'person',email:'person@test',display_name:'Person'},workspaces:[{id:workspace,name:'Northstar',role}]};
     if(path.endsWith('/people'))data={role,members:[{id:'person',email:'person@test',role}],invitations:[]};
     if(path.endsWith('/settings'))data={name:'Northstar'};
-    if(path.endsWith('/profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
+    if(path.endsWith('/chat-directory'))data={users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null}],agents:[]};
+    if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
     return {ok:true,status:200,json:async()=>data};
   }});
 }
@@ -52,11 +53,13 @@ test('Owners use the Workspace tab; old Users links open People inside Settings'
 });
 test('Failed personal profile saves preserve the draft and require explicit retry',async()=>{
   await fixture('User',async({change,submit,writes})=>{
-    const form=document.querySelector('form');
+    const form=document.querySelector('form.my-profile');
+    assert.equal(form.querySelector('input[maxlength="80"]:not([required])').value,'Buyer');
     await change(form.elements.display_name,'Changed name');
     await submit(form);
     assert.equal(form.elements.display_name.value,'Changed name');
     assert.match(form.textContent,/Save failed/);
     assert.equal(writes.length,1);
+    assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:''});
   });
 });

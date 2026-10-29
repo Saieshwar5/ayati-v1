@@ -18,7 +18,9 @@ mod hosting;
 mod interactions;
 mod library;
 mod login_state;
+mod member_profiles;
 mod metrics;
+mod pictures;
 pub mod postgres;
 mod private_config;
 mod process_lock;
@@ -210,6 +212,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
 fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
+        .merge(member_profiles::routes())
         .merge(control::routes())
         .merge(attention::routes())
         .merge(home_panels::routes())
