@@ -73,7 +73,10 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
         &claim.context,
         root.path(),
         None,
-        &crate::config::Controller::for_tests("http://127.0.0.1:8765").goose,
+        &crate::config::GooseSettings {
+            binary: root.path().join("goose"),
+            provider: "openai".into(),
+        },
     )
     .unwrap();
     assert_eq!(
