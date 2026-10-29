@@ -1,11 +1,11 @@
 use super::output::Output;
 use crate::{
-    agent::Event,
     identity::worker_control::{
         client::Client,
         model::{AssignedRequest, Scope},
         output::Update,
     },
+    runtime::Event,
 };
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;

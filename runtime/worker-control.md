@@ -59,7 +59,7 @@ providers. In another terminal, start the launcher with its own data directory,
 pinned Goose binary and supported provider/model setup:
 
 ~~~sh
-AYATI_RUNTIME=goose AYATI_DATA_DIR=.ayati-local/control-launcher \
+AYATI_DATA_DIR=.ayati-local/control-launcher \
   cargo run --locked -- assignment-launcher
 ~~~
 

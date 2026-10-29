@@ -67,7 +67,7 @@ export async function workerFixture(t, options = {}) {
   t.after(() => provider.close());
   const env = {
     PATH: process.env.PATH, LANG: 'C.UTF-8', RUST_LOG: 'ayati=info',
-    AYATI_RUNTIME: 'goose', AYATI_MODEL: options.model ?? 'fixture',
+    AYATI_MODEL: options.model ?? 'fixture',
     AYATI_GOOSE_PROVIDER: 'openai', AYATI_GOOSE_BIN: join(root, '.cache/goose/v1.54.0/goose'),
     AYATI_PREPARED_GOOSE_BIN: process.env.AYATI_TEST_PREPARED_GOOSE_BIN ?? join(root, '.cache/goose/v1.54.0-ayati.1/goose'),
     AYATI_CHAT_EXECUTION: options.mode ?? 'external', AYATI_WORKER_CONCURRENCY: '1',

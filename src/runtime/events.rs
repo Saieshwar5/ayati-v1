@@ -1,8 +1,18 @@
 use super::Turn;
-use crate::{agent::Event, storage::Store};
+use crate::storage::Store;
 use agent_client_protocol::schema::v1::*;
 use std::sync::{Arc, Mutex, atomic::Ordering};
 use tokio::sync::broadcast;
+
+/// A local turn change, forwarded to the controller as streamed output.
+#[derive(Clone, serde::Serialize)]
+pub struct Event {
+    pub kind: String,
+    pub task_id: String,
+    pub message_id: Option<String>,
+    pub text: Option<String>,
+    pub offset: Option<usize>,
+}
 
 pub struct RuntimeEvents {
     pub control_tools: bool,

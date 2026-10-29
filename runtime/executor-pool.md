@@ -52,7 +52,7 @@ Start each executor in a separate private data directory with the prepared Goose
 binary, provider/model configuration and provider key set privately:
 
 ~~~sh
-AYATI_RUNTIME=goose AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
+AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
   AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
 ~~~
 

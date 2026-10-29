@@ -40,8 +40,8 @@ async fn main() -> Result<()> {
         "worker-health" => ayati::identity::worker_health::check(),
         "executor" => {
             anyhow::ensure!(
-                std::env::args().nth(2).is_none() && !config.prototype,
-                "Use executor with the Goose runtime"
+                std::env::args().nth(2).is_none(),
+                "Use executor without arguments"
             );
             ayati::identity::executor::serve(&config.data_dir).await
         }
@@ -57,10 +57,6 @@ async fn main() -> Result<()> {
             Ok(())
         }
         "worker" => {
-            anyhow::ensure!(
-                !config.prototype,
-                "The independent worker requires AYATI_RUNTIME=goose"
-            );
             let args: Vec<String> = std::env::args().skip(2).collect();
             match args.as_slice() {
                 [] => ayati::identity::worker::serve(&config.data_dir).await,
@@ -79,10 +75,6 @@ async fn main() -> Result<()> {
             anyhow::ensure!(
                 std::env::args().nth(2).is_none(),
                 "Use assignment-launcher without arguments"
-            );
-            anyhow::ensure!(
-                !config.prototype,
-                "The assignment launcher requires AYATI_RUNTIME=goose"
             );
             ayati::identity::assignment_launcher::serve(&config.data_dir).await
         }

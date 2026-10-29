@@ -5,7 +5,7 @@ use crate::{
     runtime::{GooseRuntime, config::GooseConfig},
     storage::Store,
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -18,7 +18,7 @@ pub(super) struct Harness {
     root: PathBuf,
     profile: Profile,
     pub pid: u32,
-    events: tokio::sync::broadcast::Sender<crate::agent::Event>,
+    events: tokio::sync::broadcast::Sender<crate::runtime::Event>,
 }
 impl Harness {
     pub async fn prepare(root: &Path, profile: &Profile) -> Result<Self> {
@@ -118,18 +118,7 @@ impl Harness {
             } else {
                 None
             };
-            let task = self
-                .store
-                .accept_input("Controller-scoped shared request", Some(&context.reply))?;
-            let claim = self
-                .store
-                .claim_next(&uuid::Uuid::new_v4().to_string())?
-                .context("Prepared claim unavailable")?;
-            ensure!(
-                claim.task_id == task.id,
-                "Prepared session must contain only its assigned task"
-            );
-            let reply = self.store.add_claim_reply(&claim)?;
+            let (claim, reply) = crate::runtime::turn::begin(&self.store, &context.reply)?;
             output.trace.mark("local_setup");
             let assignment = output.assignment.scope.assignment.clone();
             crate::identity::start_trace::point(&assignment, "executor", "local_setup_done");
@@ -154,7 +143,6 @@ impl Harness {
                         cancel.clone(),
                         crate::runtime::prepared::ChatTurn {
                             assignment: &assignment,
-                            agent: &context.agent,
                             instructions: &context.instructions,
                             timeout: std::time::Duration::from_secs(context.run_seconds),
                         },
@@ -166,23 +154,7 @@ impl Harness {
             if let Some(runtime) = tool_runtime {
                 runtime.shutdown().await?;
             }
-            self.store.finish_work(
-                &claim,
-                if result.is_ok() {
-                    "completed"
-                } else {
-                    "failed"
-                },
-                "",
-            )?;
-            result?;
-            let text = self
-                .store
-                .messages()?
-                .into_iter()
-                .find(|m| m.id == reply && m.state == "complete")
-                .context("Prepared session produced no completed reply")?
-                .content;
+            let text = crate::runtime::turn::finish(&self.store, &claim, &reply, result)?;
             Ok(format!(
                 "{text}{}",
                 crate::identity::library::context::citations(&context.workspace, &context.sources)

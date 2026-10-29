@@ -7,7 +7,6 @@ pub mod profile;
 pub mod runtime;
 pub mod schedule_history;
 pub mod work;
-use crate::model::Message as ModelMessage;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use serde::Serialize;
@@ -139,33 +138,6 @@ impl Store {
             params![id, status, detail],
         )?;
         Ok(())
-    }
-
-    pub fn save_context(&self, id: &str, messages: &[ModelMessage]) -> Result<()> {
-        self.connection()?.execute(
-            "UPDATE tasks SET context=?2 WHERE id=?1",
-            params![id, serde_json::to_string(messages)?],
-        )?;
-        Ok(())
-    }
-
-    pub fn recent_context(&self, max_bytes: usize) -> Result<Vec<ModelMessage>> {
-        let connection = self.connection()?;
-        let mut stmt = connection.prepare(
-            "SELECT context FROM tasks WHERE status IN ('completed','failed','stopped','interrupted') AND context!='[]' ORDER BY rowid DESC LIMIT 12",
-        )?;
-        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-        let mut segments = vec![];
-        let mut size = 0;
-        for row in rows {
-            let text = row?;
-            if size + text.len() > max_bytes {
-                break;
-            }
-            size += text.len();
-            segments.push(serde_json::from_str::<Vec<ModelMessage>>(&text)?);
-        }
-        Ok(segments.into_iter().rev().flatten().collect())
     }
 
     pub fn messages(&self) -> Result<Vec<ChatMessage>> {

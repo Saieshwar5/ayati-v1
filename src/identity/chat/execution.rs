@@ -1,10 +1,9 @@
 //! Conversation-only Goose execution shared by embedded and independent workers.
 use super::store::Job;
 use crate::{
-    agent::Agent,
-    files::Files,
     identity::{database::Database, store::User},
-    runtime::config::GooseConfig,
+    runtime::{GooseRuntime, config::GooseConfig},
+    storage::Store,
 };
 use anyhow::{Context, Result, ensure};
 use std::{path::Path, sync::Arc};
@@ -280,53 +279,27 @@ pub(crate) async fn execute_prepared(
     use std::os::unix::fs::PermissionsExt;
     std::fs::create_dir_all(root)?;
     std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
-    let seconds = context.run_seconds;
     let config = runtime_config(context, root, control)?;
     let prompt = prompt(context);
     ensure!(
         config.configured(),
         "Shared chat needs configured Goose and provider"
     );
-    let store = Arc::new(crate::storage::Store::open(&root.join("chat.sqlite"))?);
-    let files = Arc::new(Files::new(root, store.clone())?);
-    let agent = Agent::start_goose(store.clone(), files, config);
+    let store = Arc::new(Store::open(&root.join("chat.sqlite"))?);
+    let runtime = GooseRuntime::new(
+        config,
+        store.clone(),
+        tokio::sync::broadcast::channel(256).0,
+    );
+    // The runtime applies the context deadline; Stop cancels the prompt itself.
+    let cancel = stopping.child_token();
     let result = async {
-        let task = agent.submit_once(&prompt, Some(&context.reply))?;
-        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(seconds);
-        loop {
-            ensure!(!stopping.is_cancelled(), "Worker is stopping");
-            let task = store.task(&task.id)?.context("Task missing")?;
-            if !["queued", "running"].contains(&task.status.as_str()) {
-                ensure!(
-                    ["complete", "completed"].contains(&task.status.as_str()),
-                    "Request failed"
-                );
-                return store
-                    .messages()?
-                    .into_iter()
-                    .rev()
-                    .find(|m| {
-                        m.task_id == task.id && m.role == "assistant" && m.state == "complete"
-                    })
-                    .map(|m| m.content)
-                    .context("No completed reply");
-            }
-            ensure!(
-                tokio::time::Instant::now() < deadline,
-                "Shared reply timed out"
-            );
-            tokio::select! {
-                _ = stopping.cancelled() => {},
-                _ = tokio::time::sleep(std::time::Duration::from_millis(250)) => {},
-            }
-        }
+        let (claim, reply) = crate::runtime::turn::begin(&store, &context.reply)?;
+        let outcome = runtime.prompt(&claim, &reply, prompt, cancel).await;
+        crate::runtime::turn::finish(&store, &claim, &reply, outcome)
     }
     .await;
-    agent.begin_shutdown();
-    let stopped = agent.stop_all();
-    agent.wait_until_idle().await;
-    agent.shutdown_runtime().await?;
-    stopped?;
+    runtime.shutdown().await?;
     result.map(|text| {
         format!(
             "{text}{}",
@@ -348,7 +321,6 @@ pub(crate) fn runtime_config(
     config.run_timeout = std::time::Duration::from_secs(context.run_seconds);
     config.agent_id = context.agent.clone();
     config.role = context.instructions.clone();
-    config.managed_chat = true;
     if let Some(provider) = &context.provider {
         config.provider = provider.clone();
     }

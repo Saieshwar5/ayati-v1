@@ -67,7 +67,7 @@ controller and executor environments. In short:
 
 ```sh
 AYATI_CHAT_EXECUTION=pooled AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
-AYATI_RUNTIME=goose AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
+AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
   AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
 ```
 

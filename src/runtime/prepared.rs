@@ -21,7 +21,6 @@ pub(super) fn preparation_ack(
 
 pub(crate) struct ChatTurn<'a> {
     pub assignment: &'a str,
-    pub agent: &'a str,
     pub instructions: &'a str,
     pub timeout: Duration,
 }
