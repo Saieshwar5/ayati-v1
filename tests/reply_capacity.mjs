@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 import { exited } from './fixtures/worker_control.mjs';
 
 const options={skip:!process.env.RELAY_TEST_DATABASE_URL,timeout:180000};

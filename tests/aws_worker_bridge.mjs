@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { bridgeFixture, captureStarts, cloudEnvironment } from './fixtures/aws_bridge.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 import { machine, secret } from './fixtures/worker_control.mjs';
 import { fixtureProvider } from './fixtures/goose_provider.mjs';
 

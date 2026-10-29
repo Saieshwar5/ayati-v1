@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { fixtureProvider } from './fixtures/goose_provider.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
-import { root, until } from './fixtures/goose_app.mjs';
+import { root, until } from './fixtures/polling.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 async function fixture(t) {
   const provider = await fixtureProvider({ key: 'fixture-sample-model-key' }); t.after(() => provider.close());

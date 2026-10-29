@@ -7,7 +7,7 @@ import { PanelContent } from './snapshot';
 import { AskPanel } from './create';
 import { PanelReview } from './review';
 import { PanelMaintenance } from './maintenance';
-import { panelTemplate } from '../../panel-layout';
+import { panelTemplate } from '../../panel-types';
 import '../../home-panels.css';
 import './panels.css';
 export function WorkspacePanels() {

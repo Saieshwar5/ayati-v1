@@ -18,18 +18,14 @@ const cases = [
   { kind: 'text', heading: 'Context', body: '<script>bad()</script>\nA supporting point.' },
 ];
 
-test('all general families render inert data in React and adopted Home without fetching or executing agent UI', async () => {
+test('all general families render inert data in React without fetching or executing agent UI', async () => {
   let reads = 0;
   await reactFixture(async ({ render }) => {
     const { PanelContent } = await import('../src/react/home-panels/snapshot.tsx');
-    const { renderPanel } = await import('../src/panel-renderer.ts');
     for (const section of cases) {
       await render(PanelContent, { definition: definition(section) });
-      const compatibility = renderPanel(definition(section));
       assert.equal(document.querySelectorAll('script,img,iframe').length, 0);
-      assert.equal(compatibility.querySelectorAll('script,img,iframe').length, 0);
       assert.ok(document.querySelector(`.panel-${section.kind}`));
-      assert.ok(compatibility.querySelector(`.panel-${section.kind}`));
       if (section.kind === 'metric') assert.equal(document.querySelector('.panel-comparison').dataset.sentiment, 'favorable');
       if (section.kind === 'timeline') assert.equal(document.querySelector('.panel-timeline strong').textContent, 'Later');
     }

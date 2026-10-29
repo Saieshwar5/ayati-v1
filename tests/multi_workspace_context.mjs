@@ -8,7 +8,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
 import { pinLoadProcess, sampleResources } from './fixtures/load_resources.mjs';
 import { ready } from './fixtures/load_workload.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 function bounded(name, fallback, low, high) {
   const value = Number(process.env[name] ?? fallback);

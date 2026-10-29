@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 test('real Goose retrieves older attributed history through a scoped controller capability', {
   timeout: 180000, skip: !process.env.RELAY_TEST_DATABASE_URL,

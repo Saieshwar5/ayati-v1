@@ -283,31 +283,3 @@ async fn root_preserves_explicit_workspace_chooser() {
         "/index.html?view=account&choose=1"
     );
 }
-
-#[tokio::test]
-async fn startup_snapshot_marks_only_the_bound_owner_workspace() {
-    let temp = tempfile::tempdir().unwrap();
-    let (mut app, owner, other, first, second) = setup(temp.path());
-    Arc::get_mut(&mut app).unwrap().runtimes.bound = Some((first.clone(), owner.id.clone()));
-    let snapshot = session_snapshot(&app, &owner).await.unwrap();
-    assert_eq!(snapshot["workspaces"][0]["id"], first);
-    assert_eq!(snapshot["workspaces"][0]["adopted"], true);
-    let other_snapshot = session_snapshot(&app, &other).await.unwrap();
-    assert_eq!(other_snapshot["workspaces"][0]["id"], second);
-    assert_eq!(other_snapshot["workspaces"][0]["adopted"], false);
-    // Installation ownership alone must not survive a lost Owner membership.
-    app.store
-        .sqlite()
-        .0
-        .lock()
-        .unwrap()
-        .execute(
-            "UPDATE members SET role='User' WHERE workspace=?1 AND user=?2",
-            [&first, &owner.id],
-        )
-        .unwrap();
-    assert_eq!(
-        session_snapshot(&app, &owner).await.unwrap()["workspaces"][0]["adopted"],
-        false
-    );
-}

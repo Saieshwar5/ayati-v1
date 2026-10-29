@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { restoredWorkspace } from './fixtures/restored_workspace.mjs';
-import { root, until } from './fixtures/goose_app.mjs';
+import { root, until } from './fixtures/polling.mjs';
 
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 

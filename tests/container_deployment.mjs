@@ -8,7 +8,7 @@ import { once } from 'node:events';
 import { get as httpGet } from 'node:http';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 test('deployable image runs separate API, migration and supervised worker containers', {
   timeout: 240000, skip: process.env.AYATI_CONTAINER_TEST !== '1',

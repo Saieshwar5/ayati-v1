@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { until } from './goose_app.mjs';
+import { until } from './polling.mjs';
 
 export const cloudEnvironment = {
   AYATI_CLOUD_WORKERS: '1',

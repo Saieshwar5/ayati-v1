@@ -6,7 +6,7 @@ import { fixtureProvider } from './fixtures/goose_provider.mjs';
 import { gooseAcp } from './fixtures/goose_acp.mjs';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { pinLoadProcess } from './fixtures/load_resources.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 import { quantiles } from './fixtures/load_metrics.mjs';
 
 const root = resolve(import.meta.dirname, '..');

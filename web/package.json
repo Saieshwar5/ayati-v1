@@ -7,11 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.mjs",
-    "check:e2e": "tsc -p e2e/tsconfig.json",
-    "test:e2e": "node e2e/run.ts",
-    "test:live": "node e2e/run.ts --live",
-    "test:report": "node e2e/run.ts --report"
+    "test": "node --import tsx --test tests/*.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

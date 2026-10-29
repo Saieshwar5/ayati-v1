@@ -20,7 +20,7 @@ test('agent drawer retains edits after revision conflicts and sends only explici
         return { ok: false, json: async () => ({ error: 'Profile changed. Reload before saving.' }) };
       }
       const data = path.endsWith('/session') ? { user: { id: 'owner' }, workspaces: [{ id: workspace, name: 'Test', role: 'Owner' }] }
-        : path.endsWith('/context') ? { adopted: false }
+        : path.endsWith('/context') ? {}
         : { agents: [{ profile }], creation_available: true, default_model: 'test-model', memory_available: false, browser_available: false };
       return { ok: true, json: async () => data };
     };

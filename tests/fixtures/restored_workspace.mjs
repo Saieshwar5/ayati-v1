@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { root, until } from './goose_app.mjs';
+import { root, until } from './polling.mjs';
 
 // Only used after the owning test stops its source API and executor.
 export async function restoredWorkspace(t, app, profiles) {

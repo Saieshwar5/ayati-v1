@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { access } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 test('API-only workspace and independent Goose workers retain and recover shared requests', {
   timeout: 180000, skip: !process.env.RELAY_TEST_DATABASE_URL,

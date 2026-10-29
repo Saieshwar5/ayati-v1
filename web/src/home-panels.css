@@ -1,9 +1,7 @@
 .home-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .home-panel-card { padding: 22px; border-radius: 12px; border: 1px solid var(--border-panel); background: var(--surface); min-width: 0; overflow-wrap: anywhere; font-size: .8125rem; line-height: 1.6; }
 .home-panel-card.panel-wide { grid-column: 1 / -1; }
-.panel-heading-actions { display: flex; gap: 16px; }
-.panel-heading-actions button { font-size: .75rem; }
-.panel-purpose, .panel-update-note { color: var(--muted); }
+.panel-purpose { color: var(--muted); }
 .home-panel-card details { margin-top: 14px; }
 .home-panel-card label { display: block; margin: 14px 0; }
 .home-panel-card summary { cursor: pointer; font-size: .75rem; }
@@ -19,27 +17,10 @@
 .panel-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 18px; flex-wrap: wrap; }
 .panel-footer small { font-size: .6875rem; color: var(--muted); }
 .panel-footer a { font-size: .75rem; text-decoration: none; }
-.panel-settings { color: var(--muted); }
-.panel-settings button { display: block; margin: 10px 0; }
-.panel-update-note { font-size: .75rem; }
 .panel-arrange { display: flex; gap: 12px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
-[data-panel-status] { font-size: .75rem; color: var(--muted); margin: 0 0 10px; }
-[data-panel-status]:empty { display: none; }
 .home-panel-card h4 { font-size: .8125rem; font-weight: 500; margin: 0 0 8px; }
 .home-panel-card .panel-purpose { margin: 8px 0; }
-.home-welcome { grid-column: 1 / -1; padding: 32px 24px; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; text-align: center; }
-.home-welcome .welcome-mark { display: none; }
-.home-welcome h3 { font-size: 1.125rem; margin: 0 0 8px; letter-spacing: -.025em; }
-.home-welcome p { color: var(--muted); font-size: .8125rem; margin-bottom: 20px; }
-.welcome-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
-.welcome-suggestions button { border-radius: 13px; }
-@media (max-width: 760px) { .home-panels { grid-template-columns: 1fr; } .home-panel-card { padding: 18px; } .home-welcome { padding: 24px; } }
-.panel-bars { display: flex; gap: 10px; padding-top: 12px; }
-.panel-bar-column { flex: 1; min-width: 0; text-align: center; }
-.panel-bar-track { height: 100px; display: flex; align-items: flex-end; }
-.panel-bar { width: 100%; background: color-mix(in srgb, var(--working) 18%, var(--surface)); border-radius: 7px 7px 3px 3px; }
-.panel-bar-column:last-child .panel-bar { background: var(--working); }
-.panel-bar-column span { display: block; margin-top: 6px; font-size: .6875rem; color: var(--muted); overflow-wrap: anywhere; }
+@media (max-width: 760px) { .home-panels { grid-template-columns: 1fr; } .home-panel-card { padding: 18px; } }
 /* Auto-placement follows owner order. Avoid dense packing, which can visually
    lift lower-priority cards ahead of higher-priority cards. */
 .home-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row; gap: 14px; align-items: stretch; }
@@ -52,15 +33,11 @@
 .home-panel-card .panel-snapshot { min-width: 0; }
 .panel-arrange { flex-wrap: wrap; gap: 8px; }
 .panel-arrange button { font-size: .6875rem; }
-.panel-drag { cursor: grab; }
-.panel-drop-target { box-shadow: 0 0 0 2px var(--working), 0 8px 24px var(--shadow); }
 @media (max-width: 1050px) { .home-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .home-panels { grid-template-columns: 1fr; } .home-panel-card, .home-panel-card[data-template=metric] { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: no-preference) { .home-panel-card { transition: box-shadow .16s ease; } }
 /* Preset heights keep an agent's longer refresh from reshaping the canvas. */
 .home-panels { grid-auto-rows: 112px; }
-/* The welcome view is content, not a preset-size agent panel. */
-.home-panels.is-empty { grid-auto-rows: auto; }
 .home-panel-card { grid-row: span 3; overflow-y: auto; }
 .home-panel-card[data-template=metric], .home-panel-card[data-template=brief] { grid-row: span 2; }
 .home-panel-card[data-template=metric][data-comparison=true], .home-panel-card[data-grouped=true] { grid-row: span 3; }
@@ -68,7 +45,6 @@
 .home-panel-card[data-template=metric] .panel-purpose { display: none; }
 .home-panel-card[data-template=metric] .panel-block { margin: 8px 0; }
 .home-panel-card[data-template=metric] .panel-footer { gap: 4px; padding-top: 7px; }
-.home-panel-card[data-template=metric] .panel-settings { margin-top: 7px; }
 .home-panel-card[data-template=legacy] { grid-row: span 4; }
 .home-panels.is-arranging .home-panel-card { grid-row: span 4; }
 @media (max-width: 560px) { .home-panels { grid-auto-rows: auto; } .home-panel-card, .home-panel-card[data-template=metric], .home-panel-card[data-template=brief], .home-panel-card[data-template=legacy], .home-panels.is-arranging .home-panel-card { grid-row: auto; max-height: 420px; } }

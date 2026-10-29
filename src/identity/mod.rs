@@ -1,5 +1,4 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
-pub mod adoption;
 mod agents;
 pub mod assignment_launcher;
 pub mod assignment_worker;
@@ -23,6 +22,7 @@ mod login_state;
 mod membership_schema;
 pub mod postgres;
 mod private_config;
+mod process_lock;
 mod profile;
 mod provider;
 mod rehearsals;
@@ -190,43 +190,23 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let (store, bound) = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
+    let store = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
         let pg = postgres::PgStore::connect(&url).await?;
         pg.verify_schema().await?;
         if data.join("postgres-identity").exists()
-            || adoption::has_identity_data(&data.join("identity.sqlite"))?
+            || postgres::cli::sqlite_identity_exists(&data.join("identity.sqlite"))?
         {
             pg.verify_import().await?;
         }
-        let bound = adoption::read_binding(&data.join("identity.sqlite"))?;
-        if let Some((workspace, owner)) = &bound {
-            anyhow::ensure!(
-                pg.role(workspace, owner).await? == "Owner",
-                "PostgreSQL does not contain this installation's owner; import identity first"
-            );
-        }
-        (database::Database::Postgres(pg), bound)
+        database::Database::Postgres(pg)
     } else {
         anyhow::ensure!(
             !data.join("postgres-identity").exists(),
             "Identity was migrated; configure RELAY_DATABASE_URL to avoid stale SQLite data"
         );
-        let store = Store::open(&data.join("identity.sqlite"))?;
-        let bound = adoption::binding(&store)?;
-        (store.into(), bound)
+        Store::open(&data.join("identity.sqlite"))?.into()
     };
-    anyhow::ensure!(
-        !hosting.origin.starts_with("https://") || bound.is_none(),
-        "Hosted identity requires a fresh data directory; local installation bindings are not portable"
-    );
-    // The bound installation must never be opened simultaneously by the old daemon.
-    let _installation_lock = if bound.is_some() {
-        Some(adoption::lock(&installation.join("daemon.lock"))?)
-    } else {
-        None
-    };
-    let mut runtimes = workspaces::Runtimes::new(data.join("workspaces"));
-    runtimes.bound = bound;
+    let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
     let app = Arc::new(App {
         library: library::Storage::from_env()?,
         provider,
