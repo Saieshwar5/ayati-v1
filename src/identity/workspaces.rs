@@ -13,7 +13,6 @@ pub(super) struct Runtimes {
     pub rehearsal_tasks: tokio::sync::Mutex<tokio::task::JoinSet<()>>,
     pub chat_slots: Arc<tokio::sync::Semaphore>,
     pub access_gate: tokio::sync::RwLock<()>,
-    pub bound: Option<(String, String)>,
     pub stopping: tokio_util::sync::CancellationToken,
     states: tokio::sync::Mutex<HashMap<String, crate::server::WebState>>,
 }
@@ -21,7 +20,6 @@ impl Runtimes {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
-            bound: None,
             access_gate: tokio::sync::RwLock::new(()),
             chat_wake: tokio::sync::Notify::new(),
             automation_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
@@ -49,11 +47,7 @@ impl Runtimes {
             return Ok(state.clone());
         }
         use std::os::unix::fs::PermissionsExt;
-        let adopted = self
-            .bound
-            .as_ref()
-            .is_some_and(|(workspace, _)| workspace == id);
-        let data = adoption::resolve(&self.root, &self.bound, id);
+        let data = self.root.join(id);
         std::fs::create_dir_all(&data)?;
         std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o700))?;
         let mut config = crate::config::Config::from_env()?;
@@ -62,19 +56,13 @@ impl Runtimes {
         let store = Arc::new(crate::storage::Store::open(&data.join("ayati.sqlite"))?);
         let files = Arc::new(crate::files::Files::new(&data, store.clone())?);
         let mut runtime = crate::runtime::config::GooseConfig::from_env(&data, &config.model);
-        // Never inherit the legacy installation's VM, browser or proof-tool authority.
-        if !adopted {
-            runtime.vm_manifest = Some(data.join("vms/local-agent/vm.json"));
-            runtime.browser = false;
-            runtime.proof_tool = false;
-        }
+        // Workspaces never inherit host VM, browser, proof-tool or connector authority.
+        runtime.vm_manifest = Some(data.join("vms/local-agent/vm.json"));
+        runtime.browser = false;
+        runtime.proof_tool = false;
         runtime.platform = Some(Arc::new(crate::platform::Platform::open(
             &data.join("business"),
-            if adopted {
-                crate::platform::composio::Composio::from_env()?
-            } else {
-                None
-            },
+            None,
         )?));
         runtime.validate_browser()?;
         let ready = runtime.configured();
@@ -139,18 +127,9 @@ pub(super) async fn membership(app: &App, user: &User, id: &str) -> ApiResult<St
     })
 }
 
-// Include the owner's layout-migration hint in the authenticated snapshot so startup
-// does not need a second provider-verified request just to read installation context.
 pub(super) async fn session_snapshot(app: &App, user: &User) -> Result<serde_json::Value> {
     let mut snapshot = app.store.snapshot(user).await?;
     snapshot["simulation"] = json!(app.simulation.is_some());
-    if let Some(entries) = snapshot["workspaces"].as_array_mut() {
-        for entry in entries {
-            entry["adopted"] = json!(app.runtimes.bound.as_ref().is_some_and(|(id, owner)| {
-                entry["id"] == *id && owner == &user.id && entry["role"] == "Owner"
-            }));
-        }
-    }
     Ok(snapshot)
 }
 
@@ -205,23 +184,8 @@ async fn dispatch_for(
         Err(e) => return e.into_response(),
     };
     let path = format!("/api/{rest}");
-    let adopted = app
-        .runtimes
-        .bound
-        .as_ref()
-        .is_some_and(|(id, _)| id == &workspace);
-    if adopted
-        && role == "Owner"
-        && !app
-            .runtimes
-            .bound
-            .as_ref()
-            .is_some_and(|(_, owner)| owner == &user.id)
-    {
-        return StatusCode::FORBIDDEN.into_response();
-    }
     if path == "/api/context" {
-        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner" && !hosting::hosted(&app),"adopted":adopted && role == "Owner"})).into_response();
+        return Json(json!({"user":user,"workspace":workspace,"role":role,"resource_access":role == "Owner" && !hosting::hosted(&app)})).into_response();
     }
     if hosting::hosted(&app) {
         if let Some(mut value) = member_view(&path, request.method()) {
@@ -250,8 +214,8 @@ async fn dispatch_for(
     }
     // Host-level shutdown and legacy external-connector identity are never tenant APIs.
     if path == "/api/shutdown"
-        || (!adopted
-            && (path.starts_with("/api/connections") || path.starts_with("/api/event-sources")))
+        || path.starts_with("/api/connections")
+        || path.starts_with("/api/event-sources")
     {
         return (StatusCode::FORBIDDEN, Json(json!({"error":"This service needs workspace-specific configuration before it can be used."}))).into_response();
     }

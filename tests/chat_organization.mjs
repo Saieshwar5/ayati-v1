@@ -6,7 +6,7 @@ import { mkdtemp,writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
-import { until,root } from './fixtures/goose_app.mjs';
+import { until,root } from './fixtures/polling.mjs';
 const {chromium}=createRequire(join(root,'web/package.json'))('@playwright/test');
 test('personal pins persist while archived threaded work answers, receives a separate approval and finishes without opening new intake',{
   skip:!process.env.RELAY_TEST_DATABASE_URL,timeout:240000,

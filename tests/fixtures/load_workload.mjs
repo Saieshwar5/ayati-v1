@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { until } from './goose_app.mjs';
+import { until } from './polling.mjs';
 import { traces, startPoints } from './load_metrics.mjs';
 
 export async function ready(app, count = 4) {

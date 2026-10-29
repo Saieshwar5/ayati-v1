@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { controllerToolsOnly } from './fixtures/worker_control.mjs';
-import { root, until } from './fixtures/goose_app.mjs';
+import { root, until } from './fixtures/polling.mjs';
 
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 test('saved context, working summary, corrections and privacy survive real controller and Goose execution', {

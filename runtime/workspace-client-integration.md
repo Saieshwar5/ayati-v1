@@ -11,31 +11,14 @@ closed; workspace identity and switching appear inside the account menu.
 There is no permanent account header. Menus dismiss with Escape or an outside
 click; switching still performs a full document navigation.
 
-## Existing installation and isolated workspaces
+## Isolated workspaces
 
-New workspaces have independent stores under
-`AYATI_DATA_DIR/identity/workspaces/<id>`. They do not inherit the original owner's
-VM, browser, files, tools or connectors. To attach an existing installation to its
-owner's workspace, stop both server modes and run:
-
-```
-ayati adopt-workspace <workspace-id>
-ayati identity
-```
-
-Adoption requires a single owner, an empty destination business store, no running
-or queued work, no active schedules and exclusive daemon/VM locks. It makes a
-private full installation backup with SQLite integrity checks before recording a
-singleton binding. Data and absolute VM paths stay in place. That owner's private
-client keeps the original agents, history, Apps, panels and execution settings.
-Only the bound owner receives this legacy authority. Other workspaces remain
-separate. `ayati serve` refuses to bypass the binding. With servers stopped,
-`ayati release-workspace <workspace-id>` removes the binding without deleting data.
-Backups retain credentials/private data and must never be committed or shared.
+Each workspace has an independent store under
+`AYATI_DATA_DIR/identity/workspaces/<id>`. Workspaces do not inherit host VM,
+browser, files, tools or connectors.
 
 Workspace switching performs a full document navigation. Drafts, uploads,
 controller tokens, receipts and Home layouts are scoped by user and workspace.
-Only the adopted owner's old Home layout is copied into its new scoped key.
 
 ## Chat, Agents and Users
 
@@ -83,7 +66,7 @@ to the explicitly bound owner; fresh workspaces need provider-specific setup.
 
 ## Validation and limits
 
-Rust fixture checks cover adoption/backup reopening, independent storage,
+Rust fixture checks cover independent storage,
 cross-workspace denial, shared conversation membership and deduplication,
 revocation, restart recovery, published-only App access, member-bound App sessions,
 read/write restrictions and retained agent removal. Existing App, Home panel,

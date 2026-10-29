@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');

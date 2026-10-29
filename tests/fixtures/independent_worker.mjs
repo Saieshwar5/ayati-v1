@@ -6,7 +6,7 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fixtureProvider } from './goose_provider.mjs';
-import { until } from './goose_app.mjs';
+import { until } from './polling.mjs';
 import { loadProfile, limitCommand } from './load_limits.mjs';
 import { imageRuntime } from './image_runtime.mjs';
 

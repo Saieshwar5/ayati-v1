@@ -6,7 +6,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
-import { until, root } from './fixtures/goose_app.mjs';
+import { until, root } from './fixtures/polling.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 test(
   'managed agents save personal Home drafts, exact review and second-device layout survive restart while source revocation hides retained snapshots',

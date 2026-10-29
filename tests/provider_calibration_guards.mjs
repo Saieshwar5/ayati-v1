@@ -11,7 +11,7 @@ import { microDollars, readPrivateKey, scriptedPlan, validatePlan } from './cali
 import { StreamObserver } from './calibration/sse.mjs';
 import { calibrationProxy, upstreamBody } from './calibration/proxy.mjs';
 import { scriptedUpstream } from './calibration/scripted.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const marker = 'CAL_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const input = { model: 'fixture', stream: true, messages: [{ role: 'user', content: marker }] };

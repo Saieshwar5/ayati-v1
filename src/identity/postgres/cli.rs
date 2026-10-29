@@ -16,8 +16,7 @@ pub async fn run(data: &Path, action: &str) -> Result<()> {
         }
         "import" => {
             let root = data.canonicalize()?.join("identity");
-            let _lock = crate::identity::adoption::lock(&root.join("server.lock"))?;
-            let _daemon = crate::identity::adoption::lock(&data.join("daemon.lock"))?;
+            let _lock = crate::identity::process_lock::exclusive(&root.join("server.lock"))?;
             db.verify_schema().await?;
             // Fence SQLite before committing PostgreSQL: a crash between these operations
             // must never silently resume writes against the old database.
@@ -39,6 +38,16 @@ pub async fn run(data: &Path, action: &str) -> Result<()> {
     }
     Ok(())
 }
+/// Whether an earlier SQLite identity store holds users that PostgreSQL must have imported.
+pub(in crate::identity) fn sqlite_identity_exists(path: &Path) -> Result<bool> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let db =
+        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    Ok(db.query_row("SELECT EXISTS(SELECT 1 FROM users)", [], |r| r.get(0))?)
+}
+
 impl PgStore {
     pub async fn verify_import(&self) -> Result<()> {
         ensure!(

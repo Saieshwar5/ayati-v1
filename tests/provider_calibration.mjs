@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 import { pinLoadProcess, sampleResources } from './fixtures/load_resources.mjs';
 import { actors, complete, jobs, ready } from './fixtures/load_workload.mjs';
 import { quantiles, startPoints, traces } from './fixtures/load_metrics.mjs';

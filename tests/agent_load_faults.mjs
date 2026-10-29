@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { pinLoadProcess } from './fixtures/load_resources.mjs';
 import { actors, requestCase, ready, send, jobs, complete } from './fixtures/load_workload.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 };
 

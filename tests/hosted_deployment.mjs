@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 test('HTTPS gateway and durable login state survive a real API process replacement', {
   timeout: 90000, skip: !process.env.RELAY_TEST_DATABASE_URL,

@@ -1,5 +1,5 @@
 import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-context';
-import type { PanelDefinition } from '../../panel-renderer';
+import type { PanelDefinition } from '../../panel-types';
 export type Snapshot = {
   revision: number;
   available: boolean;

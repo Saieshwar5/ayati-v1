@@ -1,4 +1,4 @@
-export type Membership = { id: string; name: string; role: string; adopted?: boolean };
+export type Membership = { id: string; name: string; role: string };
 type Session = { simulation?: boolean; user: { id: string; email: string; display_name?: string | null } | null; workspaces?: Membership[] };
 const match = (typeof location === 'undefined' ? '' : location.pathname).match(/^\/w\/([0-9a-f-]{36})\//);
 export const workspaceId = match?.[1] ?? '';
@@ -24,16 +24,6 @@ export async function enterWorkspace(): Promise<boolean> {
   if (!workspaceSession.user || !currentWorkspace()) { location.replace('/?view=account&choose=1'); return false; }
   if (workspaceSession.user.display_name === null) { location.replace('/?view=account&choose=1'); return false; }
   try { localStorage.setItem(`relay.last-workspace.${workspaceSession.user.id}`, workspaceId); } catch { /* Optional preference. */ }
-  // Migrate only the original owner's layout into its explicitly adopted workspace.
-  if (currentWorkspace()?.role === 'Owner' && currentWorkspace()?.adopted) {
-    try {
-      const key = storageScope('ayati.home.layout');
-      if (localStorage.getItem(key) === null) {
-        const old = localStorage.getItem('ayati.home.layout');
-        if (old) localStorage.setItem(key, old);
-      }
-    } catch { /* Layout storage is optional. */ }
-  }
   // Workspace/account switches reload the document; feature switches use view lifetimes.
   let checking = false;
   setInterval(async () => {

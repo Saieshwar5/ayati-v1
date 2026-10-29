@@ -37,3 +37,8 @@ export const CHART_VARIANTS: { id: ChartVariant; label: string }[] = [
   { id: 'line', label: 'Line' }, { id: 'bar', label: 'Bar' }, { id: 'area', label: 'Area' },
   { id: 'stacked_bar', label: 'Stacked bar' }, { id: 'donut', label: 'Donut' },
 ];
+
+export function panelTemplate(definition?: PanelDefinition | null): string {
+  if (definition?.sections.length !== 1) return 'legacy';
+  return definition.template ?? ({ metric: 'metric', metrics: 'metric', table: 'table', chart: 'chart', text: 'text', collection: 'collection', progress: 'progress', timeline: 'timeline' }[definition.sections[0].kind]);
+}

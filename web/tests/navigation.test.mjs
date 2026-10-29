@@ -12,7 +12,7 @@ registerHooks({ load(url, context, next) {
 
 const workspace = '11111111-1111-4111-8111-111111111111';
 const base = `/w/${workspace}/`;
-const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner', adopted: true }] };
+const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner' }] };
 const profiles = ['local-agent', 'assistant-two'].map((id, i) => ({ id, name: i ? 'Ramesh' : 'Relay', state: 'ready', editable: false, revision: 1, role: '', model: 'test', memory: false, browser: false, browser_available: false }));
 const directory = { agents: profiles.map(profile => ({ profile, activity: { pending_approvals: 0, pending_tasks: 0 } })), creation_available: true, limit: 4 };
 const response = data => ({ ok: true, status: 200, json: async () => data });
@@ -217,7 +217,7 @@ test('creating a channel validates membership and resets its dialog', async () =
   } });
 });
 
-test('Home separates outcomes from decisions and keeps customization behind its toolbar', async () => {
+test('Home separates outcomes from decisions', async () => {
   let permissions = [];
   const task = { id: 'finished', status: 'completed', detail: 'Report ready', request: 'Daily report', created_at: '2026-10-20 10:00:00' };
   await reactFixture(async ({ dom, render, click, update, button }) => {
@@ -231,7 +231,6 @@ test('Home separates outcomes from decisions and keeps customization behind its 
       assert.equal(document.querySelectorAll('.home-standard-panels .home-notifications').length, 1);
       assert.match(document.querySelector('.notification-preview').textContent, /Daily report/);
       assert.equal(document.querySelector('#home-decisions').hidden, true);
-      assert.match(document.querySelector('.home-welcome').textContent, /A home for what matters/);
       await click(document.querySelector('#home-history-toggle'));
       await click(document.querySelector('#home-updates'));
       assert.equal(document.querySelector('.attention-inbox').open, true);
@@ -245,51 +244,9 @@ test('Home separates outcomes from decisions and keeps customization behind its 
       assert.match(document.querySelector('.inbox-filters [aria-pressed=true]').textContent, /Decisions/);
       assert.match(document.querySelector('#home-attention').textContent, /Send supplier request/);
       await click(button('Close inbox'));
-      await click(button('Customize Home'));
-      assert.equal(document.querySelector('[data-arrange]').hidden, false);
-      assert.equal(document.querySelector('.home-standard-panels .panel-arrange'), null);
-      await click(document.querySelector('[data-arrange]'));
-      assert.equal(document.querySelector('[data-arrange]').hidden, true);
-      await click(document.querySelector('.home-toolbar-actions .primary'));
-      await until(update, () => document.querySelector('.creation-chooser')?.open);
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=home`, fetch: async path => {
     if (path.endsWith('/home')) return response({ agents: [{ profile: profiles[0], attention: { active: [], recent: [task], outcomes: [task], outcome_count: 1, permissions } }] });
-    return response(dataFor(path));
-  } });
-});
-
-test('Home keeps saved panels, arrangement order and content on a failed refresh', async () => {
-  let offline = false;
-  const panels = ['Sales', 'Stock'].map((title, i) => ({ id: `panel-${i}`, agent_id: 'local-agent', revision: 1,
-    state: 'active', updates_enabled: false, source_executions: [], updated_at: '2026-10-20 10:00:00',
-    active: { updated_at: '2026-10-20 10:00:00', definition: { title, purpose: 'Saved snapshot', template: 'metric', sections: [{ kind: 'metric', label: title, value: '42' }] } } }));
-  await reactFixture(async ({ dom, render, click, update, button }) => {
-    const setup = await prepare(dom);
-    try {
-      await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelectorAll('[data-panel]').length === 2);
-      await until(update, () => document.querySelector('.notifications-clear'));
-      assert.equal(document.querySelector('.home-welcome'), null);
-      assert.match(document.querySelector('.notifications-clear').textContent, /all caught up/);
-      await click(document.querySelector('.home-location'));
-      assert.equal(document.querySelector('.clock-dialog').open, true);
-      await click(document.querySelector('.clock-dialog [aria-label="Close location"]'));
-      assert.equal(document.querySelector('.panel-arrange'), null);
-      await click(button('Customize Home'));
-      const later = [...document.querySelector('[data-panel="panel-0"]').querySelectorAll('button')].find(b => b.textContent === 'Move later');
-      await click(later);
-      assert.equal(document.querySelector('[data-panel]').dataset.panel, 'panel-1');
-      await click(document.querySelector('[data-arrange]'));
-      offline = true;
-      await update(() => dom.window.dispatchEvent(new dom.window.Event('focus')));
-      assert.match(document.querySelector('[data-panel-status]').textContent, /connection lost/i);
-      assert.equal(document.querySelectorAll('[data-panel]').length, 2);
-      assert.equal(document.querySelector('[data-panel]').dataset.panel, 'panel-1');
-      assert.match(document.querySelector('[data-panel]').textContent, /42/);
-    } finally { await setup.cleanup(); }
-  }, { url: `http://localhost${base}?view=home`, fetch: async path => {
-    if (path.endsWith('/panels')) { if (offline) throw Error('offline'); return response({ panels, available: true }); }
     return response(dataFor(path));
   } });
 });

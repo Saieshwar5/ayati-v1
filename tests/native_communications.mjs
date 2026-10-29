@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 test('Native communication intake, isolated Goose context, restart and uncertain delivery', {
   timeout: 240000, skip: !process.env.RELAY_TEST_DATABASE_URL,

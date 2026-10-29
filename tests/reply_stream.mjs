@@ -6,7 +6,7 @@ import { createServer, request as forwardRequest } from 'node:http';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const options={skip:!process.env.RELAY_TEST_DATABASE_URL,timeout:120000};
 const ready=app=>until(()=>Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'"))>=2,'Prepared slots missing',35000);

@@ -46,7 +46,7 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
     std::fs::create_dir_all(root)?;
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
-    let lock = adoption::lock(&root.join("server.lock"))?;
+    let lock = process_lock::exclusive(&root.join("server.lock"))?;
     let root = root.canonicalize()?;
     let marker = root.join("SIMULATION");
     let database_name = parsed.path();

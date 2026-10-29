@@ -48,38 +48,6 @@ test('missing membership and expired sessions redirect before the client mounts'
   } finally { Object.assign(globalThis, original); }
 });
 
-test('one authenticated startup request migrates layouts only for the adopted owner', async () => {
-  const original = { location: globalThis.location, fetch: globalThis.fetch, localStorage: globalThis.localStorage, setInterval: globalThis.setInterval };
-  try {
-    const saved = new Map([['ayati.home.layout', 'original-layout']]);
-    globalThis.localStorage = { setItem: (k, v) => saved.set(k, v), getItem: k => saved.get(k) ?? null };
-    globalThis.setInterval = () => 0;
-    globalThis.location = { pathname: `/w/${first}/`, replace: () => assert.fail('unexpected redirect') };
-    let adopted = true;
-    let role = 'Owner';
-    const calls = [];
-    globalThis.fetch = async path => {
-      calls.push(path);
-      assert.equal(path, '/api/identity/session');
-      return { ok: true, status: 200, json: async () => ({ user: { id: 'owner' }, workspaces: [{ id: first, name: 'First', role, adopted }] }) };
-    };
-    const owner = await import('../src/workspace-context.ts?adopted-owner');
-    assert.equal(await owner.enterWorkspace(), true);
-    assert.deepEqual(calls, ['/api/identity/session']);
-    assert.equal(saved.get(owner.storageScope('ayati.home.layout')), 'original-layout');
-    saved.set(owner.storageScope('ayati.home.layout'), 'new-layout');
-    await owner.enterWorkspace();
-    assert.equal(saved.get(owner.storageScope('ayati.home.layout')), 'new-layout');
-    saved.delete(owner.storageScope('ayati.home.layout'));
-    adopted = false;
-    await owner.enterWorkspace();
-    assert.equal(saved.has(owner.storageScope('ayati.home.layout')), false);
-    adopted = true; role = 'Member';
-    await owner.enterWorkspace();
-    assert.equal(saved.has(owner.storageScope('ayati.home.layout')), false);
-  } finally { Object.assign(globalThis, original); }
-});
-
 test('accounts without a display name finish setup before mounting a workspace', async () => {
   const original = { location: globalThis.location, fetch: globalThis.fetch };
   try {

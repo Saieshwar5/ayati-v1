@@ -6,7 +6,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { pinLoadProcess, sampleResources } from './fixtures/load_resources.mjs';
 import { actors, requestCase, ready, send, jobs, complete, samples } from './fixtures/load_workload.mjs';
 import { summarize } from './fixtures/load_metrics.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000 };
 async function fixture(t, extra = {}) {

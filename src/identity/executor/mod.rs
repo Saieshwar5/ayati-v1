@@ -46,7 +46,7 @@ pub async fn serve(data: &Path) -> Result<()> {
             .context("Executor requires its private local bootstrap file")?,
     );
     std::fs::create_dir_all(data)?;
-    let _lock = super::adoption::lock(&data.join("executor.lock"))?;
+    let _lock = super::process_lock::exclusive(&data.join("executor.lock"))?;
     // After a crash no old session is reusable. The exclusive data-directory lock
     // and parent-death child boundary let this incarnation reclaim its scratch.
     let root = slots::root(data);

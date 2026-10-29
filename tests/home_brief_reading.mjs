@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { root } from './fixtures/goose_app.mjs';
+import { root } from './fixtures/polling.mjs';
 
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 test('personal briefs show short findings and keep long content keyboard-readable in a bounded panel', {

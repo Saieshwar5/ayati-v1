@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const soakSeconds = Number(process.env.AYATI_ASSIGNMENT_SOAK_SECONDS ?? 12);
 assert.ok(Number.isInteger(soakSeconds) && soakSeconds >= 12 && soakSeconds <= 240);

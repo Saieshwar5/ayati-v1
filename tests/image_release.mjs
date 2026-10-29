@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { pinLoadProcess, sampleResources } from './fixtures/load_resources.mjs';
 import { ready } from './fixtures/load_workload.mjs';
-import { until } from './fixtures/goose_app.mjs';
+import { until } from './fixtures/polling.mjs';
 
 const options={skip:!process.env.AYATI_TEST_IMAGE_CONFIG,timeout:180000};
 async function fixture(t) {
