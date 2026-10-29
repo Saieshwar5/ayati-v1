@@ -65,6 +65,10 @@ mod control_tests;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
+mod data_lifecycle;
+mod data_lifecycle_migration;
+#[cfg(test)]
+mod data_lifecycle_tests;
 #[cfg(test)]
 mod dispatch_lock_tests;
 mod durable_wait_migration;

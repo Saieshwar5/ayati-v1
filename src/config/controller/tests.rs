@@ -240,3 +240,28 @@ fn aws_identity_needs_no_key_and_the_test_endpoint_stays_on_loopback() {
     assert!(with("https://sts.amazonaws.com").is_err());
     assert!(controller(&[("AYATI_AWS_TEST_ENDPOINT", "http://127.0.0.1:9000")]).is_err());
 }
+
+#[test]
+fn archives_are_single_private_and_optional() {
+    assert!(
+        !controller(&[]).unwrap().archive.configured(),
+        "no archive: history stays in the database"
+    );
+    let local = controller(&[("AYATI_ARCHIVE_LOCAL_ROOT", "/private/archive")]).unwrap();
+    assert!(local.archive.configured() && local.archive.attempt_days == 90);
+    assert!(controller(&[("AYATI_ARCHIVE_LOCAL_ROOT", "relative")]).is_err());
+    assert!(
+        controller(&[
+            ("AYATI_ARCHIVE_LOCAL_ROOT", "/a"),
+            ("AYATI_ARCHIVE_S3_BUCKET", "b")
+        ])
+        .is_err()
+    );
+    assert!(
+        controller(&[
+            ("AYATI_PUBLIC_ORIGIN", "https://workspace.example.test"),
+            ("AYATI_ARCHIVE_LOCAL_ROOT", "/private/archive"),
+        ])
+        .is_err()
+    );
+}

@@ -4,6 +4,9 @@ use std::{collections::HashMap, fmt::Display, ops::RangeInclusive, str::FromStr}
 
 /// Every setting a Cuckoo process reads. Others with these prefixes are typos.
 const KNOWN: &[&str] = &[
+    "AYATI_ARCHIVE_LOCAL_ROOT",
+    "AYATI_ARCHIVE_S3_BUCKET",
+    "AYATI_ARCHIVE_S3_ENDPOINT",
     "AYATI_ASSIGNMENT_LEASE_SECONDS",
     "AYATI_ASSIGNMENT_RUN_SECONDS",
     "AYATI_AWS_EXECUTOR_CLUSTER_ARN",
@@ -40,6 +43,8 @@ const KNOWN: &[&str] = &[
     "AYATI_PREPARED_GOOSE_BIN",
     "AYATI_PUBLIC_ORIGIN",
     "AYATI_RELEASE",
+    "AYATI_RETAIN_ATTEMPT_DAYS",
+    "AYATI_RETAIN_SYNC_DAYS",
     "AYATI_SHUTDOWN_SECONDS",
     "AYATI_TRACE_START",
     "AYATI_WORKER_CONTROL_CA",

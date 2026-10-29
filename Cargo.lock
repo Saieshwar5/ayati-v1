@@ -838,6 +838,7 @@ dependencies = [
  "ayati-guest",
  "base64 0.22.1",
  "dotenvy",
+ "flate2",
  "futures-util",
  "image",
  "libc",

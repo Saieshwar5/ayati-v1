@@ -49,11 +49,14 @@ pub struct Controller {
     pub worker_providers: Vec<String>,
     pub default_model: String,
     pub library: Library,
+    pub archive: super::Archive,
     pub mcp_servers_file: Option<PathBuf>,
     pub event_sources_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
+    /// Days live-update notices are kept; older browser positions reload (D226).
+    pub retain_sync_days: i64,
     /// Seconds between pool metric snapshots; 0 turns them off.
     pub metrics_seconds: u64,
     /// JSON logs (containers): metrics are CloudWatch embedded metric lines.
@@ -184,12 +187,14 @@ impl Controller {
                 .text("AYATI_MODEL")
                 .unwrap_or_else(|| "accounts/fireworks/models/glm-5p3-flash".into()),
             library,
+            archive: super::Archive::read(env, hosted),
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),
             aws_test_endpoint: test_endpoint(env),
             metrics_seconds: env.number("AYATI_METRICS_SECONDS", 60, 0..=3600),
+            retain_sync_days: env.number("AYATI_RETAIN_SYNC_DAYS", 30, 1..=3650),
             log_json: env.text("AYATI_LOG_FORMAT").as_deref() == Some("json"),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
