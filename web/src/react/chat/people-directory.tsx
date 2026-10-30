@@ -32,7 +32,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
     togglePin({ kind: 'chat', id: await direct.ensure(target) });
   });
   return <Dialog title="People & agents" busy={direct.busy} status={direct.status} close={close}
-    footer={directory.role === 'Admin' ? <a className="ui-button" href={workspaceUrl('/?view=settings&scope=workspace&section=people')}>Invite people</a> : undefined}>
+    footer={directory.role === 'Admin' ? <a className="ui-button" href={workspaceUrl('/?view=settings&section=people')}>Invite people</a> : undefined}>
     <div className="people-directory">
       <input type="search" aria-label="Search people and agents" placeholder="Search by name or job" value={query} onChange={event => setQuery(event.target.value)} autoFocus />
       <div className="people-directory-filters" role="group" aria-label="Show">

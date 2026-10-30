@@ -21,9 +21,9 @@ export function AccountMenu() {
         <a key={entry.id} className="workspace-menu-action" href={`/w/${entry.id}/`} aria-current={entry.id === workspaceId ? 'true' : undefined}>
           {entry.name}{entry.id === workspaceId && <small>Current</small>}</a>)}</nav>
       <a className="workspace-menu-action" href="/?view=account&choose=1">Your workspaces</a><hr />
-      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&scope=personal&section=my-account')}>Edit profile</a>
+      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=profile')}>Edit profile</a>
       <a className="workspace-menu-action" href={workspaceUrl('/?view=account')}>My account</a>
-      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&scope=personal&section=appearance')}>Appearance</a><hr />
+      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=preferences')}>Appearance</a><hr />
       <button type="button" className="workspace-menu-action" disabled={mutation.busy} onClick={() => void mutation.run(async () => {
         try { await identityRequest('/logout', {}); location.assign('/?view=account'); }
         catch { throw new Error('Sign-out failed. Please try again.'); }

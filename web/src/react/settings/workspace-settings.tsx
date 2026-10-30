@@ -23,7 +23,7 @@ type Activity = { id: number; actor: string; action: string; target: string; sum
 const loadActivity = () => chatRequest<{ activity: Activity[] }>('/activity');
 export function WorkspaceActivity() {
   const resource = useResource(loadActivity);
-  return <section><header className="settings-section-heading"><div><h2>Activity</h2><p>The latest 100 workspace changes.</p></div><Button onClick={() => void resource.refresh().catch(() => {})}>Refresh activity</Button></header>
+  return <section><header className="settings-section-heading"><div><h2>Audit log</h2><p>The latest 100 changes to people, access and settings.</p></div><Button onClick={() => void resource.refresh().catch(() => {})}>Refresh</Button></header>
     {resource.error && <p role="alert">{resource.error}</p>}
     {!resource.error && resource.data?.activity.map(item => <article className="settings-activity" key={item.id}><div>{item.summary ? <span>{item.summary}</span> : <><strong>{item.actor}</strong><span>{item.action.replaceAll('_', ' ')}</span><small>{item.target}</small></>}</div><time dateTime={new Date(item.at * 1000).toISOString()}>{new Date(item.at * 1000).toLocaleString()}</time></article>)}
     {!resource.error && !resource.data && <p role="status">Loading activity…</p>}

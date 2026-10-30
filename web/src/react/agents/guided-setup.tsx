@@ -80,7 +80,7 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
           <label className="ui-field">What should this agent do?<textarea rows={4} maxLength={4000} value={form.purpose} onChange={e => setForm(old => ({ ...old, purpose: e.target.value }))} /></label>
           <section className="setup-accounts" aria-label="Eligible accounts"><h3>Choose approved accounts</h3>
             {setup.context.accounts.map(account => <label key={account.id}><input type="checkbox" aria-label={`Use ${account.name}`} checked={form.accounts.includes(account.id)} onChange={e => setForm(old => ({ ...old, accounts: e.target.checked ? [...old.accounts, account.id] : old.accounts.filter(id => id !== account.id) }))} /><span>{account.name}<small>{account.account || 'Configured business account'}</small></span></label>)}
-            {!setup.context.accounts.length && <p>No eligible accounts. An admin can approve and delegate an account in <a href={workspaceUrl('/?view=settings&scope=workspace&section=connections')}>Workspace Connections</a>.</p>}
+            {!setup.context.accounts.length && <p>No eligible accounts. An admin can approve and delegate an account in <a href={workspaceUrl('/?view=settings&section=connections')}>Workspace Connections</a>.</p>}
             <p className="ui-help">Review up to five accounts together. Other saved account permissions are managed separately.</p>
           </section>
           <label className="ui-field">Work conversation<select aria-label="Work conversation" value={form.chat} onChange={e => setForm(old => ({ ...old, chat: e.target.value }))}><option value="">Choose a conversation</option>{conversations.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>

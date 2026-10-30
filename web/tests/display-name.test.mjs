@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
+import { registerHooks } from 'node:module';
+registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 
 const user = { id: 'owner', email: 'owner@example.com', display_name: null };
 const workspace = { id: '11111111-1111-4111-8111-111111111111', name: 'Store', role: 'Admin' };

@@ -1,6 +1,5 @@
-import type { ReactNode } from 'react';
 import { identityRequest, workspaceId } from '../workspace-context';
-import { Button, Tabs } from './ui';
+import { Button } from './ui';
 import { useMutation, useResource } from './requests';
 
 type AgentGrant = { user: string; agent: string };
@@ -12,7 +11,7 @@ async function loadAccess() {
   return { directory };
 }
 
-export function MemberAccess({ user, mutation, membership }: { user: string; mutation: ReturnType<typeof useMutation>; membership: ReactNode }) {
+export function MemberAccess({ user, mutation }: { user: string; mutation: ReturnType<typeof useMutation> }) {
   const { data, setData, error, refresh } = useResource(loadAccess);
   const loading = <><p className="ui-help">{error || 'Loading access…'}</p>{error && <Button onClick={() => void refresh().catch(() => {})}>Retry</Button>}</>;
   const agents = data ? <>
@@ -29,5 +28,5 @@ export function MemberAccess({ user, mutation, membership }: { user: string; mut
       }} /><span>{agent.name}</span>
     </label>)}{!data.directory.agents.length && <p className="ui-empty">No agents available to share.</p>}
   </> : loading;
-  return <Tabs sections={[{ title: 'Membership', content: membership }, { title: 'Agents', content: agents }]} />;
+  return <section className="ui-form" aria-label="Agents">{agents}</section>;
 }
