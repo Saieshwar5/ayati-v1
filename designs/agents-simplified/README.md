@@ -10,13 +10,13 @@ Everyone, Selected people, or Only me.
 | File | Screen |
 | --- | --- |
 | `1-create-name-and-picture.png` | Create, step 1: name, job title, picture or upload |
-| `2-create-instructions.png` | Create, step 2: one instructions box with starters and "Write it for me"; locked Cuckoo rules |
+| `2-create-instructions.png` | Create, step 2: one instructions box with starters and "Write it for me", "Add skills" (D234); locked Cuckoo rules |
 | `3-create-people.png` | Create, step 3: who can talk to it, managers, who sees its activity |
 | `4-create-tools-and-safety.png` | Create, step 4: connectors from the admin, Allow / Ask first / Block (stricter only) |
 | `5-overview.png` | Overview: approvals waiting for you, this week, recent work, key facts |
 | `6-activity.png` | Activity: numbers, requests per day, who asked, filters, timeline |
 | `7-activity-details.png` | One request opened: every step, the exact fields approved, the reply |
-| `8-instructions.png` | Instructions, the locked Cuckoo rules, and what it knows |
+| `8-instructions.png` | Instructions, the locked Cuckoo rules, skills it can use (D234), and what it knows |
 | `9-tools.png` | Tools and safety for each action |
 | `10-schedules.png` | Schedules and triggers |
 | `11-environment.png` | Model picker; computer, browser, email, WhatsApp and phone marked "Coming later" |
@@ -30,6 +30,9 @@ Everyone, Selected people, or Only me.
 - Admins choose which models agents can use.
 - Knowledge sits inside Instructions.
 - Rules belong to the agent, not to one conversation.
+
+Updated 2026-10-30: the skills additions above, and the main menu in the new
+order: Home · Chat · Activity · Agents · Library · Settings.
 
 ## Removed
 

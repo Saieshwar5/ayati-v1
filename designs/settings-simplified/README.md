@@ -9,7 +9,7 @@ One left sidebar with two groups replaces the two rows of tabs:
 | Group | Member sees | Admin sees |
 | --- | --- | --- |
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
-| Workspace | This workspace (read-only) | Workspace, People, Connections, Usage, Billing, Activity |
+| Workspace | This workspace (read-only) | Workspace, People, Connections, Usage, Billing, Audit log |
 
 Usage and Billing are shown with a "Coming later" badge. They are not built yet.
 
@@ -18,12 +18,12 @@ Usage and Billing are shown with a "Coming later" badge. They are not built yet.
 | `1-member-profile.png` | Photo, name, job title, About; sign-in email read-only |
 | `2-member-preferences.png` | Theme and notification defaults on one page |
 | `3-member-this-workspace.png` | Who the admins are, what admins can see, Leave workspace |
-| `4-admin-workspace.png` | Name, colour, time zone, approval backup delay; delete with a 7-day undo |
+| `4-admin-workspace.png` | Name, colour, time zone, approval backup delay, models; delete with a 7-day undo |
 | `5-admin-people.png` | People and invitations, Admin/Member roles |
 | `6-admin-connections.png` | Connectors, external MCP servers and computers |
 | `7-admin-usage.png` | Spend per model by day, top agents, a table by model (example numbers) |
 | `8-admin-billing.png` | Plan, this month, payment method, invoices: empty during early access |
-| `9-admin-activity.png` | Readable activity with filters |
+| `9-admin-audit-log.png` | Audit log: readable changes with filters |
 | `10-help.png` | Report a problem to the Cuckoo team, plus short guides |
 | `11-phone.png` | The sidebar becomes a list; each item opens its page |
 
@@ -41,11 +41,13 @@ The Usage chart colours are the validated categorical slots `#2a78d6`, `#eb6834`
 with a legend and a table of exact values. Every name and number in these screens is
 an example.
 
-Later changes that these images do not show yet:
+Updated 2026-10-30 to match later decisions:
 
 - **Audit log:** the admin "Activity" page is renamed "Audit log" (D235), so it is
   not confused with the main-menu Activity page.
-- **Models:** the Workspace page gains a "Models" setting for the default model
-  and which models agents may use (D233).
+- **Models:** the Workspace page has a "Models" setting for the default model and
+  which models agents may use (D233).
+- **Main menu:** the rail shows the new order: Home · Chat · Activity · Agents ·
+  Library · Settings.
 
 `settings.fig` is the editable OpenPencil source.
