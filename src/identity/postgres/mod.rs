@@ -194,6 +194,10 @@ mod home_update_runs;
 mod home_views;
 #[cfg(test)]
 mod interactive_reserve_tests;
+mod invite_link_migration;
+#[cfg(test)]
+mod invite_link_tests;
+pub(crate) mod invite_links;
 mod jobs;
 mod library;
 #[cfg(test)]

@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { enterWorkspace, workspaceId } from './workspace-context';
 import { AccountPage } from './react/account';
+import { InvitePage } from './react/access/invite-page';
 import './style.css';
 import './workspace.css';
 import './workspace-menus.css';
@@ -24,6 +25,8 @@ async function start(): Promise<void> {
   } catch { /* System preference is the fallback. */ }
   flushSync(() => root.render(<main className="workspace-loading" role="status">Opening Cuckoo…</main>));
   if (new URLSearchParams(location.search).get("view") === "simulation") { root.render(<StrictMode><SimulationPage /></StrictMode>); return; }
+  const invite = /^\/invite\/([A-Za-z0-9_-]{20,100})\/?$/.exec(location.pathname);
+  if (invite) { root.render(<StrictMode><InvitePage token={invite[1]} /></StrictMode>); return; }
   if (!await enterWorkspace()) return;
   // Outside a workspace the account page is the sign-in and workspace chooser.
   if (!workspaceId) { root.render(<StrictMode><AccountPage /></StrictMode>); return; }

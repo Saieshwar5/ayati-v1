@@ -164,6 +164,7 @@ async fn sign_in_survives_api_replacement_but_state_and_sessions_cannot_be_repla
         state: "expected".into(),
         verifier: "verifier".into(),
         invitation: None,
+        return_to: None,
         expires: now() + 60,
     };
     third.store.save_login_flow(&hash, &pending).await.unwrap();
@@ -200,6 +201,7 @@ async fn login_intake_is_bounded_and_concurrent_callbacks_consume_state_once() {
         state: "state".into(),
         verifier: "verifier".into(),
         invitation: None,
+        return_to: None,
         expires: now() + 600,
     };
     let hash = identity::digest("one");

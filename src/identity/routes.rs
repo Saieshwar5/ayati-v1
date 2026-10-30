@@ -14,6 +14,18 @@ pub(super) struct LoginQuery {
     method: Option<String>,
     /// Pre-fills AuthKit's email field (WorkOS `login_hint`).
     email: Option<String>,
+    /// Where to land after signing in; only Cuckoo invite links are accepted.
+    return_to: Option<String>,
+}
+
+/// `/invite/<secret>` only, so sign-in can never redirect to another site.
+fn safe_return(path: &str) -> bool {
+    path.strip_prefix("/invite/").is_some_and(|token| {
+        (20..=100).contains(&token.len())
+            && token
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    })
 }
 pub(super) async fn login(
     State(app): State<Shared>,
@@ -32,6 +44,10 @@ pub(super) async fn login(
     check(
         input.method.as_deref().is_none_or(|m| m == "google"),
         "Unknown sign-in method",
+    )?;
+    check(
+        input.return_to.as_deref().is_none_or(safe_return),
+        "Invalid return page",
     )?;
     let hint = input
         .email
@@ -81,6 +97,7 @@ pub(super) async fn login(
             state,
             verifier,
             invitation: input.invitation_token,
+            return_to: input.return_to,
             expires: now() + 600,
         },
     )
@@ -102,7 +119,7 @@ pub(super) async fn callback(
     headers: HeaderMap,
     Query(input): Query<Callback>,
 ) -> Response {
-    let result: anyhow::Result<String> = async {
+    let result: anyhow::Result<(String, Option<String>)> = async {
         let token = cookie(&headers, FLOW).context("Missing sign-in cookie")?;
         let pending = login_state::take(&app, &digest(&token)).await?;
         anyhow::ensure!(
@@ -142,19 +159,39 @@ pub(super) async fn callback(
         app.store
             .login(provider, &email, &digest(&token), &sid)
             .await?;
-        Ok(token)
+        Ok((token, pending.return_to))
     }
     .await;
     let mut response = match result {
-        Ok(token) => {
-            let mut response = Redirect::to("/?view=account").into_response();
+        Ok((token, return_to)) => {
+            let target = return_to.filter(|path| safe_return(path));
+            let mut response =
+                Redirect::to(target.as_deref().unwrap_or("/?view=account")).into_response();
             response
                 .headers_mut()
                 .append(header::SET_COOKIE, set_cookie(&app, SESSION, &token, 3600));
             response
         }
         // Deliberately do not expose the provider callback, code, or upstream error body.
-        Err(_) => Redirect::to("/index.html?view=account&login_error=1").into_response(),
+        // The log names only our own failure reason (provider errors become one category).
+        Err(error) => {
+            let message = error.to_string();
+            let known = [
+                "Missing sign-in cookie",
+                "Sign-in expired",
+                "Sign-in state mismatch",
+                "Sign-in cancelled",
+                "Missing authorization code",
+                "Verify your email before continuing",
+            ];
+            let reason = known
+                .iter()
+                .find(|k| message.starts_with(**k))
+                .copied()
+                .unwrap_or("Provider exchange or session failed");
+            tracing::warn!(reason, "Sign-in callback refused");
+            Redirect::to("/index.html?view=account&login_error=1").into_response()
+        }
     };
     response
         .headers_mut()
@@ -272,7 +309,11 @@ pub(super) async fn invite(
         provider_id.is_some(),
         "Email delivery could not be confirmed. No access was granted. Cancel this invitation before trying again.",
     )?;
-    Ok(Json(json!({"id":id})))
+    // The owner can also send the Cuckoo link themselves (shown once).
+    let token = app.store.issue_invite_link(&user, &workspace, &id).await?;
+    Ok(Json(
+        json!({"id": id, "link": format!("{}/invite/{token}", app.config.origin)}),
+    ))
 }
 pub(super) async fn accept(
     State(app): State<Shared>,

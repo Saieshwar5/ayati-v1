@@ -1,6 +1,6 @@
 # Workspace access: invite-only early access
 
-Implemented 2026-10-30 (schema 41). Design: `designs/workspace-access/`.
+Implemented 2026-10-30 (schemas 41–42). Design: `designs/workspace-access/`.
 
 - **Anyone may sign in** (WorkOS AuthKit; Google or email). A login alone reaches
   nothing: without a workspace or an invitation the person sees "not in a workspace
@@ -18,6 +18,29 @@ Implemented 2026-10-30 (schema 41). Design: `designs/workspace-access/`.
 - **The creator is the owner** and invites people by email as before; invitees accept
   (or decline) on the workspace page after signing in with that email. No code is needed
   to join, and people may belong to several workspaces.
+
+## Joining by invite link (schema 42)
+
+- An owner invites an email in Settings → People. WorkOS emails the invitation, and the
+  owner also gets a **Cuckoo invite link** (`/invite/<secret>`, shown once, stored as a
+  hash) to send on WhatsApp or chat. **Copy new link** on a pending invitation replaces
+  it; older links stop working. Links live as long as the invitation (7 days).
+- The link always opens a Cuckoo page, signed in or not: who invited you to which
+  workspace, the masked invited address and the expiry. Opening it never accepts it.
+- Signing in from the page (`/auth/login?return_to=/invite/<secret>`, Google or email)
+  returns to it. Only the invited email can **Accept and join**; anyone else sees whom
+  the invitation is for and can switch account. Expired, withdrawn and unknown links
+  explain what to do. After accepting: **Set up your profile** (name, optional job
+  title), then the workspace opens; a used link offers "Open <workspace>".
+- Routes: `GET /api/identity/invite-links/{secret}` (public preview),
+  `POST …/{secret}/accept`, `POST …/{secret}/decline`,
+  `POST /api/identity/workspaces/{id}/invitations/{invitation}/link` (managers).
+- Sign-in failures are logged with a reason category only (no tokens or emails).
+
+**WorkOS setting required:** in the WorkOS dashboard (each environment) set the
+*Initiate login URL* to `https://<host>/auth/login`. On 2026-10-30 the staging
+environment still pointed to `http://127.0.0.1:8765/auth/login`, so invitation emails
+opened a blank page on everyone else's device.
 
 Admin routes: `GET/POST /api/identity/admin/workspace-codes`,
 `POST /api/identity/admin/workspace-codes/{id}/revoke` (403 for everyone else).

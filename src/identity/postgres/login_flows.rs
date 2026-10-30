@@ -22,18 +22,34 @@ impl PgStore {
             .context("Cannot count sign-in attempts")?
             .try_get("", "n")?;
         ensure!(count < 100, "Too many sign-in attempts. Try again later");
-        execute(&tx, "INSERT INTO relay_login_flows(hash,state,verifier,invitation,expires) VALUES($1,$2,$3,$4,$5)",
-            vec![hash.into(),flow.state.clone().into(),flow.verifier.clone().into(),flow.invitation.clone().into(),flow.expires.into()]).await?;
+        // return_to (schema 42) is only named when used, so older schemas keep working.
+        let (column, value) = if flow.return_to.is_some() {
+            (",return_to", ",$6")
+        } else {
+            ("", "")
+        };
+        let mut args: Vec<sea_orm::Value> = vec![
+            hash.into(),
+            flow.state.clone().into(),
+            flow.verifier.clone().into(),
+            flow.invitation.clone().into(),
+            flow.expires.into(),
+        ];
+        if let Some(path) = &flow.return_to {
+            args.push(path.clone().into());
+        }
+        execute(&tx, &format!("INSERT INTO relay_login_flows(hash,state,verifier,invitation,expires{column}) VALUES($1,$2,$3,$4,$5{value})"), args).await?;
         tx.commit().await?;
         Ok(())
     }
     pub(in crate::identity) async fn take_login_flow(&self, hash: &str) -> Result<Option<Pending>> {
-        let row = query(&self.db, "DELETE FROM relay_login_flows WHERE hash=$1 RETURNING state,verifier,invitation,expires", vec![hash.into()]).await?;
+        let row = query(&self.db, "DELETE FROM relay_login_flows f WHERE hash=$1 RETURNING state,verifier,invitation,expires,to_jsonb(f)->>'return_to' AS return_to", vec![hash.into()]).await?;
         row.map(|r| {
             Ok(Pending {
                 state: r.try_get("", "state")?,
                 verifier: r.try_get("", "verifier")?,
                 invitation: r.try_get("", "invitation")?,
+                return_to: r.try_get("", "return_to")?,
                 expires: r.try_get("", "expires")?,
             })
         })
