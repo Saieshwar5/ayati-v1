@@ -144,6 +144,7 @@ Resources:
               awslogs-region: {Ref: 'AWS::Region'}
               awslogs-stream-prefix: setup
         # The runtime role gets data rights only (runtime/hosted-deployment.md).
+        # Aurora's owner is not a superuser, so it may not name SUPERUSER in ALTER ROLE.
         - Name: grants
           Image: {Ref: PsqlImage}
           Essential: true
@@ -152,8 +153,8 @@ Resources:
           Command:
             - |
               psql -v ON_ERROR_STOP=1 -v pw="$RUNTIME_PASSWORD" <<'SQL'
-              SELECT 'CREATE ROLE relay_app' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'relay_app')\gexec
-              ALTER ROLE relay_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'pw';
+              SELECT 'CREATE ROLE relay_app NOSUPERUSER NOCREATEDB NOCREATEROLE' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'relay_app')\gexec
+              ALTER ROLE relay_app WITH LOGIN PASSWORD :'pw';
               GRANT CONNECT ON DATABASE ayati TO relay_app;
               GRANT USAGE ON SCHEMA public TO relay_app;
               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay_app;

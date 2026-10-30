@@ -69,7 +69,7 @@ foundation() {
     [ "${1:-}" = --with-certificate ] && certificate=true
     layer=permanent deploy_stack ayati-foundation foundation.yaml Domain="$AYATI_DOMAIN" \
         BudgetEmail="$AYATI_BUDGET_EMAIL" WithCertificate="$certificate"
-    say "Add these NS records for $AYATI_DOMAIN at the registrar"
+    say "NS records for $AYATI_DOMAIN (added once at the registrar; they never change)"
     output ayati-foundation NameServers | tr ',' '\n'
 }
 
