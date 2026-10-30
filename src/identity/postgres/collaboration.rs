@@ -57,7 +57,7 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         ensure!(
             role(&tx, w, &user.id).await? == "Admin",
-            "Only the owner can create shared agents"
+            "Only admins can create shared agents"
         );
         let changed = execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model,owner_id,creator_id) VALUES($1,$2,$3,$4,$5,$6,$6) ON CONFLICT(workspace,id) DO NOTHING",vec![w.into(),id.into(),name.into(),description.into(),model.into(),user.id.clone().into()]).await?;
         if changed == 0 {
@@ -240,7 +240,7 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         ensure!(
             role(&tx, w, &user.id).await? == "Admin",
-            "Only the owner can inspect queue metrics"
+            "Only admins can inspect queue metrics"
         );
         let result=query(&tx,"SELECT jsonb_build_object('measured_jobs',count(*),'queue_p50_ms',percentile_cont(0.5) WITHIN GROUP(ORDER BY started_ms-created_ms),'queue_p95_ms',percentile_cont(0.95) WITHIN GROUP(ORDER BY started_ms-created_ms),'execution_p95_ms',percentile_cont(0.95) WITHIN GROUP(ORDER BY finished_ms-started_ms),'end_to_end_p95_ms',percentile_cont(0.95) WITHIN GROUP(ORDER BY finished_ms-created_ms),'retry_attempts',coalesce(sum(attempts-1),0)) AS data FROM relay_chat_jobs WHERE workspace=$1 AND created_ms IS NOT NULL AND started_ms IS NOT NULL AND finished_ms IS NOT NULL",vec![w.into()]).await?.context("Missing metrics")?.try_get("","data")?;
         tx.commit().await?;
@@ -250,7 +250,7 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         ensure!(
             role(&tx, w, &user.id).await? == "Admin",
-            "Only the owner can inspect company metrics"
+            "Only admins can inspect company metrics"
         );
         let result=query(&tx,"SELECT jsonb_build_object('messages',(SELECT count(*) FROM relay_chat_messages WHERE workspace=$1),'jobs',(SELECT count(*) FROM relay_chat_jobs WHERE workspace=$1),'pending',(SELECT count(*) FROM relay_chat_jobs WHERE workspace=$1 AND state<>'finished'),'objects',(SELECT count(*) FROM relay_objects WHERE workspace=$1),'feedback',(SELECT count(*) FROM relay_feedback WHERE workspace=$1)) AS data",vec![w.into()]).await?.context("Missing metrics")?.try_get("","data")?;
         tx.commit().await?;
