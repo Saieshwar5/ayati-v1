@@ -7,6 +7,8 @@ original scope; it does not establish acceptance for this new release.
 Agent replies run only on pooled executors (2026-10-29): the Compose template runs
 the controller and an independently scaled executor service that reaches it over
 TLS on a private network. It is not yet an AWS on-demand task launcher.
+On AWS the same image runs as ECS Fargate services created and deleted per test
+window by [deploy/aws/env.sh](../deploy/aws/README.md) (2026-10-30, not yet run).
 
 This increment packages the website, controller and executors and
 adds an explicit HTTPS gateway configuration. It prepares a private cloud

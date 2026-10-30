@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Temporary Ayati runtime identities, each inside the ayati-runtime-boundary.
+  Execution roles start containers (image, logs, the secrets that task needs);
+  task roles are what the running process may do.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Environment:
+    Type: String
+    AllowedPattern: 'ayati-[a-z0-9-]{1,18}'
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Mappings:
+  Secrets:
+    Names:
+      Workos: ayati/workos-api-key
+      Model: ayati/model-api-key
+      WorkerServer: ayati/worker-control-server
+      WorkerCa: ayati/worker-control-ca
+Resources:
+  ControllerExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-controller-exec'}
+      PermissionsBoundary: {Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ayati-runtime-boundary'}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+      ManagedPolicyArns:
+        - {Fn::Sub: 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'}
+      Policies:
+        - PolicyName: ControllerSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}
+                  - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, Workos]}}]}
+                  - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, WorkerServer]}}]}
+  ExecutorExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-executor-exec'}
+      PermissionsBoundary: {Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ayati-runtime-boundary'}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+      ManagedPolicyArns:
+        - {Fn::Sub: 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'}
+      Policies:
+        - PolicyName: ExecutorSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, Model]}}]}
+                  - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, WorkerCa]}}]}
+  SetupExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-setup-exec'}
+      PermissionsBoundary: {Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ayati-runtime-boundary'}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+      ManagedPolicyArns:
+        - {Fn::Sub: 'arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'}
+      Policies:
+        - PolicyName: DatabasePasswords
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - {Fn::ImportValue: {Fn::Sub: '${Environment}-AdminSecretArn'}}
+                  - {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}
+  ControllerTask:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-controller'}
+      PermissionsBoundary: {Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ayati-runtime-boundary'}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+      Policies:
+        - PolicyName: FilesExecutorProofAndEcsExec
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::${Environment}-${AWS::AccountId}-${AWS::Region}-files'}
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::${Environment}-${AWS::AccountId}-${AWS::Region}-files/*'}
+              # Checks that a registering executor is a running task of the
+              # configured cluster, task definition and role (worker-control.md).
+              - Effect: Allow
+                Action: [ecs:DescribeTasks, ecs:DescribeTaskDefinition]
+                Resource: '*'
+              - Effect: Allow
+                Action: [ssmmessages:CreateControlChannel, ssmmessages:CreateDataChannel, ssmmessages:OpenControlChannel, ssmmessages:OpenDataChannel]
+                Resource: '*'
+  # Executors need no AWS permission: STS GetCallerIdentity is always allowed,
+  # and the controller, not the executor, calls ECS. ECS Exec is for debugging.
+  ExecutorTask:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: {Fn::Sub: '${Environment}-executor'}
+      PermissionsBoundary: {Fn::Sub: 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ayati-runtime-boundary'}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ecs-tasks.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+      Policies:
+        - PolicyName: EcsExecOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ssmmessages:CreateControlChannel, ssmmessages:CreateDataChannel, ssmmessages:OpenControlChannel, ssmmessages:OpenDataChannel]
+                Resource: '*'
+Outputs:
+  ControllerExecution:
+    Value: {Fn::GetAtt: [ControllerExecution, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ControllerExecution'}}
+  ExecutorExecution:
+    Value: {Fn::GetAtt: [ExecutorExecution, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ExecutorExecution'}}
+  SetupExecution:
+    Value: {Fn::GetAtt: [SetupExecution, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-SetupExecution'}}
+  ControllerTask:
+    Value: {Fn::GetAtt: [ControllerTask, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ControllerTask'}}
+  ExecutorTask:
+    Value: {Fn::GetAtt: [ExecutorTask, Arn]}
+    Export: {Name: {Fn::Sub: '${Environment}-ExecutorTask'}}

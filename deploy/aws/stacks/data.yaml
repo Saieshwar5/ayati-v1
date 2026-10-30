@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Temporary Ayati test data: Aurora PostgreSQL Serverless v2 and a private files
+  bucket. Both are deleted with the environment (no final snapshot): test windows
+  start from an empty database.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Environment:
+    Type: String
+    AllowedPattern: 'ayati-[a-z0-9-]{1,18}'
+  PostgresVersion:
+    Type: String
+    Default: '18.6'
+    AllowedPattern: '18\.[0-9]+'
+    Description: Orderable Aurora PostgreSQL 18 version for db.serverless in Mumbai.
+  MinCapacity:
+    Type: Number
+    Default: 0.5
+    Description: Aurora capacity units when idle.
+  MaxCapacity:
+    Type: Number
+    Default: 4
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Resources:
+  Files:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: {Fn::Sub: '${Environment}-${AWS::AccountId}-${AWS::Region}-files'}
+      OwnershipControls: {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      VersioningConfiguration: {Status: Enabled}
+  FilesPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: {Ref: Files}
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - {Fn::GetAtt: [Files, Arn]}
+              - {Fn::Sub: '${Files.Arn}/*'}
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+  # Generated without punctuation so the setup task can place them in URLs
+  # without escaping. The runtime password never reaches the migration owner.
+  AdminPassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: {Fn::Sub: 'ayati/${Environment}/database-admin'}
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "ayati_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludePunctuation: true
+  RuntimePassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: {Fn::Sub: 'ayati/${Environment}/database-runtime'}
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "relay_app"}'
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludePunctuation: true
+  SubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Isolated database subnets
+      SubnetIds:
+        Fn::Split: [',', {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseSubnets'}}]
+  ClusterParameters:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: Require encrypted PostgreSQL connections
+      Family: aurora-postgresql18
+      Parameters: {rds.force_ssl: '1'}
+  Cluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBClusterIdentifier: {Fn::Sub: '${Environment}-core'}
+      Engine: aurora-postgresql
+      EngineVersion: {Ref: PostgresVersion}
+      DatabaseName: ayati
+      MasterUsername: ayati_admin
+      MasterUserPassword: {Fn::Sub: '{{resolve:secretsmanager:${AdminPassword}:SecretString:password}}'}
+      DBSubnetGroupName: {Ref: SubnetGroup}
+      DBClusterParameterGroupName: {Ref: ClusterParameters}
+      VpcSecurityGroupIds:
+        - {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseGroup'}}
+      StorageEncrypted: true
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      EnableCloudwatchLogsExports: [postgresql]
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: {Ref: MinCapacity}
+        MaxCapacity: {Ref: MaxCapacity}
+  # One writer; a reader in a second zone arrives with the Step 8 failover drills.
+  Writer:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBClusterIdentifier: {Ref: Cluster}
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: false
+Outputs:
+  BucketName:
+    Value: {Ref: Files}
+    Export: {Name: {Fn::Sub: '${Environment}-BucketName'}}
+  DatabaseHost:
+    Value: {Fn::GetAtt: [Cluster, Endpoint.Address]}
+    Export: {Name: {Fn::Sub: '${Environment}-DatabaseHost'}}
+  AdminSecretArn:
+    Description: Migration and grants only; never given to a running service.
+    Value: {Ref: AdminPassword}
+    Export: {Name: {Fn::Sub: '${Environment}-AdminSecretArn'}}
+  RuntimeSecretArn:
+    Value: {Ref: RuntimePassword}
+    Export: {Name: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}

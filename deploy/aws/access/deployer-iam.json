@@ -1,0 +1,81 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadIam",
+      "Effect": "Allow",
+      "Action": ["iam:Get*", "iam:List*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CreateRuntimeRolesOnlyInsideTheBoundary",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePermissionsBoundary",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::${ACCOUNT}:role/ayati-*",
+      "Condition": {
+        "StringEquals": {"iam:PermissionsBoundary": "arn:aws:iam::${ACCOUNT}:policy/ayati-runtime-boundary"}
+      }
+    },
+    {
+      "Sid": "ManageAndDeleteRuntimeRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::${ACCOUNT}:role/ayati-*"
+    },
+    {
+      "Sid": "HandRuntimeRolesToEcsTasks",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::${ACCOUNT}:role/ayati-*",
+      "Condition": {"StringEquals": {"iam:PassedToService": "ecs-tasks.amazonaws.com"}}
+    },
+    {
+      "Sid": "ServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": [
+            "ecs.amazonaws.com",
+            "rds.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com",
+            "ecs.application-autoscaling.amazonaws.com",
+            "servicediscovery.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverWeakenAccessOrBoundary",
+      "Effect": "Deny",
+      "Action": [
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverChangeTheAccessRoles",
+      "Effect": "Deny",
+      "NotAction": ["iam:Get*", "iam:List*"],
+      "Resource": "arn:aws:iam::${ACCOUNT}:role/ayati-access-*"
+    }
+  ]
+}

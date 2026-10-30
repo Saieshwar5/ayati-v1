@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Ayati permanent cloud layer (about $2/month): image registry, budget alerts,
+  the delegated development DNS zone and its wildcard certificate. Temporary
+  test environments are created and deleted around it.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Domain:
+    Type: String
+    Default: dev.cuckoo.onl
+    Description: Subdomain delegated to Route 53 by NS records at the registrar.
+  BudgetEmail:
+    Type: String
+    AllowedPattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 200
+    MinValue: 10
+  WithCertificate:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: Set true only after the NS delegation resolves; validation waits for it.
+Conditions:
+  Certificate: {Fn::Equals: [{Ref: WithCertificate}, 'true']}
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Resources:
+  Registry:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: ayati/runtime
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration: {ScanOnPush: true}
+      EncryptionConfiguration: {EncryptionType: AES256}
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules": [{"rulePriority": 1, "description": "Keep the ten newest images",
+            "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 10},
+            "action": {"type": "expire"}}]}
+  Zone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: {Ref: Domain}
+      HostedZoneConfig: {Comment: Ayati test environments; delegated from the registrar}
+  Wildcard:
+    Type: AWS::CertificateManager::Certificate
+    Condition: Certificate
+    Properties:
+      DomainName: {Ref: Domain}
+      SubjectAlternativeNames: [{Fn::Sub: '*.${Domain}'}]
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: {Ref: Domain}
+          HostedZoneId: {Ref: Zone}
+  Budget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: ayati-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: {Ref: MonthlyBudgetUsd}, Unit: USD}
+      # Alerts only; AWS has no hard spending cap. Every window ends with env.sh down.
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 25}
+          Subscribers: [{SubscriptionType: EMAIL, Address: {Ref: BudgetEmail}}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 50}
+          Subscribers: [{SubscriptionType: EMAIL, Address: {Ref: BudgetEmail}}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 75}
+          Subscribers: [{SubscriptionType: EMAIL, Address: {Ref: BudgetEmail}}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100}
+          Subscribers: [{SubscriptionType: EMAIL, Address: {Ref: BudgetEmail}}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100}
+          Subscribers: [{SubscriptionType: EMAIL, Address: {Ref: BudgetEmail}}]
+Outputs:
+  RepositoryUri:
+    Value: {Fn::GetAtt: [Registry, RepositoryUri]}
+    Export: {Name: ayati-RepositoryUri}
+  ZoneId:
+    Value: {Ref: Zone}
+    Export: {Name: ayati-ZoneId}
+  NameServers:
+    Description: Add these as NS records for the subdomain at the registrar.
+    Value: {Fn::Join: [',', {Fn::GetAtt: [Zone, NameServers]}]}
+  CertificateArn:
+    Condition: Certificate
+    Value: {Ref: Wildcard}
+    Export: {Name: ayati-CertificateArn}

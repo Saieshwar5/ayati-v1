@@ -1,5 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Ayati private-trial network; two zones, one explicitly single-zone NAT.
+Description: >-
+  Temporary Ayati test network: two zones, one single-zone NAT, private service
+  discovery for worker control. Deleted with the environment.
 Parameters:
   ExpectedAccountId:
     Type: String
@@ -17,7 +19,7 @@ Rules:
       - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
         AssertDescription: The current AWS account must match the reviewed manifest.
       - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
-        AssertDescription: This trial is validated only for Mumbai.
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
   SeparateZones:
     Assertions:
       - Assert:
@@ -151,6 +153,12 @@ Resources:
             Principal: '*'
             Action: s3:GetObject
             Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::prod-${AWS::Region}-starport-layer-bucket/*'}
+  # Executors find any controller at worker-control.ayati.internal (D225).
+  Discovery:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: ayati.internal
+      Vpc: {Ref: Vpc}
   EdgeGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -163,7 +171,7 @@ Resources:
   ControllerGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: HTTPS edge to controller; no exposed worker-control listener
+      GroupDescription: API from the edge, worker control from executors, PostgreSQL out
       VpcId: {Ref: Vpc}
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -176,14 +184,31 @@ Resources:
   ExecutorGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Outbound HTTPS only; no listener or database route permission
+      GroupDescription: Outbound HTTPS and worker control only; no listener or database route
       VpcId: {Ref: Vpc}
       SecurityGroupEgress:
         - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+  # Separate rules: the two groups refer to each other.
+  WorkerControlIn:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: {Ref: ControllerGroup}
+      IpProtocol: tcp
+      FromPort: 8766
+      ToPort: 8766
+      SourceSecurityGroupId: {Ref: ExecutorGroup}
+  WorkerControlOut:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: {Ref: ExecutorGroup}
+      IpProtocol: tcp
+      FromPort: 8766
+      ToPort: 8766
+      DestinationSecurityGroupId: {Ref: ControllerGroup}
   DatabaseGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: PostgreSQL from controller/migration hosts only
+      GroupDescription: PostgreSQL from controllers and the database setup task only
       VpcId: {Ref: Vpc}
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -217,3 +242,6 @@ Outputs:
   DatabaseGroup:
     Value: {Ref: DatabaseGroup}
     Export: {Name: {Fn::Sub: '${Environment}-DatabaseGroup'}}
+  DiscoveryNamespace:
+    Value: {Ref: Discovery}
+    Export: {Name: {Fn::Sub: '${Environment}-DiscoveryNamespace'}}

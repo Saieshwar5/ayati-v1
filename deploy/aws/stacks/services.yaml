@@ -1,0 +1,474 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Temporary Ayati services: one ECS cluster with controllers behind an HTTPS load
+  balancer, independently scaled executors (D225) and a one-off database setup
+  task. Counts start at zero; env.sh raises them after the database is ready.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Environment:
+    Type: String
+    AllowedPattern: 'ayati-[a-z0-9-]{1,18}'
+  ImageUri:
+    Type: String
+    AllowedPattern: '[0-9]{12}\.dkr\.ecr\.ap-south-1\.amazonaws\.com/ayati/runtime@sha256:[a-f0-9]{64}'
+    Description: Pushed image digest; tags are never deployed.
+  PsqlImage:
+    Type: String
+    AllowedPattern: '[0-9]{12}\.dkr\.ecr\.ap-south-1\.amazonaws\.com/ayati/runtime@sha256:[a-f0-9]{64}'
+    Description: postgres:18-alpine mirrored into ECR; supplies psql for the runtime-role grants.
+  Hostname:
+    Type: String
+    Default: app.dev.cuckoo.onl
+  WorkosClientId:
+    Type: String
+    AllowedPattern: 'client_[A-Za-z0-9]+'
+  Model:
+    Type: String
+    MinLength: 1
+  ModelProvider:
+    Type: String
+    AllowedValues: [openai, fireworks-ai]
+    Default: openai
+  ControllerCount:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 4
+  ExecutorCount:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 8
+  ExecutorSlots:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 16
+  # Full ARNs (with AWS's random suffix) of the permanent secrets env.sh manages.
+  WorkosSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/workos-api-key-.+'
+  ModelSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/model-api-key-.+'
+  WorkerServerSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/worker-control-server-.+'
+  WorkerCaSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/worker-control-ca-.+'
+Conditions:
+  Openai: {Fn::Equals: [{Ref: ModelProvider}, openai]}
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: {Ref: Environment}
+      ClusterSettings: [{Name: containerInsights, Value: disabled}]
+  ControllerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: {Fn::Sub: '/ayati/${Environment}/controller'}
+      RetentionInDays: 7
+  ExecutorLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: {Fn::Sub: '/ayati/${Environment}/executor'}
+      RetentionInDays: 7
+  SetupLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: {Fn::Sub: '/ayati/${Environment}/setup'}
+      RetentionInDays: 7
+
+  # Fargate volumes start root-owned and secrets arrive as environment values,
+  # while the runtime reads files as UID 10001. Each task starts with a root
+  # `prepare` container that writes only that task's secret files and exits.
+  Setup:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: {Fn::Sub: '${Environment}-setup'}
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-SetupExecution'}}
+      Volumes: [{Name: private}]
+      ContainerDefinitions:
+        - Name: prepare
+          Image: {Ref: ImageUri}
+          Essential: false
+          User: '0:0'
+          EntryPoint: [/bin/sh, -ec]
+          Command:
+            - >-
+              umask 077;
+              printf 'postgresql://ayati_admin:%s@%s:5432/ayati?sslmode=require' "$ADMIN_PASSWORD" "$DB_HOST" > /run/ayati/admin-url;
+              chown 10001:10001 /run/ayati/admin-url
+          Environment:
+            - {Name: DB_HOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
+          Secrets:
+            - Name: ADMIN_PASSWORD
+              ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-AdminSecretArn'}}}]}
+          MountPoints: [{SourceVolume: private, ContainerPath: /run/ayati}]
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: SetupLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: setup
+        - Name: migrate
+          Image: {Ref: ImageUri}
+          Essential: false
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          Command: [workspace-db, migrate]
+          DependsOn: [{ContainerName: prepare, Condition: SUCCESS}]
+          Environment:
+            - {Name: RELAY_DATABASE_URL_FILE, Value: /run/ayati/admin-url}
+          MountPoints: [{SourceVolume: private, ContainerPath: /run/ayati, ReadOnly: true}]
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: SetupLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: setup
+        # The runtime role gets data rights only (runtime/hosted-deployment.md).
+        - Name: grants
+          Image: {Ref: PsqlImage}
+          Essential: true
+          DependsOn: [{ContainerName: migrate, Condition: SUCCESS}]
+          EntryPoint: [/bin/sh, -ec]
+          Command:
+            - |
+              psql -v ON_ERROR_STOP=1 -v pw="$RUNTIME_PASSWORD" <<'SQL'
+              SELECT 'CREATE ROLE relay_app' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'relay_app')\gexec
+              ALTER ROLE relay_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'pw';
+              GRANT CONNECT ON DATABASE ayati TO relay_app;
+              GRANT USAGE ON SCHEMA public TO relay_app;
+              GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
+              GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
+              REVOKE UPDATE, DELETE ON public.relay_audit FROM relay_app;
+              REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
+              SQL
+              echo 'Runtime role granted.'
+          Environment:
+            - {Name: PGHOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
+            - {Name: PGDATABASE, Value: ayati}
+            - {Name: PGUSER, Value: ayati_admin}
+            - {Name: PGSSLMODE, Value: require}
+          Secrets:
+            - Name: PGPASSWORD
+              ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-AdminSecretArn'}}}]}
+            - Name: RUNTIME_PASSWORD
+              ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}}]}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: SetupLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: setup
+
+  Executor:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: {Fn::Sub: '${Environment}-executor'}
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '1024'
+      Memory: '2048'
+      RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorExecution'}}
+      TaskRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorTask'}}
+      Volumes: [{Name: private}, {Name: scratch}, {Name: temporary}]
+      ContainerDefinitions:
+        - Name: prepare
+          Image: {Ref: ImageUri}
+          Essential: false
+          User: '0:0'
+          EntryPoint: [/bin/sh, -ec]
+          Command:
+            - >-
+              printf '%s\n' "$WORKER_CA" > /run/ayati/ca.pem;
+              chown 10001:10001 /run/ayati/ca.pem /var/lib/ayati /tmp;
+              chmod 700 /var/lib/ayati /tmp
+          Secrets:
+            - Name: WORKER_CA
+              ValueFrom: {Ref: WorkerCaSecretArn}
+          MountPoints:
+            - {SourceVolume: private, ContainerPath: /run/ayati}
+            - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
+            - {SourceVolume: temporary, ContainerPath: /tmp}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: ExecutorLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: prepare
+        - Name: executor
+          Image: {Ref: ImageUri}
+          Essential: true
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          Command: [executor]
+          DependsOn: [{ContainerName: prepare, Condition: SUCCESS}]
+          StopTimeout: 120
+          LinuxParameters: {InitProcessEnabled: true}
+          Environment:
+            - {Name: AYATI_EXECUTOR_IDENTITY, Value: aws}
+            - {Name: AYATI_WORKER_CONTROL_URL, Value: 'https://worker-control.ayati.internal:8766'}
+            - {Name: AYATI_WORKER_CONTROL_CA, Value: /run/ayati/ca.pem}
+            - {Name: AYATI_GOOSE_PROVIDER, Value: {Ref: ModelProvider}}
+            - {Name: AYATI_MODEL, Value: {Ref: Model}}
+            - {Name: AYATI_EXECUTOR_SLOTS, Value: {Ref: ExecutorSlots}}
+          Secrets:
+            - Name: {Fn::If: [Openai, OPENAI_API_KEY, FIREWORKS_API_KEY]}
+              ValueFrom: {Ref: ModelSecretArn}
+          HealthCheck:
+            Command: [CMD, /opt/ayati/ayati, executor-health]
+            Interval: 15
+            Timeout: 6
+            Retries: 3
+            StartPeriod: 60
+          MountPoints:
+            - {SourceVolume: private, ContainerPath: /run/ayati, ReadOnly: true}
+            - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
+            - {SourceVolume: temporary, ContainerPath: /tmp}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: ExecutorLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: executor
+
+  Controller:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: {Fn::Sub: '${Environment}-controller'}
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ControllerExecution'}}
+      TaskRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ControllerTask'}}
+      Volumes: [{Name: private}, {Name: scratch}, {Name: temporary}]
+      ContainerDefinitions:
+        - Name: prepare
+          Image: {Ref: ImageUri}
+          Essential: false
+          User: '0:0'
+          EntryPoint: [/bin/sh, -ec]
+          Command:
+            - >-
+              umask 077;
+              printf 'postgresql://relay_app:%s@%s:5432/ayati?sslmode=require' "$RUNTIME_PASSWORD" "$DB_HOST" > /run/ayati/database-url;
+              printf '%s\n' "$WORKER_KEY" > /run/ayati/worker-key;
+              printf '%s\n' "$WORKER_CERT" > /run/ayati/server.pem;
+              printf '%s\n' "$WORKER_SERVER_KEY" > /run/ayati/server.key;
+              chown 10001:10001 /run/ayati/* /var/lib/ayati /tmp;
+              chmod 700 /var/lib/ayati /tmp
+          Environment:
+            - {Name: DB_HOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
+          Secrets:
+            - Name: RUNTIME_PASSWORD
+              ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}}]}
+            - Name: WORKER_KEY
+              ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:key::'}
+            - Name: WORKER_CERT
+              ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:certificate::'}
+            - Name: WORKER_SERVER_KEY
+              ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:private_key::'}
+          MountPoints:
+            - {SourceVolume: private, ContainerPath: /run/ayati}
+            - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
+            - {SourceVolume: temporary, ContainerPath: /tmp}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: ControllerLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: prepare
+        - Name: controller
+          Image: {Ref: ImageUri}
+          Essential: true
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          Command: [identity]
+          DependsOn: [{ContainerName: prepare, Condition: SUCCESS}]
+          StopTimeout: 90
+          LinuxParameters: {InitProcessEnabled: true}
+          PortMappings:
+            - {ContainerPort: 8765, Protocol: tcp}
+            - {ContainerPort: 8766, Protocol: tcp}
+          Environment:
+            - {Name: AYATI_PUBLIC_ORIGIN, Value: {Fn::Sub: 'https://${Hostname}'}}
+            - {Name: AYATI_BIND_ADDRESS, Value: 0.0.0.0}
+            - {Name: AYATI_DRAIN_SECONDS, Value: '15'}
+            - {Name: AYATI_SHUTDOWN_SECONDS, Value: '60'}
+            - {Name: AYATI_WORKER_PROVIDERS, Value: {Ref: ModelProvider}}
+            - {Name: AYATI_MODEL, Value: {Ref: Model}}
+            - {Name: WORKOS_CLIENT_ID, Value: {Ref: WorkosClientId}}
+            - {Name: RELAY_DATABASE_URL_FILE, Value: /run/ayati/database-url}
+            - {Name: AYATI_WORKER_CONTROL_URL, Value: 'https://worker-control.ayati.internal:8766'}
+            - {Name: AYATI_WORKER_CONTROL_KEY_FILE, Value: /run/ayati/worker-key}
+            - {Name: AYATI_WORKER_CONTROL_LISTEN, Value: '0.0.0.0:8766'}
+            - {Name: AYATI_WORKER_CONTROL_TLS_CERT, Value: /run/ayati/server.pem}
+            - {Name: AYATI_WORKER_CONTROL_TLS_KEY, Value: /run/ayati/server.key}
+            - {Name: AYATI_CLOUD_WORKERS, Value: '1'}
+            - {Name: AYATI_AWS_EXECUTOR_CLUSTER_ARN, Value: {Fn::GetAtt: [Cluster, Arn]}}
+            - {Name: AYATI_AWS_EXECUTOR_RELEASE_ARN, Value: {Ref: Executor}}
+            - {Name: AYATI_AWS_EXECUTOR_ROLE_ARN, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorTask'}}}
+            - {Name: CUCKOO_LIBRARY_S3_BUCKET, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-BucketName'}}}
+            - {Name: AYATI_ARCHIVE_S3_BUCKET, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-BucketName'}}}
+            - {Name: AWS_REGION, Value: {Ref: 'AWS::Region'}}
+          Secrets:
+            - Name: WORKOS_API_KEY
+              ValueFrom: {Ref: WorkosSecretArn}
+          HealthCheck:
+            Command: [CMD, /opt/ayati/ayati, api-health]
+            Interval: 15
+            Timeout: 6
+            Retries: 3
+            StartPeriod: 30
+          MountPoints:
+            - {SourceVolume: private, ContainerPath: /run/ayati, ReadOnly: true}
+            - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
+            - {SourceVolume: temporary, ContainerPath: /tmp}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {Ref: ControllerLogs}
+              awslogs-region: {Ref: 'AWS::Region'}
+              awslogs-stream-prefix: controller
+
+  WorkerControlName:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: worker-control
+      NamespaceId: {Fn::ImportValue: {Fn::Sub: '${Environment}-DiscoveryNamespace'}}
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords: [{Type: A, TTL: 10}]
+      HealthCheckCustomConfig: {FailureThreshold: 1}
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        Fn::Split: [',', {Fn::ImportValue: {Fn::Sub: '${Environment}-PublicSubnets'}}]
+      SecurityGroups:
+        - {Fn::ImportValue: {Fn::Sub: '${Environment}-EdgeGroup'}}
+      LoadBalancerAttributes:
+        - {Key: idle_timeout.timeout_seconds, Value: '120'}
+        - {Key: routing.http.drop_invalid_header_fields.enabled, Value: 'true'}
+  Targets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: {Fn::ImportValue: {Fn::Sub: '${Environment}-VpcId'}}
+      Protocol: HTTP
+      Port: 8765
+      TargetType: ip
+      HealthCheckPath: /health/ready
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 2
+      Matcher: {HttpCode: '200'}
+      # Readiness turns "draining" for AYATI_DRAIN_SECONDS before streams close.
+      TargetGroupAttributes:
+        - {Key: deregistration_delay.timeout_seconds, Value: '30'}
+  Https:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: {Ref: LoadBalancer}
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates: [{CertificateArn: {Fn::ImportValue: ayati-CertificateArn}}]
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig: {StatusCode: '404', ContentType: text/plain, MessageBody: Unknown host}
+  HostRoute:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: {Ref: Https}
+      Priority: 1
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig: {Values: [{Ref: Hostname}]}
+      Actions:
+        - Type: forward
+          TargetGroupArn: {Ref: Targets}
+  PublicName:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::ImportValue: ayati-ZoneId}
+      Name: {Ref: Hostname}
+      Type: A
+      AliasTarget:
+        DNSName: {Fn::GetAtt: [LoadBalancer, DNSName]}
+        HostedZoneId: {Fn::GetAtt: [LoadBalancer, CanonicalHostedZoneID]}
+  ControllerService:
+    Type: AWS::ECS::Service
+    DependsOn: HostRoute
+    Properties:
+      Cluster: {Ref: Cluster}
+      ServiceName: controller
+      TaskDefinition: {Ref: Controller}
+      LaunchType: FARGATE
+      DesiredCount: {Ref: ControllerCount}
+      EnableExecuteCommand: true
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker: {Enable: true, Rollback: true}
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      LoadBalancers:
+        - {ContainerName: controller, ContainerPort: 8765, TargetGroupArn: {Ref: Targets}}
+      ServiceRegistries:
+        - RegistryArn: {Fn::GetAtt: [WorkerControlName, Arn]}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            Fn::Split: [',', {Fn::ImportValue: {Fn::Sub: '${Environment}-AppSubnets'}}]
+          SecurityGroups:
+            - {Fn::ImportValue: {Fn::Sub: '${Environment}-ControllerGroup'}}
+  ExecutorService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: {Ref: Cluster}
+      ServiceName: executor
+      TaskDefinition: {Ref: Executor}
+      LaunchType: FARGATE
+      DesiredCount: {Ref: ExecutorCount}
+      EnableExecuteCommand: true
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker: {Enable: true, Rollback: true}
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            Fn::Split: [',', {Fn::ImportValue: {Fn::Sub: '${Environment}-AppSubnets'}}]
+          SecurityGroups:
+            - {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorGroup'}}
+Outputs:
+  PublicOrigin:
+    Value: {Fn::Sub: 'https://${Hostname}'}
+  ClusterName:
+    Value: {Ref: Cluster}
+  SetupTaskDefinition:
+    Value: {Ref: Setup}
