@@ -71,10 +71,10 @@ test('failed expansion can retry, source changes fence old bodies, and short ans
 });
 
 test('Chat omits progress launchers while retaining reply cancellation and ordinary agent prose boxes',async()=>{
-  await reactFixture(async({render,button})=>{
+  await reactFixture(async({render,button,click})=>{
     const {ChatMessage}=await import('../src/react/chat/message.tsx');
     await render(ChatMessage,{message:{id:'reply',chat:'chat',kind:'agent',author:'agent',state:'queued',content:'Saved short reply',at:1,has_task:true,can_cancel:true},directory:{agents:[{id:'agent',name:'Suresh'}],users:[]}});
-    assert.equal(button('Check progress'),undefined);assert.ok(button('Stop reply'));
+    assert.equal(button('Check progress'),undefined);await click(button('More actions'));assert.ok(button('Cancel request'));
     assert.match(document.querySelector('.chat-response').textContent,/Saved short reply/);
   });
 });

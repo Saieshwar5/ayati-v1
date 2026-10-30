@@ -20,7 +20,7 @@ export type Message = {
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;
   chat?: string; delivered?: number; seen?: number;
-  attachments?: Attachment[]; thread?: string | null;
+  attachments?: Attachment[]; thread?: string | null; reply_to?: string | null;
   edited_at?: number | null; for_me?: boolean; reactions?: { emoji: string; count: number; mine: boolean }[];
 };
 export type History = { messages: Message[]; agents: string[]; next_before?: number | null };

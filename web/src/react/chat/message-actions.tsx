@@ -3,6 +3,7 @@ import { workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { Button, Dialog } from '../ui';
 import { chatRequest, type Message } from './model';
+import type { useCancelReply } from './reply-progress';
 import './message-actions.css';
 
 /** Must match the server's fixed set (postgres/message_actions.rs). */
@@ -43,9 +44,9 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
 }
 
 /** Appears on hover or focus: quick reactions, reply in thread and More. */
-export function MessageToolbar({ message, own, reactions, openThread, edit, remove }: {
-  message: Message; own: boolean; reactions: ReturnType<typeof useReactions>;
-  openThread?: () => void; edit: () => void; remove: () => void;
+export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove }: {
+  message: Message; own: boolean; reactions: ReturnType<typeof useReactions>; cancel: ReturnType<typeof useCancelReply>;
+  reply?: () => void; openThread?: () => void; edit: () => void; remove: () => void;
 }) {
   const [picking, setPicking] = useState(false);
   const [more, setMore] = useState(false);
@@ -57,6 +58,8 @@ export function MessageToolbar({ message, own, reactions, openThread, edit, remo
   // Reactions and links need the stored message; a reply only needs the thread.
   const stored = Boolean(message.chat);
   const deliverable = stored && (message.state === 'sent' || message.state === 'complete');
+  // Quoting needs a stored message; otherwise ↩ keeps opening the thread.
+  const quote = deliverable ? reply : undefined;
   const copy = async () => {
     await navigator.clipboard?.writeText(new URL(workspaceUrl(`/?view=chat&conversation=${message.chat}&message=${message.id}`), location.origin).href);
     setCopied(true); setMore(false);
@@ -64,13 +67,16 @@ export function MessageToolbar({ message, own, reactions, openThread, edit, remo
   return <div ref={bar} className={`chat-message-toolbar${upward ? ' opens-up' : ''}`} role="toolbar" aria-label="Message actions">
     {deliverable && QUICK.map(emoji => <button type="button" key={emoji} className="chat-message-tool" disabled={reactions.busy} aria-label={`React ${emoji}`} title={`React ${emoji}`} onClick={() => reactions.toggle(emoji)}>{emoji}</button>)}
     {deliverable && <ReactionPicker open={picking} setOpen={open => { place(); setPicking(open); }} choose={reactions.toggle} busy={reactions.busy} />}
-    {openThread && <button type="button" className="chat-message-tool" aria-label="Reply in thread" title="Reply in thread" onClick={openThread}>↩</button>}
+    {quote && <button type="button" className="chat-message-tool" aria-label="Reply" title="Reply" onClick={quote}>↩</button>}
+    {!quote && openThread && <button type="button" className="chat-message-tool" aria-label="Reply in thread" title="Reply in thread" onClick={openThread}>↩</button>}
     {stored && <span className="chat-message-more">
       <button type="button" className="chat-message-tool" aria-label="More actions" aria-expanded={more} title={copied ? 'Link copied' : 'More'} onClick={() => { place(); setMore(!more); }}>⋯</button>
       {more && <span className="chat-message-menu" role="menu">
+        {quote && openThread && <button type="button" role="menuitem" onClick={() => { setMore(false); openThread(); }}>Reply in thread</button>}
         {own && <button type="button" role="menuitem" onClick={() => { setMore(false); edit(); }}>Edit message</button>}
         <button type="button" role="menuitem" onClick={() => void copy()}>Copy link</button>
         {own && <button type="button" role="menuitem" className="danger" onClick={() => { setMore(false); remove(); }}>Delete message</button>}
+        {cancel.available && <button type="button" role="menuitem" className="danger" disabled={cancel.busy} onClick={() => { setMore(false); cancel.cancel(); }}>Cancel request</button>}
       </span>}
     </span>}
   </div>;

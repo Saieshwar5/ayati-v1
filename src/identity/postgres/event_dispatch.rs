@@ -107,6 +107,7 @@ impl PgStore {
         if query(&tx,"SELECT j.reply FROM relay_event_deliveries d JOIN relay_chat_jobs j ON j.workspace=d.workspace AND j.reply=d.reply WHERE d.workspace=$1 AND d.trigger_id=$2 AND j.state<>'finished' LIMIT 1",vec![w.into(),data["id"].as_str().unwrap().into()]).await?.is_some(){tx.commit().await?;return Ok(false)}
         execute(&tx,"UPDATE relay_event_deliveries SET checked_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
         let input = NewMessage {
+            reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(agent.into()),
             thread: None,

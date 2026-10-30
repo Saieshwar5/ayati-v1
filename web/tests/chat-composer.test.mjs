@@ -71,3 +71,34 @@ test('Stop attaches once, failed upload retains audio for retry, and Cancel neve
   await click(button('Record voice'));await click(button('Cancel recording'));assert.equal(attempts,2);assert.equal(pending,false);assert.ok(stopped>=2);
  });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
 });
+
+test('the emoji picker inserts at the cursor, keeps mentions, searches, and closes with Escape', async()=>{
+ let sent=[];
+ await reactFixture(async({render,change,update,click,submit,button,dom})=>{
+  const { Composer }=await import('../src/react/chat/composer.tsx');
+  function Harness(){const [value,set]=useState('');return createElement(Composer,{value,change:set,send:()=>sent.push(value),candidates:[{id:'a1',name:'Atlas',kind:'agent'}]});}
+  await render(Harness);const input=document.querySelector('textarea');
+  await change(input,'@Atl');
+  await update(()=>input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true})));
+  await change(input,'@Atlas on my way');
+  await update(()=>input.setSelectionRange(7,7));
+  await click(button('Add emoji'));assert.ok(document.querySelector('[role=dialog][aria-label=Emoji]'));
+  await change(document.querySelector('input[type=search]'),'truck');
+  assert.deepEqual([...document.querySelectorAll('.emoji-grid button')].map(b=>b.textContent),['🚚']);
+  await click(button('truck'));
+  assert.equal(input.value,'@Atlas 🚚on my way');assert.equal(document.querySelector('[aria-label=Emoji]'),null);
+  await submit(document.querySelector('form'));assert.equal(requestAgent(sent[0]),'a1','the mention survives the insertion');
+  await click(button('Add emoji'));
+  await update(()=>document.querySelector('input[type=search]').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+  assert.equal(document.querySelector('[aria-label=Emoji]'),null);assert.equal(document.activeElement,button('Add emoji'));
+ });
+});
+
+test('quote previews keep real text, mark deleted and unloaded messages, and shorten long ones', async()=>{
+ const { quotePreview }=await import('../src/react/chat/quoted-message.tsx');
+ const agents=id=>id==='a1'?'Nova':undefined;
+ assert.deepEqual(quotePreview({id:'m',kind:'agent',author:'a1',content:'**GOOSE_FIXTURE_OK** [@Sam](mention:user:u1)',state:'complete'},agents),{name:'Nova',text:'GOOSE_FIXTURE_OK @Sam'});
+ assert.equal(quotePreview({id:'m',kind:'user',author:'u1',name:'Sam',content:'x',state:'deleted'},agents).text,'Message deleted');
+ assert.deepEqual(quotePreview(undefined,agents),{name:'Earlier message',text:'Not loaded in this view'});
+ assert.equal(quotePreview({id:'m',kind:'user',author:'u1',name:'Sam',content:'y'.repeat(300),state:'sent'},agents).text.length,140);
+});

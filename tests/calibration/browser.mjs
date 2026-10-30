@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { cancelRequest } from '../fixtures/chat_actions.mjs';
 
 export async function calibrationBrowser(t, app) {
   const { chromium } = createRequire(new URL('../../web/package.json', import.meta.url))('@playwright/test');
@@ -57,7 +58,7 @@ export async function calibrationBrowser(t, app) {
       return page.evaluate(() => window.calibrationTiming.first_visible_ms);
     },
     async cancel(item) {
-      await pages.get(item.marker).getByRole('button', { name: 'Stop reply', exact: true }).click();
+      await cancelRequest(pages.get(item.marker));
     },
     async capture(item, path) { await pages.get(item.marker).screenshot({ path }); },
     async closePage(item) {

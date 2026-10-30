@@ -1,12 +1,18 @@
-/* Hover/focus toolbar at the message's top edge. */
-.chat-message-toolbar { position: absolute; top: -6px; left: calc(100% + 6px); z-index: 2; display: flex; opacity: 0; pointer-events: none; align-items: center; gap: 1px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 14px var(--shadow-deep); }
-.chat-message-own .chat-message-toolbar { left: auto; right: calc(100% + 6px); }
+/* Hover/focus toolbar inside the message's top corner, never beside it: a
+   toolbar outside the message widened the list and made it scroll sideways. */
+/* Stronger than the generic `.workspace-chat .chat-message > div` rules,
+   which would strip its frame and drop it into the message's grid column. */
+.chat-message > .chat-message-toolbar, .workspace-chat .chat-message > .chat-message-toolbar { position: absolute; top: -14px; right: 8px; z-index: 2; display: flex; max-width: none; opacity: 0; pointer-events: none; align-items: center; gap: 1px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 14px var(--shadow-deep); }
+.workspace-chat .chat-message-own > .chat-message-toolbar, .chat-message-own > .chat-message-toolbar { right: auto; left: 8px; }
+/* Short replies stay wide enough for the toolbar to clear the sender's name. */
+.workspace-chat .chat-message:not(.chat-message-own) { min-width: min(100%, 420px); }
+.workspace-chat .chat-message:hover > .chat-message-toolbar, .workspace-chat .chat-message:focus-within > .chat-message-toolbar,
 .chat-message:hover > .chat-message-toolbar, .chat-message:focus-within > .chat-message-toolbar { opacity: 1; pointer-events: auto; }
 .chat-message-tool { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 4px; border: 0; border-radius: 7px; background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
 .chat-message-tool:hover, .chat-message-tool:focus-visible, .chat-message-tool[aria-expanded=true] { background: var(--selection); color: var(--text); }
 .chat-message-more, .chat-reaction-picker { position: relative; display: inline-flex; }
 .chat-message-menu { position: absolute; top: 32px; right: 0; z-index: 3; display: grid; min-width: 168px; padding: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px var(--shadow-deep); }
-.chat-message-own .chat-message-menu { right: auto; left: 0; }
+.chat-message-own .chat-message-menu, .chat-message-own .chat-message-toolbar .chat-reaction-menu { right: auto; left: 0; }
 .chat-message-toolbar.opens-up .chat-message-menu, .chat-message-toolbar.opens-up .chat-reaction-menu { top: auto; bottom: 32px; }
 .chat-message-menu button { padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .chat-message-menu button:hover, .chat-message-menu button:focus-visible { background: var(--soft); }
@@ -30,10 +36,6 @@
 .chat-message-edit textarea { width: 100%; padding: 9px 11px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; resize: vertical; }
 .chat-message-edit > div { display: flex; justify-content: flex-end; gap: 8px; }
 
-/* Narrow screens have no room beside a message: sit on its top edge. */
-@media (max-width: 600px) {
-  .chat-message-toolbar, .chat-message-own .chat-message-toolbar { top: -16px; left: auto; right: 0; }
-}
 @media (pointer: coarse) {
   .chat-message-tool { min-width: 40px; height: 40px; }
 }

@@ -67,6 +67,7 @@ impl PgStore {
             if member && super::chat::agent_access(&tx, &user.id, w, agent).await? {
                 let c = conversation(&tx, w, &endpoint, &binding, &input.conversation).await?;
                 let request = NewMessage {
+                    reply_to: None,
                     id: uuid::Uuid::new_v4().to_string(),
                     content: input.text.clone(),
                     agent: Some(agent.into()),

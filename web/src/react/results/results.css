@@ -24,7 +24,7 @@
 .chat-message:has(.chat-response-long) { width:100%; max-width:100%; }
 .chat-message:has(.chat-response-long) > div { flex:1; }
 @media(max-width:600px) {
-  .workspace-chat .chat-message:has(.chat-response) > div { display:contents; }
+  .workspace-chat .chat-message:has(.chat-response) > div:not(.chat-message-toolbar) { display:contents; }
   .workspace-chat .chat-message:has(.chat-response) > div > header { grid-column:2; grid-row:1; align-self:center; }
   .workspace-chat .chat-message:has(.chat-response) > div > :not(header) { grid-column:1 / -1; }
   .workspace-chat .chat-message:has(.chat-response) .chat-response { grid-row:2; }

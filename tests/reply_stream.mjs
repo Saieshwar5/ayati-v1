@@ -7,6 +7,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/polling.mjs';
+import { cancelRequest, offersCancel } from './fixtures/chat_actions.mjs';
 
 const options={skip:!process.env.RELAY_TEST_DATABASE_URL,timeout:120000};
 const ready=app=>until(()=>Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'"))>=2,'Prepared slots missing',35000);
@@ -54,7 +55,7 @@ test('Chat streams a real reply, preserves the composer and resumes after browse
  const composer=page.getByRole('textbox',{name:'Message',exact:true});await composer.fill('Stream this reply through Chat');
  const began=Date.now();await page.getByRole('button',{name:'Send message',exact:true}).click();
  await page.getByText('BROWSER_PARTIAL 🦀',{exact:true}).waitFor();const firstVisible=Date.now();
- assert.equal(await page.getByRole('button',{name:'Stop reply'}).count(),1);
+ const streaming=page.locator('article.chat-message',{hasText:'BROWSER_PARTIAL'});await streaming.getByText('is typing…').waitFor();assert.equal(await offersCancel(streaming),true);
  await composer.fill('KEEP_UNSENT_DRAFT');await composer.focus();
  await page.screenshot({path:app.data+'/partial-desktop.png'});
  await context.setOffline(true);await delay(200);await context.setOffline(false);
@@ -63,7 +64,7 @@ test('Chat streams a real reply, preserves the composer and resumes after browse
  app.provider.setOutputHeld(false);
  await page.getByText('BROWSER_PARTIAL 🦀 grows into the final reply.',{exact:true}).waitFor();
  assert.equal(await composer.inputValue(),'KEEP_UNSENT_DRAFT');assert.equal(await composer.evaluate(node=>node===document.activeElement),true);
- assert.equal(await page.getByRole('button',{name:'Stop reply'}).count(),0);assert.equal(app.provider.requests.length,1);
+ assert.equal(await offersCancel(streaming),false);assert.equal(app.provider.requests.length,1);
  assert.equal((await page.locator('[aria-label="Messages"]').textContent()).includes('PRIVATE_REASONING_SENTINEL'),false);
  await page.setViewportSize({width:390,height:760});await page.screenshot({path:app.data+'/final-mobile.png'});
  assert.deepEqual(errors,[]);
@@ -72,7 +73,7 @@ test('Chat streams a real reply, preserves the composer and resumes after browse
  await composer.fill('Cancel this streaming reply');await page.getByRole('button',{name:'Send message',exact:true}).click();
  await page.getByText('CANCELLABLE_PARTIAL',{exact:true}).waitFor();
  const stoppedPids=JSON.parse(app.sql("SELECT COALESCE(json_agg(pid),'[]') FROM relay_executor_slots WHERE state='running'"));
- await page.getByRole('button',{name:'Stop reply'}).click();await page.getByText('Request cancelled.',{exact:true}).waitFor();
+ await cancelRequest(page,page.locator('article.chat-message',{hasText:'CANCELLABLE_PARTIAL'}));await page.getByText('Request cancelled.',{exact:true}).waitFor();
  await app.assertChildrenStopped(stoppedPids.map(Number),10000);
  app.provider.setOutputHeld(false);await delay(800);
  assert.equal((await page.locator('[aria-label="Messages"]').textContent()).includes('MUST_NOT_APPEAR'),false);

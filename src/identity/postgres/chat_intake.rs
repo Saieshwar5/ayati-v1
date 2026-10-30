@@ -156,7 +156,7 @@ impl PgStore {
         };
         if let Some(row) = query(
             tx,
-            "SELECT chat,author,kind,content,target,thread,attachments FROM relay_chat_messages WHERE id=$1",
+            "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments FROM relay_chat_messages m WHERE id=$1",
             vec![input.id.clone().into()],
         )
         .await?
@@ -168,6 +168,7 @@ impl PgStore {
                     && row.try_get::<String>("", "content")? == input.content
                     && row.try_get::<Option<String>>("", "target")? == input.agent
                     && row.try_get::<Option<String>>("", "thread")? == input.thread
+                    && row.try_get::<Option<String>>("", "reply_to")? == input.reply_to
                     && row.try_get::<Value>("", "attachments")? == json!(input.attachments),
                 "Message ID already used"
             );
@@ -204,6 +205,11 @@ impl PgStore {
         if let Some(thread) = &input.thread {
             ensure!(query(tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3 AND thread IS NULL",vec![workspace.into(),chat.into(),thread.clone().into()]).await?.is_some(),"Thread is not in this conversation");
         }
+        if let Some(quoted) = &input.reply_to {
+            // Same conversation and the same thread (a thread's root counts as inside it).
+            ensure!(query(tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3 AND state<>'deleted' AND (thread IS NOT DISTINCT FROM $4 OR id=$4)",
+                vec![workspace.into(),chat.into(),quoted.clone().into(),input.thread.clone().into()]).await?.is_some(),"Quoted message is not in this conversation");
+        }
         if let Some(agent) = &input.agent {
             let pending:i64=query(tx,"SELECT count(*) AS total FROM relay_chat_messages WHERE workspace=$1 AND kind='agent' AND state='queued'",vec![workspace.into()]).await?.context("Missing count")?.try_get("","total")?;
             if class.background() {
@@ -221,7 +227,28 @@ impl PgStore {
             );
             ensure!(query(tx,"SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",vec![workspace.into(),chat.into(),agent.clone().into()]).await?.is_some(),"Agent is not in this conversation");
         }
-        execute(tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9)",vec![input.id.clone().into(),workspace.into(),chat.into(),author.into(),input.content.clone().into(),now().into(),input.agent.clone().into(),input.thread.clone().into(),json!(input.attachments).into(),kind.into()]).await?;
+        // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.
+        let (columns, values) = if input.reply_to.is_some() {
+            (",reply_to", ",$11")
+        } else {
+            ("", "")
+        };
+        let mut args: Vec<sea_orm::Value> = vec![
+            input.id.clone().into(),
+            workspace.into(),
+            chat.into(),
+            author.into(),
+            input.content.clone().into(),
+            now().into(),
+            input.agent.clone().into(),
+            input.thread.clone().into(),
+            json!(input.attachments).into(),
+            kind.into(),
+        ];
+        if let Some(quoted) = &input.reply_to {
+            args.push(quoted.clone().into());
+        }
+        execute(tx,&format!("INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments{columns}) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9{values})"),args).await?;
         let job = if let Some(agent) = &input.agent {
             let reply = uuid::Uuid::new_v4().to_string();
             let kind: String = query(
@@ -288,6 +315,7 @@ impl PgStore {
                 ],
             )
             .await?;
+            super::agent_receipts::delivered(tx, workspace, chat, &input.id, &job.agent).await?;
         }
         if class == WorkClass::Interactive {
             super::communication_inbox::record_chat(tx, user, workspace, chat, input, job.as_ref())

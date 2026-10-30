@@ -6,6 +6,7 @@ use crate::identity::{
 use serde_json::json;
 fn message(content: &str) -> NewMessage {
     NewMessage {
+        reply_to: None,
         id: uuid::Uuid::new_v4().to_string(),
         content: content.into(),
         agent: None,

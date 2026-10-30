@@ -60,6 +60,9 @@ pub struct NewMessage {
     pub agent: Option<String>,
     #[serde(default)]
     pub thread: Option<String>,
+    /// An earlier message of the same conversation (and thread) this one quotes.
+    #[serde(default)]
+    pub reply_to: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Job {

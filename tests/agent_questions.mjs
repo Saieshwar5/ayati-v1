@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { until } from './fixtures/polling.mjs';
+import { cancelRequest } from './fixtures/chat_actions.mjs';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 
@@ -176,7 +177,7 @@ test('ordinary questions release execution, survive restart, reconstruct answers
   assert.equal((await readQuestion(declineQuestion.id)).value.state, 'declined'); await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   const stopText = 'Ask a clarification that I may stop.'; app.provider.setControl(stopText, closed('Clarification before work'));
   const stopped = await app.send(stopText, privateChat, app.cookie, privateAgent.id); const stopQuestion = await waitInput(stopped); await page.goto(url(stopped));
-  await page.getByRole('button', { name: 'Stop reply', exact: true }).click(); await app.done(stopped, 'cancelled');
+  await cancelRequest(page, page.locator(`[data-message-id="${stopped.reply}"]`)); await app.done(stopped, 'cancelled');
   assert.equal((await readQuestion(stopQuestion.id)).value.state, 'invalidated');
   await app.request(`${app.path}/questions/${stopQuestion.id}`, app.cookie, { id: randomUUID(), revision: 1, decision: 'answer', values: { choices: ['yes'] } }, 400);
   assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);

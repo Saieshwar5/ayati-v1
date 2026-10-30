@@ -51,8 +51,9 @@ cancellation. No network/SQL transaction spans model execution.
 
 Pending messages retain `state=queued` for existing admission/result contracts.
 The separate `progress` projection contains public draft text, phase and attempt
-generation. Status follows observed events: preparing, waiting for a response,
-responding or interrupted. The UI offers Stop reply only when `can_cancel` is
+generation. Chat shows the work as "<agent> is typing…" (preparing, waiting,
+responding, retrying or resuming) and keeps plain status only for waits that need
+a person. The message menu offers Cancel request only when `can_cancel` is
 present; the existing cancellation route still enforces requester/owner authority.
 
 Every message update increments a database revision. Chat applies newer revisions,

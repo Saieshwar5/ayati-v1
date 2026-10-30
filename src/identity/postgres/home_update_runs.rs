@@ -108,7 +108,7 @@ impl PgStore {
         let reply = if let Some(reply) = unfinished(&tx, w, id).await? {
             reply
         } else {
-            let input=NewMessage{id:uuid::Uuid::new_v4().to_string(),content:"Refresh my personal Home panel using home_panel_update_context, its reviewed reads and refresh_home_panel.".into(),agent:Some(p["agent"].as_str().unwrap().into()),thread:None,attachments:vec![]};
+            let input=NewMessage{ reply_to: None,id:uuid::Uuid::new_v4().to_string(),content:"Refresh my personal Home panel using home_panel_update_context, its reviewed reads and refresh_home_panel.".into(),agent:Some(p["agent"].as_str().unwrap().into()),thread:None,attachments:vec![]};
             let job = self
                 .background_in(&tx, user, w, p["chat"].as_str().unwrap(), &input)
                 .await?

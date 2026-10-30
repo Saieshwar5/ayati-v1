@@ -114,18 +114,38 @@ test('people and agents work together in chat, and private channels stay private
   await box.fill('@Nov'); await colleague.getByRole('option', { name: /Nova/ }).click();
   await box.pressSequentially('please check the stock');
   await colleague.getByRole('button', { name: 'Send message', exact: true }).click();
-  const answer = colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' });
+  const answer = colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).first();
   await answer.waitFor({ timeout: 60000 });
   assert.ok(await answer.locator('.ai-tag').count() >= 1, 'the answer is marked as from an AI agent');
+  // Nobody else has opened the channel yet, so the blue ticks come from the agent reading it.
+  const asked = colleague.locator('article.chat-message-own', { hasText: 'please check the stock' });
+  await asked.locator('.chat-receipt summary.chat-seen').waitFor();
+  assert.equal(await asked.locator('.chat-receipt summary').textContent(), '✓✓');
+  // Replying to the agent's message quotes it and asks that agent without an @mention.
+  await answer.hover(); await answer.getByRole('button', { name: 'Reply', exact: true }).click();
+  await colleague.locator('.chat-replying').getByText('Replying to Nova').waitFor();
+  assert.equal(await box.evaluate(node => node === document.activeElement), true, 'Reply moves focus to the composer');
+  await box.fill('thanks, what about the walnut?');
+  await colleague.getByRole('button', { name: 'Send message', exact: true }).click();
+  const followUp = colleague.locator('article.chat-message-own', { hasText: 'what about the walnut' });
+  await followUp.locator('.chat-quote', { hasText: 'Nova' }).waitFor();
+  assert.equal(await colleague.locator('.chat-replying').count(), 0, 'the reply preview clears after sending');
+  await until(async () => await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).count() === 2, 'the quoted agent did not answer the reply', 60000);
+  await colleague.screenshot({ path: join(app.data, 'collaboration-quoted-reply.png') });
   app.pass('a member asks the agent in a channel and it answers');
 
   // 6. The owner reacts; the member sees it live. The member edits a message.
   await owner.goto(`${at('chat')}&conversation=${channel}`);
-  const ownersView = owner.locator('article', { hasText: 'GOOSE_FIXTURE_OK' });
-  await ownersView.hover(); await ownersView.getByRole('button', { name: 'React 👍' }).click();
+  const ownersView = owner.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).first();
+  // The hover toolbar stays inside the message, so the list never scrolls sideways.
+  const sideways = page => page.locator('.chat-message-list').evaluate(list => list.scrollWidth > list.clientWidth);
+  await ownersView.hover(); assert.equal(await sideways(owner), false, 'a hovered agent message widens the list');
+  await owner.screenshot({ path: join(app.data, 'collaboration-hover-desktop.png') });
+  await ownersView.getByRole('button', { name: 'React 👍' }).click();
   await answer.getByRole('button', { name: /^👍 1/ }).waitFor();
   const request = colleague.locator('article.chat-message-own', { hasText: 'please check the stock' });
   await request.hover(); await request.getByRole('button', { name: 'More actions' }).click();
+  assert.equal(await sideways(colleague), false, 'an open menu on an own message widens the list');
   await request.getByRole('menuitem', { name: 'Edit message' }).click();
   await request.getByRole('textbox', { name: 'Edit message' }).fill('please check the stock today');
   await request.getByRole('button', { name: 'Save' }).click();
@@ -147,10 +167,18 @@ test('people and agents work together in chat, and private channels stay private
   // 8. The same screens fit a phone.
   await colleague.setViewportSize({ width: 390, height: 844 });
   await colleague.goto(`${at('chat')}&conversation=${channel}`); await box.waitFor();
-  await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).waitFor();
+  await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).first().waitFor();
   const header = await colleague.locator('.chat-pane-header h2').boundingBox();
   assert.ok(header.height < 30, 'the conversation title stays on one line');
   assert.equal(await colleague.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).first().hover();
+  assert.equal(await sideways(colleague), false, 'a hovered message widens the list on a phone');
+  await colleague.screenshot({ path: join(app.data, 'collaboration-hover-phone.png') });
+  await colleague.getByRole('button', { name: 'Add emoji', exact: true }).click();
+  await colleague.getByRole('searchbox', { name: 'Search emoji' }).fill('thanks');
+  await colleague.screenshot({ path: join(app.data, 'collaboration-emoji-phone.png') });
+  await colleague.getByRole('dialog', { name: 'Emoji' }).getByRole('button', { name: 'thanks', exact: true }).click();
+  assert.match(await colleague.getByRole('textbox', { name: 'Message', exact: true }).inputValue(), /🙏/);
   await colleague.screenshot({ path: join(app.data, 'collaboration-phone.png') });
   assert.deepEqual(errors, []);
   app.pass('phone layout without page overflow and no page errors');

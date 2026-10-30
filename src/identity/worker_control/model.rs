@@ -77,12 +77,6 @@ impl Completion {
         Ok(())
     }
 }
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Release {
-    pub scope: Scope,
-    pub reason: String,
-}
 
 pub(crate) fn uuid(value: &str) -> Result<()> {
     ensure!(
