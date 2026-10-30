@@ -246,6 +246,10 @@ pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;
 mod working_context;
+mod workspace_code_migration;
+#[cfg(test)]
+mod workspace_code_tests;
+pub(crate) mod workspace_codes;
 
 use super::user::{User, now};
 use anyhow::{Context, Result, ensure};

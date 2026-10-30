@@ -41,6 +41,10 @@ Parameters:
     Default: 0
     MinValue: 0
     MaxValue: 8
+  PlatformAdmins:
+    Type: String
+    Default: ''
+    Description: Comma-separated verified emails allowed to issue workspace invite codes.
   ExecutorSlots:
     Type: Number
     Default: 2
@@ -333,6 +337,7 @@ Resources:
             - {Name: CUCKOO_LIBRARY_S3_BUCKET, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-BucketName'}}}
             - {Name: AYATI_ARCHIVE_S3_BUCKET, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-BucketName'}}}
             - {Name: AWS_REGION, Value: {Ref: 'AWS::Region'}}
+            - {Name: AYATI_PLATFORM_ADMINS, Value: {Ref: PlatformAdmins}}
           Secrets:
             - Name: WORKOS_API_KEY
               ValueFrom: {Ref: WorkosSecretArn}

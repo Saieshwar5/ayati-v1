@@ -20,7 +20,7 @@ export function AccountMenu() {
       <h2>Workspaces</h2><nav className="workspace-menu-list" aria-label="Choose workspace">{workspaceSession?.workspaces?.map(entry =>
         <a key={entry.id} className="workspace-menu-action" href={`/w/${entry.id}/`} aria-current={entry.id === workspaceId ? 'true' : undefined}>
           {entry.name}{entry.id === workspaceId && <small>Current</small>}</a>)}</nav>
-      <a className="workspace-menu-action" href="/?view=account&choose=1">Manage or create workspaces</a><hr />
+      <a className="workspace-menu-action" href="/?view=account&choose=1">Your workspaces</a><hr />
       <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&scope=personal&section=my-account')}>Edit profile</a>
       <a className="workspace-menu-action" href={workspaceUrl('/?view=account')}>My account</a>
       <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&scope=personal&section=appearance')}>Appearance</a><hr />

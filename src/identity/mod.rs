@@ -34,6 +34,7 @@ pub mod simulation;
 pub(crate) mod start_trace;
 pub mod user;
 mod worker_control;
+mod workspace_codes;
 mod workspaces;
 
 use anyhow::{Context, Result};
@@ -230,7 +231,10 @@ fn router(app: Shared) -> Router {
         .route(
             "/",
             get(|axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>| async move {
-                Redirect::to(if params.get("choose").is_some_and(|value| value == "1") {
+                let flag = |name: &str| params.get(name).is_some_and(|value| value == "1");
+                Redirect::to(if flag("admin") {
+                    "/index.html?view=account&admin=1"
+                } else if flag("choose") {
                     "/index.html?view=account&choose=1"
                 } else { "/index.html?view=account" })
             }),
@@ -246,6 +250,9 @@ fn router(app: Shared) -> Router {
         .route("/api/identity/logout", post(routes::logout))
         .route("/api/identity/profile", post(profile::update))
         .route("/api/identity/workspaces", post(routes::create))
+        .route("/api/identity/workspace-codes/check", post(workspace_codes::check))
+        .route("/api/identity/admin/workspace-codes", get(workspace_codes::list).post(workspace_codes::issue))
+        .route("/api/identity/admin/workspace-codes/{id}/revoke", post(workspace_codes::revoke))
         .route("/api/identity/workspaces/{id}/people", get(routes::people))
         .route("/api/identity/workspaces/{id}/settings", get(settings::read).post(settings::update))
         .route("/api/identity/workspaces/{id}/activity", get(settings::activity))
@@ -260,6 +267,10 @@ fn router(app: Shared) -> Router {
         .route(
             "/api/identity/invitations/{id}/accept",
             post(routes::accept),
+        )
+        .route(
+            "/api/identity/invitations/{id}/decline",
+            post(routes::decline),
         )
         .route(
             "/api/identity/workspaces/{id}/members/{user}",

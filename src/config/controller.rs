@@ -57,6 +57,9 @@ pub struct Controller {
     pub cloud: Option<CloudWorkers>,
     /// Days live-update notices are kept; older browser positions reload (D226).
     pub retain_sync_days: i64,
+    /// Verified emails of Cuckoo platform administrators: they issue workspace
+    /// invite codes and may create workspaces without one. Never set in the app.
+    pub platform_admins: Vec<String>,
     /// Seconds between pool metric snapshots; 0 turns them off.
     pub metrics_seconds: u64,
     /// JSON logs (containers): metrics are CloudWatch embedded metric lines.
@@ -195,6 +198,7 @@ impl Controller {
             aws_test_endpoint: test_endpoint(env),
             metrics_seconds: env.number("AYATI_METRICS_SECONDS", 60, 0..=3600),
             retain_sync_days: env.number("AYATI_RETAIN_SYNC_DAYS", 30, 1..=3650),
+            platform_admins: platform_admins(env),
             log_json: env.text("AYATI_LOG_FORMAT").as_deref() == Some("json"),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
@@ -278,6 +282,26 @@ impl CloudWorkers {
             role_arn: role_arn?,
         })
     }
+}
+
+fn platform_admins(env: &mut Reader) -> Vec<String> {
+    let admins: Vec<String> = env
+        .text("AYATI_PLATFORM_ADMINS")
+        .map(|value| {
+            value
+                .split(',')
+                .map(|e| e.trim().to_lowercase())
+                .filter(|e| !e.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    if admins
+        .iter()
+        .any(|e| !e.contains('@') || e.chars().any(char::is_whitespace))
+    {
+        env.problem("AYATI_PLATFORM_ADMINS must be a comma-separated list of email addresses");
+    }
+    admins
 }
 
 fn test_endpoint(env: &mut Reader) -> Option<String> {
