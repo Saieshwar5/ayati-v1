@@ -84,13 +84,13 @@ simulation database; see [company simulation](runtime/company-simulation.md).
   for controller, executors and migrations; HTTPS origin, Secure cookies and readiness.
 - [Release-image verifier](runtime/release-image-validation.md):
   `python3 tools/verify-release-image.py` with local Docker access.
-- [AWS package](deploy/aws/README.md): inactive CloudFormation definitions and
-  read-only preflight tools. No AWS resources are created by preparation.
+- [AWS test cycle](deploy/aws/README.md): access roles, a permanent layer and
+  temporary environments created with `deploy/aws/env.sh up` and deleted with `down`.
 - [Packaged signed bridge](runtime/packaged-worker-bridge.md) for executor identity.
 
 Executors on other machines reach worker control over TLS on a private network
 ([worker control](runtime/worker-control.md#executors-on-other-machines-private-network-tls));
-proving an executor's AWS task identity is the next deployment proof.
+on AWS they prove their ECS task identity instead of holding a shared key.
 
 ## Verification
 

@@ -1,2 +1,0 @@
-# Validation tools only; not application/runtime dependencies.
--r requirements.lock
