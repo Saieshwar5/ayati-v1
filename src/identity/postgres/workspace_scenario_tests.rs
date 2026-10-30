@@ -83,7 +83,7 @@ async fn concurrent_owners_preserve_last_owner_and_detect_stale_name_saves() {
     let (one, two, three) = tokio::join!(
         db.change(&a, &w, &a.id, Some("Member"), None),
         db.change(&b, &w, &b.id, Some("Member"), None),
-        db.change(&c, &w, &c.id, None, None)
+        db.change(&c, &w, &c.id, None, Some(&a.id))
     );
     assert_eq!([one, two, three].iter().filter(|r| r.is_ok()).count(), 2);
     let people = [&a, &b, &c];

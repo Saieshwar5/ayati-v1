@@ -200,3 +200,76 @@ async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
         "default-heir-admin@example.test removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
     );
 }
+
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn members_leave_on_their_own_and_the_last_admin_cannot() {
+    let db = fixture().await;
+    let admin = user(&db, "leave-admin").await;
+    let member = user(&db, "leave-member").await;
+    let other = user(&db, "leave-other").await;
+    let w = workspace(&db, &admin).await;
+    join(&db, &admin, &w, &member, "Member").await;
+    join(&db, &admin, &w, &other, "Member").await;
+    let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![
+            w.clone().into(),
+            agent.clone().into(),
+            member.id.clone().into(),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // They see what they look after, but not what someone else does.
+    let own = db
+        .member_responsibilities(&member, &w, &member.id)
+        .await
+        .unwrap();
+    assert_eq!(own["agents"].as_array().unwrap().len(), 1);
+    assert!(
+        db.member_responsibilities(&member, &w, &other.id)
+            .await
+            .is_err()
+    );
+    // Leaving names who takes over; a member still cannot change anyone else.
+    assert!(
+        db.change(&member, &w, &member.id, None, None)
+            .await
+            .is_err()
+    );
+    assert!(
+        db.change(&member, &w, &member.id, Some("Admin"), None)
+            .await
+            .is_err()
+    );
+    db.change(&member, &w, &member.id, None, Some(&other.id))
+        .await
+        .unwrap();
+    assert!(db.role(&w, &member.id).await.is_err());
+    let owner: String = query(
+        &db.db,
+        "SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+        vec![w.clone().into(), agent.into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "owner_id")
+    .unwrap();
+    assert_eq!(owner, other.id);
+    assert_eq!(
+        audit_summary(&db, &w).await,
+        "leave-member@example.test left the workspace; 1 agent moved to leave-other@example.test"
+    );
+
+    let refused = db
+        .change(&admin, &w, &admin.id, None, Some(&other.id))
+        .await
+        .unwrap_err();
+    assert!(refused.to_string().contains("at least one admin"));
+    assert_eq!(db.role(&w, &admin.id).await.unwrap(), "Admin");
+}

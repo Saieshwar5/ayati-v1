@@ -107,8 +107,12 @@ impl PgStore {
             assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
             "Invalid role"
         );
+        // Anyone may leave on their own (naming who takes over); every other change needs an admin.
+        let leaving = target == user.id && assigned.is_none();
         let tx = self.workspace_tx(workspace).await?;
-        manager(&tx, workspace, &user.id).await?;
+        if !leaving {
+            manager(&tx, workspace, &user.id).await?;
+        }
         let target_role = role(&tx, workspace, target).await?;
         if target_role == "Admin" && assigned != Some("Admin") {
             let count: i64 = query(
@@ -166,7 +170,7 @@ impl PgStore {
             (None, Some(before)) => {
                 let heir_name = super::member_handover::name(&tx, heir).await?;
                 super::member_handover::removal_summary(
-                    &actor_name,
+                    (!leaving).then_some(actor_name.as_str()),
                     &target_name,
                     &heir_name,
                     before,

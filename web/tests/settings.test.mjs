@@ -5,6 +5,7 @@ import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format:'module', source:'export {};', shortCircuit:true } : next(url,context); } });
 const workspace='11111111-1111-4111-8111-111111111111';
 const base=`http://localhost/w/${workspace}/?view=settings`;
+let refuseLeave=false;
 async function fixture(role, run, simulation=false) {
   const reads=[], writes=[];
   await reactFixture(async context => {
@@ -26,6 +27,8 @@ async function fixture(role, run, simulation=false) {
     if(path.endsWith('/chats'))data={chats:[]};
     if(path.endsWith('/chat-directory'))data={role,users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null,role},{id:'lead',name:'Arjun Mehta',email:'arjun@test',role:'Admin'}],agents:[]};
     if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
+    if(path.endsWith('/responsibilities'))data={agents:[{id:'a1',name:'Atlas'}],private_agents:1,library_items:0,kept_library_items:0,schedules:0,event_triggers:0,approvals:0,tool_rules:0,invitations:0};
+    if(body&&path.endsWith('/members/person')&&refuseLeave)return {ok:false,status:400,json:async()=>({error:'A workspace must keep at least one admin'})};
     return {ok:true,status:200,json:async()=>data};
   }});
 }
@@ -51,6 +54,42 @@ test('Members see their own pages and This workspace, and never read admin data'
     assert.equal(document.documentElement.dataset.theme,'dark');
     assert.equal(localStorage.getItem('ayati.theme'),'dark');
   });
+});
+
+test('Members see counts and what admins can see, and leave naming who takes over',async()=>{
+  await fixture('Member',async({render,click,change,reads,writes,navigation})=>{
+    await render(base+'&section=this-workspace');
+    assert.match(document.querySelector('.settings-workspace-card p').textContent,/^You are a Member · 2 people · 0 agents$/);
+    assert.match(document.querySelector('.settings-detail').textContent,/What admins can see.*never other people’s private channels or direct messages/);
+    await click(document.querySelector('.settings-leave button'));
+    assert.equal(document.querySelector('dialog h2').textContent,'Leave Northstar?');
+    assert.ok(reads.some(path=>path.endsWith('/members/person/responsibilities')));
+    const select=document.querySelector('dialog select');
+    assert.equal(select.value,'lead','an admin takes over by default');
+    assert.deepEqual([...select.options].map(option=>option.textContent),['Arjun Mehta (admin)']);
+    const text=document.querySelector('dialog').textContent;
+    assert.match(text,/Moves to Arjun Mehta.*1 shared agent: Atlas/); assert.match(text,/Stays as it is.*1 private agent/);
+    await change(select,'lead');
+    const leave=document.querySelector('dialog .settings-remove');
+    await click(leave); await click(leave);
+    assert.equal(writes.length,1,'one request for a double click');
+    assert.match(writes[0].path,/\/members\/person$/); assert.deepEqual(writes[0].body,{role:null,handover_to:'lead'});
+    assert.deepEqual(navigation,['/?view=account&choose=1']);
+  });
+});
+
+test('A refused leave keeps the dialog open with the reason',async()=>{
+  refuseLeave=true;
+  try {
+    await fixture('Member',async({render,click,navigation})=>{
+      await render(base+'&section=this-workspace');
+      await click(document.querySelector('.settings-leave button'));
+      await click(document.querySelector('dialog .settings-remove'));
+      assert.ok(document.querySelector('dialog').open);
+      assert.match(document.querySelector('dialog').textContent,/at least one admin/);
+      assert.deepEqual(navigation,[]);
+    });
+  } finally { refuseLeave=false; }
 });
 
 test('Admins see the workspace pages; Usage and Billing are marked as coming later',async()=>{
