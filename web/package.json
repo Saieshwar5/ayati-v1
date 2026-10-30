@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.mjs"
+    "test": "node --max-old-space-size=1536 --import tsx --test tests/*.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

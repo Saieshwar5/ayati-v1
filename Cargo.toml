@@ -53,6 +53,15 @@ aws-smithy-runtime-api = "1"
 [dev-dependencies]
 tempfile = "3"
 
+# Lighter local builds (2026-10-30): our code keeps file and line numbers for
+# backtraces; dependencies carry no debug info. This cuts build memory and the size
+# of target/ sharply on an 8 GB laptop. Release builds are unchanged.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 lto = "thin"
 strip = true
