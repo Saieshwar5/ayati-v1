@@ -10,6 +10,10 @@ use serde_json::{Value, json};
 #[derive(Deserialize)]
 pub(super) struct LoginQuery {
     invitation_token: Option<String>,
+    /// `google` goes straight to Google; otherwise WorkOS AuthKit shows its methods.
+    method: Option<String>,
+    /// Pre-fills AuthKit's email field (WorkOS `login_hint`).
+    email: Option<String>,
 }
 pub(super) async fn login(
     State(app): State<Shared>,
@@ -25,6 +29,21 @@ pub(super) async fn login(
             .is_none_or(|v| v.len() <= 1024),
         "Invalid invitation",
     )?;
+    check(
+        input.method.as_deref().is_none_or(|m| m == "google"),
+        "Unknown sign-in method",
+    )?;
+    let hint = input
+        .email
+        .as_deref()
+        .map(str::trim)
+        .filter(|e| !e.is_empty());
+    check(
+        hint.is_none_or(|e| {
+            e.len() <= 254 && e.contains('@') && !e.chars().any(char::is_whitespace)
+        }),
+        "Enter a valid email",
+    )?;
     let token = random_token();
     let state = random_token();
     let verifier = random_token();
@@ -32,7 +51,14 @@ pub(super) async fn login(
     url.query_pairs_mut().extend_pairs([
         ("client_id", app.provider.client_id.as_str()),
         ("response_type", "code"),
-        ("provider", "authkit"),
+        (
+            "provider",
+            if input.method.is_some() {
+                "GoogleOAuth"
+            } else {
+                "authkit"
+            },
+        ),
         (
             "redirect_uri",
             &format!("{}/auth/callback", app.config.origin),
@@ -44,6 +70,9 @@ pub(super) async fn login(
     if let Some(invitation) = &input.invitation_token {
         url.query_pairs_mut()
             .append_pair("invitation_token", invitation);
+    }
+    if let Some(email) = hint {
+        url.query_pairs_mut().append_pair("login_hint", email);
     }
     login_state::save(
         &app,
@@ -177,6 +206,9 @@ pub(super) async fn logout(State(app): State<Shared>, headers: HeaderMap) -> Api
 pub(super) struct Create {
     name: String,
     request_id: String,
+    /// Required unless the person is a platform administrator (invite-only early access).
+    #[serde(default)]
+    code: Option<String>,
 }
 pub(super) async fn create(
     State(app): State<Shared>,
@@ -184,9 +216,19 @@ pub(super) async fn create(
     Json(input): Json<Create>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        json!({"id":app.store.create(&user,&input.name,&input.request_id).await?}),
-    ))
+    let id = if super::workspace_codes::platform_admin(&app, &user) {
+        app.store
+            .create(&user, &input.name, &input.request_id)
+            .await?
+    } else {
+        let code = input.code.as_deref().filter(|code| !code.trim().is_empty());
+        let code = code
+            .ok_or_else(|| anyhow::anyhow!("An invite code is required to create a workspace"))?;
+        app.store
+            .create_with_code(&user, &input.name, &input.request_id, code)
+            .await?
+    };
+    Ok(Json(json!({"id": id})))
 }
 pub(super) async fn people(
     State(app): State<Shared>,
@@ -239,6 +281,25 @@ pub(super) async fn accept(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(json!({"id":app.store.accept(&user,&id).await?})))
+}
+pub(super) async fn decline(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    if let Some(provider) = app.store.decline(&user, &id).await? {
+        // Best effort: the Cuckoo invitation is already closed either way.
+        let _ = app
+            .provider
+            .request(
+                reqwest::Method::POST,
+                &format!("/user_management/invitations/{provider}/revoke"),
+                Some(json!({})),
+            )
+            .await;
+    }
+    Ok(Json(json!({"declined": true})))
 }
 pub(super) async fn cancel(
     State(app): State<Shared>,

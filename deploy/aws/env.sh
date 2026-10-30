@@ -145,6 +145,7 @@ services() {  # services <controllers> <executors>
         PsqlImage="$(cat "$state/psql-image")" \
         Hostname="$AYATI_HOSTNAME" WorkosClientId="$AYATI_WORKOS_CLIENT_ID" Model="$AYATI_MODEL" \
         ModelProvider="${AYATI_MODEL_PROVIDER:-openai}" ControllerCount="$1" ExecutorCount="$2" \
+        PlatformAdmins="${AYATI_PLATFORM_ADMINS:-}" \
         WorkosSecretArn="$(secret_arn workos-api-key)" ModelSecretArn="$(secret_arn model-api-key)" \
         WorkerServerSecretArn="$(secret_arn worker-control-server)" \
         WorkerCaSecretArn="$(secret_arn worker-control-ca)"

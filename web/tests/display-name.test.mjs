@@ -16,7 +16,7 @@ test('first setup asks for a name without writing or automatically entering a wo
     await change(form.elements.display_name, 'Sai Eshwar');
     await submit(form);
     assert.deepEqual(writes, [{ display_name: 'Sai Eshwar' }]);
-    assert.ok(button('Store · Owner'));
+    assert.ok([...document.querySelectorAll('a.access-workspace')].some(a => a.textContent.includes('Store') && a.textContent.includes('Owner')));
     assert.equal(document.body.textContent.includes('What should people call you'), false);
   }, { fetch: async (path, options = {}) => {
     if (options.method !== 'POST') return { ok: true, json: async () => ({ user, workspaces: [workspace] }) };

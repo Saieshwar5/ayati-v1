@@ -66,6 +66,16 @@ impl PgStore {
         tx.commit().await?;
         Ok(workspace)
     }
+    /// The invited person turns an invitation down; returns the WorkOS invitation to revoke.
+    pub async fn decline(&self, user: &User, id: &str) -> Result<Option<String>> {
+        let tx = self.db.begin().await?;
+        let row = query(&tx, "UPDATE relay_invitations SET status='cancelled' WHERE id=$1 AND email=$2 AND status IN ('pending','delivery_unknown') RETURNING workspace,provider",
+            vec![id.into(), user.email.clone().into()]).await?.context("Invitation unavailable for this account")?;
+        let workspace: String = row.try_get("", "workspace")?;
+        audit(&tx, &user.id, Some(&workspace), "invitation_declined", id).await?;
+        tx.commit().await?;
+        Ok(row.try_get("", "provider")?)
+    }
     pub async fn cancel(&self, user: &User, workspace: &str, id: &str) -> Result<Option<String>> {
         let tx = self.workspace_tx(workspace).await?;
         manager(&tx, workspace, &user.id).await?;

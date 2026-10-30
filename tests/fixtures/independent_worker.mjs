@@ -162,6 +162,9 @@ export async function workerFixture(t, options = {}) {
   async function startApi() {
     api = launch(['simulate', join(data, 'api')], {
       RELAY_SIMULATION_DATABASE_URL: runtime.href, AYATI_PORT: String(port),
+      // Simulation employees may create workspaces without an invite code; tests of
+      // the code rule pass their own list (or an empty one) through apiEnv.
+      AYATI_PLATFORM_ADMINS: Array.from({ length: 20 }, (_, n) => `employee${n}@company.example.test`).join(','),
       ...controllerControl, ...options.apiEnv,
     });
     await until(async () => {
