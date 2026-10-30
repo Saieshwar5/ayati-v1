@@ -16,6 +16,7 @@ pub(crate) mod archive;
 pub(crate) mod data_cleanup;
 mod hosting;
 mod interactions;
+mod invite_links;
 mod library;
 mod login_state;
 mod member_profiles;
@@ -56,6 +57,8 @@ struct Pending {
     state: String,
     verifier: String,
     invitation: Option<String>,
+    /// A Cuckoo page to open after signing in (an invite link), never an external URL.
+    return_to: Option<String>,
     expires: i64,
 }
 struct App {
@@ -271,6 +274,14 @@ fn router(app: Shared) -> Router {
         .route(
             "/api/identity/invitations/{id}/decline",
             post(routes::decline),
+        )
+        .route("/invite/{token}", get(workspaces::client))
+        .route("/api/identity/invite-links/{token}", get(invite_links::preview))
+        .route("/api/identity/invite-links/{token}/accept", post(invite_links::accept))
+        .route("/api/identity/invite-links/{token}/decline", post(invite_links::decline))
+        .route(
+            "/api/identity/workspaces/{id}/invitations/{invitation}/link",
+            post(invite_links::reissue),
         )
         .route(
             "/api/identity/workspaces/{id}/members/{user}",

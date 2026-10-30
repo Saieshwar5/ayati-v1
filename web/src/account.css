@@ -121,3 +121,12 @@ a.access-row:hover, a.access-row:focus-visible { border-color: var(--muted); }
   .access-row { flex-wrap: wrap; padding: 14px; }
   .access-row-actions { width: 100%; justify-content: flex-end; }
 }
+
+/* An invite link: one focused card, signed in or not. */
+.access-invite { display: grid; place-items: center; min-height: 100dvh; padding: 24px 16px; box-sizing: border-box; background: var(--canvas); color: var(--text); }
+.access-invite-card { display: grid; gap: 14px; width: min(440px, 100%); padding: 32px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: 0 15px 50px var(--shadow); }
+.access-invite-card h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.3px; }
+.access-invite-card .access-button { width: 100%; }
+.access-invite-card .access-field small { color: var(--muted); font-weight: 400; }
+@media (max-width: 600px) { .access-invite-card { padding: 24px 20px; } }
+.invite-link code { display: block; padding: 10px 12px; border-radius: 10px; background: var(--soft); font-size: 13px; overflow-wrap: anywhere; user-select: all; }

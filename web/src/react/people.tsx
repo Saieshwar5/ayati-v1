@@ -38,6 +38,13 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
       { title: 'Invitations', content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
         <div className="ui-row-title"><strong>{invitation.email}</strong><small>{invitation.role}</small></div>
         <span className="ui-badge">{invitation.status === 'delivery_unknown' ? 'Delivery unconfirmed' : invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
+        {data?.role === 'Owner' && invitation.status === 'pending' && invitation.expires * 1000 > Date.now() && <Button disabled={mutation.busy}
+          aria-label={`Copy a new invite link for ${invitation.email}`} onClick={() => void mutation.run(async () => {
+            // Links are stored hashed, so copying makes a new one and the old link stops working.
+            const result = await identityRequest<{ link: string }>(`${base}/invitations/${invitation.id}/link`, {});
+            await navigator.clipboard?.writeText(result.link);
+            mutation.setStatus(`New invite link copied for ${invitation.email}. Earlier links for this invitation no longer work.`);
+          })}>Copy new link</Button>}
         {data?.role === 'Owner' && <Button disabled={mutation.busy} onClick={() => {
           if (!confirm(`Cancel the invitation for ${invitation.email}?`)) return;
           void mutation.run(async () => {
@@ -47,7 +54,7 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
         }}>Cancel invitation</Button>}
       </div>)}{data && !invitations.length && <p className="ui-empty">{query ? 'No invitations match your search.' : 'No invitations to show. Invite someone when you’re ready.'}</p>}</div> },
     ]} /></div>
-    {inviting && data && <InviteDialog close={() => setInviting(false)} failed={() => void refresh().catch(() => {})} saved={async () => { setInviting(false); await saved('Invitation sent. They can sign in and accept it under Your workspaces.'); }} />}
+    {inviting && data && <InviteDialog close={() => setInviting(false)} failed={() => void refresh().catch(() => {})} saved={async () => { setInviting(false); await saved('Invitation sent. They can open the link, sign in with that email and accept.'); }} />}
     {selected && data && <MemberDetails key={selected.id} member={selected} viewerRole={data.role} ownerCount={data.members.filter(person => person.role === 'Owner').length} close={() => select(undefined)} refresh={refresh} />}
   </main></div>;
 }
@@ -55,12 +62,22 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
 function InviteDialog({ close, saved, failed }: { close: () => void; saved: () => Promise<void>; failed: () => void }) {
   const emailInput = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState('');
+  const [link, setLink] = useState('');
+  const [copied, setCopied] = useState(false);
   const mutation = useMutation();
+  // After sending, the link is shown once so the owner can also send it on WhatsApp or chat.
+  if (link) return <Dialog title="Invitation sent" close={() => void saved()}>
+    <p className="ui-help">{email} received an email. You can also send this link; it works for {email} only and expires in 7 days.</p>
+    <p className="invite-link"><code>{link}</code></p>
+    <div className="access-actions"><Button primary onClick={() => void navigator.clipboard?.writeText(link).then(() => setCopied(true))}>{copied ? 'Link copied' : 'Copy invite link'}</Button>
+      <Button onClick={() => void saved()}>Done</Button></div>
+  </Dialog>;
   return <Dialog title="Invite a person" busy={mutation.busy} status={mutation.status} close={close} initialFocus={emailInput}>
     <form className="ui-form" onSubmit={event => { event.preventDefault(); void mutation.run(async () => {
-      try { await identityRequest(`${base}/invitations`, { email, role: 'User' }); }
+      let result: { link?: string };
+      try { result = await identityRequest<{ id: string; link?: string }>(`${base}/invitations`, { email, role: 'User' }); }
       catch (error) { failed(); throw error; }
-      await saved();
+      if (result.link) setLink(result.link); else await saved();
     }); }}>
       <label className="ui-field">Email address<input ref={emailInput} name="email" type="email" required autoComplete="email" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} /></label>
       <p className="ui-help">They’ll receive an email to join as a User. An Owner can give them ownership after they join. Apps, Home panels and agent access are shared separately.</p>
