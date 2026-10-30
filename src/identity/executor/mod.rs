@@ -50,7 +50,9 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
         pooled: true,
     };
     let identity = settings.identity;
-    let task = register(&transport, identity, &registration).await?;
+    // Controllers may still be starting (a fresh deployment starts both together),
+    // so the first registration waits for an unavailable controller instead of exiting.
+    let task = register(&transport, identity, &registration, STARTUP_WAIT_SECONDS).await?;
     let client = Client::new(&transport, &registration.token)?.for_task(task);
     let base = format!(
         "/v1/executors/{}/{}/pool",
@@ -166,7 +168,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
                         }
                     }
                 }
-                if tokio::time::Instant::now() >= refresh && register(&transport, identity, &registration).await.is_ok() {
+                if tokio::time::Instant::now() >= refresh && register(&transport, identity, &registration, 5).await.is_ok() {
                     refresh = tokio::time::Instant::now() + Duration::from_secs(300);
                 }
             },
@@ -244,29 +246,29 @@ async fn handle_offer(
     {
         return;
     }
+    // A stale offer (older generation, or a slot not ready) is left to the
+    // controller: its lease expires and the work is reclaimed and re-offered.
     if slot.generation == scope.slot_generation && matches!(slot.state, State::Ready(_)) {
         slot.start(index, scope, control, jobs);
-    } else if !matches!(slot.state, State::Running(_)) {
-        let _ = control
-            .client
-            .release(&control.registration, &scope, "lost")
-            .await;
     }
 }
 /// Register (and periodically re-register) this incarnation. An AWS executor
 /// proves its task identity each time, so a stopped task cannot stay registered;
 /// it returns the bound task ARN to send with later requests.
+/// Within ECS's stop timeout, so a stopping task never waits longer than ECS allows.
+const STARTUP_WAIT_SECONDS: u64 = 90;
 async fn register(
     control: &crate::config::WorkerControl,
     identity: crate::config::Identity,
     registration: &Registration,
+    wait_seconds: u64,
 ) -> Result<Option<String>> {
     use crate::identity::worker_control::aws_identity;
     match identity {
         crate::config::Identity::Bootstrap => {
             let key = config::key(&control.key_file)?;
             let _: serde_json::Value = Client::new(control, &key)?
-                .retry("/v1/executors/register", registration, 5)
+                .retry_waiting("/v1/executors/register", registration, 5, wait_seconds)
                 .await?;
             Ok(None)
         }
@@ -277,7 +279,7 @@ async fn register(
                 proof: aws_identity::prove(registration, &credentials)?,
             };
             let response: serde_json::Value = Client::new(control, &registration.token)?
-                .retry("/v1/executors/register-aws", &input, 5)
+                .retry_waiting("/v1/executors/register-aws", &input, 5, wait_seconds)
                 .await?;
             let task = response["task"]
                 .as_str()

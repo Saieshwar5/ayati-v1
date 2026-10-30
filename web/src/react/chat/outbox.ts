@@ -1,6 +1,6 @@
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { chatRequest, type Message } from './model';
-export type Submission = { id: string; content: string; agent?: string; thread?: string; attachments: string[] };
+export type Submission = { id: string; content: string; agent?: string; thread?: string; reply_to?: string; attachments: string[] };
 export type PendingMessage = { key: string; scope: string; chat: string; payload: Submission; at: number; state: 'waiting' | 'sending' | 'checking' | 'failed' | 'paused' | 'sent'; error?: string; attempts: number; next: number };
 const sentListeners = new Set<(chat: string, message?: Message) => void>();
 export function subscribeSent(fn: (chat: string, message?: Message) => void) { sentListeners.add(fn); return () => { sentListeners.delete(fn); }; }

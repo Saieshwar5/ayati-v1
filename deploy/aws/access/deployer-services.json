@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BuildAndDeleteAyatiEnvironments",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:*",
+        "ec2:*",
+        "ecs:*",
+        "ecr:*",
+        "elasticloadbalancing:*",
+        "rds:*",
+        "logs:*",
+        "cloudwatch:*",
+        "application-autoscaling:*",
+        "servicediscovery:*",
+        "route53:*",
+        "acm:*",
+        "budgets:*",
+        "cloudfront:*",
+        "wafv2:*",
+        "ce:Get*",
+        "pricing:*",
+        "tag:GetResources",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:GetRandomPassword",
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "*",
+      "Condition": {"StringEquals": {"aws:RequestedRegion": ["ap-south-1", "us-east-1"]}}
+    },
+    {
+      "Sid": "AyatiSecretsWithoutReadingProviderKeys",
+      "Effect": "Allow",
+      "NotAction": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:ap-south-1:${ACCOUNT}:secret:ayati/*"
+    },
+    {
+      "Sid": "CloudFormationResolvesDatabasePasswords",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:ap-south-1:${ACCOUNT}:secret:ayati/*/database-*"
+    },
+    {
+      "Sid": "AyatiBucketsOnly",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::ayati-*", "arn:aws:s3:::ayati-*/*"]
+    }
+  ]
+}

@@ -16,9 +16,10 @@ No new provider, dependency, paid inference or cloud resource is required.
 ## What people see
 
 The existing agent reply stays in its conversation/thread with its original
-requester and task identity. Its status changes to **Waiting for approval · Worker
-released**. The person can inspect the saved request through its channel card or
-**My approvals**, or use **Stop reply** on the original task.
+requester and task identity. Its status changes to **Waiting for approval** (the
+executor is released meanwhile). The person can inspect the saved request through
+its channel card or Home's attention inbox, or choose **Cancel request** in the
+original task's message menu.
 
 - Approve dispatches only the exact saved action. Once its result is confirmed,
   **Decision saved · Waiting to continue…** indicates the queued continuation.

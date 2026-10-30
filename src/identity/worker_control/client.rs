@@ -1,12 +1,37 @@
 //! Bounded machine transport. Never follows redirects, uses proxies or prints credentials/bodies.
-use super::{config, model::*};
+use super::config;
 use anyhow::{Result, ensure};
 use serde::{Serialize, de::DeserializeOwned};
-use serde_json::Value;
 use std::time::Duration;
 
-#[derive(Debug)]
-pub(crate) struct Unavailable;
+/// A transient failure worth retrying. `unreachable` means nothing answered at
+/// all (connection refused, name not resolvable yet), as while a controller
+/// starts; a rejected TLS certificate or a bad response is never unreachable.
+#[derive(Debug, Default)]
+pub(crate) struct Unavailable {
+    unreachable: bool,
+}
+impl Unavailable {
+    fn from_send(error: reqwest::Error) -> Self {
+        Self {
+            unreachable: error.is_connect() && !tls_rejected(&error),
+        }
+    }
+}
+/// TLS failures arrive as nested `io::Error`s around a `rustls::Error`.
+fn tls_rejected(error: &(dyn std::error::Error + 'static)) -> bool {
+    let mut next = Some(error);
+    while let Some(error) = next {
+        if error.is::<rustls::Error>() {
+            return true;
+        }
+        next = match error.downcast_ref::<std::io::Error>() {
+            Some(io) => io.get_ref().map(|inner| inner as _),
+            None => error.source(),
+        };
+    }
+    false
+}
 impl std::fmt::Display for Unavailable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Controller temporarily unavailable")
@@ -59,10 +84,10 @@ impl Client {
                 .send(),
         )
         .await
-        .map_err(|_| Unavailable)?
-        .map_err(|_| Unavailable)?;
+        .map_err(|_| Unavailable::default())?
+        .map_err(Unavailable::from_send)?;
         if response.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE {
-            return Err(Unavailable.into());
+            return Err(Unavailable::default().into());
         }
         ensure!(
             response.status().is_success(),
@@ -122,9 +147,9 @@ impl Client {
             .timeout(Duration::from_secs(seconds))
             .send()
             .await
-            .map_err(|_| Unavailable)?;
+            .map_err(Unavailable::from_send)?;
         if [429, 502, 503, 504].contains(&response.status().as_u16()) {
-            return Err(Unavailable.into());
+            return Err(Unavailable::default().into());
         }
         if response.status() == reqwest::StatusCode::CONFLICT {
             return Err(Conflict.into());
@@ -135,7 +160,7 @@ impl Client {
             response.status().as_u16()
         );
         let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| Unavailable)? {
+        while let Some(chunk) = response.chunk().await.map_err(|_| Unavailable::default())? {
             ensure!(
                 bytes.len() + chunk.len() <= 524288,
                 "Controller response exceeds protocol limit"
@@ -151,37 +176,38 @@ impl Client {
         body: &impl Serialize,
         seconds: u64,
     ) -> Result<T> {
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(seconds);
+        self.retry_waiting(path, body, seconds, seconds).await
+    }
+    /// Like `retry`, but keeps waiting up to `unreachable_seconds` while no
+    /// controller answers at all (a deployment starting controllers and
+    /// executors together).
+    pub async fn retry_waiting<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl Serialize,
+        seconds: u64,
+        unreachable_seconds: u64,
+    ) -> Result<T> {
+        let start = tokio::time::Instant::now();
         loop {
             match self.post(path, body).await {
-                Err(error)
-                    if error.is::<Unavailable>() && tokio::time::Instant::now() < deadline =>
-                {
-                    tokio::time::sleep(Duration::from_millis(150)).await;
+                Err(error) if error.is::<Unavailable>() => {
+                    let unreachable = error
+                        .downcast_ref::<Unavailable>()
+                        .is_some_and(|e| e.unreachable);
+                    let limit = if unreachable {
+                        unreachable_seconds
+                    } else {
+                        seconds
+                    };
+                    if start.elapsed() >= Duration::from_secs(limit) {
+                        return Err(error);
+                    }
+                    let pause = if unreachable { 1000 } else { 150 };
+                    tokio::time::sleep(Duration::from_millis(pause)).await;
                 }
                 result => return result,
             }
         }
-    }
-    pub async fn release(
-        &self,
-        executor: &Registration,
-        scope: &Scope,
-        reason: &str,
-    ) -> Result<()> {
-        let _: Value = self
-            .retry(
-                &format!(
-                    "/v1/executors/{}/{}/release",
-                    executor.executor, executor.incarnation
-                ),
-                &Release {
-                    scope: scope.clone(),
-                    reason: reason.into(),
-                },
-                3,
-            )
-            .await?;
-        Ok(())
     }
 }

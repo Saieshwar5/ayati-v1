@@ -7,6 +7,8 @@ original scope; it does not establish acceptance for this new release.
 Agent replies run only on pooled executors (2026-10-29): the Compose template runs
 the controller and an independently scaled executor service that reaches it over
 TLS on a private network. It is not yet an AWS on-demand task launcher.
+On AWS the same image runs as ECS Fargate services created and deleted per test
+window by [deploy/aws/env.sh](../deploy/aws/README.md) (2026-10-30, not yet run).
 
 This increment packages the website, controller and executors and
 adds an explicit HTTPS gateway configuration. It prepares a private cloud
@@ -65,6 +67,7 @@ for migrations, API and workers in a release.
 | `AYATI_WORKER_CONTROL_URL`, `AYATI_WORKER_CONTROL_KEY_FILE` | Worker-control origin (`https://` on a private network, or loopback `http://`) and bootstrap key, on the API and every executor ([worker control](worker-control.md)) |
 | `AYATI_WORKER_CONTROL_LISTEN`, `…_TLS_CERT`, `…_TLS_KEY` | API only: private listen address and TLS files for an `https://` URL |
 | `AYATI_WORKER_CONTROL_CA` | Executors only: the private certificate authority they trust |
+| `AYATI_PLATFORM_ADMINS` | API only: comma-separated verified emails that issue workspace invite codes and may create workspaces without one ([workspace access](workspace-access.md)) |
 | `AYATI_EXECUTOR_IDENTITY` | Executors: `bootstrap` (key file) or `aws` (proven ECS task identity, [worker control](worker-control.md#executors-on-aws-proven-task-identity)) |
 | `WORKOS_CLIENT_ID`, `WORKOS_API_KEY` | API only; configure the exact public `/auth/callback` URL in WorkOS |
 | `AYATI_WORKER_PROVIDERS` | API declaration of executor providers, `openai` and/or `fireworks-ai`, comma separated |

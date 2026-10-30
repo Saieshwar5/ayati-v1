@@ -43,6 +43,9 @@ impl MigratorTrait for Migrator {
             Box::new(super::chat_people_migration::ChatPeople),
             Box::new(super::message_action_migration::MessageActions),
             Box::new(super::chat_notification_migration::ChatNotifications),
+            Box::new(super::agent_receipt_migration::AgentReceipts),
+            Box::new(super::message_reply_migration::MessageReplies),
+            Box::new(super::workspace_code_migration::WorkspaceCodes),
         ]
     }
 }

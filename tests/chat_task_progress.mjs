@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until, root } from './fixtures/polling.mjs';
+import { cancelRequest, offersCancel } from './fixtures/chat_actions.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 test(
   'Saved progress remains read-only while Chat keeps question/restart/Stop controls without progress launchers',
@@ -126,7 +127,7 @@ test(
     await observer.goto(url);
     const observed = observer.locator(`[data-message-id="${job.reply}"]`);
     await observed.getByRole('button', { name: 'View question', exact: true }).waitFor();
-    assert.equal(await observed.getByRole('button', { name: 'Stop reply', exact: true }).count(), 0);
+    assert.equal(await offersCancel(observed), false);
     assert.equal(await observer.getByRole('button', { name: 'Check progress', exact: true }).count(), 0);
     await observer.setViewportSize({ width: 390, height: 844 });
     await observer.screenshot({ path: join(app.data, 'chat-observer-phone.png') });
@@ -167,7 +168,7 @@ test(
     );
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${app.base}/w/${w}/?view=chat&conversation=${chat}&message=${stopped.reply}`);
-    await page.locator(`[data-message-id="${stopped.reply}"]`).getByRole('button', { name: 'Stop reply', exact: true }).click();
+    await cancelRequest(page, page.locator(`[data-message-id="${stopped.reply}"]`));
     await app.done(stopped, 'cancelled');
     const cancelled = (await app.request(`${app.path}/chats/${chat}/messages/${stopped.reply}/progress`, reader)).value;
     assert.equal(cancelled.state, 'cancelled'); assert.equal(cancelled.can_cancel, false);

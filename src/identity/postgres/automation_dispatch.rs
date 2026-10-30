@@ -80,6 +80,7 @@ impl PgStore {
             "Routine timing moved backwards"
         );
         let input = NewMessage {
+            reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             content: format!(
                 "Scheduled work · {}\n{}",

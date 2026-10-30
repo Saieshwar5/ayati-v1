@@ -55,6 +55,7 @@ pub(super) async fn membership(app: &App, user: &User, id: &str) -> ApiResult<St
 pub(super) async fn session_snapshot(app: &App, user: &User) -> Result<serde_json::Value> {
     let mut snapshot = app.store.snapshot(user).await?;
     snapshot["simulation"] = json!(app.simulation.is_some());
+    snapshot["platform_admin"] = json!(super::workspace_codes::platform_admin(app, user));
     Ok(snapshot)
 }
 

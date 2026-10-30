@@ -119,6 +119,7 @@ impl PgStore {
         let controls = super::handoff_controls::snapshot(&tx, job).await?;
         let source = super::handoff_access::event_source(&tx, job, &input.agent).await?;
         let request = NewMessage {
+            reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(input.agent.clone()),
             thread: Some(thread.clone()),

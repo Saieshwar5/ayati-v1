@@ -122,8 +122,6 @@ impl Slot {
             .with_token(&self.token)
             .expect("Validated local capability");
         trace.mark("credential_binding");
-        let client = control.client.clone();
-        let registration = control.registration.clone();
         let stop = control.stop.clone();
         let request = AssignedRequest {
             scope: scope.clone(),
@@ -135,7 +133,6 @@ impl Slot {
             let result=attempt::run(run_client,request,stop,|context,cancel|async move {harness.run(context,cancel,output).await}).await;
             let _=shutdown.shutdown().await;
             execution::cleanup(&root).await;
-            if client.release(&registration,&scope,"lost").await.is_err() {tracing::warn!(assignment=%scope.assignment,"Pool release deferred to durable reconciliation");}
             tracing::info!(assignment=%scope.assignment,success=result.is_ok(),"Executor session stopped and cleared");
             Done::Finished(index,generation)
         });

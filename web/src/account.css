@@ -1,28 +1,123 @@
-.access-preview { overflow: auto; min-height: 100dvh; background: var(--canvas); width: 100%; }
-.access-demo { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 24px; background: var(--warning-bg); color: var(--warning); font-size: 12px; }
-.access-demo a { color: inherit; }
-.access-error { margin: 0; padding: 0 24px; color: var(--danger); font-size: 14px; }
-.access-error:not(:empty) { padding: 14px 24px; }
-.access-card { width: min(440px, calc(100% - 32px)); margin: 7vh auto; padding: 34px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: 0 15px 60px var(--shadow); }
-.access-preview h1 { font-size: clamp(26px, 4vw, 36px); }
-.access-preview h2 { font-size: 20px; font-weight: 550; margin: 0 0 16px; letter-spacing: -.4px; }
-.access-preview h3 { font-size: 16px; margin-top: 28px; }
-.access-subtitle { color: var(--muted); line-height: 1.65; margin: 14px 0 28px; }
-.access-help { display: block; color: var(--muted); line-height: 1.6; font-size: 13px; overflow-wrap: anywhere; }
-.access-field { display: flex; flex-direction: column; gap: 9px; font-size: 13px; margin: 20px 0; font-weight: 550; }
-.access-preview input, .access-preview select { padding: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; min-width: 0; }
-.access-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 42px; padding: 10px 15px; border: 1px solid var(--border); border-radius: 11px; color: var(--text); background: var(--surface); cursor: pointer; text-decoration: none; font-size: 14px; }
+/* Sign in, choose or create a workspace, Cuckoo admin and the account view. */
+.access-loading { padding: 32px; color: var(--muted); }
+.access-page { min-height: 100dvh; background: var(--canvas); color: var(--text); }
+.access-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; padding: 0 clamp(16px, 3vw, 32px); border-bottom: 1px solid var(--border); background: var(--surface); }
+.access-logo { width: 116px; height: 28px; }
+.access-account { position: relative; }
+.access-account-button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 5px 12px 5px 6px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.access-account-text { display: grid; text-align: left; min-width: 0; }
+.access-account-text strong { font-size: 13px; font-weight: 600; }
+.access-account-text small { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.access-avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--selection); color: var(--text); font-size: 11px; font-weight: 600; }
+.access-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 4; min-width: 180px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px var(--shadow); }
+.access-menu button { width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.access-menu button:hover, .access-menu button:focus-visible { background: var(--soft); }
+.access-main { padding: clamp(28px, 6vh, 56px) 16px 48px; }
+.access-column { width: min(720px, 100%); margin: 0 auto; display: grid; gap: 14px; align-content: start; }
+.access-column.wide { width: min(1096px, 100%); }
+.access-column.narrow { width: min(440px, 100%); }
+.access-page h1, .access-sign-in h1, .access-content h1 { margin: 0; font-size: clamp(24px, 3vw, 30px); font-weight: 700; letter-spacing: -.4px; }
+.access-page h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.access-lead { margin: 0 0 6px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+.access-section { margin: 14px 0 8px !important; color: var(--muted); font-size: 11.5px !important; font-weight: 700 !important; letter-spacing: .6px; text-transform: uppercase; }
+.access-alert { margin: 0 auto 14px; width: min(720px, 100%); padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: var(--danger); font-size: 14px; }
+.access-help { display: block; color: var(--muted); line-height: 1.6; font-size: 13.5px; overflow-wrap: anywhere; margin: 0; }
+.access-fine { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+
+/* Controls shared with the display-name form. */
+.access-field { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; font-size: 13px; font-weight: 600; }
+.access-field input, .access-field select { min-height: 44px; box-sizing: border-box; padding: 10px 13px; border: 1px solid var(--border-control, var(--border)); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 15px; font-weight: 400; min-width: 0; }
+.access-button { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 44px; padding: 10px 18px; border: 1px solid var(--border-control, var(--border)); border-radius: 10px; color: var(--text); background: var(--surface); cursor: pointer; text-decoration: none; font: inherit; font-size: 14px; font-weight: 600; }
 .access-button:hover { background: var(--soft); }
 .access-button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.access-button.quiet { border-color: transparent; background: none; color: var(--muted); }
+.access-button.quiet:hover { color: var(--text); background: var(--soft); }
 .access-button:disabled { opacity: .5; cursor: not-allowed; }
-.access-card > .access-button, .access-card form > .access-button { width: 100%; margin: 6px 0; }
-.access-content { padding: clamp(24px, 5vw, 64px); width: min(100%, 1000px); min-width: 0; }
-.access-panel { background: var(--surface); border: 1px solid var(--border); padding: 26px; border-radius: var(--radius); margin: 24px 0; }
-.access-panel h2 { overflow-wrap: anywhere; }
-@media (max-width: 700px) {
-  .access-content { padding: 24px 16px; }
-  .access-card { padding: 26px; margin: 28px auto; }
-  .access-demo { padding: 12px 16px; }
-}
+.access-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.access-link { padding: 0; border: 0; background: none; color: var(--receipt-seen); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.access-notice { display: grid; gap: 3px; padding: 12px 14px; border-left: 3px solid var(--receipt-seen); border-radius: 10px; background: color-mix(in srgb, var(--receipt-seen) 8%, var(--surface)); font-size: 13px; line-height: 1.5; }
+.access-notice strong { font-weight: 600; }
+.access-notice span { color: var(--muted); }
 
+/* Sign in: what Cuckoo is on the left, signing in on the right. */
+.access-sign-in { display: grid; grid-template-columns: minmax(320px, 44%) 1fr; min-height: 100dvh; background: var(--surface); }
+.access-story { display: grid; align-content: center; gap: 22px; padding: 64px clamp(32px, 5vw, 72px); background: #17191d; color: #fff; }
+.access-story-mark { width: 44px; height: 30px; background: #fff !important; }
+.access-story h1 { color: #fff; font-size: clamp(30px, 3.4vw, 40px) !important; line-height: 1.15; max-width: 480px; }
+.access-story > p { margin: 0; color: #a9b0bc; font-size: 16px; line-height: 1.5; max-width: 460px; }
+.access-story ul { display: grid; gap: 16px; margin: 8px 0 0; padding: 0; list-style: none; }
+.access-story li { display: grid; gap: 3px; padding-left: 16px; border-left: 2px solid #3a3f48; }
+.access-story li strong { font-size: 15px; }
+.access-story li span { color: #a9b0bc; font-size: 13.5px; }
+.access-form-side { display: grid; place-items: center; padding: 48px 24px; }
+.access-form { display: grid; gap: 14px; width: min(380px, 100%); }
+.access-form .access-field { margin: 0 0 12px; }
+.access-form form .access-button { width: 100%; }
+.access-google { color: #4285f4; font-weight: 800; font-size: 17px; }
+.access-or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.access-or::before, .access-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Workspace rows and invitations. */
+.access-row { display: flex; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); text-decoration: none; }
+a.access-row:hover, a.access-row:focus-visible { border-color: var(--muted); }
+.access-invitation { background: color-mix(in srgb, var(--receipt-seen) 6%, var(--surface)); }
+.access-tile { display: inline-grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 11px; color: #fff; font-size: 15px; font-weight: 700; }
+.access-tile.large { width: 52px; height: 52px; flex-basis: 52px; font-size: 18px; }
+.access-row-text { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.access-row-text strong { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; font-weight: 600; overflow-wrap: anywhere; }
+.access-row-text span { color: var(--muted); font-size: 13px; }
+.access-row-actions { display: flex; gap: 8px; }
+.access-badge { padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, #2f6b36 12%, var(--surface)); color: #2f6b36; font-size: 11.5px; font-weight: 600; }
+.access-chevron { color: var(--muted); font-size: 22px; }
+.access-more { margin: 10px 0 0; color: var(--muted); font-size: 13.5px; }
+
+/* Invite code, workspace setup and admin. */
+.access-cards { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
+.access-box { display: grid; gap: 10px; padding: 24px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.access-box .access-button { width: 100%; }
+.access-box .access-field { margin: 4px 0 12px; }
+.access-box input[name=code] { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; text-transform: uppercase; }
+.access-create { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 400px); gap: 56px; justify-content: center; }
+.access-create .access-column { width: 100%; margin: 0; }
+.access-preview-card { display: grid; gap: 14px; align-content: start; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.access-preview-card small { color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+.access-preview-head { display: flex; align-items: center; gap: 12px; }
+.access-preview-head strong { font-size: 18px; overflow-wrap: anywhere; }
+.access-preview-card ul { margin: 0; padding: 14px 0 0 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; line-height: 1.9; }
+.access-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.access-issue-fields { display: grid; grid-template-columns: 1fr 180px auto; gap: 12px; align-items: end; }
+.access-issue-fields .access-field { margin: 0; }
+.access-issue .access-button { width: auto; }
+.access-issued { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: color-mix(in srgb, #2f6b36 10%, var(--surface)); font-size: 13.5px; }
+.access-issued code { padding: 6px 10px; border-radius: 8px; background: var(--surface); font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+.access-table { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.access-table > div { display: grid; grid-template-columns: 2fr 1fr 1fr 2fr 110px; gap: 12px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border); font-size: 13.5px; }
+.access-table > div:first-child { border-top: 0; }
+.access-table-head { color: var(--muted); font-size: 11.5px !important; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+.access-table [role=cell] { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.access-table small { color: var(--muted); font-size: 12px; }
+.access-status { justify-self: start; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--selection); color: var(--muted); }
+.access-status.unused { background: color-mix(in srgb, var(--receipt-seen) 12%, var(--surface)); color: var(--receipt-seen); }
+.access-status.used { background: color-mix(in srgb, #2f6b36 12%, var(--surface)); color: #2f6b36; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* The account view inside a workspace. */
+.access-content { padding: clamp(24px, 5vw, 64px); width: min(100%, 720px); min-width: 0; display: grid; gap: 10px; }
 .account-profile-form { max-width: 440px; }
+.account-profile-form .access-button { margin-top: 4px; }
+
+@media (max-width: 860px) {
+  .access-sign-in { grid-template-columns: 1fr; }
+  .access-story { display: none; }
+  .access-cards, .access-create { grid-template-columns: 1fr; gap: 18px; }
+  .access-preview-card { display: none; }
+  .access-issue-fields { grid-template-columns: 1fr; }
+  .access-table > div { grid-template-columns: 1fr 1fr; }
+  .access-table-head { display: none !important; }
+}
+@media (max-width: 600px) {
+  .access-account-text { display: none; }
+  .access-account-button { padding: 5px; }
+  .access-row { flex-wrap: wrap; padding: 14px; }
+  .access-row-actions { width: 100%; justify-content: flex-end; }
+}

@@ -84,3 +84,13 @@
 .workspace-chat .chat-message .chat-agent-label { border:0; padding:0; }
 .message-composer:focus-within { outline:none; border-color:var(--focus); box-shadow:0 0 0 1px var(--focus),0 5px 20px var(--shadow); }
 @media(forced-colors:active) { .message-composer:focus-within { outline:2px solid Highlight; outline-offset:2px; } }
+/* Positioned against the composer (not the button) so it never leaves the work area. */
+.emoji-picker { display:inline-flex; }
+.emoji-panel { position:absolute; right:6px; bottom:calc(100% + 8px); z-index:8; width:min(316px, calc(100% - 12px)); box-sizing:border-box; padding:10px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 8px 24px var(--shadow-deep); }
+.emoji-panel input { width:100%; box-sizing:border-box; padding:7px 10px; margin-bottom:8px; color:var(--text); background:var(--soft); border:1px solid var(--border); border-radius:8px; font:inherit; font-size:13px; }
+.emoji-grid { display:grid; grid-template-columns:repeat(8, 1fr); gap:2px; max-height:216px; overflow-y:auto; scrollbar-width:none; }
+.emoji-grid::-webkit-scrollbar { display:none; }
+.emoji-grid button { height:34px; border:0; border-radius:8px; background:none; font-size:19px; cursor:pointer; }
+.emoji-grid button:hover, .emoji-grid button:focus-visible { background:var(--soft); }
+.emoji-grid .ui-help { grid-column:1 / -1; margin:6px 2px; }
+@media(pointer:coarse) { .emoji-grid button { height:42px; } }

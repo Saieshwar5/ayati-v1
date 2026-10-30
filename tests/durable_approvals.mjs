@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { until } from './fixtures/polling.mjs';
+import { cancelRequest } from './fixtures/chat_actions.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
@@ -74,11 +75,11 @@ test('saved task releases execution for approval and continues on a different ex
   assert.equal(app.sql(`SELECT state FROM relay_worker_assignments WHERE id='${firstClaim}'`), 'finished');
   assert.equal(Number(app.sql(`SELECT count(*) FROM relay_task_checkpoints WHERE reply='${original.reply}'`)), 1);
   await page.goto(`${app.base}/w/${w}/?view=chat&conversation=${app.conversation}`);
-  await page.getByRole('status').filter({ hasText: 'Waiting for approval · Worker released' }).waitFor();
-  await page.getByRole('status').filter({ hasText: 'Waiting for approval · Worker released' }).scrollIntoViewIfNeeded();
+  await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'Waiting for approval' }).waitFor();
+  await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'Waiting for approval' }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(app.data, 'waiting-desktop.png') });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('status').filter({ hasText: 'Waiting for approval · Worker released' }).scrollIntoViewIfNeeded();
+  await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'Waiting for approval' }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: join(app.data, 'waiting-mobile.png') });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -94,7 +95,7 @@ test('saved task releases execution for approval and continues on a different ex
   await app.stop(firstWorker);
   await app.stopApi(); await app.startApi();
   await page.reload();
-  await page.getByRole('status').filter({ hasText: 'Waiting for approval · Worker released' }).waitFor();
+  await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'Waiting for approval' }).waitFor();
   await page.getByRole('button', { name: 'Review saved request', exact: true }).click();
   const review = page.getByRole('dialog', { name: 'Review approval request' });
   await review.getByRole('button', { name: 'Approve this action', exact: true }).click();
@@ -104,7 +105,8 @@ test('saved task releases execution for approval and continues on a different ex
   assert.equal(jobState(original).run_cycle, 1);
   assert.equal(remote.calls.filter(c => c.name === 'update_order').length, 1);
   await review.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'Saved update · Waiting to continue' }).waitFor();
+  // A saved continuation reads like the agent typing again, not a system label.
+  await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'is typing…' }).waitFor();
   await page.screenshot({ path: join(app.data, 'queued-continuation.png') });
 
   await app.stopApi(); await app.startApi();
@@ -133,7 +135,7 @@ test('saved task releases execution for approval and continues on a different ex
   const stopped = await app.send(command('STOP_BEFORE_APPROVAL'));
   const stoppedAction = await waiting(stopped);
   await page.reload();
-  await page.getByRole('button', { name: 'Stop reply', exact: true }).click();
+  await cancelRequest(page);
   await app.done(stopped, 'cancelled');
   await app.request(`${control}/actions/${stoppedAction.id}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' }, 400);
   assert.equal(jobState(stopped).state, 'finished');
@@ -155,7 +157,7 @@ test('saved task releases execution for approval and continues on a different ex
   assert.equal(app.provider.requests.length, modelCount);
   await app.request(`${control}/actions/${unknownAction.id}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' });
   assert.equal(remote.calls.filter(c => c.name === 'update_order' && c.arguments.order === 'lost').length, 1);
-  await page.getByRole('button', { name: 'Stop reply', exact: true }).click();
+  await cancelRequest(page);
   await app.done(uncertain, 'cancelled');
   assert.equal((await actionFor(uncertain)).state, 'uncertain');
   assert.deepEqual(errors, []);
