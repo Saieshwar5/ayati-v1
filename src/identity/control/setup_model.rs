@@ -125,7 +125,7 @@ impl Draft {
                     mode == "block"
                         || p.ceiling == "allow"
                         || (mode == "ask" && p.ceiling == "ask"),
-                    "A choice exceeds the Owner's delegated limit"
+                    "A choice exceeds the admin's delegated limit"
                 );
                 rules.push(Rule {
                     approver: if mode == "ask" {

@@ -157,7 +157,7 @@ async fn control_approval_is_exact_single_dispatch_and_works_after_proposal_fini
 async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
     let (db, owner, w, connection, job) = setup("ask").await;
     let member = user(&db, "control-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let proposed = db
         .control_propose(&job, &request(&connection, "one"))
         .await

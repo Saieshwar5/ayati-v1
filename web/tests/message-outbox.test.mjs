@@ -30,7 +30,7 @@ test('outbox retains uncertain delivery across reload and retries exact IDs; def
    await box.flushOutbox();assert.equal(calls.length,before);
   }finally{box.stopOutbox();}
  },{url:`http://localhost/w/${w}/`,fetch:async(path,options={})=>{
-  if(path.endsWith('/session'))return {ok:true,status:200,json:async()=>({user:{id:actor,email:'owner@example.test'},workspaces:[{id:w,name:'Test',role:'Owner'}]})};
+  if(path.endsWith('/session'))return {ok:true,status:200,json:async()=>({user:{id:actor,email:'owner@example.test'},workspaces:[{id:w,name:'Test',role:'Admin'}]})};
   calls.push(JSON.parse(options.body));
   if(mode==='lost')throw new TypeError('Connection dropped after commit');
   return {ok:mode.startsWith('ok'),status:mode.startsWith('ok')?200:403,json:async()=>mode==='ok'?{ok:true,message:{...calls.at(-1),author:'owner',kind:'user',state:'sent',at:1,chat:'chat'}}:mode==='ok-only'?{ok:true}:{error:'Access removed'}};

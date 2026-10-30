@@ -59,7 +59,7 @@ export function EventTriggers({ agent }: { agent: string }) {
       {!r.data && !r.error && <p role="status">Loading connected events…</p>}
       {r.data && !r.data.choices.length && (
         <p className="ui-help">
-          No reviewed event source is available to you. An operator must configure the provider source; an Owner must
+          No reviewed event source is available to you. An operator must configure the provider source; an admin must
           approve its account and automatic read access in an existing conversation. Event listening uses no model
           calls.
         </p>

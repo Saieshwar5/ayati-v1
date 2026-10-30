@@ -53,9 +53,9 @@ export function WorkspaceConnections() {
       })}</div>
       {!servers.length && <p className="ui-empty">No reviewed systems configured yet. Your operator can add a supported remote MCP account.</p>}
       <section className="connection-creators" aria-label="Workspace agent creators"><h3>Agent creators</h3><p className="ui-help">Allow selected people to create workspace agents. Tool access is delegated separately for each connected account. Turning this off prevents new workspace agents; it does not remove existing agents.</p>
-        {data.people.filter(p => p.role === 'User').map(person => <CreatorRow key={`${person.id}/${person.revision}`} person={person} busy={mutation.busy}
+        {data.people.filter(p => p.role === 'Member').map(person => <CreatorRow key={`${person.id}/${person.revision}`} person={person} busy={mutation.busy}
           save={enabled => mutation.run(async () => { await saveCreator(person, enabled); await refresh(); mutation.setStatus('Agent creation permission saved.'); })} />)}
-        {!data.people.some(p => p.role === 'User') && <p>Owners already have creation authority. Add workspace Users to delegate it.</p>}
+        {!data.people.some(p => p.role === 'Member') && <p>Admins already have creation authority. Add workspace members to delegate it.</p>}
       </section>
       {connection && <ConnectionAccess key={connection.id} connection={connection} data={data} close={() => select('')} refresh={refresh} />}
     </>}

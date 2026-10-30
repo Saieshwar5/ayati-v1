@@ -13,7 +13,7 @@ const workspace = '11111111-1111-4111-8111-111111111111',
   url = `http://localhost/w/${workspace}/?view=home`;
 const session = {
   user: { id: 'owner', email: 'owner@example.test' },
-  workspaces: [{ id: workspace, name: 'Store', role: 'Owner' }],
+  workspaces: [{ id: workspace, name: 'Store', role: 'Admin' }],
 };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const definition = {
@@ -262,7 +262,7 @@ test('asking for a panel is explicit, keeps the draft on a failed send and reuse
                 { id: 'agent', name: 'Nova', scope: 'workspace' },
                 { id: 'private', name: 'Private', scope: 'private' },
               ],
-              role: 'Owner',
+              role: 'Admin',
             })
           : response({
               chats: [{ id: 'channel', name: 'Operations', kind: 'channel', agents: ['agent'], users: [] }],
@@ -334,7 +334,7 @@ test('an explicit panel change stays in its original agent/conversation, preserv
           ? response({
               agents: [{ id: 'agent', name: 'Nova', scope: 'workspace' }],
               users: [],
-              role: 'Owner',
+              role: 'Admin',
             })
           : response({
               chats: [{ id: 'channel', name: 'Operations', kind: 'channel', agents: ['agent'], users: [] }],

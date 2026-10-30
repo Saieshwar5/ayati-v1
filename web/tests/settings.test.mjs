@@ -26,7 +26,7 @@ async function fixture(role, run) {
   }});
 }
 test('Users retain Settings and personal preferences without reading owner data',async()=>{
-  await fixture('User',async({render,reads,change})=>{
+  await fixture('Member',async({render,reads,change})=>{
     assert.equal(document.querySelector('[role=tablist]')?.textContent,'Personal');
     assert.equal(document.querySelector('h2').textContent,'My account');
     await render(base+'&scope=workspace&section=people');
@@ -41,8 +41,8 @@ test('Users retain Settings and personal preferences without reading owner data'
     assert.equal(localStorage.getItem('ayati.theme'),'dark');
   });
 });
-test('Owners use the Workspace tab; old Users links open People inside Settings',async()=>{
-  await fixture('Owner',async({render,reads})=>{
+test('Admins use the Workspace tab; old Users links open People inside Settings',async()=>{
+  await fixture('Admin',async({render,reads})=>{
     assert.equal(document.querySelector('[role=tablist]').textContent,'PersonalWorkspace');
     await render(base+'&scope=workspace&section=people');
     assert.equal(document.querySelector('[aria-label=People] h2').textContent,'People');
@@ -52,7 +52,7 @@ test('Owners use the Workspace tab; old Users links open People inside Settings'
   });
 });
 test('Failed personal profile saves preserve the draft and require explicit retry',async()=>{
-  await fixture('User',async({change,submit,writes})=>{
+  await fixture('Member',async({change,submit,writes})=>{
     const form=document.querySelector('form.my-profile');
     assert.equal(form.querySelector('input[maxlength="80"]:not([required])').value,'Buyer');
     await change(form.elements.display_name,'Changed name');

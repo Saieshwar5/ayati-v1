@@ -60,7 +60,7 @@ async fn replacement_worker_rechecks_revocation_and_profile_scope() {
     let member = user(&db, "scope-member").await;
     let w = workspace(&db, &owner).await;
     let other = workspace(&db, &member).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let agent = uuid::Uuid::new_v4().to_string();
     db.save_shared_agent(&owner, &w, &agent, "Nova", "Reports", "fixture")
         .await

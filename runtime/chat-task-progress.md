@@ -22,7 +22,7 @@ result and Stop routes retain their independent authorization and receipts.
 The original human principal does not change. Reading status requires current
 workspace membership, conversation visibility, private-agent visibility and every
 current Library/event/handoff source guard. Reading an allowed channel task does
-not require permission to request that agent or authorize an operation. An Owner
+not require permission to request that agent or authorize an operation. An admin
 cannot read another person's private conversation merely by configuring its agent.
 A direct task ID, altered workspace/chat, expired membership or revoked source
 must fail closed. The new GET performs no lifecycle or audit mutations.

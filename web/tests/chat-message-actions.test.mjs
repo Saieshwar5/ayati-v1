@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { createElement, Fragment } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?view=chat&conversation=orders`;
-const session={user:{id:'meera',email:'meera@example.test'},workspaces:[{id:w,name:'Studio',role:'User'}]};
-const directory={role:'User',users:[{id:'meera',name:'Meera Iyer',title:'',photo:null},{id:'ravi',name:'Ravi Kumar',title:'',photo:null}],agents:[]};
+const session={user:{id:'meera',email:'meera@example.test'},workspaces:[{id:w,name:'Studio',role:'Member'}]};
+const directory={role:'Member',users:[{id:'meera',name:'Meera Iyer',title:'',photo:null},{id:'ravi',name:'Ravi Kumar',title:'',photo:null}],agents:[]};
 const orders={id:'orders',name:'orders',kind:'channel',visibility:'public',users:['meera','ravi'],agents:[],description:'',can_archive:true};
 const messages=[
   {id:'mine',chat:'orders',author:'meera',name:'Meera Iyer',kind:'user',content:'Dispatch at noon',state:'sent',at:1,reactions:[{emoji:'👍',count:2,mine:true}]},

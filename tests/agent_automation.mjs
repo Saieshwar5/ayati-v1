@@ -142,7 +142,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);
   app.pass('Controller restart and status/review reads do not rerun completed work; explicit resume creates one distinct latest occurrence; Stop terminates that run without disabling the routine, then an explicit pause survives another restart');
 
-  await app.request(`${app.path}/members/${person.id}`, app.cookie, { role: 'Owner' });
+  await app.request(`${app.path}/members/${person.id}`, app.cookie, { role: 'Admin' });
   const blocked = { id: randomUUID(), chat: channel, name: 'PRIVATE_REVOKED_ROUTINE', content: 'PRIVATE_REVOKED_TASK', first_ms: Date.now() + 60000, interval_seconds: 10, timezone: 'Asia/Kolkata' };
   await app.request(path, app.cookie, blocked);
   await page.goto(agents); await page.getByRole('tab', { name: 'Automation', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).waitFor();

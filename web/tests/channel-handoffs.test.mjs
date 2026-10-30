@@ -11,7 +11,7 @@ const w = '11111111-1111-4111-8111-111111111111',
   url = `http://localhost/w/${w}/?view=chat`;
 const session = {
   user: { id: 'owner', email: 'owner@example.test' },
-  workspaces: [{ id: w, name: 'Store', role: 'Owner' }],
+  workspaces: [{ id: w, name: 'Store', role: 'Admin' }],
 };
 const response = (v, status = 200) => ({ ok: status < 400, status, json: async () => v });
 const handoff = {
@@ -126,7 +126,7 @@ test('a source event clears cached handoff instructions immediately and preserve
           await render(ConversationPane, {
             chat: { id: 'channel', name: 'Operations', kind: 'channel', users: ['owner'], agents: ['a', 'b'] },
             directory: {
-              role: 'Owner',
+              role: 'Admin',
               users: [{ id: 'owner', name: 'Ananya' }],
               agents: [
                 { id: 'a', name: 'Nova' },

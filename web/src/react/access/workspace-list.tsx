@@ -22,7 +22,7 @@ export function WorkspaceList({ name, workspaces, invitations, last, busy, accep
         <Tile id={invitation.id} name={invitation.name} />
         <div className="access-row-text">
           <strong>{invitation.inviter ? `${invitation.inviter} invited you to ${invitation.name}` : `Invitation to ${invitation.name}`}</strong>
-          <span>Join as {invitation.role === 'Owner' ? 'an owner' : 'a member'}{invitation.expires ? ` · expires in ${days(invitation.expires)} ${days(invitation.expires) === 1 ? 'day' : 'days'}` : ''}</span>
+          <span>Join as {invitation.role === 'Admin' ? 'an admin' : 'a member'}{invitation.expires ? ` · expires in ${days(invitation.expires)} ${days(invitation.expires) === 1 ? 'day' : 'days'}` : ''}</span>
         </div>
         <div className="access-row-actions">
           <button type="button" className="access-button quiet" disabled={busy} onClick={() => decline(invitation)}>Decline</button>

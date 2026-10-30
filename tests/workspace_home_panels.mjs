@@ -194,7 +194,7 @@ test(
     assert.equal(app.provider.requests.length, quietCount);
     assert.equal(remote.calls.length, 1);
     app.pass(
-      'Explicit Home request uses real Goose and one authenticated source read, saves a personal draft and requires exact review; another Owner cannot view or publish it and Home reads add no inference',
+      'Explicit Home request uses real Goose and one authenticated source read, saves a personal draft and requires exact review; another admin cannot view or publish it and Home reads add no inference',
     );
     const noteText = 'Prepare a personal priorities brief.';
     const note = {

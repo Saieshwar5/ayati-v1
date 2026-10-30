@@ -6,7 +6,7 @@ import { ceilings, saveApprover, type ApproverGrant, saveDelegation, type Worksp
 
 type Props = { connection: Connection; data: WorkspaceConnectionsData; close: () => void; refresh: () => Promise<void> };
 export function ConnectionAccess({ connection, data, close, refresh }: Props) {
-  const members = data.people.filter(p => p.role === 'User');
+  const members = data.people.filter(p => p.role === 'Member');
   const [selected, select] = useState(members[0]?.id ?? '');
   const mutation = useMutation();
   const person = members.find(p => p.id === selected);
@@ -15,7 +15,7 @@ export function ConnectionAccess({ connection, data, close, refresh }: Props) {
     <label className="ui-field">Person<select aria-label="Person" value={selected} disabled={mutation.busy} onChange={event => select(event.target.value)}>
       <option value="">Choose a person</option>{members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
     </select></label>
-    {!members.length && <p>No workspace Users yet. Owners already manage their own operation permissions.</p>}
+    {!members.length && <p>No workspace members yet. Admins already manage their own operation permissions.</p>}
     <p className="ui-help">You are the default approver for Ask first. This person may also select people you explicitly authorize below or in their own access settings. Changing access blocks affected agent permissions until they are reviewed again.</p>
     <h3>Agent setup limits</h3>
     {person && connection.definition.operations.map(operation => {
@@ -28,7 +28,7 @@ export function ConnectionAccess({ connection, data, close, refresh }: Props) {
           mutation.setStatus('Access saved. Review this operation in the agent’s permissions.');
         })} />;
     })}
-    <section aria-label="Business approval authority"><h3>Who may approve actions</h3><p className="ui-help">Explicitly authorize this person for individual account actions. This does not grant agent setup or source-data access. Owners can also be designated.</p>
+    <section aria-label="Business approval authority"><h3>Who may approve actions</h3><p className="ui-help">Explicitly authorize this person for individual account actions. This does not grant agent setup or source-data access. Admins can also be designated.</p>
       {person && connection.definition.operations.map(operation => {
         const grant = data.approvers?.find(g => g.user_id === person.id && g.connection === connection.id && g.operation === operation.id);
         return <ApproverRow key={`${person.id}/${operation.id}/${grant?.revision ?? 0}`} operation={operation} grant={grant} busy={mutation.busy} save={enabled => mutation.run(async () => {

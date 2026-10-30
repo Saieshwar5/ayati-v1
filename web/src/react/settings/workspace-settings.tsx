@@ -17,7 +17,7 @@ function GeneralForm({ initial, renamed }: { initial: string; renamed: (name: st
     const result = await chatRequest<{ name: string }>('/settings', { name, previous_name: saved });
     setSaved(result.name); setName(result.name); renamed(result.name); mutation.setStatus('Workspace name saved.');
   }); }}><fieldset className="ui-fieldset" disabled={mutation.busy}><label className="ui-field">Workspace name<input required maxLength={80} value={name} onChange={event => setName(event.target.value)} /></label>
-    <p className="ui-help">Owners manage this workspace. Users use what is shared with them.</p><Button type="submit" primary disabled={mutation.busy}>{mutation.busy ? 'Saving…' : 'Save changes'}</Button></fieldset><p role="status">{mutation.status}</p></form>;
+    <p className="ui-help">Admins manage this workspace. Members use what is shared with them.</p><Button type="submit" primary disabled={mutation.busy}>{mutation.busy ? 'Saving…' : 'Save changes'}</Button></fieldset><p role="status">{mutation.status}</p></form>;
 }
 type Activity = { id: number; actor: string; action: string; target: string; at: number };
 const loadActivity = () => chatRequest<{ activity: Activity[] }>('/activity');

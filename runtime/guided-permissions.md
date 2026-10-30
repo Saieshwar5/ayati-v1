@@ -10,10 +10,10 @@ requires PostgreSQL **schema 22**.
 
 1. **Work and accounts:** describe the work this permission review should support,
    choose one to five eligible connected accounts, and select a work conversation.
-   Owners approve/provision accounts in Settings; delegated members see only
+   Admins approve/provision accounts in Settings; delegated members see only
    accounts available within their delegated scope. The review description is
    retained with the draft; it does not replace the agent's profile instructions.
-2. **Review actions:** inspect all reviewed operations, their Owner-set limits and
+2. **Review actions:** inspect all reviewed operations, their admin-set limits and
    designated approvers. Set each operation to Allow automatically / Ask first /
    Block. Save without changing active permissions, close and reopen to continue.
    The review updates selected accounts in one conversation; other accounts retain
@@ -30,9 +30,9 @@ be able to see both the agent and work conversation; setup cannot publish a
 private transcript to solve missing access.
 
 [Authorized approvers and channel delivery](channel-approvals.md) now add a
-person/channel choice for each Ask operation. The original Owner remains the
+person/channel choice for each Ask operation. The original admin remains the
 default; a delegated creator may select another person explicitly authorized by
-that Owner. The selected person also needs independent agent/source visibility.
+that admin. The selected person also needs independent agent/source visibility.
 [Durable approval waits](durable-approval-waits.md) now continue the original task
 after a confirmed action outcome. Multiple named managers and backup reassignment
 remain later work.
@@ -58,7 +58,7 @@ configured for the agent's provider; manual review always works.
 
 The response must be bounded JSON containing known action choices and warnings.
 Malformed output, unknown identities, duplicate choices and executable-policy
-fields are rejected. A suggestion cannot exceed the Owner's ceiling. An omitted
+fields are rejected. A suggestion cannot exceed the admin's ceiling. An omitted
 operation remains blocked. Human edits and explicit activation still determine
 the resulting permissions. Model judgment/conditional interpretation needs real
 provider evaluation; the local fixture proves orchestration and enforcement only.
@@ -83,7 +83,7 @@ the enforced permissions remain the supported operation modes and conversation.
 
 Migration `m20261025_000020_guided_permissions` adds `relay_control_drafts` and its
 lookup index. Existing permissions, jobs and action receipts are preserved. Drafts
-are private to their author and agent/workspace, even from another Owner; all
+are private to their author and agent/workspace, even from another admin; all
 reads and writes require current agent-maintenance access. They are server saved,
 not browser-local authorization. A draft captures agent, account, delegation and
 rule revisions, its complete choices and discovered inventory.

@@ -62,7 +62,7 @@ test('a platform administrator issues a code that creates exactly one workspace'
   await page.waitForURL(/\/w\/[0-9a-f-]{36}\//);
   const workspace = page.url().match(/\/w\/([0-9a-f-]{36})\//)[1];
   const session = (await app.request('/api/identity/session', founder)).value;
-  assert.equal(session.workspaces.find(w => w.id === workspace)?.role, 'Owner');
+  assert.equal(session.workspaces.find(w => w.id === workspace)?.role, 'Admin');
 
   // The code is used up: nobody can create a second workspace with it.
   const again = await app.request('/api/identity/workspaces', other, { name: 'Copy', request_id: randomUUID(), code }, 400);
@@ -106,7 +106,7 @@ test('an invite link opens the invitation, joins only the invited person, and as
   const [owner, guest] = [await me(founder), await me(invitee)];
   // Email delivery is WorkOS's job and is off in simulation; record it as delivered.
   app.sql(`INSERT INTO relay_invitations(id,workspace,email,role,inviter,expires,status,provider)
-    VALUES('${randomUUID()}','${w}','${guest.email}','User','${owner.id}',extract(epoch FROM now())::bigint+604800,'pending','invitation_fixture')`);
+    VALUES('${randomUUID()}','${w}','${guest.email}','Member','${owner.id}',extract(epoch FROM now())::bigint+604800,'pending','invitation_fixture')`);
 
   // The owner copies a link from People.
   const ownerPage = await open(founder);
@@ -144,7 +144,7 @@ test('an invite link opens the invitation, joins only the invited person, and as
   await page.getByRole('button', { name: 'Continue to workspace' }).click();
   await page.waitForURL(new RegExp(`/w/${w}/`));
   const session = (await app.request('/api/identity/session', invitee)).value;
-  assert.equal(session.workspaces.find(entry => entry.id === w)?.role, 'User');
+  assert.equal(session.workspaces.find(entry => entry.id === w)?.role, 'Member');
   assert.equal(app.sql(`SELECT title FROM relay_member_profiles WHERE workspace='${w}' AND user_id='${guest.id}'`), 'Showroom manager');
 
   // Opening the used link again offers the workspace instead of an error.

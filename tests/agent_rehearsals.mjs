@@ -58,9 +58,9 @@ test('saved job guidance and selected knowledge run a personal asynchronous tool
   await app.request(`${app.path}/agent-profiles/${a}/knowledge`, app.cookie, note);
   await app.request(`${app.path}/agent-profiles/${a}/knowledge`, app.cookie, { ...note, id: randomUUID(), chat: app.conversation, title: 'Private conversation note', content: 'MUST_NOT_COPY_PRIVATE_CHAT_NOTE' });
   const member = await app.login(1), person = (await app.request('/api/identity/session', member)).value.user;
-  // A synthetic second Owner proves that workspace administration alone cannot
+  // A synthetic second admin proves that workspace administration alone cannot
   // reveal another person's personal sample or its private Library source.
-  app.sql(`UPDATE relay_members SET role='Owner' WHERE workspace='${w}' AND user_id='${person.id}'`);
+  app.sql(`UPDATE relay_members SET role='Admin' WHERE workspace='${w}' AND user_id='${person.id}'`);
   browser = await chromium.launch({ headless: true });
   async function pageFor(cookie) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, acceptDownloads: true });
@@ -131,7 +131,7 @@ test('saved job guidance and selected knowledge run a personal asynchronous tool
   await app.request(`${path}/${id}`, app.cookie, undefined, 400); await app.request(path, app.cookie, old, 400);
   assert.deepEqual((await app.request(path, app.cookie)).value.samples, []); assert.equal(provider.requests.length, calls); assert.deepEqual(errors, []);
   await app.stop(f.executor); // Drain while its controller is still running.
-  app.pass('Another Owner cannot inspect the sample/private source; reload/controller restart and exact acknowledgments perform no inference; personal source invalidation clears the UI, response and retained history without revival');
+  app.pass('Another admin cannot inspect the sample/private source; reload/controller restart and exact acknowledgments perform no inference; personal source invalidation clears the UI, response and retained history without revival');
   await writeFile(join(root, '.tmp/agent-job-rehearsal/browser-evidence.json'), JSON.stringify({ data: app.data, id, model_requests: provider.requests.length, mcp_calls: remote.calls.length, errors }, null, 2));
 });
 

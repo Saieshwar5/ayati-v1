@@ -13,7 +13,7 @@ export function FeedbackPage() {
   const [create, setCreate] = useState(false);
   const [filter, setFilter] = useState('all');
   const mutation = useMutation();
-  const manager = currentWorkspace()?.role === 'Owner';
+  const manager = currentWorkspace()?.role === 'Admin';
   return <main className="company-page"><header><h1>Feedback</h1><Button primary onClick={() => setCreate(true)}>Report an issue</Button></header>
     <p>Reports are visible only to members of the linked conversation. The latest 200 accessible reports are shown.</p>
     <label>Status <select value={filter} onChange={e => setFilter(e.target.value)}>{['all', 'new', 'investigating', 'fixed', 'verified', 'deferred'].map(s => <option key={s}>{s}</option>)}</select></label>

@@ -64,7 +64,7 @@ async fn library_http_upload_download_ranges_revocation_and_mutation_guards() {
         .await
         .unwrap();
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let app = std::sync::Arc::new(identity::App {
         library: identity::library::Storage::Local(root.path().join("objects")),
         provider: identity::Provider::simulation(),

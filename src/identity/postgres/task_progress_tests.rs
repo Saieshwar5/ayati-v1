@@ -9,7 +9,7 @@ use serde_json::json;
 async fn task_progress_read_visibility_does_not_grant_or_require_request_permission() {
     let (db, owner, w, _, job) = setup("ask").await;
     let reader = user(&db, "progress-reader").await;
-    join(&db, &owner, &w, &reader, "User").await;
+    join(&db, &owner, &w, &reader, "Member").await;
     assert!(
         db.task_progress(&reader, &w, &job.chat, &job.reply)
             .await
@@ -200,8 +200,8 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
     use crate::identity::library::model::{AskItem, SavePage, ShareItem};
     let (db, owner, w, _, job) = setup("ask").await;
     let viewer = user(&db, "progress-private-viewer").await;
-    join(&db, &owner, &w, &viewer, "User").await;
-    db.change(&owner, &w, &viewer.id, Some("Owner"))
+    join(&db, &owner, &w, &viewer, "Member").await;
+    db.change(&owner, &w, &viewer.id, Some("Admin"))
         .await
         .unwrap();
     db.channel_members(

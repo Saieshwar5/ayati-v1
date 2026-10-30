@@ -52,9 +52,9 @@ impl PgStore {
                 );
                 ensure!(
                     (current["visibility"] == "workspace"
-                        && role(&tx, w, &user.id).await? == "Owner")
+                        && role(&tx, w, &user.id).await? == "Admin")
                         || (current["visibility"] == "selected" && current["editable"] == true),
-                    "Only a workspace Owner or an existing selected editor can take over this shared item"
+                    "Only a workspace admin or an existing selected editor can take over this shared item"
                 );
                 execute(&tx,"UPDATE relay_library_items SET steward=$3,access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),user.id.clone().into()]).await?;
             } else if input.action == "restore_version" {

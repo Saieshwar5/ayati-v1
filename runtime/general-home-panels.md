@@ -109,7 +109,7 @@ types, source limits and whitespace checks pass.
 Five real-Goose/scripted-provider process/browser journeys cover the managed and
 adopted Home paths, exact review/publication, current type/style choices, retained
 drafts, numeric sorting, scheduled updates, restart, source revocation and member/
-Owner privacy. Four affected journeys were rerun after the final chart-readability
+Admin privacy. Four affected journeys were rerun after the final chart-readability
 adjustment; the case counts overlap rather than adding more unique coverage.
 320/390 px, desktop and dark-theme checks assert full plot/legend/comparison bounds.
 Exact chart values retain numeric precision; small nonzero values do not format as zero.

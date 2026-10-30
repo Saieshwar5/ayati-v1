@@ -12,8 +12,8 @@ pub(super) async fn context(
     agent: &str,
 ) -> Result<Context> {
     let profile = super::agent_profiles::managed_access(db, &user.id, w, agent, true).await?;
-    let owner = role(db, w, &user.id).await? == "Owner";
-    let rows = rows(db,"SELECT c.id,c.server,c.definition,c.revision,c.fingerprint FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.enabled AND s.approved AND ($2 OR EXISTS(SELECT 1 FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=c.workspace AND d.connection=c.id AND d.user_id=$3 AND d.ceiling<>'block')) ORDER BY c.id",vec![w.into(),owner.into(),user.id.clone().into()]).await?;
+    let owner = role(db, w, &user.id).await? == "Admin";
+    let rows = rows(db,"SELECT c.id,c.server,c.definition,c.revision,c.fingerprint FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.enabled AND s.approved AND ($2 OR EXISTS(SELECT 1 FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Admin' WHERE d.workspace=c.workspace AND d.connection=c.id AND d.user_id=$3 AND d.ceiling<>'block')) ORDER BY c.id",vec![w.into(),owner.into(),user.id.clone().into()]).await?;
     let mut accounts = Vec::new();
     for row in rows {
         let id: String = row.try_get("", "id")?;
@@ -21,7 +21,7 @@ pub(super) async fn context(
         let operations: Vec<Operation> = serde_json::from_value(definition["operations"].clone())?;
         let mut permissions = Vec::new();
         for operation in operations {
-            let grant = query(db,"SELECT d.ceiling,d.approver,d.revision,COALESCE(u.display_name,u.email) AS name FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' JOIN relay_users u ON u.id=d.approver WHERE d.workspace=$1 AND d.connection=$2 AND d.user_id=$3 AND d.operation=$4",vec![w.into(),id.clone().into(),user.id.clone().into(),operation.id.clone().into()]).await?;
+            let grant = query(db,"SELECT d.ceiling,d.approver,d.revision,COALESCE(u.display_name,u.email) AS name FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Admin' JOIN relay_users u ON u.id=d.approver WHERE d.workspace=$1 AND d.connection=$2 AND d.user_id=$3 AND d.operation=$4",vec![w.into(),id.clone().into(),user.id.clone().into(),operation.id.clone().into()]).await?;
             let revision = query(db,"SELECT revision FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![w.into(),agent.into(),id.clone().into(),operation.id.clone().into()]).await?.map(|r| r.try_get::<i64>("","revision")).transpose()?.unwrap_or(0);
             let (ceiling, approver, name, delegation_revision) = if owner {
                 (

@@ -43,7 +43,7 @@ available at `.../requests/{reply}`.
 
 Both reads require current workspace membership and agent directory access.
 Each request also requires current access to its source conversation and any
-Library source. Being an Owner, agent maintainer, or selected approver does not
+Library source. Being an admin, agent maintainer, or selected approver does not
 make a private conversation visible. Directory pending counts follow the same
 source visibility instead of exposing the agent's hidden queue size.
 
@@ -51,7 +51,7 @@ Summaries come from the original human message, bounded to 180 characters;
 the assembled model prompt is never returned as a summary. Saved progress is
 bounded to 1,000 characters. The original requester's execution access is
 checked independently: changed access hides live details while allowing an
-otherwise authorized requester/Owner to cancel visible work. Permission to
+otherwise authorized requester/admin to cancel visible work. Permission to
 view another person's work does not grant permission to stop it.
 
 `GET /api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}`
@@ -67,7 +67,7 @@ guard and retains a failed request for inspection and retry.
 
 ## Existing private local agents
 
-Owners retain a separate Existing local agents roster. Those agents use their
+Admins retain a separate Existing local agents roster. Those agents use their
 existing private runtime, saved profile and access boundary. Work/Activity reads
 the latest 100 private tasks from the selected agent's state API, and Stop uses
 its existing task endpoint. Knowledge, access, automation, files and computer

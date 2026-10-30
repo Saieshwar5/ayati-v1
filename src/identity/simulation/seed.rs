@@ -71,7 +71,7 @@ pub(super) async fn prepare(root: &Path, store: &postgres::PgStore) -> Result<Si
     for employee in employees.iter().skip(1) {
         if store.role(&workspace, &employee.user.id).await.is_err() {
             let id = store
-                .reserve_invite(owner, &workspace, &employee.user.email, "User")
+                .reserve_invite(owner, &workspace, &employee.user.email, "Member")
                 .await?;
             store
                 .delivered(&id, Some("simulation-local-no-email"))

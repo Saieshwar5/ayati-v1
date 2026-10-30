@@ -141,7 +141,7 @@ pub(super) async fn project(
     };
     let can_cancel = job_state != "finished"
         && message_state == "queued"
-        && (job.requester == user.id || role(tx, w, &user.id).await? == "Owner");
+        && (job.requester == user.id || role(tx, w, &user.id).await? == "Admin");
     let cancellation=query(tx,"SELECT COALESCE(u.display_name,u.email,'Former member') AS name,a.at FROM relay_audit a LEFT JOIN relay_users u ON u.id=a.actor WHERE a.workspace=$1 AND a.action='agent_request_cancelled' AND a.target=$2 ORDER BY a.id DESC LIMIT 1",vec![w.into(),job.reply.clone().into()]).await?.map(|r|->Result<Value>{Ok(json!({"by":r.try_get::<String>("","name")?,"at":r.try_get::<i64>("","at")?}))}).transpose()?;
     let coordination = super::handoff_views::project(tx, user, &job).await?;
     let summary = coordination["incoming"]["task"]

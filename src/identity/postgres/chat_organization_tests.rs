@@ -26,7 +26,7 @@ fn pins(revision: i64, ids: &[&str]) -> SavePins {
 async fn pins_are_personal_ordered_scoped_and_revision_checked_without_creating_work() {
     let (db, owner, w, _, job) = setup("ask").await;
     let member = user(&db, "pin-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.channel_members(
         &owner,
         &w,
@@ -207,7 +207,7 @@ async fn archive_closes_new_intake_but_keeps_exact_acknowledgments_results_and_h
 async fn archive_requires_current_source_and_creator_or_owner_authority() {
     let (db, owner, w, _, job) = setup("ask").await;
     let creator = user(&db, "channel-creator").await;
-    join(&db, &owner, &w, &creator, "User").await;
+    join(&db, &owner, &w, &creator, "Member").await;
     db.channel_members(
         &owner,
         &w,

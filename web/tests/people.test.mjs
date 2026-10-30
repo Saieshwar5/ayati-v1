@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
 
 const workspace = '11111111-1111-4111-8111-111111111111';
-const member = { id: 'employee', email: 'employee@example.com', role: 'User' };
-const owner = { id: 'owner', email: 'owner@example.com', role: 'Owner' };
+const member = { id: 'employee', email: 'employee@example.com', role: 'Member' };
+const owner = { id: 'owner', email: 'owner@example.com', role: 'Admin' };
 
 async function fixture(viewerRole, run, respond) {
   const writes = [];
@@ -29,7 +29,7 @@ async function fixture(viewerRole, run, respond) {
 
 test('React invitations retain failed form values and require an explicit retry', async () => {
   let failing = true;
-  await fixture('Owner', async ({ writes, button, click, change, submit }) => {
+  await fixture('Admin', async ({ writes, button, click, change, submit }) => {
     assert.equal(document.querySelector('form'), null);
     await click(button('＋ Invite person'));
     const form = document.querySelector('form');
@@ -40,13 +40,13 @@ test('React invitations retain failed form values and require an explicit retry'
     assert.equal(form.elements.email.value, 'invited@example.com'); assert.equal(button('Send invitation').disabled, false);
     assert.equal(writes.length, 1); failing = false; await submit(form);
     assert.equal(document.querySelector('dialog'), null);
-    assert.deepEqual(writes[1].body, { email: 'invited@example.com', role: 'User' });
+    assert.deepEqual(writes[1].body, { email: 'invited@example.com', role: 'Member' });
   }, (path, body) => body && path.endsWith('/invitations') && failing ? { ok: false, data: { error: 'Invitation failed' } } : undefined);
 });
 
 test('Unconfirmed delivery refreshes invitations without losing the failed draft', async () => {
   let current;
-  await fixture('Owner', async ({ people, writes, button, click, change, submit }) => {
+  await fixture('Admin', async ({ people, writes, button, click, change, submit }) => {
     current = people;
     await click(button('＋ Invite person'));
     const form = document.querySelector('form');
@@ -61,14 +61,14 @@ test('Unconfirmed delivery refreshes invitations without losing the failed draft
     assert.ok(button('Cancel invitation'));
   }, (path, body) => {
     if (body && path.endsWith('/invitations')) {
-      current.invitations.push({ id: 'uncertain', email: body.email, role: 'User', status: 'delivery_unknown', expires: 0 });
+      current.invitations.push({ id: 'uncertain', email: body.email, role: 'Member', status: 'delivery_unknown', expires: 0 });
       return { ok: false, data: { error: 'Cancel this invitation before trying again.' } };
     }
   });
 });
 
 test('opening a React member drawer grants nothing; rejected changes retain saved access', async () => {
-  await fixture('Owner', async ({ writes, button, click }) => {
+  await fixture('Admin', async ({ writes, button, click }) => {
     await click(button(`View ${member.email}`));
     assert.equal(writes.length, 0); assert.equal(document.querySelector('script'), null);
     const agent = document.querySelector('dialog input[type=checkbox]'); await click(agent);
@@ -80,26 +80,26 @@ test('opening a React member drawer grants nothing; rejected changes retain save
 });
 
 test('React role and agent grant saves target only the selected person', async () => {
-  await fixture('Owner', async ({ writes, button, click, change }) => {
+  await fixture('Admin', async ({ writes, button, click, change }) => {
     await click(button(`View ${member.email}`));
-    await change(document.querySelector('dialog .ui-field select'), 'Owner'); await click(button('Save role'));
-    assert.deepEqual(writes[0].body, { role: 'Owner' }); assert.ok(writes[0].path.endsWith('/members/employee'));
+    await change(document.querySelector('dialog .ui-field select'), 'Admin'); await click(button('Save role'));
+    assert.deepEqual(writes[0].body, { role: 'Admin' }); assert.ok(writes[0].path.endsWith('/members/employee'));
     const agent = document.querySelector('dialog input[type=checkbox]'); await click(agent);
     assert.deepEqual(writes[1].body, { user: 'employee', agent: 'agent', allowed: true });
     assert.equal(agent.checked, true); assert.equal(writes.length, 2);
   });
 });
 
-test('Users cannot open workspace management controls', async () => {
-  await fixture('User', async ({ writes }) => {
-    assert.match(document.body.textContent, /Only Owners/);
+test('Members cannot open workspace management controls', async () => {
+  await fixture('Member', async ({ writes }) => {
+    assert.match(document.body.textContent, /Only admins/);
     assert.equal(document.querySelector('input'), null);
     assert.equal(writes.length, 0);
   });
 });
 
-test('The last Owner cannot be demoted or removed', async () => {
-  await fixture('Owner', async ({ button, click }) => {
+test('The last admin cannot be demoted or removed', async () => {
+  await fixture('Admin', async ({ button, click }) => {
     await click(button(`View ${owner.email}`));
     assert.equal(document.querySelector('dialog select').disabled, true);
     assert.equal(button('Save role'), undefined); assert.equal(button('Remove from workspace'), undefined);
@@ -108,7 +108,7 @@ test('The last Owner cannot be demoted or removed', async () => {
 });
 
 test('React tabs support keyboard selection and preserve the active tab during search', async () => {
-  await fixture('Owner', async ({ dom, update, change }) => {
+  await fixture('Admin', async ({ dom, update, change }) => {
     const tabs = [...document.querySelectorAll('[role=tab]')];
     await update(() => tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
     assert.equal(tabs[1].getAttribute('aria-selected'), 'true'); assert.equal(document.activeElement, tabs[1]);
@@ -121,7 +121,7 @@ test('React tabs support keyboard selection and preserve the active tab during s
 test('React busy dialogs prevent duplicate sends and Escape dismissal', async () => {
   let release;
   const pending = new Promise(resolve => { release = resolve; });
-  await fixture('Owner', async ({ dom, writes, button, click, change, submit, update }) => {
+  await fixture('Admin', async ({ dom, writes, button, click, change, submit, update }) => {
     await click(button('＋ Invite person')); const form = document.querySelector('form');
     await change(form.elements.email, 'invited@example.com'); await submit(form); await submit(form);
     assert.equal(writes.length, 1); assert.equal(button('Close').disabled, true);
@@ -137,10 +137,10 @@ test('React busy dialogs prevent duplicate sends and Escape dismissal', async ()
 test('React safely ignores a late member-access read after closing the drawer', async () => {
   let release;
   const pending = new Promise(resolve => { release = resolve; });
-  await fixture('Owner', async ({ button, click, update, writes }) => {
+  await fixture('Admin', async ({ button, click, update, writes }) => {
     await click(button(`View ${member.email}`)); await click(button('Close'));
     assert.equal(document.activeElement?.getAttribute('aria-label'), `View ${member.email}`);
-    await update(() => release({ role: 'Owner', agents: [], grants: [] }));
+    await update(() => release({ role: 'Admin', agents: [], grants: [] }));
     assert.equal(document.querySelector('dialog'), null); assert.equal(writes.length, 0);
   }, path => path.endsWith('/chat-directory') ? { ok: true, data: pending } : undefined);
 });

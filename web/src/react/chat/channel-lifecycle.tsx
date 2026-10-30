@@ -26,7 +26,7 @@ export function ChannelLifecycle({ chat, close, changed }: { chat: Conversation;
     {resource.data && <><p>{archived ? 'Restore lets people send new messages and agent requests again.' : 'Archive closes new messages and agent requests for everyone. History and saved files stay available under their existing access settings.'}</p>
       <p>{resource.data.active_requests} visible unfinished {resource.data.active_requests === 1 ? 'request' : 'requests'}. Already accepted work can continue; its questions, approvals and Stop controls stay available.</p>
       <p>{archived ? 'Stopped work and closed approvals stay closed. Restore does not start work or change permissions.' : 'Archive does not stop existing work or approve an action. You can still stop your own requests separately.'}</p>
-      {!resource.data.manageable && <p>Only the channel creator or a workspace Owner with channel access can change this state.</p>}
+      {!resource.data.manageable && <p>Only the channel creator or a workspace admin with channel access can change this state.</p>}
     </>}
   </Dialog>;
 }

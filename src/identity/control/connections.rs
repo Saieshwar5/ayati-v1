@@ -49,8 +49,8 @@ async fn approve(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        app.store.role(&w, &user.id).await? == "Owner",
-        "Only workspace Owners can approve systems",
+        app.store.role(&w, &user.id).await? == "Admin",
+        "Only workspace admins can approve systems",
     )?;
     if input.approved {
         catalog::server(&w, &input.server)?;

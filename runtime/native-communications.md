@@ -9,11 +9,11 @@ This is a selected foundation for D219, not completion of NC2–NC6.
 ## Incoming messages and context
 
 Chat uses its existing authenticated session, conversation and agent permissions.
-A simulated external event requires the workspace Owner and a server started in
+A simulated external event requires the workspace admin and a server started in
 `simulate` mode. Normal identity mode returns 404 for simulation mutations; a
 request field/header cannot enable them.
 
-An endpoint binds one workspace, agent, transport and address. The Owner explicitly
+An endpoint binds one workspace, agent, transport and address. The admin explicitly
 maps a simulated sender to an existing authorized workspace person. This is a
 fixture assertion, **not real email/phone verification or support for arbitrary
 external customers**. A message cannot supply a requester or choose another tenant.
@@ -76,7 +76,7 @@ workflows remain needed: protected immutable receipts currently retain accepted 
 ## Local API
 
 Prefix: `/api/identity/workspaces/{workspace}/communications`. All operations use
-the existing session/Origin contract and require Owner access. Status exposes
+the existing session/Origin contract and require admin access. Status exposes
 bounded operational metadata, never private message bodies.
 
 | Method and suffix | Payload / result |
@@ -116,7 +116,7 @@ controller; adding a transport does not require another agent brain or memory.
 A real adapter must derive the tenant from a verified registered endpoint, verify
 the provider event, normalize a bounded envelope and establish a real sender with
 appropriately limited capabilities. Production external customer principals are
-not implemented. Never turn the fixture Owner assertion into production identity proof.
+not implemented. Never turn the fixture admin assertion into production identity proof.
 
 Email still needs thread/recipient rules, HTML/attachment sanitation, mailbox
 reconciliation and an approved outgoing sender. WhatsApp needs business onboarding,

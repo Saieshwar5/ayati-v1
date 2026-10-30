@@ -19,7 +19,7 @@ async fn context_attribution_distinguishes_same_names_and_ignores_forged_identit
     let owner = user(&db, "context-attribution-owner").await;
     let member = user(&db, "context-attribution-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.update_profile(&owner, "Alex").await.unwrap();
     db.update_profile(&member, "Alex").await.unwrap();
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
@@ -96,7 +96,7 @@ async fn context_attribution_keeps_private_conversations_and_agent_authors_disti
     let owner = user(&db, "context-private-owner").await;
     let member = user(&db, "context-private-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (_, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await

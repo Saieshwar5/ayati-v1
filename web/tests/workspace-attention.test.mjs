@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?view=home`;
-const session={user:{id:'requester',email:'requester@example.test'},workspaces:[{id:w,name:'Store',role:'Owner'}]};
+const session={user:{id:'requester',email:'requester@example.test'},workspaces:[{id:w,name:'Store',role:'Admin'}]};
 const item={kind:'question',id:'q',version:'pending',title:'Choose the customer group',status:'pending',at:1000,agent:'a',agent_name:'Nova',chat:'source',thread:'thread',reply:'reply',conversation_name:'Customer care',archived:false,read:false,reviewed:false};
 const result={...item,kind:'outcome',id:'result',version:'failed:1000',title:'Monthly report',status:'failed'};
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});

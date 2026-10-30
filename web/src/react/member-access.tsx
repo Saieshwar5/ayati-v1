@@ -8,7 +8,7 @@ type Directory = { role: string; agents: { id: string; name: string }[]; grants:
 const base = `/workspaces/${workspaceId}`;
 async function loadAccess() {
   const directory = await identityRequest<Directory>(`${base}/chat-directory`);
-  if (directory.role !== 'Owner') throw new Error('Only Owners can manage agent access.');
+  if (directory.role !== 'Admin') throw new Error('Only admins can manage agent access.');
   return { directory };
 }
 

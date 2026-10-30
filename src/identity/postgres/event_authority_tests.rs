@@ -7,7 +7,7 @@ async fn event_standing_read_requires_a_current_allow_delegation_and_original_pe
 {
     let mut s = setup().await;
     let member = user(&s.db, "event-delegated-author").await;
-    join(&s.db, &s.owner, &s.w, &member, "User").await;
+    join(&s.db, &s.owner, &s.w, &member, "Member").await;
     s.db.channel_members(
         &s.owner,
         &s.w,

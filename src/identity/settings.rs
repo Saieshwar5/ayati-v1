@@ -1,4 +1,4 @@
-//! Owner-only workspace configuration; personal preferences use existing profile APIs.
+//! Admin-only workspace configuration; personal preferences use existing profile APIs.
 use super::*;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
 use serde::Deserialize;

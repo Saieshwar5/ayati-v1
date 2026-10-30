@@ -37,7 +37,7 @@ server API contracts, authentication, and workspace boundaries.
   context/source review, guarded Start/Stop, personal history and shared reader.
   Ordinary agent guidance enters its normal prompt without granting tools.
 - `web/src/react/settings/`: tabbed personal/workspace settings, appearance, general/activity,
-  teams and Owner workspace connections/delegation.
+  teams and admin workspace connections/delegation.
 - `web/src/react/people.tsx`, `member-details.tsx`, `member-access.tsx`: member and
   invitation lists, invitations, roles and explicit agent grants.
 - `web/src/react/approvals/`: current-access exact review, restricted inbox and

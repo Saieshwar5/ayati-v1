@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createElement, useState } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=chat`;
-const session = { user: { id: 'requester', email: 'requester@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Owner' }] };
+const session = { user: { id: 'requester', email: 'requester@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
 const spec = { version: 1, kind: 'form', title: 'Quotation details', description: 'Supply missing facts.', fallback: 'Please supply quotation details.', options: [], allow_other: false,
   fields: [{ id: 'quantity', label: 'Quantity', kind: 'number', required: true, suggested: 0, min: 0, max: 100, description: '', options: [] },
     { id: 'date', label: 'Delivery date', kind: 'date', required: true, suggested: '2028-02-29', description: '', options: [] },

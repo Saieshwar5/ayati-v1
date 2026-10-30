@@ -10,8 +10,8 @@ use serde_json::json;
 async fn agent_management_does_not_reveal_private_requests_or_their_counts() {
     let (db, owner, w, _, job) = setup("ask").await;
     let other = user(&db, "request-other-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     assert!(db.managed_agent(&other, &w, &job.agent, true).await.is_ok());
@@ -62,7 +62,7 @@ async fn agent_management_does_not_reveal_private_requests_or_their_counts() {
 async fn visible_work_is_not_permission_to_cancel_another_persons_request() {
     let (db, owner, w, connection, job) = setup("ask").await;
     let viewer = user(&db, "request-visible-member").await;
-    join(&db, &owner, &w, &viewer, "User").await;
+    join(&db, &owner, &w, &viewer, "Member").await;
     db.chat_grant(&owner, &w, &viewer.id, &job.agent, true)
         .await
         .unwrap();
@@ -131,7 +131,7 @@ async fn owner_can_stop_visible_work_after_requester_execution_access_is_revoked
     let (db, owner, w, _, first) = setup("ask").await;
     db.chat_finish(&first, "Done", "complete").await.unwrap();
     let requester = user(&db, "revoked-requester").await;
-    join(&db, &owner, &w, &requester, "User").await;
+    join(&db, &owner, &w, &requester, "Member").await;
     db.chat_grant(&owner, &w, &requester.id, &first.agent, true)
         .await
         .unwrap();

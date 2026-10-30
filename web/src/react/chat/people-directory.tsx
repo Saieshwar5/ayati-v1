@@ -32,7 +32,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
     togglePin({ kind: 'chat', id: await direct.ensure(target) });
   });
   return <Dialog title="People & agents" busy={direct.busy} status={direct.status} close={close}
-    footer={directory.role === 'Owner' ? <a className="ui-button" href={workspaceUrl('/?view=settings&scope=workspace&section=people')}>Invite people</a> : undefined}>
+    footer={directory.role === 'Admin' ? <a className="ui-button" href={workspaceUrl('/?view=settings&scope=workspace&section=people')}>Invite people</a> : undefined}>
     <div className="people-directory">
       <input type="search" aria-label="Search people and agents" placeholder="Search by name or job" value={query} onChange={event => setQuery(event.target.value)} autoFocus />
       <div className="people-directory-filters" role="group" aria-label="Show">
@@ -43,7 +43,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
         const conversation = existingDirect(chats, item, me);
         const pinned = conversation && preferences?.pins.some(pin => samePin(pin, { kind: 'chat', id: conversation.id }));
         const self = item.kind === 'user' && item.id === me;
-        const detail = item.kind === 'agent' ? [item.role, item.manager && `managed by ${item.manager}`].filter(Boolean).join(' · ') : item.title || (item.role === 'Owner' ? 'Owner' : '');
+        const detail = item.kind === 'agent' ? [item.role, item.manager && `managed by ${item.manager}`].filter(Boolean).join(' · ') : item.title || (item.role === 'Admin' ? 'Admin' : '');
         return <li key={`${item.kind}:${item.id}`}>
           <button type="button" className="people-directory-who" onClick={() => showProfile({ kind: item.kind, id: item.id })} aria-label={`View profile of ${item.name}`}>
             <ParticipantFace kind={item.kind} who={item} />

@@ -222,7 +222,7 @@ async fn history_rechecks_join_policy_membership_and_request_permission_without_
     let owner = user(&db, "history-policy-owner").await;
     let member = user(&db, "history-policy-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.channel_members(&owner, &w, &c, &[owner.id.clone(), member.id.clone()])
         .await

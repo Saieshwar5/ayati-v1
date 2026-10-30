@@ -305,7 +305,7 @@ async fn handoff_requester_requires_each_agent_and_revocation_regrant_does_not_r
  {
     let s = setup().await;
     let member = user(&s.db, "handoff-requester").await;
-    join(&s.db, &s.owner, &s.w, &member, "User").await;
+    join(&s.db, &s.owner, &s.w, &member, "Member").await;
     s.db.channel_members(
         &s.owner,
         &s.w,

@@ -12,19 +12,19 @@ registerHooks({ load(url, context, next) {
 
 const workspace = '11111111-1111-4111-8111-111111111111';
 const base = `/w/${workspace}/`;
-const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner' }] };
+const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Admin' }] };
 const profiles = [{ id: 'assistant-two', name: 'Ramesh' }];
 const response = data => ({ ok: true, status: 200, json: async () => data });
 function dataFor(path) {
   if (path.endsWith('/session')) return session;
-  if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Owner' };
+  if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Admin' };
   if (path.endsWith('/message-capabilities')) return { live: true };
   if (path.endsWith('/unread')) return { unread: [] };
   if (path.endsWith('/chats')) return { chats: [] };
   if (path.endsWith('/work')) return { work: [] };
   if (path.includes('/attention?')) return attention;
   if (path.endsWith('/home-panels')) return { available: false, panels: [] };
-  if (path.endsWith('/people')) return { role: 'Owner', members: [{ id: 'owner', email: 'owner@example.com', role: 'Owner' }], invitations: [] };
+  if (path.endsWith('/people')) return { role: 'Admin', members: [{ id: 'owner', email: 'owner@example.com', role: 'Admin' }], invitations: [] };
   throw new Error(`Unexpected request: ${path}`);
 }
 let attention = { available: true, items: [], next_before: null };
@@ -124,7 +124,7 @@ test('shared chat selection retains its sidebar and rejects messages from an old
       assert.equal(document.querySelector('.message-composer textarea').value, 'Second draft');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat&conversation=first`, fetch: async path => {
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], grants: [], role: 'Owner' });
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], grants: [], role: 'Admin' });
     if (path.endsWith('/chats')) return response({ chats: [{ id: 'first', name: 'First', kind:'channel', description:'', users:['owner'], agents:[] }, { id: 'second', name: 'Second', kind:'channel', description:'', users:['owner'], agents:[] }] });
     if (path.includes('/chats/') && path.endsWith('/messages')) {
       if (path.includes('/first/') && initial) { initial = false; return new Promise(resolve => { releaseOld = resolve; }); }
@@ -154,7 +154,7 @@ test('creating a channel validates membership and resets its dialog', async () =
       assert.equal(document.querySelector('dialog input').value, '');
     } finally { await setup.cleanup(); }
   }, { url: `http://localhost${base}?view=chat`, fetch: async (path, options = {}) => {
-    if (path.endsWith('/chat-directory')) return response({ users: [{id:'member',name:'Priya'}], agents: [], role: 'Owner' });
+    if (path.endsWith('/chat-directory')) return response({ users: [{id:'member',name:'Priya'}], agents: [], role: 'Admin' });
     if (path.endsWith('/chats')) {
       if (options.method === 'POST') {
         const body = JSON.parse(options.body); assert.equal(body.kind,'channel'); assert.deepEqual(body.users,['member']);
@@ -207,7 +207,7 @@ test('unified Chat keeps its directory across channel and direct-message navigat
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
     path = new URL(path, 'http://localhost').pathname;
-    if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Owner'});
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:profiles.map(p=>({id:p.id,name:p.name})),role:'Admin'});
     if(path.endsWith('/chats'))return response({chats});
     if(path.endsWith('/messages')){
       if(options.method==='POST'){const body=JSON.parse(options.body);assert.equal(body.thread,'root');reply=body.content;return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:2,sequence:2,chat:'inventory'}});}

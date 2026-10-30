@@ -1,12 +1,12 @@
 # Workspace connections and delegated agent setup
 
 This increment makes the existing shared-agent control engine configurable by an
-Owner and explicitly delegated members. It requires PostgreSQL **schema 22**.
+Admin and explicitly delegated members. It requires PostgreSQL **schema 22**.
 It provides reviewed, operator-configured MCP accounts; it does not yet provide
 self-service OAuth or arbitrary custom-MCP registration. The subsequent
 [guided review](guided-permissions.md) adds optional AI permission drafts.
 
-## Owner journey
+## Admin journey
 
 Open **Settings → Workspace → Connections**. The page separates three decisions:
 
@@ -19,9 +19,9 @@ Open **Settings → Workspace → Connections**. The page separates three decisi
 
 The operation limits are **May allow automatically**, **Must ask an authorized approver** and
 **Unavailable**. The first permits Allow/Ask/Block; the second permits Ask/Block;
-the third permits no execution. The Owner saving a delegation becomes its default approver
+the third permits no execution. The admin saving a delegation becomes its default approver
 when the member configures an Ask rule. [Scoped approval grants](channel-approvals.md)
-now allow that Owner to authorize other people for selection. The page displays the current approver.
+now allow that admin to authorize other people for selection. The page displays the current approver.
 
 **Agent creators** independently permits selected Users to create workspace agents.
 Removing creation permission prevents new workspace agents; existing agents remain
@@ -37,17 +37,17 @@ approvals. Missing/broken operator configuration does not hide revocation contro
 An authorized member creates a workspace agent through the existing Agents wizard.
 Open **Tools and approvals → Permissions**, select a conversation and save each
 operation as Allow automatically, Ask first or Block within its delegated limit.
-The UI names the Owner who receives Ask requests. The server enforces the same
-limit independently of the UI. An Ask rule requires that Owner to be able to see
+The UI names the admin who receives Ask requests. The server enforces the same
+limit independently of the UI. An Ask rule requires that admin to be able to see
 the agent and selected conversation; it cannot expose a private conversation.
 
 The member must maintain the agent to edit its tool rules. This increment uses
-the existing agent owner/maintainer plus workspace Owner model; separate named
-multi-person management grants are not implemented. A workspace Owner may manage
+the existing agent owner/maintainer plus workspace admin model; separate named
+multi-person management grants are not implemented. A workspace admin may manage
 workspace agents, but cannot inspect another person's private agent.
 
 Activity retains the existing exact-action approval/result UI. Only the designated,
-currently authorized person can approve that action. Other Owners, the agent creator and ordinary channel
+currently authorized person can approve that action. Other admins, the agent creator and ordinary channel
 participants cannot substitute for that person. Approval dispatches the saved
 action. Channel request cards, selected eligible people/destinations and a restricted inbox
 are implemented in [channel approvals](channel-approvals.md). [Durable approval waits](durable-approval-waits.md)
@@ -56,14 +56,14 @@ now reconstruct the original task after a confirmed outcome, including on anothe
 ## Enforcement and persistence
 
 Migration 19 adds workspace system approvals, creator rights, operation delegation
-ceilings, and each rule's configuring person/delegation revision. Existing Owner
+ceilings, and each rule's configuring person/delegation revision. Existing admin
 connections are backfilled as approved; existing rules retain their mode/revision
 and attribute configuration to their recorded approver. Members receive no new
 creation or delegation grants during migration.
 
 Runtime discovery, admission, approval claim and final dispatch read
 `relay_control_effective_rules`. Its live checks include current membership,
-agent ownership, Owner approver status, approved/enabled account, saved operation
+agent ownership, admin approver status, approved/enabled account, saved operation
 mode and current delegation revision/ceiling. These are not prompt instructions.
 Requester, conversation, Library source and job/lease checks remain in the gateway.
 
@@ -78,7 +78,7 @@ without applying the change again; a stale different payload fails. Connection
 verification runs outside the workspace transaction, then rechecks authority and
 revision before saving. Every authorization mutation writes an audit record.
 
-Workspace Owner endpoints under `/api/identity/workspaces/{workspace}/control`:
+Workspace admin endpoints under `/api/identity/workspaces/{workspace}/control`:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -86,11 +86,11 @@ Workspace Owner endpoints under `/api/identity/workspaces/{workspace}/control`:
 | `POST /systems` | Approve/revoke a configured system/account |
 | `POST /connections` | Verify/connect or disconnect an account |
 | `POST /creators` | Grant/revoke workspace-agent creation |
-| `POST /delegations` | Save one person's operation ceiling and responsible Owner |
+| `POST /delegations` | Save one person's operation ceiling and responsible admin |
 
 Agent rule writes also carry `delegation_revision` for delegated Users. Agent
 snapshots expose only eligible or already visible accounts and no operator catalog.
-The older Owner agent-connection endpoint remains compatible but now requires
+The older admin agent-connection endpoint remains compatible but now requires
 workspace approval; the UI uses the workspace endpoints above.
 
 ## Upgrade and operator setup
@@ -124,8 +124,8 @@ The live local journeys are `tests/workspace_connections.mjs` and
 `relay_simulation_*` database. They use real pinned Goose, a scripted local model,
 an authenticated local MCP server with independent records, and Playwright.
 
-The delegated journey covers Owner setup in Settings, member creation in Agents,
-Allow/Ask/default-Block, API escalation denial, exact designated-Owner approval,
+The delegated journey covers admin setup in Settings, member creation in Agents,
+Allow/Ask/default-Block, API escalation denial, exact designated-admin approval,
 UI revocation, controller restart, broken configuration and credential filtering.
 Database tests additionally cover stale revisions, cross-workspace access, private
 approver visibility, final dispatch revocation, role/rejoin revocation and a

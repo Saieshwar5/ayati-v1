@@ -126,7 +126,7 @@ keeps definition review and standing update authority separate.
 The initial connected journey passes with pinned real Goose and scripted local
 inference: member-owned setup without agent management rights, one manual and one
 scheduled refresh, second-device reading, controller restart, pause, source
-revocation and private Owner denial. It records 11 model requests, three source
+revocation and private admin denial. It records 11 model requests, three source
 reads and zero external writes. Captures and reproduction are indexed in [the design record](../designs/home-maintenance/README.md).
 
 Storage checks include 102 refreshes without consuming definition revisions,

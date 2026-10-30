@@ -47,7 +47,7 @@ async fn display_names_persist_and_are_used_for_old_messages() {
         db.chat_messages(&again, &w, &c).await.unwrap()["messages"][0]["name"],
         "సాయి"
     );
-    assert_eq!(db.role(&w, &owner.id).await.unwrap(), "Owner");
+    assert_eq!(db.role(&w, &owner.id).await.unwrap(), "Admin");
 }
 
 #[tokio::test]

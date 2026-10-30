@@ -65,7 +65,7 @@ the configured model key; per-run model brokerage is still future work.
 [Managed prompt isolation](managed-context-boundary.md) disables automatic host
 hint discovery and uses a private child home in both prepared and controlled paths.
 
-| Setting | Default and bounds | Owner |
+| Setting | Default and bounds | Admin |
 | --- | --- | --- |
 | `AYATI_EXECUTOR_SLOTS` | 2; 1–16 | Each executor |
 | `AYATI_PREPARED_GOOSE_BIN` | `.cache/goose/v1.54.0-ayati.1/goose` | Executor; preparation variant only |

@@ -6,7 +6,7 @@ import { reactFixture } from './react-fixture.mjs';
 import { mergeMessages } from '../src/react/chat/message-state.ts';
 
 const workspace='11111111-1111-4111-8111-111111111111';
-const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:workspace,name:'Store',role:'Owner'}]};
+const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:workspace,name:'Store',role:'Admin'}]};
 const message={id:'reply',chat:'chat',author:'agent',kind:'agent',name:'Nova',content:'',state:'queued',at:1,sequence:2,revision:4,can_cancel:true,progress:{state:'responding',text:'Partial 🦀',generation:1}};
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 // Re-rendering keeps an open menu open; only open it when it is closed.
@@ -27,7 +27,7 @@ test('draft text is provisional, retry reads as typing, and Cancel request guard
  await reactFixture(async({render,button,update,click})=>{
   const context=await import('../src/workspace-context.ts');await context.enterWorkspace();
   const {ChatMessage}=await import('../src/react/chat/message.tsx');
-  const props={message,directory:{users:[],agents:[{id:'agent',name:'Nova'}],role:'Owner'}};
+  const props={message,directory:{users:[],agents:[{id:'agent',name:'Nova'}],role:'Admin'}};
   await render(ChatMessage,props);assert.match(document.body.textContent,/Partial 🦀/);assert.match(document.body.textContent,/Nova is typing/);
   assert.equal(button('Stop reply'),undefined,'no Stop button in the conversation');
   await click(button('More actions'));
@@ -67,7 +67,7 @@ test('waits that need a person keep an honest status, other work reads as typing
  await reactFixture(async({render,button,click})=>{
   const context=await import('../src/workspace-context.ts');await context.enterWorkspace();
   const {ChatMessage}=await import('../src/react/chat/message.tsx');
-  const directory={users:[],agents:[{id:'agent',name:'Nova'}],role:'Owner'};
+  const directory={users:[],agents:[{id:'agent',name:'Nova'}],role:'Admin'};
   for(const [state,label] of [['approval','Waiting for approval'],['resuming','Nova is typing'],['attention','Needs attention · External outcome not yet confirmed']]) {
    await render(ChatMessage,{message:{...message,progress:{state,text:''}},directory});
    assert.ok(document.querySelector('[role=status]').textContent.includes(label),state);

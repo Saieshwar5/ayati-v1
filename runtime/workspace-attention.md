@@ -18,7 +18,7 @@ Home panels, its clock and saved work records retain their current behavior.
   in Needs you until explicitly reviewed. Routine successful work appears in
   Recent work, without crowding the attention summary.
 - Membership, current source conversation, private-agent ownership and Library
-  source access are checked on reads and acknowledgments. Owners do not receive
+  source access are checked on reads and acknowledgments. Admins do not receive
   a workspace-wide private-work queue. Archived sources retain their audience.
 - Previews contain a bounded saved title, agent/source labels and status, never
   business-action arguments, question field values or full generated output.

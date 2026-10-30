@@ -6,7 +6,7 @@ approvals** inbox. It extends [guided permission review](guided-permissions.md)
 and the [shared action gateway](shared-agent-control.md). This slice introduced PostgreSQL **schema 22**; current startup requires the
 full [schema 24](chat-organization.md).
 
-## Owner and creator flow
+## Admin and creator flow
 
 In **Settings → Workspace → Connections → Manage access**, choose a workspace
 User. **Agent setup limits** retain the existing Allow/Ask/Unavailable ceilings.
@@ -18,14 +18,14 @@ An approver also needs independent access to the source conversation and data.
 Workspace-agent approval can be reviewed without permission to request agent work;
 these are separate rights. A private agent remains visible only to its owner.
 Approval authority alone never exposes a private conversation or Library source.
-Owners can be designated under their existing administrative authority.
+Admins can be designated under their existing administrative authority.
 
 An agent maintainer chooses **Ask first**, an eligible approver and a delivery
 channel in guided review or manual operation permissions. The default remains
-the Owner who granted the creator's setup delegation and the work conversation.
-Delegated creators may select that Owner or another person explicitly authorized
-by that same Owner. Authorization from a different Owner cannot expand their
-delegation. Owners configuring rules directly may select any currently eligible
+the admin who granted the creator's setup delegation and the work conversation.
+Delegated creators may select that admin or another person explicitly authorized
+by that same admin. Authorization from a different admin cannot expand their
+delegation. Admins configuring rules directly may select any currently eligible
 approver. The model and task requester cannot choose a substitute at runtime.
 
 The selected person must be able to view the agent, source work and destination.
@@ -72,7 +72,7 @@ card with no action identity or exact fields; the details API also denies access
 
 The review view rechecks access while open and clears its fields when access is
 revoked. A newly added channel member cannot obtain earlier private arguments.
-Workspace Owner status does not override private-source or Library visibility.
+Workspace admin status does not override private-source or Library visibility.
 Library-bearing jobs retain the existing requester-only publication contract;
 they cannot be declassified by appointing an approver or adding channel members.
 
@@ -80,7 +80,7 @@ If a previously valid destination becomes too broad or inaccessible, no channel
 card is posted there. The delivery records a routing issue and the request remains
 available in the designated person's restricted inbox **only while that person
 can independently view the source data**. If source access is also unavailable,
-the request cannot be decided. There is no automatic fallback to another Owner.
+the request cannot be decided. There is no automatic fallback to another admin.
 
 An action status update updates the existing card through the durable message
 change stream. The card remains generic; current detail access is checked again
@@ -91,7 +91,7 @@ uncertain-outcome behavior and write hold.
 
 Migration `m20261025_000021_channel_approvals` adds:
 
-- `relay_control_approvers`: scoped person/operation grants, their issuing Owner
+- `relay_control_approvers`: scoped person/operation grants, their issuing admin
   and monotonic revision. Records survive removal as disabled grants, preventing
   removal/rejoin from reusing an earlier authorization version.
 - Rule bindings for the selected approver grant revision and optional channel.
@@ -105,7 +105,7 @@ Reconnection/review disables existing approval grants as well as agent rules and
 delegation ceilings. Changing an approval grant blocks affected rules, invalidates
 pending actions and clears setup previews. Membership/role changes disable grants
 issued to or by the affected person. Re-promotion, rejoining or reauthorization
-cannot revive earlier pending approvals. Existing Owner rules migrate with their
+cannot revive earlier pending approvals. Existing admin rules migrate with their
 current person and default source delivery; existing saved actions are not
 retroactively broadcast to channels.
 
@@ -121,7 +121,7 @@ New workspace endpoints under `/api/identity/workspaces/{w}/control`:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `POST /approvers` | Owner saves one scoped approval grant |
+| `POST /approvers` | Admin saves one scoped approval grant |
 | `GET /approvals` | The current person's authorized inbox projection |
 | `GET /actions/{id}` | Current-authority exact request details |
 | `POST /actions/{id}/decision` | Decide through the existing action gateway |
@@ -142,10 +142,10 @@ only against disposable databases; the ordinary workspace database was not migra
 
 `tests/channel_approvals.mjs` uses real pinned Goose, a scripted local model, an
 authenticated MCP test system with independent business records, PostgreSQL and
-four browser identities. It proves Owner authorization, delegated selection,
-exact non-Owner approval, channel-only observer denial, restricted inbox decisions,
+four browser identities. It proves admin authorization, delegated selection,
+exact non-admin approval, channel-only observer denial, restricted inbox decisions,
 request changes, revocation, restart and removal of open private details. Database
-tests cover audience changes, Library sources, cross-workspace routes, other-Owner
+tests cover audience changes, Library sources, cross-workspace routes, other-admin
 delegation bypass, reauthorization, wrong people and final-dispatch access loss.
 Web tests cover restricted cards, zero-effect opening, double submission, exact
 retry, stale responses and clearing details after denial.

@@ -10,7 +10,7 @@ use serde_json::json;
 async fn home_maintenance_member_owns_updates_without_agent_management_authority() {
     let (mut db, owner, w, original, read, _, mut p) = setup().await;
     let member = user(&db, "personal-panel-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.chat_grant(&owner, &w, &member.id, &original.agent, true)
         .await
         .unwrap();

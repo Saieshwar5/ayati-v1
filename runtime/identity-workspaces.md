@@ -39,8 +39,8 @@ PostgreSQL holds users, sessions, workspaces, memberships, invitations and audit
 entries; `ayati identity` requires `RELAY_DATABASE_URL`.
 Workspace creation and owner membership are transactional and request-idempotent.
 Workspace IDs never confer access. Reads and writes check current membership.
-Users cannot administer people. Owners can appoint other Owners and change or remove
-any membership while preserving at least one Owner. See [Settings and ownership](settings.md).
+Members cannot administer people. Admins can appoint other admins and change or remove
+any membership while preserving at least one admin. See [Settings and ownership](settings.md).
 
 Invitations are application-level WorkOS emails, not WorkOS organization grants.
 After authenticating, a recipient explicitly accepts a pending Relay workspace
@@ -77,7 +77,7 @@ regular client and is not used as authentication by this server.
 The configured API key returned HTTP 200 for a read-only WorkOS authentication
 check. The hosted Google login completed through the real callback, and the owner
 created a workspace. Its account, session and workspace survived a server restart.
-The authenticated People screen showed the Owner membership. A user-authorized
+The authenticated People screen showed the admin membership. A user-authorized
 invitation was accepted by WorkOS for sending and appeared as pending locally;
 the recipient subsequently accepted it, and the persisted Member membership was verified.
 

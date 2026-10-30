@@ -15,7 +15,7 @@ const workspace = ['General', 'People', 'Access', 'Connections', 'Activity', 'Te
 export function SettingsPage({ href }: { href: string }) {
   const url = new URL(href);
   const [workspaceName, setWorkspaceName] = useState(currentWorkspace()?.name ?? '');
-  const owner = currentWorkspace()?.role === 'Owner';
+  const owner = currentWorkspace()?.role === 'Admin';
   const legacy = url.searchParams.get('view');
   const requestedScope = url.searchParams.get('scope') ?? (legacy === 'people' || legacy === 'users' || legacy === 'company' ? 'workspace' : 'personal');
   const scope: Scope = requestedScope === 'workspace' && owner ? 'workspace' : 'personal';

@@ -144,7 +144,7 @@ impl Fixture {
 #[ignore = "requires local PostgreSQL"]
 async fn delivered_invitation_normalizes_email_and_requires_exact_recipient() {
     let f = Fixture::new().await;
-    let invite = json!({"email":" Guest@EXAMPLE.test ","role":"User"});
+    let invite = json!({"email":" Guest@EXAMPLE.test ","role":"Member"});
     let path = f.invitations();
     let (a, b) = tokio::join!(
         f.call("owner", &path, Some(invite.clone())),
@@ -172,7 +172,7 @@ async fn delivered_invitation_normalizes_email_and_requires_exact_recipient() {
         f.call(
             "guest",
             &f.invitations(),
-            Some(json!({"email":"new@example.test","role":"User"}))
+            Some(json!({"email":"new@example.test","role":"Member"}))
         )
         .await
         .0,
@@ -186,7 +186,7 @@ async fn uncertain_delivery_blocks_duplicate_email_until_owner_cancels() {
     for mode in [1, 2, 3] {
         let f = Fixture::new().await;
         f.mail.mode.store(mode, Ordering::SeqCst);
-        let invite = json!({"email":"guest@example.test","role":"User"});
+        let invite = json!({"email":"guest@example.test","role":"Member"});
         assert_eq!(
             f.call("owner", &f.invitations(), Some(invite.clone()))
                 .await
@@ -241,7 +241,7 @@ async fn local_cancellation_survives_failed_provider_revocation() {
         .call(
             "owner",
             &f.invitations(),
-            Some(json!({"email":"guest@example.test","role":"User"})),
+            Some(json!({"email":"guest@example.test","role":"Member"})),
         )
         .await;
     let id = data["id"].as_str().unwrap();

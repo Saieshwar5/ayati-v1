@@ -72,8 +72,8 @@ async fn rehearsal_sources_and_agent_wide_notes_remain_personal_and_revocation_b
         .await
         .unwrap();
     let other = user(&db, "sample-other-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     let options = db.rehearsal_options(&owner, &w, &agent, "").await.unwrap();
@@ -298,7 +298,7 @@ async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_wo
     let owner = user(&db, "private-sample-workspace-owner").await;
     let member = user(&db, "private-sample-person").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let agent = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Personal helper".into(),
@@ -364,15 +364,15 @@ async fn rehearsal_membership_changes_retain_exact_receipts_without_reviving_que
  {
     let (db, actor, w, _, agent) = setup().await;
     let owner = user(&db, "sample-remaining-owner").await;
-    join(&db, &actor, &w, &owner, "User").await;
-    db.change(&actor, &w, &owner.id, Some("Owner"))
+    join(&db, &actor, &w, &owner, "Member").await;
+    db.change(&actor, &w, &owner.id, Some("Admin"))
         .await
         .unwrap();
     let queued = start();
     db.start_rehearsal(&actor, &w, &agent, &queued)
         .await
         .unwrap();
-    db.change(&owner, &w, &actor.id, Some("User"))
+    db.change(&owner, &w, &actor.id, Some("Member"))
         .await
         .unwrap();
     // The agent creator remains its maintainer after demotion, but work
@@ -381,7 +381,7 @@ async fn rehearsal_membership_changes_retain_exact_receipts_without_reviving_que
         db.rehearsal(&actor, &w, &agent, &queued.id).await.unwrap()["state"],
         "invalidated"
     );
-    db.change(&owner, &w, &actor.id, Some("Owner"))
+    db.change(&owner, &w, &actor.id, Some("Admin"))
         .await
         .unwrap();
     assert_eq!(
@@ -402,8 +402,8 @@ async fn rehearsal_membership_changes_retain_exact_receipts_without_reviving_que
             .await
             .is_err()
     );
-    join(&db, &owner, &w, &actor, "User").await;
-    db.change(&owner, &w, &actor.id, Some("Owner"))
+    join(&db, &owner, &w, &actor, "Member").await;
+    db.change(&owner, &w, &actor.id, Some("Admin"))
         .await
         .unwrap();
     assert_eq!(

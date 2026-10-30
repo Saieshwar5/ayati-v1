@@ -194,7 +194,7 @@ async fn expired_or_forged_sessions_and_invitations_grant_nothing() {
     assert!(db.session("owner").await.unwrap().is_none());
     let w = workspace(&db, &owner).await;
     let invitation = db
-        .reserve_invite(&owner, &w, &employee.email, "User")
+        .reserve_invite(&owner, &w, &employee.email, "Member")
         .await
         .unwrap();
     db.delivered(&invitation, Some("expired")).await.unwrap();
@@ -208,7 +208,7 @@ async fn expired_or_forged_sessions_and_invitations_grant_nothing() {
     assert!(db.accept(&employee, &invitation).await.is_err());
     let other = user(&db, "other").await;
     let cancelled = db
-        .reserve_invite(&owner, &w, &other.email, "User")
+        .reserve_invite(&owner, &w, &other.email, "Member")
         .await
         .unwrap();
     db.delivered(&cancelled, Some("cancelled")).await.unwrap();

@@ -4,7 +4,7 @@ use super::*;
 use crate::identity::control::connections_model::{Creator, Delegation};
 
 pub(super) async fn can_create(db: &impl ConnectionTrait, w: &str, user: &str) -> Result<bool> {
-    let owner = role(db, w, user).await? == "Owner";
+    let owner = role(db, w, user).await? == "Admin";
     Ok(owner || query(db,"SELECT user_id FROM relay_agent_creators WHERE workspace=$1 AND user_id=$2 AND enabled",vec![w.into(),user.into()]).await?.is_some())
 }
 
@@ -38,8 +38,8 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         ensure!(
-            role(&tx, w, &input.user).await? == "User",
-            "Owners already have creation authority"
+            role(&tx, w, &input.user).await? == "Member",
+            "Admins already have creation authority"
         );
         let old = query(
             &tx,
@@ -80,8 +80,8 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         ensure!(
-            role(&tx, w, &input.user).await? == "User",
-            "Owners manage their own operation rules"
+            role(&tx, w, &input.user).await? == "Member",
+            "Admins manage their own operation rules"
         );
         let row=query(&tx,"SELECT c.definition,c.revision FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND s.approved",vec![w.into(),input.connection.clone().into()]).await?.context("Approved connected account required")?;
         ensure!(
@@ -134,14 +134,14 @@ pub(super) async fn rule_approver(
     w: &str,
     input: &crate::identity::control::model::Rule,
 ) -> Result<String> {
-    if role(db, w, &user.id).await? == "Owner" {
+    if role(db, w, &user.id).await? == "Admin" {
         ensure!(
             input.delegation_revision.is_none(),
             "Reload permissions after a role change"
         );
         return Ok(user.id.clone());
     }
-    let row=query(db,"SELECT d.ceiling,d.approver,d.revision FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=$1 AND d.connection=$2 AND d.operation=$3 AND d.user_id=$4",vec![w.into(),input.connection.clone().into(),input.operation.clone().into(),user.id.clone().into()]).await?.context("An Owner must delegate this operation before you can configure it")?;
+    let row=query(db,"SELECT d.ceiling,d.approver,d.revision FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Admin' WHERE d.workspace=$1 AND d.connection=$2 AND d.operation=$3 AND d.user_id=$4",vec![w.into(),input.connection.clone().into(),input.operation.clone().into(),user.id.clone().into()]).await?.context("An admin must delegate this operation before you can configure it")?;
     ensure!(
         input.delegation_revision == Some(row.try_get::<i64>("", "revision")?),
         "Delegation changed; reload permissions"

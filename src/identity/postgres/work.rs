@@ -20,7 +20,7 @@ impl PgStore {
     ) -> Result<()> {
         let tx = self.workspace_tx(w).await?;
         ensure!(
-            role(&tx, w, &user.id).await? == "Owner",
+            role(&tx, w, &user.id).await? == "Admin",
             "Only the owner can grant work operations"
         );
         super::chat::access(&tx, user, w, chat).await?;

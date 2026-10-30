@@ -19,7 +19,7 @@ async fn attention_designated_approver_needs_source_but_not_agent_request_author
         .await
         .unwrap();
     let approver = user(&db, "attention-approver").await;
-    join(&db, &owner, &w, &approver, "User").await;
+    join(&db, &owner, &w, &approver, "Member").await;
     db.channel_members(
         &owner,
         &w,

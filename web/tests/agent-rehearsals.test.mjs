@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?view=agents`;
-const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Store',role:'Owner'}]};
+const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Store',role:'Admin'}]};
 const agent={id:'agent',name:'Nova',role:'Help customers',model:'fixture',scope:'workspace',revision:3,editable:true,settings:{provider:'openai',instructions:'Keep a clear tone',escalation:'When facts are missing',successful_outcome:'A clear sourced answer',routine:'Check supplied facts',memory:true,history:'all',avatar:'spark',browser:false,paused:false}};
 const source={id:'source',revision:2,access_revision:3,title:'PRIVATE_DELIVERY_GUIDE',kind:'page',visibility:'private'};
 const options={profile:agent,sources:[source],more:false,notes:[],execution_available:true,active_sample:null};
@@ -111,7 +111,7 @@ test('editing job outcomes and routines stays an explicit profile save with exis
   const writes=[];
   await reactFixture(async({render,button,change,click})=>{
     await setup();const {AgentEditor}=await import('../src/react/agents/editor.tsx');
-    await render(AgentEditor,{agent,directory:{agents:[agent],role:'Owner',providers:[],default_model:'fixture',system_prompt:'System guide'},creating:false,close:()=>{},saved:async()=>{}});
+    await render(AgentEditor,{agent,directory:{agents:[agent],role:'Admin',providers:[],default_model:'fixture',system_prompt:'System guide'},creating:false,close:()=>{},saved:async()=>{}});
     const outcome=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Successful outcome')).querySelector('textarea');
     await change(outcome,'Accurate, sourced draft');await click(button('Controls'));
     const routine=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Routine')).querySelector('textarea');
