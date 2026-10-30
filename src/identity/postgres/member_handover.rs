@@ -68,10 +68,19 @@ fn plural(count: i64, one: &str, many: &str) -> Option<String> {
 }
 
 /// One readable sentence for the audit log, from the counts taken before removal.
-pub(super) fn removal_summary(actor: &str, person: &str, heir: &str, before: &Value) -> String {
+/// `actor` is the admin who removed the person, or `None` when they left on their own.
+pub(super) fn removal_summary(
+    actor: Option<&str>,
+    person: &str,
+    heir: &str,
+    before: &Value,
+) -> String {
     let n = |key: &str| before[key].as_i64().unwrap_or(0);
     let agents = before["agents"].as_array().map_or(0, |a| a.len() as i64);
-    let mut parts = vec![format!("{actor} removed {person}")];
+    let mut parts = vec![match actor {
+        Some(actor) => format!("{actor} removed {person}"),
+        None => format!("{person} left the workspace"),
+    }];
     let moved: Vec<String> = [
         plural(agents, "agent", "agents"),
         plural(n("library_items"), "Library item", "Library items"),
@@ -129,7 +138,10 @@ impl PgStore {
         person: &str,
     ) -> Result<Value> {
         let tx = self.read_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        // People may see their own, before leaving.
+        if person != user.id {
+            manager(&tx, w, &user.id).await?;
+        }
         role(&tx, w, person).await?;
         let result = responsibilities(&tx, w, person).await?;
         tx.commit().await?;
@@ -145,10 +157,15 @@ mod tests {
     fn summary_names_what_moved_paused_and_stopped() {
         let before = json!({"agents":[{"id":"a"},{"id":"b"}],"library_items":1,"schedules":2,"event_triggers":0,"approvals":1,"tool_rules":0,"invitations":3,"private_agents":0,"kept_library_items":0});
         assert_eq!(
-            removal_summary("Arjun Mehta", "Ravi Kumar", "Meera Iyer", &before),
+            removal_summary(Some("Arjun Mehta"), "Ravi Kumar", "Meera Iyer", &before),
             "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to Meera Iyer; 2 schedules paused for review; 1 waiting approval cancelled; 3 invitations cancelled"
         );
         let empty = json!({"agents":[],"library_items":0,"schedules":0,"event_triggers":0,"approvals":0,"tool_rules":0,"invitations":0});
-        assert_eq!(removal_summary("A", "B", "A", &empty), "A removed B");
+        assert_eq!(removal_summary(Some("A"), "B", "A", &empty), "A removed B");
+        let one = json!({"agents":[{"id":"a"}],"library_items":0});
+        assert_eq!(
+            removal_summary(None, "Ravi Kumar", "Arjun Mehta", &one),
+            "Ravi Kumar left the workspace; 1 agent moved to Arjun Mehta"
+        );
     }
 }

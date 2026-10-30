@@ -23,7 +23,7 @@ async fn equal_owners_concurrent_removal_keeps_one_owner_and_revokes_access() {
         .unwrap();
     let (one, two) = tokio::join!(
         db.change(&a, &w, &a.id, Some("Member"), None),
-        db.change(&b, &w, &b.id, None, None)
+        db.change(&b, &w, &b.id, None, Some(&a.id))
     );
     assert_ne!(one.is_ok(), two.is_ok());
     let owner = if one.is_ok() { &b } else { &a };

@@ -219,7 +219,8 @@ Settings follows the simplified design (D232, `designs/settings-simplified/`).
 - **Layout:** a 248 px sidebar with "You" and "Workspace" groups beside one bounded,
   locally scrolling page. On phones the list comes first and each page has
   "‹ Settings".
-- **Members:** Profile, Preferences, Help and This workspace.
+- **Members:** Profile, Preferences, Help and This workspace, which ends with Leave
+  workspace.
 - **Admins:** add Workspace, People, Connections, Usage, Billing ("Coming later")
   and Audit log.
 - **Roles:** Admin and Member labels. Hide admin pages from members and enforce the

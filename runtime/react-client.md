@@ -37,11 +37,12 @@ server API contracts, authentication, and workspace boundaries.
   context/source review, guarded Start/Stop, personal history and shared reader.
   Ordinary agent guidance enters its normal prompt without granting tools.
 - `web/src/react/settings/`: the Settings sidebar (`settings-page.tsx`, `settings-sections.ts`),
-  profile and preferences, This workspace, Coming later pages, workspace name, Audit log
-  and admin workspace connections/delegation.
+  profile and preferences, This workspace and Leave workspace, Coming later pages,
+  workspace name, Audit log and admin workspace connections/delegation.
 - `web/src/react/people.tsx`, `people-actions.tsx`, `remove-person-dialog.tsx`,
-  `member-details.tsx`, `member-access.tsx`: member and invitation lists, the row menu,
-  role changes, removal with hand-over, and explicit agent grants.
+  `handover-summary.tsx`, `member-details.tsx`, `member-access.tsx`: member and
+  invitation lists, the row menu, role changes, the hand-over summary shared by
+  removal and leaving, and explicit agent grants.
 - `web/src/react/approvals/`: current-access exact review, restricted inbox and
   approver/channel selection shared by workspace conversations and agent setup.
 - `web/src/react/chat/organization-model.ts`, `pin-control.tsx` and

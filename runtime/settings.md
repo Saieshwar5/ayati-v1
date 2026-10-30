@@ -9,8 +9,15 @@ one sidebar with two groups.
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
 | Workspace | This workspace | Workspace, People, Connections, Usage, Billing, Audit log |
 
-- **This workspace** (members): the workspace name, their role and the admins, read
-  from the member directory. Leave workspace comes later.
+- **This workspace** (members):
+  - the workspace name, their role, and how many people and agents they can see,
+    read from the member directory;
+  - the admins to ask, and what admins can see (only public channels and the ones
+    they are in; never other people's private channels or direct messages);
+  - **Leave workspace.** The person chooses who takes over their shared agents and
+    Library items (an admin by default) and sees the same hand-over summary as a
+    removal. The page then reloads to the workspace chooser. The last admin is
+    refused, so an admin makes someone else admin and becomes a member first.
 - **People** (admins):
   - roles on each row, with a ⋯ menu: Make admin / Make member, Agent access…,
     Remove from workspace…;

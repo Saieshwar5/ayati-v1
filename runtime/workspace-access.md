@@ -38,9 +38,12 @@ Implemented 2026-10-30 (schemas 41–42). Design: `designs/workspace-access/`.
 - Sign-in failures are logged with a reason category only (no tokens or emails).
 
 **WorkOS setting required:** in the WorkOS dashboard (each environment) set the
-*Initiate login URL* to `https://<host>/auth/login`. On 2026-10-30 the staging
-environment still pointed to `http://127.0.0.1:8765/auth/login`, so invitation emails
-opened a blank page on everyone else's device.
+*Initiate login URL* to `https://<host>/auth/login`, under Applications → your
+application → Redirects. Checked on 2026-10-31: staging sends visitors to
+`https://app.dev.cuckoo.onl/auth/login` and accepts the
+`https://app.dev.cuckoo.onl/auth/callback` redirect. To check it without the dashboard,
+open the AuthKit domain directly and watch where it redirects. Staging has one such
+URL, so invitation emails sent from local development also open the AWS host.
 
 Admin routes: `GET/POST /api/identity/admin/workspace-codes`,
 `POST /api/identity/admin/workspace-codes/{id}/revoke` (403 for everyone else).
