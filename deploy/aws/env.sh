@@ -13,7 +13,7 @@
 #   env.sh status | check | logs [MINUTES] | cost [DAYS]
 #   env.sh down                 save logs, empty the bucket, delete everything
 #   env.sh verify-clean         list anything temporary that still exists
-set -euo pipefail
+set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
 settings="${AYATI_CLOUD_SETTINGS:-$here/.env.cloud}"
@@ -166,7 +166,7 @@ setup() {
         --query 'tasks[0].containers[].[name,exitCode]' --output text)
     echo "$codes"
     if awk '$2 != "0" {bad=1} END {exit !bad}' <<<"$codes"; then
-        echo "Setup failed; see env.sh logs" >&2; exit 1
+        echo "Setup failed; see env.sh logs" >&2; return 1
     fi
 }
 
@@ -176,8 +176,16 @@ wait_stable() {
     check
 }
 
+# A failed up or deploy leaves a paid environment behind; say so plainly.
+still_running() {
+    trap - ERR
+    printf '\nThe environment is still running and costs money by the hour.\n' >&2
+    printf 'Fix the problem and run env.sh deploy, or delete it with env.sh down.\n' >&2
+}
+
 up() {
     require_session
+    trap still_running ERR
     local started; started=$(date -u +%s)
     echo "$started" > "$state/started"
     deploy_stack "$(stack network)" network.yaml Environment="$AYATI_ENV" \
@@ -195,6 +203,7 @@ up() {
 # stops the old services, migrates, then starts again (a short outage in test).
 deploy() {
     require_session
+    trap still_running ERR
     services 0 0
     setup
     services "${AYATI_CONTROLLERS:-1}" "${AYATI_EXECUTORS:-1}"

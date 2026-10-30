@@ -33,3 +33,19 @@ test('a stopping controller reports draining while serving, exits cleanly and le
   await app.stop(executor);
   app.pass('The reply that was running during the controller stop finishes after a replacement starts');
 });
+
+test('an executor that starts before any controller waits for one instead of exiting', options, async t => {
+  const app = await workerFixture(t, { mode: 'pooled', control: true });
+  await app.stopApi();
+  const executor = await app.startExecutor();
+  await new Promise(resolve => setTimeout(resolve, 4000));
+  assert.equal(executor.child.exitCode, null, `The executor exited while no controller answered:\n${executor.logs}`);
+  await app.startApi();
+  await until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
+    'The waiting executor did not register once a controller started', 30000);
+  const job = await app.send('Started before its controller');
+  await app.done(job);
+  assert.doesNotMatch(executor.logs, /Pool release deferred/);
+  await app.stop(executor);
+  app.pass('An executor started before the controller registers when it appears, completes a reply and logs no failed release');
+});
