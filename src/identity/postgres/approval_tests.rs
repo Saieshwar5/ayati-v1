@@ -25,8 +25,8 @@ async fn setup() -> Setup {
     let approver = user(&db, "approval-person").await;
     let other = user(&db, "approval-observer").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &approver, "User").await;
-    join(&db, &owner, &w, &other, "User").await;
+    join(&db, &owner, &w, &approver, "Member").await;
+    join(&db, &owner, &w, &other, "Member").await;
     let (_, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let source = chat(
         &db,
@@ -238,7 +238,7 @@ async fn delivery_is_one_saved_reference_and_current_source_access_controls_deta
     assert_eq!(other["messages"][0]["approval"]["restricted"], true);
     assert!(other["messages"][0]["approval"]["id"].is_null());
     assert!(s.db.approval_details(&s.other, &s.w, id).await.is_err());
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Owner"))
+    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"))
         .await
         .unwrap();
     assert!(s.db.approval_details(&s.other, &s.w, id).await.is_err());
@@ -384,10 +384,10 @@ async fn source_access_and_grantor_role_are_rechecked_after_approval_before_disp
     let s = setup().await;
     s.configure().await;
     let (_, a) = s.propose().await;
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Owner"))
+    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"))
         .await
         .unwrap();
-    s.db.change(&s.other, &s.w, &s.owner.id, Some("User"))
+    s.db.change(&s.other, &s.w, &s.owner.id, Some("Member"))
         .await
         .unwrap();
     assert!(

@@ -128,7 +128,7 @@ test('choosing a general family or chart variant creates no work until explicit 
     assert.match(writes[2].content, /Requested UI family: progress/);
   }, { url: `http://localhost/w/${w}/?view=home`, fetch: async (path, options={}) => {
     if (options.method === 'POST') { writes.push(JSON.parse(options.body)); return response({ error: 'Keep the request for retry' }, 503); }
-    if (path.endsWith('/session')) return response({ user: { id: 'owner' }, workspaces: [{ id: w, name: 'Work', role: 'Owner' }] });
+    if (path.endsWith('/session')) return response({ user: { id: 'owner' }, workspaces: [{ id: w, name: 'Work', role: 'Admin' }] });
     return path.endsWith('/chat-directory') ? response({ agents: [{ id: 'agent', name: 'Nova', scope: 'workspace' }], users: [] })
       : response({ chats: [{ id: 'chat', name: 'Work', agents: ['agent'], users: [] }] });
   } });

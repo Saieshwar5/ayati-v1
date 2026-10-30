@@ -22,7 +22,7 @@ async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Resul
         super::chat::agent_access(db, &job.requester, &job.workspace, agent).await?,
         "Original requester lacks this agent's request permission"
     );
-    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind='channel' AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Owner'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must participate in the same channel");
+    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind='channel' AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must participate in the same channel");
     Ok(profile)
 }
 impl PgStore {

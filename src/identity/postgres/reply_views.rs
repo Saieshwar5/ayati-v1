@@ -26,7 +26,7 @@ pub(super) async fn hydrate(
                 .is_some_and(|id| task_ids.contains(id)),
         );
     }
-    let owner = role(tx, workspace, &user.id).await? == "Owner";
+    let owner = role(tx, workspace, &user.id).await? == "Admin";
     let mut jobs = std::collections::HashMap::new();
     let pending = messages
         .iter()

@@ -11,8 +11,8 @@ async fn automation_source_revocation_blocks_future_runs_and_cancels_queued_work
  {
     let (db, owner, w, _, a) = setup().await;
     let other = user(&db, "schedule-other-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     let c = chat(&db, &owner, &w, vec![other.id.clone()], vec![a.clone()]).await;
@@ -135,8 +135,8 @@ async fn automation_archive_preserves_accepted_work_but_restore_never_reenables_
 async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore() {
     let (db, owner, w, c, a) = setup().await;
     let other = user(&db, "schedule-second-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     let input = schedule(&c, Some(10));
@@ -144,8 +144,8 @@ async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore
     db.dispatch_schedules_at(input.first_ms).await.unwrap();
     db.change(&other, &w, &owner.id, None).await.unwrap();
     assert_eq!(state(&db, &w, &input.id).await["state"], "blocked");
-    join(&db, &other, &w, &owner, "User").await;
-    db.change(&other, &w, &owner.id, Some("Owner"))
+    join(&db, &other, &w, &owner, "Member").await;
+    db.change(&other, &w, &owner.id, Some("Admin"))
         .await
         .unwrap();
     // Rejoining does not restore former private conversation membership.
@@ -208,7 +208,7 @@ async fn automation_requires_current_maintainer_request_and_destination_authorit
  {
     let (db, owner, w, c, a) = setup().await;
     let member = user(&db, "schedule-observer").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await
         .unwrap();
@@ -266,7 +266,7 @@ async fn automation_private_agent_routines_remain_private_from_workspace_owners(
     let owner = user(&db, "private-schedule-owner").await;
     let member = user(&db, "private-schedule-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let profile = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Private helper".into(),
@@ -353,8 +353,8 @@ async fn automation_list_bounds_instruction_transfer_and_exact_details_recheck_s
         input.content
     );
     let other = user(&db, "routine-details-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     assert!(

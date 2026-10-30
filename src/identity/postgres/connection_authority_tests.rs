@@ -33,7 +33,7 @@ async fn setup() -> Setup {
     let owner = user(&db, "connections-owner").await;
     let member = user(&db, "connections-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let creator = Creator {
         user: member.id.clone(),
         enabled: true,
@@ -135,7 +135,7 @@ async fn creator_right_is_explicit_separate_from_tools_and_revocable() {
     let owner = user(&db, "creator-owner").await;
     let member = user(&db, "creator-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let a = agent();
     assert!(!db.can_create_workspace_agent(&member, &w).await.unwrap());
     assert!(db.save_agent_profile(&member, &w, &a).await.is_err());
@@ -316,7 +316,7 @@ async fn delegated_rules_require_agent_ownership_and_approver_conversation_visib
             .is_err()
     );
     let outsider = user(&s.db, "no-connection-access").await;
-    join(&s.db, &s.owner, &s.w, &outsider, "User").await;
+    join(&s.db, &s.owner, &s.w, &outsider, "Member").await;
     s.db.chat_grant(&s.owner, &s.w, &outsider.id, &s.agent.id, true)
         .await
         .unwrap();
@@ -361,7 +361,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     s.db.control_rule(&s.member, &s.w, &s.agent.id, &s.rule("allow", 0, 1))
         .await
         .unwrap();
-    s.db.change(&s.owner, &s.w, &s.member.id, Some("Owner"))
+    s.db.change(&s.owner, &s.w, &s.member.id, Some("Admin"))
         .await
         .unwrap();
     assert!(
@@ -370,7 +370,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
             .await
             .unwrap()
     );
-    s.db.change(&s.owner, &s.w, &s.member.id, Some("User"))
+    s.db.change(&s.owner, &s.w, &s.member.id, Some("Member"))
         .await
         .unwrap();
     assert!(
@@ -388,7 +388,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     s.db.change(&s.owner, &s.w, &s.member.id, None)
         .await
         .unwrap();
-    join(&s.db, &s.owner, &s.w, &s.member, "User").await;
+    join(&s.db, &s.owner, &s.w, &s.member, "Member").await;
     assert!(
         !s.db
             .control_enabled(&s.w, &s.agent.id, &s.chat)

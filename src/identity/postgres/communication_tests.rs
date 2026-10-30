@@ -163,7 +163,7 @@ async fn communications_deduplicate_concurrently_and_hold_unknown_senders_withou
 async fn communications_separate_people_threads_transports_and_deny_chat_audience_changes() {
     let (db, owner, w, regular, e) = setup().await;
     let other = user(&db, "same-display-name").await;
-    join(&db, &owner, &w, &other, "User").await;
+    join(&db, &owner, &w, &other, "Member").await;
     db.chat_grant(&owner, &w, &other.id, &e.agent, true)
         .await
         .unwrap();
@@ -427,7 +427,7 @@ async fn communications_revoke_generation_before_dispatch_and_do_not_revive_old_
 async fn communications_operator_metadata_and_config_deny_foreign_owners_and_members() {
     let (db, owner, w, _, e) = setup().await;
     let member = user(&db, "communications-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     assert!(db.communication_status(&member, &w).await.is_err());
     assert!(db.communication_endpoint(&member, &w, &e).await.is_err());
     assert!(

@@ -8,7 +8,7 @@ async fn targeted_profile_lookup_rechecks_grants_and_preserves_private_and_works
     let owner = user(&db, "lookup-owner").await;
     let member = user(&db, "lookup-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let other = workspace(&db, &owner).await;
     let mut agent = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),

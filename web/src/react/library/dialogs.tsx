@@ -227,7 +227,7 @@ export function AskDialog({ item, close }: { item: Item; close: () => void }) {
       {directory.data && eligible.length === 0 && (
         <p>
           You need an available workspace agent that the creator has allowed to read this item. Ask
-          the creator or a workspace Owner if none are available.
+          the creator or a workspace admin if none are available.
         </p>
       )}
       <label className="library-field">

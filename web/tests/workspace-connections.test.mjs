@@ -7,7 +7,7 @@ const workspace = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${workspace}/?view=settings&scope=workspace&section=connections`;
 const operation = { id: 'order.update', title: 'Update order', effect: 'write', schema: {} };
 const server = { id: 'orders', name: 'Orders', account: 'Sample business', operations: [operation] };
-const person = { id: 'member', name: 'Priya', role: 'User', can_create: false, revision: 0 };
+const person = { id: 'member', name: 'Priya', role: 'Member', can_create: false, revision: 0 };
 const connection = { id: 'connection', server: 'orders', enabled: true, revision: 4, definition: server };
 const state = extra => ({ servers: [server], systems: [], connections: [], people: [person], delegations: [], viewer: 'owner', execution_available: true, ...extra });
 const response = data => ({ ok: true, status: 200, json: async () => data });

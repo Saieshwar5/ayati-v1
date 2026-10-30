@@ -10,7 +10,7 @@ import { until } from './fixtures/polling.mjs';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 
-test('Owner delegates workspace account access; a member creates a bounded agent and revocation stops pending work', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
+test('Admin delegates workspace account access; a member creates a bounded agent and revocation stops pending work', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
   const remote = await remoteControlMcp(); t.after(() => remote.close());
   const directory = await mkdtemp(join(root, '.tmp/workspace-account-'));
   const profiles = join(directory, 'servers.json'); const bearer = join(directory, 'bearer');
@@ -68,7 +68,7 @@ test('Owner delegates workspace account access; a member creates a bounded agent
   await ownerPage.screenshot({ path: join(app.data, 'connections-desktop.png') });
   await ownerPage.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await ownerPage.screenshot({ path: join(app.data, 'connections-dark.png') });
-  app.pass('Owner uses Settings to approve an account and delegate creation, read and approval-required write authority');
+  app.pass('Admin uses Settings to approve an account and delegate creation, read and approval-required write authority');
 
   await memberPage.goto(`${app.base}/w/${w}/?view=agents`);
   await memberPage.getByRole('button', { name: '＋ Create agent', exact: true }).click();
@@ -120,7 +120,7 @@ test('Owner delegates workspace account access; a member creates a bounded agent
   assert.equal(remote.records.get('one').address, 'Delegated and approved');
   assert.equal((await send('order.delete', { order: 'one' })).state, 'denied');
   assert.equal(remote.calls.some(call => call.name === 'delete_order'), false);
-  app.pass('Real Goose obeys delegated Allow, Ask and default Block; only the designated Owner can approve the exact write');
+  app.pass('Real Goose obeys delegated Allow, Ask and default Block; only the designated admin can approve the exact write');
 
   const revoked = await send('order.update', { order: 'one', address: 'Must never execute' });
   await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).click();

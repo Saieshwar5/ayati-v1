@@ -18,7 +18,7 @@ test('feedback retains failed drafts, gates duplicate saves, and reuses only the
   assert.notEqual(calls[2].id,calls[1].id);fail=false;await update(()=>release(response({ok:true})));
   assert.equal(document.querySelector('dialog'),null);
  },{url:`http://localhost/w/${w}/?view=feedback`,fetch:async(path,options={})=>{
-  if(path.endsWith('/session'))return response({user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Test',role:'Owner'}]});
+  if(path.endsWith('/session'))return response({user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Test',role:'Admin'}]});
   if(path.endsWith('/chats'))return response({chats:[{id:'chat',name:'Operations'}]});
   if(path.endsWith('/feedback')&&options.method==='POST'){calls.push(JSON.parse(options.body));return new Promise(r=>{release=r;});}
   if(path.endsWith('/feedback'))return response({feedback:fail?[]:[{...calls.at(-1),status:'new',revision:0}]});

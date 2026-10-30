@@ -17,7 +17,7 @@ No provider subscription, HTTPS ingress or paid service is provisioned here.
   owned 0600 files. User/model event payloads cannot select these bindings.
 - A maintainer explicitly creates a trigger with its original human principal,
   source, task, destination and optional exact scalar filters. The person must
-  have current request/destination access and Owner/delegated read authority.
+  have current request/destination access and admin/delegated read authority.
   The agent must already have an effective Allow read rule in that exact channel.
   Ask/Block is not automatic permission to publish an incoming private payload.
 - Review shows the account/source, included field names, audience and destination.

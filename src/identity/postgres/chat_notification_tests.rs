@@ -9,7 +9,7 @@ async fn levels_are_personal_and_need_access_to_the_conversation() {
     let owner = user(&db, "notify-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "notify-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let private = chat(&db, &owner, &w, vec![], vec![]).await;
     let shared = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     assert!(
@@ -46,7 +46,7 @@ async fn unread_counts_separate_mentions_of_you() {
     let owner = user(&db, "mention-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "mention-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     db.chat_send(&owner, &w, &c, &message("General update", None))
         .await

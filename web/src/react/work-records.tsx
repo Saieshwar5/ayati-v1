@@ -11,7 +11,7 @@ export function WorkRecords() {
   }, []));
   const mutation = useMutation();
   const [assignees, setAssignees] = useState<Record<string, string>>({});
-  const manager = currentWorkspace()?.role === 'Owner';
+  const manager = currentWorkspace()?.role === 'Admin';
   if (!resource.data?.work.length) return null;
   const directory = resource.data.directory;
   return <section><header><h2>Work records</h2><Button onClick={() => void resource.refresh().catch(() => {})}>Refresh work</Button></header>

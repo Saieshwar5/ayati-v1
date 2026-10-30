@@ -33,8 +33,8 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
     let writer = user(&db, "writer").await;
     let viewer = user(&db, "viewer").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &writer, "User").await;
-    join(&db, &owner, &w, &viewer, "User").await;
+    join(&db, &owner, &w, &writer, "Member").await;
+    join(&db, &owner, &w, &viewer, "Member").await;
     let input = page("Private working plan");
     let id = &input.id;
     db.library_save(&writer, &w, &input).await.unwrap();
@@ -141,7 +141,7 @@ async fn library_member_removal_and_reinvitation_do_not_reactivate_private_owner
     let owner = user(&db, "owner").await;
     let writer = user(&db, "writer").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &writer, "User").await;
+    join(&db, &owner, &w, &writer, "Member").await;
     let input = page("Private");
     db.library_save(&writer, &w, &input).await.unwrap();
     let shared = page("Shared");
@@ -161,7 +161,7 @@ async fn library_member_removal_and_reinvitation_do_not_reactivate_private_owner
         .unwrap();
     db.change(&owner, &w, &writer.id, None).await.unwrap();
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());
-    join(&db, &owner, &w, &writer, "User").await;
+    join(&db, &owner, &w, &writer, "Member").await;
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());
     assert!(db.library_get(&writer, &w, &shared.id).await.is_err());
     assert!(db.library_get(&owner, &w, &input.id).await.is_err());
@@ -278,7 +278,7 @@ async fn library_sources_are_private_revision_bound_and_fence_claimed_replies_af
     let owner = user(&db, "owner").await;
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let aid = uuid::Uuid::new_v4().to_string();
     db.save_shared_agent(
         &owner,

@@ -29,7 +29,7 @@ pub(super) async fn authorized(
         super::chat::agent_access(db, &user.id, w, p["agent"].as_str().unwrap()).await?,
         "Current agent request permission is required"
     );
-    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Owner'))",vec![w.into(),p["chat"].as_str().unwrap().into(),p["agent"].as_str().unwrap().into(),user.id.clone().into()]).await?.is_some(),"Agent participation and posting authority are required");
+    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![w.into(),p["chat"].as_str().unwrap().into(),p["agent"].as_str().unwrap().into(),user.id.clone().into()]).await?.is_some(),"Agent participation and posting authority are required");
     super::channel_lifecycle::accepting(db, w, p["chat"].as_str().unwrap()).await?;
     ensure!(
         p["revision"] == p["active_revision"],

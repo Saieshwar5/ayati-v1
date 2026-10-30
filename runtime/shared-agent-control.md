@@ -10,17 +10,17 @@ The feature is disabled by default: absent operator profiles or assigned rules,
 managed agents have no assigned business operations. They may use the separate
 [ordinary question bridge](agent-questions.md) under current task authority.
 
-## Owner journey
+## Admin journey
 
 Open **Settings → Workspace → Connections** to approve configured systems, verify
 accounts and delegate bounded operation access. Then open Agents → **Tools and
 approvals**. Activity shows exact approvals/results; Permissions saves rules for
-one selected conversation per operation. Each operation starts blocked. Owners
+one selected conversation per operation. Each operation starts blocked. Admins
 configure rules directly; delegated members configure agents they maintain within
-their operation limit. Ask first names the saving Owner for direct Owner rules,
-or the Owner who granted the member's delegation by default. [Channel approvals](channel-approvals.md)
-now allow explicit, scoped authorization of selected non-Owner approvers and safe
-channel/inbox delivery. Other Owners cannot substitute
+their operation limit. Ask first names the saving admin for direct admin rules,
+or the admin who granted the member's delegation by default. [Channel approvals](channel-approvals.md)
+now allow explicit, scoped authorization of selected non-admin approvers and safe
+channel/inbox delivery. Other admins cannot substitute
 for that designated approver.
 
 Connection setup validates reviewed remote schemas without executing a business

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?view=agents`;
-const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Store',role:'Owner'}]};
+const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Store',role:'Admin'}]};
 const agent={id:'agent',name:'Nova',role:'Help customers',model:'fixture',scope:'workspace',revision:3,editable:true,settings:{}};
 const clock={location:'Business time',timezone:'Asia/Kolkata',hour12:true};
 const routine={id:'routine',chat:'channel',name:'PRIVATE_DELIVERY_REVIEW',content:'PRIVATE_TASK_INSTRUCTIONS',first_ms:Date.now()+3600000,interval_seconds:3600,timezone:'Asia/Kolkata',principal:'owner',principal_name:'Ananya',chat_name:'PRIVATE_DELIVERY_CHANNEL',revision:2,state:'enabled',next_ms:Date.now()+3600000,can_resume:true,detail:''};

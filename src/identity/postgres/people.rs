@@ -11,7 +11,7 @@ impl PgStore {
             email.len() <= 254 && email.contains('@') && !email.chars().any(char::is_whitespace),
             "Enter a valid email"
         );
-        ensure!(assigned == "User", "Invalid role");
+        ensure!(assigned == "Member", "Invalid role");
         let tx = self.workspace_tx(workspace).await?;
         manager(&tx, workspace, &user.id).await?;
         ensure!(query(&tx,"SELECT u.id FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 AND u.email=$2",vec![workspace.into(),email.into()]).await?.is_none(),"This person is already a member");
@@ -100,22 +100,22 @@ impl PgStore {
         assigned: Option<&str>,
     ) -> Result<()> {
         ensure!(
-            assigned.is_none_or(|r| ["Owner", "User"].contains(&r)),
+            assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
             "Invalid role"
         );
         let tx = self.workspace_tx(workspace).await?;
         manager(&tx, workspace, &user.id).await?;
         let target_role = role(&tx, workspace, target).await?;
-        if target_role == "Owner" && assigned != Some("Owner") {
+        if target_role == "Admin" && assigned != Some("Admin") {
             let count: i64 = query(
                 &tx,
-                "SELECT count(*) AS count FROM relay_members WHERE workspace=$1 AND role='Owner'",
+                "SELECT count(*) AS count FROM relay_members WHERE workspace=$1 AND role='Admin'",
                 vec![workspace.into()],
             )
             .await?
             .context("Workspace unavailable")?
             .try_get("", "count")?;
-            ensure!(count > 1, "A workspace must keep at least one Owner");
+            ensure!(count > 1, "A workspace must keep at least one admin");
         }
         // Revoke documents issued under the old role as well as on removal.
         if assigned != Some(target_role.as_str()) {

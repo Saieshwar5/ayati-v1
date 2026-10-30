@@ -155,7 +155,7 @@ async fn communications_revoked_agent_grant_blocks_inflight_reply_and_new_intake
     let owner = user(&db, "revoke-owner").await;
     let member = user(&db, "revoke-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (_, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await

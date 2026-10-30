@@ -54,7 +54,7 @@ function base(path) {
   if (path.endsWith('/session'))
     return response({
       user: { id: 'owner', email: 'owner@example.test' },
-      workspaces: [{ id: w, name: 'Store', role: 'Owner' }],
+      workspaces: [{ id: w, name: 'Store', role: 'Admin' }],
     });
   if (path.endsWith('/runs')) return response({ runs: [] });
   return response(trigger);

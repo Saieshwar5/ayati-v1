@@ -46,14 +46,14 @@ impl PgStore {
         super::chat::access(&tx, user, w, chat).await?;
         let row=query(&tx,"SELECT kind,creator,archived,archive_revision,archive_request,archive_payload FROM relay_chats WHERE workspace=$1 AND id=$2",vec![w.into(),chat.into()]).await?.context("Conversation unavailable")?;
         let manageable = row.try_get::<String>("", "kind")? != "direct"
-            && (role(&tx, w, &user.id).await? == "Owner"
+            && (role(&tx, w, &user.id).await? == "Admin"
                 || row.try_get::<String>("", "creator")? == user.id);
         let mut archived: bool = row.try_get("", "archived")?;
         let mut revision: i64 = row.try_get("", "archive_revision")?;
         if let Some(input) = input {
             ensure!(
                 manageable,
-                "Only a channel creator or workspace Owner with source access can archive or restore it"
+                "Only a channel creator or workspace admin with source access can archive or restore it"
             );
             let payload = serde_json::to_value(input)?;
             if row

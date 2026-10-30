@@ -41,7 +41,7 @@ pub(super) async fn authority(
         super::chat::agent_access(tx, &user.id, w, agent).await?,
         "Current agent request permission is required"
     );
-    ensure!(query(tx,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Owner'))",vec![w.into(),chat.into(),agent.into(),user.id.clone().into()]).await?.is_some(),"Agent participation and destination posting authority are required");
+    ensure!(query(tx,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![w.into(),chat.into(),agent.into(),user.id.clone().into()]).await?.is_some(),"Agent participation and destination posting authority are required");
     super::channel_lifecycle::accepting(tx, w, chat).await
 }
 pub(super) fn principal(data: &Value) -> Result<User> {

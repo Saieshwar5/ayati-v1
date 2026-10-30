@@ -1,5 +1,8 @@
 //! PostgreSQL identity storage. All access stays behind the existing Cuckoo API.
 mod accounts;
+mod admin_member_migration;
+#[cfg(test)]
+mod admin_member_migration_tests;
 mod agent_knowledge;
 mod agent_profiles;
 mod agent_receipt_migration;
@@ -390,7 +393,9 @@ async fn json_rows(
 async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
     query(
         db,
-        "SELECT role FROM relay_members WHERE workspace=$1 AND user_id=$2",
+        // Schema 43 renamed Owner/User; the old names exist only in databases being
+        // upgraded (and upgrade tests), so reads always use the new names.
+        "SELECT CASE role WHEN 'Owner' THEN 'Admin' WHEN 'User' THEN 'Member' ELSE role END AS role FROM relay_members WHERE workspace=$1 AND user_id=$2",
         vec![workspace.into(), actor.into()],
     )
     .await?
@@ -400,7 +405,7 @@ async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result
 }
 async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
     let role = role(db, workspace, actor).await?;
-    ensure!(role == "Owner", "Only Owners can manage workspace access");
+    ensure!(role == "Admin", "Only admins can manage workspace access");
     Ok(role)
 }
 async fn audit(

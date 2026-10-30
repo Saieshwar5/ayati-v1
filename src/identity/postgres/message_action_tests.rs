@@ -19,7 +19,7 @@ async fn authors_edit_and_delete_their_own_messages_only() {
     let owner = user(&db, "edit-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "edit-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     let sent = message("First draft", None);
     db.chat_send(&member, &w, &c, &sent).await.unwrap();
@@ -121,7 +121,7 @@ async fn reactions_are_per_person_idempotent_and_never_start_work() {
     let w = workspace(&db, &owner).await;
     let member = user(&db, "react-member").await;
     let outsider = user(&db, "react-outsider").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (c, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.channel_members(&owner, &w, &c, &[owner.id.clone(), member.id.clone()])
         .await

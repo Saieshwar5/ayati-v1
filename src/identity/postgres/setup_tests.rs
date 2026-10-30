@@ -214,8 +214,8 @@ async fn omitted_unknown_duplicate_choices_and_cross_identity_drafts_are_rejecte
     draft.choices = original;
     db.setup_create(&owner, &w, &agent, &draft).await.unwrap();
     let other = user(&db, "other-owner").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     assert!(
@@ -310,7 +310,7 @@ async fn example_uses_real_schema_checks_and_unreviewed_tools_stay_blocked() {
 async fn delegated_limits_and_revocation_fence_a_saved_review() {
     let (db, owner, w, _, _, original) = setup().await;
     let member = user(&db, "setup-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.control_creator(
         &owner,
         &w,
@@ -390,7 +390,7 @@ async fn delegated_limits_and_revocation_fence_a_saved_review() {
             .is_empty()
     );
     db.change(&owner, &w, &member.id, None).await.unwrap();
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.control_delegate(
         &owner,
         &w,

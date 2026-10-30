@@ -36,14 +36,14 @@ Native page/history database storage is separate from that binary-file quota.
 
 ## People, ownership and removal
 
-Owner/User remain workspace membership roles. Both can create Library items.
-Only Owners invite or remove workspace members through Settings.
+Admin/User remain workspace membership roles. Both can create Library items.
+Only admins invite or remove workspace members through Settings.
 
 - New items are private. The creator manages sharing and trash.
 - Native pages offer Can view or Can edit. Edit does not grant resharing. The
   initial file-sharing UI offers view/download access; file replacement is deferred.
 - Workspace visibility gives current members view access; named editors can edit.
-- Another Owner does not automatically read private/selected-people content.
+- Another admin does not automatically read private/selected-people content.
 - Links do not grant access. There is no guest/public-link sharing.
 - Version history requires edit access; a viewer can fetch the current page version.
 
@@ -56,9 +56,9 @@ cannot recall an already downloaded copy or delivered private Chat answer.
 Membership removal deletes human grants, stars, upload sessions and request
 receipts through foreign keys. It clears current item stewardship while retaining
 the original author/history. Re-invitation does not revive private ownership or
-old grants. An Owner can explicitly take over a workspace-visible orphaned item;
+old grants. An admin can explicitly take over a workspace-visible orphaned item;
 an existing editor can take over a selected-people orphaned item. This does not
-grant an Owner new read access to selected/private content. Private orphaned items
+grant an admin new read access to selected/private content. Private orphaned items
 remain retained and inaccessible; broader recovery/deletion policy is still a
 pilot decision. Selected items without surviving editors stay read-only.
 
@@ -167,7 +167,7 @@ npm run build --prefix web
 
 The ignored S3 adapter integration test requires a dedicated loopback emulator
 and fixture bucket; see `src/identity/library/storage.rs`. Do not point fixtures
-at production storage. Executed browser reviews cover Owner/User page sharing,
+at production storage. Executed browser reviews cover admin/User page sharing,
 revocation, private agent handoff, upload/download/ranges, concurrent edits, lost
 acknowledgements, interrupted transfer, history restore, PDF preview and narrow/
 short layouts. Model fixtures and storage emulation are separate from live cloud

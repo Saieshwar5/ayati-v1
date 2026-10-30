@@ -13,7 +13,7 @@ async fn an_invite_link_shows_the_invitation_and_joins_only_the_invited_email() 
         user(&db, "link-stranger").await,
     );
     let id = db
-        .reserve_invite(&owner, &w, &guest.email, "User")
+        .reserve_invite(&owner, &w, &guest.email, "Member")
         .await
         .unwrap();
     db.delivered(&id, Some("invitation_fixture")).await.unwrap();

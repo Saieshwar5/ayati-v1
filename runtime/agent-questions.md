@@ -26,7 +26,7 @@ record; changed content under the same question key or submission identity is
 rejected. Initial specifications are immutable at revision 1. A deliberate
 follow-up is a new question; changing an old answer cannot rewrite dispatched
 work. Questions and answers inherit current conversation and Library access.
-Only the intended requester can answer or decline; an Owner cannot answer for
+Only the intended requester can answer or decline; an admin cannot answer for
 another member merely because they manage the agent.
 
 The existing task/checkpoint lifecycle saves the question before worker release

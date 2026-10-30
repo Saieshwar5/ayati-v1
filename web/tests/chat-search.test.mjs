@@ -7,8 +7,8 @@ import { reactFixture } from './react-fixture.mjs';
 
 const workspace='11111111-1111-4111-8111-111111111111';
 const url=`http://localhost/w/${workspace}/?view=chat`;
-const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:workspace,name:'Store',role:'Owner'}]};
-const directory={role:'Owner',users:[{id:'owner',name:'Owner'},{id:'n',name:'Nikhil Kumar'},{id:'p',name:'Priya'}],agents:[{id:'a',name:'Stock assistant'}]};
+const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:workspace,name:'Store',role:'Admin'}]};
+const directory={role:'Admin',users:[{id:'owner',name:'Owner'},{id:'n',name:'Nikhil Kumar'},{id:'p',name:'Priya'}],agents:[{id:'a',name:'Stock assistant'}]};
 const chats=[{id:'stock',name:'inventory',kind:'channel',description:'',users:['owner'],agents:[]},{id:'dm',name:'Nikhil',kind:'direct',description:'',users:['owner','n'],agents:[]}];
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 async function setup(){const context=await import('../src/workspace-context.ts');await context.enterWorkspace();return (await import('../src/react/chat/search-conversations.tsx')).SearchConversations;}

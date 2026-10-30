@@ -24,7 +24,7 @@ async fn versioned_context_persists_exact_attempt_reads_and_summary_with_privacy
     let owner = user(&db, "context-owner").await;
     let other = user(&db, "context-other").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &other, "User").await;
+    join(&db, &owner, &w, &other, "Member").await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_grant(&owner, &w, &other.id, &a, true)
         .await

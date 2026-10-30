@@ -13,7 +13,7 @@ pub(super) fn stale_revision(actual: i64, expected: i64, same: bool) -> Result<b
 }
 
 pub(super) async fn approved(db: &impl ConnectionTrait, w: &str, server: &str) -> Result<()> {
-    ensure!(query(db,"SELECT server FROM relay_control_systems WHERE workspace=$1 AND server=$2 AND approved",vec![w.into(),server.into()]).await?.is_some(), "The workspace Owner must approve this system first");
+    ensure!(query(db,"SELECT server FROM relay_control_systems WHERE workspace=$1 AND server=$2 AND approved",vec![w.into(),server.into()]).await?.is_some(), "A workspace admin must approve this system first");
     Ok(())
 }
 

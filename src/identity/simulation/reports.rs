@@ -6,7 +6,7 @@ pub(super) async fn reports(
     let sim = app.simulation.as_ref().context("Simulation is disabled")?;
     let user = identity(&app, &headers).await?;
     check(
-        app.store.role(&sim.workspace, &user.id).await? == "Owner",
+        app.store.role(&sim.workspace, &user.id).await? == "Admin",
         "Only the owner can inspect simulation reports",
     )?;
     let root = sim

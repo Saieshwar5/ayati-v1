@@ -11,7 +11,7 @@ async fn every_member_sees_everyone_with_their_profile() {
     let owner = user(&db, "profile-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "profile-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let saved = db
         .save_member_profile(
             &member,
@@ -80,7 +80,7 @@ async fn photos_are_member_only_replaced_by_new_ids_and_removable() {
     let owner = user(&db, "photo-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "photo-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let first = db
         .save_member_photo(&member, &w, "image/png", PNG.to_vec())
         .await
@@ -164,7 +164,7 @@ async fn leaving_the_workspace_removes_the_profile() {
     let owner = user(&db, "profile-leave").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "profile-leaver").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     db.save_member_profile(&member, &w, "Arjun", "Sales", "")
         .await
         .unwrap();
@@ -191,7 +191,7 @@ async fn channel_managers_add_and_remove_workspace_agents() {
     let owner = user(&db, "agents-owner").await;
     let w = workspace(&db, &owner).await;
     let member = user(&db, "agents-member").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (_, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let channel = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     let agents_in = |db: PgStore, viewer: User| {
@@ -272,7 +272,7 @@ async fn private_agents_and_direct_messages_cannot_gain_channel_agents() {
     let (direct, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let _ = direct;
     let member = user(&db, "dm-partner").await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let dm = db
         .chat_create(
             &owner,

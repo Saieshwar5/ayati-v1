@@ -47,6 +47,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::message_reply_migration::MessageReplies),
             Box::new(super::workspace_code_migration::WorkspaceCodes),
             Box::new(super::invite_link_migration::InviteLinks),
+            Box::new(super::admin_member_migration::AdminMemberRoles),
         ]
     }
 }

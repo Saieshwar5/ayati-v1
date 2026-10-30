@@ -34,7 +34,7 @@ async fn context_preview_enforces_person_workspace_agent_and_note_audiences_with
     let owner = user(&db, "preview-owner").await;
     let member = user(&db, "preview-member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await
@@ -69,7 +69,7 @@ async fn context_preview_enforces_person_workspace_agent_and_note_audiences_with
         note(None, "REVIEWED_SHARED_NOTE"),
     ] {
         let actor = if input.chat.as_deref() == Some(&other) {
-            // The note maintainer must also have conversation access; an Owner
+            // The note maintainer must also have conversation access; an admin
             // cannot insert into another person's private conversation.
             assert!(
                 db.save_agent_knowledge(&owner, &w, &a, &input)

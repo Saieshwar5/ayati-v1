@@ -137,7 +137,7 @@ async fn attention_failed_review_is_personal_durable_and_distinct_from_read_or_t
         .await
         .unwrap();
     let other = user(&db, "attention-member").await;
-    join(&db, &owner, &w, &other, "User").await;
+    join(&db, &owner, &w, &other, "Member").await;
     db.channel_members(&owner, &w, &job.chat, &[owner.id.clone(), other.id.clone()])
         .await
         .unwrap();

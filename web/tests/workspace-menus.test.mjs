@@ -33,6 +33,6 @@ test('React account menu escapes identity text, scopes workspace links, and reco
       return { ok: true, json: async () => ({ ok: true }) };
     }
     if (path.endsWith('/context')) return { ok: true, json: async () => ({}) };
-    return { ok: true, json: async () => ({ user: { id: 'one', email: '<img src=x>@example.com' }, workspaces: [{ id: first, name: '<script>store</script>', role: 'Owner' }, { id: second, name: 'Studio', role: 'Member' }] }) };
+    return { ok: true, json: async () => ({ user: { id: 'one', email: '<img src=x>@example.com' }, workspaces: [{ id: first, name: '<script>store</script>', role: 'Admin' }, { id: second, name: 'Studio', role: 'Member' }] }) };
   } });
 });

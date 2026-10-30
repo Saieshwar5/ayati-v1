@@ -26,7 +26,7 @@ export function ProfileCard({ target, directory, chats, close, message }: {
       {person ? <PersonFace person={person} className="profile-card-face" /> : <AgentFace agent={agent!} className="profile-card-face" />}
       <div className="profile-card-identity">
         <h3>{who.name}{agent && <AiTag />}</h3>
-        <p>{person ? person.title || (person.role === 'Owner' ? 'Workspace owner' : 'Member') : agent!.role}</p>
+        <p>{person ? person.title || (person.role === 'Admin' ? 'Workspace admin' : 'Member') : agent!.role}</p>
       </div>
       {!self && <div className="profile-card-actions"><Button primary onClick={() => message({ ...target, name: who.name })}>Message</Button></div>}
       {person?.about && <ProfileLine label="About">{person.about}</ProfileLine>}

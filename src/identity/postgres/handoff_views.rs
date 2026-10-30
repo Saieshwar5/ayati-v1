@@ -13,7 +13,7 @@ pub(super) async fn project(db: &impl ConnectionTrait, user: &User, job: &Job) -
         return Ok(json!({"incoming":null,"outgoing":[]}));
     }
     let mut data=json_rows(db,"SELECT to_jsonb(h)-'input_hash'-'controls'-'source'||jsonb_build_object('sender_name',s.name,'target_name',a.name,'principal_name',COALESCE(u.display_name,u.email),'task_state',m.state,'job_state',j.state,'phase',m.progress->>'state') AS data FROM relay_agent_handoffs h JOIN relay_shared_agents s ON s.workspace=h.workspace AND s.id=h.sender JOIN relay_shared_agents a ON a.workspace=h.workspace AND a.id=h.target JOIN relay_users u ON u.id=h.principal JOIN relay_chat_jobs j ON j.workspace=h.workspace AND j.reply=h.child JOIN relay_chat_messages m ON m.workspace=h.workspace AND m.id=h.child WHERE h.workspace=$1 AND (h.parent=$2 OR h.child=$2) ORDER BY h.created_ms,h.id",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
-    let owner = role(db, &job.workspace, &user.id).await? == "Owner";
+    let owner = role(db, &job.workspace, &user.id).await? == "Admin";
     for h in &mut data {
         h["can_stop"] = json!(
             (owner || h["principal"] == user.id)

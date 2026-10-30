@@ -15,7 +15,7 @@ section. Their saved personal pin preference can return on restoration.
 Ordered pins persist in PostgreSQL with a revision and exact last-request receipt.
 Use a small technical bound of 30 pins, reject duplicates and unknown target kinds,
 and validate all targets against current conversation access. The server
-filters unavailable entries on reads. An Owner role or old preference cannot
+filters unavailable entries on reads. An admin role or old preference cannot
 make an otherwise private source visible. Role/source changes and workspace/account
 switches clear affected client state.
 
@@ -27,7 +27,7 @@ cannot overwrite a newer order; no blind retry or inference occurs on reads.
 
 ## Shared channel lifecycle
 
-A channel creator or workspace Owner with current source access can archive or
+A channel creator or workspace admin with current source access can archive or
 restore a non-direct channel, matching the existing membership-management rule.
 The review shows the current visible unfinished-request count and explains that
 already accepted work may continue. Channel settings and agent grants remain separate. Archive uses a revision and

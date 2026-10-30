@@ -49,7 +49,7 @@ export function InvitePage({ token }: { token: string }) {
   const heading = <>
     <span className="access-tile large" style={{ background: tileColor(preview.workspace ?? '') }} aria-hidden="true">{initials(preview.workspace ?? '')}</span>
     <h1>{preview.inviter ? `${preview.inviter} invited you to ${preview.workspace}` : `You’re invited to ${preview.workspace}`}</h1>
-    <p className="access-lead">Join as {preview.role === 'Owner' ? 'an owner' : 'a member'}{preview.expires ? ` · expires in ${days(preview.expires)} ${days(preview.expires) === 1 ? 'day' : 'days'}` : ''}</p>
+    <p className="access-lead">Join as {preview.role === 'Admin' ? 'an admin' : 'a member'}{preview.expires ? ` · expires in ${days(preview.expires)} ${days(preview.expires) === 1 ? 'day' : 'days'}` : ''}</p>
   </>;
   if (preview.status === 'accepted' && preview.workspace_id) return card(<>{heading}
     <Notice title="You already joined">Open the workspace to continue.</Notice>

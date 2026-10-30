@@ -37,7 +37,7 @@ are excluded because a rehearsal has no conversation audience.
   acknowledgments must not trigger another inference. Stop cancels this sample
   only. Stale ownership cannot publish. Expired execution is interrupted and
   requires an explicit new attempt; never silently repeat paid inference.
-- Own sample history remains personal; an Owner/maintainer cannot inspect another
+- Own sample history remains personal; an admin/maintainer cannot inspect another
   person's selected private sources. No chat job, approval or business effect is
   created. Sampling neither activates grants nor pauses/changes the actual agent.
 
@@ -65,7 +65,7 @@ Under `/api/identity/workspaces/{w}/agent-profiles/{a}`:
   not become runnable again.
 
 Every read/write authorizes current membership and agent maintainership; private
-agent samples remain private even from a workspace Owner. Source versions and
+agent samples remain private even from a workspace admin. Source versions and
 approved-note revisions are checked at executor start, at every lease renewal and
 output, before publication and on every disclosure. Personal `sample_access` live events contain no resource
 IDs, titles or output and clear open sample/reader state while access revalidates.

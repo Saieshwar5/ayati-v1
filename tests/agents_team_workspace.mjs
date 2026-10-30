@@ -158,5 +158,5 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   assert.deepEqual(errors, []); assert.equal(JSON.stringify(app.provider.requests).includes(remote.token), false);
   assert.equal(app.processes().some(p => p.logs.includes(remote.token)), false);
   await app.stop(worker);
-  app.pass('Cancellation history survives restart; desktop, phone roster/profile, short dark window and Owner-visible work remain usable without private leakage');
+  app.pass('Cancellation history survives restart; desktop, phone roster/profile, short dark window and admin-visible work remain usable without private leakage');
 });

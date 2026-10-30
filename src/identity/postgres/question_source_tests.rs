@@ -10,8 +10,8 @@ use serde_json::json;
 async fn revocation_before_checkpoint_invalidates_the_question_and_regrant_cannot_revive_it() {
     let (db, owner, w, _, job) = setup("ask").await;
     let viewer = user(&db, "early-revocation-owner").await;
-    join(&db, &owner, &w, &viewer, "User").await;
-    db.change(&owner, &w, &viewer.id, Some("Owner"))
+    join(&db, &owner, &w, &viewer, "Member").await;
+    db.change(&owner, &w, &viewer.id, Some("Admin"))
         .await
         .unwrap();
     db.channel_members(

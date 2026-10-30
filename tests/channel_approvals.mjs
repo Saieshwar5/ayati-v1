@@ -74,7 +74,7 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   await review.getByRole('button',{name:'Approve this action',exact:true}).click();await until(async()=>remote.records.get('one').address==='PRIVATE_REVIEWED_ADDRESS','Approved external write missing');
   assert.equal(remote.calls.filter(c=>c.name==='update_order').length,1);
   await app.request(`${control}/actions/${action.id}/decision`,approver,{id:randomUUID(),decision:'approve'});assert.equal(remote.calls.length,1);
-  app.pass('Owner explicitly authorizes a User; delegated creator selects that person and channel; only that User approves the exact write, and a channel-only observer receives no private details');
+  app.pass('Admin explicitly authorizes a member; delegated creator selects that person and channel; only that member approves the exact write, and a channel-only observer receives no private details');
 
   const revoked=await propose('MUST_NOT_EXECUTE');
   await access.getByLabel('May approve Update order',{exact:true}).uncheck();await access.getByRole('button',{name:'Save Update order approval authority',exact:true}).click();

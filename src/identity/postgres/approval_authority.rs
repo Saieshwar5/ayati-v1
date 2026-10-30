@@ -33,13 +33,13 @@ pub(super) async fn require(
     person: &str,
     revision: Option<i64>,
 ) -> Result<()> {
-    if role(db, w, person).await? == "Owner" {
+    if role(db, w, person).await? == "Admin" {
         ensure!(
             revision.is_none(),
             "Approver authority changed; review the person again"
         );
     } else {
-        let grant=query(db,"SELECT g.revision FROM relay_control_approvers g JOIN relay_members m ON m.workspace=g.workspace AND m.user_id=g.granted_by AND m.role='Owner' WHERE g.workspace=$1 AND g.connection=$2 AND g.operation=$3 AND g.user_id=$4 AND g.enabled",vec![w.into(),connection.into(),operation.into(),person.into()]).await?.context("An Owner must authorize this person to approve this account action")?;
+        let grant=query(db,"SELECT g.revision FROM relay_control_approvers g JOIN relay_members m ON m.workspace=g.workspace AND m.user_id=g.granted_by AND m.role='Admin' WHERE g.workspace=$1 AND g.connection=$2 AND g.operation=$3 AND g.user_id=$4 AND g.enabled",vec![w.into(),connection.into(),operation.into(),person.into()]).await?.context("An admin must authorize this person to approve this account action")?;
         ensure!(
             revision == Some(grant.try_get::<i64>("", "revision")?),
             "Approver authorization changed; review the person again"
@@ -55,7 +55,7 @@ pub(super) async fn eligible(
     operation: &str,
     grantor: Option<&str>,
 ) -> Result<Vec<Value>> {
-    let people=json_rows(db,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'revision',CASE WHEN m.role='Owner' THEN NULL ELSE g.revision END) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id LEFT JOIN relay_control_approvers g ON g.workspace=m.workspace AND g.user_id=m.user_id AND g.connection=$2 AND g.operation=$3 LEFT JOIN relay_members o ON o.workspace=g.workspace AND o.user_id=g.granted_by AND o.role='Owner' WHERE m.workspace=$1 AND (m.role='Owner' OR (g.enabled AND o.user_id IS NOT NULL)) AND ($4::text IS NULL OR m.user_id=$4 OR (g.enabled AND g.granted_by=$4)) ORDER BY m.sequence",vec![w.into(),connection.into(),operation.into(),grantor.into()]).await?;
+    let people=json_rows(db,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'revision',CASE WHEN m.role='Admin' THEN NULL ELSE g.revision END) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id LEFT JOIN relay_control_approvers g ON g.workspace=m.workspace AND g.user_id=m.user_id AND g.connection=$2 AND g.operation=$3 LEFT JOIN relay_members o ON o.workspace=g.workspace AND o.user_id=g.granted_by AND o.role='Admin' WHERE m.workspace=$1 AND (m.role='Admin' OR (g.enabled AND o.user_id IS NOT NULL)) AND ($4::text IS NULL OR m.user_id=$4 OR (g.enabled AND g.granted_by=$4)) ORDER BY m.sequence",vec![w.into(),connection.into(),operation.into(),grantor.into()]).await?;
     let mut allowed = Vec::new();
     for person in people {
         if agent_visible(db, person["id"].as_str().unwrap(), w, agent)
@@ -131,8 +131,8 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         ensure!(
-            role(&tx, w, &input.user).await? == "User",
-            "Owners can already be designated as approvers"
+            role(&tx, w, &input.user).await? == "Member",
+            "Admins can already be designated as approvers"
         );
         let row=query(&tx,"SELECT c.definition,c.revision FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND s.approved",vec![w.into(),input.connection.clone().into()]).await?.context("Approved connected account required")?;
         ensure!(

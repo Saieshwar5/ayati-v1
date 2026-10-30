@@ -22,11 +22,11 @@ pub(super) async fn managed_access(
         ensure!(own, "Agent unavailable");
     } else if manage {
         ensure!(
-            own || member_role == "Owner",
+            own || member_role == "Admin",
             "Only agent maintainers can change this agent"
         );
     } else {
-        ensure!(own || member_role == "Owner" || query(db,"SELECT agent FROM relay_chat_access WHERE workspace=$1 AND user_id=$2 AND agent=$3",vec![w.into(),user.into(),id.into()]).await?.is_some(), "Agent unavailable");
+        ensure!(own || member_role == "Admin" || query(db,"SELECT agent FROM relay_chat_access WHERE workspace=$1 AND user_id=$2 AND agent=$3",vec![w.into(),user.into(),id.into()]).await?.is_some(), "Agent unavailable");
     }
     Ok(a)
 }
@@ -42,7 +42,7 @@ impl PgStore {
     }
     pub async fn agent_profiles(&self, user: &User, w: &str) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
-        let owner = role(&tx, w, &user.id).await? == "Owner";
+        let owner = role(&tx, w, &user.id).await? == "Admin";
         let mut profiles = json_rows(
             &tx,
             include_str!("agent_directory.sql"),
@@ -100,7 +100,7 @@ impl PgStore {
             ensure!(
                 input.scope == "private"
                     || super::connection_authority::can_create(&tx, w, &user.id).await?,
-                "An Owner must allow you to create workspace agents"
+                "An admin must allow you to create workspace agents"
             );
             execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model,scope,owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)",vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),input.scope.clone().into(),user.id.clone().into(),settings.into()]).await?;
         }

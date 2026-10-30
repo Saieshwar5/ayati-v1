@@ -7,7 +7,7 @@ const url = `http://localhost/w/${workspace}/?view=library`;
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 const doc = text => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
 const item = { id: 'page', title: 'Plan', document: doc('Original'), revision: 1, access_revision: 1, editable: true, manageable: true, people: [], agents: [], visibility: 'private' };
-const session = { user: { id: 'writer', email: 'writer@example.test', display_name: 'Writer' }, workspaces: [{ id: workspace, name: 'Workspace', role: 'User' }] };
+const session = { user: { id: 'writer', email: 'writer@example.test', display_name: 'Writer' }, workspaces: [{ id: workspace, name: 'Workspace', role: 'Member' }] };
 
 test('Library sharing lets a User select existing people and separates agent read access', async () => {
   let payload, resolveWrite;

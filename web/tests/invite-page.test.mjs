@@ -7,7 +7,7 @@ import { reactFixture } from './react-fixture.mjs';
 const token = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
 const workspace = '11111111-1111-4111-8111-111111111111';
 const ok = data => ({ ok: true, status: 200, json: async () => data });
-const pending = { status: 'pending', workspace: 'Mehta Furnishings', inviter: 'Arjun Mehta', role: 'User', expires: Date.now() / 1000 + 86400 * 6, email_hint: 'r***@gmail.com' };
+const pending = { status: 'pending', workspace: 'Mehta Furnishings', inviter: 'Arjun Mehta', role: 'Member', expires: Date.now() / 1000 + 86400 * 6, email_hint: 'r***@gmail.com' };
 const settle = update => update(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 
 test('signed out: the invitation is shown and sign-in returns to it', async () => {

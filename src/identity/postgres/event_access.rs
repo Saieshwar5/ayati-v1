@@ -32,10 +32,10 @@ pub(super) async fn versions(
         "The source operation must be a reviewed read"
     );
     super::chat::access(db, user, w, chat).await?;
-    let delegation = if role(db, w, &user.id).await? == "Owner" {
+    let delegation = if role(db, w, &user.id).await? == "Admin" {
         None
     } else {
-        Some(query(db,"SELECT d.revision FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Owner' WHERE d.workspace=$1 AND d.connection=$2 AND d.operation=$3 AND d.user_id=$4 AND d.ceiling='allow'",vec![w.into(),source.connection.clone().into(),source.read_operation.clone().into(),user.id.clone().into()]).await?.context("An Owner must delegate automatic source reading before you can configure event work")?.try_get::<i64>("","revision")?)
+        Some(query(db,"SELECT d.revision FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Admin' WHERE d.workspace=$1 AND d.connection=$2 AND d.operation=$3 AND d.user_id=$4 AND d.ceiling='allow'",vec![w.into(),source.connection.clone().into(),source.read_operation.clone().into(),user.id.clone().into()]).await?.context("An admin must delegate automatic source reading before you can configure event work")?.try_get::<i64>("","revision")?)
     };
     Ok(
         json!({"connection_revision":row.try_get::<i64>("","connection_revision")?,"read_revision":row.try_get::<i64>("","read_revision")?,"delegation_revision":delegation}),

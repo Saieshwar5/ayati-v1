@@ -159,7 +159,7 @@ function ReadyItem({
             Ask an agent
           </Button>
           {item.steward === null &&
-            ((item.visibility === 'workspace' && currentWorkspace()?.role === 'Owner') ||
+            ((item.visibility === 'workspace' && currentWorkspace()?.role === 'Admin') ||
               (item.visibility === 'selected' && item.editable)) && (
               <Button
                 disabled={mutation.busy}

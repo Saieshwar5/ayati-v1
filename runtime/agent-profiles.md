@@ -6,10 +6,10 @@ Creation and editing use `/api/identity/workspaces/{workspace}/agent-profiles`.
 ## Implemented boundaries
 
 - Private profiles belong to the creating user. Other members, including the
-  workspace Owner, cannot list, read, edit or grant access to them. They support
+  workspace admin, cannot list, read, edit or grant access to them. They support
   one-person direct conversations and cannot be added to channels.
-- Workspace profiles are created by the workspace Owner. The maintainer and
-  workspace Owner can edit; explicit agent grants control other members' access.
+- Workspace profiles are created by the workspace admin. The maintainer and
+  workspace admin can edit; explicit agent grants control other members' access.
 - Visibility is immutable. Profile writes use a revision and stable ID; exact
   retries of a completed save are accepted, stale edits are rejected.
 - Names, responsibilities, custom instructions and escalation guidance are passed

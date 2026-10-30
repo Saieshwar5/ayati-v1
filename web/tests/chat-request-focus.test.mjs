@@ -6,9 +6,9 @@ import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 
 const w = '11111111-1111-4111-8111-111111111111';
-const session = { user: { id: 'owner', email: 'owner@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Owner' }] };
+const session = { user: { id: 'owner', email: 'owner@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
 const chat = { id: 'source', name: 'Procurement', kind: 'channel', users: ['owner'], agents: [] };
-const directory = { role: 'Owner', users: [{ id: 'owner', name: 'Ananya' }], agents: [] };
+const directory = { role: 'Admin', users: [{ id: 'owner', name: 'Ananya' }], agents: [] };
 const message = (id, content, thread) => ({ id, chat: 'source', author: 'owner', kind: 'user', content, state: 'sent', sequence: 1, revision: 1, at: 1, thread, attachments: [] });
 const latest = { messages: [message('latest', 'Recent conversation')], agents: [], next_before: 400 };
 const focused = { messages: [message('root', 'Original thread'), message('reply', 'Saved original response', 'root')], agents: [], next_before: null };

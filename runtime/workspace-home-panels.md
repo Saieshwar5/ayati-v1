@@ -109,7 +109,7 @@ unconfirmed effects. No-receipt findings remain explicitly labeled.
 Human API:
 
 - `GET /api/identity/workspaces/{workspace}/home-panels`: bounded personal list,
-  current authorized draft/approved snapshots and saved arrangement. Another Owner
+  current authorized draft/approved snapshots and saved arrangement. Another admin
   gets no rows or private titles merely because they manage the workspace.
 - `POST .../home-panels/{panel}/review {request,revision}`: exact current draft,
   current source access and original person's own panel only. Exact old request
@@ -142,7 +142,7 @@ PostgreSQL checks (nine new Home cases), 169 web checks (six new Home cases),
 populated-v29 migration preserves an existing waiting question and reconstructs
 its same task after an answer. Template/collection bounds, exact/semantic retry,
 wrong principal/tenant/worker, stale review/layout, immutable snapshots, private
-Owner denial, cross-conversation discovery/revision denial, receipt/source retention and revocation/regrant are exercised.
+Admin denial, cross-conversation discovery/revision denial, receipt/source retention and revocation/regrant are exercised.
 
 Real pinned Goose with scripted local inference completes an explicit member's
 Home request, performs one authenticated read, saves two personal drafts, obtains

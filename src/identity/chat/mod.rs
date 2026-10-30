@@ -118,7 +118,7 @@ async fn grant(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(
-        workspaces::membership(&app, &user, &workspace).await? == "Owner",
+        workspaces::membership(&app, &user, &workspace).await? == "Admin",
         "Only the owner can share agents",
     )?;
     super::collaboration::validate_agent(&app, &user, &workspace, &input.agent).await?;

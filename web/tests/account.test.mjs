@@ -6,7 +6,7 @@ import { reactFixture } from './react-fixture.mjs';
 
 const first = '11111111-1111-4111-8111-111111111111';
 const second = '22222222-2222-4222-8222-222222222222';
-const session = { user: { id: 'owner', email: 'owner@example.com', display_name: 'Owner Person' }, workspaces: [{ id: first, name: 'Store', role: 'Owner', people: 3, agents: 1 }] };
+const session = { user: { id: 'owner', email: 'owner@example.com', display_name: 'Owner Person' }, workspaces: [{ id: first, name: 'Store', role: 'Admin', people: 3, agents: 1 }] };
 const ok = data => ({ ok: true, status: 200, json: async () => data });
 const fail = (error, status = 400) => ({ ok: false, status, json: async () => ({ error }) });
 
@@ -16,7 +16,7 @@ test('invitations are explicit: accept opens the workspace, decline closes it an
     const { AccountPage } = await import('../src/react/account.tsx'); await render(AccountPage);
     assert.deepEqual(navigation, []); assert.deepEqual(writes, []);
     assert.match(document.body.textContent, /Meera invited you to Studio/);
-    assert.match(document.body.textContent, /Owner · 3 people · 1 agent/);
+    assert.match(document.body.textContent, /Admin · 3 people · 1 agent/);
     await click(button('Decline'));
     assert.deepEqual(writes, [{ path: '/api/identity/invitations/invite/decline', body: {} }]);
     await click(button('Accept'));

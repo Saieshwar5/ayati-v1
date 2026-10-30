@@ -51,7 +51,7 @@ async fn unported_workspace_routes_answer_like_the_hosted_gateway() {
         )
     };
     let context = body(call("context", Method::GET).await).await;
-    assert_eq!(context["role"], "Owner");
+    assert_eq!(context["role"], "Admin");
     assert!(context.get("resource_access").is_none());
     assert_eq!(
         body(call("apps", Method::GET).await).await,
@@ -89,7 +89,7 @@ async fn workspace_routes_require_current_membership() {
         )
     };
     assert_eq!(call(other.clone()).await.status(), StatusCode::FORBIDDEN);
-    postgres::tests::join(&app.store, &owner, &first, &other, "User").await;
+    postgres::tests::join(&app.store, &owner, &first, &other, "Member").await;
     assert_eq!(body(call(other.clone()).await).await, json!({"agents":[]}));
     app.store
         .change(&owner, &first, &other.id, None)

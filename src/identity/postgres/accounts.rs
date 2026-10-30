@@ -6,7 +6,7 @@ use serde_json::json;
 async fn owned(tx: &DatabaseTransaction, id: &str, user: &str) -> Result<bool> {
     Ok(query(
         tx,
-        "SELECT 1 FROM relay_members WHERE workspace=$1 AND user_id=$2 AND role='Owner'",
+        "SELECT 1 FROM relay_members WHERE workspace=$1 AND user_id=$2 AND role='Admin'",
         vec![id.into(), user.into()],
     )
     .await?
@@ -149,13 +149,13 @@ impl PgStore {
                 .await?
                 .context("Workspace unavailable")?;
             ensure!(
-                existing.name == name.trim() && role(tx, id, &user.id).await? == "Owner",
+                existing.name == name.trim() && role(tx, id, &user.id).await? == "Admin",
                 "Request ID already used"
             );
         } else {
             execute(
                 tx,
-                "INSERT INTO relay_members(workspace,user_id,role) VALUES($1,$2,'Owner')",
+                "INSERT INTO relay_members(workspace,user_id,role) VALUES($1,$2,'Admin')",
                 vec![id.into(), user.id.clone().into()],
             )
             .await?;
@@ -167,7 +167,7 @@ impl PgStore {
         let tx = self.read_tx(workspace).await?;
         let own_role = manager(&tx, workspace, &user.id).await?;
         let members = json_rows(&tx, "SELECT jsonb_build_object('id',u.id,'email',u.email,'display_name',u.display_name,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
-        let invitations = if own_role == "Owner" {
+        let invitations = if own_role == "Admin" {
             json_rows(&tx, "SELECT jsonb_build_object('id',id,'email',email,'role',role,'status',status,'expires',expires) AS data FROM relay_invitations WHERE workspace=$1 AND status NOT IN ('cancelled','accepted') ORDER BY sequence DESC",vec![workspace.into()]).await?
         } else {
             vec![]

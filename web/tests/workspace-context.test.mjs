@@ -11,12 +11,12 @@ test('workspace URLs and drafts stay scoped to both the account and workspace', 
     const saved = new Map();
     globalThis.localStorage = { setItem: (key, value) => saved.set(key, value) };
     globalThis.setInterval = () => 0;
-    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ user: { id: user, email: 'test@example.com' }, workspaces: [{ id: first, name: 'First', role: 'Owner' }, { id: second, name: 'Second', role: 'Member' }] }) });
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ user: { id: user, email: 'test@example.com' }, workspaces: [{ id: first, name: 'First', role: 'Admin' }, { id: second, name: 'Second', role: 'Member' }] }) });
     globalThis.location = { pathname: `/w/${first}/`, replace: () => assert.fail('unexpected redirect') };
     const a = await import('../src/workspace-context.ts?first');
     assert.equal(await a.enterWorkspace(), true);
     assert.equal(a.workspaceUrl('/api/events?agent=a'), `/w/${first}/api/events?agent=a`);
-    assert.equal(a.currentWorkspace()?.role, 'Owner');
+    assert.equal(a.currentWorkspace()?.role, 'Admin');
     const key = a.storageScope('draft');
     assert.equal(saved.get('relay.last-workspace.one'), first);
     globalThis.location = { pathname: `/w/${second}/`, replace: () => assert.fail('unexpected redirect') };
@@ -53,7 +53,7 @@ test('accounts without a display name finish setup before mounting a workspace',
   try {
     let target;
     globalThis.location = { pathname: `/w/${first}/`, replace: value => { target = value; } };
-    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ user: { id: 'owner', display_name: null }, workspaces: [{ id: first, name: 'Business', role: 'Owner' }] }) });
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ user: { id: 'owner', display_name: null }, workspaces: [{ id: first, name: 'Business', role: 'Admin' }] }) });
     const context = await import('../src/workspace-context.ts?name-setup');
     assert.equal(await context.enterWorkspace(), false);
     assert.equal(target, '/?view=account&choose=1');

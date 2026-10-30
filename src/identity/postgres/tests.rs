@@ -37,7 +37,32 @@ pub(in crate::identity) async fn user(db: &PgStore, name: &str) -> User {
 }
 pub(in crate::identity) async fn workspace(db: &PgStore, owner: &User) -> String {
     let id = uuid::Uuid::new_v4().to_string();
+    if legacy_roles(db).await {
+        db.db
+            .execute_unprepared(&format!(
+                "INSERT INTO relay_workspaces(id,name) VALUES('{id}','Test business');
+                 INSERT INTO relay_members(workspace,user_id,role) VALUES('{id}','{}','Owner')",
+                owner.id
+            ))
+            .await
+            .unwrap();
+        return id;
+    }
     db.create(owner, "Test business", &id).await.unwrap()
+}
+/// Upgrade tests build data at old schema versions, which still name the roles
+/// Owner and User (schema 43 renamed them Admin and Member).
+async fn legacy_roles(db: &PgStore) -> bool {
+    query(
+        &db.db,
+        "SELECT count(*) AS count FROM seaql_migrations",
+        vec![],
+    )
+    .await
+    .ok()
+    .flatten()
+    .and_then(|row| row.try_get::<i64>("", "count").ok())
+    .is_some_and(|count| count < 43)
 }
 pub(in crate::identity) async fn join(
     db: &PgStore,
@@ -46,6 +71,17 @@ pub(in crate::identity) async fn join(
     member: &User,
     role: &str,
 ) {
+    if legacy_roles(db).await {
+        let legacy = if role == "Admin" { "Owner" } else { "User" };
+        db.db
+            .execute_unprepared(&format!(
+                "INSERT INTO relay_members(workspace,user_id,role) VALUES('{w}','{}','{legacy}')",
+                member.id
+            ))
+            .await
+            .unwrap();
+        return;
+    }
     let invite = db
         .reserve_invite(owner, w, &member.email, role)
         .await
@@ -129,8 +165,8 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     let admin = user(&db, "admin").await;
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &admin, "User").await;
-    db.change(&owner, &w, &admin.id, Some("Owner"))
+    join(&db, &owner, &w, &admin, "Member").await;
+    db.change(&owner, &w, &admin.id, Some("Admin"))
         .await
         .unwrap();
     assert!(
@@ -139,11 +175,11 @@ async fn invitation_replay_delivery_and_role_boundaries() {
             .is_err()
     );
     let invite = db
-        .reserve_invite(&admin, &w, &member.email, "User")
+        .reserve_invite(&admin, &w, &member.email, "Member")
         .await
         .unwrap();
     assert!(
-        db.reserve_invite(&admin, &w, &member.email, "User")
+        db.reserve_invite(&admin, &w, &member.email, "Member")
             .await
             .is_err()
     );
@@ -156,11 +192,11 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     db.change(&admin, &w, &member.id, None).await.unwrap();
     assert!(db.accept(&member, &invite).await.is_err());
     let pending = db
-        .reserve_invite(&admin, &w, &member.email, "User")
+        .reserve_invite(&admin, &w, &member.email, "Member")
         .await
         .unwrap();
     db.delivered(&pending, Some("delivered")).await.unwrap();
-    db.change(&owner, &w, &admin.id, Some("User"))
+    db.change(&owner, &w, &admin.id, Some("Member"))
         .await
         .unwrap();
     assert!(db.accept(&member, &pending).await.is_err());
@@ -173,7 +209,7 @@ async fn conversations_isolate_workspaces_private_history_and_duplicates() {
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
     let other = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let shared = chat(
         &db,
         &owner,
@@ -288,7 +324,7 @@ async fn revocation_cancels_pending_results() {
     let owner = user(&db, "owner").await;
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let c = chat(
         &db,
         &owner,
@@ -314,7 +350,7 @@ async fn revocation_cancels_pending_results() {
         "cancelled"
     );
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     assert!(db.chat_messages(&member, &w, &c).await.is_err());
 }
 

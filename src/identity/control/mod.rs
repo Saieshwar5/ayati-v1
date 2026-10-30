@@ -53,7 +53,7 @@ async fn snapshot(
     let mut value = app.store.control_snapshot(&user, &w, &agent).await?;
     let available = execution_available(&app)?;
     value["execution_available"] = json!(available);
-    // Account discovery belongs to the Owner-only workspace settings endpoint.
+    // Account discovery belongs to the admin-only workspace settings endpoint.
     value["servers"] = json!([]);
     if value["can_manage"] == true {
         let context = app.store.setup_context(&user, &w, &agent).await?;
@@ -78,7 +78,7 @@ async fn connect(
     let user = identity(&app, &headers).await?;
     app.store.managed_agent(&user, &w, &agent, true).await?;
     check(
-        app.store.role(&w, &user.id).await? == "Owner",
+        app.store.role(&w, &user.id).await? == "Admin",
         "Only workspace owners can connect business tools",
     )?;
     if !input.enabled {
@@ -97,7 +97,7 @@ async fn connect(
             rows.iter()
                 .any(|row| row["server"] == input.server && row["approved"] == true)
         }),
-        "The workspace Owner must approve this system first",
+        "A workspace admin must approve this system first",
     )?;
     let server = catalog::server(&w, &input.server)?;
     let fingerprint = server.fingerprint()?;

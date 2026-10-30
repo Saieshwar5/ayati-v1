@@ -13,7 +13,7 @@ pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
 }
 pub(super) async fn owner(tx: &DatabaseTransaction, user: &User, w: &str) -> Result<()> {
     ensure!(
-        role(tx, w, &user.id).await? == "Owner",
+        role(tx, w, &user.id).await? == "Admin",
         "Only the workspace owner can manage simulated communications"
     );
     Ok(())

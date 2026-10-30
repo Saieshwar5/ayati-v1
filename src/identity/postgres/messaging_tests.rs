@@ -9,7 +9,7 @@ async fn messaging_replay_receipts_and_tenant_boundaries() {
     let outsider = user(&db, "sync-outsider").await;
     let w = workspace(&db, &owner).await;
     let other = workspace(&db, &outsider).await;
-    join(&db, &owner, &w, &member, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
     let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
     let initial = db.sync_page(&member, &w, None).await.unwrap();
     let cursor = initial["cursor"].as_i64();
@@ -111,8 +111,8 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
     let member = user(&db, "mention-member").await;
     let outsider = user(&db, "mention-outsider").await;
     let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "User").await;
-    join(&db, &owner, &w, &outsider, "User").await;
+    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &outsider, "Member").await;
     let agent = uuid::Uuid::new_v4().to_string();
     db.save_shared_agent(&owner, &w, &agent, "Helper", "Testing", "scripted")
         .await

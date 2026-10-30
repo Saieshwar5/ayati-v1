@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
 
 const user = { id: 'owner', email: 'owner@example.com', display_name: null };
-const workspace = { id: '11111111-1111-4111-8111-111111111111', name: 'Store', role: 'Owner' };
+const workspace = { id: '11111111-1111-4111-8111-111111111111', name: 'Store', role: 'Admin' };
 
 test('first setup asks for a name without writing or automatically entering a workspace', async () => {
   const writes = [];
@@ -16,7 +16,7 @@ test('first setup asks for a name without writing or automatically entering a wo
     await change(form.elements.display_name, 'Sai Eshwar');
     await submit(form);
     assert.deepEqual(writes, [{ display_name: 'Sai Eshwar' }]);
-    assert.ok([...document.querySelectorAll('a.access-workspace')].some(a => a.textContent.includes('Store') && a.textContent.includes('Owner')));
+    assert.ok([...document.querySelectorAll('a.access-workspace')].some(a => a.textContent.includes('Store') && a.textContent.includes('Admin')));
     assert.equal(document.body.textContent.includes('What should people call you'), false);
   }, { fetch: async (path, options = {}) => {
     if (options.method !== 'POST') return { ok: true, json: async () => ({ user, workspaces: [workspace] }) };
@@ -61,7 +61,7 @@ test('Users searches display names while keeping email available for identificat
     await change(search, 'sai'); assert.equal(document.querySelectorAll('.ui-row').length, 1);
     await change(search, 'owner@example.com'); assert.equal(document.querySelectorAll('.ui-row').length, 1);
     await change(search, 'missing'); assert.equal(document.querySelectorAll('.ui-row').length, 0);
-  }, { fetch: async () => ({ ok: true, json: async () => ({ role: 'Owner', members: [{ ...user, display_name: 'Sai Eshwar', role: 'User' }], invitations: [] }) }) });
+  }, { fetch: async () => ({ ok: true, json: async () => ({ role: 'Admin', members: [{ ...user, display_name: 'Sai Eshwar', role: 'Member' }], invitations: [] }) }) });
 });
 
 test('expired profile sessions return to sign-in without a successful save callback', async () => {

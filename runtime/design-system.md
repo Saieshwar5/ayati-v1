@@ -214,12 +214,12 @@ explicit saves, pending states, validation and confirmation for destructive acti
 
 ## Settings
 
-Settings follows approved Option B: everyone sees Personal; only Owners see the
+Settings follows approved Option B: everyone sees Personal; only admins see the
 Workspace scope. Use a compact segmented scope control followed by flat category
 navigation and one bounded, locally scrolling detail area. Personal contains My
 account, Appearance and Help & feedback. Workspace contains General, People,
 Access, Connections, Activity and Teams. Hide owner-only sections for
-Users and enforce the same boundary on the server. Use Owner/User role labels.
+Users and enforce the same boundary on the server. Use admin/User role labels.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin
 separators. Keep the current theme and setup/connection behavior. See

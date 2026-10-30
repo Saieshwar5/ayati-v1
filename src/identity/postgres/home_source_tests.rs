@@ -103,8 +103,8 @@ async fn home_source_conversation_visibility_is_independent_of_owner_role_and_pe
     let input = draft();
     db.save_personal_panel(&job, &input).await.unwrap();
     let other = user(&db, "home-other-member").await;
-    join(&db, &owner, &w, &other, "User").await;
-    db.change(&owner, &w, &other.id, Some("Owner"))
+    join(&db, &owner, &w, &other, "Member").await;
+    db.change(&owner, &w, &other.id, Some("Admin"))
         .await
         .unwrap();
     let cursor = db.sync_page(&other, &w, None).await.unwrap()["cursor"]

@@ -96,7 +96,7 @@ impl PgStore {
         let row = query(&tx, "SELECT requester FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3 AND kind='agent'", vec![workspace.into(),chat.into(),reply.into()]).await?.context("Assignment unavailable")?;
         ensure!(
             row.try_get::<String>("", "requester")? == user.id
-                || role(&tx, workspace, &user.id).await? == "Owner",
+                || role(&tx, workspace, &user.id).await? == "Admin",
             "Only the requester or owner can cancel this request"
         );
         stop_reply(&tx, &user.id, workspace, reply).await?;

@@ -5,14 +5,14 @@ import { useMutation } from './requests';
 import { MemberAccess } from './member-access';
 import type { Member } from './people';
 
-export function MemberDetails({ member, viewerRole, ownerCount, close, refresh }: { member: Member; viewerRole: string; ownerCount: number; close: () => void; refresh: () => Promise<void> }) {
+export function MemberDetails({ member, viewerRole, adminCount, close, refresh }: { member: Member; viewerRole: string; adminCount: number; close: () => void; refresh: () => Promise<void> }) {
   const [savedRole, setSavedRole] = useState(member.role);
   const [role, setRole] = useState(member.role);
   const mutation = useMutation();
-  const canEdit = viewerRole === 'Owner';
-  const lastOwner = savedRole === 'Owner' && ownerCount < 2;
+  const canEdit = viewerRole === 'Admin';
+  const lastAdmin = savedRole === 'Admin' && adminCount < 2;
   async function change(nextRole: string | null) {
-    if (nextRole === 'Owner' && savedRole !== 'Owner' && !confirm('Make this person an Owner? They can manage all workspace settings, invite and remove people, and change ownership roles.')) return;
+    if (nextRole === 'Admin' && savedRole !== 'Admin' && !confirm('Make this person an admin? They can manage all workspace settings, invite and remove people, and make or remove admins.')) return;
     await mutation.run(async () => {
       try { await identityRequest(`/workspaces/${workspaceId}/members/${member.id}`, { role: nextRole }); }
       catch (error) { setRole(savedRole); throw error; }
@@ -23,12 +23,12 @@ export function MemberDetails({ member, viewerRole, ownerCount, close, refresh }
   }
   const membership = <section className="ui-form">
     <p className="ui-help">Workspace membership and access to business resources are managed separately.</p>
-    <label className="ui-field">Workspace role<select aria-label="Workspace role" value={role} disabled={!canEdit || lastOwner} onChange={event => setRole(event.target.value)}>
-      <option>User</option><option>Owner</option>
+    <label className="ui-field">Workspace role<select aria-label="Workspace role" value={role} disabled={!canEdit || lastAdmin} onChange={event => setRole(event.target.value)}>
+      <option>Member</option><option>Admin</option>
     </select></label>
-    <p className="ui-help">{lastOwner ? 'This workspace must keep at least one Owner. Make another User an Owner first.' : 'Owners have equal control of this workspace. Users use the resources shared with them.'}</p>
-    {canEdit && !lastOwner && <Button primary onClick={() => void change(role)}>Save role</Button>}
-    {canEdit && !lastOwner && <Button className="danger" onClick={() => { if (confirm(`Remove ${member.email} from this workspace? Access ends; shared records remain.`)) void change(null); }}>Remove from workspace</Button>}
+    <p className="ui-help">{lastAdmin ? 'This workspace must keep at least one admin. Make another member an admin first.' : 'Admins manage this workspace together. Members use what is shared with them.'}</p>
+    {canEdit && !lastAdmin && <Button primary onClick={() => void change(role)}>Save role</Button>}
+    {canEdit && !lastAdmin && <Button className="danger" onClick={() => { if (confirm(`Remove ${member.email} from this workspace? Access ends; shared records remain.`)) void change(null); }}>Remove from workspace</Button>}
   </section>;
   return <Dialog title="Person details" drawer busy={mutation.busy} status={mutation.status} close={close}>
     {member.display_name && <h3>{member.display_name}</h3>}

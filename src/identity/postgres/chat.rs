@@ -47,7 +47,7 @@ pub(super) async fn agent_access(
             return Ok(true);
         }
     }
-    Ok(member_role == "Owner"
+    Ok(member_role == "Admin"
         || query(
             db,
             "SELECT agent FROM relay_chat_access WHERE workspace=$1 AND user_id=$2 AND agent=$3",
@@ -70,7 +70,7 @@ impl PgStore {
     ) -> Result<()> {
         let tx = self.workspace_tx(workspace).await?;
         ensure!(
-            role(&tx, workspace, &user.id).await? == "Owner",
+            role(&tx, workspace, &user.id).await? == "Admin",
             "Only the owner can share agents"
         );
         role(&tx, workspace, target).await?;
@@ -106,7 +106,7 @@ impl PgStore {
         let own_role = role(&tx, workspace, &user.id).await?;
         // Everyone in the workspace sees everyone, with their profile.
         let users=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'email',u.email,'role',m.role,'title',COALESCE(p.title,''),'about',COALESCE(p.about,''),'photo',p.photo) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id LEFT JOIN relay_member_profiles p ON p.workspace=m.workspace AND p.user_id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
-        let grants = if own_role == "Owner" {
+        let grants = if own_role == "Admin" {
             json_rows(&tx,"SELECT jsonb_build_object('user',user_id,'agent',agent) AS data FROM relay_chat_access WHERE workspace=$1",vec![workspace.into()]).await?
         } else {
             vec![]
@@ -300,7 +300,7 @@ pub(super) async fn chats_in(
     user: &User,
     workspace: &str,
 ) -> Result<Value> {
-    let owner = role(tx, workspace, &user.id).await? == "Owner";
+    let owner = role(tx, workspace, &user.id).await? == "Admin";
     let chats=json_rows(tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
     Ok(json!({"chats":chats}))
 }
