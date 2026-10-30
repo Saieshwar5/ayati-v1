@@ -207,19 +207,24 @@ retains the existing drawer. Conversations live in Chat; Open conversation from
 work returns to its exact source/thread. Unsupported capabilities must say so.
 See [behavior and authority](agents-team-workspace.md).
 
-Settings → Workspace → People uses the same directory language. People and invitations remain separate
-tabs; inviting opens a focused dialog. Details opens the member drawer. Keep
+Settings → People uses the same directory language. People and invitations remain separate
+tabs; inviting opens a focused dialog. Each person's ⋯ menu changes the role, opens the
+Agent access drawer or opens the removal dialog. Keep
 workspace membership, roles and agent access distinct. Preserve
 explicit saves, pending states, validation and confirmation for destructive actions.
 
 ## Settings
 
-Settings follows approved Option B: everyone sees Personal; only admins see the
-Workspace scope. Use a compact segmented scope control followed by flat category
-navigation and one bounded, locally scrolling detail area. Personal contains My
-account, Appearance and Help & feedback. Workspace contains General, People,
-Access, Connections, Activity and Teams. Hide owner-only sections for
-Users and enforce the same boundary on the server. Use admin/User role labels.
+Settings follows the simplified design (D232, `designs/settings-simplified/`).
+- **Layout:** a 248 px sidebar with "You" and "Workspace" groups beside one bounded,
+  locally scrolling page. On phones the list comes first and each page has
+  "‹ Settings".
+- **Members:** Profile, Preferences, Help and This workspace.
+- **Admins:** add Workspace, People, Connections, Usage, Billing ("Coming later")
+  and Audit log.
+- **Roles:** Admin and Member labels. Hide admin pages from members and enforce the
+  same boundary on the server.
+- **People:** flat rows with a ⋯ menu. Destructive changes open confirming dialogs.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin
 separators. Keep the current theme and setup/connection behavior. See

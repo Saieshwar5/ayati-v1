@@ -1,16 +1,20 @@
-.settings-react { height:100%; min-height:0; min-width:0; display:flex; flex-direction:column; background:var(--surface); color:var(--text); overflow:hidden; }
-.settings-heading { padding:26px 32px 20px; flex-shrink:0; }
-.settings-heading h1 { font-weight:600; font-size:26px; margin:0 0 8px; }
+/* One sidebar (You / Workspace) beside one locally scrolling page (D232). */
+.settings-react { height:100%; min-height:0; min-width:0; display:grid; grid-template-columns:248px minmax(0,1fr); background:var(--surface); color:var(--text); overflow:hidden; }
+.settings-sidebar { min-height:0; overflow:auto; padding:26px 14px 20px; border-right:1px solid var(--border); }
+.settings-heading { padding:0 10px 6px; }
+.settings-heading h1 { font-weight:600; font-size:22px; margin:0 0 4px; }
+.settings-heading p { margin:0; font-size:13px; overflow-wrap:anywhere; }
+.settings-group { margin-top:16px; }
+.settings-group-title { margin:0 0 6px; padding:0 10px; font-size:11px !important; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.settings-group ul { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.settings-group button { width:100%; min-height:40px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; font:inherit; font-size:14px; text-align:left; color:var(--muted); background:transparent; border:0; border-radius:8px; cursor:pointer; }
+.settings-group button:hover:not([aria-current]) { background:var(--soft); }
+.settings-group button[aria-current=page] { color:var(--text); background:var(--selection); font-weight:600; }
+.settings-group button:focus-visible { outline-offset:-3px; }
+.settings-soon { padding:2px 7px; border-radius:6px; background:var(--warning-bg); color:var(--warning) !important; font-size:11px; font-weight:600; white-space:nowrap; }
+.settings-detail { min-height:0; min-width:0; overflow:auto; padding:30px 48px 40px; }
+.settings-back { display:none; }
 .settings-react p { color:var(--muted); font-size:14px; line-height:1.5; }
-.settings-heading p { margin:0; }
-.settings-controls { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 32px 18px; flex-shrink:0; }
-.settings-scope { display:flex; gap:4px; border-radius:10px; background:var(--soft); padding:4px; }
-.settings-scope button,.settings-sections button { font:inherit; font-size:14px; border:0; cursor:pointer; color:var(--muted); background:transparent; border-radius:7px; padding:10px 18px; white-space:nowrap; }
-.settings-scope button[aria-selected=true] { background:var(--surface); color:var(--text); font-weight:600; box-shadow:0 1px 3px var(--shadow); }
-.settings-context { font-size:12px; color:var(--muted); padding:6px 10px; background:var(--soft); border-radius:6px; overflow-wrap:anywhere; }
-.settings-sections { display:flex; gap:8px; margin:0 32px; padding-bottom:18px; border-bottom:1px solid var(--border); overflow-x:auto; flex-shrink:0; }
-.settings-sections button[aria-current=page] { color:var(--text); background:var(--selection); font-weight:600; }
-.settings-detail { padding:28px 48px 40px; overflow:auto; min-height:0; flex:1; }
 .settings-detail > section,.settings-detail > div { max-width:1100px; margin:0 auto; }
 .settings-detail h2 { font-size:22px; margin:0 0 8px; }
 .settings-detail h3 { font-size:16px; }
@@ -18,6 +22,9 @@
 .settings-people .desk-page { padding:0; height:auto; overflow:visible; }
 .settings-people .desk-toolbar { padding:0; border:0; background:transparent; }
 .settings-people .desk-content { padding:0; overflow:visible; }
+/* The detail pane already scrolls; a scrolling tab panel would also clip the row menus. */
+.settings-people .desk-page .desk-content, .settings-people .desk-content > [role=tabpanel] { overflow:visible; }
+.settings-detail > section + section { margin-top:48px; }
 .settings-people .ui-tabs { border-bottom:1px solid var(--border); padding-bottom:14px; margin-top:12px; }
 .settings-people .ui-row { min-height:72px; }
 .my-profile { max-width:640px; margin-top:24px; padding-top:24px; border-top:1px solid var(--border); }
@@ -49,15 +56,45 @@
 .settings-facts { margin-top:28px; }.settings-facts > div { display:flex; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); }.settings-facts dd { overflow-wrap:anywhere; }
 .settings-check { padding:12px 0; }.settings-activity { display:flex; align-items:start; justify-content:space-between; gap:24px; padding:18px 0; border-bottom:1px solid var(--border); font-size:13px; }.settings-activity div { display:grid; gap:7px; min-width:0; }.settings-activity small { color:var(--muted); overflow-wrap:anywhere; }.settings-activity time { color:var(--muted); flex-shrink:0; }
 .settings-detail .company-page { padding:0; height:auto; overflow:visible; }
-@media(max-width:800px) { .settings-detail { padding:24px; }.settings-sections { gap:2px; }.settings-sections button { padding:10px 12px; } }
-@media(max-width:500px) { .settings-heading { padding:20px 16px 16px; }.settings-controls { padding:0 16px 16px; }.settings-context { max-width:130px; }.settings-sections { margin:0 16px; }.settings-detail { padding:20px 16px; }.settings-activity { flex-direction:column; gap:8px; }.settings-theme { width:142px; }.settings-people .ui-row { flex-wrap:wrap; }.settings-people .ui-row-title { flex-basis:calc(100% - 70px); } }
-@media(forced-colors:active) { .settings-scope button[aria-selected=true],.settings-sections button[aria-current=page],.settings-theme:has(input:checked) { outline:1px solid Highlight; } }
-.settings-scope { flex-shrink:0; }
-.settings-context { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-@media(max-width:600px) { .settings-context { display:none; } }
 
 .settings-connection,.settings-connect { padding:20px 0; border-bottom:1px solid var(--border); }
 .settings-connection-actions { display:flex; flex-wrap:wrap; gap:12px; }
 .settings-connect .ui-form { margin:16px 0; max-width:640px; }
 
-@media(max-width:400px) { .settings-heading p { display:none; } }
+.settings-person .ui-row-title .settings-you { display:inline; font-weight:400; }
+.settings-admin { background:var(--selection); color:var(--text); }
+.settings-person-menu { position:relative; }
+.settings-person-menu .chat-message-menu { min-width:220px; }
+.settings-menu-note { margin:4px 10px 6px; font-size:12px; max-width:200px; }
+.settings-people-note { margin-top:16px; font-size:13px; }
+.ui-dialog .settings-remove-intro { margin:0 0 16px; }
+.settings-handover { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+.settings-handover h3 { margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+.settings-handover ul { margin:0; padding-left:18px; display:grid; gap:4px; font-size:14px; }
+.settings-handover.moves h3 { color:var(--success); }
+.settings-handover.paused h3 { color:var(--warning); }
+.settings-handover.cancelled h3 { color:var(--danger); }
+.ui-button.danger.settings-remove:not(:disabled) { color:var(--on-accent); background:var(--danger); border-color:var(--danger); }
+.settings-workspace-card { display:flex; align-items:center; gap:14px; margin:20px 0 24px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+.settings-workspace-card p { margin:2px 0 0; }
+.settings-workspace-mark { width:52px; height:52px; display:grid; place-items:center; border-radius:14px; background:var(--accent); color:var(--on-accent); font-weight:700; font-size:18px; }
+.settings-admins { list-style:none; margin:12px 0 0; padding:0; }
+.settings-admins li { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.settings-admins span { display:grid; gap:2px; min-width:0; }
+.settings-admins small { color:var(--muted); overflow-wrap:anywhere; }
+.settings-coming-later h2 { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.settings-coming-later h2 .settings-soon { font-size:12px; }
+@media(max-width:800px) { .settings-react { grid-template-columns:200px minmax(0,1fr); } .settings-detail { padding:24px; } }
+/* Phones: the list first; a chosen page replaces it, with a way back. */
+@media(max-width:600px) {
+  .settings-react { grid-template-columns:minmax(0,1fr); }
+  .settings-sidebar { border-right:0; padding:20px 12px; }
+  .settings-react[data-showing=page] .settings-sidebar, .settings-react[data-showing=list] .settings-detail { display:none; }
+  /* No page is open yet, so none is marked as current. */
+  .settings-react[data-showing=list] .settings-group button[aria-current=page] { background:none; font-weight:inherit; color:var(--muted); }
+  .settings-back { display:inline-flex; align-items:center; min-height:40px; margin:-8px 0 8px -6px; padding:6px; font:inherit; font-size:15px; font-weight:600; color:var(--text); background:none; border:0; border-radius:8px; cursor:pointer; }
+  .settings-detail { padding:20px 16px; }
+  .settings-activity { flex-direction:column; gap:8px; } .settings-theme { width:142px; }
+  .settings-people .ui-row { flex-wrap:wrap; } .settings-people .ui-row-title { flex-basis:calc(100% - 110px); }
+}
+@media(forced-colors:active) { .settings-group button[aria-current=page], .settings-theme:has(input:checked) { outline:1px solid Highlight; } }

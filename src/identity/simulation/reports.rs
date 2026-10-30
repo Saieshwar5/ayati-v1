@@ -7,7 +7,7 @@ pub(super) async fn reports(
     let user = identity(&app, &headers).await?;
     check(
         app.store.role(&sim.workspace, &user.id).await? == "Admin",
-        "Only the owner can inspect simulation reports",
+        "Only admins can inspect simulation reports",
     )?;
     let root = sim
         .root

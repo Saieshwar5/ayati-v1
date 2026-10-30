@@ -1,18 +1,35 @@
 # Shared Settings and workspace ownership
 
-Cuckoo provides workspaces for one or many people. Option B in
-[the approved design](../designs/settings/README.md) is the current Settings reference.
+Cuckoo provides workspaces for one or many people. Settings follows the
+[simplified design](../designs/settings-simplified/README.md) (D232, 2026-10-30):
+one sidebar with two groups.
 
-Everyone has Settings → Personal: My account, Appearance and Help & feedback.
-Only admins see Workspace: General, People, Access, Connections, Activity and
-Teams. The global rail contains Home, Chat, Agents, Library and Settings.
-People discovery remains in Chat; membership administration lives in Settings.
-Account-menu workspace switching and sign-out remain available to everyone.
+| Group | Members | Admins |
+| --- | --- | --- |
+| You | Profile, Preferences, Help | Profile, Preferences, Help |
+| Workspace | This workspace | Workspace, People, Connections, Usage, Billing, Audit log |
 
-`?view=people` / `users` open Settings → Workspace → People for admins.
-`?view=company` opens Workspace → Teams. `?view=feedback` opens Personal → Help &
-feedback, preserving conversation-scoped reports. Shared agents are managed in
-Agents; internal work records appear on Home. No workspace records are deleted.
+- **This workspace** (members): the workspace name, their role and the admins, read
+  from the member directory. Leave workspace comes later.
+- **People** (admins):
+  - roles on each row, with a ⋯ menu: Make admin / Make member, Agent access…,
+    Remove from workspace…;
+  - the only admin can't be made a member or removed, and admins can't remove
+    themselves here;
+  - removal opens the hand-over dialog described below.
+- **Usage and Billing:** "Coming later" placeholders.
+- **Audit log:** formerly Activity. In simulations it also shows the simulation
+  results; the Teams page was removed, and the team records remain on the server.
+- **Phones:** the sidebar list comes first, and a chosen page shows "‹ Settings".
+
+Pages use `?view=settings&section=<page>`. Older links still open the right page:
+- `scope=…&section=my-account|appearance|help-&-feedback|general|access|activity|teams`;
+- `?view=people|users|company|feedback`;
+- `#theme`.
+
+Workspace pages fall back to Profile for members, and the server refuses their APIs
+regardless. Account-menu workspace switching and sign-out remain available to
+everyone. No workspace records are deleted.
 
 ## Roles and authority
 
@@ -111,6 +128,11 @@ role-based sections, failed saves, invitation retry, grants and double submissio
 A separate scripted workspace was used for the browser journey, including admin
 and User views, promotion/demotion while open, personal themes, general/activity,
 short windows and narrow layouts. No model calls or invitation emails were sent.
+
+`tests/settings_people.mjs` is the browser journey for the sidebar layout: the admin
+and member sidebars, the People row menu, removal with hand-over and its Audit log
+sentence, the phone list/page layout and dark mode, with screenshots
+(`SETTINGS_SHOTS=<dir>` saves them elsewhere).
 
 See [the workspace scenario audit](workspace-simulation-2026-10-22.md) for the
 subsequent 20-person workload, provider-fixture tests and recovery/restore results.

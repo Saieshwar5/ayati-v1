@@ -1,20 +1,25 @@
 import { useRef, useState } from 'react';
-import { identityRequest, workspaceId } from '../workspace-context';
+import { identityRequest, workspaceId, workspaceSession } from '../workspace-context';
 import { Button, Dialog, Tabs } from './ui';
 import { useMutation, useResource } from './requests';
 import { MemberDetails } from './member-details';
+import { PersonFace } from './faces';
+import { PersonMenu, RoleDialog, type PersonAction } from './people-actions';
+import { RemovePersonDialog, personName } from './remove-person-dialog';
 
 export type Member = { id: string; email: string; display_name?: string | null; role: string };
 type People = { role: string; members: Member[]; invitations: { id: string; email: string; role: string; status: string; expires: number }[] };
 const base = `/workspaces/${workspaceId}`;
 const loadPeople = () => identityRequest<People>(`${base}/people`);
 
-export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
+export function PeoplePage() {
   const { data, error, refresh } = useResource(loadPeople);
   const [query, setQuery] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [selected, select] = useState<Member>();
+  const [open, setOpen] = useState<{ action: PersonAction; member: Member }>();
   const mutation = useMutation();
+  const you = workspaceSession?.user?.id;
+  const adminCount = data?.members.filter(person => person.role === 'Admin').length ?? 0;
   const matches = (email: string) => email.toLowerCase().includes(query.trim().toLowerCase());
   async function saved(message: string) {
     mutation.setStatus(message);
@@ -24,18 +29,19 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
   const invitations = data?.invitations.filter(invitation => matches(invitation.email)) ?? [];
   if (data && data.role !== 'Admin') return <p role="alert">Only admins can manage workspace access.</p>;
   return <div className="settings-people"><main className="desk-page" aria-label="People">
-    <header className="desk-toolbar"><div className="desk-title"><h2>{accessOnly ? 'Access' : 'People'}</h2><p>{accessOnly ? 'Choose a person to manage their agent, App and panel access.' : 'Manage who belongs to this workspace.'}</p></div>
+    <header className="desk-toolbar"><div className="desk-title"><h2>People</h2><p>Who belongs to this workspace and who manages it.</p></div>
       <input type="search" className="ui-search" placeholder="Find a person" aria-label="Find a person" value={query} onChange={event => setQuery(event.target.value)} />
-      <Button primary hidden={accessOnly || data?.role !== 'Admin'} onClick={() => setInviting(true)}>＋ Invite person</Button>
+      <Button primary hidden={data?.role !== 'Admin'} onClick={() => setInviting(true)}>＋ Invite person</Button>
     </header><p className="ui-status" role="status">{mutation.status || error || (!data ? 'Loading your team…' : '')}</p>
     {error && <Button onClick={() => void refresh().catch(() => {})}>Retry</Button>}
     <div className="desk-content"><Tabs sections={[
-      { title: 'People', content: <div className="ui-directory">{members.map(member => <div className="ui-row" key={member.id}>
-        <span className="ui-avatar" aria-hidden="true">{(member.display_name || member.email).slice(0, 2).toUpperCase()}</span>
-        <div className="ui-row-title"><strong>{member.display_name || member.email}</strong>{member.display_name && <small>{member.email}</small>}</div><span className="ui-badge">{member.role}</span>
-        <Button aria-label={`View ${member.email}`} data-member={member.id} onClick={() => select(member)}>Details</Button>
+      { title: `People · ${data?.members.length ?? 0}`, content: <div className="ui-directory">{members.map(member => <div className="ui-row settings-person" key={member.id}>
+        <PersonFace person={{ id: member.id, name: personName(member) }} className="ui-avatar" />
+        <div className="ui-row-title"><strong>{personName(member)}{member.id === you && <small className="settings-you"> (you)</small>}</strong>{member.display_name && <small>{member.email}</small>}</div>
+        <span className={`ui-badge${member.role === 'Admin' ? ' settings-admin' : ''}`}>{member.role}</span>
+        <PersonMenu member={member} self={member.id === you} onlyAdmin={member.role === 'Admin' && adminCount < 2} choose={action => setOpen({ action, member })} />
       </div>)}{data && !members.length && <p className="ui-empty">{query ? 'No members match your search.' : 'No members to show.'}</p>}</div> },
-      { title: 'Invitations', content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
+      { title: `Invitations · ${data?.invitations.length ?? 0}`, content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
         <div className="ui-row-title"><strong>{invitation.email}</strong><small>{invitation.role}</small></div>
         <span className="ui-badge">{invitation.status === 'delivery_unknown' ? 'Delivery unconfirmed' : invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
         {data?.role === 'Admin' && invitation.status === 'pending' && invitation.expires * 1000 > Date.now() && <Button disabled={mutation.busy}
@@ -55,7 +61,11 @@ export function PeoplePage({ accessOnly = false }: { accessOnly?: boolean }) {
       </div>)}{data && !invitations.length && <p className="ui-empty">{query ? 'No invitations match your search.' : 'No invitations to show. Invite someone when you’re ready.'}</p>}</div> },
     ]} /></div>
     {inviting && data && <InviteDialog close={() => setInviting(false)} failed={() => void refresh().catch(() => {})} saved={async () => { setInviting(false); await saved('Invitation sent. They can open the link, sign in with that email and accept.'); }} />}
-    {selected && data && <MemberDetails key={selected.id} member={selected} viewerRole={data.role} adminCount={data.members.filter(person => person.role === 'Admin').length} close={() => select(undefined)} refresh={refresh} />}
+    {open?.action === 'access' && <MemberDetails key={open.member.id} member={open.member} close={() => setOpen(undefined)} />}
+    {open?.action === 'role' && <RoleDialog key={open.member.id} member={open.member} close={() => setOpen(undefined)} saved={async message => { setOpen(undefined); await saved(message); }} />}
+    {open?.action === 'remove' && data && <RemovePersonDialog key={open.member.id} member={open.member} members={data.members} close={() => setOpen(undefined)}
+      removed={async message => { setOpen(undefined); await saved(message); }} />}
+    <p className="ui-help settings-people-note">A workspace always keeps at least one admin. Removing someone hands their shared agents and Library items to the person you choose.</p>
   </main></div>;
 }
 

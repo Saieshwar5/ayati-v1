@@ -71,7 +71,7 @@ impl PgStore {
         let tx = self.workspace_tx(workspace).await?;
         ensure!(
             role(&tx, workspace, &user.id).await? == "Admin",
-            "Only the owner can share agents"
+            "Only admins can share agents"
         );
         role(&tx, workspace, target).await?;
         ensure!(query(&tx,"SELECT id FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='private'",vec![workspace.into(),agent.into()]).await?.is_none(),"Private agents cannot be shared");

@@ -67,7 +67,7 @@ export function AgentControl({ agent, close }: { agent: Agent; close: () => void
       })}
     </div>)}
     {!data.connections.length && <p className="ui-help">No connected business systems yet.</p>}
-    {data.can_manage_connections && <a href={workspaceUrl('/?view=settings&scope=workspace&section=connections')}>Manage workspace connections and delegated access</a>}
+    {data.can_manage_connections && <a href={workspaceUrl('/?view=settings&section=connections')}>Manage workspace connections and delegated access</a>}
     {!data.can_manage_connections && <p className="ui-help">Only operations delegated by an admin can be configured here. Ask an admin if an account or permission is missing.</p>}
 
   </section>;

@@ -5,7 +5,7 @@ import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format:'module', source:'export {};', shortCircuit:true } : next(url,context); } });
 const workspace='11111111-1111-4111-8111-111111111111';
 const base=`http://localhost/w/${workspace}/?view=settings`;
-async function fixture(role, run) {
+async function fixture(role, run, simulation=false) {
   const reads=[], writes=[];
   await reactFixture(async context => {
     const { enterWorkspace }=await import('../src/workspace-context.ts'); await enterWorkspace();
@@ -17,24 +17,34 @@ async function fixture(role, run) {
     const body=options.body ? JSON.parse(options.body) : undefined;
     if(body)writes.push({path,body});else reads.push(path);
     let data={};
-    if(path.endsWith('/session'))data={user:{id:'person',email:'person@test',display_name:'Person'},workspaces:[{id:workspace,name:'Northstar',role}]};
+    if(path.endsWith('/session'))data={user:{id:'person',email:'person@test',display_name:'Person'},workspaces:[{id:workspace,name:'Northstar',role}],simulation};
     if(path.endsWith('/people'))data={role,members:[{id:'person',email:'person@test',role}],invitations:[]};
     if(path.endsWith('/settings'))data={name:'Northstar'};
     if(path.endsWith('/activity'))data={activity:[{id:2,actor:'Person',action:'membership_changed',target:'ravi:removed',summary:'Person removed Ravi; 1 agent moved to Person',at:1},{id:1,actor:'Person',action:'workspace_renamed',target:'w',at:1}]};
-    if(path.endsWith('/chat-directory'))data={users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null}],agents:[]};
+    if(path.endsWith('/simulation/reports'))data={reports:[]};
+    if(path.endsWith('/feedback'))data={feedback:[]};
+    if(path.endsWith('/chats'))data={chats:[]};
+    if(path.endsWith('/chat-directory'))data={role,users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null,role},{id:'lead',name:'Arjun Mehta',email:'arjun@test',role:'Admin'}],agents:[]};
     if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
     return {ok:true,status:200,json:async()=>data};
   }});
 }
-test('Users retain Settings and personal preferences without reading owner data',async()=>{
+const sidebar=()=>[...document.querySelectorAll('.settings-group')].map(group=>[group.querySelector('.settings-group-title').textContent,[...group.querySelectorAll('button')].map(item=>item.textContent)]);
+const page=()=>document.querySelector('.settings-detail h2')?.textContent;
+
+test('Members see their own pages and This workspace, and never read admin data',async()=>{
   await fixture('Member',async({render,reads,change})=>{
-    assert.equal(document.querySelector('[role=tablist]')?.textContent,'Personal');
-    assert.equal(document.querySelector('h2').textContent,'My account');
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace']]]);
+    assert.equal(page(),'Profile');
+    assert.match(document.querySelector('.settings-heading p').textContent,/Northstar · Member/);
     await render(base+'&scope=workspace&section=people');
-    assert.equal(document.querySelector('[role=tablist]')?.textContent,'Personal');
-    assert.equal(document.querySelector('[aria-label=People]'),null);
+    assert.equal(page(),'Profile','admin pages fall back for members');
     assert.ok(!reads.some(path=>path.endsWith('/people')||path.endsWith('/settings')||path.endsWith('/activity')));
+    await render(base+'&section=this-workspace');
+    assert.equal(page(),'This workspace');
+    assert.deepEqual([...document.querySelectorAll('.settings-admins strong')].map(node=>node.textContent),['Arjun Mehta']);
     await render(base+'&scope=personal&section=appearance');
+    assert.equal(page(),'Preferences');
     const radio=document.querySelector('input[value=dark]');
     await change(radio,'dark');
     await import('react').then(({act})=>act(async()=>{radio.click();}));
@@ -42,16 +52,42 @@ test('Users retain Settings and personal preferences without reading owner data'
     assert.equal(localStorage.getItem('ayati.theme'),'dark');
   });
 });
-test('Admins use the Workspace tab; old Users links open People inside Settings',async()=>{
-  await fixture('Admin',async({render,reads})=>{
-    assert.equal(document.querySelector('[role=tablist]').textContent,'PersonalWorkspace');
-    await render(base+'&scope=workspace&section=people');
-    assert.equal(document.querySelector('[aria-label=People] h2').textContent,'People');
-    assert.ok(reads.some(path=>path.endsWith('/people')));
-    await render(base.replace('view=settings','view=people'));
-    assert.equal(document.querySelector('[aria-label=People] h2').textContent,'People');
+
+test('Admins see the workspace pages; Usage and Billing are marked as coming later',async()=>{
+  await fixture('Admin',async({render,click,dom})=>{
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Connections','UsageComing later','BillingComing later','Audit log']]]);
+    await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
+    assert.match(dom.window.location.search,/view=settings&section=people/);
+    await render(base+'&section=usage');
+    assert.match(page(),/Usage/); assert.match(document.querySelector('.settings-detail').textContent,/not built yet/);
   });
 });
+
+test('Links from the old tabbed Settings open the new pages',async()=>{
+  await fixture('Admin',async({render,reads})=>{
+    for(const [link,expected] of [
+      ['&scope=workspace&section=people','People'],[ '&scope=workspace&section=access','People'],
+      ['&scope=workspace&section=general','Workspace'],['&scope=workspace&section=teams','Workspace'],
+      ['&scope=workspace&section=activity','Audit log'],['&scope=personal&section=my-account','Profile'],
+      ['&scope=personal&section=help-%26-feedback','Feedback'],
+    ]){ await render(base+link); assert.equal(page() ?? document.querySelector('.settings-detail h1')?.textContent,expected,link); }
+    await render(base.replace('view=settings','view=people')); assert.equal(page(),'People');
+    await render(base.replace('view=settings','view=users')); assert.equal(page(),'People');
+    await render(base+'#theme'); assert.equal(page(),'Preferences');
+    assert.ok(reads.some(path=>path.endsWith('/people')));
+  });
+});
+
+test('Phones show the list first and a page with a way back',async()=>{
+  await fixture('Admin',async({render,click,dom})=>{
+    assert.equal(document.querySelector('.settings-react').dataset.showing,'list');
+    await render(base+'&section=people');
+    assert.equal(document.querySelector('.settings-react').dataset.showing,'page');
+    await click(document.querySelector('.settings-back'));
+    assert.equal(dom.window.location.search,'?view=settings');
+  });
+});
+
 test('Failed personal profile saves preserve the draft and require explicit retry',async()=>{
   await fixture('Member',async({change,submit,writes})=>{
     const form=document.querySelector('form.my-profile');
@@ -64,11 +100,21 @@ test('Failed personal profile saves preserve the draft and require explicit retr
     assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:''});
   });
 });
-test('The activity list shows readable change sentences and keeps older entries as they were',async()=>{
+
+test('The Audit log shows readable change sentences and keeps older entries as they were',async()=>{
   await fixture('Admin',async({render})=>{
-    await render(base+'&scope=workspace&section=activity');
+    await render(base+'&section=audit-log');
+    assert.equal(page(),'Audit log');
     const entries=[...document.querySelectorAll('.settings-activity div')].map(entry=>entry.textContent);
     assert.equal(entries[0],'Person removed Ravi; 1 agent moved to Person');
     assert.equal(entries[1],'Personworkspace renamedw');
+    assert.equal(document.querySelector('.settings-detail').textContent.includes('Simulation results'),false);
   });
+});
+
+test('Simulation results appear in the Audit log only in a simulation',async()=>{
+  await fixture('Admin',async({render})=>{
+    await render(base+'&section=audit-log');
+    assert.ok(document.querySelector('.settings-detail').textContent.includes('Simulation results'));
+  },true);
 });
