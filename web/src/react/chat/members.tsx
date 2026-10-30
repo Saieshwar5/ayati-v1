@@ -10,6 +10,18 @@ export function ChannelMembers({ chat, directory }: { chat: Conversation; direct
     <Button type="submit" disabled={mutation.busy}>Save channel members</Button><p role="status">{mutation.status}</p>
   </form>;
 }
+/** Channel managers choose which workspace agents work in the channel. */
+export function ChannelAgents({ chat, directory }: { chat: Conversation; directory: Directory }) {
+  const [agents, setAgents] = useState(chat.agents); const mutation = useMutation();
+  const available = directory.agents.filter(agent => agent.scope !== 'private');
+  if (!chat.can_archive || !available.length) return null;
+  return <form className="company-form" onSubmit={e => { e.preventDefault(); void mutation.run(async () => { await chatRequest(`/chats/${chat.id}/agents`, { agents }); mutation.setStatus('Agents saved.'); }); }}>
+    <h3>Agents in this channel</h3>
+    {available.map(agent => <label key={agent.id}><input type="checkbox" checked={agents.includes(agent.id)} disabled={mutation.busy} onChange={e => setAgents(e.target.checked ? [...agents, agent.id] : agents.filter(id => id !== agent.id))} />{agent.name} <small>{agent.role}</small></label>)}
+    <p className="chat-help">Agents act only when someone in the channel asks them.</p>
+    <Button type="submit" disabled={mutation.busy}>Save agents</Button><p role="status">{mutation.status}</p>
+  </form>;
+}
 export function ChannelSettings({ chat, directory }: { chat: Conversation; directory: Directory }) {
   const [name, setName] = useState(chat.name);
   const [visibility, setVisibility] = useState<string>(chat.visibility ?? 'private');

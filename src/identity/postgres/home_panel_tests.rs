@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     identity::home_panels::model::{Layout, Review},
-    platform::panels::PanelDraft,
+    panels::PanelDraft,
 };
 use serde_json::json;
 fn draft() -> PanelDraft {

@@ -44,13 +44,17 @@ explicit opt-in: it sends only the description plus reviewed action identities,
 titles, effects and maximum permissions to the agent's configured model. Normal
 model usage may apply. Opening setup never calls a model.
 
-Suggestions reuse the pinned Goose conversation runtime in a fresh private
-directory, with no tools, MCP credential, browser, VM, memory, Library files,
-conversation history or workspace extensions. Only the configured model provider
-credential is forwarded through the existing isolated process configuration.
-The initial implementation runs this bounded setup request on the controller,
-with two concurrent suggestion slots and a 45-second execution deadline; it does
-not add another cloud worker service. Temporary runtime files are cleaned up.
+Creating a review with suggestions saves the draft with every operation blocked
+and queues a `setup_suggestion` [executor task](executor-pool.md). A pooled
+executor runs it in a fresh tool-free Goose session: no tools, MCP credential,
+browser, VM, memory, Library files, conversation history or workspace extensions,
+with a 45-second deadline. The controller holds no model key and never runs Goose.
+Tasks share the pool's limits and never use capacity reserved for live chat.
+The review shows "Preparing AI suggestions" and reloads when the result arrives.
+If the requester edited the draft first, their choices are kept and the late
+suggestion is discarded. A failed, invalid or interrupted suggestion leaves every
+action blocked; it is never rerun automatically. Suggestions require executors
+configured for the agent's provider; manual review always works.
 
 The response must be bounded JSON containing known action choices and warnings.
 Malformed output, unknown identities, duplicate choices and executable-policy

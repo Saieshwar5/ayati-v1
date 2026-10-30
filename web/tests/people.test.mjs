@@ -23,7 +23,6 @@ async function fixture(viewerRole, run, respond) {
     if (custom) return { ok: custom.ok, json: async () => custom.data };
     if (path.endsWith('/people')) return { ok: true, json: async () => people };
     if (path.endsWith('/chat-directory')) return { ok: true, json: async () => ({ role: viewerRole, agents: [{ id: 'agent', name: '<script>Agent</script>' }], grants: [] }) };
-    if (path.endsWith('/resource-access') && body === undefined) return { ok: true, json: async () => ({ apps: [{ id: 'app', name: 'Inventory' }], panels: [{ id: 'panel', active: { definition: { title: 'Stock' } } }], grants: [{ user: 'employee', kind: 'app', resource: 'app', access: 'read' }] }) };
     return { ok: true, json: async () => ({}) };
   } });
 }
@@ -69,30 +68,25 @@ test('Unconfirmed delivery refreshes invitations without losing the failed draft
 });
 
 test('opening a React member drawer grants nothing; rejected changes retain saved access', async () => {
-  await fixture('Owner', async ({ writes, button, click, change }) => {
+  await fixture('Owner', async ({ writes, button, click }) => {
     await click(button(`View ${member.email}`));
     assert.equal(writes.length, 0); assert.equal(document.querySelector('script'), null);
     const agent = document.querySelector('dialog input[type=checkbox]'); await click(agent);
     assert.equal(agent.checked, false); assert.equal(agent.matches(':disabled'), false);
     assert.deepEqual(writes[0].body, { user: 'employee', agent: 'agent', allowed: true });
-    const resources = [...document.querySelectorAll('dialog .ui-resource select')];
-    assert.equal(resources[0].value, 'read'); await change(resources[0], 'write');
-    assert.equal(resources[0].value, 'read');
-    assert.deepEqual(writes[1].body, { user: 'employee', kind: 'app', resource: 'app', access: 'write' });
-    assert.deepEqual([...resources[1].options].map(option => option.value), ['', 'read']);
+    assert.equal(writes.length, 1);
     assert.equal(button('Close').disabled, false);
   }, (_path, body) => body ? { ok: false, data: { error: 'Access was revoked' } } : undefined);
 });
 
-test('React role and grant saves target only the selected person and resource', async () => {
+test('React role and agent grant saves target only the selected person', async () => {
   await fixture('Owner', async ({ writes, button, click, change }) => {
     await click(button(`View ${member.email}`));
     await change(document.querySelector('dialog .ui-field select'), 'Owner'); await click(button('Save role'));
     assert.deepEqual(writes[0].body, { role: 'Owner' }); assert.ok(writes[0].path.endsWith('/members/employee'));
-    await change(document.querySelector('dialog .ui-resource select'), '');
-    assert.deepEqual(writes[1].body, { user: 'employee', kind: 'app', resource: 'app', access: null });
     const agent = document.querySelector('dialog input[type=checkbox]'); await click(agent);
-    assert.equal(agent.checked, true); assert.equal(writes.length, 3);
+    assert.deepEqual(writes[1].body, { user: 'employee', agent: 'agent', allowed: true });
+    assert.equal(agent.checked, true); assert.equal(writes.length, 2);
   });
 });
 
@@ -109,7 +103,7 @@ test('The last Owner cannot be demoted or removed', async () => {
     await click(button(`View ${owner.email}`));
     assert.equal(document.querySelector('dialog select').disabled, true);
     assert.equal(button('Save role'), undefined); assert.equal(button('Remove from workspace'), undefined);
-    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 3);
+    assert.equal(document.querySelectorAll('dialog [role=tab]').length, 2);
   });
 });
 

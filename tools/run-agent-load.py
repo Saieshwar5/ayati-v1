@@ -25,6 +25,7 @@ SUITES = {
     'control': ['tests/shared_agent_control.mjs'],
     'context-versions': ['tests/versioned_context.mjs'],
     'communications': ['tests/native_communications.mjs'],
+    'chat': ['tests/chat_collaboration.mjs', 'tests/chat_organization.mjs'],
     'workspace': ['tests/trusted_sender_context.mjs', 'tests/conversation_history.mjs',
                   'tests/session_work_continuity.mjs', 'tests/versioned_context.mjs',
                   'tests/managed_context_isolation.mjs', 'tests/context_preview.mjs',
@@ -39,8 +40,9 @@ SUITES = {
     'calibration': ['tests/provider_calibration.mjs'],
     'bridge': ['tests/aws_worker_bridge.mjs'],
     'regressions': ['tests/reply_stream.mjs', 'tests/reply_capacity.mjs',
-                    'tests/executor_pool.mjs', 'tests/worker_control.mjs',
-                    'tests/assignment_workers.mjs', 'tests/independent_chat_worker.mjs',
+                    'tests/executor_pool.mjs', 'tests/controller_drain.mjs',
+                    'tests/worker_control_tls.mjs', 'tests/executor_aws_identity.mjs',
+                    'tests/multi_controller.mjs',
                     'tests/hosted_deployment.mjs'],
 }
 

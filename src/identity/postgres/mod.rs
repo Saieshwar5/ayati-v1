@@ -9,9 +9,10 @@ mod approval_authority;
 mod approval_delivery;
 #[cfg(test)]
 mod approval_tests;
-#[cfg(test)]
-mod assignment_tests;
 mod assignments;
+mod attempt_resume;
+#[cfg(test)]
+mod attempt_resume_tests;
 mod attention;
 mod attention_migration;
 #[cfg(test)]
@@ -35,11 +36,18 @@ mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 mod chat;
 mod chat_intake;
+mod chat_notification_migration;
+#[cfg(test)]
+mod chat_notification_tests;
+mod chat_notifications;
 mod chat_organization_migration;
 #[cfg(test)]
 mod chat_organization_migration_tests;
 #[cfg(test)]
 mod chat_organization_tests;
+mod chat_people_migration;
+#[cfg(test)]
+mod chat_people_tests;
 mod chat_pins;
 pub mod cli;
 #[cfg(test)]
@@ -61,14 +69,16 @@ mod connection_authority_tests;
 #[cfg(test)]
 mod connection_migration_tests;
 pub(crate) mod control_actions;
-#[cfg(test)]
-mod control_execution_tests;
 mod control_rules;
 #[cfg(test)]
 mod control_tests;
 #[cfg(test)]
 mod controlled_attempt_tests;
 mod controlled_attempts;
+mod data_lifecycle;
+mod data_lifecycle_migration;
+#[cfg(test)]
+mod data_lifecycle_tests;
 #[cfg(test)]
 mod dispatch_lock_tests;
 mod durable_wait_migration;
@@ -76,6 +86,17 @@ mod executor_dispatch;
 #[cfg(test)]
 mod executor_slot_tests;
 mod executor_slots;
+mod executor_task_migration;
+mod executor_tasks;
+pub mod member_profiles;
+mod message_action_migration;
+#[cfg(test)]
+mod message_action_tests;
+mod message_actions;
+mod pool_metrics;
+#[cfg(test)]
+mod pool_metrics_tests;
+pub(crate) use pool_metrics::PoolSnapshot;
 #[cfg(test)]
 mod preparation_tests;
 #[cfg(test)]
@@ -123,6 +144,8 @@ mod event_scope_tests;
 #[cfg(test)]
 mod event_tests;
 mod event_triggers;
+#[cfg(test)]
+mod executor_task_tests;
 mod feedback;
 mod handoff_access;
 mod handoff_admission;
@@ -162,7 +185,6 @@ mod home_sources;
 mod home_update_access;
 mod home_update_runs;
 mod home_views;
-mod import;
 #[cfg(test)]
 mod interactive_reserve_tests;
 mod jobs;
@@ -189,17 +211,13 @@ mod rehearsal_source_tests;
 #[cfg(test)]
 mod rehearsal_tests;
 mod rehearsals;
-mod request_context;
-#[cfg(test)]
-mod request_context_tests;
-mod source_access;
-mod working_context;
-pub(crate) use rehearsal_queue::RehearsalClaim;
 mod reply_output;
 #[cfg(test)]
 mod reply_output_tests;
 mod reply_views;
-mod resources;
+mod request_context;
+#[cfg(test)]
+mod request_context_tests;
 #[cfg(test)]
 mod response_tests;
 mod responses;
@@ -207,7 +225,11 @@ mod settings;
 mod setup_context;
 mod setup_drafts;
 #[cfg(test)]
+mod setup_suggestion_tests;
+mod setup_suggestions;
+#[cfg(test)]
 mod setup_tests;
+mod source_access;
 mod task_continuation;
 #[cfg(test)]
 mod task_continuation_tests;
@@ -216,8 +238,9 @@ mod work;
 pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;
+mod working_context;
 
-use super::store::{User, now};
+use super::user::{User, now};
 use anyhow::{Context, Result, ensure};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction,
@@ -230,11 +253,34 @@ use std::time::Duration;
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
-    pub(crate) assigned: bool,
+    /// Agent replies go to pooled executors. False only for the scripted
+    /// company simulation, which claims polling jobs inside the controller.
     pub(crate) pooled: bool,
     pub(crate) assignment_seconds: u64,
+    pub(crate) handoff_wait_seconds: i64,
 }
 impl PgStore {
+    /// A store whose every query fails, for HTTP tests that must reject a
+    /// request before it reaches PostgreSQL.
+    #[cfg(test)]
+    pub(crate) fn disconnected() -> Self {
+        Self {
+            db: DatabaseConnection::default(),
+            changes: tokio::sync::broadcast::channel(256).0,
+            pooled: false,
+            assignment_seconds: 180,
+            handoff_wait_seconds: 604_800,
+        }
+    }
+    /// Connect with the controller's execution and store policy, then verify the schema.
+    pub(crate) async fn open(config: &crate::config::Controller) -> Result<Self> {
+        let mut store = Self::connect(&config.database_url).await?;
+        store.pooled = config.execution == crate::config::Execution::Pooled;
+        store.assignment_seconds = config.pool.run_seconds;
+        store.handoff_wait_seconds = config.handoff_wait_seconds;
+        store.verify_schema().await?;
+        Ok(store)
+    }
     pub async fn connect(url: &str) -> Result<Self> {
         ensure!(
             url.starts_with("postgres://") || url.starts_with("postgresql://"),
@@ -254,16 +300,9 @@ impl PgStore {
         Ok(Self {
             db,
             changes: tokio::sync::broadcast::channel(256).0,
-            assigned: super::worker_config::Mode::from_env(true)?
-                == super::worker_config::Mode::Assigned,
-            pooled: super::worker_config::Mode::from_env(true)?
-                == super::worker_config::Mode::Pooled,
-            assignment_seconds: super::worker_config::seconds(
-                "AYATI_ASSIGNMENT_RUN_SECONDS",
-                180,
-                1,
-                86400,
-            )?,
+            pooled: false,
+            assignment_seconds: 180,
+            handoff_wait_seconds: 604_800,
         })
     }
 
@@ -372,7 +411,7 @@ async fn audit(
 }
 
 #[cfg(test)]
-mod tests;
+pub(in crate::identity) mod tests;
 
 #[cfg(test)]
 mod profile_tests;
@@ -392,6 +431,8 @@ mod ownership_tests;
 #[cfg(test)]
 mod workspace_scenario_tests;
 
+#[cfg(test)]
+mod gateway_tests;
 #[cfg(test)]
 mod hosting_tests;
 #[cfg(test)]

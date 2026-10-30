@@ -20,7 +20,8 @@ test('personal pin mutations are explicit, guard double sends, retain exact retr
     await update(()=>finish(response({error:'Temporary save failure'},503)));assert.match(document.body.textContent,/Temporary save failure/);
     await click(button('Pin Operations'));assert.equal(writes[0].request,writes[1].request);
     await update(()=>finish(response({...initial,revision:1,pins:writes[1].pins})));
-    assert.equal(document.querySelector('[aria-label="Pinned conversations"] .chat-contact').textContent,'#Operations');
+    // A private channel shows a lock instead of #.
+    assert.equal(document.querySelector('[aria-label="Pinned conversations"] .chat-contact').textContent,'Operations');
     assert.equal([...document.querySelectorAll('a.chat-contact')].filter(a=>a.textContent.includes('Operations')).length,1);
     assert.equal(writes.every(write=>write.pins[0].kind==='chat'),true);
     await click(button('Unpin Operations'));assert.notEqual(writes[2].request,writes[1].request);

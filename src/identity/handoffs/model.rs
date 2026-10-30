@@ -9,7 +9,7 @@ pub(crate) struct Request {
 }
 impl Request {
     pub fn validate(&self) -> Result<()> {
-        crate::platform::identifier(&self.key)?;
+        crate::identity::identifier(&self.key)?;
         ensure!(
             self.key.len() <= 64,
             "Use a stable handoff key up to 64 bytes"
@@ -21,11 +21,4 @@ impl Request {
         );
         Ok(())
     }
-}
-pub(crate) fn wait_seconds() -> Result<i64> {
-    let n = std::env::var("AYATI_HANDOFF_WAIT_SECONDS")
-        .unwrap_or_else(|_| "604800".into())
-        .parse::<i64>()?;
-    ensure!((60..=2592000).contains(&n), "Invalid handoff wait bound");
-    Ok(n)
 }

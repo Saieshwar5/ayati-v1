@@ -13,7 +13,6 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY src/ ./src/
-COPY web/src/app-runtime.js ./web/src/app-runtime.js
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --locked --release --bin ayati -j "$BUILD_JOBS" && cp target/release/ayati /ayati
@@ -45,6 +44,8 @@ RUN python3 -m venv /opt/ayati/bridge \
        -r /tmp/bridge-requirements.lock
 
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS runtime
+# Pass the commit or image tag: --build-arg AYATI_RELEASE=$(git rev-parse --short HEAD)
+ARG AYATI_RELEASE=unknown
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libstdc++6 bubblewrap poppler-utils util-linux python3 \
     && rm -rf /var/lib/apt/lists/* \
@@ -63,8 +64,7 @@ COPY --chmod=755 deploy/container-entrypoint.sh ./entrypoint.sh
 ENV PYTHONPATH=/opt/ayati/integrations PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
     AYATI_PREPARED_GOOSE_BIN=/opt/ayati/prepared-goose/goose \
-    AYATI_RUNTIME=goose AYATI_EXECUTION=host AYATI_CHAT_EXECUTION=external \
-    AYATI_BROWSER=0 AYATI_MEMORY=0 AYATI_PROOF_TOOL=0 AYATI_PORT=8765
+    AYATI_PORT=8765 AYATI_DOTENV=0 AYATI_LOG_FORMAT=json AYATI_RELEASE=${AYATI_RELEASE}
 USER 10001:10001
 EXPOSE 8765
 ENTRYPOINT ["/opt/ayati/entrypoint.sh"]

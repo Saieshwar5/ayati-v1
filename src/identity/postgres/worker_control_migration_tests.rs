@@ -19,13 +19,12 @@ async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
     let mut url = reqwest::Url::parse(&base).unwrap();
     url.query_pairs_mut()
         .append_pair("options", &format!("-c search_path={schema}"));
-    let mut old = PgStore::connect(url.as_str()).await.unwrap();
+    let old = PgStore::connect(url.as_str()).await.unwrap();
     migration::Migrator::up(&old.db, Some(13)).await.unwrap();
-    old.assigned = true;
     let owner = user(&old, "output-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let job = super::migration_fixture::legacy_request(
+    let job = super::migration_fixture::legacy_assigned_request(
         &old,
         &owner,
         &w,
@@ -46,7 +45,7 @@ async fn reply_output_upgrade_preserves_a_reserved_v13_capability() {
         .await
         .unwrap();
     let token = random_token();
-    let reservation = crate::identity::worker_control::model::Reservation {
+    let reservation = super::migration_fixture::LegacyReservation {
         request: uuid::Uuid::new_v4().to_string(),
         token: token.clone(),
     };
@@ -131,13 +130,12 @@ async fn executor_slots_migration_preserves_v12_completion_receipts_and_history(
     let mut url = reqwest::Url::parse(&base).unwrap();
     url.query_pairs_mut()
         .append_pair("options", &format!("-c search_path={schema}"));
-    let mut old = PgStore::connect(url.as_str()).await.unwrap();
+    let old = PgStore::connect(url.as_str()).await.unwrap();
     migration::Migrator::up(&old.db, Some(12)).await.unwrap();
-    old.assigned = true;
     let owner = user(&old, "slots-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let job = super::migration_fixture::legacy_request(
+    let job = super::migration_fixture::legacy_assigned_request(
         &old,
         &owner,
         &w,
@@ -190,7 +188,7 @@ async fn executor_slots_migration_preserves_v12_completion_receipts_and_history(
     execute(&old.db, "INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,resource_id,state,outcome,lease_seconds) VALUES($1,$2,$3,1,'local',$4,'finished','complete',120)", vec![scope.assignment.clone().into(),w.clone().into(),job.reply.clone().into(),scope.resource().into()]).await.unwrap();
     execute(&old.db, "INSERT INTO relay_executors(id,incarnation,token_hash,expires) VALUES($1,$2,$3,floor(extract(epoch FROM clock_timestamp()))::bigint+300)", vec![scope.executor.clone().into(),scope.incarnation.clone().into(),digest(&random_token()).into()]).await.unwrap();
     execute(&old.db, "INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,request,token_hash,expires,session,completion_hash,completion_state) VALUES($1,$2,$3,$4,$5,$6,floor(extract(epoch FROM clock_timestamp()))::bigint+300,$7,$8,'complete')", vec![scope.assignment.clone().into(),scope.executor.clone().into(),scope.incarnation.clone().into(),scope.slot.clone().into(),uuid::Uuid::new_v4().to_string().into(),token_hash.clone().into(),completion.assignment.session.clone().into(),digest(&wire).into()]).await.unwrap();
-    let history_sql = "SELECT jsonb_agg(to_jsonb(m)-'progress'-'revision' ORDER BY sequence) AS data FROM relay_chat_messages m WHERE workspace=$1 AND chat=$2";
+    let history_sql = "SELECT jsonb_agg(to_jsonb(m)-'progress'-'revision'-'edited_at' ORDER BY sequence) AS data FROM relay_chat_messages m WHERE workspace=$1 AND chat=$2";
     let before: Value = query(
         &old.db,
         history_sql,
@@ -260,14 +258,13 @@ async fn worker_control_migration_preserves_a_running_v11_assignment() {
     let mut url = reqwest::Url::parse(&base).unwrap();
     url.query_pairs_mut()
         .append_pair("options", &format!("-c search_path={schema}"));
-    let mut old = PgStore::connect(url.as_str()).await.unwrap();
+    let old = PgStore::connect(url.as_str()).await.unwrap();
     migration::Migrator::up(&old.db, Some(11)).await.unwrap();
     assert!(old.verify_schema().await.is_err());
-    old.assigned = true;
     let owner = user(&old, "control-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let c = chat(&old, &owner, &w, vec![], vec!["agent-one".into()]).await;
-    let mut job = super::migration_fixture::legacy_request(
+    let mut job = super::migration_fixture::legacy_assigned_request(
         &old,
         &owner,
         &w,

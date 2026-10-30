@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { ConversationFace, ParticipantFace, ParticipantName } from './conversation-face';
 import { displayAgentName } from '../../agents';
 import { workspaceSession } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
@@ -6,25 +7,23 @@ import { existingDirect, useDirectConversation, type DirectTarget } from './dire
 import { conversationName, type Conversation, type Directory } from './model';
 import './search-conversations.css';
 
-export function SearchConversations({ directory, chats, close, opened, privateAgent }: {
+export function SearchConversations({ directory, chats, close, opened }: {
   directory: Directory;
   chats: Conversation[];
   close: () => void;
   opened: (id: string) => void;
-  privateAgent: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLUListElement>(null);
-  const direct = useDirectConversation(directory, chats, opened, privateAgent);
+  const direct = useDirectConversation(chats, opened);
   const matches = (name: string) => name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   const channels = chats.filter(chat => chat.kind !== 'direct' && matches(conversationName(chat, directory)));
   const people: DirectTarget[] = directory.users
     .filter(user => user.id !== workspaceSession?.user?.id)
     .map(user => ({ ...user, kind: 'user' }));
   const agents: DirectTarget[] = directory.agents
-    .filter(agent => agent.shared || directory.role === 'Owner')
     .map(agent => ({ ...agent, name: displayAgentName(agent), kind: 'agent' }));
   const targets = [
     ...(category === 'All' || category === 'People' ? people : []),
@@ -64,22 +63,19 @@ export function SearchConversations({ directory, chats, close, opened, privateAg
         {showChannels && channels.map(chat => <li key={`chat:${chat.id}`}>
           <button type="button" className="chat-contact" onClick={() => opened(chat.id)}
             aria-label={`Open channel ${chat.name}`}>
-            <span className="chat-avatar channel">#</span>
+            <ConversationFace chat={chat} directory={directory} />
             <span>{chat.name}<small>{chat.archived ? 'Archived channel' : 'Channel'}</small></span>
           </button>
         </li>)}
         {targets.map(target => {
           const existing = existingDirect(chats, target, workspaceSession?.user?.id);
-          const privateChat = target.kind === 'agent' && !target.shared;
-          const action = existing || privateChat ? 'Open conversation with' : 'Start conversation with';
+          const action = existing ? 'Open conversation with' : 'Start conversation with';
           return <li key={`${target.kind}:${target.id}`}>
             <button type="button" className="chat-contact" onClick={() => void direct.choose(target)}
               aria-label={`${action} ${target.name}`}>
-              <span className={`chat-avatar ${target.kind}`}>
-                {target.kind === 'agent' ? '✧' : target.name.slice(0, 1).toUpperCase()}
-              </span>
-              <span>{target.name}<small>
-                {target.kind === 'agent' ? 'Agent' : 'Person'} · {existing || privateChat ? 'Open conversation' : 'Start conversation'}
+              <ParticipantFace kind={target.kind} who={target} />
+              <span><ParticipantName kind={target.kind} name={target.name} /><small>
+                {(target.kind === 'agent' ? target.role : target.title) || (target.kind === 'agent' ? 'Agent' : 'Person')} · {existing ? 'Open conversation' : 'Start conversation'}
               </small></span>
             </button>
           </li>;

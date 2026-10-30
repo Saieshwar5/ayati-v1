@@ -1,4 +1,4 @@
-use crate::platform::panels::Section;
+use crate::panels::Section;
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 

@@ -1,6 +1,6 @@
 //! Bounded, attributed summaries. These are model interpretations, not controller state.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeSet;

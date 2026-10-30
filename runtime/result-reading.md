@@ -32,14 +32,14 @@ existing private SQLite messages. Reuse those stores rather than duplicate every
 streamed draft into a second archive. Saved bodies have a content-derived version;
 completed messages retain that exact body across reload. Interrupted managed replies can reconstruct the latest retained attempt from
 ordered output receipts, without changing the cancellation message or mixing
-generations. Private runtimes retain their existing partial message text. This increment
+generations. This increment
 does not promise an archive of every past intermediate draft. Opening reads the
 latest authorized saved draft or complete response and freezes the displayed
 body. A newer saved state is offered explicitly; reading position never jumps to
 new content automatically.
 
-New reads use `/api/identity/workspaces/{workspace}/chats/{chat}/messages/{id}/response`
-or the existing private runtime's `/api/messages/{id}/response`. Reader bodies are
+New reads use `/api/identity/workspaces/{workspace}/chats/{chat}/messages/{id}/response`.
+Reader bodies are
 bounded to 512 KiB; larger stored responses remain intact and fail explicitly in
 the reader. Existing managed execution/output limits remain 64 KiB. Markdown
 downloads retrieve the exact saved complete body/version; there are no invented
@@ -47,8 +47,7 @@ PDF/Word/Excel exports. Copy uses the explicitly opened body.
 
 Workspace history/focus/SSE may opt into `compact=true` without breaking existing
 full-message clients. All read paths retain current conversation/Library access,
-including completed private-source outputs and alternate history delivery. The
-private runtime uses its existing Owner/user/workspace/agent boundary. Opening,
+including completed private-source outputs and alternate history delivery. Opening,
 copying, refreshing and downloading do not create a task or invoke a model.
 
 Existing file/object IDs remain the source of filenames, bytes, media types and
@@ -60,9 +59,8 @@ Downloads recheck current rights and preserve filename, MIME and exact identity.
 
 One shared saved-response lifecycle serves inline replies and the full reader,
 including source/version checks, aborts, explicit newer-version loading and
-revocation. Workspace messages and threads use the same inline component. The
-private runtime owns its transcript; React owns stable response islands and the
-external reader portal. Refreshes reuse those islands, preserving expansion,
+revocation. Workspace messages and threads use the same inline component. React
+owns stable response islands and the external reader portal. Refreshes reuse those islands, preserving expansion,
 frozen saved text and focus; removed messages/view teardown unmount their reads.
 Expanding suspends transcript auto-scrolling until all reading views close. Close
 returns to the same conversation, draft, scroll and current launcher. Source
@@ -136,10 +134,7 @@ cannot retract bytes someone already legitimately viewed or downloaded.
   visually inspected. Evidence/logs remain under `.tmp/result-reading/`.
 
 Reproduce with `cargo test --locked --lib`, web check/build/test commands and,
-with a disposable `RELAY_TEST_DATABASE_URL`, `cargo test --locked --lib
-identity::postgres:: -- --ignored --skip embedded_gateway_uses_controller_owned_credentials`.
-The excluded fixture-specific test runs through
-`node --test tests/shared_agent_control.mjs`. Reader journeys run with
+`./tools/local-postgres.sh test`. Reader journeys run with
 `node --test tests/result_reading.mjs`; retained journeys are
 `tests/reply_stream.mjs` and `tests/agents_workspace.mjs`.
 

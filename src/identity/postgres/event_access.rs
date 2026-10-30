@@ -118,7 +118,7 @@ pub(super) async fn scope(
 }
 pub(super) async fn allowed(
     db: &impl ConnectionTrait,
-    job: &crate::identity::chat::store::Job,
+    job: &crate::identity::chat::model::Job,
 ) -> Result<bool> {
     if !exists(db).await? {
         return Ok(true);
@@ -162,7 +162,7 @@ pub(super) async fn pending_counts(
     }
     let mut counts = std::collections::HashMap::<String, i64>::new();
     for row in rows(tx,"SELECT j.payload FROM relay_chat_jobs j JOIN relay_chats c ON c.workspace=j.workspace AND c.id=j.payload->>'chat' WHERE j.workspace=$1 AND j.state IN ('queued','running','waiting') AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2))",vec![w.into(),user.id.clone().into()]).await? {
-        let mut job:crate::identity::chat::store::Job=serde_json::from_value(row.try_get("","payload")?)?;
+        let mut job:crate::identity::chat::model::Job=serde_json::from_value(row.try_get("","payload")?)?;
         job.requester=user.id.clone();
         if super::source_access::allowed(tx,&job).await? {*counts.entry(job.agent).or_default()+=1;}
     }

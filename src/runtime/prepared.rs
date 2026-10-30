@@ -21,21 +21,13 @@ pub(super) fn preparation_ack(
 
 pub(crate) struct ChatTurn<'a> {
     pub assignment: &'a str,
-    pub agent: &'a str,
     pub instructions: &'a str,
     pub timeout: Duration,
 }
 impl GooseRuntime {
     fn require_chat_only(&self) -> Result<()> {
         ensure!(
-            self.vm.is_none()
-                && self.config.platform.is_none()
-                && self.config.control_tools.is_none()
-                && !self.config.memory
-                && !self.config.browser
-                && !self.config.proof_tool
-                && !self.shared.memory_enabled()
-                && !self.shared.browser_enabled(),
+            self.config.control_tools.is_none(),
             "Prepared sessions require the tool-free shared chat profile"
         );
         Ok(())

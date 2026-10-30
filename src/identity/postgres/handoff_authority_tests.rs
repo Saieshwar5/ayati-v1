@@ -1,6 +1,6 @@
 use super::{handoff_tests::*, tests::*, *};
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     control::{
         connections_model::SystemApproval,
         model::{ActionRequest, Rule},
@@ -236,7 +236,7 @@ async fn handoff_queue_pressure_rolls_back_message_and_receipt_then_exact_retry_
         s.db.request_handoff(&s.parent, &input)
             .await
             .unwrap_err()
-            .is::<crate::identity::chat::store::BackgroundQueueFull>()
+            .is::<crate::identity::chat::model::BackgroundQueueFull>()
     );
     assert_eq!(
         s.db.chat_page(&s.owner, &s.w, &s.c, None).await.unwrap(),

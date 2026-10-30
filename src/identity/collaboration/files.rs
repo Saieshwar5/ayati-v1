@@ -14,7 +14,7 @@ pub(super) async fn upload(
     bytes: Bytes,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    pg(&app)?.check_chat_accepting(&user, &w, &chat).await?;
+    app.store.check_chat_accepting(&user, &w, &chat).await?;
     check(
         !bytes.is_empty() && bytes.len() <= 10 * 1024 * 1024,
         "Files must contain between 1 byte and 10 MiB",
@@ -77,18 +77,18 @@ pub(super) async fn upload(
         std::fs::File::open(&root)?.sync_all()?;
     }
     // Retain orphan bytes on uncertain DB failure; reconciliation must not destroy evidence.
-    pg(&app)?.save_object(&user, &w, &chat, &object).await?;
+    app.store.save_object(&user, &w, &chat, &object).await?;
     Ok(Json(json!(object)))
 }
 pub(super) async fn download(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,
     headers: HeaderMap,
-    Query(input): Query<crate::server::file_media::Read>,
+    Query(input): Query<crate::media::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
     check(uuid::Uuid::parse_str(&id).is_ok(), "Invalid file ID")?;
-    let object = pg(&app)?.object(&user, &w, &id).await?;
+    let object = app.store.object(&user, &w, &id).await?;
     if input.access {
         return Ok(Json(json!({"available":true})).into_response());
     }
@@ -125,8 +125,8 @@ pub(super) async fn download(
         bytes.to_vec()
     };
     // Object storage can take time. Recheck membership/publication before releasing bytes.
-    pg(&app)?.object(&user, &w, &id).await?;
-    Ok(crate::server::file_media::deliver(
+    app.store.object(&user, &w, &id).await?;
+    Ok(crate::media::deliver(
         data,
         &object.name,
         &object.mime,

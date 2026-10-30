@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 async fn operation(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Value> {
     let row=query(db,"SELECT jsonb_build_object('id',a.id,'agent',a.agent,'connection',a.connection,'operation',a.operation,'chat',a.chat,'rule',to_jsonb(r),'connection_revision',c.revision) AS data FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.chat=a.chat AND r.connection=a.connection AND r.operation=a.operation JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='completed' AND a.rule_revision=r.revision AND a.connection_revision=c.revision",vec![w.into(),id.into()]).await?.context("Panel operation source is no longer authorized")?;

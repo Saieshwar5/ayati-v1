@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 import { reactFixture } from './react-fixture.mjs';
+registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 const workspace = '11111111-1111-4111-8111-111111111111';
 const settings = { provider: '', instructions: '', escalation: '', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
 const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Mira', role: 'Purchasing', model: 'test', scope: 'private', revision: 0, settings, editable: true };

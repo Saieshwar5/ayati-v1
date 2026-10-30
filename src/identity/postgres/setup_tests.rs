@@ -6,7 +6,7 @@ use crate::identity::control::{
 };
 use serde_json::json;
 
-async fn setup() -> (PgStore, User, String, String, String, Draft) {
+pub(super) async fn setup() -> (PgStore, User, String, String, String, Draft) {
     let db = fixture().await;
     let owner = user(&db, "setup-owner").await;
     let w = workspace(&db, &owner).await;
@@ -70,6 +70,7 @@ async fn setup() -> (PgStore, User, String, String, String, Draft) {
             unsupported: vec!["unreviewed_tool".into()],
         }],
         notes: vec![],
+        suggestion: None,
     };
     (db, owner, w, agent, chat, draft)
 }

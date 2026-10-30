@@ -3,7 +3,7 @@ use super::{
     tests::*,
     *,
 };
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 async fn state(db: &PgStore, job: &Job) -> Value {
@@ -336,59 +336,6 @@ async fn revoked_source_access_prevents_reconstruction_and_publication_after_res
             .unwrap()
             .contains("MUST_NOT")
     );
-}
-
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn continuation_cycles_do_not_consume_recovery_retries_or_reuse_assignment_generations() {
-    let (db, owner, w, connection, mut job) = setup("ask").await;
-    execute(
-        &db.db,
-        "UPDATE relay_chat_jobs SET dispatch='assigned' WHERE reply=$1",
-        vec![job.reply.clone().into()],
-    )
-    .await
-    .unwrap();
-    for cycle in 0..4 {
-        let a = db
-            .control_propose(&job, &request(&connection, &format!("cycle-{cycle}")))
-            .await
-            .unwrap()
-            .action;
-        db.chat_finish(&job, "Waiting for another operation", "complete")
-            .await
-            .unwrap();
-        db.control_decide(
-            &owner,
-            &w,
-            &job.agent,
-            a["id"].as_str().unwrap(),
-            &decision("reject"),
-        )
-        .await
-        .unwrap();
-        let id = db.reserve_assignment(30, 1).await.unwrap().unwrap();
-        let assignment = db
-            .start_assignment(&id, &format!("local:{cycle}"))
-            .await
-            .unwrap()
-            .unwrap();
-        let row = query(
-            &db.db,
-            "SELECT generation FROM relay_worker_assignments WHERE id=$1",
-            vec![id.into()],
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert_eq!(row.try_get::<i32>("", "generation").unwrap(), cycle + 2);
-        job = assignment.job;
-        assert_eq!(state(&db, &job).await["attempts"], 1);
-    }
-    db.chat_finish(&job, "Four approval waits completed", "complete")
-        .await
-        .unwrap();
-    assert_eq!(state(&db, &job).await["state"], "finished");
 }
 
 #[path = "task_recovery_tests.rs"]

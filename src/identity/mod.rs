@@ -1,42 +1,39 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 mod agents;
-pub mod assignment_launcher;
-pub mod assignment_worker;
 mod attention;
 mod automations;
 mod chat;
 mod collaboration;
 mod communications;
 pub(crate) mod control;
-mod controlled_launcher;
-pub mod controlled_worker;
-mod database;
 mod events;
 pub mod executor;
 mod handoffs;
 mod home_panels;
+mod identifier;
+pub(crate) use identifier::identifier;
+pub(crate) mod archive;
+pub(crate) mod data_cleanup;
 mod hosting;
 mod interactions;
 mod library;
 mod login_state;
-mod membership_schema;
+mod member_profiles;
+mod metrics;
+mod pictures;
 pub mod postgres;
 mod private_config;
 mod process_lock;
 mod profile;
 mod provider;
 mod rehearsals;
-mod resources;
 mod routes;
 mod settings;
+mod shutdown;
 pub mod simulation;
-mod sqlite_access;
 pub(crate) mod start_trace;
-pub mod store;
-pub mod worker;
-mod worker_config;
+pub mod user;
 mod worker_control;
-pub mod worker_health;
 mod workspaces;
 
 use anyhow::{Context, Result};
@@ -50,13 +47,9 @@ use axum::{
     routing::{get, post},
 };
 use provider::{Provider, digest, random_token};
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, Mutex},
-};
-use store::{Store, User, now};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tower_http::services::ServeDir;
+use user::{User, now};
 
 struct Pending {
     state: String,
@@ -65,11 +58,10 @@ struct Pending {
     expires: i64,
 }
 struct App {
+    config: Arc<crate::config::Controller>,
     library: library::Storage,
     provider: Provider,
-    store: database::Database,
-    origin: String,
-    pending: Mutex<HashMap<String, Pending>>,
+    store: postgres::PgStore,
     runtimes: workspaces::Runtimes,
     simulation: Option<simulation::Simulation>,
 }
@@ -97,8 +89,8 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
             StatusCode::NOT_FOUND
         } else if error.is::<library::model::Conflict>() {
             StatusCode::CONFLICT
-        } else if error.is::<chat::store::QueueFull>()
-            || error.is::<chat::store::BackgroundQueueFull>()
+        } else if error.is::<chat::model::QueueFull>()
+            || error.is::<chat::model::BackgroundQueueFull>()
         {
             StatusCode::TOO_MANY_REQUESTS
         } else {
@@ -171,15 +163,23 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
     }
     Ok(user)
 }
-pub async fn serve(data: &Path, port: u16) -> Result<()> {
+/// Process-wide settings read by code that has no `App`: start tracing and the
+/// operator-owned connector and event-source catalogs.
+fn configure_process(config: &crate::config::Controller) {
+    start_trace::enable(config.trace_start);
+    control::catalog::configure(config.mcp_servers_file.clone());
+    events::catalog::configure(config.event_sources_file.clone());
+}
+
+pub async fn serve(config: crate::config::Controller) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let hosting = hosting::Hosting::from_env(port)?;
-    let provider = Provider::from_env()?;
-    let listener = tokio::net::TcpListener::bind((hosting.bind, port))
+    let (client_id, key) = config.workos.clone().context("WorkOS is not configured")?;
+    let provider = Provider::new(client_id, key)?;
+    let listener = tokio::net::TcpListener::bind((config.bind, config.common.port))
         .await
         .context("Identity port is in use. Stop the other server or choose AYATI_PORT")?;
-    std::fs::create_dir_all(data)?;
-    let installation = data.canonicalize()?;
+    std::fs::create_dir_all(&config.common.data_dir)?;
+    let installation = config.common.data_dir.canonicalize()?;
     let data = installation.join("identity");
     std::fs::create_dir_all(&data)?;
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o700))?;
@@ -190,53 +190,29 @@ pub async fn serve(data: &Path, port: u16) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let store = if let Ok(url) = std::env::var("RELAY_DATABASE_URL") {
-        let pg = postgres::PgStore::connect(&url).await?;
-        pg.verify_schema().await?;
-        if data.join("postgres-identity").exists()
-            || postgres::cli::sqlite_identity_exists(&data.join("identity.sqlite"))?
-        {
-            pg.verify_import().await?;
-        }
-        database::Database::Postgres(pg)
-    } else {
-        anyhow::ensure!(
-            !data.join("postgres-identity").exists(),
-            "Identity was migrated; configure RELAY_DATABASE_URL to avoid stale SQLite data"
-        );
-        Store::open(&data.join("identity.sqlite"))?.into()
-    };
+    let store = postgres::PgStore::open(&config).await?;
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
+    configure_process(&config);
     let app = Arc::new(App {
-        library: library::Storage::from_env()?,
+        library: library::Storage::from_settings(&config.library)?,
         provider,
         store,
-        origin: hosting.origin,
-        pending: Mutex::new(HashMap::new()),
+        config: Arc::new(config),
         runtimes,
         simulation: None,
     });
-    tracing::info!("Identity workspace: {}/?view=account", app.origin);
+    tracing::info!("Identity workspace: {}/?view=account", app.config.origin);
     let control = worker_control::start(app.clone()).await?;
-    chat::start_dispatcher(app.clone())?;
-    rehearsals::start(app.clone()).await;
+    chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
-    let stopping = app.runtimes.stopping.clone();
-    axum::serve(listener, router(app.clone()))
-        .with_graceful_shutdown(async move {
-            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
-            stopping.cancel();
-        })
-        .await?;
-    app.runtimes.shutdown().await?;
-    if let Some(control) = control {
-        control.await?;
-    }
-    Ok(())
+    metrics::start(app.clone());
+    data_cleanup::start(app.clone());
+    shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
+        .merge(member_profiles::routes())
         .merge(control::routes())
         .merge(attention::routes())
         .merge(home_panels::routes())
@@ -249,7 +225,6 @@ fn router(app: Shared) -> Router {
         .merge(collaboration::routes())
         .merge(communications::routes())
         .merge(simulation::routes())
-        .merge(resources::routes())
         .route("/health/live", get(hosting::live))
         .route("/health/ready", get(hosting::ready))
         .route(
@@ -309,6 +284,7 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let health = request.method() == axum::http::Method::GET
         && matches!(request.uri().path(), "/health/live" | "/health/ready");
     let host = app
+        .config
         .origin
         .split_once("://")
         .map(|(_, host)| host)
@@ -320,7 +296,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
         && !library_head
         && !(request.method() == axum::http::Method::POST
             && events::routes::webhook_path(request.uri().path()))
-        && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(app.origin.as_str())
+        && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
+            != Some(app.config.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {
         return StatusCode::FORBIDDEN.into_response();
@@ -410,8 +387,3 @@ fn cacheable_asset(method: &axum::http::Method, path: &str) -> bool {
             .iter()
             .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
 }
-
-#[cfg(test)]
-mod hosting_tests;
-#[cfg(test)]
-mod ownership_tests;

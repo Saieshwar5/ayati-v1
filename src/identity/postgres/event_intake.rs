@@ -14,7 +14,7 @@ impl PgStore {
     ) -> Result<Value> {
         ensure!(self.pooled, "Event intake requires pooled execution");
         source.validate()?;
-        crate::platform::identifier(id)?;
+        crate::identity::identifier(id)?;
         let data = source.project(id, event)?;
         let hash = fingerprint(event)?;
         let w = &source.workspace;
@@ -62,7 +62,7 @@ impl PgStore {
     }
     pub(crate) async fn event_job_context(
         &self,
-        job: &crate::identity::chat::store::Job,
+        job: &crate::identity::chat::model::Job,
     ) -> Result<Vec<Value>> {
         let tx = self.read_tx(&job.workspace).await?;
         ensure!(

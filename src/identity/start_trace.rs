@@ -1,10 +1,19 @@
 //! Opt-in start timings: fixed code labels and durations, never context or credentials.
 use std::{
     collections::BTreeMap,
+    sync::atomic::{AtomicBool, Ordering},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
+static ENABLED: AtomicBool = AtomicBool::new(false);
+/// Set once at process startup from `AYATI_TRACE_START`.
+pub(crate) fn enable(enabled: bool) {
+    ENABLED.store(enabled, Ordering::Relaxed);
+}
+fn enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
 pub(crate) fn point(assignment: &str, side: &'static str, phase: &'static str) {
-    if std::env::var("AYATI_TRACE_START").as_deref() != Ok("1") {
+    if !enabled() {
         return;
     }
     let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
@@ -25,7 +34,7 @@ impl StartTrace {
     pub fn new() -> Self {
         let now = Instant::now();
         Self {
-            enabled: std::env::var("AYATI_TRACE_START").as_deref() == Ok("1"),
+            enabled: enabled(),
             began: now,
             previous: now,
             phases: BTreeMap::new(),

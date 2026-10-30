@@ -30,9 +30,6 @@ pub(super) fn routes() -> Router<Shared> {
             get(response),
         )
 }
-fn pg(app: &App) -> Result<&postgres::PgStore> {
-    collaboration::pg(app)
-}
 fn present(mut data: Value) -> Value {
     if let Some(text) = data["output"].as_str() {
         data["response"] =
@@ -67,10 +64,11 @@ async fn options(
     Query(input): Query<Search>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let mut data = pg(&app)?
+    let mut data = app
+        .store
         .rehearsal_options(&user, &w, &a, &input.search)
         .await?;
-    data["execution_available"] = json!(super::worker::configured(&data["profile"])?);
+    data["execution_available"] = json!(available(&app, &data["profile"])?);
     Ok(Json(data))
 }
 async fn history(
@@ -81,7 +79,7 @@ async fn history(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?
+        app.store
             .rehearsal_history(&user, &w, &a, input.before.as_deref())
             .await?,
     ))
@@ -93,17 +91,17 @@ async fn start(
     Json(input): Json<Start>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = pg(&app)?;
+    let pg = &app.store;
     if let Some(saved) = pg.rehearsal_existing(&user, &w, &a, &input).await? {
         return Ok(Json(present(saved)));
     }
     let profile = pg.managed_agent(&user, &w, &a, true).await?;
     check(
-        super::worker::configured(&profile)?,
+        available(&app, &profile)?,
         "The sample model is not configured on this controller. Ask your operator to enable it.",
     )?;
     let result = pg.start_rehearsal(&user, &w, &a, &input).await?;
-    app.runtimes.rehearsal_wake.notify_one();
+    app.runtimes.chat_wake.notify_one();
     Ok(Json(present(result)))
 }
 async fn read(
@@ -113,7 +111,7 @@ async fn read(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(present(
-        pg(&app)?.rehearsal(&user, &w, &a, &id).await?,
+        app.store.rehearsal(&user, &w, &a, &id).await?,
     )))
 }
 async fn stop(
@@ -122,16 +120,16 @@ async fn stop(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(pg(&app)?.stop_rehearsal(&user, &w, &a, &id).await?))
+    Ok(Json(app.store.stop_rehearsal(&user, &w, &a, &id).await?))
 }
 async fn response(
     State(app): State<Shared>,
     RoutePath((w, a, id)): RoutePath<(String, String, String)>,
     headers: HeaderMap,
-    Query(input): Query<crate::server::responses::Read>,
+    Query(input): Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
-    let data = pg(&app)?.rehearsal(&user, &w, &a, &id).await?;
+    let data = app.store.rehearsal(&user, &w, &a, &id).await?;
     check(
         data["state"] == "completed",
         "This sample has no completed response",
@@ -140,5 +138,15 @@ async fn response(
         .as_str()
         .context("Sample response unavailable")?;
     let body = crate::response::body(&id, text, "complete", 1, input.metadata)?;
-    Ok(crate::server::responses::deliver(&id, body, &input))
+    Ok(crate::response::deliver(&id, body, &input))
+}
+
+/// Samples run on pooled executors configured for the agent's provider.
+fn available(app: &App, profile: &Value) -> Result<bool> {
+    let settings: crate::identity::agents::config::Settings =
+        serde_json::from_value(profile["settings"].clone())?;
+    Ok(crate::identity::hosting::executors_available(
+        app,
+        &settings.provider,
+    ))
 }

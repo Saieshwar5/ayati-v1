@@ -132,12 +132,11 @@ The source checks are:
 ```sh
 cargo test --locked --lib
 # Dedicated disposable local PostgreSQL only:
-cargo test --locked --lib identity::postgres -- --ignored --skip embedded_gateway_uses_controller_owned_credentials
+./tools/local-postgres.sh test
 node --test tests/shared_agent_control.mjs tests/workspace_connections.mjs tests/guided_permissions.mjs tests/channel_approvals.mjs
 cd web
 npm test
 npm run build
-npm run check:e2e
 ```
 
 The process journey uses the real pinned Goose, a scripted local model, an actual
@@ -146,6 +145,9 @@ and Playwright. It is local protocol/product evidence, not a live commercial MCP
 provider, live model quality, cloud isolation, billing or production acceptance.
 Use `RELAY_TEST_DATABASE_URL` for a dedicated `relay_simulation_*` database. Test
 records, failed attempts and screenshots are retained beneath `.tmp/`.
+
+(Historical 2026-10-25 evidence below predates the removal of embedded and
+direct-database execution on 2026-10-29.)
 
 Historical schema-18 verification on 2026-10-25: 82 Rust unit tests, 94 disposable-PostgreSQL tests,
 80 client behavior tests and 43 AWS manifest/bridge tests pass. Clippy with warnings

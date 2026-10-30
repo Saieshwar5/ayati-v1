@@ -111,37 +111,3 @@ test('shared real Goose obeys UI rules through remote MCP, with exact approvals 
   await app.stop(worker);
   app.pass('desktop/mobile control journey, durable receipts and credential filtering');
 });
-
-test('embedded controller owns remote credentials; legacy database workers cannot enable tool execution', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
-  const remote = await remoteControlMcp(); t.after(() => remote.close());
-  const directory = await mkdtemp(join(root, '.tmp/embedded-control-'));
-  await writeFile(join(directory, '.env'), '');
-  const profileFile = join(directory, 'servers.json'); const bearerFile = join(directory, 'bearer');
-  await writeFile(profileFile, JSON.stringify([{ id: 'orders', workspace: 'fixture-pending', name: 'Embedded orders', url: remote.url, bearer_file: bearerFile, operations: remote.operations }]), { mode: 0o600 });
-  await writeFile(bearerFile, remote.token, { mode: 0o600 });
-  // The normal simulate API intentionally uses scripted replies for embedded jobs.
-  // Verify its controller-local gateway directly; the first test covers real
-  // Goose in the pooled worker. This is not embedded Goose end-to-end evidence.
-  const child = spawn('cargo', ['test', '--locked', '--manifest-path', join(root, 'Cargo.toml'), '--lib',
-    'identity::postgres::control_execution_tests::embedded_gateway_uses_controller_owned_credentials',
-    '--', '--ignored', '--exact', '--nocapture'], { cwd: directory, env: {
-      PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8',
-      CARGO_TARGET_DIR: join(root, 'target'), CARGO_HOME: process.env.CARGO_HOME,
-      RELAY_TEST_DATABASE_URL: process.env.RELAY_TEST_DATABASE_URL,
-      AYATI_CHAT_EXECUTION: 'embedded', AYATI_MCP_SERVERS_FILE: profileFile,
-  }, stdio: ['ignore', 'pipe', 'pipe'] });
-  t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); });
-  let logs = ''; child.stdout.on('data', bytes => { logs += bytes; }); child.stderr.on('data', bytes => { logs += bytes; });
-  const exit = await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', resolve); });
-  await writeFile(join(directory, 'embedded-execution.log'), logs);
-  assert.equal(exit, 0, logs);
-  assert.equal(remote.calls.filter(c => c.name === 'read_order').length, 1);
-  assert.equal(logs.includes(remote.token), false);
-  console.log('Retained embedded evidence:', directory);
-
-  const legacy = await workerFixture(t, { mode: 'external' });
-  const legacyPath = `${legacy.path}/agent-profiles/${legacy.profile.id}/control`;
-  assert.equal((await legacy.request(legacyPath, legacy.cookie)).value.execution_available, false);
-  await legacy.request(`${legacyPath}/connections`, legacy.cookie, { id: randomUUID(), server: 'orders', enabled: true }, 400);
-  legacy.pass('legacy direct-database workers stay conversation-only with explicit unsupported controls');
-});

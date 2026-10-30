@@ -38,5 +38,3 @@ export async function enterWorkspace(): Promise<boolean> {
   }, 15000);
   return true;
 }
-
-export function canManageResources(): boolean { return !workspaceId || currentWorkspace()?.role === 'Owner'; }

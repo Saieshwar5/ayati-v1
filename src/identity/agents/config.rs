@@ -85,6 +85,7 @@ impl Settings {
         );
         ensure!(
             ["spark", "diamond", "flower", "sun"].contains(&self.avatar.as_str())
+                || bundled_avatar(&self.avatar)
                 || uuid::Uuid::parse_str(&self.avatar).is_ok(),
             "Invalid avatar"
         );
@@ -133,6 +134,15 @@ impl SaveAgent {
     }
 }
 
+/// Robot pictures shipped with the web client: `robot-01` to `robot-24`.
+fn bundled_avatar(value: &str) -> bool {
+    value
+        .strip_prefix("robot-")
+        .filter(|n| n.len() == 2)
+        .and_then(|n| n.parse::<u8>().ok())
+        .is_some_and(|n| (1..=24).contains(&n))
+}
+
 #[cfg(test)]
 mod guidance_tests {
     use super::*;
@@ -162,5 +172,21 @@ mod guidance_tests {
             text.contains("Successful outcome (working guidance, not permission): Clear answer")
         );
         assert!(text.contains("Routine (working guidance, not permission): Check facts"));
+    }
+    #[test]
+    fn bundled_robot_pictures_are_accepted_by_number_only() {
+        for good in ["robot-01", "robot-24"] {
+            assert!(bundled_avatar(good), "{good}");
+        }
+        for bad in [
+            "robot-00",
+            "robot-25",
+            "robot-1",
+            "robot-001",
+            "robot-xx",
+            "robot-",
+        ] {
+            assert!(!bundled_avatar(bad), "{bad}");
+        }
     }
 }

@@ -1,5 +1,5 @@
 use super::{tests::*, *};
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use crate::identity::communications::model::{
     Binding, Endpoint, Message, Outcome, Receipt, SetState, Transport,
 };

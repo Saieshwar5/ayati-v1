@@ -1,6 +1,6 @@
 //! Existing Library and connected-event data retain their independent provenance.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 pub(super) async fn allowed(db: &impl ConnectionTrait, job: &Job) -> Result<bool> {
     Ok(
         Box::pin(super::home_update_access::source_allowed(db, job)).await?

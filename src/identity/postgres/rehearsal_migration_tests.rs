@@ -65,7 +65,12 @@ async fn rehearsal_upgrade_preserves_v25_questions_attention_and_agent_settings_
             .unwrap()["state"],
         "pending"
     );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(
+        query(&db.db, "SELECT id FROM relay_executor_tasks", vec![])
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert!(db.claim_job().await.unwrap().is_none());
     let mut input = start();
     input.agent_revision = 1;

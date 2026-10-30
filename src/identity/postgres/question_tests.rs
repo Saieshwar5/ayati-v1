@@ -4,7 +4,7 @@ use super::{
     *,
 };
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     interactions::model::{Ask, Submission},
 };
 use serde_json::json;

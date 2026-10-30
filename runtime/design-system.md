@@ -8,8 +8,8 @@ Feature specifications still govern permissions, persistence and execution.
 
 ## Shared workspace shell
 
-- Keep the quiet global navigation rail visible across Home, Apps, Chat, Agents,
-  Settings. It sits on the light grey outer canvas, without its own
+- Keep the quiet global navigation rail visible across Home, Chat, Agents,
+  Library and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
@@ -76,8 +76,8 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
 
 Saved custom panels are the main content. A permanent Business clock and
 Notifications row precedes them. Both standard panels remain outside Customize:
-they cannot be removed, resized or reordered. The business location/timezone uses
-the existing owner editor. The clock has a subtle soft fill; notifications and
+they cannot be removed, resized or reordered. The clock shows device time until a
+shared business location setting exists. The clock has a subtle soft fill; notifications and
 custom panels use white bordered surfaces with clear titles and consistent gaps.
 
 Do not restore the agent/user directory, agent presence row, large prompt hero or
@@ -90,14 +90,14 @@ results, with at most three rows. View all opens the existing inbox. Counts are
 pending requests/outcomes, not unread messages. User mentions and chat notification
 sources are not implemented by this styling work. Do not fabricate them.
 
-Preserve saved panels, supported templates, review, grants, maintenance, removal,
-Recent activity and active-work Stop. Add panel chooses an existing agent and opens
+Preserve saved panels, supported templates, review, grants, maintenance and
+removal. Add panel chooses an existing agent and opens
 an unsent creation flow. Placement remains browser-local where implemented;
 managed workspace panels synchronize personal placement on the server. Their
 [update agreements](home-panel-maintenance.md) name the responsible agent and show
 concise freshness/health. Keep full source arguments and update setup in the
 on-demand dialog; preserve enough space to read the full panel value. See
-[Home panels](home-panels.md), [organized Home](organized-home.md), and
+[workspace Home panels](workspace-home-panels.md) and
 [Home attention](home-attention.md) for the underlying contracts.
 
 ## Chat
@@ -119,16 +119,23 @@ composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
 240 px before the existing phone list/conversation switch. Sidebar and conversation
 headers share a 64 px height. Only the conversation header has a bottom divider;
 do not extend it under the sidebar's Chat title. Keep connection status in the
-header. Use 40 px sidebar/header avatars and 36 px incoming-message avatars,
-with a smaller private-agent header avatar where needed on phones.
+header. Use 28 px single-line sidebar rows, 40 px header avatars and 36 px
+incoming-message avatars. Unread rows use a bold name and an accent count.
+
+People and agents share the same lists and the same round avatars (`faces.tsx`).
+People show their photo or initials on a tinted circle; agents show an uploaded
+image or a bundled robot (`web/public/agent-avatars/robot-01.svg` to `robot-24`).
+An agent is told apart only by the small `AI` tag after its name — never by a
+separate sidebar section. Private channels show a lock and public channels `#`.
+Names and avatars open a profile drawer; People & agents at the foot of the list
+opens the whole-workspace directory (everyone sees every member).
 
 The search button beside Chat opens a focused dialog for authorized channels,
 people and agents, with category filters and name/email matching. This is directory
 search, not message-history search. Typing and filtering do not write. Choosing
 an existing direct conversation reopens it; a result labelled Start conversation
 uses the same guarded creation operation as New message. Keep failed queries,
-block duplicate submissions, ignore late navigation after closing, and retain
-owner-only private-agent access. New message is the labelled plus beside Direct
+block duplicate submissions and ignore late navigation after closing. New message is the labelled plus beside Direct
 messages; Create channel is the labelled plus beside Channels. Both have accessible
 names and hover labels. Escape closes search and restores the trigger's focus;
 arrow keys move between the query and results, with native keyboard activation.
@@ -140,6 +147,21 @@ attachments and voice controls must reserve transcript space rather than cover
 messages. Keep own time and delivery indicators together on a predictable metadata
 line; omit the repeated own name/avatar. Retain visible reply counts and reveal
 ordinary reply actions on hover/focus, keeping them available on touch devices.
+The message toolbar sits beside a message on hover or focus (on its top edge on
+phones): three quick reactions, a reaction picker, reply in thread and More.
+More offers Edit and Delete only on your own messages, plus Copy link. Reactions
+are a fixed set of twelve, shown as chips under the message; they never approve
+or request work. Edits show "edited"; deleting asks first, leaves "Message
+deleted" in place and stops agent work the message started that has not finished.
+
+Notifications are personal. The conversation header's bell offers All new
+messages, @mentions and replies, or Nothing; direct messages default to all and
+channels to mentions. Muted rows show a crossed bell and keep their count. A count
+turns red when something unread is for you (an @mention or an agent's reply to your
+request). Desktop alerts use the browser's notifications while Cuckoo is open, on
+any page, once the person allows them from the one-time prompt in the chat list;
+nothing alerts for the conversation you are reading, your own messages or old
+history. Email for missed messages comes with hosted email delivery.
 Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
@@ -187,23 +209,16 @@ See [behavior and authority](agents-team-workspace.md).
 
 Settings → Workspace → People uses the same directory language. People and invitations remain separate
 tabs; inviting opens a focused dialog. Details opens the member drawer. Keep
-workspace membership, roles, agent access and App/panel grants distinct. Preserve
+workspace membership, roles and agent access distinct. Preserve
 explicit saves, pending states, validation and confirmation for destructive actions.
 
-## Apps and Settings
-
-Apps uses bordered launch tiles: icon, name, short description, actual state and
-an obvious Open or Preview action. Use the app identity rather than unrelated card
-colors to distinguish entries. Give tiles subtle hover/focus border emphasis.
-Manage holds release and access controls. Opening an app retains the existing
-large sandboxed surface; preview and active records stay isolated. Activation
-still applies to the exact reviewed release.
+## Settings
 
 Settings follows approved Option B: everyone sees Personal; only Owners see the
 Workspace scope. Use a compact segmented scope control followed by flat category
 navigation and one bounded, locally scrolling detail area. Personal contains My
 account, Appearance and Help & feedback. Workspace contains General, People,
-Access, Connections, Activity, Teams and Local setup. Hide owner-only sections for
+Access, Connections, Activity and Teams. Hide owner-only sections for
 Users and enforce the same boundary on the server. Use Owner/User role labels.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin

@@ -241,7 +241,7 @@ async fn home_maintenance_v32_upgrade_preserves_panel_and_pending_question_witho
         .await
         .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    let p:crate::platform::panels::PanelDraft=serde_json::from_value(json!({"id":uuid::Uuid::new_v4().to_string(),"expected_revision":0,"title":"Retained panel","purpose":"Retained basis","template":"brief","sections":[{"kind":"text","heading":"Saved","body":"EXISTING_V32_BODY"}],"sources":[]})).unwrap();
+    let p:crate::panels::PanelDraft=serde_json::from_value(json!({"id":uuid::Uuid::new_v4().to_string(),"expected_revision":0,"title":"Retained panel","purpose":"Retained basis","template":"brief","sections":[{"kind":"text","heading":"Saved","body":"EXISTING_V32_BODY"}],"sources":[]})).unwrap();
     db.save_personal_panel(&job, &p).await.unwrap();
     // Seed the v32 human-reviewed pointer, whose historical API had no routine snapshots.
     execute(

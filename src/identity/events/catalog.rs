@@ -55,7 +55,7 @@ impl Source {
         );
         let mut fields = std::collections::HashSet::new();
         for field in &self.fields {
-            crate::platform::identifier(field)?;
+            crate::identity::identifier(field)?;
             ensure!(fields.insert(field), "Duplicate projected event field");
         }
         Ok(())
@@ -127,9 +127,17 @@ impl Source {
         Ok(value)
     }
 }
+static FILE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+/// Set once at controller startup; the file itself is reread on each use so
+/// reviewed operator edits apply without a restart.
+pub(crate) fn configure(path: Option<PathBuf>) {
+    if let Some(path) = path {
+        let _ = FILE.set(path);
+    }
+}
 fn path() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("AYATI_EVENT_SOURCES_FILE") {
-        return Some(path.into());
+    if let Some(path) = FILE.get() {
+        return Some(path.clone());
     }
     #[cfg(test)]
     if let Some(path) = super::test_catalog::path() {

@@ -1,6 +1,6 @@
 //! Durable local executor registration and assignment capabilities, stored only as hashes.
 use super::*;
-use crate::identity::worker_control::model::{self, Registration, Reservation, Scope};
+use crate::identity::worker_control::model::{Registration, Scope};
 pub(super) const CLOCK: &str = "floor(extract(epoch FROM clock_timestamp()))::bigint";
 
 #[derive(Debug)]
@@ -19,9 +19,16 @@ pub(crate) fn require(allowed: bool) -> Result<()> {
     }
 }
 
+/// What an assignment produces: a chat reply or a one-off executor task.
+pub(crate) enum Work {
+    Reply(super::assignments::Assignment),
+    Task(super::executor_tasks::Task),
+}
+
 pub(crate) struct Controlled {
     pub scope: Scope,
-    pub assignment: super::assignments::Assignment,
+    pub work: Work,
+    pub lease_seconds: u64,
     pub session: Option<String>,
     pub context: Option<Value>,
     pub completion_hash: Option<String>,
@@ -55,51 +62,6 @@ impl PgStore {
             vec![executor.into(),incarnation.into(),hash.into()]).await?.is_some())
     }
 
-    pub(crate) async fn reserve_controlled(
-        &self,
-        executor: &str,
-        incarnation: &str,
-        request: &Reservation,
-        lease: u64,
-        capacity: usize,
-    ) -> Result<Option<Scope>> {
-        model::uuid(&request.request)?;
-        model::token(&request.token)?;
-        ensure!(
-            (6..=300).contains(&lease) && (1..=16).contains(&capacity),
-            "Invalid assignment policy"
-        );
-        let hash = super::super::provider::digest(&request.token);
-        let tx = self.db.begin().await?;
-        super::assignments::admission_gate(&tx).await?;
-        if let Some(row) = query(&tx, "SELECT assignment,token_hash FROM relay_assignment_credentials WHERE executor=$1 AND incarnation=$2 AND request=$3",
-            vec![executor.into(),incarnation.into(),request.request.clone().into()]).await? {
-            require(row.try_get::<String>("", "token_hash")? == hash)?;
-            let id: String = row.try_get("", "assignment")?;
-            // Executor authentication permits replaying this reservation's metadata
-            // even after the run capability expires; it never revives that capability.
-            let scope = scope_from_row(query(&tx,SCOPE_QUERY,vec![id.into()]).await?.context(ControlDenied)?)?;
-            tx.commit().await?;
-            return Ok(Some(scope));
-        }
-        let Some(id) = self.reserve_assignment_in(&tx, lease, capacity).await? else {
-            tx.commit().await?;
-            return Ok(None);
-        };
-        execute(&tx, &format!("INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,request,token_hash,expires)
-            VALUES($1,$2,$3,$4,$5,$6,{CLOCK}+300)"), vec![id.clone().into(), executor.into(),incarnation.into(),
-                uuid::Uuid::new_v4().to_string().into(),request.request.clone().into(),hash.clone().into()]).await?;
-        let record = controlled(&tx, &id, &hash).await?;
-        execute(
-            &tx,
-            "UPDATE relay_worker_assignments SET resource_id=$2 WHERE id=$1",
-            vec![id.into(), record.scope.resource().into()],
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(Some(record.scope))
-    }
-
     pub(crate) async fn controlled_assignment(
         &self,
         scope: &Scope,
@@ -109,33 +71,19 @@ impl PgStore {
         require(&record.scope == scope)?;
         Ok(record)
     }
-
-    pub(crate) async fn release_controlled(
-        &self,
-        executor: &str,
-        incarnation: &str,
-        scope: &Scope,
-        reason: &str,
-    ) -> Result<()> {
-        require(scope.executor == executor && scope.incarnation == incarnation)?;
-        // Launcher credentials may reconcile an expired run capability after its child has exited.
-        let stored = scope_from_row(
-            query(&self.db, SCOPE_QUERY, vec![scope.assignment.clone().into()])
-                .await?
-                .context(ControlDenied)?,
-        )?;
-        require(stored == *scope)?;
-        self.release_assignment(&scope.assignment, reason, Some(&scope.resource()))
-            .await
-    }
 }
 
+// A task scope has no chat; its `reply` is the task ID, which is also the
+// context's reply ID. Executors treat both kinds the same way.
 const SCOPE_QUERY: &str =
     "SELECT c.executor,c.incarnation,c.slot,c.slot_generation,a.id AS assignment,a.workspace,a.generation,
-    a.reply,j.payload->>'agent' AS agent,j.payload->>'chat' AS chat,m.thread
+    COALESCE(a.reply,a.task) AS reply,COALESCE(j.payload->>'agent',t.agent) AS agent,
+    COALESCE(j.payload->>'chat','') AS chat,m.thread
     FROM relay_assignment_credentials c JOIN relay_worker_assignments a ON a.id=c.assignment
-    JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
-    JOIN relay_chat_messages m ON m.id=a.reply AND m.workspace=a.workspace WHERE c.assignment=$1";
+    LEFT JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
+    LEFT JOIN relay_chat_messages m ON m.id=a.reply AND m.workspace=a.workspace
+    LEFT JOIN relay_executor_tasks t ON t.id=a.task
+    WHERE c.assignment=$1 AND (j.reply IS NOT NULL OR t.id IS NOT NULL)";
 fn scope_from_row(row: QueryResult) -> Result<Scope> {
     Ok(Scope {
         executor: row.try_get("", "executor")?,
@@ -157,26 +105,31 @@ pub(super) async fn controlled(
     id: &str,
     hash: &str,
 ) -> Result<Controlled> {
-    let row = query(db, &format!("SELECT j.payload,j.run_seconds,a.lease_seconds,c.session,c.context,c.completion_hash,c.completion_state
+    let row = query(db, &format!("SELECT j.payload,j.run_seconds,a.task,a.lease_seconds,c.session,c.context,c.completion_hash,c.completion_state
         FROM relay_assignment_credentials c JOIN relay_executors e ON e.id=c.executor AND e.incarnation=c.incarnation
-        JOIN relay_worker_assignments a ON a.id=c.assignment JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
+        JOIN relay_worker_assignments a ON a.id=c.assignment LEFT JOIN relay_chat_jobs j ON j.reply=a.reply AND j.workspace=a.workspace
         WHERE c.assignment=$1 AND c.token_hash=$2 AND c.expires>{CLOCK} AND e.expires>{CLOCK} AND e.state IN ('serving','draining')"), vec![id.into(),hash.into()]).await?.context(ControlDenied)?;
     let scope = scope_from_row(
         query(db, SCOPE_QUERY, vec![id.into()])
             .await?
             .context(ControlDenied)?,
     )?;
-    let mut job: crate::identity::chat::store::Job =
-        serde_json::from_value(row.try_get("", "payload")?)?;
-    job.claim = Some(id.into());
+    let lease_seconds = row.try_get::<i32>("", "lease_seconds")? as u64;
+    let work = if let Some(task) = row.try_get::<Option<String>>("", "task")? {
+        Work::Task(super::executor_tasks::load(db, &task).await?)
+    } else {
+        let mut job: crate::identity::chat::model::Job =
+            serde_json::from_value(row.try_get("", "payload")?)?;
+        job.claim = Some(id.into());
+        Work::Reply(super::assignments::Assignment {
+            job,
+            run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
+        })
+    };
     Ok(Controlled {
         scope,
-        assignment: super::assignments::Assignment {
-            id: id.into(),
-            job,
-            lease_seconds: row.try_get::<i32>("", "lease_seconds")? as u64,
-            run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
-        },
+        work,
+        lease_seconds,
         session: row.try_get("", "session")?,
         context: row.try_get("", "context")?,
         completion_hash: row.try_get("", "completion_hash")?,

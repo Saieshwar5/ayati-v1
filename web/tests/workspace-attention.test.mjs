@@ -122,13 +122,11 @@ test('Home refreshes on focus and aborts owned reads when its view unmounts',asy
   }});
 });
 
-test('Home retains private-runtime entry and quiet recent results without inventing a total',async()=>{
-  let privateOpened=0;
+test('Home shows quiet recent results without inventing a total',async()=>{
   await reactFixture(async({render,button,click})=>{
     await setup();const {HomeAttention}=await import('../src/react/attention/home-attention.tsx');
-    await render(HomeAttention,{privateData:{items:[{id:'old',agent:'Local agent',title:'Private request',category:'Decisions'}],total:1,available:true},openPrivate:()=>{privateOpened++;}});
+    await render(HomeAttention);
     assert.equal(button('View attention · 1+').textContent,'View attention · 1+');
-    await click(button('Private runtime inbox · 1'));assert.equal(privateOpened,1);
     await click(button('View attention · 1+'));assert.equal(document.querySelector('dialog h2').textContent,'Your attention');
     await click(button('Recent work'));assert.match(document.body.textContent,/Monthly report/);
   },{url,fetch:async path=>path.endsWith('/session')?response(session):path.includes('view=recent')?page([result]):page([item],'more')});

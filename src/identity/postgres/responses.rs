@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 impl PgStore {
     pub(crate) async fn response_body(
         &self,
@@ -67,11 +67,22 @@ impl PgStore {
         Ok(data)
     }
 }
+/// What a stopped reply wrote: the text saved when its chunks were compacted,
+/// or else the latest attempt's streamed chunks.
 pub(super) async fn partial_output(
     tx: &DatabaseTransaction,
     w: &str,
     id: &str,
 ) -> Result<Option<String>> {
+    if let Some(row) = query(
+        tx,
+        "SELECT text FROM relay_reply_partials WHERE workspace=$1 AND reply=$2",
+        vec![w.into(), id.into()],
+    )
+    .await?
+    {
+        return Ok(Some(row.try_get::<String>("", "text")?).filter(|t| !t.is_empty()));
+    }
     let row = query(tx,"SELECT string_agg(o.text,'' ORDER BY o.sequence) AS text FROM relay_assignment_output o WHERE o.assignment=(SELECT a.id FROM relay_worker_assignments a WHERE a.workspace=$1 AND a.reply=$2 AND EXISTS(SELECT 1 FROM relay_assignment_output present WHERE present.assignment=a.id AND present.text<>'') ORDER BY a.generation DESC LIMIT 1)",vec![w.into(),id.into()]).await?.context("Missing output aggregate")?;
     Ok(row
         .try_get::<Option<String>>("", "text")?

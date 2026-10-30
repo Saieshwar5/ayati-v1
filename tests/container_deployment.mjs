@@ -1,100 +1,59 @@
 // Opt-in: disposable local containers, synthetic secrets, no live identity/model requests.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
-import { once } from 'node:events';
 import { get as httpGet } from 'node:http';
-import { join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { composeStack } from './fixtures/compose_stack.mjs';
 import { until } from './fixtures/polling.mjs';
 
-test('deployable image runs separate API, migration and supervised worker containers', {
+test('deployable image runs separate API, migration and pooled executor containers', {
   timeout: 240000, skip: process.env.AYATI_CONTAINER_TEST !== '1',
 }, async t => {
-  const root = resolve(import.meta.dirname,'..');
-  await mkdir(join(root,'.tmp'),{recursive:true});
-  const data = await mkdtemp(join(root,'.tmp/container-deployment-'));
-  const name = 'ayati-test-' + randomUUID().slice(0,8);
-  const listener = createServer().listen(0,'127.0.0.1');
-  await once(listener,'listening');
-  const port = listener.address().port;
-  await new Promise(resolve => listener.close(resolve));
-  const secret = async (name,value) => {
-    const path = join(data,name);
-    // Synthetic files in a private directory; readable by the image's non-root UID.
-    await writeFile(path,value,{mode:0o444}); return path;
-  };
-  const env = {
-    AYATI_IMAGE: process.env.AYATI_CONTAINER_IMAGE ?? 'ayati:hosted-local',
-    AYATI_PUBLIC_ORIGIN: 'https://workspace.example.test', AYATI_LOCAL_PORT: String(port),
-    AYATI_WORKER_PROVIDERS: 'openai', AYATI_MODEL: 'fixture', WORKOS_CLIENT_ID:'client_fixture',
-    AYATI_DATABASE_URL_FILE: await secret('database-url','postgresql://relay_app:fixture-runtime@db:5432/ayati'),
-    AYATI_MIGRATION_DATABASE_URL_FILE: await secret('migration-url','postgresql://postgres:fixture-admin@db:5432/ayati'),
-    AYATI_WORKOS_API_KEY_FILE: await secret('identity-key','fixture-unused-key'),
-    AYATI_MODEL_API_KEY_FILE: await secret('model-key','$(touch /tmp/secret-executed)'),
-  };
-  const envFile = join(data,'.env');
-  await writeFile(envFile,Object.entries(env).map(([k,v]) => `${k}=${v}`).join('\n'));
-  const override = join(data,'rehearsal.yaml');
-  await writeFile(override,`services:
-  db:
-    image: postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
-    environment:
-      POSTGRES_DB: ayati
-      POSTGRES_PASSWORD: fixture-admin
-    tmpfs: [/var/lib/postgresql]
-`);
-  const args = ['compose','--project-name',name,'--env-file',envFile,
-    '-f',join(root,'deploy/compose.yaml'),'-f',override];
-  const docker = (input,options = {}) => execFileSync('docker',input,{
-    encoding:'utf8',timeout:90000,maxBuffer:2*1024*1024,stdio:['pipe','pipe','pipe'],...options,
-  }).trim();
-  const compose = (input,options) => docker([...args,...input],options);
-  const sql = input => compose(['exec','-T','db','psql','-U','postgres','-d','ayati','-At','-v','ON_ERROR_STOP=1'],{input});
-  const checks = [];
-  const pass = name => { checks.push(name); console.log('PASS',name); };
-  t.after(async () => {
-    try { await writeFile(join(data,'containers.log'),compose(['logs','--no-color'])); } catch {}
-    try { compose(['--profile','maintenance','down','--volumes','--remove-orphans']); }
-    finally {
-      await writeFile(join(data,'report.json'),JSON.stringify({passed:t.passed,checks},null,2));
-      console.log('Retained container evidence:',data);
-    }
-  });
-  compose(['config','--quiet']);
-  compose(['up','-d','db']);
-  await until(() => { try { compose(['exec','-T','db','pg_isready','-h','127.0.0.1','-U','postgres']); return true; } catch { return false; } },'Fixture database did not start',30000);
-  sql("CREATE ROLE relay_app LOGIN PASSWORD 'fixture-runtime';");
-  compose(['--profile','maintenance','run','--rm','migrate']);
-  sql(`GRANT USAGE ON SCHEMA public TO relay_app;
-    GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
-    GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
-    REVOKE UPDATE,DELETE ON relay_audit FROM relay_app;
-    REVOKE INSERT,UPDATE,DELETE ON seaql_migrations FROM relay_app;`);
-  assert.equal(sql('SELECT count(*) FROM seaql_migrations'),'11');
-  assert.equal(sql("SELECT has_schema_privilege('relay_app','public','CREATE')"),'f');
+  const stack = await composeStack(t, { prefix: 'container-deployment' });
+  const { port, compose, docker, sql, pass } = stack;
+  await stack.migrate();
   pass('Explicit migration container creates the schema; runtime role has no DDL/migration authority');
-  compose(['up','-d','api','worker']);
-  const healthy = async service => until(() => {
-    const id = compose(['ps','-q',service]);
-    return id && docker(['inspect','--format','{{.State.Health.Status}}',id]) === 'healthy';
-  },service+' container did not become healthy',45000);
-  await healthy('api'); await healthy('worker');
+  compose(['up','-d','api','executor']);
+  const healthy = stack.healthy;
+  // Prepared Goose sessions make no model request before reporting ready.
+  const ready = () => until(() => Number(sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
+    'Executor did not report prepared capacity',90000);
+  await healthy('api'); await ready(); await healthy('executor');
+  // The executor reaches worker control over TLS but has no route to the database.
+  assert.throws(() => compose(['exec','-T','executor','/opt/ayati/bridge/bin/python','-c',
+    "import socket; socket.create_connection(('db',5432),2)"]));
+  compose(['up','-d','--no-recreate','--scale','executor=2','executor']);
+  await until(() => Number(sql("SELECT count(*) FROM relay_executor_slots s JOIN relay_executors e ON e.id=s.executor AND e.incarnation=s.incarnation WHERE s.state='ready' AND e.state='serving'")) >= 4,
+    'A second executor did not add ready slots',90000);
+  compose(['up','-d','--no-recreate','--scale','executor=1','executor']);
+  pass('Executors are a separate service on a private TLS link with no database route, and scale independently');
   assert.equal(compose(['exec','-T','api','id','-u']),'10001');
-  assert.equal(compose(['exec','-T','worker','/opt/ayati/goose','--version']),'1.54.0');
-  compose(['exec','-T','api','sh','-c','test -z "${OPENAI_API_KEY_FILE-}"']);
-  compose(['exec','-T','worker','sh','-c','test -z "${WORKOS_API_KEY_FILE-}"; test ! -e /tmp/secret-executed']);
-  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY=fixture-conflict','worker','help']), /Configure either OPENAI_API_KEY or OPENAI_API_KEY_FILE/);
-  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY_FILE=/missing-secret','worker','help']), /Cannot read OPENAI_API_KEY_FILE/);
-  const workerId = compose(['ps','-q','worker']);
-  assert.equal(docker(['inspect','--format','{{.HostConfig.ReadonlyRootfs}}',workerId]),'true');
-  pass('Same image runs as UID 10001 with read-only root, pinned Goose and separate role secrets');
+  assert.equal(compose(['exec','-T','executor','id','-u']),'10001');
+  assert.equal(compose(['exec','-T','executor','/opt/ayati/goose','--version']),'1.54.0');
+  compose(['exec','-T','api','sh','-c','test -z "${OPENAI_API_KEY_FILE-}"; test -z "${OPENAI_API_KEY-}"']);
+  compose(['exec','-T','executor','sh','-c','test -z "${WORKOS_API_KEY_FILE-}"; test -z "${RELAY_DATABASE_URL_FILE-}"; test ! -e /tmp/secret-executed']);
+  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY=fixture-conflict','executor','help']), /Configure either OPENAI_API_KEY or OPENAI_API_KEY_FILE/);
+  assert.throws(() => compose(['run','--rm','--no-deps','-e','OPENAI_API_KEY_FILE=/missing-secret','executor','help']), /Cannot read OPENAI_API_KEY_FILE/);
+  const executorId = compose(['ps','-q','executor']);
+  assert.equal(docker(['inspect','--format','{{.HostConfig.ReadonlyRootfs}}',executorId]),'true');
+  pass('Same image runs as UID 10001 with read-only root, pinned Goose, separate role secrets and pooled executor registration');
+  for (const [service,role] of [['api','controller'],['executor','executor']]) {
+    const lines = docker(['logs',compose(['ps','-q',service])],{stdio:['pipe','pipe','pipe']}).split('\n').filter(Boolean);
+    const records = lines.map(line => JSON.parse(line)); // Every line is one JSON object.
+    const start = records.find(record => record.message === 'Starting');
+    assert.equal(start?.role,role);
+    assert.ok(start?.release,'Startup line names the image release (unknown when not passed at build)');
+    if (role === 'controller') {
+      const metrics = records.find(record => record._aws?.CloudWatchMetrics);
+      assert.equal(metrics?._aws.CloudWatchMetrics[0].Namespace,'Ayati');
+      assert.ok(Number.isFinite(metrics?.QueuedWork) && Number.isFinite(metrics?.ReadySlots));
+    }
+  }
+  pass('Containers log one JSON object per line, starting with their role and release');
   // Node fetch does not preserve a custom Host; use HTTP transport to emulate the TLS proxy.
   const get = (path,cookie='') => new Promise((resolve,reject) => {
     httpGet({host:'127.0.0.1',port,path,headers:{Host:'workspace.example.test',Cookie:cookie,Connection:'close'}},res => {
-      res.resume(); res.on('end',()=>resolve({status:res.statusCode,headers:res.headers}));
+      let body = ''; res.setEncoding('utf8'); res.on('data',chunk => { body += chunk; });
+      res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body}));
     }).on('error',reject);
   });
   const login = await get('/auth/login');
@@ -103,20 +62,30 @@ test('deployable image runs separate API, migration and supervised worker contai
   assert.match(login.headers['set-cookie'][0],/; Secure/);
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   compose(['rm','-sf','api']);
-  compose(['up','-d','api']); await healthy('api');
+  compose(['up','-d','--no-deps','api']); await healthy('api');
+  // The executor is not recreated: it reconnects to the replacement on its own.
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'1');
   assert.equal((await get('/auth/callback?error=access_denied',cookie)).status,303);
   assert.equal(sql('SELECT count(*) FROM relay_login_flows'),'0');
   assert.equal((await get('/index.html')).status,200);
   pass('Replacing the API container loses scratch only; shared login state and packaged website remain available');
+  await healthy('executor');
+  const drained = compose(['ps','-q','executor']);
+  compose(['stop','-t','20','executor']);
+  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',drained]),'0');
+  pass('The executor drains its prepared slots through the controller on SIGTERM');
+  const stopped = compose(['ps','-q','api']);
+  docker(['kill','--signal','TERM',stopped]);
+  const draining = await get('/health/ready');
+  assert.deepEqual([draining.status,draining.body],[503,'draining']);
+  assert.equal((await get('/health/live')).status,200);
+  await until(() => docker(['inspect','--format','{{.State.Running}}',stopped]) === 'false',
+    'API did not stop after draining',30000);
+  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',stopped]),'0');
+  pass('A stopping API reports draining while still serving, then exits cleanly');
+  compose(['up','-d','api']); await healthy('api');
   compose(['stop','-t','5','db']);
   assert.throws(() => compose(['exec','-T','api','/opt/ayati/ayati','api-health']));
-  await until(() => {
-    try { compose(['exec','-T','worker','/opt/ayati/ayati','worker-health']); return false; }
-    catch { return true; }
-  },'Worker did not report database loss',20000);
   assert.equal((await get('/health/live')).status,200);
-  compose(['stop','-t','20','worker']);
-  assert.equal(docker(['inspect','--format','{{.State.ExitCode}}',workerId]),'0');
-  pass('Database loss fails API/worker readiness while liveness stays up; worker drains on SIGTERM');
+  pass('Database loss fails API readiness while liveness stays up');
 });

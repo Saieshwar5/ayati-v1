@@ -4,10 +4,11 @@ import { Button, Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { chatRequest, type Conversation, type Directory } from './model';
 import { useDirectConversation, type DirectTarget } from './direct-conversation';
+import { ParticipantFace, ParticipantName } from './conversation-face';
 
-export function CreateConversation({ directory, chats = [], mode, close, created, privateAgent }: {
+export function CreateConversation({ directory, chats = [], mode, close, created }: {
   directory: Directory; chats?: Conversation[]; mode: 'channel' | 'direct'; close: () => void;
-  created: (id: string) => void; privateAgent: (id: string) => void;
+  created: (id: string) => void;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -15,11 +16,11 @@ export function CreateConversation({ directory, chats = [], mode, close, created
   const [selected, setSelected] = useState<string[]>([]);
   const mutation = useMutation();
   const id = useRef(crypto.randomUUID());
-  const direct = useDirectConversation(directory, chats, created, privateAgent);
+  const direct = useDirectConversation(chats, created);
   const busy = mode === 'direct' ? direct.busy : mutation.busy;
   const status = mode === 'direct' ? direct.status : mutation.status;
   const users = directory.users.filter(user => user.id !== workspaceSession?.user?.id);
-  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' ? agent.shared || directory.role === 'Owner' : agent.scope !== 'private').map(agent => ({ ...agent, kind: 'agent' as const }))];
+  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' || agent.scope !== 'private').map(agent => ({ ...agent, kind: 'agent' as const }))];
   const create = (members: string[], title: string) => mutation.run(async () => {
     const users = members.filter(key => key.startsWith('user:')).map(key => key.slice(5));
     const agents = members.filter(key => key.startsWith('agent:')).map(key => key.slice(6));
@@ -34,8 +35,8 @@ export function CreateConversation({ directory, chats = [], mode, close, created
       <label>{mode === 'channel' ? 'Add people or agents' : 'Find a person or agent'}<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search workspace…" /></label>
       <div className="chat-choice-list">{choices.filter(item => `${item.name} ${item.email ?? ''}`.toLowerCase().includes(query.toLowerCase())).map(item => {
         const key = `${item.kind}:${item.id}`;
-        return mode === 'channel' ? <label className="chat-choice" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e => setSelected(values => e.target.checked ? [...values, key] : values.filter(value => value !== key))} /><span>{item.name}{item.email && <small>{item.email}</small>}</span>{item.kind === 'agent' && <small>Agent</small>}</label>
-          : <button type="button" className="chat-contact" key={key} onClick={() => void direct.choose(item)}><span className={`chat-avatar ${item.kind}`}>{item.kind === 'agent' ? '✧' : item.name.slice(0, 1).toUpperCase()}</span><span>{item.name}{item.email && <small>{item.email}</small>}</span>{item.kind === 'agent' && <small>Agent</small>}</button>;
+        return mode === 'channel' ? <label className="chat-choice" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e => setSelected(values => e.target.checked ? [...values, key] : values.filter(value => value !== key))} /><span><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? item.role : item.title || item.email}</small></span></label>
+          : <button type="button" className="chat-contact" key={key} onClick={() => void direct.choose(item)}><ParticipantFace kind={item.kind} who={item} /><span><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? item.role : item.title || item.email}</small></span></button>;
       })}</div>
       {!choices.length && <p className="chat-help">Invite a workspace member or create an agent to start a conversation.</p>}
       {mode === 'channel' && <Button primary type="submit" disabled={!name.trim() || !selected.length || mutation.busy}>Create channel</Button>}

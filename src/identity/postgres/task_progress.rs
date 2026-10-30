@@ -18,7 +18,7 @@ impl PgStore {
         )
         .await?
         .context("Task unavailable")?;
-        let job: crate::identity::chat::store::Job =
+        let job: crate::identity::chat::model::Job =
             serde_json::from_value(row.try_get("", "payload")?)?;
         ensure!(
             job.workspace == w && job.chat == chat && job.reply == reply,

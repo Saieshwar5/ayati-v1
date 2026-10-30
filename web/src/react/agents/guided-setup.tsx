@@ -30,6 +30,21 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
   const requests = useRef(new Map<string, string>());
   const alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const pending = record?.data.suggestion?.state === 'pending';
+  const recordId = record?.id;
+  // An executor prepares AI suggestions after the draft is saved; reload until they arrive.
+  useEffect(() => {
+    if (!pending || !recordId) return;
+    let stopped = false;
+    const timer = window.setInterval(() => {
+      void loadSetup(agent.id).then(latest => {
+        const draft = latest.draft;
+        if (stopped || !alive.current || draft?.id !== recordId || draft.data.suggestion?.state === 'pending') return;
+        setRecord(draft); setChoices(draft.data.choices); setPreview(undefined); confirm(false);
+      }).catch(() => {});
+    }, 1500);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [agent.id, pending, recordId]);
   const identity = (payload: unknown) => { const key = JSON.stringify(payload); const id = requests.current.get(key) ?? crypto.randomUUID(); requests.current.set(key, id); return id; };
   const edit = (index: number, mode: Choice['mode']) => { setChoices(old => old.map((c, i) => i === index ? { ...c, mode } : c)); setPreview(undefined); confirm(false); };
   const selectedAccounts = setup.context.accounts.filter(a => form.accounts.includes(a.id));
@@ -50,8 +65,8 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
       if (alive.current) { setRecord(result); setChoices(result.data.choices); setPreview(undefined); confirm(false); setStep(1); }
     })}>Create review draft</Button>
       : <><Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>
-        {step === 1 ? <><Button disabled={mutation.busy} onClick={() => void mutation.run(async () => { await persist(); if (alive.current) mutation.setStatus('Draft saved. Active permissions have not changed.'); })}>Save draft</Button>
-          <Button primary disabled={mutation.busy} onClick={() => void mutation.run(async () => { const saved = await persist(); const result = await previewDraft(agent.id, saved); if (alive.current) { setPreview(result); setStep(2); } })}>Preview permissions</Button></>
+        {step === 1 ? <><Button disabled={mutation.busy || pending} onClick={() => void mutation.run(async () => { await persist(); if (alive.current) mutation.setStatus('Draft saved. Active permissions have not changed.'); })}>Save draft</Button>
+          <Button primary disabled={mutation.busy || pending} onClick={() => void mutation.run(async () => { const saved = await persist(); const result = await previewDraft(agent.id, saved); if (alive.current) { setPreview(result); setStep(2); } })}>Preview permissions</Button></>
           : <Button primary disabled={mutation.busy || !reviewed || !preview || preview.revision !== record?.revision} onClick={() => void mutation.run(async () => {
             const result = await activateDraft(agent.id, record!);
             if (alive.current) { setRecord(old => old && ({ ...old, state: 'activated', receipt: result })); changed?.(); }
@@ -78,9 +93,10 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
             if (alive.current) { setConversations(old => old.some(c => c.id === result.id) ? old : [...old, { id: result.id, name }]); setForm(old => ({ ...old, chat: result.id })); }
           })}>Create work conversation</Button>
           <label className="ui-check"><input type="checkbox" checked={form.assistant} onChange={e => setForm(old => ({ ...old, assistant: e.target.checked }))} />Use AI suggestions for this review</label>
-          <p className="ui-help">Sends your description and reviewed action names to this agent’s configured model. Normal model usage may apply. Suggestions are editable and cannot activate permissions. Manual review starts with every action blocked.</p>
+          <p className="ui-help">Sends your description and reviewed action names to this agent’s configured model on a shared executor. Normal model usage may apply. Suggestions arrive after the draft is saved, are editable and cannot activate permissions. Manual review starts with every action blocked.</p>
         </>}
-        {step === 1 && record && <SetupReview draft={record} choices={choices} change={edit} route={(index, patch) => { setChoices(old => old.map((c, i) => i === index ? { ...c, ...patch } : c)); setPreview(undefined); confirm(false); }} executionAvailable={setup.execution_available} />}
+        {step === 1 && record?.data.suggestion && <p role="status" className="ui-help">{record.data.suggestion.detail}</p>}
+        {step === 1 && record && !pending && <SetupReview draft={record} choices={choices} change={edit} route={(index, patch) => { setChoices(old => old.map((c, i) => i === index ? { ...c, ...patch } : c)); setPreview(undefined); confirm(false); }} executionAvailable={setup.execution_available} />}
         {step === 2 && record && preview && <><SetupPreview draft={record} preview={preview} busy={mutation.busy} run={example => void mutation.run(async () => { const result = await previewDraft(agent.id, record, example); if (alive.current) setPreview(result); })} />
           <Coverage draft={record} /><label className="ui-check"><input type="checkbox" checked={reviewed} onChange={e => confirm(e.target.checked)} />I reviewed these actions, their limits and designated approvers.</label>
         </>}

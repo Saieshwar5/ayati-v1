@@ -23,9 +23,7 @@ async fn read(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?.question(&user, &w, &id).await?,
-    ))
+    Ok(Json(app.store.question(&user, &w, &id).await?))
 }
 async fn answer(
     State(app): State<Shared>,
@@ -35,8 +33,6 @@ async fn answer(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        collaboration::pg(&app)?
-            .answer_question(&user, &w, &id, &input)
-            .await?,
+        app.store.answer_question(&user, &w, &id, &input).await?,
     ))
 }

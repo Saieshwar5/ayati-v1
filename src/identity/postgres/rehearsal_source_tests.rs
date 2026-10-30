@@ -111,21 +111,21 @@ async fn rehearsal_sources_and_agent_wide_notes_remain_personal_and_revocation_b
             .unwrap()["samples"],
         json!([])
     );
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     assert!(
         claim
-            .prepared
+            .context
             .reference_notes
             .contains("APPROVED_AGENT_GUIDANCE")
     );
     assert!(
         !claim
-            .prepared
+            .context
             .reference_notes
             .contains("MUST_NOT_COPY_CONVERSATION_NOTE")
     );
     assert!(
-        claim.prepared.sources[0]["text"]
+        claim.context.sources[0]["text"]
             .as_str()
             .unwrap()
             .contains("PRIVATE_SOURCE_FACT")
@@ -162,12 +162,8 @@ async fn rehearsal_sources_and_agent_wide_notes_remain_personal_and_revocation_b
         .await
         .unwrap();
     assert_eq!(stopped, json!({"id":input.id,"state":"invalidated"}));
-    assert!(!db.heartbeat_rehearsal(&claim).await.unwrap());
-    assert!(
-        !db.finish_rehearsal(&claim, Some("WITHDRAWN_SOURCE_OUTPUT"), false)
-            .await
-            .unwrap()
-    );
+    assert!(!claim.renew().await);
+    assert!(!claim.finish("WITHDRAWN_SOURCE_OUTPUT").await);
     sharing.request = uuid::Uuid::new_v4().to_string();
     sharing.revision = 3;
     sharing.agents = vec![agent.clone()];
@@ -180,7 +176,7 @@ async fn rehearsal_sources_and_agent_wide_notes_remain_personal_and_revocation_b
             .is_err()
     );
     assert!(db.rehearsal(&owner, &w, &agent, &input.id).await.is_err());
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
@@ -203,27 +199,19 @@ async fn rehearsal_forgetting_or_correcting_an_approved_note_cannot_publish_or_r
     db.start_rehearsal(&owner, &w, &agent, &input)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     note.content = "Corrected fact".into();
     db.save_agent_knowledge(&owner, &w, &agent, &note)
         .await
         .unwrap();
-    assert!(!db.heartbeat_rehearsal(&claim).await.unwrap());
-    assert!(
-        !db.finish_rehearsal(&claim, Some("Old fact must not return"), false)
-            .await
-            .unwrap()
-    );
+    assert!(!claim.renew().await);
+    assert!(!claim.finish("Old fact must not return").await);
     assert!(db.rehearsal(&owner, &w, &agent, &input.id).await.is_err());
     let next = start();
     db.start_rehearsal(&owner, &w, &agent, &next).await.unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
-    assert!(claim.prepared.reference_notes.contains("Corrected fact"));
-    assert!(
-        db.finish_rehearsal(&claim, Some("Updated sample"), false)
-            .await
-            .unwrap()
-    );
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
+    assert!(claim.context.reference_notes.contains("Corrected fact"));
+    assert!(claim.finish("Updated sample").await);
     note.revision = 1;
     note.forgotten = true;
     db.save_agent_knowledge(&owner, &w, &agent, &note)
@@ -246,10 +234,8 @@ async fn rehearsal_source_version_change_hides_newer_history_without_hiding_olde
     db.start_rehearsal(&owner, &w, &agent, &older)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
-    db.finish_rehearsal(&claim, Some("Ordinary sample"), false)
-        .await
-        .unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
+    claim.finish("Ordinary sample").await;
     let (mut source, _, reference) = source(&db, &owner, &w, &agent).await;
     for _ in 0..27 {
         let mut input = start();
@@ -257,10 +243,8 @@ async fn rehearsal_source_version_change_hides_newer_history_without_hiding_olde
         db.start_rehearsal(&owner, &w, &agent, &input)
             .await
             .unwrap();
-        let claim = db.claim_rehearsal().await.unwrap().unwrap();
-        db.finish_rehearsal(&claim, Some("Private sample"), false)
-            .await
-            .unwrap();
+        let claim = super::executor_task_tests::claim(&db).await.unwrap();
+        claim.finish("Private sample").await;
     }
     let page = db
         .rehearsal_history(&owner, &w, &agent, None)
@@ -343,13 +327,11 @@ async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_wo
     db.start_rehearsal(&member, &w, &agent.id, &input)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     assert_eq!(claim.actor, member.id);
     assert_eq!(claim.agent, agent.id);
-    assert!(!claim.prepared.control_tools);
-    db.finish_rehearsal(&claim, Some("A private sample response"), false)
-        .await
-        .unwrap();
+    assert!(!claim.context.control_tools);
+    claim.finish("A private sample response").await;
     assert!(
         db.rehearsal(&owner, &w, &agent.id, &input.id)
             .await
@@ -369,7 +351,10 @@ async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_wo
         db.rehearsal(&member, &w, &agent.id, &input.id)
             .await
             .unwrap()["output"],
-        "A private sample response"
+        format!(
+            "{}A private sample response",
+            super::rehearsal_queue::SAMPLE_NOTICE
+        )
     );
 }
 
@@ -405,12 +390,12 @@ async fn rehearsal_membership_changes_retain_exact_receipts_without_reviving_que
             .unwrap()["state"],
         "invalidated"
     );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
     let running = start();
     db.start_rehearsal(&actor, &w, &agent, &running)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     db.change(&owner, &w, &actor.id, None).await.unwrap();
     assert!(
         db.start_rehearsal(&actor, &w, &agent, &running)
@@ -427,13 +412,9 @@ async fn rehearsal_membership_changes_retain_exact_receipts_without_reviving_que
             .unwrap()["state"],
         "invalidated"
     );
-    assert!(!db.heartbeat_rehearsal(&claim).await.unwrap());
-    assert!(
-        !db.finish_rehearsal(&claim, Some("LATE_OUTPUT"), false)
-            .await
-            .unwrap()
-    );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(!claim.renew().await);
+    assert!(!claim.finish("LATE_OUTPUT").await);
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
     assert_eq!(
         db.rehearsal_history(&actor, &w, &agent, None)
             .await

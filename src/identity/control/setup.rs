@@ -1,5 +1,5 @@
 use super::*;
-use setup_model::{Activate, Choice, Draft, Edit, Inventory, Preview, Start};
+use setup_model::{Activate, Choice, Draft, Edit, Inventory, Preview, Start, Suggestion};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route(
@@ -29,10 +29,10 @@ async fn snapshot(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let context = pg(&app)?.setup_context(&user, &w, &agent).await?;
-    let draft = pg(&app)?.setup_last_draft(&user, &w, &agent).await?;
+    let context = app.store.setup_context(&user, &w, &agent).await?;
+    let draft = app.store.setup_last_draft(&user, &w, &agent).await?;
     Ok(Json(
-        json!({"context":context,"draft":draft,"execution_available":execution_available()?}),
+        json!({"context":context,"draft":draft,"execution_available":execution_available(&app)?}),
     ))
 }
 async fn inventories(w: &str, context: &setup_model::Context) -> Result<Vec<Inventory>> {
@@ -79,10 +79,11 @@ async fn start(
 ) -> ApiResult<Json<Value>> {
     input.validate()?;
     let user = identity(&app, &headers).await?;
-    if let Some(old) = pg(&app)?.setup_existing(&user, &w, &agent, &input).await? {
+    if let Some(old) = app.store.setup_existing(&user, &w, &agent, &input).await? {
         return Ok(Json(old));
     }
-    let context = pg(&app)?
+    let context = app
+        .store
         .setup_selected_context(&user, &w, &agent, &input)
         .await?;
     let inventories = inventories(&w, &context).await?;
@@ -100,13 +101,28 @@ async fn start(
             })
         })
         .collect();
-    let mut draft=Draft { request:input,context,inventories,choices,notes:vec!["This review updates the selected accounts in one conversation. Permissions on other accounts are reviewed separately.".into()] };
-    if draft.request.assistant {
-        setup_assistant::suggest(&mut draft, &w, &agent).await?;
+    let mut draft=Draft { request:input,context,inventories,choices,notes:vec!["This review updates the selected accounts in one conversation. Permissions on other accounts are reviewed separately.".into()],suggestion:None };
+    if !draft.request.assistant {
+        return Ok(Json(
+            app.store.setup_create(&user, &w, &agent, &draft).await?,
+        ));
     }
-    Ok(Json(
-        pg(&app)?.setup_create(&user, &w, &agent, &draft).await?,
-    ))
+    let provider = draft.context.provider.clone().unwrap_or_default();
+    check(
+        crate::identity::hosting::executors_available(&app, &provider),
+        "AI suggestions need an executor for this agent's model. Use manual review or ask your operator.",
+    )?;
+    draft.suggestion = Some(Suggestion {
+        state: "pending".into(),
+        detail: "Preparing AI suggestions. Every action stays blocked until you review it.".into(),
+    });
+    let suggestion = setup_assistant::context(&draft, &w, &agent);
+    let created = app
+        .store
+        .setup_create_suggested(&user, &w, &agent, &draft, &suggestion)
+        .await?;
+    app.runtimes.chat_wake.notify_one();
+    Ok(Json(created))
 }
 async fn edit(
     State(app): State<Shared>,
@@ -116,7 +132,7 @@ async fn edit(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?.setup_edit(&user, &w, &agent, &id, &input).await?,
+        app.store.setup_edit(&user, &w, &agent, &id, &input).await?,
     ))
 }
 async fn preview(
@@ -127,7 +143,7 @@ async fn preview(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        pg(&app)?
+        app.store
             .setup_preview(&user, &w, &agent, &id, &input)
             .await?,
     ))
@@ -139,11 +155,11 @@ async fn activate(
     Json(input): Json<Activate>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let saved = pg(&app)?.setup_draft(&user, &w, &agent, &id).await?;
+    let saved = app.store.setup_draft(&user, &w, &agent, &id).await?;
     if saved["state"] != "activated" {
         let draft: Draft = serde_json::from_value(saved["data"].clone())?;
         check(
-            execution_available()? || draft.choices.iter().all(|c| c.mode == "block"),
+            execution_available(&app)? || draft.choices.iter().all(|c| c.mode == "block"),
             "Business tools require controller-managed execution",
         )?;
         let inventory = inventories(&w, &draft.context).await?;
@@ -153,7 +169,7 @@ async fn activate(
         )?;
     }
     Ok(Json(
-        pg(&app)?
+        app.store
             .setup_activate(&user, &w, &agent, &id, &input)
             .await?,
     ))

@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 pub(super) async fn invalidate_inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     if !super::handoff_access::exists(tx).await? {
         return Ok(());

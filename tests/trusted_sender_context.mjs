@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
-import { managedGuidanceOnly } from './fixtures/worker_control.mjs';
+import { controllerToolsOnly, managedGuidanceOnly } from './fixtures/worker_control.mjs';
 
 function promptText(request) {
   return request.messages.flatMap(message => typeof message.content === 'string'
@@ -21,7 +21,7 @@ function evidence(text) {
 test('real Goose receives trusted requester metadata and attributed isolated conversation evidence', {
   timeout: 120000, skip: !process.env.RELAY_TEST_DATABASE_URL,
 }, async t => {
-  const app = await workerFixture(t);
+  const app = await workerFixture(t, { mode: 'pooled', control: true, leaseSeconds: 15 });
   const roster = (await app.request('/api/identity/simulation')).value;
   const owner = roster.employees.find(e => e.number === 0).user;
   const member = roster.employees.find(e => e.number === 1).user;
@@ -32,7 +32,7 @@ test('real Goose receives trusted requester metadata and attributed isolated con
   await app.request('/api/identity/profile', app.cookie, { display_name: 'Alex renamed' });
   await app.stopApi();
   await app.startApi();
-  await app.startWorker();
+  await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
   await app.done(first);
   const privatePrompt = promptText(app.provider.requests.at(-1));
   managedGuidanceOnly(app.provider.requests[0]);
@@ -70,7 +70,7 @@ test('real Goose receives trusted requester metadata and attributed isolated con
   assert.equal(transcript.request_message, current.request_message);
   assert.ok(!sharedPrompt.includes('OWNER_PRIVATE_CONTEXT_CANARY'));
   assert.ok(!sharedPrompt.includes(owner.email));
-  assert.deepEqual(app.provider.requests.at(-1).tools ?? [], []);
+  controllerToolsOnly(app.provider.requests.at(-1));
   app.pass('Same-name participants retain distinct stable IDs; forged prose does not replace the requester or expose another private conversation');
   await writeFile(join(app.data, 'context-evidence.json'), JSON.stringify({ firstIdentity, current, transcript }, null, 2));
 });

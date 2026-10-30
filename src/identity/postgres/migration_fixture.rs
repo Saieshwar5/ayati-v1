@@ -1,11 +1,17 @@
 //! Seed historical schemas without using newer intake or registration SQL.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
+
+/// The request/token pair a retired assigned worker used to reserve work.
+pub(super) struct LegacyReservation {
+    pub request: String,
+    pub token: String,
+}
 
 pub(super) async fn legacy_reservation(
     db: &PgStore,
     executor: &crate::identity::worker_control::model::Registration,
-    request: &crate::identity::worker_control::model::Reservation,
+    request: &LegacyReservation,
     lease: i32,
 ) -> Result<crate::identity::worker_control::model::Scope> {
     use crate::identity::worker_control::model::Scope;
@@ -59,6 +65,31 @@ pub(super) async fn legacy_request(
     agent: &str,
     content: &str,
 ) -> Result<Option<Job>> {
+    let dispatch = if db.pooled { "pooled" } else { "polling" };
+    insert_request(db, user, workspace, chat, agent, content, dispatch).await
+}
+
+/// A request queued for the retired assigned workers, for upgrade tests.
+pub(super) async fn legacy_assigned_request(
+    db: &PgStore,
+    user: &User,
+    workspace: &str,
+    chat: &str,
+    agent: &str,
+    content: &str,
+) -> Result<Option<Job>> {
+    insert_request(db, user, workspace, chat, agent, content, "assigned").await
+}
+
+async fn insert_request(
+    db: &PgStore,
+    user: &User,
+    workspace: &str,
+    chat: &str,
+    agent: &str,
+    content: &str,
+    dispatch: &str,
+) -> Result<Option<Job>> {
     let tx = db.db.begin().await?;
     execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7)",
         vec![uuid::Uuid::new_v4().to_string().into(),workspace.into(),chat.into(),user.id.clone().into(),content.into(),now().into(),agent.into()]).await?;
@@ -75,7 +106,24 @@ pub(super) async fn legacy_request(
         claim: None,
     };
     execute(&tx,"INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds) VALUES($1,$2,$3,$4,$5)",
-        vec![workspace.into(),job.reply.clone().into(),serde_json::to_value(&job)?.into(),if db.assigned {"assigned"} else if db.pooled {"pooled"} else {"polling"}.into(),(db.assignment_seconds as i32).into()]).await?;
+        vec![workspace.into(),job.reply.clone().into(),serde_json::to_value(&job)?.into(),dispatch.into(),(db.assignment_seconds as i32).into()]).await?;
     tx.commit().await?;
     Ok(Some(job))
+}
+
+/// Start a reserved assignment as a historical controller did, so an upgrade
+/// test can hold a running attempt without newer start SQL.
+pub(super) async fn legacy_start(
+    db: &PgStore,
+    scope: &crate::identity::worker_control::model::Scope,
+    session: &str,
+    context: &crate::identity::chat::execution::Prepared,
+) -> Result<()> {
+    let tx = db.db.begin().await?;
+    execute(&tx,"UPDATE relay_worker_assignments SET state='running',started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint,heartbeat_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='launching'",vec![scope.assignment.clone().into()]).await?;
+    execute(&tx,"UPDATE relay_chat_jobs SET lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+120 WHERE claim=$1 AND state='running'",vec![scope.assignment.clone().into()]).await?;
+    execute(&tx,"UPDATE relay_assignment_credentials SET session=$2,context=$3,expires=floor(extract(epoch FROM clock_timestamp()))::bigint+300 WHERE assignment=$1",
+        vec![scope.assignment.clone().into(),session.into(),serde_json::to_value(context)?.into()]).await?;
+    tx.commit().await?;
+    Ok(())
 }

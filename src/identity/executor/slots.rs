@@ -3,6 +3,7 @@ use super::{
     harness::Harness,
     model::{Profile, SlotReport},
 };
+use crate::config::Executor;
 use crate::identity::{
     chat::execution,
     provider::random_token,
@@ -14,7 +15,10 @@ use crate::identity::{
     },
 };
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 pub(super) enum State {
@@ -28,6 +32,7 @@ pub(super) struct Slot {
     pub generation: i64,
     pub token: String,
     pub profile: Profile,
+    config: Arc<Executor>,
     pub state: State,
     pub pid: Option<u32>,
 }
@@ -41,12 +46,13 @@ pub(super) struct Control {
     pub stop: CancellationToken,
 }
 impl Slot {
-    pub fn new(profile: Profile) -> Self {
+    pub fn new(profile: Profile, config: Arc<Executor>) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             generation: 1,
             token: random_token(),
             profile,
+            config,
             state: State::Preparing,
             pid: None,
         }
@@ -81,10 +87,11 @@ impl Slot {
     ) {
         let generation = self.generation;
         let profile = self.profile.clone();
+        let config = self.config.clone();
         let stop = stop.clone();
         let root = root.join(&self.id).join(generation.to_string());
         jobs.spawn(async move {
-            let result=tokio::select! {_=stop.cancelled()=>Err(anyhow::anyhow!("Executor draining")),result=Harness::prepare(&root,&profile)=>result};
+            let result=tokio::select! {_=stop.cancelled()=>Err(anyhow::anyhow!("Executor draining")),result=Harness::prepare(&root,&profile,&config)=>result};
             if result.is_err() {execution::cleanup(&root).await;tokio::time::sleep(std::time::Duration::from_millis(300)).await;}
             Done::Prepared(index,generation,result)
         });

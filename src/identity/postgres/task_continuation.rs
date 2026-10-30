@@ -1,6 +1,6 @@
 //! A task survives its bounded attempts. Saved data reconstructs a fresh Goose run.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 /// The caller holds the workspace transaction, current claim and source authority.

@@ -39,70 +39,52 @@ async fn pins_are_personal_ordered_scoped_and_revision_checked_without_creating_
     let before = db.company_counts(&owner, &w).await.unwrap();
     let input = pins(0, &[&other, &job.chat]);
     let (a, b) = tokio::join!(
-        db.save_chat_pins(&owner, &w, &[], &input),
-        db.save_chat_pins(&owner, &w, &[], &input)
+        db.save_chat_pins(&owner, &w, &input),
+        db.save_chat_pins(&owner, &w, &input)
     );
     assert_eq!(a.unwrap(), b.unwrap());
-    let saved = db.chat_pins(&owner, &w, &[]).await.unwrap();
+    let saved = db.chat_pins(&owner, &w).await.unwrap();
     assert_eq!(saved["revision"], 1);
     assert_eq!(saved["pins"][0]["id"], other);
     assert_eq!(
-        db.chat_pins(&member, &w, &[]).await.unwrap()["pins"],
+        db.chat_pins(&member, &w).await.unwrap()["pins"],
         serde_json::json!([])
     );
     assert!(
-        db.save_chat_pins(&member, &w, &[], &pins(0, &[&other]))
+        db.save_chat_pins(&member, &w, &pins(0, &[&other]))
             .await
             .is_err()
     );
     assert!(
-        db.save_chat_pins(
-            &owner,
-            &workspace(&db, &owner).await,
-            &[],
-            &pins(0, &[&other])
-        )
-        .await
-        .is_err()
+        db.save_chat_pins(&owner, &workspace(&db, &owner).await, &pins(0, &[&other]))
+            .await
+            .is_err()
     );
     assert!(
-        db.save_chat_pins(&owner, &w, &[], &pins(0, &[&job.chat]))
+        db.save_chat_pins(&owner, &w, &pins(0, &[&job.chat]))
             .await
             .is_err()
     );
     let mut changed = pins(0, &[&job.chat]);
     changed.request = input.request.clone();
-    assert!(db.save_chat_pins(&owner, &w, &[], &changed).await.is_err());
+    assert!(db.save_chat_pins(&owner, &w, &changed).await.is_err());
     assert!(
-        db.save_chat_pins(&owner, &w, &[], &pins(1, &[&other, &other]))
-            .await
-            .is_err()
-    );
-    let local = SavePins {
-        request: uuid::Uuid::new_v4().to_string(),
-        revision: 0,
-        pins: vec![Pin {
-            kind: PinKind::LocalAgent,
-            id: "local-agent".into(),
-        }],
-    };
-    assert!(
-        db.save_chat_pins(&member, &w, &["local-agent".into()], &local)
+        db.save_chat_pins(&owner, &w, &pins(1, &[&other, &other]))
             .await
             .is_err()
     );
     assert_eq!(before, db.company_counts(&owner, &w).await.unwrap());
-    db.save_chat_pins(&member, &w, &[], &pins(0, &[&job.chat]))
+    db.save_chat_pins(&member, &w, &pins(0, &[&job.chat]))
         .await
         .unwrap();
     db.channel_members(&owner, &w, &job.chat, std::slice::from_ref(&owner.id))
         .await
         .unwrap();
     assert_eq!(
-        db.chat_pins(&member, &w, &[]).await.unwrap()["pins"],
+        db.chat_pins(&member, &w).await.unwrap()["pins"],
         serde_json::json!([])
     );
-    let revoked = db.organized_chats(&member, &w, &[]).await.unwrap();
+    let revoked = db.organized_chats(&member, &w).await.unwrap();
     assert_eq!(revoked["preferences"]["pins"], serde_json::json!([]));
     assert!(
         !revoked["chats"]
@@ -268,5 +250,27 @@ async fn archive_requires_current_source_and_creator_or_owner_authority() {
         db.channel_lifecycle(&stranger, &w, &private, None)
             .await
             .is_err()
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn archiving_keeps_saved_work_and_questions_current() {
+    let (db, owner, w, _, job) = setup("ask").await;
+    let epochs = || async {
+        query(&db.db, "SELECT COALESCE(sum(revision),0)::bigint AS n FROM relay_context_epochs WHERE workspace=$1", vec![w.clone().into()])
+            .await.unwrap().map(|r| r.try_get::<i64>("", "n").unwrap()).unwrap_or(0)
+    };
+    let before = epochs().await;
+    db.channel_lifecycle(&owner, &w, &job.chat, Some(&lifecycle(true, 0)))
+        .await
+        .unwrap();
+    db.channel_lifecycle(&owner, &w, &job.chat, Some(&lifecycle(false, 1)))
+        .await
+        .unwrap();
+    assert_eq!(
+        epochs().await,
+        before,
+        "archive and restore change intake, not who can read"
     );
 }

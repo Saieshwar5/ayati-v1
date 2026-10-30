@@ -13,32 +13,21 @@ registerHooks({ load(url, context, next) {
 const workspace = '11111111-1111-4111-8111-111111111111';
 const base = `/w/${workspace}/`;
 const session = { user: { id: 'owner', email: 'owner@example.com' }, workspaces: [{ id: workspace, name: 'Store', role: 'Owner' }] };
-const profiles = ['local-agent', 'assistant-two'].map((id, i) => ({ id, name: i ? 'Ramesh' : 'Relay', state: 'ready', editable: false, revision: 1, role: '', model: 'test', memory: false, browser: false, browser_available: false }));
-const directory = { agents: profiles.map(profile => ({ profile, activity: { pending_approvals: 0, pending_tasks: 0 } })), creation_available: true, limit: 4 };
+const profiles = [{ id: 'assistant-two', name: 'Ramesh' }];
 const response = data => ({ ok: true, status: 200, json: async () => data });
 function dataFor(path) {
   if (path.endsWith('/session')) return session;
-  if (path.endsWith('/agents')) return directory;
   if (path.endsWith('/chat-directory')) return { users: [], agents: profiles.map(p => ({ id:p.id, name:p.name })), role: 'Owner' };
   if (path.endsWith('/message-capabilities')) return { live: true };
   if (path.endsWith('/unread')) return { unread: [] };
   if (path.endsWith('/chats')) return { chats: [] };
-  if (path.endsWith('/home')) return { agents: [] };
-  // These legacy Home journeys exercise the explicit private-runtime adapter.
-  if (path.includes('/attention?')) return { available: false, items: [], next_before: null };
+  if (path.endsWith('/work')) return { work: [] };
+  if (path.includes('/attention?')) return attention;
   if (path.endsWith('/home-panels')) return { available: false, panels: [] };
-  if (path.endsWith('/panels')) return { panels: [], available: true };
-  if (path.endsWith('/apps')) return { apps: [], available: true };
-  if (path.endsWith('/home/preferences')) return { preferences: null };
   if (path.endsWith('/people')) return { role: 'Owner', members: [{ id: 'owner', email: 'owner@example.com', role: 'Owner' }], invitations: [] };
-  if (path.endsWith('/health')) return { model_ready: true };
-  if (path.endsWith('/browser/status')) return { configured: false, owner: false };
-  if (path.endsWith('/memory?query=')) return { enabled: false, memories: [] };
-  if (path.endsWith('/connections')) return { connections: [], available: false };
-  if (path.endsWith('/state')) return { messages: [], tasks: [], artifacts: [] };
-  if (path.endsWith('/setup')) return { checks: [], supported: true };
   throw new Error(`Unexpected request: ${path}`);
 }
+let attention = { available: true, items: [], next_before: null };
 async function prepare(dom) {
   const original = Object.fromEntries(['indexedDB', 'Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame'].map(key => [key, globalThis[key]]));
   const timers = new Map(); let timer = 0;
@@ -57,7 +46,7 @@ async function prepare(dom) {
   const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
   const { WorkspaceApplication } = await import('../src/react/workspace-application.tsx');
   return { WorkspaceApplication, timers, streams, async cleanup() {
-    const { disposeViewLifetime } = await import('../src/view-lifetime.ts'); await act(async () => { disposeViewLifetime(); await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
     Object.assign(globalThis, original);
   } };
 }
@@ -67,80 +56,41 @@ async function until(update, condition) {
 }
 
 test('sidebar navigation retains the shell, handles rapid changes and cleans feature timers', async () => {
-  let releaseHome; let firstHome = true;
   await reactFixture(async ({ dom, render, click, update }) => {
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('.home'));
       const rail = document.querySelector('.workspace-rail');
-      for (const [label, selector] of [['Apps', '.apps-page'], ['Settings', '.settings-page'], ['Home', '.home']]) {
-        const link = [...rail.querySelectorAll('a')].find(node => node.title === label);
-        await click(link);
+      assert.equal(rail.querySelector('[title=Apps]'), null);
+      for (const [label, selector] of [['Chat', '.workspace-chat'], ['Settings', '.settings-page'], ['Home', '.home']]) {
+        await click(rail.querySelector(`[title=${label}]`));
         assert.equal(document.querySelector('.workspace-rail'), rail);
         await until(update, () => document.querySelector(selector));
-        if (label === 'Apps') await update(() => releaseHome?.(response({ agents: [] })));
       }
-      // Two clicks before feature imports complete must leave only the last route mounted.
+      // Two clicks before features settle must leave only the last route mounted.
       await update(() => {
-        rail.querySelector('[title=Apps]').click();
+        rail.querySelector('[title=Chat]').click();
         rail.querySelector('[title=Settings]').click();
       });
       await until(update, () => document.querySelector('.settings-page'));
-      assert.equal(document.querySelector('.apps-page'), null);
+      assert.equal(document.querySelector('.workspace-chat'), null);
       assert.equal(setup.timers.size, 1, 'Only the workspace outbox/receipt timer remains');
       await update(() => dom.window.history.back());
-      await until(update, () => document.querySelector('.apps-page'));
+      await until(update, () => document.querySelector('.workspace-chat'));
       assert.equal(document.querySelector('.workspace-rail'), rail);
-      assert.equal(document.querySelector('[title=Apps]').getAttribute('aria-current'), 'page');
+      assert.equal(document.querySelector('[title=Chat]').getAttribute('aria-current'), 'page');
     } finally { await setup.cleanup(); }
-  }, { url: `http://localhost${base}?view=home`, fetch: async path => {
-    if (path.endsWith('/home') && firstHome) { firstHome = false; return new Promise(resolve => { releaseHome = resolve; }); }
-    return response(dataFor(path));
-  } });
-});
-
-test('agent switching retains contacts, isolates drafts and ignores late agent responses', async () => {
-  let releaseOld;
-  let initialState = true;
-  const requests = [];
-  await reactFixture(async ({ dom, render, click, update, change }) => {
-    const setup = await prepare(dom);
-    try {
-      await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelector('.message-composer textarea') && document.querySelector('.chat-contact'));
-      const rail = document.querySelector('.workspace-rail');
-      const contacts = document.querySelector('.chat-directory');
-      document.querySelector('#conversation').scrollTop = 123;
-      await change(document.querySelector('.message-composer textarea'), 'Draft for Relay');
-      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Ramesh')));
-      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Ramesh');
-      assert.equal(document.querySelector('.chat-directory'), contacts);
-      assert.equal(document.querySelector('.workspace-rail'), rail);
-      assert.equal(document.querySelector('.message-composer textarea').value, '');
-      assert.equal(setup.streams.size, 1, 'Previous agent stream must close');
-      await update(() => releaseOld?.(response({ messages: [{ id: 'old', role: 'assistant', content: 'STALE RELAY REPLY', state: 'done' }], tasks: [], artifacts: [] })));
-      assert.doesNotMatch(document.querySelector('#conversation').textContent, /STALE/);
-      await change(document.querySelector('.message-composer textarea'), 'Draft for Ramesh');
-      await click([...contacts.querySelectorAll('a')].find(a => a.textContent.includes('Cuckoo')));
-      await until(update, () => document.querySelector('.message-composer textarea')?.getAttribute('aria-label') === 'Message Cuckoo');
-      assert.equal(document.querySelector('.message-composer textarea').value, 'Draft for Relay');
-      assert.equal(document.querySelector('#conversation').scrollTop, 123);
-      assert.ok(requests.some(request => request.path.endsWith('/state') && request.agent === 'assistant-two'));
-      assert.equal(setup.streams.size, 1);
-    } finally { await setup.cleanup(); assert.equal(setup.streams.size, 0); }
-  }, { url: `http://localhost${base}?agent=local-agent`, fetch: async (path, options = {}) => {
-    requests.push({ path, agent: options.headers?.get?.('X-Ayati-Agent') });
-    if (path.endsWith('/state') && initialState) { initialState = false; return new Promise(resolve => { releaseOld = resolve; }); }
-    return response(dataFor(path));
-  } });
+  }, { url: `http://localhost${base}?view=home`, fetch: async path => response(dataFor(path)) });
 });
 
 test('navigation interception leaves workspace switches, downloads and other destinations native', async () => {
   await reactFixture(async ({ dom }) => {
     const { localDestination, workspacePage } = await import('../src/navigation.ts');
     const current = new URL(dom.window.location.href);
-    assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'chat');
+    // Links to removed local screens land on Home instead of a dead view.
+    assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'home');
+    assert.equal(workspacePage(new URL('?view=apps', current)), 'home');
     assert.equal(workspacePage(new URL('?view=users', current)), 'settings');
     assert.ok(localDestination('?view=apps', current));
     for (const path of ['/w/22222222-2222-4222-8222-222222222222/', '/auth/login', '/api/identity/session', 'https://example.com/']) assert.equal(localDestination(path, current), undefined);
@@ -217,41 +167,22 @@ test('creating a channel validates membership and resets its dialog', async () =
   } });
 });
 
-test('Home separates outcomes from decisions', async () => {
-  let permissions = [];
-  const task = { id: 'finished', status: 'completed', detail: 'Report ready', request: 'Daily report', created_at: '2026-10-20 10:00:00' };
-  await reactFixture(async ({ dom, render, click, update, button }) => {
+test('Home shows the clock, shared attention and saved panels without private runtime controls', async () => {
+  attention = { available: true, next_before: null, items: [{ kind: 'outcome', id: 'finished', version: '1', title: 'Daily report', status: 'complete', at: 1, agent: 'assistant-two', agent_name: 'Ramesh', chat: 'reports', thread: null, reply: 'reply', conversation_name: 'Reports', archived: false, read: false, reviewed: false }] };
+  await reactFixture(async ({ dom, render, update }) => {
     const setup = await prepare(dom);
     try {
       await render(setup.WorkspaceApplication);
-      await until(update, () => document.querySelector('#home-activity-count')?.textContent.includes('1 outcome'));
       await until(update, () => document.querySelector('.notification-preview')?.textContent.includes('Daily report'));
-      assert.equal(document.querySelector('#home-agents'), null);
       assert.equal(document.querySelectorAll('.home-standard-panels .home-clock-panel').length, 1);
       assert.equal(document.querySelectorAll('.home-standard-panels .home-notifications').length, 1);
-      assert.match(document.querySelector('.notification-preview').textContent, /Daily report/);
-      assert.equal(document.querySelector('#home-decisions').hidden, true);
-      await click(document.querySelector('#home-history-toggle'));
-      await click(document.querySelector('#home-updates'));
-      assert.equal(document.querySelector('.attention-inbox').open, true);
-      assert.match(document.querySelector('#home-attention').textContent, /Daily report/);
-      assert.match(document.querySelector('.inbox-filters [aria-pressed=true]').textContent, /Updates/);
-      await click(button('Close inbox'));
-      permissions = [{ id: 'approval', task_id: 'queued', title: 'Send supplier request', action: { operation: 'send' } }];
-      await click(document.querySelector('#home-refresh'));
-      assert.match(document.querySelector('.notification-preview').textContent, /Send supplier request/);
-      await click(document.querySelector('.notification-row'));
-      assert.match(document.querySelector('.inbox-filters [aria-pressed=true]').textContent, /Decisions/);
-      assert.match(document.querySelector('#home-attention').textContent, /Send supplier request/);
-      await click(button('Close inbox'));
-    } finally { await setup.cleanup(); }
-  }, { url: `http://localhost${base}?view=home`, fetch: async path => {
-    if (path.endsWith('/home')) return response({ agents: [{ profile: profiles[0], attention: { active: [], recent: [task], outcomes: [task], outcome_count: 1, permissions } }] });
-    return response(dataFor(path));
-  } });
+      assert.match(document.querySelector('.home-location').textContent, /^Device time/);
+      for (const legacy of ['#home-history-toggle', '#home-refresh', '#home-guide']) assert.equal(document.querySelector(legacy), null);
+    } finally { attention = { available: true, items: [], next_before: null }; await setup.cleanup(); }
+  }, { url: `http://localhost${base}?view=home`, fetch: async path => response(dataFor(path)) });
 });
 
-test('unified Chat keeps its directory across agent, channel, and direct-message navigation', async () => {
+test('unified Chat keeps its directory across channel and direct-message navigation', async () => {
   const chats = [{id:'inventory',name:'Inventory',kind:'channel',description:'Stock',users:['owner','member'],agents:[]}, {id:'priya',name:'Priya',kind:'direct',description:'',users:['owner','member'],agents:[]}];
   let reply;
   await reactFixture(async ({dom,render,click,update,change,submit,button}) => {
@@ -263,9 +194,6 @@ test('unified Chat keeps its directory across agent, channel, and direct-message
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Inventory')));
       await until(update,()=>document.querySelector('.message-composer textarea'));
       await change(document.querySelector('.message-composer textarea'),'Inventory draft');
-      await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Ramesh')));
-      await until(update,()=>document.querySelector('.message-composer textarea'));
-      assert.equal(document.querySelector('.chat-directory'),sidebar);
       await click([...sidebar.querySelectorAll('a')].find(a=>a.textContent.includes('Priya')));
       await until(update,()=>document.querySelector('.chat-pane-header h2')?.textContent==='Priya');
       assert.equal(document.querySelector('.chat-directory'),sidebar);

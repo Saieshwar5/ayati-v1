@@ -1,6 +1,6 @@
 //! Transactional, internal work records. No external side effects or provider credentials.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 impl PgStore {
     pub async fn company_work(&self, user: &User, w: &str) -> Result<Vec<Value>> {

@@ -24,20 +24,37 @@ impl std::error::Error for Conflict {}
 #[derive(Clone)]
 pub(crate) struct Client {
     http: reqwest::Client,
+    /// The offer stream stays open, so it has no overall request timeout.
+    stream: reqwest::Client,
     url: String,
     token: String,
+    /// A cloud executor's bound ECS task, sent with every request so the
+    /// controller can match each capability to its registration.
+    task: Option<String>,
+}
+/// Both clients share one rule: plain HTTP only to loopback, otherwise HTTPS
+/// trusting only the operator's private certificate authority.
+fn builder(
+    endpoint: &config::Endpoint,
+    ca: Option<&std::path::Path>,
+) -> Result<reqwest::ClientBuilder> {
+    let builder = reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(2));
+    match (endpoint.tls, ca) {
+        (true, Some(ca)) => super::tls::trust(builder, ca),
+        (true, None) => {
+            anyhow::bail!("An https:// worker control URL needs a certificate authority")
+        }
+        (false, _) => Ok(builder),
+    }
 }
 impl Client {
     pub(crate) async fn events(&self, path: &str) -> Result<reqwest::Response> {
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(Duration::from_secs(2))
-            .build()?;
         let response = tokio::time::timeout(
             Duration::from_secs(2),
-            client
-                .get(format!("{}{path}", self.url))
+            self.task(self.stream.get(format!("{}{path}", self.url)))
                 .bearer_auth(&self.token)
                 .send(),
         )
@@ -53,17 +70,29 @@ impl Client {
         );
         Ok(response)
     }
-    pub fn new(url: &str, token: &str) -> Result<Self> {
+    pub fn new(control: &crate::config::WorkerControl, token: &str) -> Result<Self> {
         super::model::token(token)?;
+        let endpoint = config::url(&control.url)?;
+        let ca = control.ca_file.as_deref();
         Ok(Self {
-            http: reqwest::Client::builder()
-                .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
+            http: builder(&endpoint, ca)?
                 .timeout(Duration::from_secs(2))
                 .build()?,
-            url: config::url(url)?,
+            stream: builder(&endpoint, ca)?.build()?,
+            url: endpoint.origin,
             token: token.into(),
+            task: None,
         })
+    }
+    pub fn for_task(mut self, task: Option<String>) -> Self {
+        self.task = task;
+        self
+    }
+    fn task(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.task {
+            Some(task) => request.header("x-ayati-cloud-task", task),
+            None => request,
+        }
     }
     pub fn with_token(&self, token: &str) -> Result<Self> {
         super::model::token(token)?;
@@ -71,8 +100,10 @@ impl Client {
         // request supplies its own capability; cloning only shares connections.
         Ok(Self {
             http: self.http.clone(),
+            stream: self.stream.clone(),
             url: self.url.clone(),
             token: token.into(),
+            task: self.task.clone(),
         })
     }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: &impl Serialize) -> Result<T> {
@@ -85,8 +116,7 @@ impl Client {
         seconds: u64,
     ) -> Result<T> {
         let mut response = self
-            .http
-            .post(format!("{}{path}", self.url))
+            .task(self.http.post(format!("{}{path}", self.url)))
             .bearer_auth(&self.token)
             .json(body)
             .timeout(Duration::from_secs(seconds))
@@ -132,21 +162,6 @@ impl Client {
                 result => return result,
             }
         }
-    }
-    pub async fn reserve(
-        &self,
-        executor: &Registration,
-        reservation: &Reservation,
-    ) -> Result<Option<Scope>> {
-        self.retry(
-            &format!(
-                "/v1/executors/{}/{}/reserve",
-                executor.executor, executor.incarnation
-            ),
-            reservation,
-            5,
-        )
-        .await
     }
     pub async fn release(
         &self,

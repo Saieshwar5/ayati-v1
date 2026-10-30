@@ -128,7 +128,6 @@ async fn pool_requires_ready_compatible_capacity_and_preserves_unknown_offers() 
         .await
         .unwrap();
     assert!(db.claim_job().await.unwrap().is_none());
-    assert!(db.reserve_assignment(6, 2).await.unwrap().is_none());
     slot.state = "preparing".into();
     slot.pid = None;
     report(&db, &e, vec![slot.clone()]).await.unwrap();

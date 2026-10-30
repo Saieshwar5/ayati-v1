@@ -1,13 +1,11 @@
 import { startLive } from './chat/live';
-import { disposeViewLifetime } from '../view-lifetime';
+import { startDesktopAlerts } from './chat/notifications';
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
-import { currentWorkspace, workspaceId } from '../workspace-context';
 import { WorkspaceShell } from './workspace-shell';
 import { SettingsPage } from './settings/settings-page';
 import { AccountPage } from './account';
-import { PrivateChat } from './private-chat';
-import { LegacyView } from './legacy-view';
+import { HomePage } from './home-page';
 import './agents/agents.css';
 import './agents/context-preview.css';
 import { AgentsPage } from './agents/directory';
@@ -19,21 +17,18 @@ const LibraryPage = lazy(() => import('./library/library-page').then(module => (
 
 export function WorkspaceApplication() {
   const href = useSyncExternalStore(subscribeNavigation, () => window.location.href);
-  const url = new URL(href);
-  const page = workspacePage(url);
-  const privateChat = page === 'chat' && (url.searchParams.has('agent') || !workspaceId);
+  const page = workspacePage(new URL(href));
   useEffect(installNavigation, []);
   useEffect(startLive, []);
-  const featureKey = page === 'chat' ? 'chat' : href;
-  useEffect(() => () => disposeViewLifetime(), [featureKey]);
+  useEffect(startDesktopAlerts, []);
   useEffect(() => {
     document.documentElement.dataset.page = page;
     const title = page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
     document.title = `${title} · Cuckoo`;
   }, [page, href]);
-  const denied = privateChat && workspaceId && currentWorkspace()?.role !== 'Owner';
   return <LibraryUploads><WorkspaceShell page={page}>
-    {page === 'agents' && workspaceId && !url.searchParams.has('legacy') ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' && workspaceId ? <WorkspaceChat href={href} /> : denied ? <p role="alert">Private agent chats require workspace owner access.</p> : page === 'account' ? <AccountPage embedded />
-      : privateChat ? <PrivateChat href={href} /> : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary> : <LegacyView key={featureKey} page={page} href={href} />}
+    {page === 'agents' ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' ? <WorkspaceChat href={href} />
+      : page === 'account' ? <AccountPage embedded /> : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary>
+      : <HomePage />}
   </WorkspaceShell></LibraryUploads>;
 }

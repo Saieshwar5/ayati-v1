@@ -1,8 +1,9 @@
 # Local PostgreSQL workspace foundation
 
-The durable shared-reply queue supports [polling workers](independent-chat-worker.md)
-and [temporary assignment workers](assignment-workers.md). The current checkout
-requires all thirty-three migrations, including `m20261027_000033_home_panel_maintenance`.
+The durable shared-reply queue feeds [pooled executors](executor-pool.md). The current checkout
+requires all thirty-five migrations, including `m20261029_000034_executor_tasks`, which
+lets the pool run one-off tool-free tasks such as [job samples](agent-job-rehearsal.md),
+and `m20261029_000035_data_lifecycle` (below).
 [Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
 deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
@@ -14,24 +15,15 @@ and outcome-review receipts without changing task or business-action authority.
 [Personal pins and channel archive](chat-organization.md) add preferences and the
 closed-intake guard; [ordinary questions](agent-questions.md) were introduced in schema 23.
 [Saved approval waits](durable-approval-waits.md) retain tasks across worker release.
-API-only polling dispatch uses `AYATI_CHAT_EXECUTION=external`; temporary workers
-use `AYATI_CHAT_EXECUTION=assigned` and the local assignment launcher. Reapply runtime
-grants after migration; existing polling jobs are preserved in their original mode.
-The opt-in [controller-scoped worker API](worker-control.md) keeps core database
-credentials with the controller and preserves direct-PG worker compatibility.
-The [prepared executor pool](executor-pool.md) uses `AYATI_CHAT_EXECUTION=pooled`;
-only initialized compatible slots receive work, with durable slot generations.
+Reapply runtime grants after migration. The [worker-control API](worker-control.md)
+keeps core database credentials with the controller; only initialized compatible
+executor slots receive work, with durable slot generations.
 
-Relay can serve its existing React client using PostgreSQL for accounts, sessions,
-workspaces, memberships, invitations, shared conversations, human resource grants,
-App-session bindings, audit records and durable shared-reply jobs. Set
-`RELAY_DATABASE_URL` privately to enable it. A configured connection failure never
-falls back to SQLite. The original standalone/local mode is retained.
-
-This is a local deployment increment, not production cloud tenancy. Private agent
-runtime stores, the agent registry, generated App records, panels and sourced
-memory still use their existing SQLite stores. Existing workspace paths and the
-explicit owner installation binding remain unchanged. Managed agents use scoped conversation context and approved knowledge. Business
+The controller stores accounts, sessions, workspaces, memberships, invitations,
+conversations, agents, Library pages, audit records and durable reply jobs in
+PostgreSQL. `ayati identity` requires `RELAY_DATABASE_URL` and refuses to start
+without it; there is no SQLite fallback (removed 2026-10-29). Executors keep only a
+private per-run journal. Managed agents use scoped conversation context and approved knowledge. Business
 operations use the separate [controller boundary](shared-agent-control.md); private
 local-owner files, browser sessions and shell tools are not inherited.
 
@@ -39,8 +31,8 @@ local-owner files, browser sessions and shell tools are not inherited.
 
 Pinned SeaORM and sea-orm-migration 2.0.4 (MIT OR Apache-2.0) use PostgreSQL through
 SQLx 0.9 and the existing Tokio runtime. SeaORM entities cover stable account and
-workspace records; parameterized SQL handles explicit authorization transactions,
-imports and queue claims. One pool per backend has at most ten connections.
+workspace records; parameterized SQL handles explicit authorization transactions
+and queue claims. One pool per backend has at most ten connections.
 This increment was exercised with PostgreSQL 18.6.
 
 Install PostgreSQL server and client tools with your operating system package
@@ -68,37 +60,12 @@ history writes from the application role. Cloud credentials, TLS and deployment
 roles require a separate configuration; these local settings are not a template
 for exposing the database on a network.
 
-## Schema changes and import
+## Schema changes
 
 Migrations are explicitly versioned with SeaORM Migrator. API startup validates
 the schema and rejects unknown versions; it does not alter tables automatically.
 The first migration deliberately refuses destructive down migration. A new schema
 change needs a forward migration, tested against an existing populated database.
-
-To migrate an existing local installation:
-
-1. Stop `ayati identity` and the standalone server; pause any active work.
-2. Take a verified backup of `AYATI_DATA_DIR/identity/identity.sqlite` and keep the
-   original business directories and installation binding in place.
-3. Initialize an empty PostgreSQL target with the migration command and grants.
-4. With the target URL set, run `cargo run --locked -- workspace-db import`.
-5. Run `cargo run --locked -- workspace-db check`, then `ayati identity`.
-6. Sign in again. Browser sessions and temporary App sessions are not imported.
-
-Import acquires the existing local server/daemon locks, reads SQLite without
-writing it, verifies integrity, imports in one PostgreSQL transaction, checks
-record counts and preserves IDs and ordering. Invalid references, partial data or
-a nonempty target abort the import. It neither merges users by email nor sends
-invitations. Old queued replies become failed because they have no recoverable
-job payload. Original SQLite files remain available for recovery.
-
-The `identity/postgres-identity` fence is synced before import commits. Once present,
-startup refuses SQLite fallback and requires a completed PostgreSQL import. If an
-import fails or its commit result is uncertain, inspect the target import record
-and restore/reconcile deliberately; do not simply delete the fence and resume both
-stores. Returning to SQLite after new PostgreSQL writes requires reconciliation.
-Ownership adoption/release commands reject a migrated installation until they have
-a PostgreSQL-aware implementation.
 
 ## Isolation and concurrency
 
@@ -198,3 +165,32 @@ New company features require PostgreSQL; SQLite keeps its previous local scope.
 The dedicated simulation helper does not migrate the ordinary workspace database.
 See [company simulation](company-simulation.md) for API behavior, local object-store
 limits, validation results, replay and backup/restore procedures.
+
+## Data lifecycle
+
+History is kept: messages, replies, approvals, questions, samples, setup reviews,
+schedules, job records and audit. A controller background job (every five minutes;
+a database lock lets only one controller work at a time, in small batches) removes
+only duplicates and delivery notices:
+
+- Streamed reply chunks, ten minutes after a reply stops. The message holds the
+  final text; a stopped reply's partial text is first saved in
+  `relay_reply_partials`, so readers see exactly the same reply.
+- Live-update notices older than `AYATI_RETAIN_SYNC_DAYS` (default 30). Each
+  workspace keeps a floor; a browser asking from before it reloads instead of
+  missing changes.
+
+- Attempt diagnostics (one row per execution attempt, with its credential
+  metadata) older than `AYATI_RETAIN_ATTEMPT_DAYS` (default 90), only when an
+  archive is configured: each batch is first written to the archive as gzip JSON
+  Lines (`attempts/YYYY/MM/DD/<first>-<last>.jsonl.gz`, queryable with Athena),
+  then removed. Token hashes, sessions, context and completion fingerprints are
+  never archived. Without an archive, attempts stay in the database.
+
+Configure the archive with `AYATI_ARCHIVE_S3_BUCKET` (private; hosted
+controllers require it) or, for development, an absolute `AYATI_ARCHIVE_LOCAL_ROOT`.
+`AYATI_ARCHIVE_S3_ENDPOINT` selects an S3-compatible endpoint (HTTPS, or loopback
+HTTP for tests). Executors refuse archive settings.
+
+The dispatcher's job indexes cover queued and running work only, so finished
+history does not slow dispatch.

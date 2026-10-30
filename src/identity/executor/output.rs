@@ -1,7 +1,7 @@
 //! Bounded ACP forwarding. A lag, gap or denied write cancels instead of losing text.
 use crate::{
-    agent::Event,
     identity::worker_control::{client::Client, model::AssignedRequest, output::Update},
+    runtime::Event,
 };
 use anyhow::{Context, Result, ensure};
 use std::time::Duration;

@@ -35,7 +35,8 @@ impl PgStore {
         let tx = self.db.begin().await?;
         super::assignments::admission_gate(&tx).await?;
         self.recover_assignments_in(&tx).await?;
-        let count:i64=query(&tx,&format!("SELECT count(*) AS n FROM relay_chat_jobs WHERE dispatch IN ('assigned','pooled') AND state='running' AND lease_until>{CLOCK}"),vec![]).await?.context("Active count unavailable")?.try_get("","n")?;
+        let count:i64=query(&tx,&format!("SELECT (SELECT count(*) FROM relay_chat_jobs WHERE dispatch IN ('assigned','pooled') AND state='running' AND lease_until>{CLOCK})
+            +(SELECT count(*) FROM relay_executor_tasks WHERE state='running' AND lease_until>{CLOCK}) AS n"),vec![]).await?.context("Active count unavailable")?.try_get("","n")?;
         if count >= limits.capacity as i64 {
             return Ok(None);
         }
@@ -47,30 +48,41 @@ impl PgStore {
                 model: slot.try_get("", "model")?,
             };
             let peers = serde_json::json!(connected.iter().map(|(executor,incarnation)|serde_json::json!({"executor":executor,"incarnation":incarnation})).collect::<Vec<_>>());
-            let candidate = query(
+            let params: Vec<sea_orm::Value> = vec![
+                profile.model.clone().into(),
+                profile.provider.clone().into(),
+                (limits.workspace as i64).into(),
+                (limits.model as i64).into(),
+                (limits.capacity as i64).into(),
+                count.into(),
+                (limits.chat_reserve as i64).into(),
+                peers.into(),
+            ];
+            let id = uuid::Uuid::new_v4().to_string();
+            // Chat first; one-off tasks only take otherwise idle background capacity.
+            let class = if let Some(candidate) = query(
                 &tx,
-                include_str!("pool_candidate.sql"),
-                vec![
-                    profile.model.clone().into(),
-                    profile.provider.clone().into(),
-                    (limits.workspace as i64).into(),
-                    (limits.model as i64).into(),
-                    (limits.capacity as i64).into(),
-                    count.into(),
-                    (limits.chat_reserve as i64).into(),
-                    peers.into(),
-                ],
+                concat!(
+                    include_str!("pool_load.sql"),
+                    include_str!("pool_candidate.sql")
+                ),
+                params.clone(),
             )
-            .await?;
-            let Some(candidate) = candidate else {
+            .await?
+            {
+                let reply: String = candidate.try_get("", "reply")?;
+                execute(&tx,&format!("UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,generation=generation+1,lease_until={CLOCK}+15 WHERE reply=$1"),vec![reply.clone().into(),id.clone().into()]).await?;
+                execute(&tx,"INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)",
+                    vec![id.clone().into(),candidate.try_get::<String>("","workspace")?.into(),reply.into(),(candidate.try_get::<i32>("","generation")?+1).into(),(limits.lease as i32).into()]).await?;
+                candidate.try_get::<String>("", "work_class")?
+            } else if super::executor_tasks::claim(&tx, params, &id, limits.lease)
+                .await?
+                .is_some()
+            {
+                "background".into()
+            } else {
                 continue;
             };
-            let reply: String = candidate.try_get("", "reply")?;
-            let class: String = candidate.try_get("", "work_class")?;
-            let id = uuid::Uuid::new_v4().to_string();
-            execute(&tx,&format!("UPDATE relay_chat_jobs SET state='running',claim=$2,attempts=attempts+1,generation=generation+1,lease_until={CLOCK}+15 WHERE reply=$1"),vec![reply.clone().into(),id.clone().into()]).await?;
-            execute(&tx,"INSERT INTO relay_worker_assignments(id,workspace,reply,generation,provider,state,lease_seconds) VALUES($1,$2,$3,$4,'local','launching',$5)",
-                vec![id.clone().into(),candidate.try_get::<String>("","workspace")?.into(),reply.into(),(candidate.try_get::<i32>("","generation")?+1).into(),(limits.lease as i32).into()]).await?;
             let slot_id: String = slot.try_get("", "slot")?;
             let generation: i64 = slot.try_get("", "generation")?;
             execute(&tx,&format!("INSERT INTO relay_assignment_credentials(assignment,executor,incarnation,slot,slot_generation,request,token_hash,expires)
@@ -100,8 +112,9 @@ impl PgStore {
     ) -> Result<Vec<Scope>> {
         let records=rows(&self.db,&format!("SELECT c.assignment,c.token_hash FROM relay_assignment_credentials c
             JOIN relay_executor_slots s ON s.executor=c.executor AND s.incarnation=c.incarnation AND s.slot=c.slot AND s.generation=c.slot_generation AND s.assignment=c.assignment
-            JOIN relay_chat_jobs j ON j.claim=c.assignment WHERE c.executor=$1 AND c.incarnation=$2 AND s.state='offered'
-            AND j.state='running' AND j.lease_until>{CLOCK}"),vec![executor.into(),incarnation.into()]).await?;
+            LEFT JOIN relay_chat_jobs j ON j.claim=c.assignment LEFT JOIN relay_executor_tasks t ON t.claim=c.assignment
+            WHERE c.executor=$1 AND c.incarnation=$2 AND s.state='offered'
+            AND ((j.state='running' AND j.lease_until>{CLOCK}) OR (t.state='running' AND t.lease_until>{CLOCK}))"),vec![executor.into(),incarnation.into()]).await?;
         let mut scopes = Vec::new();
         for row in records {
             if let Ok(record) = super::worker_control::controlled(

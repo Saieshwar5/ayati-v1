@@ -1,7 +1,7 @@
 # Local identity and workspace server
 
 Run `cargo run -- identity` after building the client with `cd web && npm run build`.
-Open `http://127.0.0.1:8765/`. It opens the client behind an authenticated workspace gateway. Workspace runtimes are loaded on demand; unscoped local-owner APIs remain blocked. A process already
+Open `http://127.0.0.1:8765/`. It opens the client behind an authenticated workspace gateway; unscoped business APIs remain blocked. A process already
 using the port must be stopped separately, or choose another `AYATI_PORT` and
 register its corresponding callback with WorkOS.
 
@@ -30,13 +30,13 @@ cookie. Only verified email identities are admitted. Internal users are keyed by
 provider user ID, never automatically merged by email.
 
 The browser receives an opaque HttpOnly SameSite=Lax cookie. Only its hash is saved
-in SQLite. Local sessions last one hour; provider sessions are checked on each
+in PostgreSQL. Local sessions last one hour; provider sessions are checked on each
 protected request and revoked on logout. Provider access/refresh tokens are not
 persisted. Provider failures deny access; existing cookies are not automatically
 deleted on transient failure. The client can retry by reloading or sign in again.
 
-By default SQLite records under `AYATI_DATA_DIR/identity` hold users, sessions, workspaces,
-memberships, invitations and audit entries. Directory permissions are 0700.
+PostgreSQL holds users, sessions, workspaces, memberships, invitations and audit
+entries; `ayati identity` requires `RELAY_DATABASE_URL`.
 Workspace creation and owner membership are transactional and request-idempotent.
 Workspace IDs never confer access. Reads and writes check current membership.
 Users cannot administer people. Owners can appoint other Owners and change or remove
@@ -68,7 +68,7 @@ or background email reconciliation yet. Invitation emails are generic applicatio
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.
 
-Each workspace keeps a separate runtime and business store under `identity/workspaces/<id>`. See [workspace client integration](workspace-client-integration.md) for the request boundary and remaining sharing/execution limits.
+See [workspace client integration](workspace-client-integration.md) for the request boundary.
 The original browser-only preview remains at `?view=access-preview` in the
 regular client and is not used as authentication by this server.
 
@@ -88,12 +88,10 @@ invitation cancellation/expiry/replay, inviter authority changes, workspace
 creation idempotency, session removal, PKCE/state binding and request guards.
 These results do not establish production readiness or tenant-safe agent execution.
 
-## PostgreSQL local backend
+## PostgreSQL
 
-The existing client can now use PostgreSQL for identity, memberships, shared chat,
-resource grants and durable shared-reply jobs. See [local PostgreSQL setup and
-migration](postgres-workspaces.md). Private agent and App stores remain SQLite;
-this does not establish cloud readiness.
+All controller state lives in PostgreSQL. See
+[local PostgreSQL setup and migration](postgres-workspaces.md).
 
 ## Display names
 
@@ -111,8 +109,7 @@ fallback. Identity, membership, grants and message ownership still use stable us
 IDs; a name never grants access. Only the currently authenticated person can
 change their name through `POST /api/identity/profile` with `{ "display_name": "…" }`.
 
-SQLite adds the nullable column on open. PostgreSQL requires the explicit forward
-migration before starting the updated server: run `workspace-db migrate` with the
-administrator connection (or `./tools/local-postgres.sh migrate` for this local
-setup). SQLite imports preserve chosen names and accept older source schemas
-without the column. No provider profile write or email change is performed.
+PostgreSQL requires the explicit forward migration before starting the updated
+server: run `workspace-db migrate` with the administrator connection (or
+`./tools/local-postgres.sh migrate` for this local setup). No provider profile
+write or email change is performed.

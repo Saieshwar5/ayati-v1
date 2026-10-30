@@ -1,35 +1,27 @@
 use super::Turn;
-use crate::{agent::Event, storage::Store};
+use crate::journal::Journal;
 use agent_client_protocol::schema::v1::*;
 use std::sync::{Arc, Mutex, atomic::Ordering};
 use tokio::sync::broadcast;
 
+/// A local turn change, forwarded to the controller as streamed output.
+#[derive(Clone, serde::Serialize)]
+pub struct Event {
+    pub kind: String,
+    pub task_id: String,
+    pub message_id: Option<String>,
+    pub text: Option<String>,
+    pub offset: Option<usize>,
+}
+
 pub struct RuntimeEvents {
     pub control_tools: bool,
     pub active: Mutex<Option<Arc<Turn>>>,
-    pub store: Arc<Store>,
+    pub store: Arc<Journal>,
     pub events: broadcast::Sender<Event>,
-    pub proof_tool: bool,
-    pub browser: bool,
-    pub memory: bool,
-    pub platform: bool,
-    pub panel_updates: Option<(Arc<crate::platform::Platform>, String)>,
 }
 
 impl RuntimeEvents {
-    pub fn browser_enabled(&self) -> bool {
-        self.store
-            .profile_edit()
-            .map(|p| p.and_then(|p| p.browser).unwrap_or(self.browser))
-            .unwrap_or(false)
-    }
-    pub fn memory_enabled(&self) -> bool {
-        self.store
-            .profile_edit()
-            .map(|p| p.and_then(|p| p.memory).unwrap_or(self.memory))
-            .unwrap_or(false)
-    }
-
     pub fn state(&self, task: &str) {
         let _ = self.events.send(Event {
             kind: "state".into(),
@@ -130,27 +122,6 @@ impl RuntimeEvents {
                         _ => return Ok(()),
                     };
                     let output = serde_json::json!({"content":value.get("content"),"rawOutput":value.get("rawOutput")});
-                    let browser_call = self.browser_enabled()
-                        && turn
-                            .tools
-                            .lock()
-                            .unwrap()
-                            .get(&update.tool_call_id.to_string())
-                            .and_then(|v| v.pointer("/_meta/goose/toolCall/toolName"))
-                            .and_then(|v| v.as_str())
-                            .is_some_and(|name| {
-                                name.starts_with(ayati_guest::browser_policy::PREFIX)
-                            });
-                    let status = if browser_call
-                        && (output.pointer("/rawOutput/response/code")
-                            == Some(&serde_json::json!("outcome_unknown"))
-                            || output.pointer("/rawOutput/ayatiBrowserOutcome")
-                                == Some(&serde_json::json!("uncertain")))
-                    {
-                        "uncertain"
-                    } else {
-                        status
-                    };
                     self.store.observe_tool_status(
                         &turn.claim,
                         &update.tool_call_id.to_string(),
@@ -201,28 +172,6 @@ impl RuntimeEvents {
         let tool = observed
             .pointer("/_meta/goose/toolCall/toolName")
             .and_then(|v| v.as_str());
-        let browser_allowed = self.browser_enabled()
-            && tool.is_some_and(|name| {
-                ayati_guest::browser_policy::observed_operation(
-                    name,
-                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
-                )
-            });
-        let proof_allowed = self.proof_tool && tool == Some("ayati_proof__get_demo_business");
-        let memory_allowed = self.memory_enabled()
-            && tool.is_some_and(|name| {
-                ayati_guest::memory_mcp::observed(
-                    name,
-                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
-                )
-            });
-        let workspace_allowed = self.platform
-            && tool.is_some_and(|name| {
-                ayati_guest::workspace_mcp::observed(
-                    name,
-                    observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
-                )
-            });
         let control_allowed = self.control_tools
             && tool.is_some_and(|name| {
                 ayati_guest::control_mcp::observed(
@@ -230,41 +179,10 @@ impl RuntimeEvents {
                     observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
                 )
             });
-        if !(browser_allowed
-            || proof_allowed
-            || memory_allowed
-            || workspace_allowed
-            || control_allowed)
-            || observed.get("rawInput") != action.get("rawInput")
-        {
+        if !control_allowed || observed.get("rawInput") != action.get("rawInput") {
             return cancelled();
         }
-        let automatic = control_allowed
-            || workspace_allowed
-                && match tool {
-                    Some(
-                        "ayati_workspace__connector_tools"
-                        | "ayati_workspace__panels_list"
-                        | "ayati_workspace__apps_list"
-                        | "ayati_workspace__app_source",
-                    ) => true,
-                    Some("ayati_workspace__app_records") => {
-                        observed
-                            .pointer("/rawInput/command/action")
-                            .and_then(|v| v.as_str())
-                            == Some("list")
-                    }
-                    Some("ayati_workspace__panel_write") => {
-                        self.panel_updates.as_ref().is_some_and(|(p, agent)| {
-                            p.automatic_panel_update(
-                                agent,
-                                observed.get("rawInput").unwrap_or(&serde_json::Value::Null),
-                            )
-                            .unwrap_or(false)
-                        })
-                    }
-                    _ => false,
-                };
+        let automatic = control_allowed;
         let action = serde_json::json!({ "tool": tool, "request": action,"authorization":if automatic {"saved_workspace_policy"}else{"owner_decision"} });
         let Some(allow) = request
             .options
@@ -277,22 +195,7 @@ impl RuntimeEvents {
             .options
             .iter()
             .find(|p| p.kind == PermissionOptionKind::RejectOnce);
-        let title = if tool == Some("ayati_workspace__panel_write")
-            && observed
-                .pointer("/rawInput/publish")
-                .and_then(|v| v.as_bool())
-                == Some(true)
-        {
-            "Add this panel to Home"
-        } else if workspace_allowed {
-            "Use this agent’s business tools"
-        } else if memory_allowed {
-            "Use scoped agent memory"
-        } else if browser_allowed {
-            "Use the agent browser"
-        } else {
-            "Read synthetic demo business data"
-        };
+        let title = "Read synthetic demo business data";
         let Ok(id) = self.store.add_claim_permission(
             &turn.claim,
             &request.tool_call.tool_call_id.to_string(),

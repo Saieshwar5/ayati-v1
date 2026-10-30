@@ -51,12 +51,6 @@ impl Registration {
         token(&self.token)
     }
 }
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Reservation {
-    pub request: String,
-    pub token: String,
-}
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AssignedRequest {
@@ -88,13 +82,6 @@ impl Completion {
 pub(crate) struct Release {
     pub scope: Scope,
     pub reason: String,
-}
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Launch {
-    pub url: String,
-    pub scope: Scope,
-    pub token: String,
 }
 
 pub(crate) fn uuid(value: &str) -> Result<()> {

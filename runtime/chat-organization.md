@@ -6,19 +6,17 @@ The ordinary workspace database was not migrated.
 
 ## Personal organization
 
-Pins belong to one user in one workspace. Existing conversation IDs identify
-channels and person/managed-agent direct messages; existing private runtime agents
-use a distinct typed agent ID. Pinning never creates a conversation or starts a
+Pins belong to one user in one workspace. Conversation IDs identify channels and
+person/managed-agent direct messages (`{"kind":"chat"}`). Pinning never creates a conversation or starts a
 request. A pinned entry appears once, in Pinned, with its unread state. Archived
 channels leave active Pinned/Channels and remain reachable in an explicit Archived
 section. Their saved personal pin preference can return on restoration.
 
 Ordered pins persist in PostgreSQL with a revision and exact last-request receipt.
 Use a small technical bound of 30 pins, reject duplicates and unknown target kinds,
-and validate all targets against current conversation/runtime access. The server
+and validate all targets against current conversation access. The server
 filters unavailable entries on reads. An Owner role or old preference cannot
-make an otherwise private source visible. Private runtime entries still require
-the existing Owner and runtime boundary. Role/source changes and workspace/account
+make an otherwise private source visible. Role/source changes and workspace/account
 switches clear affected client state.
 
 Pin/unpin are explicit actions. Initial order follows pin time and ordinary activity
@@ -82,8 +80,7 @@ question/approval continuation, Stop and restore without revival. The real
 Goose/scripted-local-model browser journey verifies the connected interaction and
 desktop/phone/dark layouts. No cloud or paid inference was used.
 
-Schema **24** is required for current application startup. SQLite identity-only
-organization support is unavailable, with an explicit API capability and UI message. No external-channel
+Schema **24** is required for current application startup. No external-channel
 provider, new scheduling/delegation adapter or universal cloud acceptance is implied.
 
 ## API and migration

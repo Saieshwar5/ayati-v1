@@ -1,0 +1,14 @@
+# Rehearsal stand-in for the cloud load balancer in front of controller replicas.
+# Active checks on /health/ready stop new requests to a draining controller;
+# lb_try_duration retries another replica while one restarts.
+:8080 {
+	reverse_proxy {$AYATI_UPSTREAMS} {
+		lb_policy round_robin
+		lb_try_duration 10s
+		health_uri /health/ready
+		health_interval 1s
+		health_timeout 2s
+		fail_duration 5s
+		flush_interval -1
+	}
+}

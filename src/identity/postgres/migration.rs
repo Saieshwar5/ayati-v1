@@ -38,6 +38,11 @@ impl MigratorTrait for Migrator {
             Box::new(super::context_migration::ConversationContext),
             Box::new(super::communication_migration::Communications),
             Box::new(super::home_maintenance_migration::HomeMaintenance),
+            Box::new(super::executor_task_migration::ExecutorTasks),
+            Box::new(super::data_lifecycle_migration::DataLifecycle),
+            Box::new(super::chat_people_migration::ChatPeople),
+            Box::new(super::message_action_migration::MessageActions),
+            Box::new(super::chat_notification_migration::ChatNotifications),
         ]
     }
 }

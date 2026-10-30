@@ -6,7 +6,7 @@ use super::{
 use crate::identity::{
     agents::config::{SaveAgent, Settings},
     provider::{digest, random_token},
-    worker_control::model::{AssignedRequest, Completion, Registration, Reservation},
+    worker_control::model::{AssignedRequest, Completion, Registration},
 };
 use sea_orm_migration::MigratorTrait;
 
@@ -153,9 +153,8 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
     let mut url = reqwest::Url::parse(&base).unwrap();
     url.query_pairs_mut()
         .append_pair("options", &format!("-c search_path={schema}"));
-    let mut old = PgStore::connect(url.as_str()).await.unwrap();
+    let old = PgStore::connect(url.as_str()).await.unwrap();
     migration::Migrator::up(&old.db, Some(14)).await.unwrap();
-    old.assigned = true;
     let owner = user(&old, "prepare-upgrade-owner").await;
     let w = workspace(&old, &owner).await;
     let a = uuid::Uuid::new_v4().to_string();
@@ -178,9 +177,16 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
     .await
     .unwrap();
     let c = chat(&old, &owner, &w, vec![], vec![a.clone()]).await;
-    super::migration_fixture::legacy_request(&old, &owner, &w, &c, &a, "Preserve ownership")
-        .await
-        .unwrap();
+    super::migration_fixture::legacy_assigned_request(
+        &old,
+        &owner,
+        &w,
+        &c,
+        &a,
+        "Preserve ownership",
+    )
+    .await
+    .unwrap();
     let e = Registration {
         executor: uuid::Uuid::new_v4().to_string(),
         incarnation: uuid::Uuid::new_v4().to_string(),
@@ -194,7 +200,7 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
     let scope = super::migration_fixture::legacy_reservation(
         &old,
         &e,
-        &Reservation {
+        &super::migration_fixture::LegacyReservation {
             request: uuid::Uuid::new_v4().to_string(),
             token: token.clone(),
         },
@@ -206,7 +212,7 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
         scope: scope.clone(),
         session: uuid::Uuid::new_v4().to_string(),
     };
-    old.start_controlled(&request, &digest(&token), &context(&scope))
+    super::migration_fixture::legacy_start(&old, &scope, &request.session, &context(&scope))
         .await
         .unwrap();
     let pool = Registration {

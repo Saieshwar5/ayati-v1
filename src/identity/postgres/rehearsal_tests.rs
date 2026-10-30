@@ -64,48 +64,37 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
             .await
             .is_err()
     );
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
-    assert_eq!(claim.id, input.id);
-    assert!(!claim.prepared.control_tools);
-    assert!(
-        claim
-            .prepared
-            .instructions
-            .contains("A clear sourced draft")
-    );
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
+    assert_eq!(claim.id(), input.id);
+    assert!(!claim.context.control_tools);
+    assert!(claim.context.instructions.contains("A clear sourced draft"));
     let root = tempfile::tempdir().unwrap();
-    let config =
-        crate::identity::chat::execution::runtime_config(&claim.prepared, root.path(), None)
-            .unwrap();
+    let config = crate::identity::chat::execution::runtime_config(
+        &claim.context,
+        root.path(),
+        None,
+        &crate::config::GooseSettings {
+            binary: root.path().join("goose"),
+            provider: "openai".into(),
+        },
+    )
+    .unwrap();
     assert_eq!(
         config.session_meta().unwrap()["enabledExtensions"],
         json!([])
     );
-    assert!(!config.browser && !config.memory && !config.proof_tool);
-    assert!(
-        config.vm_manifest.is_none() && config.platform.is_none() && config.control_tools.is_none()
-    );
-    let mut stale = claim.clone();
-    stale.token = uuid::Uuid::new_v4().to_string();
-    assert!(!db.heartbeat_rehearsal(&stale).await.unwrap());
-    assert!(
-        !db.finish_rehearsal(&stale, Some("Must not publish"), false)
-            .await
-            .unwrap()
-    );
-    assert!(db.heartbeat_rehearsal(&claim).await.unwrap());
-    assert!(
-        db.finish_rehearsal(&claim, Some("A saved draft"), false)
-            .await
-            .unwrap()
-    );
-    assert!(
-        !db.finish_rehearsal(&claim, Some("Late replacement"), false)
-            .await
-            .unwrap()
-    );
+    assert!(config.control_tools.is_none());
+    let stale = claim.stale();
+    assert!(!stale.renew().await);
+    assert!(!stale.finish("Must not publish").await);
+    assert!(claim.renew().await);
+    assert!(claim.finish("A saved draft").await);
+    assert!(!claim.finish("Late replacement").await);
     let complete = db.rehearsal(&owner, &w, &agent, &input.id).await.unwrap();
-    assert_eq!(complete["output"], "A saved draft");
+    assert_eq!(
+        complete["output"],
+        format!("{}A saved draft", super::rehearsal_queue::SAMPLE_NOTICE)
+    );
     assert_eq!(complete["state"], "completed");
     assert!(query(&db.db,"SELECT id FROM relay_agent_rehearsals WHERE workspace=$1 AND id=$2 AND prepared IS NULL AND claim IS NULL",vec![w.clone().into(),input.id.clone().into()]).await.unwrap().is_some());
     assert_eq!(
@@ -114,7 +103,7 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
             .unwrap(),
         complete
     );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
     assert!(db.claim_job().await.unwrap().is_none());
 }
 #[tokio::test]
@@ -138,45 +127,38 @@ async fn rehearsal_stop_and_expiry_are_durable_and_cannot_replay_inference_or_pu
             .unwrap()["state"],
         "cancelled"
     );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
     let active = start();
     db.start_rehearsal(&owner, &w, &agent, &active)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     db.stop_rehearsal(&owner, &w, &agent, &active.id)
         .await
         .unwrap();
-    assert!(!db.heartbeat_rehearsal(&claim).await.unwrap());
-    assert!(
-        !db.finish_rehearsal(&claim, Some("Must not publish after Stop"), false)
-            .await
-            .unwrap()
-    );
+    assert!(!claim.renew().await);
+    assert!(!claim.finish("Must not publish after Stop").await);
     let expired = start();
     db.start_rehearsal(&owner, &w, &agent, &expired)
         .await
         .unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
+    let claim = super::executor_task_tests::claim(&db).await.unwrap();
     execute(
         &db.db,
-        "UPDATE relay_agent_rehearsals SET lease_until=0 WHERE workspace=$1 AND id=$2",
-        vec![w.clone().into(), expired.id.clone().into()],
+        "UPDATE relay_executor_tasks SET lease_until=0 WHERE id=$1",
+        vec![expired.id.clone().into()],
     )
     .await
     .unwrap();
-    assert!(!db.heartbeat_rehearsal(&claim).await.unwrap());
-    db.recover_rehearsals().await.unwrap();
+    assert!(!claim.renew().await);
+    // The next reservation recovers the expired lease without rerunning the sample.
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
     assert_eq!(
         db.rehearsal(&owner, &w, &agent, &expired.id).await.unwrap()["state"],
         "interrupted"
     );
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
-    assert!(
-        !db.finish_rehearsal(&claim, Some("Must not publish after expiry"), false)
-            .await
-            .unwrap()
-    );
+    assert!(super::executor_task_tests::claim(&db).await.is_none());
+    assert!(!claim.finish("Must not publish after expiry").await);
     let replay = db
         .start_rehearsal(&owner, &w, &agent, &expired)
         .await
@@ -187,43 +169,6 @@ async fn rehearsal_stop_and_expiry_are_durable_and_cannot_replay_inference_or_pu
         false
     );
 }
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn rehearsal_capacity_is_atomic_across_controller_claimers_and_workspaces() {
-    let (db, owner, w, _, agent) = setup().await;
-    db.start_rehearsal(&owner, &w, &agent, &start())
-        .await
-        .unwrap();
-    for _ in 0..2 {
-        let another = workspace(&db, &owner).await;
-        let (_, a) = super::executor_slot_tests::agent(&db, &owner, &another).await;
-        let mut input = start();
-        input.agent_revision = 1;
-        db.start_rehearsal(&owner, &another, &a, &input)
-            .await
-            .unwrap();
-    }
-    let (a, b, c) = tokio::join!(
-        db.claim_rehearsal(),
-        db.claim_rehearsal(),
-        db.claim_rehearsal()
-    );
-    let claimed = [a.unwrap(), b.unwrap(), c.unwrap()]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-    assert_eq!(claimed.len(), 2);
-    assert_ne!(claimed[0].id, claimed[1].id);
-    assert!(
-        db.finish_rehearsal(&claimed[0], Some("Completed sample"), false)
-            .await
-            .unwrap()
-    );
-    let next = db.claim_rehearsal().await.unwrap().unwrap();
-    assert!(!claimed.iter().any(|c| c.id == next.id));
-    assert!(db.claim_rehearsal().await.unwrap().is_none());
-}
-
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn job_guidance_survives_older_clients_and_enters_normal_prompt_without_granting_tools() {
@@ -259,18 +204,9 @@ async fn job_guidance_survives_older_clients_and_enters_normal_prompt_without_gr
     .await
     .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    let prepared = crate::identity::chat::execution::prepare(
-        &crate::identity::database::Database::Postgres(db.clone()),
-        &job,
-        crate::identity::chat::execution::Profile {
-            name: input.name.clone(),
-            role: input.role.clone(),
-            model: input.model.clone(),
-        },
-        45,
-    )
-    .await
-    .unwrap();
+    let prepared = crate::identity::chat::execution::prepare(&db, &job, 45)
+        .await
+        .unwrap();
     assert!(prepared.instructions.contains("A clear sourced draft"));
     assert!(prepared.instructions.contains("Check the supplied facts"));
     assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());

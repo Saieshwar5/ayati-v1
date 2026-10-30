@@ -1,6 +1,6 @@
 use super::tests::{chat, fixture, join, user, workspace};
 use crate::identity::{
-    chat::store::NewMessage,
+    chat::model::NewMessage,
     collaboration::{Feedback, Object},
 };
 use serde_json::json;
@@ -161,7 +161,7 @@ async fn queue_bounds_and_history_pages_retain_all_records() {
     let mut m = message("overflow");
     m.agent = Some("agent".into());
     let error = db.chat_send(&owner, &w, &c, &m).await.unwrap_err();
-    assert!(error.is::<crate::identity::chat::store::QueueFull>());
+    assert!(error.is::<crate::identity::chat::model::QueueFull>());
     let counts = db.company_counts(&owner, &w).await.unwrap();
     assert_eq!(counts["pending"], 64);
     assert_eq!(counts["messages"], json!(225 + 128));

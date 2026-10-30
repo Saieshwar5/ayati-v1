@@ -20,6 +20,10 @@ axum = { version = "0.8", features = ["multipart"] }
 dotenvy = "0.15"
 futures-util = "0.3"
 libc = "0.2"
+# Worker control TLS on a private network; already in the dependency tree via
+# reqwest and sqlx. The aws-lc-rs provider is selected explicitly.
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 rusqlite = { version = "0.38", features = ["bundled"] }
 sea-orm = { version = "=2.0.4", default-features = false, features = ["macros", "sqlx-postgres", "runtime-tokio-rustls", "with-json"] }
@@ -32,11 +36,19 @@ tokio-util = { version = "0.7", features = ["compat", "io"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4"] }
-walkdir = "2"
 object_store = { version = "=0.14.2", default-features = false, features = ["aws"] }
+# Archive files are gzip JSON Lines; flate2 is already in the tree via image.
+flate2 = "1"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
+# Executor AWS task identity (D227 slice 7b): official SDK credentials and SigV4
+# signing. The two read-only ECS calls are signed requests, not the very large
+# ECS SDK crate. One modern HTTPS client, no legacy TLS stack.
+aws-sigv4 = "1"
+aws-credential-types = "1"
+aws-config = { version = "1", default-features = false, features = ["rt-tokio", "behavior-version-latest", "default-https-client"] }
+aws-smithy-runtime-api = "1"
 
 [dev-dependencies]
 tempfile = "3"

@@ -35,7 +35,7 @@ async fn personal_agents_are_invisible_even_to_workspace_owner_and_cannot_be_sha
             .await
             .is_err()
     );
-    let mut c = crate::identity::chat::store::NewChat {
+    let mut c = crate::identity::chat::model::NewChat {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Private".into(),
         kind: "channel".into(),

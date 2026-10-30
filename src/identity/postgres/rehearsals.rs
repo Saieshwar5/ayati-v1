@@ -90,7 +90,14 @@ impl PgStore {
         );
         let (prepared, notes) =
             super::rehearsal_context::prepare(&tx, user, w, agent, input, &profile).await?;
-        execute(&tx,"INSERT INTO relay_agent_rehearsals(workspace,id,agent,actor,request_hash,input,profile,note_refs,prepared) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),fingerprint(input)?.into(),serde_json::to_value(input)?.into(),super::rehearsal_context::profile_snapshot(&profile).into(),notes.into(),serde_json::to_value(prepared)?.into()]).await?;
+        execute(&tx,"INSERT INTO relay_agent_rehearsals(workspace,id,agent,actor,request_hash,input,profile,note_refs,prepared) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),fingerprint(input)?.into(),serde_json::to_value(input)?.into(),super::rehearsal_context::profile_snapshot(&profile).into(),notes.into(),serde_json::to_value(&prepared)?.into()]).await?;
+        super::executor_tasks::enqueue(
+            &tx,
+            super::executor_tasks::Purpose::Sample,
+            &user.id,
+            &prepared,
+        )
+        .await?;
         audit(&tx, &user.id, Some(w), "agent_sample_requested", &input.id).await?;
         let result = read_in(&tx, user, w, agent, &input.id).await?;
         tx.commit().await?;
@@ -145,6 +152,7 @@ impl PgStore {
         );
         let changed=execute(&tx,"UPDATE relay_agent_rehearsals SET state='cancelled',claim=NULL,lease_until=0,prepared=NULL,detail='Stopped by requester',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2 AND state IN ('queued','running')",vec![w.into(),id.into()]).await?;
         if changed > 0 {
+            super::executor_tasks::cancel(&tx, id).await?;
             audit(&tx, &user.id, Some(w), "agent_sample_stopped", id).await?;
         }
         // Terminating one's own sample does not require permission to disclose

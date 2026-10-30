@@ -1,8 +1,8 @@
 use super::*;
-use crate::platform::panel_presentation::shape;
+use crate::panels::presentation::shape;
 use crate::{
-    identity::{chat::store::Job, home_panels::maintenance::Refresh},
-    platform::panels::PanelDraft,
+    identity::{chat::model::Job, home_panels::maintenance::Refresh},
+    panels::PanelDraft,
 };
 use serde_json::json;
 impl PgStore {

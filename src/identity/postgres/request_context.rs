@@ -1,6 +1,6 @@
 //! Rebuild eligible evidence at each attempt, retaining the original request.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 impl PgStore {

@@ -1,6 +1,6 @@
 //! Real HTTP identity/invitation boundary, with a loopback-only provider fixture.
 use super::*;
-use crate::identity::{self, store::Store};
+use crate::identity::{self, postgres::tests::fixture};
 use axum::{
     Json, Router,
     body::{Body, to_bytes},
@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicUsize, Ordering},
 };
 use tower::ServiceExt;
@@ -74,7 +74,7 @@ impl Fixture {
             .build()
             .unwrap();
         provider.base_url = format!("http://{address}");
-        let store = Store::open(std::path::Path::new(":memory:")).unwrap();
+        let store = fixture().await;
         let mut users = Vec::new();
         for id in ["owner", "guest", "outsider"] {
             users.push(
@@ -85,17 +85,22 @@ impl Fixture {
                         &digest(id),
                         "session_test",
                     )
+                    .await
                     .unwrap(),
             );
         }
         let workspace = uuid::Uuid::new_v4().to_string();
-        store.create(&users[0], "Fixture", &workspace).unwrap();
+        store
+            .create(&users[0], "Fixture", &workspace)
+            .await
+            .unwrap();
         let app = Arc::new(identity::App {
             library: Default::default(),
             provider,
-            store: store.into(),
-            origin: "http://127.0.0.1:8765".into(),
-            pending: Mutex::new(std::collections::HashMap::new()),
+            store,
+            config: std::sync::Arc::new(crate::config::Controller::for_tests(
+                "http://127.0.0.1:8765",
+            )),
             simulation: None,
             runtimes: identity::workspaces::Runtimes::new(
                 std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
@@ -136,6 +141,7 @@ impl Fixture {
 }
 
 #[tokio::test]
+#[ignore = "requires local PostgreSQL"]
 async fn delivered_invitation_normalizes_email_and_requires_exact_recipient() {
     let f = Fixture::new().await;
     let invite = json!({"email":" Guest@EXAMPLE.test ","role":"User"});
@@ -175,6 +181,7 @@ async fn delivered_invitation_normalizes_email_and_requires_exact_recipient() {
 }
 
 #[tokio::test]
+#[ignore = "requires local PostgreSQL"]
 async fn uncertain_delivery_blocks_duplicate_email_until_owner_cancels() {
     for mode in [1, 2, 3] {
         let f = Fixture::new().await;
@@ -227,6 +234,7 @@ async fn uncertain_delivery_blocks_duplicate_email_until_owner_cancels() {
 }
 
 #[tokio::test]
+#[ignore = "requires local PostgreSQL"]
 async fn local_cancellation_survives_failed_provider_revocation() {
     let f = Fixture::new().await;
     let (_, data) = f

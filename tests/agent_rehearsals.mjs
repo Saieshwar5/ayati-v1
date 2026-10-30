@@ -9,17 +9,14 @@ import { fixtureProvider } from './fixtures/goose_provider.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { root, until } from './fixtures/polling.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
-async function fixture(t) {
-  const provider = await fixtureProvider({ key: 'fixture-sample-model-key' }); t.after(() => provider.close());
+async function fixture(t, { resumableHold = false } = {}) {
+  const provider = await fixtureProvider({ key: 'fixture-sample-model-key', resumableHold }); t.after(() => provider.close());
   const remote = await remoteControlMcp(); t.after(() => remote.close());
   const directory = await mkdtemp(join(root, '.tmp/rehearsal-profile-')), profiles = join(directory, 'servers.json'), bearer = join(directory, 'bearer');
   await writeFile(profiles, '[]', { mode: 0o600 }); await writeFile(bearer, remote.token, { mode: 0o600 });
-  const controllerEnv={
-    OPENAI_API_KEY: provider.key, OPENAI_HOST: provider.url, AYATI_MCP_SERVERS_FILE: profiles,
-    // The sample's server-owned harness must disable inherited local capabilities.
-    AYATI_EXECUTION: 'vm', AYATI_VM_MANIFEST: '/missing/private/sample-vm.json', AYATI_BROWSER: '1', AYATI_MEMORY: '1', AYATI_PROOF_TOOL: '1',
-  };
-  const app = await workerFixture(t, { provider, mode: 'pooled', control: true, apiEnv:controllerEnv });
+  // The controller has no model key, as when hosted: samples run only on executors.
+  const controllerEnv = { AYATI_MCP_SERVERS_FILE: profiles, AYATI_WORKER_PROVIDERS: 'openai' };
+  const app = await workerFixture(t, { provider, mode: 'pooled', control: true, apiEnv: controllerEnv });
   const w = app.path.split('/').at(-1), a = app.profile.id, connection = randomUUID(), control = `${app.path}/agent-profiles/${a}/control`;
   await writeFile(profiles, JSON.stringify([{ id: 'orders', workspace: w, name: 'Sample company orders', url: remote.url, bearer_file: bearer, operations: remote.operations }]));
   await app.request(`${app.path}/control/systems`, app.cookie, { server: 'orders', approved: true, revision: 0 });
@@ -27,7 +24,14 @@ async function fixture(t) {
   await app.request(`${control}/rules`, app.cookie, { connection, operation: 'order.update', mode: 'allow', revision: 0, chat: app.conversation });
   const path = `${app.path}/agent-profiles/${a}/rehearsals`;
   const state = id => JSON.parse(app.sql(`SELECT row_to_json(r) FROM relay_agent_rehearsals r WHERE id='${id}'`));
-  return { app, provider, remote, w, a, connection, path, state,controllerEnv };
+  const startExecutor = async () => {
+    const executor = await app.startExecutor();
+    await until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0,
+      'Executor did not report ready slots', 35000);
+    return executor;
+  };
+  const executor = await startExecutor();
+  return { app, provider, remote, w, a, connection, path, state, executor, startExecutor, controllerEnv };
 }
 const currentProfile = async app => (await app.request(`${app.path}/agent-profiles`, app.cookie)).value.agents.find(a => a.id === app.profile.id);
 async function saveProfile(app, profile, settings) {
@@ -111,8 +115,10 @@ test('saved job guidance and selected knowledge run a personal asynchronous tool
   await page.screenshot({ path: join(app.data, 'sample-result-desktop.png') });
   assert.equal(remote.calls.length, 0); assert.equal(app.sql('SELECT count(*) FROM relay_control_actions'), '0'); assert.equal(app.sql('SELECT count(*) FROM relay_chat_jobs'), '0');
   assert.equal(state(id).prepared, null);
-  app.pass('An explicit real Goose tool-free sample includes saved job guidance and only selected/current knowledge, excludes private conversation notes, survives leaving/reopening without another inference, and saves an exact downloadable draft with no MCP call or business job');
-  const calls = provider.requests.length; await app.stopApi(); f.controllerEnv.OPENAI_API_KEY='';await app.startApi(); await page.reload();
+  app.pass('With no model key on the controller, an explicit real Goose tool-free sample runs on a pooled executor, includes saved job guidance and only selected/current knowledge, excludes private conversation notes, survives leaving/reopening without another inference, and saves an exact downloadable draft with no MCP call or business job');
+  assert.deepEqual(await app.gooseChildren(app.apiProcess()), []);
+  // Restart without executor providers configured: new samples are refused, saved ones stay readable.
+  const calls = provider.requests.length; await app.stopApi(); f.controllerEnv.AYATI_WORKER_PROVIDERS = ''; await app.startApi(); await page.reload();
   await page.getByRole('button', { name: 'Try a sample task', exact: true }).click(); dialog = page.getByRole('dialog', { name: 'Nova · Try a sample task', exact: true });
   await dialog.getByRole('button', { name: 'Saved samples', exact: true }).click(); await dialog.getByRole('button', { name: 'Open sample', exact: true }).click(); await dialog.getByText('Draft saved', { exact: true }).waitFor();
   assert.equal(provider.requests.length, calls); assert.equal(state(id).profile.revision, saved.revision);
@@ -124,25 +130,35 @@ test('saved job guidance and selected knowledge run a personal asynchronous tool
   await dialog.getByRole('alert').filter({hasText:'Sample knowledge unavailable'}).waitFor();
   await app.request(`${path}/${id}`, app.cookie, undefined, 400); await app.request(path, app.cookie, old, 400);
   assert.deepEqual((await app.request(path, app.cookie)).value.samples, []); assert.equal(provider.requests.length, calls); assert.deepEqual(errors, []);
+  await app.stop(f.executor); // Drain while its controller is still running.
   app.pass('Another Owner cannot inspect the sample/private source; reload/controller restart and exact acknowledgments perform no inference; personal source invalidation clears the UI, response and retained history without revival');
   await writeFile(join(root, '.tmp/agent-job-rehearsal/browser-evidence.json'), JSON.stringify({ data: app.data, id, model_requests: provider.requests.length, mcp_calls: remote.calls.length, errors }, null, 2));
 });
 
-test('sample Stop, abrupt/graceful controller recovery and an invented model tool call never dispatch or automatically rerun', {
+test('sample Stop, executor loss, controller restart and an invented model tool call never dispatch or automatically rerun', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000,
 }, async t => {
-  const { app, provider, remote, path, state, connection } = await fixture(t);
-  const input = { id: randomUUID(), agent_revision: 1, task: 'Hold this sample for controller recovery', sources: [] };
+  const { app, provider, remote, path, state, connection, executor, startExecutor } = await fixture(t, { resumableHold: true });
+  const input = { id: randomUUID(), agent_revision: 1, task: 'Hold this sample for executor recovery', sources: [] };
   provider.setHeld(true);
   await Promise.all([app.request(path, app.cookie, input), app.request(path, app.cookie, input)]);
   await until(() => state(input.id).state === 'running' && provider.requests.length === 1, 'Recovery sample did not start', 35000);
   await app.request(path, app.cookie, { ...input, control_tools: true }, 422);
   await app.request(path, app.cookie, { ...input, id: randomUUID() }, 400);
-  await app.stop(app.apiProcess(), 'SIGKILL'); await app.startApi();
+  // A lost executor's lease expires; its replacement never reruns the sample.
+  await app.stop(executor, 'SIGKILL'); const replacement = await startExecutor();
   await until(() => state(input.id).state === 'interrupted', 'Expired sample did not recover without inference replay', 25000);
   assert.equal(provider.requests.length, 1); await app.request(path, app.cookie, input); assert.equal(provider.requests.length, 1);
-  assert.equal(state(input.id).prepared, null); provider.setHeld(false);
-  app.pass('Duplicate Start and unsupported execution capabilities are denied; an abruptly lost controller expires the original sample, clears its prepared context and never automatically repeats inference');
+  assert.equal(state(input.id).prepared, null);
+  app.pass('Duplicate Start and unsupported execution capabilities are denied; a lost executor expires the original sample, clears its prepared context and never automatically repeats inference');
+  const restarted = { ...input, id: randomUUID(), task: 'Keep running across a controller restart' };
+  const beforeRestart = provider.requests.length;
+  await app.request(path, app.cookie, restarted);
+  await until(() => state(restarted.id).state === 'running' && provider.requests.length > beforeRestart, 'Restart sample did not run', 35000);
+  await app.stopApi(); await app.startApi(); provider.setHeld(false);
+  await until(() => state(restarted.id).state === 'completed', 'Sample did not finish after the controller restarted', 35000);
+  assert.equal(provider.requests.length, beforeRestart + 1);
+  app.pass('A controller restart does not interrupt a sample running on an executor; it finishes once with no repeated inference');
   const command = { steps: [{ tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address: 'MUST_NOT_EXECUTE_FROM_SAMPLE' } } }], checkpoint: 'A tool-free sample cannot execute this model-invented action.' };
   const attack = { id: randomUUID(), agent_revision: 1, task: 'control ' + JSON.stringify(command), sources: [] };
   await app.request(path, app.cookie, attack);
@@ -151,18 +167,18 @@ test('sample Stop, abrupt/graceful controller recovery and an invented model too
   assert.ok(provider.requests.every(request => (request.tools ?? []).length === 0));
   provider.setHeld(true);
   const stopped = { ...input, id: randomUUID(), task: 'Stop only this draft sample' };
-  const beforeStop=provider.requests.length;
-  await app.request(path, app.cookie, stopped); await until(() => state(stopped.id).state === 'running' && provider.requests.length>beforeStop, 'Stop sample did not run');
+  const beforeStop = provider.requests.length;
+  await app.request(path, app.cookie, stopped); await until(() => state(stopped.id).state === 'running' && provider.requests.length > beforeStop, 'Stop sample did not run', 35000);
   const before = provider.requests.length; await app.request(`${path}/${stopped.id}/stop`, app.cookie, {});
   await until(() => state(stopped.id).state === 'cancelled', 'Stop did not remain durable');
+  // The executor's next renewal is denied, so it stops the session and frees the slot.
+  await until(() => app.sql(`SELECT state FROM relay_worker_assignments WHERE task='${stopped.id}'`) === 'finished', 'Stopped sample kept its assignment');
+  await until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) > 0, 'Executor did not free the stopped slot', 35000);
   await app.request(`${path}/${stopped.id}`, app.cookie); assert.equal(state(stopped.id).output, null);
-  await until(async()=> (await app.gooseChildren(app.apiProcess())).length===0,'Stopped sample left its Goose child running');
-  const shutdown = { ...input, id: randomUUID(), task: 'Gracefully interrupt this sample' };
-  const beforeShutdown=provider.requests.length;
-  await app.request(path, app.cookie, shutdown); await until(() => state(shutdown.id).state === 'running' && provider.requests.length>beforeShutdown, 'Shutdown sample did not run');
-  await app.stopApi(); assert.equal(state(shutdown.id).state, 'interrupted'); await app.startApi();
-  const after = provider.requests.length; await app.request(path, app.cookie, shutdown); assert.equal(provider.requests.length, after);
-  assert.ok(after >= before); assert.equal(remote.calls.length, 0); assert.equal(app.sql('SELECT count(*) FROM relay_chat_jobs'), '0');
-  app.pass('An invented MCP tool call receives no registered capability or business receipt; exact Stop and graceful shutdown fence late output, join tool-free execution and retain an interrupted receipt without restart inference');
-  await writeFile(join(root, '.tmp/agent-job-rehearsal/recovery-evidence.json'), JSON.stringify({ data: app.data, original: input.id, attack: attack.id, stopped: stopped.id, shutdown: shutdown.id, model_requests: after, mcp_calls: remote.calls.length }, null, 2));
+  assert.equal(provider.requests.length, before); provider.setHeld(false);
+  assert.deepEqual(await app.gooseChildren(app.apiProcess()), []);
+  assert.equal(remote.calls.length, 0); assert.equal(app.sql('SELECT count(*) FROM relay_chat_jobs'), '0');
+  await app.stop(replacement);
+  app.pass('An invented MCP tool call receives no registered capability or business receipt; exact Stop fences late output and frees the executor slot; the controller never runs Goose');
+  await writeFile(join(root, '.tmp/agent-job-rehearsal/recovery-evidence.json'), JSON.stringify({ data: app.data, original: input.id, restarted: restarted.id, attack: attack.id, stopped: stopped.id, model_requests: provider.requests.length, mcp_calls: remote.calls.length }, null, 2));
 });

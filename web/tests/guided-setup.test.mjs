@@ -103,3 +103,31 @@ test('a late read cannot populate the next agent or grant access after closing s
     return { ok: false, status: 400, json: async () => ({ error: 'Maintainer access required' }) };
   } });
 });
+
+test('AI suggestions prepared on an executor keep the review blocked until they arrive, and polling stops on close', async () => {
+  const pending = () => { const d = draft(); d.data.request.assistant = true; d.data.suggestion = { state: 'pending', detail: 'Preparing AI suggestions. Every action stays blocked until you review it.' }; return d; };
+  const ready = () => { const d = pending(); d.revision = 2; d.data.choices = [{ connection: 'account', operation: 'order.update', mode: 'ask' }]; d.data.suggestion = { state: 'ready', detail: 'AI suggestions are ready for your review.' }; return d; };
+  let reads = 0, created = false, prepared = false;
+  await reactFixture(async ({ render, button, click, update }) => {
+    const { GuidedSetup } = await import('../src/react/agents/guided-setup.tsx');
+    await render(GuidedSetup, { agent, close() {} });
+    await click(document.querySelector('[aria-label="Use Company orders"]'));
+    await click([...document.querySelectorAll('input[type=checkbox]')].at(-1));
+    await update(() => button('Create review draft').click());
+    assert.match(document.body.textContent, /Preparing AI suggestions/);
+    assert.equal(button('Preview permissions').disabled, true);
+    assert.equal(button('Save draft').disabled, true);
+    prepared = true;
+    await new Promise(resolve => setTimeout(resolve, 1700)); await update();
+    assert.match(document.body.textContent, /AI suggestions are ready for your review/);
+    assert.equal(button('Preview permissions').disabled, false);
+    await render(() => null); // Closing the dialog unmounts the review.
+    const seen = reads;
+    await new Promise(resolve => setTimeout(resolve, 1700));
+    assert.equal(reads, seen, 'Closing setup stops polling');
+  }, { url, fetch: async (_, options = {}) => {
+    if (options.body) { created = true; return response(pending()); }
+    reads += 1;
+    return response({ context, draft: !created ? null : prepared ? ready() : pending(), execution_available: true });
+  } });
+});

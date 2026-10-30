@@ -12,8 +12,6 @@ async fn progress(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        super::super::collaboration::pg(&app)?
-            .task_progress(&user, &w, &chat, &reply)
-            .await?,
+        app.store.task_progress(&user, &w, &chat, &reply).await?,
     ))
 }

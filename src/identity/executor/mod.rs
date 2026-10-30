@@ -1,5 +1,6 @@
 //! Persistent local executor with prepared, single-use Goose slots and durable dispatch.
 mod harness;
+pub mod health;
 pub(crate) mod model;
 mod output;
 #[cfg(test)]
@@ -8,7 +9,6 @@ mod slots;
 mod stream;
 use crate::identity::{
     provider::random_token,
-    worker_config,
     worker_control::{
         client::Client,
         config,
@@ -18,33 +18,21 @@ use crate::identity::{
 use anyhow::{Context, Result, ensure};
 use model::{Capacity, Profile};
 use slots::{Control, Done, Slot, State};
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 use tokio::{sync::mpsc, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
-pub async fn serve(data: &Path) -> Result<()> {
-    for name in [
-        "RELAY_DATABASE_URL",
-        "RELAY_SIMULATION_DATABASE_URL",
-        "WORKOS_API_KEY",
-        "WORK_OS_API_KEY",
-    ] {
-        ensure!(
-            std::env::var_os(name).is_none(),
-            "Executors must not receive {name}"
-        );
-    }
+pub async fn serve(settings: crate::config::Executor) -> Result<()> {
+    super::start_trace::enable(settings.trace_start);
     let profile = Profile {
-        provider: std::env::var("AYATI_GOOSE_PROVIDER").unwrap_or_else(|_| "fireworks-ai".into()),
-        model: std::env::var("AYATI_MODEL").context("Executor requires AYATI_MODEL")?,
+        provider: settings.goose.provider.clone(),
+        model: settings.model.clone(),
     };
     profile.validate()?;
-    let size = worker_config::seconds("AYATI_EXECUTOR_SLOTS", 2, 1, 16)? as usize;
-    let url = config::url(&std::env::var("AYATI_WORKER_CONTROL_URL")?)?;
-    let key_file = std::path::PathBuf::from(
-        std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE")
-            .context("Executor requires its private local bootstrap file")?,
-    );
+    let size = settings.slots;
+    let transport = settings.worker_control.clone();
+    let settings = std::sync::Arc::new(settings);
+    let data = settings.common.data_dir.as_path();
     std::fs::create_dir_all(data)?;
     let _lock = super::process_lock::exclusive(&data.join("executor.lock"))?;
     // After a crash no old session is reusable. The exclusive data-directory lock
@@ -61,8 +49,9 @@ pub async fn serve(data: &Path) -> Result<()> {
         token: random_token(),
         pooled: true,
     };
-    register(&url, &key_file, &registration).await?;
-    let client = Client::new(&url, &registration.token)?;
+    let identity = settings.identity;
+    let task = register(&transport, identity, &registration).await?;
+    let client = Client::new(&transport, &registration.token)?.for_task(task);
     let base = format!(
         "/v1/executors/{}/{}/pool",
         registration.executor, registration.incarnation
@@ -70,7 +59,7 @@ pub async fn serve(data: &Path) -> Result<()> {
     let draining = CancellationToken::new();
     let signal = draining.clone();
     let signal_task = tokio::spawn(async move {
-        super::worker::shutdown_signal().await;
+        super::shutdown::signal().await;
         signal.cancel();
     });
     let stream_stop = CancellationToken::new();
@@ -89,7 +78,7 @@ pub async fn serve(data: &Path) -> Result<()> {
         stream_stop.clone(),
     ));
     let mut slots = (0..size)
-        .map(|_| Slot::new(profile.clone()))
+        .map(|_| Slot::new(profile.clone(), settings.clone()))
         .collect::<Vec<_>>();
     let mut jobs = JoinSet::new();
     for (index, slot) in slots.iter().enumerate() {
@@ -177,7 +166,7 @@ pub async fn serve(data: &Path) -> Result<()> {
                         }
                     }
                 }
-                if tokio::time::Instant::now() >= refresh && register(&url, &key_file, &registration).await.is_ok() {
+                if tokio::time::Instant::now() >= refresh && register(&transport, identity, &registration).await.is_ok() {
                     refresh = tokio::time::Instant::now() + Duration::from_secs(300);
                 }
             },
@@ -185,10 +174,13 @@ pub async fn serve(data: &Path) -> Result<()> {
         let report = Capacity {
             slots: slots.iter().filter_map(Slot::report).collect(),
         };
-        if let Err(error) = client
+        let reported = client
             .post::<serde_json::Value>(&format!("{base}/capacity"), &report)
-            .await
-        {
+            .await;
+        if reported.is_ok() {
+            health::record(data, &slots, drained);
+        }
+        if let Err(error) = reported {
             if error.is::<super::worker_control::client::Conflict>() {
                 tracing::warn!(
                     "Readiness transition deferred until the previous lease is reconciled"
@@ -222,6 +214,7 @@ pub async fn serve(data: &Path) -> Result<()> {
     let _: Result<serde_json::Value> = client
         .post(&format!("{base}/stop"), &serde_json::json!({}))
         .await;
+    health::clear(data);
     stream_stop.cancel();
     listener.abort();
     signal_task.abort();
@@ -260,10 +253,36 @@ async fn handle_offer(
             .await;
     }
 }
-async fn register(url: &str, key_file: &Path, registration: &Registration) -> Result<()> {
-    let key = config::key(key_file)?;
-    let _: serde_json::Value = Client::new(url, &key)?
-        .retry("/v1/executors/register", registration, 5)
-        .await?;
-    Ok(())
+/// Register (and periodically re-register) this incarnation. An AWS executor
+/// proves its task identity each time, so a stopped task cannot stay registered;
+/// it returns the bound task ARN to send with later requests.
+async fn register(
+    control: &crate::config::WorkerControl,
+    identity: crate::config::Identity,
+    registration: &Registration,
+) -> Result<Option<String>> {
+    use crate::identity::worker_control::aws_identity;
+    match identity {
+        crate::config::Identity::Bootstrap => {
+            let key = config::key(&control.key_file)?;
+            let _: serde_json::Value = Client::new(control, &key)?
+                .retry("/v1/executors/register", registration, 5)
+                .await?;
+            Ok(None)
+        }
+        crate::config::Identity::Aws => {
+            let credentials = aws_identity::credentials().await?;
+            let input = aws_identity::AwsRegistration {
+                registration: registration.clone(),
+                proof: aws_identity::prove(registration, &credentials)?,
+            };
+            let response: serde_json::Value = Client::new(control, &registration.token)?
+                .retry("/v1/executors/register-aws", &input, 5)
+                .await?;
+            let task = response["task"]
+                .as_str()
+                .context("Controller did not return the bound task")?;
+            Ok(Some(task.to_owned()))
+        }
+    }
 }

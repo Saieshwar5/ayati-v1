@@ -18,8 +18,7 @@ ordinary/cold/VM paths retain stock 1.54.0.
 M1.5c adds [durable live replies](reply-streaming.md). AWS identity, remote transport,
 capacity autoscaling and release/live-provider speed calibration remain later work.
 The [bounded preparation follow-up](bounded-agent-load.md#preparation-follow-up)
-passes the named local ready-capacity targets. The [cold assignment path](worker-control.md) and
-[polling workers](independent-chat-worker.md) remain available.
+passes the named local ready-capacity targets. This is the only agent execution path.
 
 ## Setup
 
@@ -34,14 +33,15 @@ Queued jobs retain their accepted mode and are not silently converted.
 
 Create the private operator bootstrap file exactly as in [worker control](worker-control.md#migration-and-local-startup).
 Set `AYATI_WORKER_CONTROL_URL` and `AYATI_WORKER_CONTROL_KEY_FILE` on the controller
-and executors. The listener accepts only explicit loopback IPs; this does not
-authorize an exposed network or work across separate container network namespaces.
+and executors. Without TLS the listener accepts only explicit loopback IPs; with
+TLS executors on other machines connect over a private network
+([worker control](worker-control.md#executors-on-other-machines-private-network-tls)),
+as in `deploy/compose.yaml`.
 
 Configure the controller with its private database and WorkOS setup:
 
 ~~~sh
-AYATI_CHAT_EXECUTION=pooled AYATI_WORKER_PROVIDERS=openai \
-  cargo run --locked -- identity
+AYATI_WORKER_PROVIDERS=openai cargo run --locked -- identity
 ~~~
 
 Build `python3 tools/build-prepared-goose.py` first. Migration 15 withdraws old
@@ -52,13 +52,14 @@ Start each executor in a separate private data directory with the prepared Goose
 binary, provider/model configuration and provider key set privately:
 
 ~~~sh
-AYATI_RUNTIME=goose AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
+AYATI_GOOSE_PROVIDER=openai AYATI_MODEL=your-supported-model \
   AYATI_DATA_DIR=.ayati-local/executor-one cargo run --locked -- executor
 ~~~
 
-Use an isolated environment and an empty private `.env` fence: normal dotenv
-discovery otherwise loads a parent `.env`. Executors refuse core database URLs and
-WorkOS keys, and the Goose command uses an explicit environment allowlist. The
+Locally the executor reads `.env.executor` (see `.env.executor.example`), never
+the controller's `.env`; containers set `AYATI_DOTENV=0` and read no file.
+Executors refuse database URLs, WorkOS keys, connector catalogs and Library
+storage settings, and the Goose command uses an explicit environment allowlist. The
 bootstrap/executor/slot credentials stay in the Rust supervisor. Goose receives
 the configured model key; per-run model brokerage is still future work.
 [Managed prompt isolation](managed-context-boundary.md) disables automatic host
@@ -69,7 +70,7 @@ hint discovery and uses a private child home in both prepared and controlled pat
 | `AYATI_EXECUTOR_SLOTS` | 2; 1–16 | Each executor |
 | `AYATI_PREPARED_GOOSE_BIN` | `.cache/goose/v1.54.0-ayati.1/goose` | Executor; preparation variant only |
 | `AYATI_GOOSE_PROVIDER`, `AYATI_MODEL` | One immutable provider/model profile per executor | Executor |
-| `AYATI_EXECUTOR_CAPACITY` | `AYATI_ASSIGNMENT_CAPACITY` (2); 1–1024 | Controller, global active pool limit |
+| `AYATI_EXECUTOR_CAPACITY` | 2; 1–1024 | Controller, global active pool limit |
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
 | `AYATI_EXECUTOR_MODEL_LIMIT` | Pool capacity; 1–1024 | Controller, provider/model pair |
 | `AYATI_EXECUTOR_CHAT_RESERVE` | 0; below global/workspace/model limits | Controller; [background admission](interactive-reserve.md) |
@@ -129,7 +130,14 @@ Executors are trusted operator processes in this local boundary.
 - SIGTERM withdraws idle capacity and preserves already offered/running work,
   then closes prepared sessions and exits. SIGKILL kills child Goose processes
   through the Linux parent-death boundary. Another executor recovers expired
-  tool-free work with a new attempt, up to the existing three-attempt limit.
+  work with a new attempt, up to five attempts. The retry continues instead of
+  starting over: its instructions include the text the lost attempt(s) streamed
+  and the controller's receipts for every operation, with "do not repeat them".
+  All tools run through the controller, so no per-step executor checkpoint is
+  needed. If an operation was still executing or is uncertain, the task is not
+  retried: it waits in the `attention` phase with a checkpoint and resumes when
+  the controller finishes the operation; an uncertain write waits for a person
+  (no reconciliation step exists yet; the requester can stop the task).
   Restarting with the same exclusively locked data directory clears old session
   scratch before preparing new slots; abandoned directories on other hosts require
   the deployment's disk/task lifecycle cleanup.

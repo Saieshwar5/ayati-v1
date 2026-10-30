@@ -1,6 +1,6 @@
 use super::{tests::*, *};
 use crate::identity::{
-    chat::store::Job,
+    chat::model::Job,
     control::{
         approval_model::ApproverGrant,
         connections_model::SystemApproval,

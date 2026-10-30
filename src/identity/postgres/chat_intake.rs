@@ -3,7 +3,7 @@ use super::{
     chat::{access, agent_access},
     *,
 };
-use crate::identity::chat::store::{Job, NewMessage};
+use crate::identity::chat::model::{Job, NewMessage};
 use serde_json::json;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -209,11 +209,11 @@ impl PgStore {
             if class.background() {
                 let count:i64=query(tx,"SELECT count(*) AS total FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.id=j.reply WHERE j.workspace=$1 AND j.work_class='background' AND m.state='queued'",vec![workspace.into()]).await?.context("Missing background count")?.try_get("","total")?;
                 if count >= 32 {
-                    return Err(crate::identity::chat::store::BackgroundQueueFull.into());
+                    return Err(crate::identity::chat::model::BackgroundQueueFull.into());
                 }
             }
             if pending >= 64 {
-                return Err(crate::identity::chat::store::QueueFull.into());
+                return Err(crate::identity::chat::model::QueueFull.into());
             }
             ensure!(
                 agent_access(tx, &user.id, workspace, agent).await?,
@@ -281,8 +281,8 @@ impl PgStore {
                     workspace.into(),
                     job.reply.clone().into(),
                     serde_json::to_value(job)?.into(),
-                    if self.pooled {"pooled"} else if self.assigned { "assigned" } else { "polling" }.into(),
-                    (if self.assigned || self.pooled { self.assignment_seconds as i32 } else { 180 }).into(),
+                    if self.pooled { "pooled" } else { "polling" }.into(),
+                    (if self.pooled { self.assignment_seconds as i32 } else { 180 }).into(),
                     class.as_str().into(),
                     input.id.clone().into(),
                 ],

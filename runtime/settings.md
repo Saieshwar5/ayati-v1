@@ -4,8 +4,8 @@ Cuckoo provides workspaces for one or many people. Option B in
 [the approved design](../designs/settings/README.md) is the current Settings reference.
 
 Everyone has Settings → Personal: My account, Appearance and Help & feedback.
-Only Owners see Workspace: General, People, Access, Connections, Activity, Teams
-and Local setup. The global rail contains Home, Apps, Chat, Agents and Settings.
+Only Owners see Workspace: General, People, Access, Connections, Activity and
+Teams. The global rail contains Home, Chat, Agents, Library and Settings.
 People discovery remains in Chat; membership administration lives in Settings.
 Account-menu workspace switching and sign-out remain available to everyone.
 
@@ -59,10 +59,6 @@ Existing Admin and Member memberships become User; neither is promoted to Owner.
 Pending invitations become User invitations. A demoted inviter no longer has
 acceptance authority. Migration records legacy membership conversions in the audit.
 
-SQLite upgrades its membership constraint transactionally on open, retaining IDs
-and dependent records and checking foreign keys before commit. The source database
-is read-only during SQLite-to-PostgreSQL import; legacy roles are normalized there.
-
 The historical browser-only access preview still demonstrates the older three-role
 model and is not connected to membership APIs. The existing adopted-installation
 fence also remains: promoting a workspace Owner does not expose the original
@@ -71,9 +67,8 @@ model; private-runtime migration is a separate operation.
 
 ## Verification
 
-Identity/SQLite tests cover owner-only reads and writes, promotion/demotion,
-last-owner protection, stale name saves and populated legacy SQLite migration.
-Real PostgreSQL tests cover simultaneous ownership removal and migration of
+Real PostgreSQL tests cover owner-only reads and writes, promotion/demotion,
+last-owner protection, stale name saves, simultaneous ownership removal and migration of
 populated legacy memberships, invitations and dependent grants. React tests cover
 role-based sections, failed saves, invitation retry, grants and double submission.
 A separate scripted workspace was used for the browser journey, including Owner

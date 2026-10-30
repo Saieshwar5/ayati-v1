@@ -1,5 +1,8 @@
 //! Separate, opt-in local machine API. Browser sessions and origins confer no access.
 pub(crate) mod attempt;
+pub(crate) mod aws_identity;
+#[cfg(test)]
+mod aws_identity_tests;
 pub(crate) mod client;
 #[cfg(test)]
 mod client_tests;
@@ -9,8 +12,14 @@ mod hub;
 pub(crate) mod model;
 pub(crate) mod output;
 mod pool;
+mod tls;
 mod tools;
-use super::{Shared, chat::execution, database::Database, postgres::PgStore, provider::digest};
+use super::{
+    Shared,
+    chat::execution,
+    postgres::{PgStore, worker_control::Work},
+    provider::digest,
+};
 use anyhow::{Context, Result, ensure};
 use axum::{
     Json, Router,
@@ -29,9 +38,9 @@ struct Control {
     app: Shared,
     bootstrap_hash: String,
     host: String,
-    lease: u64,
-    capacity: usize,
     hub: std::sync::Arc<hub::Hub>,
+    /// Present when cloud executors may prove their AWS task identity.
+    aws: Option<aws_identity::Verifier>,
 }
 type StateData = Arc<Control>;
 struct Error(anyhow::Error);
@@ -66,10 +75,7 @@ impl IntoResponse for Error {
     }
 }
 fn pg(control: &Control) -> &PgStore {
-    let Database::Postgres(pg) = &control.app.store else {
-        unreachable!()
-    };
-    pg
+    &control.app.store
 }
 fn credential(headers: &HeaderMap) -> Result<String> {
     ensure!(
@@ -85,94 +91,92 @@ fn credential(headers: &HeaderMap) -> Result<String> {
     Ok(digest(token))
 }
 pub(super) async fn start(app: Shared) -> Result<Option<tokio::task::JoinHandle<()>>> {
-    let origin = std::env::var("AYATI_WORKER_CONTROL_URL").ok();
-    let key = std::env::var_os("AYATI_WORKER_CONTROL_KEY_FILE");
-    if origin.is_none() && key.is_none() {
-        ensure!(
-            !matches!(&app.store,Database::Postgres(pg) if pg.pooled),
-            "Pooled execution requires the worker-control listener"
-        );
+    // Config validation already required this for pooled execution.
+    let Some(settings) = app.config.worker_control.clone() else {
         return Ok(None);
-    }
-    let origin = config::url(&origin.context("Worker control requires AYATI_WORKER_CONTROL_URL")?)?;
-    let host = origin.strip_prefix("http://").unwrap().to_string();
-    let address = config::address(&host)?;
+    };
+    let endpoint = config::url(&settings.url)?;
+    let address = match app.config.worker_listen {
+        Some(address) => address,
+        None => endpoint
+            .host
+            .parse()
+            .context("Set AYATI_WORKER_CONTROL_LISTEN for a named worker control host")?,
+    };
+    let address = config::listen(address, endpoint.tls)?;
     ensure!(
-        matches!(app.store, Database::Postgres(_))
-            && matches!(
-                super::worker_config::Mode::from_env(true)?,
-                super::worker_config::Mode::Assigned | super::worker_config::Mode::Pooled
-            ),
-        "Worker control requires PostgreSQL and assigned execution"
+        app.store.pooled,
+        "Worker control requires PostgreSQL and pooled execution"
     );
-    let key = config::key(std::path::Path::new(
-        &key.context("Worker control requires AYATI_WORKER_CONTROL_KEY_FILE")?,
-    ))?;
+    let key = config::key(&settings.key_file)?;
+    let tls = match (&app.config.worker_tls, endpoint.tls) {
+        (Some(files), true) => Some(tls::server_config(&files.certificate, &files.key)?),
+        (None, false) => None,
+        _ => anyhow::bail!("Worker control uses TLS exactly when its URL is https://"),
+    };
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .context("Worker control port unavailable")?;
+    let host = endpoint.host;
+    let pool = app.config.pool.clone();
+    let aws = match &app.config.cloud {
+        Some(cloud) => Some(
+            aws_identity::Verifier::new(cloud, app.config.aws_test_endpoint.as_deref(), None)
+                .await?,
+        ),
+        None => None,
+    };
     let state = Arc::new(Control {
         app: app.clone(),
         bootstrap_hash: digest(&key),
         host,
-        lease: super::worker_config::seconds("AYATI_ASSIGNMENT_LEASE_SECONDS", 120, 6, 300)?,
-        capacity: super::worker_config::seconds("AYATI_ASSIGNMENT_CAPACITY", 2, 1, 16)? as usize,
         hub: std::sync::Arc::new(hub::Hub::default()),
+        aws,
     });
     let router = routes(state.clone());
     let shutdown_hub = state.hub.clone();
-    let coordinator = if pg(&state).pooled {
-        let capacity = super::worker_config::seconds(
-            "AYATI_EXECUTOR_CAPACITY",
-            state.capacity as u64,
-            1,
-            1024,
-        )? as usize;
-        let limits = super::postgres::PoolLimits {
-            capacity,
-            lease: state.lease,
-            chat_reserve: super::worker_config::seconds("AYATI_EXECUTOR_CHAT_RESERVE", 0, 0, 1023)?
-                as usize,
-            workspace: super::worker_config::seconds(
-                "AYATI_EXECUTOR_WORKSPACE_LIMIT",
-                capacity as u64,
-                1,
-                1024,
-            )? as usize,
-            model: super::worker_config::seconds(
-                "AYATI_EXECUTOR_MODEL_LIMIT",
-                capacity as u64,
-                1,
-                1024,
-            )? as usize,
-        };
-        ensure!(
-            limits.chat_reserve < limits.capacity.min(limits.workspace).min(limits.model),
-            "AYATI_EXECUTOR_CHAT_RESERVE must be smaller than global, workspace and model limits"
-        );
-        let expiry = super::worker_config::seconds("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6, 120)?;
-        Some(tokio::spawn(pool::dispatch(state, limits, expiry)))
-    } else {
-        None
+    let limits = super::postgres::PoolLimits {
+        capacity: pool.capacity,
+        lease: pool.lease_seconds,
+        chat_reserve: pool.chat_reserve,
+        workspace: pool.workspace_limit,
+        model: pool.model_limit,
     };
+    let coordinator = tokio::spawn(pool::dispatch(state, limits, pool.expiry_seconds));
     let stopping = app.runtimes.stopping.clone();
+    let listener = match tls {
+        Some(config) => Listening::Tls(tls::Listener::new(listener, config)?),
+        None => Listening::Plain(listener),
+    };
     Ok(Some(tokio::spawn(async move {
         let stopped = stopping.clone();
-        if axum::serve(listener, router)
-            .with_graceful_shutdown(async move {
-                stopped.cancelled().await;
-                shutdown_hub.close();
-            })
-            .await
-            .is_err()
-        {
-            tracing::error!("Local worker control server stopped unexpectedly");
+        let shutdown = async move {
+            stopped.cancelled().await;
+            shutdown_hub.close();
+        };
+        let served = match listener {
+            Listening::Plain(listener) => {
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown)
+                    .await
+            }
+            Listening::Tls(listener) => {
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown)
+                    .await
+            }
+        };
+        if served.is_err() {
+            tracing::error!("Worker control server stopped unexpectedly");
             stopping.cancel();
         }
-        if let Some(coordinator) = coordinator {
-            let _ = coordinator.await;
-        }
+        let _ = coordinator.await;
     })))
+}
+/// Loopback HTTP for local development, or TLS on a private network.
+enum Listening {
+    Plain(tokio::net::TcpListener),
+    Tls(tls::Listener),
 }
 fn routes(state: StateData) -> Router {
     Router::new()
@@ -181,14 +185,7 @@ fn routes(state: StateData) -> Router {
         .route("/v1/assignments/{id}/tools", post(tools::invoke))
         .route("/v1/executors/register", post(register))
         .route("/v1/executors/register-cloud", post(cloud::register))
-        .route(
-            "/v1/executors/{executor}/{incarnation}/reserve",
-            post(reserve),
-        )
-        .route(
-            "/v1/executors/{executor}/{incarnation}/release",
-            post(release),
-        )
+        .route("/v1/executors/register-aws", post(register_aws))
         .route("/v1/assignments/{assignment}/start", post(start_assignment))
         .route("/v1/assignments/{assignment}/renew", post(renew))
         .route("/v1/assignments/{assignment}/complete", post(complete))
@@ -209,7 +206,7 @@ async fn guard(State(state): State<StateData>, request: Request<Body>, next: Nex
         StatusCode::UNAUTHORIZED.into_response()
     } else if !matches!(
         request.uri().path(),
-        "/v1/executors/register" | "/v1/executors/register-cloud"
+        "/v1/executors/register" | "/v1/executors/register-cloud" | "/v1/executors/register-aws"
     ) && pg(&state)
         .cloud_credential_allowed(
             &credential(headers).unwrap(),
@@ -243,35 +240,25 @@ async fn register(
     pg(&state).register_executor(&input).await?;
     Ok(Json(json!({"registered":true})))
 }
-async fn reserve(
+/// An executor that proves its ECS task identity needs no shared bootstrap key.
+/// Its bearer is the executor token it is registering; the binding to the task
+/// is immutable and checked on every later request.
+async fn register_aws(
     State(state): State<StateData>,
-    Path((executor, incarnation)): Path<(String, String)>,
     headers: HeaderMap,
-    Json(input): Json<Reservation>,
-) -> Api<Option<Scope>> {
-    super::postgres::worker_control::require(!pg(&state).pooled)?;
-    pg(&state)
-        .executor_allowed(&executor, &incarnation, &credential(&headers)?)
-        .await?;
-    Ok(Json(
-        pg(&state)
-            .reserve_controlled(&executor, &incarnation, &input, state.lease, state.capacity)
-            .await?,
-    ))
-}
-async fn release(
-    State(state): State<StateData>,
-    Path((executor, incarnation)): Path<(String, String)>,
-    headers: HeaderMap,
-    Json(input): Json<Release>,
+    Json(input): Json<aws_identity::AwsRegistration>,
 ) -> Api<Value> {
-    pg(&state)
-        .executor_allowed(&executor, &incarnation, &credential(&headers)?)
-        .await?;
-    pg(&state)
-        .release_controlled(&executor, &incarnation, &input.scope, &input.reason)
-        .await?;
-    Ok(Json(json!({"released":true})))
+    super::postgres::worker_control::require(
+        credential(&headers)? == digest(&input.registration.token),
+    )?;
+    let verifier = state.aws.as_ref().context("Cloud executors are disabled")?;
+    let cloud = verifier.verify(&input).await.map_err(|error| {
+        tracing::warn!(stage = %error, "Executor AWS identity proof refused");
+        super::postgres::worker_control::ControlDenied
+    })?;
+    super::postgres::worker_control::require(cloud.registration.pooled && pg(&state).pooled)?;
+    pg(&state).register_cloud_executor(&cloud).await?;
+    Ok(Json(json!({"registered":true,"task":cloud.task_arn})))
 }
 async fn start_assignment(
     State(state): State<StateData>,
@@ -289,27 +276,24 @@ async fn start_assignment(
         .controlled_assignment(&input.scope, &hash)
         .await?;
     trace.mark("scope_lookup");
-    let context = if let Some(context) = record.context {
-        serde_json::from_value(context)?
-    } else {
-        let profile = execution::managed_profile(&state.app.store, &record.assignment.job)
+    let context = match (record.context, &record.work) {
+        (Some(context), _) => serde_json::from_value(context)?,
+        (None, Work::Reply(assignment)) => {
+            execution::prepare_traced(
+                &state.app.store,
+                &assignment.job,
+                assignment.run_seconds,
+                &mut trace,
+            )
             .await?
-            .context("Agent unavailable")?;
-        trace.mark("profile_lookup");
-        execution::prepare_traced(
-            &state.app.store,
-            &record.assignment.job,
-            profile,
-            record.assignment.run_seconds,
-            &mut trace,
-        )
-        .await?
+        }
+        (None, Work::Task(task)) => pg(&state).task_context(task).await?,
     };
     let context = pg(&state).start_controlled(&input, &hash, &context).await?;
     trace.mark("start_commit");
     // The assignment's immutable lease duration was confirmed atomically with
     // context/session ownership, including on an exact start replay.
-    let lease = record.assignment.lease_seconds;
+    let lease = record.lease_seconds;
     trace.finish(&input.scope.assignment, "controller");
     super::start_trace::point(
         &input.scope.assignment,

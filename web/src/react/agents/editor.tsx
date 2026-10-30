@@ -2,10 +2,12 @@ import { useRef, useState } from 'react';
 import { Button, Dialog, Tabs } from '../ui';
 import { useMutation } from '../requests';
 import { base, saveAgent, symbols, type Agent, type Directory, type Settings } from './model';
+import { AgentFace, defaultRobot } from '../faces';
 import { Knowledge } from './knowledge';
 
 export function AgentEditor({ agent, directory, creating, close, saved }: { agent: Agent; directory: Directory; creating: boolean; close: () => void; saved: () => Promise<void> }) {
-  const [draft, setDraft] = useState(agent);
+  // New agents start with a robot picture chosen from their ID.
+  const [draft, setDraft] = useState(() => creating && symbols[agent.settings.avatar] ? { ...agent, settings: { ...agent.settings, avatar: defaultRobot(agent.id) } } : agent);
   const [step, setStep] = useState(0);
   const [file, setFile] = useState<File>();
   const mutation = useMutation();
@@ -33,8 +35,12 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <label className="ui-field">Successful outcome<textarea rows={2} maxLength={2000} placeholder="What should good work look like?" value={draft.settings.successful_outcome ?? ''} onChange={e => setting('successful_outcome', e.target.value)} /></label>
     <label className="ui-field">Visibility<select disabled={!creating} value={draft.scope} onChange={e => change('scope', e.target.value)}><option value="private">Private · only you</option>{(directory.role === 'Owner' || directory.can_create_workspace || draft.scope === 'workspace') && <option value="workspace">Workspace · people with access</option>}</select></label>
     <p className="ui-help">{draft.scope === 'private' ? 'Visible only to you. Cannot be added to channels. Workspace administrators cannot read this agent.' : 'Can participate in channels. An Owner can grant teammates access in Settings. Personal conversations are never copied into channels.'} Visibility is fixed after creation.</p>
-    <div className="agent-avatars" aria-label="Choose avatar">{Object.entries(symbols).map(([key, symbol]) => <Button key={key} aria-label={`${key} avatar`} aria-pressed={draft.settings.avatar === key} onClick={() => { setting('avatar', key); setFile(undefined); }}>{symbol}</Button>)}</div>
-    <label className="ui-field">Upload avatar<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const image = e.target.files?.[0]; if (image && image.size > 2 * 1024 * 1024) { mutation.setStatus('Choose an image smaller than 2 MB.'); e.target.value = ''; return; } setFile(image); }} /></label>
+    <fieldset className="agent-pictures"><legend>Picture</legend>
+      <div className="agent-picture-grid">{Array.from({ length: 24 }, (_, index) => `robot-${String(index + 1).padStart(2, '0')}`).map(robot =>
+        <button type="button" key={robot} className="agent-picture-choice" aria-label={`Robot picture ${robot.slice(6)}`} aria-pressed={!file && draft.settings.avatar === robot}
+          onClick={() => { setting('avatar', robot); setFile(undefined); }}><AgentFace agent={{ id: agent.id, name: draft.name, avatar: robot }} /></button>)}</div>
+    </fieldset>
+    <label className="ui-field">Or upload an image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const image = e.target.files?.[0]; if (image && image.size > 2 * 1024 * 1024) { mutation.setStatus('Choose an image smaller than 2 MB.'); e.target.value = ''; return; } setFile(image); }} /></label>
   </div>;
   const capabilities = <div className="ui-form">
     <label className="ui-field">Model provider<select value={draft.settings.provider} onChange={e => setting('provider', e.target.value)}><option value="">Workspace default</option>{directory.providers.map(p => <option key={p.id} value={p.id} disabled={!p.configured}>{p.name}{p.configured ? '' : ' · not connected'}</option>)}</select></label>

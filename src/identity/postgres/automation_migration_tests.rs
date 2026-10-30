@@ -33,11 +33,10 @@ async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_d
         task: "Existing saved sample".into(),
         sources: vec![],
     };
-    db.start_rehearsal(&owner, &w, &a, &input).await.unwrap();
-    let claim = db.claim_rehearsal().await.unwrap().unwrap();
-    db.finish_rehearsal(&claim, Some("Saved before upgrade"), false)
-        .await
-        .unwrap();
+    // A completed v26 receipt, written as the v26 controller saved it.
+    let profile = db.managed_agent(&owner, &w, &a, true).await.unwrap();
+    execute(&db.db,"INSERT INTO relay_agent_rehearsals(workspace,id,agent,actor,request_hash,input,profile,state,output,finished_ms) VALUES($1,$2,$3,$4,'v26',$5,$6,'completed','Saved before upgrade',1)",
+        vec![w.clone().into(),input.id.clone().into(),a.clone().into(),owner.id.clone().into(),serde_json::to_value(&input).unwrap().into(),profile.into()]).await.unwrap();
     db.migrate().await.unwrap();
     db.migrate().await.unwrap();
     db.verify_schema().await.unwrap();

@@ -1,6 +1,6 @@
 //! Agent configuration does not grant access to the work hidden in its conversations.
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 use serde_json::json;
 
 impl PgStore {

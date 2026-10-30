@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::chat::store::Job;
+use crate::identity::chat::model::Job;
 pub(in crate::identity) async fn execute(app: &App, job: &Job) -> Result<String> {
     check(
         app.simulation.is_some(),
@@ -14,7 +14,7 @@ pub(in crate::identity) async fn execute(app: &App, job: &Job) -> Result<String>
     if last.contains("[quote]") || last.contains("[complete:") {
         return Ok(format!(
             "{}\n\n[Simulation · deterministic agent]",
-            collaboration::pg(app)?.scripted_work(job).await?
+            app.store.scripted_work(job).await?
         ));
     }
     let text = if last.contains("[stock]") {

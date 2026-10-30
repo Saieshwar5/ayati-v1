@@ -1,4 +1,5 @@
 //! Explicit, isolated local company rehearsal. Never selected by normal identity mode.
+pub(in crate::identity) mod dispatch;
 mod executor;
 mod reports;
 mod seed;
@@ -21,10 +22,9 @@ pub struct Simulation {
     pub root: PathBuf,
     pub paused: std::sync::atomic::AtomicBool,
 }
-pub async fn serve(root: &Path, port: u16) -> Result<()> {
-    let url = std::env::var("RELAY_SIMULATION_DATABASE_URL")
-        .context("Set RELAY_SIMULATION_DATABASE_URL to a dedicated relay_simulation_* database")?;
-    let parsed = reqwest::Url::parse(&url)?;
+pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()> {
+    let port = config.common.port;
+    let parsed = reqwest::Url::parse(&config.database_url)?;
     check(
         parsed
             .path()
@@ -56,41 +56,30 @@ pub async fn serve(root: &Path, port: u16) -> Result<()> {
             "This simulation directory belongs to another database",
         )?;
     }
-    let pg = postgres::PgStore::connect(&url).await?;
-    pg.verify_schema().await?;
+    let store = postgres::PgStore::open(&config).await?;
+    super::configure_process(&config);
     std::fs::write(&marker, database_name)?;
-    let store = database::Database::Postgres(pg);
     let simulation = seed::prepare(&root, &store).await?;
     let app = Arc::new(App {
-        library: library::Storage::from_env()?,
+        library: library::Storage::from_settings(&config.library)?,
         provider: Provider::simulation(),
         store,
-        origin: format!("http://127.0.0.1:{port}"),
-        pending: Mutex::new(HashMap::new()),
+        config: Arc::new(config),
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
         simulation: Some(simulation),
     });
     let control = worker_control::start(app.clone()).await?;
-    chat::start_dispatcher(app.clone())?;
-    rehearsals::start(app.clone()).await;
+    chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
+    super::metrics::start(app.clone());
+    super::data_cleanup::start(app.clone());
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
-        app.origin
+        app.config.origin
     );
-    let stopping = app.runtimes.stopping.clone();
-    axum::serve(listener, router(app.clone()))
-        .with_graceful_shutdown(async move {
-            tokio::select! { _ = worker::shutdown_signal() => {}, _ = stopping.cancelled() => {} }
-            stopping.cancel();
-        })
-        .await?;
-    if let Some(control) = control {
-        control.await?;
-    }
-    app.runtimes.shutdown().await?;
+    let result = super::shutdown::serve(app, listener, control).await;
     drop(lock);
-    Ok(())
+    result
 }
 pub(super) fn routes() -> Router<Shared> {
     Router::new()

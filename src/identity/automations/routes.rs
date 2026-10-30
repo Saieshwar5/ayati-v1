@@ -27,9 +27,7 @@ async fn list(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?.schedules(&user, &w, &a).await?,
-    ))
+    Ok(Json(app.store.schedules(&user, &w, &a).await?))
 }
 async fn create(
     State(app): State<Shared>,
@@ -38,11 +36,7 @@ async fn create(
     Json(input): Json<Schedule>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?
-            .save_schedule(&user, &w, &a, &input)
-            .await?,
-    ))
+    Ok(Json(app.store.save_schedule(&user, &w, &a, &input).await?))
 }
 async fn change(
     State(app): State<Shared>,
@@ -52,7 +46,7 @@ async fn change(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        collaboration::pg(&app)?
+        app.store
             .change_schedule(&user, &w, &a, &id, &input)
             .await?,
     ))
@@ -63,11 +57,7 @@ async fn runs(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?
-            .schedule_runs(&user, &w, &a, &id)
-            .await?,
-    ))
+    Ok(Json(app.store.schedule_runs(&user, &w, &a, &id).await?))
 }
 
 async fn details(
@@ -76,9 +66,5 @@ async fn details(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        collaboration::pg(&app)?
-            .schedule_details(&user, &w, &a, &id)
-            .await?,
-    ))
+    Ok(Json(app.store.schedule_details(&user, &w, &a, &id).await?))
 }

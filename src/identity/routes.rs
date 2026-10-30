@@ -33,7 +33,10 @@ pub(super) async fn login(
         ("client_id", app.provider.client_id.as_str()),
         ("response_type", "code"),
         ("provider", "authkit"),
-        ("redirect_uri", &format!("{}/auth/callback", app.origin)),
+        (
+            "redirect_uri",
+            &format!("{}/auth/callback", app.config.origin),
+        ),
         ("state", &state),
         ("code_challenge", &digest(&verifier)),
         ("code_challenge_method", "S256"),
@@ -272,7 +275,6 @@ pub(super) async fn change(
     Json(input): Json<Change>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let _access = app.runtimes.access_gate.write().await;
     app.store
         .change(&user, &workspace, &target, input.role.as_deref())
         .await?;

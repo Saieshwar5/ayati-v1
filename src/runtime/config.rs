@@ -12,63 +12,28 @@ pub const PREPARED_GOOSE_VERSION: &str = "1.54.0+ayati.1";
 pub struct GooseConfig {
     pub(crate) control_tools: Option<crate::identity::control::broker::Endpoint>,
     pub(crate) trace_assignment: Option<String>,
-    pub(crate) managed_chat: bool,
-    pub platform: Option<std::sync::Arc<crate::platform::Platform>>,
     pub binary: PathBuf,
     pub agent_id: String,
     pub role: String,
-    pub vm_manifest: Option<PathBuf>,
     pub root: PathBuf,
     pub workspace: PathBuf,
     pub provider: String,
     pub model: String,
-    pub proof_tool: bool,
-    pub browser: bool,
-    pub memory: bool,
     pub run_timeout: std::time::Duration,
 }
 
 impl GooseConfig {
-    pub fn validate_browser(&self) -> Result<()> {
-        if self.browser {
-            let path = self
-                .vm_manifest
-                .as_ref()
-                .context("Browser requires VM execution")?;
-            let manifest = crate::vm::config::VmConfig::load_for(path, &self.agent_id)?;
-            ensure!(
-                manifest.browser_version.as_deref() == Some("0.39.1"),
-                "Prepare a new VM with --browser; existing VMs are preserved"
-            );
-        }
-        super::browser::BrowserControl::load(self.root.parent().unwrap_or(&self.root))
-            .context("Invalid saved browser ownership; existing state was preserved")?;
-        Ok(())
-    }
-    pub fn from_env(data: &Path, model: &str) -> Self {
+    pub fn new(data: &Path, model: &str, goose: &crate::config::GooseSettings) -> Self {
         Self {
-            platform: None,
             control_tools: None,
             trace_assignment: None,
-            managed_chat: false,
             agent_id: "local-agent".into(),
             role: String::new(),
-            vm_manifest: (std::env::var("AYATI_EXECUTION").as_deref() == Ok("vm")).then(|| {
-                std::env::var_os("AYATI_VM_MANIFEST")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| PathBuf::from(".ayati-local/vms/local-agent/vm.json"))
-            }),
-            binary: std::env::var_os("AYATI_GOOSE_BIN")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0/goose")),
+            binary: goose.binary.clone(),
             root: data.join("goose"),
             workspace: data.join("workspace"),
-            provider: std::env::var("AYATI_GOOSE_PROVIDER")
-                .unwrap_or_else(|_| "fireworks-ai".into()),
+            provider: goose.provider.clone(),
             model: model.into(),
-            proof_tool: std::env::var("AYATI_PROOF_TOOL").as_deref() == Ok("1"),
-            browser: std::env::var("AYATI_BROWSER").as_deref() == Ok("1"),
-            memory: std::env::var("AYATI_MEMORY").as_deref() == Ok("1"),
             run_timeout: std::time::Duration::from_secs(180),
         }
     }
@@ -79,11 +44,7 @@ impl GooseConfig {
         } else {
             "FIREWORKS_API_KEY"
         };
-        let installed = self
-            .vm_manifest
-            .as_ref()
-            .map_or_else(|| self.binary.is_file(), |p| p.is_file());
-        installed && std::env::var(key).is_ok_and(|s| !s.trim().is_empty())
+        self.binary.is_file() && std::env::var(key).is_ok_and(|s| !s.trim().is_empty())
     }
 
     pub async fn command(&self) -> Result<Command> {
@@ -144,14 +105,11 @@ impl GooseConfig {
             }
         }
         let isolated_root = self.root.canonicalize()?;
-        if self.managed_chat || prepared {
-            // Pinned Goose discovers ancestor AGENTS.md/.goosehints by default.
-            // Managed requests receive context only through the controller.
-            command
-                .env("CONTEXT_FILE_NAMES", "[]")
-                .env("HOME", &isolated_root);
-        }
+        // Pinned Goose discovers ancestor AGENTS.md/.goosehints by default.
+        // Agents receive context only through the controller.
         command
+            .env("CONTEXT_FILE_NAMES", "[]")
+            .env("HOME", &isolated_root)
             .env("GOOSE_PATH_ROOT", &isolated_root)
             .env("GOOSE_PROVIDER", &self.provider)
             .env("GOOSE_MODEL", &self.model)
@@ -165,39 +123,9 @@ impl GooseConfig {
     // Goose 1.54 treats this explicit selection as authoritative. Omitting it
     // can enable default developer/configured tools; isolate it for upgrade tests.
     pub fn session_meta(&self) -> Result<serde_json::Map<String, serde_json::Value>> {
-        let mut extensions = if self.proof_tool {
-            serde_json::json!([{"type":"mcp","server": {
-                "name":"ayati_proof", "command":if self.vm_manifest.is_some() { PathBuf::from("/usr/local/bin/ayati-guest") } else { std::env::current_exe()? },
-                "args":["mcp"], "env":[]
-            }}])
-        } else {
-            serde_json::json!([])
-        };
+        let mut extensions = Vec::new();
         if self.control_tools.is_some() {
-            ensure!(
-                self.vm_manifest.is_none(),
-                "Shared control tools require an isolated host session"
-            );
-            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{"name":"ayati_control","command":std::env::current_exe()?,"args":["control-mcp"],"env":[]}}));
-        }
-        if self.browser {
-            ensure!(
-                self.vm_manifest.is_some(),
-                "Browser execution requires AYATI_EXECUTION=vm"
-            );
-            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
-                "name":"ayati_browser","command":"/usr/local/bin/ayati-guest","args":["browser-mcp"],"env":[]
-            }}));
-        }
-        if self.memory {
-            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
-                "name":"ayati_memory","command":if self.vm_manifest.is_some(){PathBuf::from("/usr/local/bin/ayati-guest")}else{std::env::current_exe()?},"args":["memory-mcp"],"env":[]
-            }}));
-        }
-        if self.platform.is_some() {
-            extensions.as_array_mut().unwrap().push(serde_json::json!({"type":"mcp","server":{
-                "name":"ayati_workspace","command":if self.vm_manifest.is_some(){PathBuf::from("/usr/local/bin/ayati-guest")}else{std::env::current_exe()?},"args":["workspace-mcp"],"env":[]
-            }}));
+            extensions.push(serde_json::json!({"type":"mcp","server":{"name":"ayati_control","command":std::env::current_exe()?,"args":["control-mcp"],"env":[]}}));
         }
         Ok(
             serde_json::json!({"enabledExtensions":extensions,"sessionTitle":"Ayati local agent"})
@@ -213,12 +141,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn managed_and_prepared_commands_disable_host_hint_discovery_in_an_isolated_home() {
-        for (managed, prepared) in [(false, false), (true, false), (false, true)] {
+    async fn every_command_disables_host_hint_discovery_in_an_isolated_home() {
+        for prepared in [false, true] {
             let directory = tempfile::tempdir().unwrap();
-            let mut config = GooseConfig::from_env(directory.path(), "fixture");
-            config.binary = directory.path().join("fixture-goose");
-            config.managed_chat = managed;
+            let goose = crate::config::GooseSettings {
+                binary: directory.path().join("fixture-goose"),
+                provider: "fireworks-ai".into(),
+            };
+            let config = GooseConfig::new(directory.path(), "fixture", &goose);
             let version = if prepared {
                 PREPARED_GOOSE_VERSION
             } else {
@@ -242,14 +172,8 @@ mod tests {
             };
             let root = config.root.canonicalize().unwrap();
             assert_eq!(env("GOOSE_PATH_ROOT"), Some(root.clone()));
-            if managed || prepared {
-                assert_eq!(env("HOME"), Some(root));
-                assert_eq!(env("CONTEXT_FILE_NAMES"), Some(PathBuf::from("[]")));
-            } else {
-                // Local-owner project hints remain an intentional local capability.
-                assert_eq!(env("HOME"), None);
-                assert_eq!(env("CONTEXT_FILE_NAMES"), None);
-            }
+            assert_eq!(env("HOME"), Some(root));
+            assert_eq!(env("CONTEXT_FILE_NAMES"), Some(PathBuf::from("[]")));
         }
     }
 }

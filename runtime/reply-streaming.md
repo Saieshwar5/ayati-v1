@@ -124,7 +124,6 @@ cargo test --locked --lib identity::postgres -- --ignored
 cargo clippy --locked --all-targets -- -D warnings
 npm test --prefix web
 npm run build --prefix web
-npm run check:e2e --prefix web
 ./scripts/check-file-lines.sh
 cargo build --locked --bin ayati
 node --test --test-concurrency=1 tests/reply_stream.mjs tests/reply_capacity.mjs

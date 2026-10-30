@@ -1,6 +1,6 @@
 //! Protected attempt evidence. Replays never confer access to an old source.
 use super::*;
-use crate::identity::chat::{execution::Prepared, store::Job};
+use crate::identity::chat::{execution::Prepared, model::Job};
 use serde_json::json;
 
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {

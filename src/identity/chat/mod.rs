@@ -1,25 +1,25 @@
 pub(super) mod execution;
 pub(crate) mod mentions;
+mod message_actions;
+pub(crate) mod model;
+mod notifications;
 mod organization;
 pub(crate) mod organization_model;
-mod runner;
-pub(crate) mod store;
 mod stream_limit;
 mod sync;
 mod task_progress;
-#[cfg(test)]
-mod tests;
 use super::*;
 use axum::{Json, extract::Path as RoutePath};
 use serde::Deserialize;
 use serde_json::{Value, json};
-pub(super) use store::schema;
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
         .merge(task_progress::routes())
         .merge(organization::routes())
+        .merge(message_actions::routes())
+        .merge(notifications::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
             get(focus),
@@ -60,9 +60,7 @@ async fn focus(
     axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let super::database::Database::Postgres(pg) = &app.store else {
-        return Err(anyhow::anyhow!("Focused history requires PostgreSQL").into());
-    };
+    let pg = &app.store;
     let mut data = pg.chat_focus(&user, &w, &chat, &message).await?;
     if page.compact {
         crate::response::compact_history(&mut data);
@@ -73,13 +71,14 @@ async fn response(
     State(app): State<Shared>,
     RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
     headers: axum::http::HeaderMap,
-    axum::extract::Query(input): axum::extract::Query<crate::server::responses::Read>,
+    axum::extract::Query(input): axum::extract::Query<crate::response::Read>,
 ) -> ApiResult<Response> {
     let user = identity(&app, &headers).await?;
-    let data = super::collaboration::pg(&app)?
+    let data = app
+        .store
         .response_body(&user, &w, &chat, &message, input.metadata)
         .await?;
-    Ok(crate::server::responses::deliver(&message, data, &input))
+    Ok(crate::response::deliver(&message, data, &input))
 }
 async fn cancel(
     State(app): State<Shared>,
@@ -87,7 +86,7 @@ async fn cancel(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = super::collaboration::pg(&app)?;
+    let pg = &app.store;
     pg.cancel_assignment(&user, &workspace, &chat, &reply)
         .await?;
     Ok(Json(json!({"ok":true})))
@@ -103,13 +102,6 @@ async fn directory(
     let mut directory = app.store.directory(&user, &workspace).await?;
     directory["agents"] = json!(agents);
     Ok(Json(directory))
-}
-fn port(app: &App) -> u16 {
-    app.origin
-        .rsplit(':')
-        .next()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(8765)
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -147,7 +139,7 @@ async fn create(
     State(app): State<Shared>,
     RoutePath(workspace): RoutePath<String>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewChat>,
+    Json(input): Json<model::NewChat>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &workspace).await?;
@@ -171,61 +163,48 @@ async fn messages(
     axum::extract::Query(page): axum::extract::Query<Page>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    if let super::database::Database::Postgres(pg) = &app.store {
-        let mut data = pg.chat_page(&user, &workspace, &chat, page.before).await?;
-        if page.compact {
-            crate::response::compact_history(&mut data);
-        }
-        return Ok(Json(data));
+    let mut data = app
+        .store
+        .chat_page(&user, &workspace, &chat, page.before)
+        .await?;
+    if page.compact {
+        crate::response::compact_history(&mut data);
     }
-    check(page.before.is_none(), "Older history requires PostgreSQL")?;
-    Ok(Json(
-        app.store.chat_messages(&user, &workspace, &chat).await?,
-    ))
+    Ok(Json(data))
 }
 async fn send(
     State(app): State<Shared>,
     RoutePath((workspace, chat)): RoutePath<(String, String)>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewMessage>,
+    Json(input): Json<model::NewMessage>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
-    if let super::database::Database::Postgres(pg) = &app.store {
-        pg.check_chat(&user, &workspace, &chat).await?;
-    } else {
-        app.store.chat_messages(&user, &workspace, &chat).await?;
-    }
+    app.store.check_chat(&user, &workspace, &chat).await?;
     if let Some(id) = &input.agent {
         super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
     }
-    if let Some(job) = app
+    if app
         .store
         .chat_send(&user, &workspace, &chat, &input)
         .await?
+        .is_some()
     {
-        if matches!(app.store, super::database::Database::Sqlite(_)) {
-            tokio::spawn(runner::run(app.clone(), job));
-        } else {
-            app.runtimes.chat_wake.notify_one();
-        }
+        app.runtimes.chat_wake.notify_one();
     }
-    if let super::database::Database::Postgres(pg) = &app.store {
-        return Ok(Json(
-            json!({"ok":true,"message":pg.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
-        ));
-    }
-    Ok(Json(json!({"ok":true})))
+    Ok(Json(
+        json!({"ok":true,"message":app.store.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
+    ))
 }
 
 async fn background(
     State(app): State<Shared>,
     RoutePath((workspace, chat)): RoutePath<(String, String)>,
     headers: axum::http::HeaderMap,
-    Json(input): Json<store::NewMessage>,
+    Json(input): Json<model::NewMessage>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let pg = super::collaboration::pg(&app)?;
+    let pg = &app.store;
     pg.check_chat(&user, &workspace, &chat).await?;
     let agent = input
         .agent
@@ -244,46 +223,11 @@ async fn background(
     ))
 }
 
-/// Poll durable PostgreSQL jobs. PostgreSQL claims fence stale worker publication.
-pub(super) fn start_dispatcher(app: Shared) -> Result<()> {
-    let embedded = super::worker::embedded_mode(
-        std::env::var("AYATI_CHAT_EXECUTION").ok().as_deref(),
-        matches!(app.store, super::database::Database::Postgres(_)),
-    )?;
+/// Start chat change sync. Pooled executors receive agent replies through worker
+/// control; only the scripted company simulation answers inside the controller.
+pub(super) fn start_dispatcher(app: Shared) {
     sync::start(app.clone());
-    if !embedded || !matches!(app.store, super::database::Database::Postgres(_)) {
-        return Ok(());
+    if app.simulation.is_some() && !app.store.pooled {
+        super::simulation::dispatch::start(app);
     }
-    tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = app.runtimes.stopping.cancelled() => break,
-                _ = app.runtimes.chat_wake.notified() => {},
-                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
-            }
-            if app
-                .simulation
-                .as_ref()
-                .is_some_and(|sim| sim.paused.load(std::sync::atomic::Ordering::Acquire))
-            {
-                continue;
-            }
-            if let super::database::Database::Postgres(pg) = &app.store {
-                // Reserve capacity before claiming: never lease jobs waiting for a local slot.
-                while let Ok(slot) = app.runtimes.chat_slots.clone().try_acquire_owned() {
-                    match pg.claim_job().await {
-                        Ok(Some(job)) => {
-                            tokio::spawn(runner::run_claimed(app.clone(), job, slot));
-                        }
-                        Ok(None) => break,
-                        Err(_) => {
-                            tracing::warn!("Shared work database unavailable; dispatch will retry");
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    });
-    Ok(())
 }

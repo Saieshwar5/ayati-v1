@@ -2,7 +2,7 @@
 use super::*;
 use crate::identity::{
     attention::{Acknowledge, Cursor, Page},
-    chat::store::Job,
+    chat::model::Job,
 };
 use serde_json::json;
 

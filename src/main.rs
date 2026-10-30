@@ -1,100 +1,94 @@
 use anyhow::{Context, Result, bail};
-use ayati::config::Config;
+use ayati::config;
 
 #[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
     if std::env::args().nth(1).as_deref() == Some("control-mcp") {
         return ayati_guest::control_mcp::serve().await;
     }
-    if std::env::args().nth(1).as_deref() == Some("mcp") {
-        return ayati::runtime::proof_tool::serve().await;
+    let command = std::env::args().nth(1).unwrap_or_else(|| "help".into());
+    config::load_dotenv(&command);
+    let logging = config::Logging::from_env()?;
+    init_logging(&logging);
+    // Health probes run every few seconds; only long-running roles announce themselves.
+    let role = match command.as_str() {
+        "identity" | "simulate" => Some("controller"),
+        "executor" => Some("executor"),
+        "workspace-db" => Some("migration"),
+        _ => None,
+    };
+    if let Some(role) = role {
+        let release = logging.release.as_deref().unwrap_or("unknown");
+        tracing::info!(role, command, release, "Starting");
     }
-    if std::env::args().nth(1).as_deref() == Some("memory-mcp") {
-        return ayati_guest::memory_mcp::serve().await;
+    let result = run(&command).await;
+    if let (true, Some(role), Err(error)) = (logging.json, role, &result) {
+        // A JSON collector would split the default multi-line error output.
+        // Errors name settings and stages, never secret values or message contents.
+        tracing::error!(role, error = format!("{error:#}"), "Stopped with an error");
+        std::process::exit(1);
     }
-    if std::env::args().nth(1).as_deref() == Some("workspace-mcp") {
-        return ayati_guest::workspace_mcp::serve().await;
+    result
+}
+
+fn init_logging(logging: &config::Logging) {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "ayati=info".into());
+    let builder = tracing_subscriber::fmt().with_env_filter(filter);
+    if logging.json {
+        builder.json().flatten_event(true).init();
+    } else {
+        builder.init();
     }
-    dotenvy::dotenv().ok();
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "ayati=info".into()),
-        )
-        .init();
-    let config = Config::from_env()?;
-    match std::env::args().nth(1).as_deref().unwrap_or("help") {
+}
+
+async fn run(command: &str) -> Result<()> {
+    match command {
         "workspace-db" => {
             ayati::identity::postgres::cli::run(
-                &config.data_dir,
+                &config::migration_database_url()?,
                 &std::env::args().nth(2).unwrap_or_else(|| "check".into()),
             )
             .await
         }
         "simulate" => {
+            let root = std::env::args()
+                .nth(2)
+                .context("Specify a dedicated simulation data directory")?;
             ayati::identity::simulation::serve(
-                &std::path::PathBuf::from(
-                    std::env::args()
-                        .nth(2)
-                        .context("Specify a dedicated simulation data directory")?,
-                ),
-                config.port,
+                std::path::Path::new(&root),
+                config::Controller::from_env(true)?,
             )
             .await
         }
-        "identity" => ayati::identity::serve(&config.data_dir, config.port).await,
-        "worker-health" => ayati::identity::worker_health::check(),
+        "identity" => ayati::identity::serve(config::Controller::from_env(false)?).await,
         "executor" => {
             anyhow::ensure!(
-                std::env::args().nth(2).is_none() && !config.prototype,
-                "Use executor with the Goose runtime"
+                std::env::args().nth(2).is_none(),
+                "Use executor without arguments"
             );
-            ayati::identity::executor::serve(&config.data_dir).await
+            ayati::identity::executor::serve(config::Executor::from_env()?).await
+        }
+        "executor-health" => {
+            ayati::identity::executor::health::check(&config::Common::from_env()?.data_dir)
         }
         "api-health" => {
             reqwest::Client::builder()
                 .no_proxy()
                 .timeout(std::time::Duration::from_secs(5))
                 .build()?
-                .get(format!("http://127.0.0.1:{}/health/ready", config.port))
+                .get(format!(
+                    "http://127.0.0.1:{}/health/ready",
+                    config::Common::from_env()?.port
+                ))
                 .send()
                 .await?
                 .error_for_status()?;
             Ok(())
         }
-        "worker" => {
-            anyhow::ensure!(
-                !config.prototype,
-                "The independent worker requires AYATI_RUNTIME=goose"
-            );
-            let args: Vec<String> = std::env::args().skip(2).collect();
-            match args.as_slice() {
-                [] => ayati::identity::worker::serve(&config.data_dir).await,
-                [flag] if flag == "--controller-assignment" => {
-                    ayati::identity::controlled_worker::serve(&config.data_dir).await
-                }
-                [flag, id] if flag == "--assignment" => {
-                    ayati::identity::assignment_worker::serve(&config.data_dir, id).await
-                }
-                _ => {
-                    bail!("Use worker, worker --assignment <id>, or worker --controller-assignment")
-                }
-            }
-        }
-        "assignment-launcher" => {
-            anyhow::ensure!(
-                std::env::args().nth(2).is_none(),
-                "Use assignment-launcher without arguments"
-            );
-            anyhow::ensure!(
-                !config.prototype,
-                "The assignment launcher requires AYATI_RUNTIME=goose"
-            );
-            ayati::identity::assignment_launcher::serve(&config.data_dir).await
-        }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — business agent workspace\n\nayati identity   Start the authenticated Cuckoo workspaces\nayati worker     Run an independent PostgreSQL polling worker\nayati worker --assignment <id>  Execute one reserved assignment and exit\nayati worker --controller-assignment  Execute a private stdin assignment through controller APIs\nayati assignment-launcher  Launch temporary local assignment workers\nayati executor   Run a shared pool of prepared Goose sessions\nayati api-health Check API readiness on its internal port\nayati worker-health Check this container worker heartbeat\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|import>  Manage the PostgreSQL identity store\n\nConfiguration: .env (see .env.example)."
+                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati executor-health Check that the local executor reports usable slots\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check>  Manage the PostgreSQL schema\n\nConfiguration: .env for the controller, .env.executor for executors (see .env.example and .env.executor.example)."
             );
             Ok(())
         }
