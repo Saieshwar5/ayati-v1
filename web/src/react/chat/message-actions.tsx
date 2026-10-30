@@ -3,6 +3,7 @@ import { workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { Button, Dialog } from '../ui';
 import { chatRequest, type Message } from './model';
+import type { useCancelReply } from './reply-progress';
 import './message-actions.css';
 
 /** Must match the server's fixed set (postgres/message_actions.rs). */
@@ -43,8 +44,8 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
 }
 
 /** Appears on hover or focus: quick reactions, reply in thread and More. */
-export function MessageToolbar({ message, own, reactions, openThread, edit, remove }: {
-  message: Message; own: boolean; reactions: ReturnType<typeof useReactions>;
+export function MessageToolbar({ message, own, reactions, cancel, openThread, edit, remove }: {
+  message: Message; own: boolean; reactions: ReturnType<typeof useReactions>; cancel: ReturnType<typeof useCancelReply>;
   openThread?: () => void; edit: () => void; remove: () => void;
 }) {
   const [picking, setPicking] = useState(false);
@@ -71,6 +72,7 @@ export function MessageToolbar({ message, own, reactions, openThread, edit, remo
         {own && <button type="button" role="menuitem" onClick={() => { setMore(false); edit(); }}>Edit message</button>}
         <button type="button" role="menuitem" onClick={() => void copy()}>Copy link</button>
         {own && <button type="button" role="menuitem" className="danger" onClick={() => { setMore(false); remove(); }}>Delete message</button>}
+        {cancel.available && <button type="button" role="menuitem" className="danger" disabled={cancel.busy} onClick={() => { setMore(false); cancel.cancel(); }}>Cancel request</button>}
       </span>}
     </span>}
   </div>;

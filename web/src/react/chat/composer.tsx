@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { ParticipantFace, ParticipantName } from './conversation-face';
 import { Button } from '../ui';
 import { decodeMentions, editMentions, encodeMentions, type Mention } from './mentions';
+import { EmojiPicker } from './emoji-picker';
 import './composer.css';
 export type ComposerProps = {
   value: string; change: (value: string) => void; send: () => void;
@@ -14,7 +15,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
   const restoreFocus = useRef(false);
   const submit = () => { if (!disabled && !sendDisabled) { restoreFocus.current = true; send(); } };
   const [caret, setCaret] = useState(0), [active, setActive] = useState(0), [dismissed, setDismissed] = useState(false);
-  const menuId = useId(), restore = useRef<number | undefined>(undefined);
+  const menuId = useId(), restore = useRef<number | undefined>(undefined), caretKnown = useRef(false);
   const { text, mentions } = decodeMentions(value);
   const query = /(?:^|\s)@([^@\n]{0,60})$/.exec(text.slice(0, caret));
   const start = query ? caret-query[1].length-1 : -1;
@@ -45,6 +46,14 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     restore.current = start+inserted.length; setCaret(restore.current); setDismissed(true);
     change(encodeMentions(next,nextMentions));
   };
+  // At the cursor once the person has placed it; otherwise after the draft.
+  const insertEmoji = (emoji: string) => {
+    // The textarea keeps its cursor while the picker has focus.
+    const at = caretKnown.current ? input.current?.selectionStart ?? caret : text.length, next = text.slice(0, at)+emoji+text.slice(at);
+    if (next.length > maxLength) return;
+    restore.current = at+emoji.length; setCaret(restore.current); caretKnown.current = true;
+    change(editMentions(value, next));
+  };
   return <form className="message-composer" aria-label="Message composer" onSubmit={event => { event.preventDefault(); submit(); }}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
       {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
@@ -54,8 +63,8 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     <textarea ref={input} aria-label={label} aria-autocomplete={candidates.length ? 'list' : undefined} aria-controls={choices.length ? menuId : undefined} aria-activedescendant={choices.length ? `${menuId}-${selected}` : undefined}
       rows={1} placeholder={placeholder} value={text} disabled={disabled} maxLength={maxLength}
       onBlur={event => { if (!event.currentTarget.form?.contains(event.relatedTarget as Node | null)) setDismissed(true); }}
-      onSelect={event => setCaret(event.currentTarget.selectionStart)}
-      onChange={event => { setCaret(event.target.selectionStart); setDismissed(false); setActive(0); change(editMentions(value,event.target.value)); }}
+      onSelect={event => { caretKnown.current = true; setCaret(event.currentTarget.selectionStart); }}
+      onChange={event => { caretKnown.current = true; setCaret(event.target.selectionStart); setDismissed(false); setActive(0); change(editMentions(value,event.target.value)); }}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if (choices.length && ['ArrowDown','ArrowUp','Enter','Tab','Escape'].includes(event.key)) {
@@ -66,6 +75,6 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
         } else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); }
       }} />
     {attachments && <div className="composer-attachments">{attachments}</div>}
-    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions">{trailing}<Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button></div></div>
+    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}<Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button></div></div>
   </form>;
 }

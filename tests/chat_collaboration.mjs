@@ -159,6 +159,11 @@ test('people and agents work together in chat, and private channels stay private
   await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).hover();
   assert.equal(await sideways(colleague), false, 'a hovered message widens the list on a phone');
   await colleague.screenshot({ path: join(app.data, 'collaboration-hover-phone.png') });
+  await colleague.getByRole('button', { name: 'Add emoji', exact: true }).click();
+  await colleague.getByRole('searchbox', { name: 'Search emoji' }).fill('thanks');
+  await colleague.screenshot({ path: join(app.data, 'collaboration-emoji-phone.png') });
+  await colleague.getByRole('dialog', { name: 'Emoji' }).getByRole('button', { name: 'thanks', exact: true }).click();
+  assert.match(await colleague.getByRole('textbox', { name: 'Message', exact: true }).inputValue(), /🙏/);
   await colleague.screenshot({ path: join(app.data, 'collaboration-phone.png') });
   assert.deepEqual(errors, []);
   app.pass('phone layout without page overflow and no page errors');
