@@ -92,7 +92,7 @@ async fn workspace_routes_require_current_membership() {
     postgres::tests::join(&app.store, &owner, &first, &other, "Member").await;
     assert_eq!(body(call(other.clone()).await).await, json!({"agents":[]}));
     app.store
-        .change(&owner, &first, &other.id, None)
+        .change(&owner, &first, &other.id, None, None)
         .await
         .unwrap();
     assert_eq!(call(other).await.status(), StatusCode::FORBIDDEN);

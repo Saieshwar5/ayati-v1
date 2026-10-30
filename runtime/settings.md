@@ -47,6 +47,39 @@ Admins can also authorize [account-action approvers](channel-approvals.md) indep
 from agent setup and source visibility. Self-service account registration/OAuth remains unavailable. Local connector management is rendered in React with the existing request contracts.
 Agent details retains its existing legacy connector integration.
 
+## Removing a person
+
+`GET /api/identity/workspaces/{w}/members/{user}/responsibilities` (admins only)
+lists what removal would affect:
+- shared agents they own, and private agents that stay unused;
+- workspace-wide Library items they look after, and private or selected items
+  that stay as they are;
+- enabled schedules and event triggers they authorized;
+- approvals waiting for them;
+- active tool rules they set up or approve;
+- invitations they sent.
+
+Removing them (`POST …/members/{user}` with `{"role": null, "handover_to": <id>}`)
+does all of the following in one transaction. `handover_to` defaults to the acting
+admin and must be another current member.
+- **Moves** their shared agents and their workspace-wide Library items to that
+  person. Private agents, private pages and items shared with selected people stay
+  as they are, because moving them would show the new owner something it was never
+  shared with. A selected editor can still take such an item over.
+- **Cancels** invitations they sent, and revokes them at the provider after commit
+  (best effort, as for a manual cancel).
+- **Keeps the existing safety rules:**
+  - waiting approvals are cancelled ("request a new action"), because an approval
+    belongs to the person authorized to give it;
+  - tool rules they set up or approve switch to Block;
+  - their schedules and event triggers are paused for review, because a saved
+    routine runs on its creator's authority and cannot be handed on.
+- **Records one readable audit sentence** (schema 44, `relay_audit.summary`), for
+  example "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to
+  Meera Iyer; 2 schedules paused for review; 1 invitation cancelled". Role changes
+  record "… made … an admin" or "… a member". The activity list shows the sentence
+  when one exists.
+
 ## Existing installations
 
 Back up identity data and stop the old server before upgrading. Do not reopen an

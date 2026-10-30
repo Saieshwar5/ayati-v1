@@ -168,7 +168,7 @@ async fn leaving_the_workspace_removes_the_profile() {
     db.save_member_profile(&member, &w, "Arjun", "Sales", "")
         .await
         .unwrap();
-    db.change(&owner, &w, &member.id, None).await.unwrap();
+    db.change(&owner, &w, &member.id, None, None).await.unwrap();
     assert!(
         db.save_member_profile(&member, &w, "Arjun", "Sales", "")
             .await

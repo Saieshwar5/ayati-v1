@@ -238,7 +238,7 @@ async fn delivery_is_one_saved_reference_and_current_source_access_controls_deta
     assert_eq!(other["messages"][0]["approval"]["restricted"], true);
     assert!(other["messages"][0]["approval"]["id"].is_null());
     assert!(s.db.approval_details(&s.other, &s.w, id).await.is_err());
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"))
+    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(s.db.approval_details(&s.other, &s.w, id).await.is_err());
@@ -384,10 +384,10 @@ async fn source_access_and_grantor_role_are_rechecked_after_approval_before_disp
     let s = setup().await;
     s.configure().await;
     let (_, a) = s.propose().await;
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"))
+    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"), None)
         .await
         .unwrap();
-    s.db.change(&s.other, &s.w, &s.owner.id, Some("Member"))
+    s.db.change(&s.other, &s.w, &s.owner.id, Some("Member"), None)
         .await
         .unwrap();
     assert!(

@@ -215,7 +215,7 @@ async fn omitted_unknown_duplicate_choices_and_cross_identity_drafts_are_rejecte
     db.setup_create(&owner, &w, &agent, &draft).await.unwrap();
     let other = user(&db, "other-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(
@@ -389,8 +389,22 @@ async fn delegated_limits_and_revocation_fence_a_saved_review() {
             .unwrap()
             .is_empty()
     );
-    db.change(&owner, &w, &member.id, None).await.unwrap();
+    db.change(&owner, &w, &member.id, None, None).await.unwrap();
+    // Removal hands the member's shared agent to the removing admin.
+    let handed: String = query(
+        &db.db,
+        "SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+        vec![w.clone().into(), agent.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "owner_id")
+    .unwrap();
+    assert_eq!(handed, owner.id);
     join(&db, &owner, &w, &member, "Member").await;
+    // The admin gives it back, so the rest checks that rejoining revives no delegation.
+    execute(&db.db, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1 WHERE workspace=$1 AND id=$2", vec![w.clone().into(), agent.clone().into(), member.id.clone().into()]).await.unwrap();
     db.control_delegate(
         &owner,
         &w,
@@ -410,25 +424,22 @@ async fn delegated_limits_and_revocation_fence_a_saved_review() {
         .await
         .unwrap();
     current.approval_channels = draft.context.approval_channels.clone();
+    // The agent changed hands twice, so its revision moved on; nothing else differs.
+    assert!(current.agent_revision > draft.context.agent_revision);
+    current.agent_revision = draft.context.agent_revision;
     assert_eq!(
         serde_json::to_value(current).unwrap(),
         serde_json::to_value(&draft.context).unwrap()
     );
-    assert_eq!(
-        db.setup_draft(&member, &w, &agent, &draft.request.id)
-            .await
-            .unwrap()["previewed"],
-        false
-    );
+    // A review saved before the hand-over can no longer be previewed or activated.
     assert!(
         db.setup_activate(&member, &w, &agent, &draft.request.id, &activate(1))
             .await
             .is_err()
     );
-    db.setup_preview(&member, &w, &agent, &draft.request.id, &preview(1))
-        .await
-        .unwrap();
-    db.setup_activate(&member, &w, &agent, &draft.request.id, &activate(1))
-        .await
-        .unwrap();
+    assert!(
+        db.setup_preview(&member, &w, &agent, &draft.request.id, &preview(1))
+            .await
+            .is_err()
+    );
 }

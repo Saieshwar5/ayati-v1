@@ -20,6 +20,7 @@ async function fixture(role, run) {
     if(path.endsWith('/session'))data={user:{id:'person',email:'person@test',display_name:'Person'},workspaces:[{id:workspace,name:'Northstar',role}]};
     if(path.endsWith('/people'))data={role,members:[{id:'person',email:'person@test',role}],invitations:[]};
     if(path.endsWith('/settings'))data={name:'Northstar'};
+    if(path.endsWith('/activity'))data={activity:[{id:2,actor:'Person',action:'membership_changed',target:'ravi:removed',summary:'Person removed Ravi; 1 agent moved to Person',at:1},{id:1,actor:'Person',action:'workspace_renamed',target:'w',at:1}]};
     if(path.endsWith('/chat-directory'))data={users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null}],agents:[]};
     if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
     return {ok:true,status:200,json:async()=>data};
@@ -61,5 +62,13 @@ test('Failed personal profile saves preserve the draft and require explicit retr
     assert.match(form.textContent,/Save failed/);
     assert.equal(writes.length,1);
     assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:''});
+  });
+});
+test('The activity list shows readable change sentences and keeps older entries as they were',async()=>{
+  await fixture('Admin',async({render})=>{
+    await render(base+'&scope=workspace&section=activity');
+    const entries=[...document.querySelectorAll('.settings-activity div')].map(entry=>entry.textContent);
+    assert.equal(entries[0],'Person removed Ravi; 1 agent moved to Person');
+    assert.equal(entries[1],'Personworkspace renamedw');
   });
 });

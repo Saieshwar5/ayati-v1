@@ -361,7 +361,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     s.db.control_rule(&s.member, &s.w, &s.agent.id, &s.rule("allow", 0, 1))
         .await
         .unwrap();
-    s.db.change(&s.owner, &s.w, &s.member.id, Some("Admin"))
+    s.db.change(&s.owner, &s.w, &s.member.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(
@@ -370,7 +370,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
             .await
             .unwrap()
     );
-    s.db.change(&s.owner, &s.w, &s.member.id, Some("Member"))
+    s.db.change(&s.owner, &s.w, &s.member.id, Some("Member"), None)
         .await
         .unwrap();
     assert!(
@@ -385,7 +385,7 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     s.db.control_rule(&s.member, &s.w, &s.agent.id, &s.rule("allow", 4, 4))
         .await
         .unwrap();
-    s.db.change(&s.owner, &s.w, &s.member.id, None)
+    s.db.change(&s.owner, &s.w, &s.member.id, None, None)
         .await
         .unwrap();
     join(&s.db, &s.owner, &s.w, &s.member, "Member").await;

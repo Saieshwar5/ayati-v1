@@ -180,7 +180,7 @@ async fn only_the_requester_can_answer_even_when_an_owner_can_view_the_source() 
     let (db, owner, w, _, job) = setup("ask").await;
     let viewer = user(&db, "question-owner").await;
     join(&db, &owner, &w, &viewer, "Member").await;
-    db.change(&owner, &w, &viewer.id, Some("Admin"))
+    db.change(&owner, &w, &viewer.id, Some("Admin"), None)
         .await
         .unwrap();
     let question = db.ask_question(&job, &ask("authority")).await.unwrap();
@@ -292,7 +292,7 @@ async fn stop_and_access_revocation_disable_pending_questions_without_regrant_re
         .unwrap();
     let viewer = user(&db, "remaining-channel-owner").await;
     join(&db, &owner, &w, &viewer, "Member").await;
-    db.change(&owner, &w, &viewer.id, Some("Admin"))
+    db.change(&owner, &w, &viewer.id, Some("Admin"), None)
         .await
         .unwrap();
     db.channel_members(

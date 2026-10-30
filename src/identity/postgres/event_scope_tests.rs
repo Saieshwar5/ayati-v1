@@ -318,7 +318,7 @@ async fn event_owner_role_does_not_expose_private_agents_or_destinations_and_acc
     s.save().await;
     let other = user(&s.db, "event-other-owner").await;
     join(&s.db, &s.owner, &s.w, &other, "Member").await;
-    s.db.change(&s.owner, &s.w, &other.id, Some("Admin"))
+    s.db.change(&s.owner, &s.w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(

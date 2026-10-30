@@ -287,6 +287,10 @@ fn router(app: Shared) -> Router {
             "/api/identity/workspaces/{id}/members/{user}",
             post(routes::change),
         )
+        .route(
+            "/api/identity/workspaces/{id}/members/{user}/responsibilities",
+            get(routes::responsibilities),
+        )
         .fallback_service(ServeDir::new("web/dist"))
         .layer(axum::extract::DefaultBodyLimit::max(16 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), guard))

@@ -41,7 +41,7 @@ async fn personal_panels_save_immutable_drafts_review_exact_revisions_and_sync_o
     );
     let viewer = user(&db, "panel-other-owner").await;
     join(&db, &owner, &w, &viewer, "Member").await;
-    db.change(&owner, &w, &viewer.id, Some("Admin"))
+    db.change(&owner, &w, &viewer.id, Some("Admin"), None)
         .await
         .unwrap();
     assert_eq!(

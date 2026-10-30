@@ -16,20 +16,20 @@ async fn equal_owners_concurrent_removal_keeps_one_owner_and_revokes_access() {
             .await
             .is_err()
     );
-    assert!(db.change(&b, &w, &b.id, Some("Admin")).await.is_err());
-    db.change(&a, &w, &b.id, Some("Admin")).await.unwrap();
+    assert!(db.change(&b, &w, &b.id, Some("Admin"), None).await.is_err());
+    db.change(&a, &w, &b.id, Some("Admin"), None).await.unwrap();
     db.rename_workspace(&b, &w, "Renamed", "Test business")
         .await
         .unwrap();
     let (one, two) = tokio::join!(
-        db.change(&a, &w, &a.id, Some("Member")),
-        db.change(&b, &w, &b.id, None)
+        db.change(&a, &w, &a.id, Some("Member"), None),
+        db.change(&b, &w, &b.id, None, None)
     );
     assert_ne!(one.is_ok(), two.is_ok());
     let owner = if one.is_ok() { &b } else { &a };
-    assert!(db.change(owner, &w, &owner.id, None).await.is_err());
+    assert!(db.change(owner, &w, &owner.id, None, None).await.is_err());
     assert!(
-        db.change(owner, &w, &owner.id, Some("Member"))
+        db.change(owner, &w, &owner.id, Some("Member"), None)
             .await
             .is_err()
     );
