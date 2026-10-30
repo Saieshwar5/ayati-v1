@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # The Ayati cloud test cycle: build, deploy, test, save evidence, delete.
+# Data carries over: down snapshots the database and keeps the files bucket.
 # Settings come from deploy/aws/.env.cloud (copy cloud.env.example); see README.md.
 #
 #   env.sh unlock CODE          deployer session from an MFA code (8 hours)
@@ -7,11 +8,13 @@
 #   env.sh secret workos-api-key|model-api-key FILE
 #   env.sh worker-tls           new worker-control CA, certificate and key
 #   env.sh image                build, push and remember the image digest
-#   env.sh up                   create the environment and start services
+#   env.sh up [--fresh]         create the environment (restoring the last snapshot)
 #   env.sh deploy               roll the services to the remembered image
 #   env.sh setup                migrate and grant (also part of up and deploy)
 #   env.sh status | check | logs [MINUTES] | cost [DAYS]
-#   env.sh down                 save logs, empty the bucket, delete everything
+#   env.sh down [--discard]     save logs, snapshot the database, delete the paid parts
+#   env.sh kept                 list the snapshots and files kept between windows
+#   env.sh forget [--yes]       delete everything kept (next window starts empty)
 #   env.sh verify-clean         list anything temporary that still exists
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +30,8 @@ mkdir -p "$state"
 mfa="arn:aws:iam::$AYATI_AWS_ACCOUNT:mfa/${AYATI_AWS_CLI_USER:-cuckoo-cli}"
 deployer="arn:aws:iam::$AYATI_AWS_ACCOUNT:role/ayati-access-deployer"
 stacks=(network data roles services)
+snapshot_prefix="$AYATI_ENV-keep-"
+kept_snapshots=2
 
 say() { printf '\n== %s\n' "$*"; }
 deploy_aws() { aws --profile ayati-deployer "$@"; }
@@ -184,14 +189,46 @@ still_running() {
     printf 'Fix the problem and run env.sh deploy, or delete it with env.sh down.\n' >&2
 }
 
+# Newest available snapshot this environment kept, or nothing.
+latest_snapshot() {
+    deploy_aws rds describe-db-cluster-snapshots --snapshot-type manual \
+        --query "reverse(sort_by(DBClusterSnapshots[?starts_with(DBClusterSnapshotIdentifier,'$snapshot_prefix') && Status=='available'],&SnapshotCreateTime))[0].DBClusterSnapshotIdentifier" \
+        --output text | grep -v '^None$' || true
+}
+
+# The data stack must keep the snapshot it was created from: a different value
+# replaces the database (see data.yaml). A rerun of up reuses the stack's value.
+data_exists() { deploy_aws cloudformation describe-stacks --stack-name "$(stack data)" >/dev/null 2>&1; }
+restore_from() {
+    local fresh=$1 current
+    if data_exists; then
+        current=$(deploy_aws cloudformation describe-stacks --stack-name "$(stack data)" \
+            --query "Stacks[0].Parameters[?ParameterKey=='SnapshotIdentifier'].ParameterValue" --output text)
+        [ "$current" = None ] || echo "$current"
+    elif [ "$fresh" = false ]; then
+        latest_snapshot
+    fi
+}
+
 up() {
     require_session
+    local fresh=false snapshot
+    case "${1:-}" in --fresh) fresh=true ;; '') ;; *) echo "Usage: env.sh up [--fresh]" >&2; exit 2 ;; esac
     trap still_running ERR
     local started; started=$(date -u +%s)
     echo "$started" > "$state/started"
+    layer=kept deploy_stack "$(stack keep)" keep.yaml Environment="$AYATI_ENV"
+    snapshot=$(restore_from "$fresh")
+    if [ -n "$snapshot" ]; then
+        say "Restoring the database from $snapshot"
+    else
+        say "Starting with an empty database"
+        # Files from earlier windows would point nowhere; only on the first run of up.
+        if [ "$fresh" = true ] && ! data_exists; then empty_bucket "$(output "$(stack keep)" BucketName)"; fi
+    fi
     deploy_stack "$(stack network)" network.yaml Environment="$AYATI_ENV" \
         ZoneA=ap-south-1a ZoneB=ap-south-1b
-    deploy_stack "$(stack data)" data.yaml Environment="$AYATI_ENV"
+    deploy_stack "$(stack data)" data.yaml Environment="$AYATI_ENV" SnapshotIdentifier="$snapshot"
     deploy_stack "$(stack roles)" roles.yaml Environment="$AYATI_ENV" --capabilities CAPABILITY_NAMED_IAM
     services 0 0
     setup
@@ -248,10 +285,41 @@ empty_bucket() {
     done
 }
 
+# Stops writers first so the snapshot holds the window's final state, then keeps
+# the newest few snapshots. Each is billed as storage (a few rupees a month here).
+keep_database() {
+    local cluster="$AYATI_ENV-core" name
+    deploy_aws rds describe-db-clusters --db-cluster-identifier "$cluster" >/dev/null 2>&1 \
+        || { echo "No database to keep."; return 0; }
+    say "Stopping services before the snapshot"
+    deploy_aws ecs update-service --cluster "$AYATI_ENV" --service controller --desired-count 0 >/dev/null 2>&1 || true
+    deploy_aws ecs update-service --cluster "$AYATI_ENV" --service executor --desired-count 0 >/dev/null 2>&1 || true
+    deploy_aws ecs wait services-stable --cluster "$AYATI_ENV" --services controller executor 2>/dev/null || true
+    name="$snapshot_prefix$(date -u +%Y%m%d-%H%M)"
+    say "Snapshot $name"
+    deploy_aws rds create-db-cluster-snapshot --db-cluster-identifier "$cluster" \
+        --db-cluster-snapshot-identifier "$name" --tags Key=ayati:layer,Value=kept >/dev/null
+    deploy_aws rds wait db-cluster-snapshot-available --db-cluster-snapshot-identifier "$name"
+    deploy_aws rds describe-db-cluster-snapshots --snapshot-type manual \
+        --query "reverse(sort_by(DBClusterSnapshots[?starts_with(DBClusterSnapshotIdentifier,'$snapshot_prefix')],&SnapshotCreateTime))[$kept_snapshots:].DBClusterSnapshotIdentifier" \
+        --output text | tr '\t' '\n' | while read -r old; do
+            [ -n "$old" ] && [ "$old" != None ] || continue
+            echo "Removing older snapshot $old"
+            deploy_aws rds delete-db-cluster-snapshot --db-cluster-snapshot-identifier "$old" >/dev/null
+        done
+}
+
 down() {
     require_session
+    case "${1:-}" in --discard|'') ;; *) echo "Usage: env.sh down [--discard]" >&2; exit 2 ;; esac
     logs || true
-    empty_bucket "$AYATI_ENV-$AYATI_AWS_ACCOUNT-ap-south-1-files"
+    if [ "${1:-}" = --discard ]; then
+        echo "Not keeping this window's database (--discard)."
+    else
+        trap 'printf "\nThe snapshot failed, so nothing was deleted; the environment still costs money.\nRetry env.sh down, or delete without keeping: env.sh down --discard\n" >&2' ERR
+        keep_database
+        trap - ERR
+    fi
     for (( i=${#stacks[@]}-1; i>=0; i-- )); do
         say "Delete $(stack "${stacks[$i]}")"
         deploy_aws cloudformation delete-stack --stack-name "$(stack "${stacks[$i]}")"
@@ -271,17 +339,51 @@ verify_clean() {
     while read -r line; do
         [ -n "$line" ] && { echo "$line"; found=1; }
     done < <(
-        observe_aws cloudformation describe-stacks --query "Stacks[?starts_with(StackName,'$AYATI_ENV-')].StackName" --output text
+        observe_aws cloudformation describe-stacks --query "Stacks[?starts_with(StackName,'$AYATI_ENV-') && StackName!='$(stack keep)'].StackName" --output text
         observe_aws rds describe-db-clusters --query "DBClusters[?starts_with(DBClusterIdentifier,'$AYATI_ENV')].DBClusterIdentifier" --output text
         observe_aws ec2 describe-nat-gateways --filter Name=state,Values=pending,available,deleting \
             --query 'NatGateways[].NatGatewayId' --output text
         observe_aws ec2 describe-addresses --query 'Addresses[].PublicIp' --output text
         observe_aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName' --output text
         observe_aws ecs list-clusters --query 'clusterArns' --output text
-        observe_aws s3api list-buckets --query "Buckets[?starts_with(Name,'$AYATI_ENV-')].Name" --output text
+        observe_aws s3api list-buckets --query "Buckets[?starts_with(Name,'$AYATI_ENV-') && Name!='$AYATI_ENV-$AYATI_AWS_ACCOUNT-ap-south-1-files'].Name" --output text
     )
-    [ "$found" = 0 ] && echo "None. Only the permanent layer remains."
+    [ "$found" = 0 ] && echo "None. Only the permanent layer and the kept data remain."
+    kept
     return "$found"
+}
+
+kept() {
+    say "Kept between windows"
+    observe_aws rds describe-db-cluster-snapshots --snapshot-type manual \
+        --query "DBClusterSnapshots[?starts_with(DBClusterSnapshotIdentifier,'$snapshot_prefix')].[DBClusterSnapshotIdentifier,Status,AllocatedStorage]" \
+        --output text | awk -F'\t' 'NF {printf "snapshot  %s  %s  %s GiB\n", $1, $2, $3}'
+    observe_aws s3api list-buckets --query "Buckets[?Name=='$AYATI_ENV-$AYATI_AWS_ACCOUNT-ap-south-1-files'].Name" \
+        --output text | awk 'NF {print "files     " $1}'
+}
+
+# Removes the kept snapshots, files and database passwords; the permanent layer stays.
+forget() {
+    require_session
+    if [ "${1:-}" != --yes ]; then
+        kept
+        echo; echo "env.sh forget --yes deletes all of the above; the next window starts empty." >&2
+        return 1
+    fi
+    deploy_aws cloudformation describe-stacks --stack-name "$(stack data)" >/dev/null 2>&1 \
+        && { echo "The environment is still up. Run env.sh down first." >&2; exit 1; }
+    deploy_aws rds describe-db-cluster-snapshots --snapshot-type manual \
+        --query "DBClusterSnapshots[?starts_with(DBClusterSnapshotIdentifier,'$snapshot_prefix')].DBClusterSnapshotIdentifier" \
+        --output text | tr '\t' '\n' | while read -r name; do
+            [ -n "$name" ] || continue
+            echo "Deleting snapshot $name"
+            deploy_aws rds delete-db-cluster-snapshot --db-cluster-snapshot-identifier "$name" >/dev/null
+        done
+    empty_bucket "$AYATI_ENV-$AYATI_AWS_ACCOUNT-ap-south-1-files"
+    say "Delete $(stack keep)"
+    deploy_aws cloudformation delete-stack --stack-name "$(stack keep)"
+    deploy_aws cloudformation wait stack-delete-complete --stack-name "$(stack keep)"
+    echo "Forgotten. The next env.sh up starts with an empty database."
 }
 
 cost() {
@@ -302,14 +404,16 @@ case "$command" in
     secret) require_session; secret "$@" ;;
     worker-tls) require_session; worker_tls ;;
     image) require_session; image ;;
-    up) up ;;
+    up) up "$@" ;;
     deploy) deploy ;;
     setup) require_session; setup ;;
     status) status ;;
     check) check ;;
     logs) logs "$@" ;;
     cost) cost "$@" ;;
-    down) down ;;
+    down) down "$@" ;;
+    kept) kept ;;
+    forget) forget "$@" ;;
     verify-clean) verify_clean ;;
-    *) sed -n '2,16p' "$0"; exit 2 ;;
+    *) sed -n '2,19p' "$0"; exit 2 ;;
 esac

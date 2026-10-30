@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Temporary Ayati test data: Aurora PostgreSQL Serverless v2 and a private files
-  bucket. Both are deleted with the environment (no final snapshot): test windows
-  start from an empty database.
+  Temporary Ayati database: Aurora PostgreSQL Serverless v2, deleted with each
+  window. env.sh down snapshots it first and env.sh up restores the latest
+  snapshot, so data carries over; the files bucket and passwords live in the
+  keep stack.
 Parameters:
   ExpectedAccountId:
     Type: String
@@ -22,6 +23,12 @@ Parameters:
   MaxCapacity:
     Type: Number
     Default: 4
+  SnapshotIdentifier:
+    Type: String
+    Default: ''
+    Description: >-
+      Cluster snapshot to restore, or empty for a new database. Must stay the same
+      for the life of the stack: changing it replaces the database.
 Rules:
   DeploymentTarget:
     Assertions:
@@ -29,55 +36,9 @@ Rules:
         AssertDescription: The current AWS account must match the reviewed account.
       - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
         AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Conditions:
+  Restore: {Fn::Not: [{Fn::Equals: [{Ref: SnapshotIdentifier}, '']}]}
 Resources:
-  Files:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: {Fn::Sub: '${Environment}-${AWS::AccountId}-${AWS::Region}-files'}
-      OwnershipControls: {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
-      VersioningConfiguration: {Status: Enabled}
-  FilesPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: {Ref: Files}
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Deny
-            Principal: '*'
-            Action: 's3:*'
-            Resource:
-              - {Fn::GetAtt: [Files, Arn]}
-              - {Fn::Sub: '${Files.Arn}/*'}
-            Condition: {Bool: {'aws:SecureTransport': 'false'}}
-  # Generated without punctuation so the setup task can place them in URLs
-  # without escaping. The runtime password never reaches the migration owner.
-  AdminPassword:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: {Fn::Sub: 'ayati/${Environment}/database-admin'}
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "ayati_admin"}'
-        GenerateStringKey: password
-        PasswordLength: 40
-        ExcludePunctuation: true
-  RuntimePassword:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: {Fn::Sub: 'ayati/${Environment}/database-runtime'}
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "relay_app"}'
-        GenerateStringKey: password
-        PasswordLength: 40
-        ExcludePunctuation: true
   SubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -98,14 +59,22 @@ Resources:
       DBClusterIdentifier: {Fn::Sub: '${Environment}-core'}
       Engine: aurora-postgresql
       EngineVersion: {Ref: PostgresVersion}
-      DatabaseName: ayati
-      MasterUsername: ayati_admin
-      MasterUserPassword: {Fn::Sub: '{{resolve:secretsmanager:${AdminPassword}:SecretString:password}}'}
+      # A restore inherits the name, owner, password and encryption from the snapshot.
+      SnapshotIdentifier: {Fn::If: [Restore, {Ref: SnapshotIdentifier}, {Ref: 'AWS::NoValue'}]}
+      DatabaseName: {Fn::If: [Restore, {Ref: 'AWS::NoValue'}, ayati]}
+      MasterUsername: {Fn::If: [Restore, {Ref: 'AWS::NoValue'}, ayati_admin]}
+      MasterUserPassword:
+        Fn::If:
+          - Restore
+          - {Ref: 'AWS::NoValue'}
+          - Fn::Sub:
+              - '{{resolve:secretsmanager:${Arn}:SecretString:password}}'
+              - {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-AdminSecretArn'}}}
       DBSubnetGroupName: {Ref: SubnetGroup}
       DBClusterParameterGroupName: {Ref: ClusterParameters}
       VpcSecurityGroupIds:
         - {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseGroup'}}
-      StorageEncrypted: true
+      StorageEncrypted: {Fn::If: [Restore, {Ref: 'AWS::NoValue'}, true]}
       BackupRetentionPeriod: 1
       DeletionProtection: false
       EnableCloudwatchLogsExports: [postgresql]
@@ -124,16 +93,6 @@ Resources:
       PubliclyAccessible: false
       AutoMinorVersionUpgrade: false
 Outputs:
-  BucketName:
-    Value: {Ref: Files}
-    Export: {Name: {Fn::Sub: '${Environment}-BucketName'}}
   DatabaseHost:
     Value: {Fn::GetAtt: [Cluster, Endpoint.Address]}
     Export: {Name: {Fn::Sub: '${Environment}-DatabaseHost'}}
-  AdminSecretArn:
-    Description: Migration and grants only; never given to a running service.
-    Value: {Ref: AdminPassword}
-    Export: {Name: {Fn::Sub: '${Environment}-AdminSecretArn'}}
-  RuntimeSecretArn:
-    Value: {Ref: RuntimePassword}
-    Export: {Name: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}

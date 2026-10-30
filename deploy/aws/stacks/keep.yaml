@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Ayati test data kept between windows: the private files bucket and the two
+  database passwords. env.sh down keeps this stack and a database snapshot, so
+  the next window restores the same workspaces, people and files. Remove it with
+  env.sh forget --yes.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  Environment:
+    Type: String
+    AllowedPattern: 'ayati-[a-z0-9-]{1,18}'
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1).
+Resources:
+  Files:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: {Fn::Sub: '${Environment}-${AWS::AccountId}-${AWS::Region}-files'}
+      OwnershipControls: {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      VersioningConfiguration: {Status: Enabled}
+  FilesPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: {Ref: Files}
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - {Fn::GetAtt: [Files, Arn]}
+              - {Fn::Sub: '${Files.Arn}/*'}
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+  # A restored cluster keeps the admin password stored in its snapshot, so the
+  # passwords must outlive the data stack. Generated without punctuation so the
+  # setup task can place them in URLs without escaping. The runtime password never
+  # reaches the migration owner.
+  AdminPassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: {Fn::Sub: 'ayati/${Environment}/database-admin'}
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "ayati_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludePunctuation: true
+  RuntimePassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: {Fn::Sub: 'ayati/${Environment}/database-runtime'}
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "relay_app"}'
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludePunctuation: true
+Outputs:
+  BucketName:
+    Value: {Ref: Files}
+    Export: {Name: {Fn::Sub: '${Environment}-BucketName'}}
+  AdminSecretArn:
+    Description: Migration and grants only; never given to a running service.
+    Value: {Ref: AdminPassword}
+    Export: {Name: {Fn::Sub: '${Environment}-AdminSecretArn'}}
+  RuntimeSecretArn:
+    Value: {Ref: RuntimePassword}
+    Export: {Name: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}
