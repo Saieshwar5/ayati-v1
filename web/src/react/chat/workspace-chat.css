@@ -23,7 +23,10 @@
 .chat-pane-header > div { flex:1; min-width:0; }
 .chat-pane-header h2 { font-size:15px; margin:0; font-weight:600; overflow-wrap:anywhere; }
 .chat-pane-header p { font-size:11px; color:var(--muted); margin:3px 0 0; overflow-wrap:anywhere; }
-.chat-message-list { flex:1; min-height:0; overflow:auto; padding:16px max(20px,calc((100% - 760px)/2)); scrollbar-gutter:stable; }
+.chat-message-list { flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; padding:16px max(20px,calc((100% - 760px)/2)); }
+/* Wheel, touch and keyboard still scroll; the bars are hidden for a calmer page. */
+.chat-message-list, .message-composer textarea { scrollbar-width:none; }
+.chat-message-list::-webkit-scrollbar, .message-composer textarea::-webkit-scrollbar { display:none; }
 .chat-message { display:flex; align-items:flex-start; gap:8px; width:fit-content; max-width:88%; margin:0 auto 9px 0; }
 .chat-message > div { min-width:0; padding:3px 0; border:0; border-radius:0; background:transparent; }
 .chat-message-own { flex-direction:row-reverse; margin-left:auto; margin-right:0; }

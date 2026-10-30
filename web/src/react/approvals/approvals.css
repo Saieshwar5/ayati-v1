@@ -6,6 +6,4 @@
 .approval-detail small { color: var(--muted); }
 .approval-detail .control-fields { margin: 4px 0; }
 .approval-buttons { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; }
-.approval-inbox-row { overflow-wrap: anywhere; padding: 18px 0; border-bottom: 1px solid var(--border); }
-.approval-inbox-row p { margin: 6px 0 12px; color: var(--muted); }
 .approval-route { display: grid; gap: 12px; }

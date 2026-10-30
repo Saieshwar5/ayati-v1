@@ -85,8 +85,8 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   const current=(await snapshot()).rules.find(r=>r.operation==='order.update');
   await app.request(`${control}/rules`,creator,{connection,operation:'order.update',mode:'ask',revision:current.revision,chat:source,delegation_revision:1,approver:approverUser.id,approver_revision:3,approval_chat:source});
   const changes=await propose('NEEDS_REVISION');
-  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.getByRole('button',{name:'My approvals',exact:true}).click();
-  const inbox=approverPage.getByRole('dialog',{name:'My approvals'});await inbox.locator('article').filter({hasText:'Waiting for approval'}).getByRole('button',{name:'Review Update order',exact:true}).click();
+  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.goto(`${app.base}/w/${w}/?view=home`);await approverPage.getByRole('button',{name:/^View attention/}).click();
+  const inbox=approverPage.getByRole('dialog',{name:'Your attention',exact:true});await inbox.locator('article').filter({hasText:'Update order'}).getByRole('button',{name:'Review action',exact:true}).click();
   await review.getByRole('button',{name:'Request changes',exact:true}).click();await review.getByRole('status').filter({hasText:'Changes requested'}).waitFor();assert.equal(remote.calls.length,1);
   assert.equal((await snapshot()).actions.find(a=>a.id===changes.id).decision,'request_changes');
   await approverPage.evaluate(()=>{document.documentElement.dataset.theme='dark';});await approverPage.screenshot({path:join(app.data,'restricted-inbox-dark.png')});

@@ -122,10 +122,15 @@ test('people and agents work together in chat, and private channels stay private
   // 6. The owner reacts; the member sees it live. The member edits a message.
   await owner.goto(`${at('chat')}&conversation=${channel}`);
   const ownersView = owner.locator('article', { hasText: 'GOOSE_FIXTURE_OK' });
-  await ownersView.hover(); await ownersView.getByRole('button', { name: 'React 👍' }).click();
+  // The hover toolbar stays inside the message, so the list never scrolls sideways.
+  const sideways = page => page.locator('.chat-message-list').evaluate(list => list.scrollWidth > list.clientWidth);
+  await ownersView.hover(); assert.equal(await sideways(owner), false, 'a hovered agent message widens the list');
+  await owner.screenshot({ path: join(app.data, 'collaboration-hover-desktop.png') });
+  await ownersView.getByRole('button', { name: 'React 👍' }).click();
   await answer.getByRole('button', { name: /^👍 1/ }).waitFor();
   const request = colleague.locator('article.chat-message-own', { hasText: 'please check the stock' });
   await request.hover(); await request.getByRole('button', { name: 'More actions' }).click();
+  assert.equal(await sideways(colleague), false, 'an open menu on an own message widens the list');
   await request.getByRole('menuitem', { name: 'Edit message' }).click();
   await request.getByRole('textbox', { name: 'Edit message' }).fill('please check the stock today');
   await request.getByRole('button', { name: 'Save' }).click();
@@ -151,6 +156,9 @@ test('people and agents work together in chat, and private channels stay private
   const header = await colleague.locator('.chat-pane-header h2').boundingBox();
   assert.ok(header.height < 30, 'the conversation title stays on one line');
   assert.equal(await colleague.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await colleague.locator('article', { hasText: 'GOOSE_FIXTURE_OK' }).hover();
+  assert.equal(await sideways(colleague), false, 'a hovered message widens the list on a phone');
+  await colleague.screenshot({ path: join(app.data, 'collaboration-hover-phone.png') });
   await colleague.screenshot({ path: join(app.data, 'collaboration-phone.png') });
   assert.deepEqual(errors, []);
   app.pass('phone layout without page overflow and no page errors');
