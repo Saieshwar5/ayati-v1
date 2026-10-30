@@ -20,14 +20,20 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
         "SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,
             'author',jsonb_build_object('id',m.author,'kind',m.kind,
                 'display_name',CASE WHEN m.kind='agent' THEN a.name ELSE u.display_name END),
-            'at',m.at,'thread',m.thread,'content',m.content) AS data
-         FROM (SELECT * FROM relay_chat_messages m
+            'at',m.at,'thread',m.thread,'reply_to',to_jsonb(m)->'reply_to','content',m.content) AS data
+         FROM ((SELECT * FROM relay_chat_messages m
             WHERE m.workspace=$1 AND m.chat=$2
             AND ($3::text IS NULL OR m.id=$3 OR m.thread=$3)
             AND (NOT $4 OR m.sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5))
             AND m.state IN ('sent','complete') AND m.sequence<$7
             AND (m.id=$8 OR (TRUE{exclusions}))
-            ORDER BY m.sequence DESC LIMIT $6) m
+            ORDER BY m.sequence DESC LIMIT $6)
+            -- The message the request quotes, even when it is older than the window.
+            UNION SELECT * FROM relay_chat_messages m
+            WHERE m.workspace=$1 AND m.chat=$2
+            AND m.id=(SELECT to_jsonb(r)->>'reply_to' FROM relay_chat_messages r WHERE r.workspace=$1 AND r.id=$8)
+            AND (NOT $4 OR m.sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5))
+            AND m.state IN ('sent','complete') AND m.sequence<$7 AND (TRUE{exclusions})) m
          LEFT JOIN relay_users u ON u.id=m.author AND m.kind='user'
          LEFT JOIN relay_shared_agents a ON a.workspace=m.workspace AND a.id=m.author AND m.kind='agent'
          ORDER BY m.sequence"

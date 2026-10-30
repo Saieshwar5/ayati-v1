@@ -106,7 +106,7 @@
 .chat-receipt { margin-top:8px; font-size:11px; color:var(--muted); }
 .chat-receipt summary { cursor:pointer; }
 .chat-receipt small { display:block; margin-top:4px; }
-.chat-receipt .chat-seen { color:var(--accent); }
+.chat-receipt .chat-seen { color:var(--receipt-seen); }
 .chat-message .chat-send-error { font-size:12px; }
 
 .chat-message-compact { margin-top:-5px; }

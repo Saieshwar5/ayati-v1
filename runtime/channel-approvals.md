@@ -50,8 +50,8 @@ Only that currently authorized person receives decision controls:
 - **Request changes:** record that a revised proposal is required, with no dispatch.
   The original fields cannot be edited into an approved action.
 
-**Chat → My approvals** opens the restricted inbox, with waiting requests first
-and at most 50 recent candidates. Channel and inbox views refer to the same action;
+**Home → View attention** lists the approvals waiting for the designated person
+(Chat no longer has a separate "My approvals" button, 2026-10-30). Channel and inbox views refer to the same action;
 opening a view, duplicate delivery, repeated clicks or controller restart cannot
 create a second write. A different decision after a saved decision conflicts.
 Ordinary chat text, mentions and reactions do not approve an action.

@@ -2,6 +2,10 @@
 mod accounts;
 mod agent_knowledge;
 mod agent_profiles;
+mod agent_receipt_migration;
+#[cfg(test)]
+mod agent_receipt_tests;
+mod agent_receipts;
 #[cfg(test)]
 mod agent_request_tests;
 mod agent_requests;
@@ -93,6 +97,9 @@ mod message_action_migration;
 #[cfg(test)]
 mod message_action_tests;
 mod message_actions;
+mod message_reply_migration;
+#[cfg(test)]
+mod message_reply_tests;
 mod pool_metrics;
 #[cfg(test)]
 mod pool_metrics_tests;

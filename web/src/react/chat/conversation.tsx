@@ -2,10 +2,11 @@ import { ApprovalViewer } from '../approvals/viewer';
 import { ManagedResults } from '../results/managed';
 import { ChannelLifecycle } from './channel-lifecycle';
 import { PendingMessages } from './pending-messages';
-import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox } from './outbox';
+import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission } from './outbox';
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ChatComposer } from './attachments';
 import { requestAgent } from './mentions';
+import { quotePreview, ReplyingTo } from './quoted-message';
 import { ChannelAgents, ChannelMembers, ChannelSettings } from './members';
 import type { Attachment, Message } from './model';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -42,10 +43,15 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const draftKey = storageScope(`relay.chat.draft.${chat.id}`);
   const [draft, setDraft] = useState(() => { try { return sessionStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const messages = useRef<HTMLDivElement>(null);
+  const section = useRef<HTMLElement>(null);
+  // The message being quoted by the reply that is being written (C4).
+  const [replyTo, setReplyTo] = useState<string>();
+  const startReply = (id: string) => { setReplyTo(id); section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea')?.focus(); };
+  const agentName = (id: string) => directory.agents.find(agent => agent.id === id)?.name;
   const bottom = useRef(true);
   const readingResult = useRef(false);
   const pending = useRef(false);
-  const attempt = useRef<{ id: string; content: string; agent?: string; attachments: string[] }>(undefined);
+  const attempt = useRef<Submission>(undefined);
   const refresh = useRef<() => Promise<void>>(async () => {});
   const alive = useRef(true);
   useEffect(() => {
@@ -111,12 +117,15 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     pending.current = true; setBusy(true); setError('');
     let target: string | undefined;
     try { target = requestAgent(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return; }
-    if (!attempt.current || attempt.current.content !== (draft || "Shared files") || attempt.current.agent !== (target || undefined) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(files.map(f => f.id))) attempt.current = { id: crypto.randomUUID(), content: draft || "Shared files", agent: target || undefined, attachments: files.map(f => f.id) };
+    // Replying to an agent's message asks that agent, unless the text names another.
+    const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
+    if (!target && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) target = quoted.author;
+    if (!attempt.current || attempt.current.content !== (draft || "Shared files") || attempt.current.agent !== (target || undefined) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(files.map(f => f.id))) attempt.current = { id: crypto.randomUUID(), content: draft || "Shared files", agent: target || undefined, reply_to: replyTo, attachments: files.map(f => f.id) };
     const submission = attempt.current;
     try {
       await enqueue(chat.id, submission);
       if (!alive.current) return;
-      updateDraft(''); setFiles([]); attempt.current = undefined; bottom.current = true;
+      updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
     } catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { pending.current = false; if (alive.current) setBusy(false); }
   };
@@ -137,7 +146,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const summary = partner ? (partner.kind === 'agent' ? partner.who.role : partner.who.title || 'Direct message')
     : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`, chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section className="chat-conversation" aria-label={`Conversation with ${title}`}>
+  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`}>
     <header className="chat-pane-header">
       <Button className="chat-back" onClick={back}>‹ Chats</Button>
       {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} onClick={() => showProfile({ kind: partner.kind, id: partner.who.id })}>
@@ -158,11 +167,13 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
       {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <ChatMessage focused={message.id === focus} compact={index > 0 && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)} />)}
+      {timeline.map((message, index) => <ChatMessage focused={message.id === focus} compact={index > 0 && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)}
+        reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} />)}
       <PendingMessages chat={chat.id} />
     </div>
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
+    {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
       candidates={[

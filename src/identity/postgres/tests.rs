@@ -79,6 +79,7 @@ pub(super) async fn chat(
 }
 pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
     NewMessage {
+        reply_to: None,
         attachments: vec![],
         thread: None,
         id: uuid::Uuid::new_v4().to_string(),

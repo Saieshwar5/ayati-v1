@@ -93,3 +93,12 @@ test('the emoji picker inserts at the cursor, keeps mentions, searches, and clos
   assert.equal(document.querySelector('[aria-label=Emoji]'),null);assert.equal(document.activeElement,button('Add emoji'));
  });
 });
+
+test('quote previews keep real text, mark deleted and unloaded messages, and shorten long ones', async()=>{
+ const { quotePreview }=await import('../src/react/chat/quoted-message.tsx');
+ const agents=id=>id==='a1'?'Nova':undefined;
+ assert.deepEqual(quotePreview({id:'m',kind:'agent',author:'a1',content:'**GOOSE_FIXTURE_OK** [@Sam](mention:user:u1)',state:'complete'},agents),{name:'Nova',text:'GOOSE_FIXTURE_OK @Sam'});
+ assert.equal(quotePreview({id:'m',kind:'user',author:'u1',name:'Sam',content:'x',state:'deleted'},agents).text,'Message deleted');
+ assert.deepEqual(quotePreview(undefined,agents),{name:'Earlier message',text:'Not loaded in this view'});
+ assert.equal(quotePreview({id:'m',kind:'user',author:'u1',name:'Sam',content:'y'.repeat(300),state:'sent'},agents).text.length,140);
+});

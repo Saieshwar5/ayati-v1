@@ -17,7 +17,7 @@ export function useSeen(message: Message, own: boolean) {
   }, [message.id, message.chat, message.state, own]);
   return element;
 }
-type Receipt = { name: string; delivered_at: number; seen_at: number | null };
+type Receipt = { name: string; agent?: boolean; delivered_at: number; seen_at: number | null };
 export function MessageReceipt({ message }: { message: Message }) {
   const [details, setDetails] = useState<Receipt[]>();
   const [error, setError] = useState('');
@@ -29,6 +29,6 @@ export function MessageReceipt({ message }: { message: Message }) {
     void chatRequest<{ receipts: Receipt[] }>(`/chats/${message.chat}/receipts/${message.id}`).then(data => setDetails(data.receipts)).catch(() => { setDetails(undefined); setError('Receipt details unavailable.'); }).finally(() => setBusy(false));
   }}>
     <summary aria-label={label} title={label} className={message.seen ? 'chat-seen' : ''}>{message.seen || message.delivered ? '✓✓' : '✓'}</summary>
-    {busy ? <small>Loading…</small> : error ? <small>{error}</small> : details?.length ? details.map((r, i) => <small key={i}>{r.name} · {r.seen_at ? 'Seen' : 'Delivered'} {new Date((r.seen_at ?? r.delivered_at) * 1000).toLocaleTimeString()}</small>) : <small>No recipient has acknowledged this message yet.</small>}
+    {busy ? <small>Loading…</small> : error ? <small>{error}</small> : details?.length ? details.map((r, i) => <small key={i}>{r.name}{r.agent ? ' · AI' : ''} · {r.seen_at ? 'Seen' : 'Delivered'} {new Date((r.seen_at ?? r.delivered_at) * 1000).toLocaleTimeString()}</small>) : <small>No recipient has acknowledged this message yet.</small>}
   </details>;
 }

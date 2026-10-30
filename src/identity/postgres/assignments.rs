@@ -53,7 +53,7 @@ impl PgStore {
         id: &str,
         resource: &str,
     ) -> Result<Option<Assignment>> {
-        let row = query(tx, r#"SELECT j.payload,j.run_seconds,a.lease_seconds FROM relay_chat_jobs j
+        let row = query(tx, r#"SELECT j.payload,j.run_seconds,j.request_message,a.lease_seconds FROM relay_chat_jobs j
             JOIN relay_worker_assignments a ON a.id=j.claim AND a.reply=j.reply AND a.workspace=j.workspace
             WHERE a.id=$1 AND a.state='launching' AND a.provider='local' AND j.dispatch IN ('assigned','pooled')
             AND j.state='running' AND j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint
@@ -73,6 +73,10 @@ impl PgStore {
         execute(tx, "UPDATE relay_chat_jobs SET lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+$2,started_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE claim=$1 AND state='running'", vec![id.into(),(lease_seconds as i64).into()]).await?;
         let mut job: Job = serde_json::from_value(row.try_get::<Value>("", "payload")?)?;
         job.claim = Some(id.into());
+        if let Some(request) = row.try_get::<Option<String>>("", "request_message")? {
+            super::agent_receipts::seen(tx, &job.workspace, &job.chat, &request, &job.agent)
+                .await?;
+        }
         let assignment = Assignment {
             job,
             run_seconds: row.try_get::<i32>("", "run_seconds")? as u64,
