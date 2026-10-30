@@ -100,7 +100,7 @@ async fn schema_43_renames_owner_and_user_without_changing_access() {
             .is_err()
     );
     assert!(
-        db.change(&staff, "shop", "staff", Some("Admin"))
+        db.change(&staff, "shop", "staff", Some("Admin"), None)
             .await
             .is_err()
     );

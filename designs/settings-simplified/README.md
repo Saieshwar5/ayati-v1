@@ -26,6 +26,7 @@ Usage and Billing are shown with a "Coming later" badge. They are not built yet.
 | `9-admin-audit-log.png` | Audit log: readable changes with filters |
 | `10-help.png` | Report a problem to the Cuckoo team, plus short guides |
 | `11-phone.png` | The sidebar becomes a list; each item opens its page |
+| `12-remove-a-person.png` | Remove a person: who takes over, what moves (shared things only), what stays private, what pauses, what is cancelled (proposed, waiting for approval) |
 
 These leave Settings:
 

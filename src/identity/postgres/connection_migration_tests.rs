@@ -39,14 +39,14 @@ async fn connection_upgrade_preserves_owner_rules_without_delegating_to_members(
             .unwrap()
             .is_empty()
     );
-    db.change(&owner, &w, &member.id, Some("Admin"))
+    db.change(&owner, &w, &member.id, Some("Admin"), None)
         .await
         .unwrap();
-    db.change(&member, &w, &owner.id, Some("Member"))
+    db.change(&member, &w, &owner.id, Some("Member"), None)
         .await
         .unwrap();
     assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());
-    db.change(&member, &w, &owner.id, Some("Admin"))
+    db.change(&member, &w, &owner.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());

@@ -136,7 +136,7 @@ async fn home_maintenance_exact_reads_automatic_publication_and_personal_authori
     );
     let other = user(&db, "other-home-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(

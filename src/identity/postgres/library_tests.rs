@@ -156,10 +156,17 @@ async fn library_member_removal_and_reinvitation_do_not_reactivate_private_owner
     .unwrap();
     let team_page = page("Workspace instructions");
     db.library_save(&writer, &w, &team_page).await.unwrap();
-    db.library_share(&writer, &w, &team_page.id, &share(1, "workspace", vec![]))
-        .await
-        .unwrap();
-    db.change(&owner, &w, &writer.id, None).await.unwrap();
+    // Shared with selected people: removal leaves it for one of them to take over
+    // (workspace-wide items move to the admin; see member_handover_tests).
+    db.library_share(
+        &writer,
+        &w,
+        &team_page.id,
+        &share(1, "selected", vec![(&owner, "edit")]),
+    )
+    .await
+    .unwrap();
+    db.change(&owner, &w, &writer.id, None, None).await.unwrap();
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());
     join(&db, &owner, &w, &writer, "Member").await;
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());

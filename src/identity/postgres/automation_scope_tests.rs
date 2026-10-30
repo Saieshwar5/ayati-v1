@@ -12,7 +12,7 @@ async fn automation_source_revocation_blocks_future_runs_and_cancels_queued_work
     let (db, owner, w, _, a) = setup().await;
     let other = user(&db, "schedule-other-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     let c = chat(&db, &owner, &w, vec![other.id.clone()], vec![a.clone()]).await;
@@ -136,16 +136,16 @@ async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore
     let (db, owner, w, c, a) = setup().await;
     let other = user(&db, "schedule-second-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     let input = schedule(&c, Some(10));
     db.save_schedule(&owner, &w, &a, &input).await.unwrap();
     db.dispatch_schedules_at(input.first_ms).await.unwrap();
-    db.change(&other, &w, &owner.id, None).await.unwrap();
+    db.change(&other, &w, &owner.id, None, None).await.unwrap();
     assert_eq!(state(&db, &w, &input.id).await["state"], "blocked");
     join(&db, &other, &w, &owner, "Member").await;
-    db.change(&other, &w, &owner.id, Some("Admin"))
+    db.change(&other, &w, &owner.id, Some("Admin"), None)
         .await
         .unwrap();
     // Rejoining does not restore former private conversation membership.
@@ -354,7 +354,7 @@ async fn automation_list_bounds_instruction_transfer_and_exact_details_recheck_s
     );
     let other = user(&db, "routine-details-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(

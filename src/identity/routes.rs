@@ -369,6 +369,9 @@ pub(super) async fn cancel(
 #[serde(deny_unknown_fields)]
 pub(super) struct Change {
     role: Option<String>,
+    /// On removal, who takes over agents and Library items; defaults to the acting admin.
+    #[serde(default)]
+    handover_to: Option<String>,
 }
 pub(super) async fn change(
     State(app): State<Shared>,
@@ -377,8 +380,43 @@ pub(super) async fn change(
     Json(input): Json<Change>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    app.store
-        .change(&user, &workspace, &target, input.role.as_deref())
+    let providers = app
+        .store
+        .change(
+            &user,
+            &workspace,
+            &target,
+            input.role.as_deref(),
+            input.handover_to.as_deref(),
+        )
         .await?;
-    Ok(Json(json!({"ok":true})))
+    // Invitations the removed person sent are already cancelled locally; the
+    // provider revocation is best effort, as for a manual cancel.
+    let mut revoked = true;
+    for provider in providers {
+        revoked &= app
+            .provider
+            .request(
+                reqwest::Method::POST,
+                &format!("/user_management/invitations/{provider}/revoke"),
+                Some(json!({})),
+            )
+            .await
+            .is_ok();
+    }
+    Ok(Json(
+        json!({"ok":true,"provider_invitations_revoked":revoked}),
+    ))
+}
+pub(super) async fn responsibilities(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    Path((workspace, target)): Path<(String, String)>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .member_responsibilities(&user, &workspace, &target)
+            .await?,
+    ))
 }

@@ -61,7 +61,7 @@ async fn general_panels_round_trip_private_review_and_target_preserving_refresh(
     }
     let other = user(&db, "general-panel-other-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert_eq!(

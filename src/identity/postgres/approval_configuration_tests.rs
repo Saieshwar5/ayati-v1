@@ -6,7 +6,7 @@ use crate::identity::library::model::{AskItem, SavePage, ShareItem};
 #[ignore = "requires disposable PostgreSQL"]
 async fn delegated_creator_can_only_select_people_authorized_by_their_delegating_owner() {
     let s = setup().await;
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"))
+    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"), None)
         .await
         .unwrap();
     let creator = user(&s.db, "route-creator").await;

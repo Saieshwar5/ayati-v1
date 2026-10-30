@@ -11,7 +11,7 @@ async fn revocation_before_checkpoint_invalidates_the_question_and_regrant_canno
     let (db, owner, w, _, job) = setup("ask").await;
     let viewer = user(&db, "early-revocation-owner").await;
     join(&db, &owner, &w, &viewer, "Member").await;
-    db.change(&owner, &w, &viewer.id, Some("Admin"))
+    db.change(&owner, &w, &viewer.id, Some("Admin"), None)
         .await
         .unwrap();
     db.channel_members(

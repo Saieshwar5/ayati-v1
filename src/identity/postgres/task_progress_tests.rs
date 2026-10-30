@@ -201,7 +201,7 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
     let (db, owner, w, _, job) = setup("ask").await;
     let viewer = user(&db, "progress-private-viewer").await;
     join(&db, &owner, &w, &viewer, "Member").await;
-    db.change(&owner, &w, &viewer.id, Some("Admin"))
+    db.change(&owner, &w, &viewer.id, Some("Admin"), None)
         .await
         .unwrap();
     db.channel_members(

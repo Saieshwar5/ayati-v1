@@ -40,9 +40,15 @@ async fn ownership_and_revocation_are_scoped_to_each_workspace() {
     join(&db, &b, &wb, &a, "Member").await;
     assert!(db.workspace_settings(&b, &wa).await.is_err());
     assert!(db.workspace_settings(&a, &wb).await.is_err());
-    assert!(db.change(&b, &wa, &b.id, Some("Admin")).await.is_err());
-    db.change(&a, &wa, &b.id, Some("Admin")).await.unwrap();
-    db.change(&a, &wa, &b.id, None).await.unwrap();
+    assert!(
+        db.change(&b, &wa, &b.id, Some("Admin"), None)
+            .await
+            .is_err()
+    );
+    db.change(&a, &wa, &b.id, Some("Admin"), None)
+        .await
+        .unwrap();
+    db.change(&a, &wa, &b.id, None, None).await.unwrap();
     assert_eq!(db.role(&wb, &b.id).await.unwrap(), "Admin");
     assert_eq!(
         db.snapshot(&b).await.unwrap()["workspaces"]
@@ -65,7 +71,9 @@ async fn concurrent_owners_preserve_last_owner_and_detect_stale_name_saves() {
     let w = workspace(&db, &a).await;
     for person in [&b, &c] {
         join(&db, &a, &w, person, "Member").await;
-        db.change(&a, &w, &person.id, Some("Admin")).await.unwrap();
+        db.change(&a, &w, &person.id, Some("Admin"), None)
+            .await
+            .unwrap();
     }
     let (one, two) = tokio::join!(
         db.rename_workspace(&a, &w, "First edit", "Test business"),
@@ -73,9 +81,9 @@ async fn concurrent_owners_preserve_last_owner_and_detect_stale_name_saves() {
     );
     assert_ne!(one.is_ok(), two.is_ok());
     let (one, two, three) = tokio::join!(
-        db.change(&a, &w, &a.id, Some("Member")),
-        db.change(&b, &w, &b.id, Some("Member")),
-        db.change(&c, &w, &c.id, None)
+        db.change(&a, &w, &a.id, Some("Member"), None),
+        db.change(&b, &w, &b.id, Some("Member"), None),
+        db.change(&c, &w, &c.id, None, None)
     );
     assert_eq!([one, two, three].iter().filter(|r| r.is_ok()).count(), 2);
     let people = [&a, &b, &c];
@@ -92,7 +100,11 @@ async fn concurrent_owners_preserve_last_owner_and_detect_stale_name_saves() {
         }
     }
     assert_eq!(owners.len(), 1);
-    assert!(db.change(owners[0], &w, &owners[0].id, None).await.is_err());
+    assert!(
+        db.change(owners[0], &w, &owners[0].id, None, None)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -115,7 +127,7 @@ async fn invitation_accept_cancel_races_leave_consistent_membership() {
         assert_eq!(accepted.is_ok(), member);
         assert!(db.accept(&guest, &id).await.is_err());
         if member {
-            db.change(&owner, &w, &guest.id, None).await.unwrap();
+            db.change(&owner, &w, &guest.id, None, None).await.unwrap();
         }
     }
 }

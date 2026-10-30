@@ -166,7 +166,7 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     let member = user(&db, "member").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &admin, "Member").await;
-    db.change(&owner, &w, &admin.id, Some("Admin"))
+    db.change(&owner, &w, &admin.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(
@@ -187,16 +187,16 @@ async fn invitation_replay_delivery_and_role_boundaries() {
     db.delivered(&invite, Some("delivered")).await.unwrap();
     assert!(db.accept(&owner, &invite).await.is_err());
     db.accept(&member, &invite).await.unwrap();
-    assert!(db.change(&member, &w, &owner.id, None).await.is_err());
-    assert!(db.change(&member, &w, &admin.id, None).await.is_err());
-    db.change(&admin, &w, &member.id, None).await.unwrap();
+    assert!(db.change(&member, &w, &owner.id, None, None).await.is_err());
+    assert!(db.change(&member, &w, &admin.id, None, None).await.is_err());
+    db.change(&admin, &w, &member.id, None, None).await.unwrap();
     assert!(db.accept(&member, &invite).await.is_err());
     let pending = db
         .reserve_invite(&admin, &w, &member.email, "Member")
         .await
         .unwrap();
     db.delivered(&pending, Some("delivered")).await.unwrap();
-    db.change(&owner, &w, &admin.id, Some("Member"))
+    db.change(&owner, &w, &admin.id, Some("Member"), None)
         .await
         .unwrap();
     assert!(db.accept(&member, &pending).await.is_err());
@@ -340,7 +340,7 @@ async fn revocation_cancels_pending_results() {
         .await
         .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    db.change(&owner, &w, &member.id, None).await.unwrap();
+    db.change(&owner, &w, &member.id, None, None).await.unwrap();
     assert!(!db.chat_job_allowed(&job).await);
     db.chat_finish(&job, "MUST NOT PUBLISH", "complete")
         .await

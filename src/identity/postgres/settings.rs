@@ -41,7 +41,7 @@ impl PgStore {
     pub async fn workspace_activity(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         manager(&tx, w, &user.id).await?;
-        let items = json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'actor',COALESCE(u.display_name,u.email,a.actor),'action',a.action,'target',a.target,'at',a.at) AS data FROM relay_audit a LEFT JOIN relay_users u ON u.id=a.actor WHERE a.workspace=$1 ORDER BY a.id DESC LIMIT 100",vec![w.into()]).await?;
+        let items = json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'actor',COALESCE(u.display_name,u.email,a.actor),'action',a.action,'target',a.target,'summary',a.summary,'at',a.at) AS data FROM relay_audit a LEFT JOIN relay_users u ON u.id=a.actor WHERE a.workspace=$1 ORDER BY a.id DESC LIMIT 100",vec![w.into()]).await?;
         tx.commit().await?;
         Ok(json!({"activity":items}))
     }

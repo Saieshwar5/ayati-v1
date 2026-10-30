@@ -92,13 +92,17 @@ impl PgStore {
         tx.commit().await?;
         Ok(provider)
     }
+    /// Changes a role, or removes the person when `assigned` is None. Removal hands
+    /// their agents and Library items to `heir` (default: the acting admin) and
+    /// returns provider invitation IDs to revoke after commit.
     pub async fn change(
         &self,
         user: &User,
         workspace: &str,
         target: &str,
         assigned: Option<&str>,
-    ) -> Result<()> {
+        heir: Option<&str>,
+    ) -> Result<Vec<String>> {
         ensure!(
             assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
             "Invalid role"
@@ -117,6 +121,18 @@ impl PgStore {
             .try_get("", "count")?;
             ensure!(count > 1, "A workspace must keep at least one admin");
         }
+        let heir = heir.unwrap_or(&user.id);
+        let before = if assigned.is_none() {
+            ensure!(heir != target, "Choose someone else to take over");
+            role(&tx, workspace, heir)
+                .await
+                .context("The person taking over must be in this workspace")?;
+            Some(super::member_handover::responsibilities(&tx, workspace, target).await?)
+        } else {
+            None
+        };
+        let actor_name = super::member_handover::name(&tx, &user.id).await?;
+        let target_name = super::member_handover::name(&tx, target).await?;
         // Revoke documents issued under the old role as well as on removal.
         if assigned != Some(target_role.as_str()) {
             super::connection_authority::membership_changed(&tx, workspace, target).await?;
@@ -127,6 +143,7 @@ impl PgStore {
             vec![workspace.into(), target.into()],
         )
         .await?;
+        let mut providers = Vec::new();
         if let Some(assigned) = assigned {
             execute(
                 &tx,
@@ -135,6 +152,7 @@ impl PgStore {
             )
             .await?;
         } else {
+            providers = super::member_handover::hand_over(&tx, workspace, target, heir).await?;
             // Foreign keys revoke chat membership, resource grants and app sessions atomically.
             execute(
                 &tx,
@@ -144,15 +162,39 @@ impl PgStore {
             .await?;
         }
         super::task_revocation::inaccessible(&tx, workspace).await?;
-        audit(
+        let summary = match (assigned, &before) {
+            (None, Some(before)) => {
+                let heir_name = super::member_handover::name(&tx, heir).await?;
+                super::member_handover::removal_summary(
+                    &actor_name,
+                    &target_name,
+                    &heir_name,
+                    before,
+                )
+            }
+            (Some(role), _) if role == target_role => {
+                format!("{actor_name} kept {target_name} as {}", role.to_lowercase())
+            }
+            (Some(role), _) => format!(
+                "{actor_name} made {target_name} {}",
+                if role == "Admin" {
+                    "an admin"
+                } else {
+                    "a member"
+                }
+            ),
+            (None, None) => unreachable!("removal always records its responsibilities"),
+        };
+        audit_with_summary(
             &tx,
             &user.id,
             Some(workspace),
             "membership_changed",
             &format!("{target}:{}", assigned.unwrap_or("removed")),
+            &summary,
         )
         .await?;
         tx.commit().await?;
-        Ok(())
+        Ok(providers)
     }
 }

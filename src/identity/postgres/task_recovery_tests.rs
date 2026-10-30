@@ -118,7 +118,7 @@ async fn removing_and_readding_source_membership_never_revives_a_saved_task() {
     let (db, owner, w, connection, job) = setup("ask").await;
     let manager = user(&db, "source-manager").await;
     join(&db, &owner, &w, &manager, "Member").await;
-    db.change(&owner, &w, &manager.id, Some("Admin"))
+    db.change(&owner, &w, &manager.id, Some("Admin"), None)
         .await
         .unwrap();
     db.channel_members(

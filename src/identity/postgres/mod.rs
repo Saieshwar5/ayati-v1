@@ -415,6 +415,7 @@ async fn audit(
     action: &str,
     target: &str,
 ) -> Result<()> {
+    // No summary column here: upgrade tests write audit entries at schemas before 44.
     execute(
         db,
         "INSERT INTO relay_audit(actor,workspace,action,target,at) VALUES($1,$2,$3,$4,$5)",
@@ -424,6 +425,30 @@ async fn audit(
             action.into(),
             target.into(),
             now().into(),
+        ],
+    )
+    .await?;
+    Ok(())
+}
+/// `summary` is the readable sentence shown in the Audit log and Activity.
+async fn audit_with_summary(
+    db: &impl ConnectionTrait,
+    actor: &str,
+    workspace: Option<&str>,
+    action: &str,
+    target: &str,
+    summary: &str,
+) -> Result<()> {
+    execute(
+        db,
+        "INSERT INTO relay_audit(actor,workspace,action,target,at,summary) VALUES($1,$2,$3,$4,$5,$6)",
+        vec![
+            actor.into(),
+            workspace.into(),
+            action.into(),
+            target.into(),
+            now().into(),
+            summary.into(),
         ],
     )
     .await?;
@@ -444,6 +469,7 @@ mod messaging_tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
 #[cfg(test)]
 mod agent_profile_tests;
+mod audit_summary_migration;
 
 #[cfg(test)]
 mod ownership_tests;
@@ -455,5 +481,8 @@ mod workspace_scenario_tests;
 mod gateway_tests;
 #[cfg(test)]
 mod hosting_tests;
+mod member_handover;
+#[cfg(test)]
+mod member_handover_tests;
 #[cfg(test)]
 mod worker_tests;

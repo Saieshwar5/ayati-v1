@@ -11,7 +11,7 @@ async fn agent_management_does_not_reveal_private_requests_or_their_counts() {
     let (db, owner, w, _, job) = setup("ask").await;
     let other = user(&db, "request-other-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
-    db.change(&owner, &w, &other.id, Some("Admin"))
+    db.change(&owner, &w, &other.id, Some("Admin"), None)
         .await
         .unwrap();
     assert!(db.managed_agent(&other, &w, &job.agent, true).await.is_ok());
