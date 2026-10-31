@@ -4,7 +4,7 @@ pub(crate) mod broker;
 pub(crate) mod catalog;
 mod connections;
 pub(crate) mod connections_model;
-mod mcp;
+pub(crate) mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
 use super::*;
@@ -93,16 +93,27 @@ async fn connect(
         }),
         "A workspace admin must approve this system first",
     )?;
-    let server = catalog::server(&w, &input.server)?;
-    let fingerprint = server.fingerprint()?;
-    if input.enabled {
-        let mut remote = mcp::Remote::connect(server.clone(), &fingerprint)
-            .await
-            .map_err(|_| anyhow::anyhow!("Remote MCP connection could not be verified"))?;
-        remote.verify(&server.operations).await?;
-    }
+    // This older agent-level route connects operator-configured accounts only;
+    // accounts that sign in through a provider page connect in Settings.
+    let provider = crate::identity::connectors::provider_for(&w, &input.server)?;
+    check(
+        provider.name() == "mcp",
+        "Connect this account in Settings, Connections",
+    )?;
+    let crate::identity::connectors::Connect::Ready(account) =
+        provider.connect(&w, &input.server, "").await?
+    else {
+        return Err(anyhow::anyhow!("Connect this account in Settings, Connections").into());
+    };
     app.store
-        .control_connect(&user, &w, &agent, &input.id, server.public(), &fingerprint)
+        .control_connect(
+            &user,
+            &w,
+            &agent,
+            &input.id,
+            account.definition,
+            &account.fingerprint,
+        )
         .await?;
     Ok(Json(json!({"saved":true})))
 }
@@ -157,37 +168,79 @@ pub(crate) async fn dispatch(
     let Some(dispatch) = proposed.dispatch else {
         return Ok(proposed.action);
     };
+    match crate::identity::connectors::named(&dispatch.provider) {
+        Ok(provider) => dispatch_with(pg, w, dispatch, provider.as_ref()).await,
+        Err(_) => {
+            pg.control_preflight_failed(
+                w,
+                &dispatch,
+                Some("This account's connector provider is not configured on this server. Nothing was sent."),
+            )
+            .await
+        }
+    }
+}
+
+/// Sends one claimed action through its provider. Cuckoo's own checks come
+/// first (provider switch, exact fields), then the provider's (account still
+/// works, action unchanged), then current authority right before sending.
+pub(crate) async fn dispatch_with(
+    pg: &postgres::PgStore,
+    w: &str,
+    dispatch: postgres::control_actions::Dispatch,
+    provider: &dyn crate::identity::connectors::ConnectorProvider,
+) -> Result<Value> {
+    use crate::identity::connectors::{Outcome, Refusal, Saved};
+    if let Some(note) = pg.connector_provider_paused(provider.name()).await? {
+        let reason = format!(
+            "Cuckoo paused these connectors{}. Nothing was sent.",
+            if note.is_empty() {
+                String::new()
+            } else {
+                format!(": {note}")
+            }
+        );
+        return pg
+            .control_preflight_failed(w, &dispatch, Some(&reason))
+            .await;
+    }
+    if dispatch.operation.arguments(&dispatch.arguments).is_err() {
+        return pg.control_preflight_failed(w, &dispatch, None).await;
+    }
+    let saved = Saved {
+        workspace: w,
+        server: &dispatch.server,
+        binding: dispatch.binding.as_ref(),
+        fingerprint: &dispatch.fingerprint,
+    };
     let prepared = tokio::time::timeout(std::time::Duration::from_secs(30), async {
-        let server = catalog::server(w, &dispatch.server)?;
-        ensure!(
-            server.fingerprint()? == dispatch.fingerprint,
-            "Connection configuration changed"
-        );
-        let operation = server.operation(&dispatch.operation.id)?;
-        ensure!(
-            serde_json::to_value(&operation)? == serde_json::to_value(&dispatch.operation)?,
-            "Operation definition changed"
-        );
-        let mut remote = mcp::Remote::connect(server, &dispatch.fingerprint).await?;
-        remote.verify(std::slice::from_ref(&operation)).await?;
-        ensure!(
-            catalog::server(w, &dispatch.server)?.fingerprint()? == dispatch.fingerprint,
-            "Connection changed during setup"
-        );
+        let call = provider.prepare(&saved, &dispatch.operation).await?;
         pg.control_ready(w, &dispatch).await?;
-        Ok::<_, anyhow::Error>(remote)
+        Ok::<_, anyhow::Error>(call)
     })
     .await;
-    let Ok(Ok(mut remote)) = prepared else {
-        return pg.control_preflight_failed(w, &dispatch).await;
+    let call = match prepared {
+        Ok(Ok(call)) => call,
+        Ok(Err(error)) => {
+            let refusal = error.downcast_ref::<Refusal>();
+            if matches!(refusal, Some(Refusal::NeedsReconnect)) {
+                pg.connector_needs_reconnect(w, &dispatch.connection)
+                    .await?;
+            }
+            let reason = refusal.map(ToString::to_string);
+            return pg
+                .control_preflight_failed(w, &dispatch, reason.as_deref())
+                .await;
+        }
+        Err(_) => return pg.control_preflight_failed(w, &dispatch, None).await,
     };
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(12),
-        remote.call(&dispatch.operation, &dispatch.arguments),
+    let outcome = tokio::time::timeout(
+        std::time::Duration::from_secs(45),
+        call.run(&dispatch.arguments),
     )
     .await;
-    let (value, success) = match result {
-        Ok(Ok(value)) => (value, true),
+    let (value, success) = match outcome {
+        Ok(Outcome::Completed(value)) => (value, true),
         _ => (
             json!({"message":"The external outcome could not be confirmed. Inspect the remote system before retrying; further writes are held."}),
             false,

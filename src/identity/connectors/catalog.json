@@ -1,0 +1,136 @@
+{
+  "apps": [
+    {
+      "id": "gmail",
+      "name": "Gmail",
+      "providers": { "composio": "gmail" },
+      "actions": [
+        {
+          "id": "gmail.find_emails",
+          "title": "Find emails",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GMAIL_FETCH_EMAILS",
+              "fields": { "query": "query", "max_results": "max_results", "page_token": "page_token" }
+            }
+          }
+        },
+        {
+          "id": "gmail.draft_email",
+          "title": "Draft an email",
+          "effect": "write",
+          "required": ["to"],
+          "providers": {
+            "composio": {
+              "tool": "GMAIL_CREATE_EMAIL_DRAFT",
+              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
+            }
+          }
+        },
+        {
+          "id": "gmail.send_email",
+          "title": "Send an email",
+          "effect": "write",
+          "required": ["to", "subject", "body"],
+          "providers": {
+            "composio": {
+              "tool": "GMAIL_SEND_EMAIL",
+              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html" }
+            }
+          }
+        },
+        {
+          "id": "gmail.reply_to_thread",
+          "title": "Reply in an email thread",
+          "effect": "write",
+          "required": ["thread_id", "body"],
+          "providers": {
+            "composio": {
+              "tool": "GMAIL_REPLY_TO_THREAD",
+              "fields": { "thread_id": "thread_id", "body": "message_body", "to": "recipient_email", "is_html": "is_html" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "google_calendar",
+      "name": "Google Calendar",
+      "providers": { "composio": "googlecalendar" },
+      "actions": [
+        {
+          "id": "google_calendar.find_events",
+          "title": "Find calendar events",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLECALENDAR_FIND_EVENT",
+              "fields": { "query": "query", "from": "time_min", "until": "time_max", "max_results": "max_results", "calendar_id": "calendar_id", "page_token": "page_token" }
+            }
+          }
+        },
+        {
+          "id": "google_calendar.create_event",
+          "title": "Create a calendar event",
+          "effect": "write",
+          "required": ["title", "start"],
+          "providers": {
+            "composio": {
+              "tool": "GOOGLECALENDAR_CREATE_EVENT",
+              "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "google_sheets",
+      "name": "Google Sheets",
+      "providers": { "composio": "googlesheets" },
+      "actions": [
+        {
+          "id": "google_sheets.find_row",
+          "title": "Find a spreadsheet row",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLESHEETS_LOOKUP_SPREADSHEET_ROW",
+              "fields": { "spreadsheet_id": "spreadsheet_id", "query": "query", "range": "range", "case_sensitive": "case_sensitive" }
+            }
+          }
+        },
+        {
+          "id": "google_sheets.spreadsheet_info",
+          "title": "Read spreadsheet details",
+          "effect": "read",
+          "required": ["spreadsheet_id"],
+          "providers": {
+            "composio": {
+              "tool": "GOOGLESHEETS_GET_SPREADSHEET_INFO",
+              "fields": { "spreadsheet_id": "spreadsheet_id" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "google_drive",
+      "name": "Google Drive",
+      "providers": { "composio": "googledrive" },
+      "actions": [
+        {
+          "id": "google_drive.find_files",
+          "title": "Find files",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLEDRIVE_FIND_FILE",
+              "fields": { "query": "q", "folder_id": "folder_id", "page_size": "pageSize", "page_token": "pageToken", "order_by": "orderBy" }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

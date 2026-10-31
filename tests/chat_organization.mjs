@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdtemp,writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
@@ -22,7 +22,9 @@ test('personal pins persist while archived threaded work answers, receives a sep
   const connection=randomUUID(),control=`${app.path}/agent-profiles/${app.profile.id}/control`;
   await writeFile(profiles,JSON.stringify([{id:'orders',workspace:w,name:'Company orders',account:'Test company',url:remote.url,bearer_file:bearer,operations:remote.operations}]));
   await app.request(`${app.path}/control/systems`,app.cookie,{server:'orders',approved:true,revision:0});await app.request(`${app.path}/control/connections`,app.cookie,{id:connection,server:'orders',enabled:true,revision:0});
-  for(const [operation,mode]of [['order.read','allow'],['order.update','ask']])await app.request(`${control}/rules`,app.cookie,{connection,operation,mode,revision:0,chat:channel});
+  // The admin's rules for this connector, then the agent's Tools switch (schema 47).
+  for(const [operation,mode]of [['order.read','allow'],['order.update','ask']])await app.request(`${app.path}/control/connector-rules`,app.cookie,{connection,operation,mode,needs_other:false,revision:0});
+  await app.request(`${control}/tools`,app.cookie,{connection,enabled:true});
   browser=await chromium.launch({headless:true});
   async function openPage(cookie){const context=await browser.newContext({viewport:{width:1440,height:960}});const [name,value]=cookie.split('=');await context.addCookies([{name,value,url:app.base,httpOnly:true,sameSite:'Lax'}]);const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));pages.push(page);return page;}
   const page=await openPage(app.cookie),observer=await openPage(member),url=`${app.base}/w/${w}/?view=chat&conversation=${channel}`;
@@ -85,5 +87,5 @@ test('personal pins persist while archived threaded work answers, receives a sep
   const owner=(await app.request('/api/identity/session',app.cookie)).value.user;
   await app.request(`${app.path}/chats/${channel}/members`,app.cookie,{users:[owner.id]});
   await until(()=>observer.getByText('Delivery operations',{exact:true}).count().then(count=>count===0),'Revoked channel remained visible through a pin');assert.deepEqual((await app.request(`${app.path}/chat-pins`,member)).value.pins,[]);
-  assert.deepEqual(errors,[]);await writeFile(join(root,'.tmp/chat-organization/browser-evidence.json'),JSON.stringify({data:app.data,channel,reply:job.reply,model_requests:app.provider.requests.length,confirmed_writes:remote.calls.filter(call=>call.name==='update_order').length,errors},null,2));
+  assert.deepEqual(errors,[]);await mkdir(join(root,'.tmp/chat-organization'),{recursive:true});await writeFile(join(root,'.tmp/chat-organization/browser-evidence.json'),JSON.stringify({data:app.data,channel,reply:job.reply,model_requests:app.provider.requests.length,confirmed_writes:remote.calls.filter(call=>call.name==='update_order').length,errors},null,2));
 });

@@ -313,7 +313,9 @@ async fn control_rules_follow_the_agent_and_recheck_fences_revocation_during_set
     .unwrap();
     assert!(db.control_ready(&w, &dispatch).await.is_err());
     assert_eq!(
-        db.control_preflight_failed(&w, &dispatch).await.unwrap()["state"],
+        db.control_preflight_failed(&w, &dispatch, None)
+            .await
+            .unwrap()["state"],
         "invalidated"
     );
     db.control_rule(

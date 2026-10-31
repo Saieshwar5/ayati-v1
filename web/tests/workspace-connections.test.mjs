@@ -113,3 +113,57 @@ test('missing operator configuration can still be revoked and unavailable execut
     assert.match(document.body.textContent, /Configuration unavailable/);
   }, { url, fetch: async () => response(state({ servers: [], connections: [connection], systems: [{ server: 'orders', approved: true, revision: 1 }], execution_available: false })) });
 });
+
+const gmail = { id: 'gmail', name: 'Gmail', account: null, provider: 'composio', operations: [{ id: 'gmail.send_email', title: 'Send an email', effect: 'write' }] };
+
+test('an app that signs in through its provider opens the sign-in page instead of saving', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, button, click, navigation }) => {
+    const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
+    await render(WorkspaceConnections);
+    assert.match(document.querySelector('[aria-label=Gmail]').textContent, /Signs in through a secure page/);
+    await click(button('Connect account'));
+    assert.equal(writes.length, 1);
+    assert.deepEqual({ ...writes[0], id: 'id' }, { id: 'id', server: 'gmail', enabled: true, revision: 0 });
+    assert.deepEqual(navigation, ['https://connect.example.test/sign-in/abc']);
+  }, { url, fetch: async (_, options = {}) => {
+    if (options.body) { writes.push(JSON.parse(options.body)); return response({ redirect_url: 'https://connect.example.test/sign-in/abc' }); }
+    return response(state({ servers: [gmail], systems: [{ server: 'gmail', approved: true, revision: 1 }], safety: [] }));
+  } });
+});
+
+test('an account that needs signing in again says so and reconnects the same connection', async () => {
+  const writes = [];
+  const expired = { id: 'gmail-account', server: 'gmail', enabled: true, revision: 3, definition: gmail, provider: 'composio', needs_reconnect: true };
+  await reactFixture(async ({ render, button, click, navigation }) => {
+    const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
+    await render(WorkspaceConnections);
+    assert.match(document.querySelector('[aria-label=Gmail]').textContent, /Needs reconnecting/);
+    await click(button('Reconnect'));
+    assert.deepEqual(writes, [{ id: 'gmail-account', server: 'gmail', enabled: true, revision: 3 }]);
+    assert.equal(navigation.length, 1);
+  }, { url, fetch: async (_, options = {}) => {
+    if (options.body) { writes.push(JSON.parse(options.body)); return response({ redirect_url: 'https://connect.example.test/sign-in/again' }); }
+    return response(state({ servers: [gmail], connections: [expired], systems: [{ server: 'gmail', approved: true, revision: 1 }], safety: [] }));
+  } });
+});
+
+test('coming back from a sign-in page says whether the account connected', async () => {
+  for (const [query, message] of [['connected=1', /Account connected/], ['connect_error=1', /sign-in did not finish/]]) {
+    await reactFixture(async ({ render }) => {
+      const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
+      await render(WorkspaceConnections);
+      assert.match(document.querySelector('[role=status]').textContent, message);
+    }, { url: `${url}&${query}`, fetch: async () => response(state()) });
+  }
+});
+
+test('a disconnect the provider did not confirm says to remove access there too', async () => {
+  await reactFixture(async ({ render, button, click }) => {
+    const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
+    await render(WorkspaceConnections);
+    await click(button('Disconnect'));
+    assert.match(document.body.textContent, /did not confirm removing its access/);
+  }, { url, fetch: async (_, options = {}) => options.body ? response({ saved: true, provider_revoked: false })
+    : response(state({ servers: [gmail], connections: [{ id: 'g', server: 'gmail', enabled: true, revision: 1, definition: gmail, provider: 'composio' }], systems: [{ server: 'gmail', approved: true, revision: 1 }], safety: [] })) });
+});

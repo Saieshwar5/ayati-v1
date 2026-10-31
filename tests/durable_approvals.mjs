@@ -30,9 +30,11 @@ test('saved task releases execution for approval and continues on a different ex
   await app.request(`${app.path}/control/systems`, app.cookie, { server: 'orders', approved: true, revision: 0 });
   await app.request(`${app.path}/control/connections`, app.cookie, { id: connection, server: 'orders', enabled: true, revision: 0 });
   const control = `${app.path}/agent-profiles/${app.profile.id}/control`;
+  // The admin's rules for this connector, then the agent's Tools switch (schema 47).
   for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) {
-    await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0, chat: app.conversation });
+    await app.request(`${app.path}/control/connector-rules`, app.cookie, { connection, operation, mode, needs_other: false, revision: 0 });
   }
+  await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   const snapshot = async () => (await app.request(control, app.cookie)).value;
   const jobState = job => JSON.parse(app.sql(`SELECT row_to_json(j) FROM relay_chat_jobs j WHERE reply='${job.reply}'`));
   const actionFor = async job => (await snapshot()).actions.find(a => a.job === job.reply && a.operation === 'order.update');
