@@ -5,7 +5,8 @@ import { AgentAvatar } from './avatar';
 import { AgentWorkspaceHeader, type AgentAction } from './workspace-header';
 import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
 import { ToolsTab } from './tools-tab';
-import { AgentWork } from './work';
+import { HistoryView } from '../activity/history';
+import '../activity/activity.css';
 import { AutomationLauncher } from './automation/launcher';
 import { AgentOverview } from './overview';
 import { InstructionsTab } from './instructions-tab';
@@ -37,7 +38,7 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
     <WorkspaceTabs selected={section} select={selectSection} />
     <div id="agent-workspace-panel" className="agent-workspace-panel" role="tabpanel" aria-label={section} tabIndex={0}>
       {section === 'Overview' && <AgentOverview agent={agent} open={selectSection} people={() => setDialog('people')} />}
-      {section === 'Activity' && <AgentWork agent={agent.id} activity />}
+      {section === 'Activity' && <HistoryView key={agent.id} agent={agent.id} />}
       {section === 'Instructions' && <InstructionsTab key={agent.id} agent={agent} rules={directory.system_prompt} saved={saved} />}
       {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} />}
       {section === 'Schedules' && <AutomationLauncher agent={agent} />}

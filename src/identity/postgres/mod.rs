@@ -1,5 +1,9 @@
 //! PostgreSQL identity storage. All access stays behind the existing Cuckoo API.
 mod accounts;
+pub(crate) mod activity;
+mod activity_migration;
+#[cfg(test)]
+mod activity_tests;
 mod admin_member_migration;
 #[cfg(test)]
 mod admin_member_migration_tests;

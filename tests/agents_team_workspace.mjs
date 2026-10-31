@@ -93,12 +93,21 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   assert.equal(await page.getByText(/meera@|Available around the clock/).count(), 0);
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   const modelCount = app.provider.requests.length;
-  await page.getByRole('button', { name: 'Refresh progress', exact: true }).click();
+  const history = page.getByRole('region', { name: 'History', exact: true });
+  const row = text => history.getByRole('button', { name: new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+  const reopen = async () => { await page.getByRole('tab', { name: 'Overview', exact: true }).click(); await page.getByRole('tab', { name: 'Activity', exact: true }).click(); };
+  const stopFrom = async text => {
+    await row(text).click(); const details = page.getByRole('dialog', { name: text, exact: true });
+    await details.getByRole('button', { name: 'Stop request', exact: true }).click(); await details.getByText('Stop requested.', { exact: true }).waitFor();
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+  };
+  await row(taskText).waitFor();
   assert.equal(app.provider.requests.length, modelCount);
-  app.pass('Selected B team/profile layout uses real responsibility, source-scoped work and account rules; progress refresh starts no model work');
+  app.pass('Selected B team/profile layout uses real responsibility, source-scoped work and account rules; reading Activity starts no model work');
 
   app.sql(`INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at) SELECT gen_random_uuid()::text,'${w}','${channel}','${memberUser.id}','user','Later ordinary conversation','sent',1 FROM generate_series(1,220)`);
-  await page.getByRole('article', { name: `Request: ${taskText}`, exact: true }).getByRole('link', { name: 'Open conversation', exact: true }).click();
+  await row(taskText).click();
+  await page.getByRole('dialog', { name: taskText, exact: true }).getByRole('link', { name: 'Open conversation', exact: true }).click();
   const original = page.getByRole('dialog', { name: 'Thread', exact: true }); await original.waitFor();
   await original.locator(`[data-message-id="${job.reply}"]`).waitFor();
   assert.match(await original.innerText(), /delivery update is saved for review/);
@@ -116,20 +125,20 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   const queued = await app.send(queuedText, channel, member, agent.id);
   const hidden = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), name: 'Private finance', users: [], agents: [agent.id] })).value.id;
   const hiddenJob = await app.send('PRIVATE_FINANCE_REQUEST_MUST_NOT_LEAK', hidden, app.cookie, agent.id);
-  await page.getByRole('button', { name: 'Refresh progress', exact: true }).click();
-  await page.getByRole('article', { name: `Request: ${queuedText}`, exact: true }).waitFor();
+  await reopen(); await row(queuedText).waitFor();
+  assert.equal(await history.getByText(/PRIVATE_FINANCE_REQUEST_MUST_NOT_LEAK/).count(), 0);
   const visible = (await app.request(`${app.path}/agent-profiles/${agent.id}/requests?scope=visible`, member)).value;
   assert.equal(visible.requests.some(r => r.id === hiddenJob.reply), false); assert.equal(JSON.stringify(visible).includes('PRIVATE_FINANCE_REQUEST_MUST_NOT_LEAK'), false);
   assert.equal((await app.request(`${app.path}/agent-profiles`, member)).value.agents.find(a => a.id === agent.id).pending, 3);
   await page.screenshot({ path: join(app.data, 'agents-active-work-desktop.png') });
-  await page.getByRole('article', { name: `Request: ${queuedText}`, exact: true }).getByRole('button', { name: 'Stop request', exact: true }).click();
+  await stopFrom(queuedText);
   await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${queued.reply}'`) === 'cancelled', 'Queued request was not cancelled');
-  await page.getByRole('article', { name: `Request: ${runningText}`, exact: true }).getByRole('button', { name: 'Stop request', exact: true }).click();
+  await stopFrom(runningText);
   await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${running.reply}'`) === 'cancelled', 'Running request was not cancelled');
   app.provider.setHeldMarkers([]);
   assert.notEqual(app.sql(`SELECT state FROM relay_chat_messages WHERE id='${hiddenJob.reply}'`), 'cancelled', 'Unrelated private request was stopped');
   assert.equal((await app.request(`${app.path}/agent-profiles`, member)).value.agents.find(a => a.id === agent.id).settings.paused, false);
-  await page.getByRole('article', { name: `Request: ${taskText}`, exact: true }).getByRole('button', { name: 'Stop request', exact: true }).click();
+  await stopFrom(taskText);
   await until(async () => (await saved()).state === 'cancelled', 'Waiting request was not cancelled');
   const action = (await app.request(control, app.cookie)).value.actions.find(a => a.job === job.reply && a.operation === 'order.update');
   assert.equal(action.state, 'invalidated');
@@ -137,12 +146,11 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   assert.equal(remote.calls.filter(c => c.name === 'update_order').length, 0);
   app.pass('From Agents, requester stops queued/running/waiting work without pausing the agent or stopping private work; stale approval cannot write');
 
-  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
-  await page.getByRole('article', { name: `Request: ${taskText}`, exact: true }).getByText(/Cancellation recorded by/).waitFor();
+  await reopen(); await row(taskText).getByText('Stopped', { exact: true }).waitFor();
   await app.stop(worker);
   await app.stopApi(); await app.startApi(); await page.reload();
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
-  await page.getByRole('article', { name: `Request: ${taskText}`, exact: true }).getByText(/Cancellation recorded by/).waitFor();
+  await row(taskText).getByText('Stopped', { exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 }); await page.getByRole('button', { name: '‹ Agents', exact: true }).click();
   await page.screenshot({ path: join(app.data, 'agents-roster-mobile.png') });
   await page.getByRole('button', { name: 'Open agent Meera', exact: true }).click();
@@ -155,7 +163,7 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   await page.screenshot({ path: join(app.data, 'agents-tools-dark.png') });
   await ownerPage.goto(agentsUrl); await ownerPage.getByRole('button', { name: 'Open agent Meera', exact: true }).click();
   await ownerPage.getByRole('tab', { name: 'Activity', exact: true }).click();
-  await ownerPage.getByRole('combobox', { name: 'Show requests', exact: true }).selectOption('visible');
+  await ownerPage.getByRole('region', { name: 'History', exact: true }).getByText(/PRIVATE_FINANCE_REQUEST_MUST_NOT_LEAK/).waitFor();
   assert.deepEqual(errors, []); assert.equal(JSON.stringify(app.provider.requests).includes(remote.token), false);
   assert.equal(app.processes().some(p => p.logs.includes(remote.token)), false);
   await app.stop(worker);

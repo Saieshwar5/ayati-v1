@@ -7,6 +7,7 @@ export function workspacePage(url: URL): WorkspacePage {
   if (requested === 'company' || requested === 'feedback') return 'settings';
   if (requested === 'account') return 'account';
   if (requested === 'chat') return 'chat';
+  if (requested === 'activity') return 'activity';
   return requested === 'agents' || requested === 'library' || requested === 'settings' ? requested : 'home';
 }
 export function localDestination(href: string, current = new URL(window.location.href)): URL | undefined {
