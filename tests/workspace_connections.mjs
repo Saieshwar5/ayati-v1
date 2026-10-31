@@ -83,7 +83,7 @@ test('Admin delegates workspace account access; a member creates a bounded agent
   assert.equal(a.owner_id, who.id);
   const owner = (await app.request('/api/identity/session', app.cookie)).value.user;
   const chat = (await app.request(`${app.path}/chats`, member, { id: randomUUID(), kind: 'group', name: 'Order coordination', users: [owner.id], agents: [a.id] })).value.id;
-  await memberPage.getByRole('button', { name: 'Tools and approvals for Orders assistant', exact: true }).click();
+  await memberPage.getByRole('tab', { name: 'Tools', exact: true }).click(); await memberPage.getByRole('button', { name: 'Tools and approvals for Orders assistant', exact: true }).click();
   const tools = memberPage.getByRole('dialog', { name: 'Orders assistant · Tools and approvals' });
   await tools.getByRole('tab', { name: 'Permissions', exact: true }).click();
   assert.equal(await tools.getByLabel('Update order permission', { exact: true }).locator('option[value=allow]').evaluate(option => option.disabled), true);

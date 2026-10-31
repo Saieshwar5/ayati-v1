@@ -47,7 +47,7 @@ export function InstructionsStep({ name, title, text, rules, change }: {
 }
 
 /** The exact text the server would give an agent with this draft. */
-function PromptPreview({ draft, close }: { draft: { name: string; role: string; instructions: string }; close: () => void }) {
+export function PromptPreview({ draft, close }: { draft: { name: string; role: string; instructions: string }; close: () => void }) {
   const [state, setState] = useState<{ prompt?: string; error?: string }>({});
   const { name, role, instructions } = draft;
   useEffect(() => {

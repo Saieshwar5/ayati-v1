@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
 import { Button } from '../ui';
 
-export const workspaceSections = ['Overview', 'Work', 'Knowledge', 'Access', 'Automation', 'Environment', 'Activity'] as const;
+export const workspaceSections = ['Overview', 'Activity', 'Instructions', 'Tools', 'Schedules', 'Environment'] as const;
 export type WorkspaceSection = typeof workspaceSections[number];
 export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection; select: (section: WorkspaceSection) => void }) {
   const id = useId();

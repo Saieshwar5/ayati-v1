@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { Button } from '../../ui';
 import { useMutation, useResource } from '../../requests';
-import { currentWorkspace, identityRequest, workspaceId, workspaceSession } from '../../../workspace-context';
+import { currentWorkspace, workspaceSession } from '../../../workspace-context';
 import { defaultRobot } from '../../faces';
 import { defaults, saveAgentWithPicture, type Agent, type Audience, type Directory } from '../model';
 import { NameStep } from './name-step';
 import { InstructionsStep } from './instructions-step';
-import { PeopleStep, type Member } from './people-step';
+import { loadMembers, PeopleStep } from './people-step';
 import './create.css';
 
 const steps = ['Name and picture', 'Instructions', 'People'];
@@ -15,7 +15,6 @@ const hints = [
   'Instructions can be edited at any time.',
   'Tools can be added from the Tools tab after creating.',
 ];
-const loadMembers = () => identityRequest<{ users: Member[] }>(`/workspaces/${workspaceId}/chat-directory`);
 
 /** A fresh agent draft owned by the person creating it. */
 export function newAgent(directory: Directory): Agent {

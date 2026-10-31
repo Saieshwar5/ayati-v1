@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Button } from '../../ui';
+import { identityRequest, workspaceId } from '../../../workspace-context';
 import type { Audience } from '../model';
 
 export type Member = { id: string; name: string; email?: string };
+/** Everyone in the workspace, for choosing selected people and managers. */
+export const loadMembers = () => identityRequest<{ users: Member[] }>(`/workspaces/${workspaceId}/chat-directory`);
 
 const choices: { value: Audience; label: (workspace: string) => string; help: (name: string) => string }[] = [
   { value: 'everyone', label: workspace => `Everyone in ${workspace}`, help: name => `Any member can message ${name} or add it to a channel.` },
@@ -12,14 +15,14 @@ const choices: { value: Audience; label: (workspace: string) => string; help: (n
 
 /** Create step 3: who can talk to it, its managers and who sees its activity
  * (design 3-create-people). The creator owns the agent and starts as a manager. */
-export function PeopleStep({ name, workspace, me, members, audience, people, managers, setAudience, setPeople, setManagers }: {
-  name: string; workspace: string; me: string; members?: Member[];
+export function PeopleStep({ name, workspace, me, owner = me, members, audience, people, managers, setAudience, setPeople, setManagers }: {
+  name: string; workspace: string; me: string; owner?: string; members?: Member[];
   audience: Audience; people: string[]; managers: string[];
   setAudience: (value: Audience) => void; setPeople: (ids: string[]) => void; setManagers: (ids: string[]) => void;
 }) {
   const [adding, setAdding] = useState('');
   const display = name.trim() || 'this agent';
-  const others = (members ?? []).filter(member => member.id !== me);
+  const others = (members ?? []).filter(member => member.id !== owner);
   const named = (id: string) => members?.find(member => member.id === id);
   const candidates = others.filter(member => !managers.includes(member.id));
   return <div className="agent-create-people">
@@ -43,8 +46,8 @@ export function PeopleStep({ name, workspace, me, members, audience, people, man
         <h3>Managers</h3>
         <p className="ui-help">Managers approve {display}’s “Ask first” actions, see all its activity and can pause it. If no manager decides within 4 hours, an admin can.</p>
         <ul>{managers.map(id => <li key={id}>
-          <span><strong>{id === me ? `${named(id)?.name ?? 'You'} (you)` : named(id)?.name ?? 'Former member'}</strong>{named(id)?.email && <small>{named(id)?.email}</small>}</span>
-          {id === me ? <span className="agent-owner-tag">Owner</span>
+          <span><strong>{named(id)?.name ?? (id === me ? 'You' : 'Former member')}{id === me && ' (you)'}</strong>{named(id)?.email && <small>{named(id)?.email}</small>}</span>
+          {id === owner ? <span className="agent-owner-tag">Owner</span>
             : <Button className="ui-icon" aria-label={`Remove ${named(id)?.name ?? 'manager'} as a manager`} disabled={managers.length < 2}
               onClick={() => setManagers(managers.filter(other => other !== id))}>×</Button>}
         </li>)}</ul>

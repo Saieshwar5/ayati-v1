@@ -39,7 +39,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); pages.push(page); return page;
   }
   const page = await pageFor(app.cookie), staff = await pageFor(member), agents = `${app.base}/w/${w}/?view=agents`;
-  await page.goto(agents); await page.getByRole('tab', { name: 'Automation', exact: true }).click();
+  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
   await page.getByRole('button', { name: 'Create schedule', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: 'Create schedule', exact: true });
   await dialog.getByRole('textbox', { name: 'Routine name', exact: true }).fill('Daily delivery review');
@@ -61,7 +61,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   await dialog.getByRole('button', { name: 'Create schedule', exact: true }).click();
   await dialog.getByRole('button', { name: 'Edit as a new schedule', exact: true }).waitFor();
   assert.equal(app.sql('SELECT count(*) FROM relay_agent_schedules'), '1');
-  await page.reload(); await page.getByRole('tab', { name: 'Automation', exact: true }).click();
+  await page.reload(); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
   await page.getByRole('button', { name: 'Create schedule', exact: true }).click();
   dialog = page.getByRole('dialog', { name: 'Create schedule', exact: true });
   await dialog.getByRole('button', { name: 'Retry same save', exact: true }).click();
@@ -73,7 +73,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   await page.getByRole('article', { name: 'Routine: Daily delivery review', exact: true }).getByRole('button', { name: 'Pause', exact: true }).click();
   let pause = page.getByRole('dialog', { name: 'Pause routine', exact: true }); await pause.getByRole('button', { name: 'Pause routine', exact: true }).click(); await pause.getByRole('button', { name: 'Done', exact: true }).click();
   assert.equal(row(planned).state, 'paused'); assert.equal(app.provider.requests.length, 0);
-  await staff.goto(agents); await staff.getByRole('tab', { name: 'Automation', exact: true }).click();
+  await staff.goto(agents); await staff.getByRole('tab', { name: 'Schedules', exact: true }).click();
   await staff.getByText("Only this agent's maintainers can manage its shared routines.", { exact: false }).waitFor(); assert.equal(await staff.getByRole('button', { name: 'Create schedule', exact: true }).count(), 0);
   app.pass('The schedule review starts no model work; a dropped real creation acknowledgment survives browser reload and retries the exact saved payload once; staff cannot manage a maintainer routine');
 
@@ -122,7 +122,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
 
   await app.stop(executor); await app.stopApi(); await app.startApi();
   const finishedCalls = app.provider.requests.length;
-  await page.goto(agents); await page.getByRole('tab', { name: 'Automation', exact: true }).click();
+  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
   routine = page.getByRole('article', { name: `Routine: ${live.name}`, exact: true }); await routine.getByText('paused', { exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 }); await page.emulateMedia({ colorScheme: 'dark' });
   await page.getByRole('button', { name: 'Open agent Nova', exact: true }).click();
@@ -145,7 +145,7 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   await app.request(`${app.path}/members/${person.id}`, app.cookie, { role: 'Admin' });
   const blocked = { id: randomUUID(), chat: channel, name: 'PRIVATE_REVOKED_ROUTINE', content: 'PRIVATE_REVOKED_TASK', first_ms: Date.now() + 60000, interval_seconds: 10, timezone: 'Asia/Kolkata' };
   await app.request(path, app.cookie, blocked);
-  await page.goto(agents); await page.getByRole('tab', { name: 'Automation', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).waitFor();
+  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).waitFor();
   await app.request(`${app.path}/chats/${channel}/members`, member, { users: [person.id] });
   await until(() => page.getByText('PRIVATE_REVOKED_ROUTINE', { exact: true }).count().then(count => count === 0), 'Revoked source details remained visible');
   assert.equal(row(blocked.id).state, 'blocked'); assert.equal((await app.request(path, app.cookie)).value.schedules.length, 0);
