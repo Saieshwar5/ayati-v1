@@ -1,4 +1,4 @@
-export type Membership = { id: string; name: string; role: string };
+export type Membership = { id: string; name: string; role: string; delete_at_ms?: number | null; colour?: string | null; timezone?: string | null };
 type Session = { simulation?: boolean; user: { id: string; email: string; display_name?: string | null } | null; workspaces?: Membership[] };
 const match = (typeof location === 'undefined' ? '' : location.pathname).match(/^\/w\/([0-9a-f-]{36})\//);
 export const workspaceId = match?.[1] ?? '';

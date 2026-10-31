@@ -106,6 +106,9 @@ impl PgStore {
             if input.audience == "only_me" && a["audience"] != "only_me" {
                 super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
             }
+            if a["model"] != input.model || a["settings"]["provider"] != input.settings.provider {
+                allowed_model(&tx, w, input).await?;
+            }
             narrowed = a["audience"] != input.audience;
             before = Some(a.clone());
             let audience = column(&tx).await?;
@@ -114,6 +117,7 @@ impl PgStore {
             // Everyone may create agents (D231).
             let settings = serde_json::to_value(&input.settings)?;
             ensure!(input.revision == 0, "Agent missing");
+            allowed_model(&tx, w, input).await?;
             let audience = column(&tx).await?;
             execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
@@ -237,4 +241,14 @@ fn merged_guidance(requested: &Settings, saved: &Value) -> Result<Value> {
         next.routine = old.routine;
     }
     Ok(serde_json::to_value(next)?)
+}
+
+/// Agents may only switch to a model the admin allows (D233 slice 5).
+async fn allowed_model(tx: &DatabaseTransaction, w: &str, input: &SaveAgent) -> Result<()> {
+    ensure!(
+        super::settings::workspace::model_allowed(tx, w, &input.settings.provider, &input.model)
+            .await?,
+        "Choose one of the models this workspace allows"
+    );
+    Ok(())
 }

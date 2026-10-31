@@ -25,8 +25,40 @@ one sidebar with two groups.
     themselves here;
   - removal opens the hand-over dialog described below.
 - **Usage and Billing:** "Coming later" placeholders.
-- **Audit log:** formerly Activity. In simulations it also shows the simulation
-  results; the Teams page was removed, and the team records remain on the server.
+- **Audit log:** formerly Activity. Rows read "time · who · what they did" as
+  sentences with names, with filters All, People, Connections, Approvals and Admin
+  views (admin views are highlighted), 50 at a time with **Show older**. In
+  simulations it also shows the simulation results; the Teams page was removed,
+  and the team records remain on the server.
+
+## Settings completed (schema 49, M5)
+
+- **Preferences:** theme stays on the device. Notification defaults are stored on
+  the server per person (`relay_member_preferences`) and save as you go: desktop
+  alerts on/off, the default bell level for channels without their own, and
+  alerts when an agent you manage asks for approval. Direct messages always
+  notify. Email alerts are "Coming later". `GET/POST /preferences`; the defaults
+  also come back with `/chat-notifications`.
+- **Workspace** (admins): name; colour; time zone (used by Home's clock, which
+  shows device time until one is chosen); approval backup delay (1 hour to 7
+  days, default 4 hours); **Models**: the provider/model pairs agents may use and
+  the default for new agents. An empty list allows any model. An agent can only
+  switch to an allowed model, and an agent whose model the admin removed refuses
+  new requests until its owner picks another. `GET /settings`,
+  `POST /settings/workspace`.
+- **Delete workspace:** the admin types the name; deletion is scheduled for 7 days
+  later and every member sees a banner. Any admin can undo until then
+  (`POST /settings/deletion`, `POST /settings/deletion/cancel`). When it is due, the
+  cleanup job closes the workspace: nobody can open it, it leaves everyone's list,
+  and its agents, schedules and triggers stop. **Not yet built:** erasing the
+  stored records and Library files permanently; that needs its own design because
+  many records are append-only. Export data is "Coming later".
+- **Help:** **Report a problem** replaces the internal bug tracker (its page is
+  removed; its server records stay). A report has a topic, what happened and,
+  if ticked, browser and page facts (never message contents). Reports go to the
+  Cuckoo team, not the workspace: operators list them with
+  `ayati workspace-db problem-reports`. Short guides link to People, Agents,
+  Connections and Activity.
 - **Phones:** the sidebar list comes first, and a chosen page shows "‹ Settings".
 
 Pages use `?view=settings&section=<page>`. Older links still open the right page:

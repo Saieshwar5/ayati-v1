@@ -53,6 +53,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::agent_instructions_migration::AgentInstructions),
             Box::new(super::connector_safety_migration::ConnectorSafety),
             Box::new(super::activity_migration::Activity),
+            Box::new(super::settings::workspace_migration::WorkspaceSettings),
         ]
     }
 }

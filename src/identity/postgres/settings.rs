@@ -1,20 +1,22 @@
+//! Settings (D232): the Workspace page, personal preferences, problem reports and
+//! the audit log. The workspace name keeps its rename-with-check below.
 use super::*;
-use serde_json::json;
+
+#[path = "audit_log.rs"]
+mod audit_log;
+#[path = "member_preferences.rs"]
+pub(crate) mod preferences;
+#[path = "problem_reports.rs"]
+pub(crate) mod problems;
+#[cfg(test)]
+#[path = "workspace_settings_tests.rs"]
+mod tests;
+#[path = "workspace_settings.rs"]
+pub(crate) mod workspace;
+#[path = "workspace_settings_migration.rs"]
+pub(super) mod workspace_migration;
+
 impl PgStore {
-    pub async fn workspace_settings(&self, user: &User, w: &str) -> Result<Value> {
-        let tx = self.read_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
-        let name: String = query(
-            &tx,
-            "SELECT name FROM relay_workspaces WHERE id=$1",
-            vec![w.into()],
-        )
-        .await?
-        .context("Workspace unavailable")?
-        .try_get("", "name")?;
-        tx.commit().await?;
-        Ok(json!({"name":name}))
-    }
     pub async fn rename_workspace(
         &self,
         user: &User,
@@ -37,12 +39,5 @@ impl PgStore {
         audit(&tx, &user.id, Some(w), "workspace_renamed", name).await?;
         tx.commit().await?;
         Ok(())
-    }
-    pub async fn workspace_activity(&self, user: &User, w: &str) -> Result<Value> {
-        let tx = self.read_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
-        let items = json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'actor',COALESCE(u.display_name,u.email,a.actor),'action',a.action,'target',a.target,'summary',a.summary,'at',a.at) AS data FROM relay_audit a LEFT JOIN relay_users u ON u.id=a.actor WHERE a.workspace=$1 ORDER BY a.id DESC LIMIT 100",vec![w.into()]).await?;
-        tx.commit().await?;
-        Ok(json!({"activity":items}))
     }
 }

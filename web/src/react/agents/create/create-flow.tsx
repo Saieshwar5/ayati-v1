@@ -22,8 +22,10 @@ const hints = [
 /** A fresh agent draft owned by the person creating it. */
 export function newAgent(directory: Directory): Agent {
   const id = crypto.randomUUID();
+  // The workspace's default model, with its provider when the admin listed models.
+  const provider = directory.models?.find(choice => choice.model === directory.default_model)?.provider ?? defaults.provider;
   return { id, name: '', role: '', model: directory.default_model, audience: 'everyone', revision: 0,
-    settings: { ...defaults, avatar: defaultRobot(id) }, editable: true };
+    settings: { ...defaults, provider, avatar: defaultRobot(id) }, editable: true };
 }
 
 /** Create an agent in four short steps (D233). Tools are saved right after the

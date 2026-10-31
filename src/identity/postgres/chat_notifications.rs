@@ -19,6 +19,7 @@ impl PgStore {
             vec![w.into(), user.id.clone().into()],
         )
         .await?;
+        let defaults = super::settings::preferences::defaults(&tx, w, &user.id).await?;
         tx.commit().await?;
         let mut levels = serde_json::Map::new();
         for row in rows {
@@ -27,7 +28,7 @@ impl PgStore {
                 json!(row.try_get::<String>("", "level")?),
             );
         }
-        Ok(json!({ "levels": levels }))
+        Ok(json!({ "levels": levels, "defaults": defaults }))
     }
 
     /// Sets the caller's level for one conversation they can read.

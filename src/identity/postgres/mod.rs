@@ -253,7 +253,7 @@ mod request_context_tests;
 #[cfg(test)]
 mod response_tests;
 mod responses;
-mod settings;
+pub(crate) mod settings;
 mod source_access;
 mod task_continuation;
 #[cfg(test)]
@@ -404,9 +404,9 @@ async fn json_rows(
 async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
     query(
         db,
-        // Schema 43 renamed Owner/User; the old names exist only in databases being
-        // upgraded (and upgrade tests), so reads always use the new names.
-        "SELECT CASE role WHEN 'Owner' THEN 'Admin' WHEN 'User' THEN 'Member' ELSE role END AS role FROM relay_members WHERE workspace=$1 AND user_id=$2",
+        // Old Owner/User names exist only in upgrading databases (schema 43). A closed
+        // (deleted) workspace refuses everyone; to_jsonb also works before schema 49.
+        "SELECT CASE m.role WHEN 'Owner' THEN 'Admin' WHEN 'User' THEN 'Member' ELSE m.role END AS role FROM relay_members m JOIN relay_workspaces w ON w.id=m.workspace WHERE m.workspace=$1 AND m.user_id=$2 AND to_jsonb(w)->>'closed_ms' IS NULL",
         vec![workspace.into(), actor.into()],
     )
     .await?

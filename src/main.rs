@@ -88,7 +88,7 @@ async fn run(command: &str) -> Result<()> {
         }
         "help" | "--help" | "-h" => {
             println!(
-                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati executor-health Check that the local executor reports usable slots\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check>  Manage the PostgreSQL schema\n\nConfiguration: .env for the controller, .env.executor for executors (see .env.example and .env.executor.example)."
+                "Cuckoo — business agent workspace\n\nayati identity   Start the controller: sign-in, workspaces, Chat and worker control\nayati executor   Run a shared pool of prepared Goose sessions for the controller\nayati api-health Check API readiness on its internal port\nayati executor-health Check that the local executor reports usable slots\nayati simulate <directory>  Start an isolated scripted company (requires simulation database)\nayati workspace-db <migrate|check|problem-reports>  Manage the PostgreSQL schema; list reported problems\n\nConfiguration: .env for the controller, .env.executor for executors (see .env.example and .env.executor.example)."
             );
             Ok(())
         }

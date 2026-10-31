@@ -5,9 +5,14 @@ import { storageScope, workspaceSession, workspaceUrl } from '../../workspace-co
 import { navigate } from '../../navigation';
 import { subscribeChanges, type Change } from './live';
 import { chatRequest, type Conversation, type Message } from './model';
+import { loadAttention } from '../attention/model';
 
 export type Level = 'all' | 'mentions' | 'none';
-export const defaultLevel = (chat: Pick<Conversation, 'kind'>): Level => chat.kind === 'direct' ? 'all' : 'mentions';
+/** The person's own defaults (Settings → Preferences), stored on the server. */
+export type NotifyDefaults = { desktop_alerts: boolean; channel_level: Level; approval_alerts: boolean };
+let defaults: NotifyDefaults = { desktop_alerts: true, channel_level: 'mentions', approval_alerts: true };
+export function setNotifyDefaults(next: NotifyDefaults | { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean }) { defaults = next as NotifyDefaults; }
+export const defaultLevel = (chat: Pick<Conversation, 'kind'>): Level => chat.kind === 'direct' ? 'all' : defaults.channel_level;
 
 const levels = new Map<string, Level>();
 const chats = new Map<string, Conversation>();
@@ -37,10 +42,11 @@ async function load() {
   try {
     const [list, saved] = await Promise.all([
       chatRequest<{ chats: Conversation[] }>('/chats'),
-      chatRequest<{ levels: Record<string, Level> }>('/chat-notifications'),
+      chatRequest<{ levels: Record<string, Level>; defaults?: NotifyDefaults }>('/chat-notifications'),
     ]);
     chats.clear(); list.chats.forEach(chat => chats.set(chat.id, chat));
     levels.clear(); Object.entries(saved.levels).forEach(([chat, level]) => levels.set(chat, level));
+    if (saved.defaults) defaults = saved.defaults;
   } catch { /* Without the lists no alert is shown; the next change retries. */ }
 }
 
@@ -52,7 +58,7 @@ function viewingConversation(chat: string) {
 
 async function show(change: Change) {
   const message = change.message, id = change.chat;
-  if (!message || !id || alerted.has(message.id)) return;
+  if (!defaults.desktop_alerts || !message || !id || alerted.has(message.id)) return;
   // A new conversation's first message can arrive before the list refreshes.
   if (!chats.has(id)) await load();
   if (alerted.has(message.id)) return;
@@ -67,17 +73,37 @@ async function show(change: Change) {
   alert.onclick = () => { window.focus(); navigate(workspaceUrl(`/?view=chat&conversation=${id}&message=${message.id}`)); alert.close(); };
 }
 
+/** Approvals the person may decide that they have already been told about. */
+const knownApprovals = new Set<string>();
+async function approvals(silent: boolean) {
+  if (!defaults.desktop_alerts || !defaults.approval_alerts) return;
+  try {
+    const page = await loadAttention('needs_you', null);
+    for (const item of page.items) {
+      if (item.kind !== 'approval' || item.status === 'uncertain' || knownApprovals.has(item.id)) continue;
+      knownApprovals.add(item.id);
+      if (silent || item.read) continue;
+      const alert = new Notification(`${item.agent_name} needs an approval`, { body: item.title.slice(0, 140), tag: `approval-${item.id}`, icon: '/brand/cuckoo-symbol.svg' });
+      alert.onclick = () => { window.focus(); navigate(workspaceUrl('/?view=activity&tab=needs')); alert.close(); };
+    }
+  } catch { /* The next approval change retries. */ }
+}
+
 /** Started once for the workspace; returns its cleanup. */
 export function startDesktopAlerts() {
   if (!alertsSupported() || !workspaceSession?.user) return;
-  let stopped = false, reload: number | undefined;
-  void load();
+  let stopped = false, reload: number | undefined, approval: number | undefined;
+  // Approvals already waiting when the page opens are not announced again.
+  void load().then(() => approvals(true));
   const unsubscribe = subscribeChanges(change => {
     if (stopped) return;
     if (change.kind === 'access' || change.kind === 'reset') { window.clearTimeout(reload); reload = window.setTimeout(() => void load(), 500); return; }
-    if (change.kind === 'message' && Notification.permission === 'granted') void show(change);
+    if (change.kind === 'message' && Notification.permission === 'granted') {
+      void show(change);
+      if (change.message?.progress?.state === 'approval') { window.clearTimeout(approval); approval = window.setTimeout(() => void approvals(false), 800); }
+    }
   });
-  return () => { stopped = true; unsubscribe(); window.clearTimeout(reload); };
+  return () => { stopped = true; unsubscribe(); window.clearTimeout(reload); window.clearTimeout(approval); };
 }
 
 const dismissedKey = () => storageScope('chat.alerts-prompt-dismissed');
