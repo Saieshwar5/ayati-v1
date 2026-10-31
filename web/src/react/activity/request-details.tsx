@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';

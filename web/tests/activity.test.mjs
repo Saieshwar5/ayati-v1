@@ -132,3 +132,46 @@ test('Stop in request details sends one cancel for a double click and then shows
     return response({ items: [current], next_before: null });
   } });
 });
+
+test('charts fill empty days, label the busiest one, keep a table, and Export carries the filters', async () => {
+  const day = offset => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const charted = { ...totals, per_day: [{ day: day(0), count: 4 }, { day: day(3), count: 9 }], by_agent: [{ agent: 'nova', name: 'Nova', avatar: null, count: 9 }, { agent: 'atlas', name: 'Atlas', avatar: null, count: 4 }] };
+  await reactFixture(async ({ render, change }) => {
+    await render(await page(), { href: url });
+    const columns = [...document.querySelectorAll('.chart-columns > li')];
+    assert.equal(columns.length, 7, 'last 7 days, empty days included');
+    assert.deepEqual(columns.map(c => c.getAttribute('aria-label').split(': ')[1]), ['0 requests', '0 requests', '0 requests', '9 requests', '0 requests', '0 requests', '4 requests']);
+    assert.deepEqual([...document.querySelectorAll('.chart-value')].map(v => v.textContent), ['9'], 'only the peak is labelled');
+    assert.deepEqual([...document.querySelectorAll('.chart-bars li')].map(li => li.getAttribute('aria-label')), ['Nova: 9 requests', 'Atlas: 4 requests']);
+    assert.equal(document.querySelectorAll('.chart-table tbody tr').length, 9);
+    await change(select('Status'), 'failed');
+    const link = document.querySelector('.activity-export');
+    assert.match(link.getAttribute('href'), /\/api\/identity\/workspaces\/.+\/activity\/export\?.*status=failed/);
+    assert.equal(link.getAttribute('download'), 'cuckoo-activity.csv');
+  }, { url, fetch: async path => {
+    if (path.includes('/activity/totals')) return response(charted);
+    const shared = common(path); if (shared) return shared;
+    return response({ items: [], next_before: null });
+  } });
+});
+
+test('"See what it did" on an agent reply opens its request details', async () => {
+  const reads = [];
+  await reactFixture(async ({ render, button, click }) => {
+    // As in chat-message-actions.test.mjs: jsdom has no IntersectionObserver.
+    globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
+    const { ChatMessage } = await import('../src/react/chat/message.tsx');
+    const message = { id: 'first', chat: 'sales', author: 'nova', name: 'Nova', kind: 'agent', content: 'I sent the quote.', state: 'complete', at: 1 };
+    await render(ChatMessage, { message, directory: { users: [], agents: [{ id: 'nova', name: 'Nova' }], role: 'Member' }, replies: 0, openThread() {} });
+    await click(button('More actions'));
+    await click(button('See what it did'));
+    assert.ok(reads.some(path => path.includes('/activity/requests/first')));
+    assert.match(document.querySelector('dialog').textContent, /Quote for Sharma Traders/);
+  }, { url, fetch: async path => {
+    reads.push(path);
+    if (path.endsWith('/session')) return response(session);
+    if (path.includes('/activity/requests/first')) return response({ ...item('first', 'Quote for Sharma Traders'), message: 'Quote', reply: 'I sent the quote.', steps: [], fix: null, disagreement: null });
+    return response({});
+  } });
+});

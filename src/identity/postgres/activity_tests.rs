@@ -80,6 +80,28 @@ async fn requests_show_to_the_requester_the_conversation_managers_and_admins_onl
             person.id
         );
     }
+    // The CSV export follows the same visibility.
+    let (csv, more) = db.activity_export(&asker, &w, &filters()).await.unwrap();
+    assert!(!more);
+    let lines: Vec<&str> = csv.lines().collect();
+    assert_eq!(
+        lines[0],
+        "time_utc,agent,asked_by,where,type,status,request"
+    );
+    assert!(
+        lines[1].ends_with(",direct chat,chat,working,Quote for Sharma Traders"),
+        "{}",
+        lines[1]
+    );
+    assert_eq!(
+        db.activity_export(&other, &w, &filters())
+            .await
+            .unwrap()
+            .0
+            .lines()
+            .count(),
+        1
+    );
     // A manager or admin opening a conversation they aren't in is recorded.
     let details = db.activity_request(&manager, &w, &job.reply).await.unwrap();
     assert_eq!(details["in_conversation"], false);

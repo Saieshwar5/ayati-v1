@@ -5,8 +5,9 @@ import { AgentFace } from '../faces';
 import { loadAgents } from '../agents/model';
 import { loadMembers } from '../agents/create/people-step';
 import { chatRequest, type Conversation } from '../chat/model';
-import { clock, dayLabel, kindLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Totals } from './model';
+import { clock, dayLabel, exportUrl, kindLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Totals } from './model';
 import { RequestDetails } from './request-details';
+import { ActivityCharts } from './charts';
 
 const periods = [['today', 'Today'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']] as const;
 const statuses = [['', 'Any status'], ['active', 'In progress'], ['waiting', 'Waiting'], ['done', 'Done'], ['review', 'Needs review'], ['failed', 'Could not complete'], ['stopped', 'Stopped']] as const;
@@ -59,6 +60,7 @@ export function HistoryView({ agent, search: outer, since }: { agent?: string; s
         {kinds.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Status<select value={filters.status ?? ''} disabled={filters.kind === 'changes'} onChange={event => set('status', event.target.value)}>
         {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      {filters.kind !== 'changes' && <a className="ui-button activity-export" href={exportUrl(query)} download="cuckoo-activity.csv">Export CSV</a>}
     </div>
     {chips.length > 0 && <div className="activity-chips">{chips.map(chip => <Button key={chip.key} className="activity-chip" aria-label={`Remove ${chip.label}`}
       onClick={() => set(chip.key, '')}>{chip.label} ×</Button>)}
@@ -86,7 +88,7 @@ function Results({ query }: { query: Filters }) {
   });
   let day = '';
   return <>
-    {totals.data && <Summary totals={totals.data} />}
+    {totals.data && <><Summary totals={totals.data} /><ActivityCharts totals={totals.data} from={filters.from ?? startOfToday()} /></>}
     <div className="activity-timeline">
       {first.error && <p role="alert">{first.error}</p>}
       {!first.data && !first.error && <p role="status">Loading history…</p>}
@@ -118,7 +120,7 @@ function Summary({ totals }: { totals: Totals }) {
     ['Requests', totals.requests, `${totals.done} done`],
     ['Needs review', totals.review, 'failed or unconfirmed'],
     ['Actions', totals.automatic + totals.approved, `${totals.automatic} automatic · ${totals.approved} approved`],
-    ['People', totals.people, `and ${totals.channels} channels`],
+    ['People', totals.people, `and ${totals.channels} ${totals.channels === 1 ? 'channel' : 'channels'}`],
     ['Schedule runs', totals.schedule_runs, totals.waiting ? `${totals.waiting} waiting now` : 'none waiting'],
   ] as const;
   return <div className="activity-totals">{cards.map(([label, value, note]) => <article key={label} aria-label={label}>

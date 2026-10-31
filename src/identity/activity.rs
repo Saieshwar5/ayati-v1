@@ -18,6 +18,7 @@ pub(super) fn routes() -> Router<Shared> {
             get(history),
         )
         .route("/api/identity/workspaces/{w}/activity/totals", get(totals))
+        .route("/api/identity/workspaces/{w}/activity/export", get(export))
         .route(
             "/api/identity/workspaces/{w}/activity/changes",
             get(changes),
@@ -46,6 +47,32 @@ async fn totals(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.activity_totals(&user, &w, &filters).await?))
+}
+/// History as a CSV file for the same filters (at most 5,000 requests).
+async fn export(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Query(filters): Query<ActivityFilters>,
+) -> ApiResult<axum::response::Response> {
+    use axum::response::IntoResponse;
+    let user = identity(&app, &headers).await?;
+    let (csv, more) = app.store.activity_export(&user, &w, &filters).await?;
+    Ok((
+        [
+            (axum::http::header::CONTENT_TYPE, "text/csv; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_DISPOSITION,
+                "attachment; filename=\"cuckoo-activity.csv\"",
+            ),
+            (
+                axum::http::header::HeaderName::from_static("x-cuckoo-truncated"),
+                if more { "true" } else { "false" },
+            ),
+        ],
+        csv,
+    )
+        .into_response())
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

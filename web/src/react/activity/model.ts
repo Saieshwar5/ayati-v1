@@ -32,6 +32,8 @@ export const loadTotals = (filters: Filters, signal?: AbortSignal) =>
   identityRequest<Totals>(`${root}/totals?${query(filters, { offset: -new Date().getTimezoneOffset() })}`, undefined, signal);
 export const loadChanges = (agent?: string, before?: number, signal?: AbortSignal) =>
   identityRequest<{ changes: Change[]; next_before: number | null }>(`${root}/changes?${query({ agent }, { before })}`, undefined, signal);
+/** History as CSV for the same filters (at most 5,000 requests). */
+export const exportUrl = (filters: Filters) => `/api/identity${root}/export?${query(filters)}`;
 export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 export const loadNow = (signal?: AbortSignal) => identityRequest<Now>(`${root}/now?today=${startOfToday()}`, undefined, signal);
 export const markSeen = () => identityRequest<{ since: number | null }>(`${root}/seen`, {});
