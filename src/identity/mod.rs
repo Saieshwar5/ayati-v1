@@ -33,6 +33,7 @@ mod routes;
 mod settings;
 mod shutdown;
 pub mod simulation;
+mod skills;
 pub(crate) mod start_trace;
 pub mod user;
 mod worker_control;
@@ -218,6 +219,7 @@ fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(activity::routes())
+        .merge(skills::routes())
         .merge(member_profiles::routes())
         .merge(control::routes())
         .merge(attention::routes())

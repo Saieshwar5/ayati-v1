@@ -61,3 +61,4 @@
   .agent-create-face { width: 72px; height: 72px; border-radius: 18px; }
   .agent-create-footer .ui-status { margin-left: 0; }
 }
+.agent-create-skills { margin-top:18px; } .agent-create-skills h3 { font-size:14px; margin:0 0 8px; } .agent-create-skills h3 small { margin-left:8px; color:var(--muted); font-weight:400; }

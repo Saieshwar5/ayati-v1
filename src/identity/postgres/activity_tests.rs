@@ -1,5 +1,5 @@
-use super::activity::Filters as ActivityFilters;
-use super::tests::{chat, fixture, join, message, user, workspace};
+use super::super::tests::{chat, fixture, join, message, user, workspace};
+use super::Filters as ActivityFilters;
 use super::*;
 use crate::identity::chat::model::NewChat;
 
@@ -28,7 +28,7 @@ async fn requests_show_to_the_requester_the_conversation_managers_and_admins_onl
     for person in [&asker, &manager, &other] {
         join(&db, &admin, &w, person, "Member").await;
     }
-    let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
+    let (_, agent) = super::super::executor_slot_tests::agent(&db, &admin, &w).await;
     execute(
         &db.db,
         "UPDATE relay_shared_agents SET audience='everyone' WHERE id=$1",
@@ -111,7 +111,7 @@ async fn paging_has_no_gaps_and_filters_and_totals_agree() {
     let db = fixture().await;
     let owner = user(&db, "page-owner").await;
     let w = workspace(&db, &owner).await;
-    let (c, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (c, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     let mut sent = vec![];
     for n in 0..30 {
         let text = if n == 7 {
@@ -260,7 +260,7 @@ async fn now_shows_agent_states_running_work_and_what_happened_while_away() {
     let db = fixture().await;
     let owner = user(&db, "now-owner").await;
     let w = workspace(&db, &owner).await;
-    let (c, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (c, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_send(
         &owner,
         &w,
@@ -331,7 +331,7 @@ async fn thirty_agents_over_ninety_days_stay_within_the_response_budget() {
     let db = fixture().await;
     let owner = user(&db, "perf-owner").await;
     let w = workspace(&db, &owner).await;
-    let (c, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (c, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     let job = db
         .chat_send(&owner, &w, &c, &message("Seed request", Some(&agent)))
         .await

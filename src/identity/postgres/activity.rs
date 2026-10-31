@@ -9,6 +9,9 @@ use serde::Deserialize;
 
 #[path = "activity_now.rs"]
 mod now;
+#[cfg(test)]
+#[path = "activity_tests.rs"]
+mod tests;
 use serde_json::json;
 
 /// History filters; every field is optional.

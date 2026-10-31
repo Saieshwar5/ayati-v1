@@ -7,7 +7,7 @@ export function controllerToolsOnly(request) {
   // extensions must never enter a shared managed-agent session.
   assert.deepEqual((request.tools ?? []).map(tool => tool.function?.name).sort(), [
     'ayati_control__ask_question', 'ayati_control__handoff_targets',
-    'ayati_control__home_panel_update_context',
+    'ayati_control__home_panel_update_context', 'ayati_control__load_skill',
     'ayati_control__operations', 'ayati_control__personal_panels',
     'ayati_control__read_conversation_history', 'ayati_control__refresh_home_panel', 'ayati_control__request_action',
     'ayati_control__request_handoff', 'ayati_control__save_home_panel',

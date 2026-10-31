@@ -133,13 +133,16 @@ impl PgStore {
             Some(id) => query(&tx,"SELECT left(content,4000) AS content FROM relay_chat_messages WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?.map(|r| r.try_get::<String>("","content")).transpose()?,
             None => None,
         };
-        let steps = json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'title',a.title,'effect',a.effect,'state',CASE WHEN a.state='executing' AND a.updated<floor(extract(epoch FROM clock_timestamp()))::bigint-60 THEN 'uncertain' ELSE a.state END,
+        let mut steps = json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'title',a.title,'effect',a.effect,'state',CASE WHEN a.state='executing' AND a.updated<floor(extract(epoch FROM clock_timestamp()))::bigint-60 THEN 'uncertain' ELSE a.state END,
             'automatic',NOT a.requires_approval,'decision',a.decision,'decided_by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.decided_by),
             'account',(SELECT c.definition->>'name' FROM relay_control_connections c WHERE c.workspace=a.workspace AND c.id=a.connection),
             'arguments',a.arguments,'at',a.created) AS data FROM relay_control_actions a WHERE a.workspace=$1 AND a.job=$2 ORDER BY a.created,a.id",vec![w.into(),reply.into()]).await?;
         let changed = steps
             .iter()
             .any(|s| s["effect"] == "write" && s["state"] == "completed");
+        // Skills it loaded, in time order with its tool steps (D234).
+        steps.extend(super::super::skills::runtime::steps(&tx, w, reply).await?);
+        steps.sort_by_key(|s| s["at"].as_i64().unwrap_or(0));
         let state = item["state"].as_str().unwrap_or_default().to_string();
         let fix = match state.as_str() {
             "failed" | "interrupted" => Some(format!(
