@@ -57,8 +57,8 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
     </div>
     {replies ? <button type="button" className="chat-thread-link chat-thread-count" aria-label={`${replies} ${replies === 1 ? 'reply' : 'replies'}`} title="Open thread" onClick={openThread}>{`${replies} ${replies === 1 ? 'reply' : 'replies'}`}</button> : null}
     {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)}
-      details={message.kind === 'agent' && message.chat ? () => setInspecting(true) : undefined} />}
+      details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}
-    {inspecting && <RequestDetails reply={message.id} close={() => setInspecting(false)} />}
+    {inspecting && <RequestDetails reply={message.update_of ?? message.id} close={() => setInspecting(false)} />}
   </article>;
 }

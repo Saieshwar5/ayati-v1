@@ -321,6 +321,11 @@ impl PgStore {
             )
             .await?;
             super::agent_receipts::delivered(tx, workspace, chat, &input.id, &job.agent).await?;
+            // A person's request that queues behind the agent's other work hears so at once.
+            if !class.background() {
+                super::chat::updates::busy_reply(tx, workspace, job, input.thread.as_deref())
+                    .await?;
+            }
         }
         if class == WorkClass::Interactive {
             super::communication_inbox::record_chat(tx, user, workspace, chat, input, job.as_ref())

@@ -173,6 +173,10 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             let input = serde_json::from_value(arguments)?;
             pg.request_handoff(job, &input).await
         }
+        "send_update" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.send_update(job, &input).await
+        }
         "load_skill" => {
             let input = serde_json::from_value(arguments)?;
             pg.load_skill(job, &input).await
