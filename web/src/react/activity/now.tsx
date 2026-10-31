@@ -5,8 +5,11 @@ import { AgentFace } from '../faces';
 import { ago, clock, dayLabel, loadNow, markSeen, status, stopRequest, where, type AgentCard, type ActivityItem } from './model';
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
+import { PauseAgentsControl } from './agents-pause';
+import { currentWorkspace } from '../../workspace-context';
 
-function cardState(agent: AgentCard): { label: string; tone: string; line: string } {
+function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone: string; line: string } {
+  if (allPaused) return { label: 'Paused', tone: 'quiet', line: 'All agents are paused' };
   if (agent.paused) return { label: 'Paused', tone: 'quiet', line: agent.paused_note ?? 'Paused' };
   if (agent.running > 0) return { label: 'Working', tone: 'working', line: `${agent.doing ?? 'Working on a request'} · today ${agent.today} requests` };
   if (agent.waiting > 0) return { label: 'Waiting', tone: 'waiting', line: agent.doing ?? 'Waiting for someone' };
@@ -28,6 +31,7 @@ export function NowView({ search, openHistory }: { search: string; openHistory: 
   const stop = (item: ActivityItem) => void mutation.run(async () => { await stopRequest(item); await refresh(); mutation.setStatus('Stop requested.'); });
   const caughtUp = (then: () => Promise<void> | void) => void mutation.run(async () => { await markSeen(); await then(); });
   return <section className="activity-now" aria-label="Now">
+    {currentWorkspace()?.role === 'Admin' && <div className="activity-now-header"><PauseAgentsControl changed={() => void refresh().catch(() => {})} /></div>}
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">Loading what your agents are doing…</p>}
     {data && away && away.requests > 0 && <section className="activity-away" aria-label="While you were away">
@@ -38,7 +42,7 @@ export function NowView({ search, openHistory }: { search: string; openHistory: 
     </section>}
     {data && <h2 className="activity-group">Agents</h2>}
     <div className="activity-cards">{agents.map(agent => {
-      const state = cardState(agent);
+      const state = cardState(agent, Boolean(data?.agents_paused));
       return <article key={agent.id} className="activity-card" aria-label={agent.name}>
         <header><AgentFace agent={{ id: agent.id, name: agent.name, avatar: agent.avatar }} className="activity-card-face" />
           <span><strong>{agent.name}</strong><small>{agent.role}</small></span>

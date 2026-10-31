@@ -137,3 +137,6 @@ button.activity-row-button:hover { background: var(--soft); }
 @media (max-width:760px) { .activity-charts { grid-template-columns:1fr; } }
 @media (forced-colors: active) { .chart-column, .chart-bar { background:CanvasText; } }
 .activity-export { margin-left:auto; }
+
+/* Pause all agents: its control on Now. */
+.activity-now-header { display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px; }

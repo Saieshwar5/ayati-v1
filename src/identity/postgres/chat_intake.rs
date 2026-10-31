@@ -211,6 +211,7 @@ impl PgStore {
                 vec![workspace.into(),chat.into(),quoted.clone().into(),input.thread.clone().into()]).await?.is_some(),"Quoted message is not in this conversation");
         }
         if let Some(agent) = &input.agent {
+            super::settings::pause::ensure_running(tx, workspace).await?;
             let pending:i64=query(tx,"SELECT count(*) AS total FROM relay_chat_messages WHERE workspace=$1 AND kind='agent' AND state='queued'",vec![workspace.into()]).await?.context("Missing count")?.try_get("","total")?;
             if class.background() {
                 let count:i64=query(tx,"SELECT count(*) AS total FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.id=j.reply WHERE j.workspace=$1 AND j.work_class='background' AND m.state='queued'",vec![workspace.into()]).await?.context("Missing background count")?.try_get("","total")?;

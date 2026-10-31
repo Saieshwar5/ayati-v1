@@ -17,7 +17,7 @@ export type Totals = {
 };
 export type AgentCard = { id: string; name: string; role: string; avatar: string | null; paused: boolean; paused_note: string | null;
   running: number; waiting: number; today: number; failed_today: number; doing: string | null; next_run: number | null };
-export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals } };
+export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean };
 export type Change = { id: number; at: number; agent: string; agent_name: string; agent_avatar: string | null; summary: string; actor_name: string };
 
 const root = `/workspaces/${workspaceId}/activity`;

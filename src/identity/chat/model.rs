@@ -75,6 +75,20 @@ pub struct Job {
     #[serde(skip)]
     pub claim: Option<String>,
 }
+/// An admin paused all agents in the workspace; no agent work starts until they
+/// resume. Schedules skip and events go unhandled instead of being disabled.
+#[derive(Debug)]
+pub struct AgentsPaused;
+impl std::fmt::Display for AgentsPaused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "All agents in this workspace are paused. An admin can resume them from Activity or Settings."
+        )
+    }
+}
+impl std::error::Error for AgentsPaused {}
+
 #[derive(Debug)]
 pub struct QueueFull;
 impl std::fmt::Display for QueueFull {

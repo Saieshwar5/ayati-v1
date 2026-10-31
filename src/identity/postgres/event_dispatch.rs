@@ -135,6 +135,12 @@ impl PgStore {
             }
             Err(error) => {
                 nested.rollback().await?;
+                if error.is::<crate::identity::chat::model::AgentsPaused>() {
+                    // The trigger stays on; this one event is not handled.
+                    execute(&tx,"UPDATE relay_event_deliveries SET state='cancelled',detail='All agents were paused when this event arrived, so it was not handled.' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
+                    tx.commit().await?;
+                    return Ok(false);
+                }
                 if error.is::<crate::identity::chat::model::QueueFull>()
                     || error.is::<crate::identity::chat::model::BackgroundQueueFull>()
                 {

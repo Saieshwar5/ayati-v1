@@ -230,6 +230,8 @@ impl PgStore {
             job_for_action(&tx, &action).await?
         };
         authorize(&tx, &job, dispatch.origin.is_some()).await?;
+        // An approval decided just before a pause must not be sent during it.
+        super::settings::pause::ensure_running(&tx, w).await?;
         ensure!(
             super::handoff_controls::allowed(
                 &tx,

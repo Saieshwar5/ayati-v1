@@ -102,6 +102,13 @@ impl PgStore {
             }
             Err(error) => {
                 intake.rollback().await?;
+                if error.is::<crate::identity::chat::model::AgentsPaused>() {
+                    // Skip this run rather than replay it on resume; a one-off waits
+                    // for its person to run it again, as after any other block.
+                    execute(&tx,"UPDATE relay_agent_schedules SET next_ms=COALESCE($3,next_ms),state=CASE WHEN $3::bigint IS NULL THEN 'blocked' ELSE 'enabled' END,revision=revision+CASE WHEN $3::bigint IS NULL THEN 1 ELSE 0 END,detail=CASE WHEN $3::bigint IS NULL THEN 'Missed because all agents were paused. Resume it to run it again.' ELSE 'The last run was skipped because all agents were paused.' END WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),next.into()]).await?;
+                    tx.commit().await?;
+                    return Ok(false);
+                }
                 if error.is::<crate::identity::chat::model::QueueFull>()
                     || error.is::<crate::identity::chat::model::BackgroundQueueFull>()
                 {
