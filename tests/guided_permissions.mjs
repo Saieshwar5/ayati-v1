@@ -46,7 +46,7 @@ test('guided AI review covers every tool, previews without effects and activates
   page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
   const open = async () => {
     await page.goto(`${app.base}/w/${w}/?view=agents`);
-    await page.getByRole('button', { name: 'Set up permissions for Nova', exact: true }).click();
+    await page.getByRole('tab', { name: 'Tools', exact: true }).click(); await page.getByRole('button', { name: 'Set up permissions for Nova', exact: true }).click();
     return page.getByRole('dialog', { name: 'Nova · Set up permissions' });
   };
   let wizard = await open();

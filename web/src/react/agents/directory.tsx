@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
-import { AgentEditor } from './editor';
 import { defaults, loadAgents, type Agent } from './model';
 import { AgentCreate, newAgent } from './create/create-flow';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
@@ -12,7 +11,6 @@ import { AgentAvatar } from './avatar';
 import { AgentWorkspace } from './workspace';
 import { workspaceSections, type WorkspaceSection } from './workspace-tabs';
 import { subscribeChanges } from '../chat/live';
-import { RehearsalLauncher } from './rehearsals/launcher';
 import './workspace.css';
 
 export function AgentsPage() {
@@ -32,18 +30,15 @@ export function AgentsPage() {
   };
   const [section, setSection] = useState<WorkspaceSection>(() => savedSection(selectedKey));
   const [query, setQuery] = useState('');
-  const [editing, edit] = useState<Agent>();
   const [creating, setCreating] = useState<Agent>();
   const [controlled, control] = useState<Agent>();
   const [guided, guide] = useState<Agent>();
-  const [rehearsing, rehearse] = useState<Agent>();
   const [revision, setRevision] = useState(0);
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
     epoch.current++; setData(undefined);
-    edit(undefined); guide(undefined); control(undefined);
-    rehearse(undefined);
+    guide(undefined); control(undefined);
     void refresh().catch(() => {});
   }), [setData, refresh]);
   useEffect(() => {
@@ -101,12 +96,10 @@ export function AgentsPage() {
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
       {creating && data && <AgentCreate key={creating.id} start={creating} directory={data} close={() => setCreating(undefined)}
         created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
-      {!creating && selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} rehearse={() => rehearse(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
+      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} revision={revision} section={section} selectSection={selectSection} back={back} guide={() => guide(selected)} control={() => control(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); setRevision(n => n + 1); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
-    {editing && data && <AgentEditor key={editing.id} agent={editing} directory={data} close={() => edit(undefined)} saved={async () => { const id = editing.id; edit(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
     {guided && <GuidedSetup key={guided.id} agent={guided} close={closeControls} />}
     {controlled && <AgentControl key={controlled.id} agent={controlled} close={closeControls} />}
-    {rehearsing && <RehearsalLauncher key={rehearsing.id} agent={rehearsing} close={() => rehearse(undefined)} />}
   </div>;
 }
