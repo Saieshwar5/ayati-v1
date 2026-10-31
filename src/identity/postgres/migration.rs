@@ -55,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::activity_migration::Activity),
             Box::new(super::settings::workspace_migration::WorkspaceSettings),
             Box::new(super::skills::migration::Skills),
+            Box::new(super::settings::pause_migration::AgentPause),
         ]
     }
 }

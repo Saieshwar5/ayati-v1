@@ -155,3 +155,6 @@
   .settings-row select { min-width:0; width:100%; }
   .settings-audit-table td:first-child, .settings-audit-table th { width:auto; }
 }
+.settings-pause { max-width:760px; margin-top:28px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; border:1px solid var(--border-panel); border-radius:10px; }
+.settings-pause h3 { margin:0 0 4px; font-size:15px; }
+.settings-pause p { margin:0; }

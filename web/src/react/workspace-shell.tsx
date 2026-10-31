@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { currentWorkspace, workspaceUrl, workspaceSession } from '../workspace-context';
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
+import { PauseBanner } from './activity/agents-pause';
 
 export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'settings' | 'account';
 function Icon({ name }: { name: WorkspacePage }) {
@@ -26,7 +27,7 @@ export function WorkspaceShell({ page, children }: { page: WorkspacePage; childr
     })}</nav>
     <AccountMenu />
   </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}
-    <DeletionBanner />{children}</div></div>;
+    <DeletionBanner /><PauseBanner />{children}</div></div>;
 }
 
 /** Everyone sees a scheduled deletion; admins can undo it from Settings. */

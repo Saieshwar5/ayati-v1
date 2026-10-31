@@ -76,6 +76,7 @@ impl PgStore {
         .map(|r| r.try_get("", "seen_ms"))
         .transpose()?
         .flatten();
+        let agents_paused = super::super::settings::pause::paused(&tx, w).await?;
         tx.commit().await?;
         let since = since.unwrap_or(now() * 1000 - 24 * 3600 * 1000);
         let away = self
@@ -99,7 +100,7 @@ impl PgStore {
             )
             .await?;
         Ok(
-            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}}),
+            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}, "agents_paused": agents_paused}),
         )
     }
 

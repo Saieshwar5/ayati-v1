@@ -70,6 +70,32 @@ Workspace pages fall back to Profile for members, and the server refuses their A
 regardless. Account-menu workspace switching and sign-out remain available to
 everyone. No workspace records are deleted.
 
+## Pause all agents (schema 51)
+
+An admin's emergency switch, in **Activity → Now** and **Settings → Workspace**.
+
+- **Pausing** asks for an optional reason (everyone sees it), then in one
+  transaction stops every unfinished request with the same stop as a person's
+  Stop: running attempts end at their executor's next lease renewal, pending
+  approvals are invalidated, and replies read "Stopped because all agents were
+  paused." One audit entry records who, how many requests and why.
+- **While paused:** sending to an agent is refused with HTTP 409 and that reason;
+  person-to-person messages still work. Schedules **skip** a due run and stay on
+  (a one-off waits for its person to run it again). Trigger events that arrive are
+  not handled and say so on the delivery. An approval decided just before the
+  pause is not sent. Library questions to agents are refused too.
+- **Every member** sees a banner with who paused, when and why; it arrives live
+  through the change stream (an `agents` event), so open tabs need no reload.
+  Admins can resume from the banner.
+- **Resuming** lets agents take work again. Stopped requests don't restart by
+  themselves, and agents paused on their own stay paused.
+- The pause is a separate gate from agent access on purpose: lost access
+  permanently blocks schedules and triggers, and a pause must not.
+- API: `GET /agents/pause` (any member; the stop count only for admins),
+  `POST /agents/pause` `{note}` and `POST /agents/resume` (admins).
+- Checks: `settings::pause` PostgreSQL tests, `web/tests/agents-pause.test.mjs`,
+  and `tests/agents_pause.mjs` with real Goose.
+
 ## Roles and authority
 
 Membership roles are Admin and Member (schema 43, D231; earlier schemas named them

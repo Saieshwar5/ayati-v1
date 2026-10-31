@@ -57,10 +57,14 @@ impl PgStore {
         let mut access_changed = false;
         let mut sample_access_changed = false;
         let mut panel_access_changed = false;
+        let mut agents_changed = false;
         for row in events {
             cursor = row.try_get("", "cursor")?;
             if row.try_get::<String>("", "kind")? == "access" {
                 access_changed = true;
+            } else if row.try_get::<String>("", "kind")? == "agents" {
+                // All agents were paused or resumed.
+                agents_changed = true;
             } else if row.try_get::<String>("", "kind")? == "panel_access" {
                 panel_access_changed |=
                     row.try_get::<Option<String>>("", "audience")?.as_deref() == Some(&user.id);
@@ -81,6 +85,9 @@ impl PgStore {
         }
         if panel_access_changed {
             output.push(json!({"kind":"panel_access"}));
+        }
+        if agents_changed {
+            output.push(json!({"kind":"agents"}));
         }
         if sample_access_changed {
             output.push(json!({"kind":"sample_access"}));

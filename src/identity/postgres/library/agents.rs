@@ -101,6 +101,7 @@ impl PgStore {
                 .replace(['[', ']', '\n'], ""),
             input.revision
         );
+        super::super::settings::pause::ensure_running(&tx, w).await?;
         execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target) VALUES($1,$2,$3,$4,'user',$5,'sent',$6,$7)",vec![input.request.clone().into(),w.into(),chat.clone().into(),user.id.clone().into(),question.into(),now().into(),input.agent.clone().into()]).await?;
         execute(&tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6)",vec![reply.clone().into(),w.into(),chat.clone().into(),input.agent.clone().into(),now().into(),user.id.clone().into()]).await?;
         let job = Job {

@@ -93,7 +93,8 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
         let error = value.into();
         let status = if error.is::<library::model::Denied>() {
             StatusCode::NOT_FOUND
-        } else if error.is::<library::model::Conflict>() {
+        } else if error.is::<library::model::Conflict>() || error.is::<chat::model::AgentsPaused>()
+        {
             StatusCode::CONFLICT
         } else if error.is::<chat::model::QueueFull>()
             || error.is::<chat::model::BackgroundQueueFull>()

@@ -1,6 +1,7 @@
 //! Settings (D232): the Workspace page and its deletion, personal preferences,
 //! "Report a problem" and the audit log. The server checks every role.
 use super::*;
+use crate::identity::postgres::settings::pause::PauseInput;
 use crate::identity::postgres::settings::{
     preferences::Preferences, problems::ProblemReport, workspace::WorkspaceSettingsInput,
 };
@@ -62,6 +63,11 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route(&format!("{base}/problem-reports"), post(report_problem))
         .route(&format!("{base}/activity"), get(activity))
+        .route(
+            &format!("{base}/agents/pause"),
+            get(pause_state).post(pause),
+        )
+        .route(&format!("{base}/agents/resume"), post(resume))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -147,4 +153,31 @@ async fn report_problem(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.report_problem(&user, &w, &input).await?))
+}
+/// Whether all agents are paused; every member sees it.
+async fn pause_state(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    RoutePath(w): RoutePath<String>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agents_pause_state(&user, &w).await?))
+}
+/// An admin pauses all agents: everything running or waiting stops at once.
+async fn pause(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    RoutePath(w): RoutePath<String>,
+    Json(input): Json<PauseInput>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.pause_agents(&user, &w, &input).await?))
+}
+async fn resume(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    RoutePath(w): RoutePath<String>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.resume_agents(&user, &w).await?))
 }

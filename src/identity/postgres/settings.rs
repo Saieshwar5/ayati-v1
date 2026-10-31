@@ -4,6 +4,10 @@ use super::*;
 
 #[path = "audit_log.rs"]
 mod audit_log;
+#[path = "agent_pause.rs"]
+pub(crate) mod pause;
+#[path = "agent_pause_migration.rs"]
+pub(crate) mod pause_migration;
 #[path = "member_preferences.rs"]
 pub(crate) mod preferences;
 #[path = "problem_reports.rs"]
