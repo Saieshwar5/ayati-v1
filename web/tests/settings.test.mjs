@@ -20,8 +20,10 @@ async function fixture(role, run, simulation=false) {
     let data={};
     if(path.endsWith('/session'))data={user:{id:'person',email:'person@test',display_name:'Person'},workspaces:[{id:workspace,name:'Northstar',role}],simulation};
     if(path.endsWith('/people'))data={role,members:[{id:'person',email:'person@test',role}],invitations:[]};
-    if(path.endsWith('/settings'))data={name:'Northstar'};
-    if(path.endsWith('/activity'))data={activity:[{id:2,actor:'Person',action:'membership_changed',target:'ravi:removed',summary:'Person removed Ravi; 1 agent moved to Person',at:1},{id:1,actor:'Person',action:'workspace_renamed',target:'w',at:1}]};
+    if(path.endsWith('/settings'))data={name:'Northstar',timezone:null,colour:null,approval_backup_hours:4,models:[],default_model:null,delete_at_ms:null,delete_requested_by:null};
+    if(path.endsWith('/preferences'))data=body??{desktop_alerts:true,channel_level:'mentions',approval_alerts:true};
+    if(path.includes('/activity?'))data=path.includes('kind=admin_views')?{activity:[{id:3,actor:'Meera',action:'activity_private_viewed',kind:'admin_views',sentence:'viewed a request from a conversation they are not in (admin view)',at:1}],next_before:null}
+      :{activity:[{id:2,actor:'Person',action:'membership_changed',kind:'people',sentence:'removed Ravi; 1 agent moved to Person',at:1},{id:1,actor:'Person',action:'workspace_renamed',kind:'other',sentence:'renamed the workspace to Northstar',at:1}],next_before:null};
     if(path.endsWith('/simulation/reports'))data={reports:[]};
     if(path.endsWith('/feedback'))data={feedback:[]};
     if(path.endsWith('/chats'))data={chats:[]};
@@ -42,7 +44,7 @@ test('Members see their own pages and This workspace, and never read admin data'
     assert.match(document.querySelector('.settings-heading p').textContent,/Northstar · Member/);
     await render(base+'&scope=workspace&section=people');
     assert.equal(page(),'Profile','admin pages fall back for members');
-    assert.ok(!reads.some(path=>path.endsWith('/people')||path.endsWith('/settings')||path.endsWith('/activity')));
+    assert.ok(!reads.some(path=>path.endsWith('/people')||path.endsWith('/settings')||path.includes('/activity')));
     await render(base+'&section=this-workspace');
     assert.equal(page(),'This workspace');
     assert.deepEqual([...document.querySelectorAll('.settings-admins strong')].map(node=>node.textContent),['Arjun Mehta']);
@@ -108,7 +110,7 @@ test('Links from the old tabbed Settings open the new pages',async()=>{
       ['&scope=workspace&section=people','People'],[ '&scope=workspace&section=access','People'],
       ['&scope=workspace&section=general','Workspace'],['&scope=workspace&section=teams','Workspace'],
       ['&scope=workspace&section=activity','Audit log'],['&scope=personal&section=my-account','Profile'],
-      ['&scope=personal&section=help-%26-feedback','Feedback'],
+      ['&scope=personal&section=help-%26-feedback','Help'],
     ]){ await render(base+link); assert.equal(page() ?? document.querySelector('.settings-detail h1')?.textContent,expected,link); }
     await render(base.replace('view=settings','view=people')); assert.equal(page(),'People');
     await render(base.replace('view=settings','view=users')); assert.equal(page(),'People');
@@ -140,13 +142,16 @@ test('Failed personal profile saves preserve the draft and require explicit retr
   });
 });
 
-test('The Audit log shows readable change sentences and keeps older entries as they were',async()=>{
-  await fixture('Admin',async({render})=>{
+test('The Audit log shows who did what as sentences, with a filter for each kind',async()=>{
+  await fixture('Admin',async({render,reads,button,click})=>{
     await render(base+'&section=audit-log');
     assert.equal(page(),'Audit log');
-    const entries=[...document.querySelectorAll('.settings-activity div')].map(entry=>entry.textContent);
-    assert.equal(entries[0],'Person removed Ravi; 1 agent moved to Person');
-    assert.equal(entries[1],'Personworkspace renamedw');
+    const rows=()=>[...document.querySelectorAll('.settings-audit-table tr')].map(row=>[...row.children].slice(1).map(cell=>cell.textContent));
+    assert.deepEqual(rows(),[['Person','removed Ravi; 1 agent moved to Person'],['Person','renamed the workspace to Northstar']]);
+    await click(button('Admin views'));
+    assert.ok(reads.some(path=>path.includes('/activity?kind=admin_views')));
+    assert.deepEqual(rows(),[['Meera','viewed a request from a conversation they are not in (admin view)']]);
+    assert.equal(document.querySelector('.settings-audit-table tr').className,'admin-view');
     assert.equal(document.querySelector('.settings-detail').textContent.includes('Simulation results'),false);
   });
 });

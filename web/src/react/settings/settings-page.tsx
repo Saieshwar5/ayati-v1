@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { currentWorkspace, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { navigate } from '../../navigation';
 import { PeoplePage } from '../people';
-import { FeedbackPage } from '../feedback';
+import { HelpPage } from './help-page';
+import { AuditLog } from './audit-log';
 import { SimulationReport } from '../simulation-report';
-import { WorkspaceGeneral, WorkspaceActivity } from './workspace-settings';
+import { WorkspaceGeneral } from './workspace-settings';
 import { WorkspaceConnections } from './workspace-connections';
 import { MyAccount, Preferences } from './personal-settings';
 import { ComingLater, ThisWorkspace } from './this-workspace';
@@ -37,12 +38,12 @@ export function SettingsPage({ href }: { href: string }) {
       <button type="button" className="settings-back" onClick={() => go()}>‹ Settings</button>
       {section === 'profile' ? <MyAccount />
         : section === 'preferences' ? <Preferences />
-        : section === 'help' ? <FeedbackPage />
+        : section === 'help' ? <HelpPage />
         : section === 'this-workspace' ? <ThisWorkspace />
         : section === 'workspace' ? <WorkspaceGeneral renamed={name => { const entry = currentWorkspace(); if (entry) entry.name = name; setWorkspaceName(name); }} />
         : section === 'people' ? <PeoplePage />
         : section === 'connections' ? <WorkspaceConnections />
-        : section === 'audit-log' ? <><WorkspaceActivity />{workspaceSession?.simulation && <SimulationReport />}</>
+        : section === 'audit-log' ? <><AuditLog />{workspaceSession?.simulation && <SimulationReport />}</>
         : <ComingLater section={section} />}
     </div>
   </main>;

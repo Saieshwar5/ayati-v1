@@ -194,10 +194,17 @@ async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
         audit_summary(&db, &w).await,
         "default-heir-admin@example.test removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
     );
-    let activity = db.workspace_activity(&admin, &w).await.unwrap();
+    let activity = db
+        .workspace_activity(&admin, &w, "all", None)
+        .await
+        .unwrap();
     assert_eq!(
-        activity["activity"][0]["summary"],
-        "default-heir-admin@example.test removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
+        activity["activity"][0]["actor"],
+        "default-heir-admin@example.test"
+    );
+    assert_eq!(
+        activity["activity"][0]["sentence"],
+        "removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
     );
 }
 

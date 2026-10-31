@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { workspaceUrl, workspaceSession } from '../workspace-context';
+import { currentWorkspace, workspaceUrl, workspaceSession } from '../workspace-context';
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 
@@ -25,5 +25,15 @@ export function WorkspaceShell({ page, children }: { page: WorkspacePage; childr
         aria-current={page === name ? 'page' : undefined}><Icon name={name} /><span>{label}</span></a>;
     })}</nav>
     <AccountMenu />
-  </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}{children}</div></div>;
+  </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}
+    <DeletionBanner />{children}</div></div>;
+}
+
+/** Everyone sees a scheduled deletion; admins can undo it from Settings. */
+function DeletionBanner() {
+  const workspace = currentWorkspace();
+  if (!workspace?.delete_at_ms) return null;
+  const day = new Date(workspace.delete_at_ms).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  return <div className="workspace-deletion-banner" role="status">This workspace will be deleted on {day}.
+    {workspace.role === 'Admin' ? <> <a href={workspaceUrl('/?view=settings&section=workspace')}>Undo in Settings</a></> : ' Ask an admin if this is a mistake.'}</div>;
 }

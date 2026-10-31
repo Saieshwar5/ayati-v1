@@ -96,7 +96,11 @@ async fn concurrent_owners_preserve_last_owner_and_detect_stale_name_saves() {
         {
             owners.push(person);
         } else {
-            assert!(db.workspace_activity(person, &w).await.is_err());
+            assert!(
+                db.workspace_activity(person, &w, "all", None)
+                    .await
+                    .is_err()
+            );
         }
     }
     assert_eq!(owners.len(), 1);

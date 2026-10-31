@@ -259,8 +259,7 @@ fn router(app: Shared) -> Router {
         .route("/api/identity/admin/workspace-codes", get(workspace_codes::list).post(workspace_codes::issue))
         .route("/api/identity/admin/workspace-codes/{id}/revoke", post(workspace_codes::revoke))
         .route("/api/identity/workspaces/{id}/people", get(routes::people))
-        .route("/api/identity/workspaces/{id}/settings", get(settings::read).post(settings::update))
-        .route("/api/identity/workspaces/{id}/activity", get(settings::activity))
+        .merge(settings::routes())
         .route(
             "/api/identity/workspaces/{id}/invitations",
             post(routes::invite),

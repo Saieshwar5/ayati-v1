@@ -10,7 +10,7 @@ async fn equal_owners_concurrent_removal_keeps_one_owner_and_revokes_access() {
     join(&db, &a, &w, &b, "Member").await;
     assert!(db.people(&b, &w).await.is_err());
     assert!(db.workspace_settings(&b, &w).await.is_err());
-    assert!(db.workspace_activity(&b, &w).await.is_err());
+    assert!(db.workspace_activity(&b, &w, "all", None).await.is_err());
     assert!(
         db.reserve_invite(&b, &w, "third@test", "Member")
             .await
@@ -34,7 +34,7 @@ async fn equal_owners_concurrent_removal_keeps_one_owner_and_revokes_access() {
             .is_err()
     );
     assert!(
-        !db.workspace_activity(owner, &w).await.unwrap()["activity"]
+        !db.workspace_activity(owner, &w, "all", None).await.unwrap()["activity"]
             .as_array()
             .unwrap()
             .is_empty()

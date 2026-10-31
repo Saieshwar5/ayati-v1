@@ -100,7 +100,9 @@ test('admins manage people from the Settings sidebar; removal and leaving hand s
   assert.equal(app.sql(`SELECT owner_id FROM relay_shared_agents WHERE workspace='${w}' AND id='${agent}'`), owner.id);
   assert.equal(app.sql(`SELECT steward FROM relay_library_items WHERE workspace='${w}' AND id='price-list'`), owner.id);
   await admin.reload();
-  await admin.getByText(`${label(taker)} left the workspace; 1 agent and 1 Library item moved to ${label(owner)}`).waitFor();
+  // The actor has its own column; the sentence follows.
+  const left = admin.locator('.settings-audit-table tr').filter({ hasText: `left the workspace; 1 agent and 1 Library item moved to ${label(owner)}` }).first();
+  await left.waitFor(); assert.equal(await left.locator('th').innerText(), label(taker));
 
   // Phone: the list first, then a page with a way back, without sideways scrolling.
   const phone = await open(founder, { width: 390, height: 844 });

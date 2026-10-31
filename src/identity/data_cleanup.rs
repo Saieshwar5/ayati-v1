@@ -29,6 +29,10 @@ pub(super) fn start(app: Shared) {
                 _ = stopping.cancelled() => break,
                 _ = tick.tick() => {}
             }
+            // Deletions whose 7-day undo has passed close the workspace.
+            if app.store.close_deleted_workspaces(20).await.is_err() {
+                tracing::warn!("Closing deleted workspaces failed; it will retry");
+            }
             let (mut replies, mut notices) = (0, 0);
             for _ in 0..ROUNDS {
                 let compacted = app.store.compact_replies(SETTLE_SECONDS, BATCH).await;
