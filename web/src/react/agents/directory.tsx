@@ -5,8 +5,6 @@ import { defaults, loadAgents, type Agent } from './model';
 import { AgentCreate, newAgent } from './create/create-flow';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
-import { AgentControl } from './control';
-import { GuidedSetup } from './guided-setup';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspace } from './workspace';
 import { workspaceSections, type WorkspaceSection } from './workspace-tabs';
@@ -31,14 +29,10 @@ export function AgentsPage() {
   const [section, setSection] = useState<WorkspaceSection>(() => savedSection(selectedKey));
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState<Agent>();
-  const [controlled, control] = useState<Agent>();
-  const [guided, guide] = useState<Agent>();
-  const [revision, setRevision] = useState(0);
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
     epoch.current++; setData(undefined);
-    guide(undefined); control(undefined);
     void refresh().catch(() => {});
   }), [setData, refresh]);
   useEffect(() => {
@@ -62,7 +56,6 @@ export function AgentsPage() {
     try { window.sessionStorage.setItem(`${selectionKey}.section.${key}`, next); } catch { /* Optional view preference. */ }
   };
   const back = () => setShowProfile(false);
-  const closeControls = () => { guide(undefined); control(undefined); setRevision(n => n + 1); void refresh().catch(() => {}); };
   const openChat = async (agent: Agent) => {
     const generation = epoch.current;
     const root = `/workspaces/${workspaceId}/chats`;
@@ -95,11 +88,9 @@ export function AgentsPage() {
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
       {creating && data && <AgentCreate key={creating.id} start={creating} directory={data} close={() => setCreating(undefined)}
-        created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
-      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} revision={revision} section={section} selectSection={selectSection} back={back} guide={() => guide(selected)} control={() => control(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); setRevision(n => n + 1); }} />}
+        created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); }} />}
+      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
-    {guided && <GuidedSetup key={guided.id} agent={guided} close={closeControls} />}
-    {controlled && <AgentControl key={controlled.id} agent={controlled} close={closeControls} />}
   </div>;
 }

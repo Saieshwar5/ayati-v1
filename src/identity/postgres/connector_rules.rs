@@ -32,6 +32,20 @@ pub(super) async fn workspace_mode(
 }
 
 impl PgStore {
+    /// The connectors any member may give a new agent, with each action's
+    /// workspace rule (create step 4). Nothing about other agents is shown.
+    pub(crate) async fn control_available(&self, user: &User, w: &str) -> Result<Value> {
+        let tx = self.read_tx(w).await?;
+        role(&tx, w, &user.id).await?;
+        let connections = json_rows(
+            &tx,
+            include_str!("agent_tools.sql"),
+            vec![w.into(), "".into()],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(serde_json::json!({"connections":connections}))
+    }
     /// Saves one action's workspace rule. Its new revision moves every agent's
     /// effective revision for the action forward, so waiting approvals ask again.
     pub(crate) async fn control_connector_rule(

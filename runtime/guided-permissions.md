@@ -1,5 +1,11 @@
 # Guided agent permission review
 
+> **Updated 2026-10-31 (schema 47):** tools and approvals now follow
+> [agent tools and approvals](tools-and-approvals.md). Rules belong to the agent,
+> admins set safety per action and "Ask first" goes to the agent's managers. Where
+> this page describes conversation rules, delegations, designated approvers or the
+> guided setup, it records the replaced model.
+
 Open **Agents → Set up permissions** for an agent you maintain, or **Tools and
 approvals → Permissions → Guided permission setup**. This extends the existing
 [workspace Connections and delegation](workspace-connections.md) and

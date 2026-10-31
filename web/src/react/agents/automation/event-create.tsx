@@ -59,8 +59,11 @@ export function CreateEvent({
   const choice = directory.choices.find(
     (c) =>
       c.source.id === (review?.source ?? selected) &&
-      (!review || (c.source.binding === review.binding && c.chat === review.chat)),
+      (!review || (c.source.binding === review.binding && (c.conversations ?? [{ id: c.chat }]).some((x) => x.id === review.chat))),
   );
+  const [destination, setDestination] = useState('');
+  const places = choice?.conversations ?? (choice ? [{ id: choice.chat, name: choice.chat_name, visibility: choice.visibility }] : []);
+  const place = places.find((x) => x.id === (review?.chat ?? destination)) ?? places[0];
   const editNew = () => {
     attempt.current = undefined;
     try {
@@ -88,7 +91,7 @@ export function CreateEvent({
         id: crypto.randomUUID(),
         source: choice.source.id,
         binding: choice.source.binding,
-        chat: choice.chat,
+        chat: place?.id ?? choice.chat,
         name,
         instructions: task,
         filter,
@@ -180,7 +183,7 @@ export function CreateEvent({
             <dd>{choice?.source.fields.join(', ')}</dd>
             <dt>Destination</dt>
             <dd>
-              {choice?.chat_name ?? 'Unavailable'} · {choice?.visibility}
+              {place?.name ?? 'Unavailable'} · {place?.visibility}
             </dd>
             <dt>Authorized by</dt>
             <dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd>
@@ -196,7 +199,7 @@ export function CreateEvent({
             members are the audience.
           </p>
           <p>
-            Automatic reading requires the existing Allow rule. Every write or other controlled action keeps its own
+            Automatic reading needs the read action set to Allow on the agent’s Tools tab. Every write or other controlled action keeps its own
             approval. Pausing the trigger blocks future intake; accepted running work has a separate Stop.
           </p>
         </div>
@@ -214,7 +217,17 @@ export function CreateEvent({
             >
               {directory.choices.map((c) => (
                 <option key={c.source.id} value={c.source.id}>
-                  {c.source.name} · {c.chat_name}
+                  {c.source.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ui-field">
+            Post in
+            <select aria-label="Destination conversation" value={place?.id ?? ''} onChange={(e) => setDestination(e.target.value)}>
+              {places.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
                 </option>
               ))}
             </select>

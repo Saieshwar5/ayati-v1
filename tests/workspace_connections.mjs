@@ -10,7 +10,7 @@ import { until } from './fixtures/polling.mjs';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 
-test('Admin delegates workspace account access; a member creates a bounded agent and revocation stops pending work', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
+test('Admin sets safety per action; a member creates an agent with tools and revocation stops pending work', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
   const remote = await remoteControlMcp(); t.after(() => remote.close());
   const directory = await mkdtemp(join(root, '.tmp/workspace-account-'));
   const profiles = join(directory, 'servers.json'); const bearer = join(directory, 'bearer');
@@ -45,89 +45,82 @@ test('Admin delegates workspace account access; a member creates a bounded agent
   await ownerPage.goto(settingsUrl);
   await ownerPage.getByRole('button', { name: 'Approve system', exact: true }).click();
   await ownerPage.getByRole('button', { name: 'Connect account', exact: true }).click();
-  await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).waitFor();
-  const display = who.display_name || who.email;
+  const safety = ownerPage.getByRole('region', { name: 'Safety for Orders sample system' });
+  await safety.waitFor();
   // Everyone may create agents (D231); there is no creator permission to grant.
   assert.equal(await ownerPage.getByText('Agent creators').count(), 0);
-  await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).click();
-  const access = ownerPage.getByRole('dialog', { name: 'Orders sample system · Configure access' });
-  await access.getByLabel('Person', { exact: true }).selectOption(who.id);
-  await access.getByLabel('Read order delegation', { exact: true }).selectOption('allow');
-  await access.getByRole('button', { name: 'Save Read order delegation', exact: true }).click();
-  await until(async () => (await app.request(`${cp}/connections`, app.cookie)).value.delegations.some(d => d.user_id === who.id && d.operation === 'order.read'), 'Read delegation missing');
-  await access.getByLabel('Update order delegation', { exact: true }).selectOption('ask');
-  await access.getByRole('button', { name: 'Save Update order delegation', exact: true }).click();
-  await until(async () => (await app.request(`${cp}/connections`, app.cookie)).value.delegations.some(d => d.user_id === who.id && d.operation === 'order.update'), 'Write delegation missing');
-  await ownerPage.screenshot({ path: join(app.data, 'delegation-desktop.png') });
+  // Safe defaults: reads Allow, changes Ask first. The admin blocks deleting.
+  const workspaceRule = async (title, mode) => (await app.request(`${cp}/connections`, app.cookie)).value.safety[0].operations.find(o => o.title === title).mode === mode;
+  await until(() => workspaceRule('Update order', 'ask'), 'Write did not default to Ask first');
+  await safety.getByRole('radiogroup', { name: 'Delete order workspace rule' }).getByText('Block', { exact: true }).click();
+  await until(() => workspaceRule('Delete order', 'block'), 'Delete rule missing');
+  await ownerPage.screenshot({ path: join(app.data, 'connector-safety-desktop.png') });
   await ownerPage.setViewportSize({ width: 390, height: 844 });
-  await ownerPage.screenshot({ path: join(app.data, 'delegation-mobile.png') });
+  await ownerPage.screenshot({ path: join(app.data, 'connector-safety-mobile.png') });
   assert.equal(await ownerPage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await ownerPage.setViewportSize({ width: 1280, height: 900 });
-  await ownerPage.keyboard.press('Escape');
-  await ownerPage.screenshot({ path: join(app.data, 'connections-desktop.png') });
   await ownerPage.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-  await ownerPage.screenshot({ path: join(app.data, 'connections-dark.png') });
-  app.pass('Admin uses Settings to approve an account and delegate creation, read and approval-required write authority');
+  await ownerPage.screenshot({ path: join(app.data, 'connector-safety-dark.png') });
+  await ownerPage.evaluate(() => { delete document.documentElement.dataset.theme; });
+  app.pass('Admin uses Settings to approve an account and set each action\'s safety rule');
 
   await memberPage.goto(`${app.base}/w/${w}/?view=agents`);
-  // Any member creates an agent in three steps (D233); the defaults are fine.
+  // Any member creates an agent in four steps (D233) and switches the connector on.
   await memberPage.getByRole('button', { name: '＋ New agent', exact: true }).click();
   const create = memberPage.getByRole('region', { name: 'New agent' });
   await create.getByLabel('Name', { exact: true }).fill('Orders assistant');
   await create.getByRole('button', { name: 'Continue', exact: true }).click();
   await create.getByLabel(/^Instructions/).fill('Help with sample orders using assigned operations.');
   await create.getByRole('button', { name: 'Continue', exact: true }).click();
+  await create.getByRole('button', { name: 'Continue', exact: true }).click();
+  await create.getByRole('switch', { name: 'Use Orders sample system' }).check();
+  assert.equal(await create.getByRole('radiogroup', { name: 'Update order rule' }).getByRole('radio', { name: 'Allow' }).isDisabled(), true);
+  await memberPage.screenshot({ path: join(app.data, 'create-tools-step.png') });
   await create.getByRole('button', { name: 'Create agent', exact: true }).click();
   await create.waitFor({ state: 'hidden' });
   const a = (await app.request(`${app.path}/agent-profiles`, member)).value.agents.find(a => a.name === 'Orders assistant');
   assert.equal(a.owner_id, who.id);
   const owner = (await app.request('/api/identity/session', app.cookie)).value.user;
   const chat = (await app.request(`${app.path}/chats`, member, { id: randomUUID(), kind: 'group', name: 'Order coordination', users: [owner.id], agents: [a.id] })).value.id;
-  await memberPage.getByRole('tab', { name: 'Tools', exact: true }).click(); await memberPage.getByRole('button', { name: 'Tools and approvals for Orders assistant', exact: true }).click();
-  const tools = memberPage.getByRole('dialog', { name: 'Orders assistant · Tools and approvals' });
-  await tools.getByRole('tab', { name: 'Permissions', exact: true }).click();
-  assert.equal(await tools.getByLabel('Update order permission', { exact: true }).locator('option[value=allow]').evaluate(option => option.disabled), true);
-  assert.equal(await tools.getByLabel('Delete order permission', { exact: true }).isDisabled(), true);
-  await tools.getByLabel('Read order permission', { exact: true }).selectOption('allow');
-  await tools.getByRole('button', { name: 'Save Read order permission', exact: true }).click();
   const path = `${app.path}/agent-profiles/${a.id}/control`;
   const snapshot = async () => (await app.request(path, member)).value;
-  await until(async () => (await snapshot()).rules.some(r => r.operation === 'order.read'), 'Agent read permission missing');
-  await tools.getByLabel('Update order permission', { exact: true }).selectOption('ask');
-  await tools.getByRole('button', { name: 'Save Update order permission', exact: true }).click();
-  await until(async () => (await snapshot()).rules.some(r => r.operation === 'order.update'), 'Agent write permission missing');
-  await memberPage.screenshot({ path: join(app.data, 'delegated-agent-permissions.png') });
+  const modes = Object.fromEntries((await snapshot()).connections[0].operations.map(o => [o.id, o.mode]));
+  assert.deepEqual(modes, { 'order.read': 'allow', 'order.update': 'ask', 'order.delete': 'block' });
+  await memberPage.getByRole('tab', { name: 'Tools', exact: true }).click();
+  const tools = memberPage.getByRole('region', { name: 'Tools' });
+  assert.equal(await tools.getByRole('radiogroup', { name: 'Delete order rule' }).getByRole('radio', { name: 'Ask first' }).isDisabled(), true);
+  await memberPage.screenshot({ path: join(app.data, 'agent-tools.png') });
   const connection = (await snapshot()).connections[0].id;
-  assert.deepEqual((await snapshot()).servers, [], 'Agent view must not disclose operator catalog');
-  await app.request(`${path}/rules`, member, { connection, operation: 'order.update', chat, mode: 'allow', revision: 1, delegation_revision: 1 }, 400);
+  // Looser than the admin's rule, or changing the admin's rule, is refused.
+  await app.request(`${path}/rules`, member, { connection, operation: 'order.update', mode: 'allow', revision: 0 }, 400);
+  await app.request(`${cp}/connector-rules`, member, { connection, operation: 'order.update', mode: 'allow', needs_other: false, revision: 0 }, 400);
   assert.equal(remote.calls.length, 0);
   const worker = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
   const command = (operation, args) => `control ${JSON.stringify({ tool: 'request_action', arguments: { connection, operation, arguments: args } })}`;
   async function send(operation, args) {
     const job = await app.send(command(operation, args), chat, member, a.id);
-    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Delegated agent did not finish', 35000);
+    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Agent did not finish', 35000);
     return (await snapshot()).actions.find(action => action.job === job.reply);
   }
   assert.equal((await send('order.read', { order: 'one' })).state, 'completed');
-  const pending = await send('order.update', { order: 'one', address: 'Delegated and approved' });
-  assert.equal(pending.state, 'pending'); assert.equal(pending.approver, owner.id);
-  await app.request(`${path}/actions/${pending.id}/decision`, member, { id: randomUUID(), decision: 'approve' }, 400);
-  await app.request(`${path}/actions/${pending.id}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' });
-  assert.equal(remote.records.get('one').address, 'Delegated and approved');
+  const pending = await send('order.update', { order: 'one', address: 'Approved by its manager' });
+  assert.equal(pending.state, 'pending');
+  // "Ask first" goes to the agent's managers (its owner); an admin waits for the backup delay.
+  await app.request(`${path}/actions/${pending.id}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' }, 400);
+  await app.request(`${path}/actions/${pending.id}/decision`, member, { id: randomUUID(), decision: 'approve' });
+  assert.equal(remote.records.get('one').address, 'Approved by its manager');
   assert.equal((await send('order.delete', { order: 'one' })).state, 'denied');
   assert.equal(remote.calls.some(call => call.name === 'delete_order'), false);
-  app.pass('Real Goose obeys delegated Allow, Ask and default Block; only the designated admin can approve the exact write');
+  app.pass('Real Goose obeys the admin\'s Allow, Ask first and Block; only the agent\'s manager approves the exact write');
 
   const revoked = await send('order.update', { order: 'one', address: 'Must never execute' });
-  await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).click();
-  await access.getByLabel('Person', { exact: true }).selectOption(who.id);
-  await access.getByLabel('Update order delegation', { exact: true }).selectOption('block');
-  await access.getByRole('button', { name: 'Save Update order delegation', exact: true }).click();
+  await ownerPage.goto(settingsUrl);
+  await safety.getByRole('radiogroup', { name: 'Update order workspace rule' }).getByText('Block', { exact: true }).click();
   await until(async () => (await snapshot()).actions.find(a => a.id === revoked.id)?.state === 'invalidated', 'Revocation did not invalidate action');
-  await app.request(`${path}/actions/${revoked.id}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' }, 400);
-  assert.equal(remote.records.get('one').address, 'Delegated and approved');
+  await app.request(`${path}/actions/${revoked.id}/decision`, member, { id: randomUUID(), decision: 'approve' }, 400);
+  assert.equal(remote.records.get('one').address, 'Approved by its manager');
   await app.stopApi(); await app.startApi();
-  assert.equal((await snapshot()).rules.find(r => r.operation === 'order.update').mode, 'block');
+  assert.equal((await snapshot()).connections[0].operations.find(o => o.id === 'order.update').mode, 'block');
   await writeFile(profiles, '{ invalid operator configuration');
   await ownerPage.goto(settingsUrl);
   await ownerPage.getByRole('alert').filter({ hasText: 'Account configuration is unavailable' }).waitFor();

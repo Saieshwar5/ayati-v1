@@ -16,6 +16,10 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/control/connector-rules",
             post(connector_rule),
         )
+        .route(
+            "/api/identity/workspaces/{w}/control/available",
+            get(available),
+        )
 }
 async fn snapshot(
     State(app): State<Shared>,
@@ -104,4 +108,14 @@ async fn connector_rule(
     let user = identity(&app, &headers).await?;
     app.store.control_connector_rule(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
+}
+async fn available(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let mut value = app.store.control_available(&user, &w).await?;
+    value["execution_available"] = json!(app.store.pooled);
+    Ok(Json(value))
 }

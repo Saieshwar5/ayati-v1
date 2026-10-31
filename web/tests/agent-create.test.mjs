@@ -33,13 +33,15 @@ test('a failed create keeps the whole draft and a double click sends one request
     await click(button('Continue'));
     assert.match(document.body.textContent, /Everyone in Mehta Furnishings/);
     assert.match(document.body.textContent, /Ravi Kumar \(you\)ravi@example\.testOwner/);
+    await click(button('Continue'));
+    assert.match(document.body.textContent, /No connectors yet/);
     await update(() => { button('Create agent').click(); button('Create agent').click(); });
     assert.equal(writes.length, 1); assert.equal(created.length, 0);
     assert.match(document.querySelector('[role=status]').textContent, /Save unavailable/);
     // The draft survives the failure, including earlier steps.
-    await click(button('Back')); assert.match(field('Instructions').value, /customer support/);
+    await click(button('Back')); await click(button('Back')); assert.match(field('Instructions').value, /customer support/);
     await click(button('Back')); assert.equal(field('Name').value, 'Iris'); assert.equal(field('Job title').value, 'Customer support');
-    await click(button('Continue')); await click(button('Continue'));
+    await click(button('Continue')); await click(button('Continue')); await click(button('Continue'));
     fail = false; await click(button('Create agent'));
     assert.equal(writes.length, 2); assert.deepEqual(writes[0], writes[1]); assert.equal(created.length, 1);
     assert.equal(writes[1].audience, 'everyone'); assert.deepEqual(writes[1].people, []); assert.deepEqual(writes[1].managers, ['owner']);
@@ -47,6 +49,7 @@ test('a failed create keeps the whole draft and a double click sends one request
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
+    if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
     const body = JSON.parse(options.body); writes.push(body);
     return { ok: !fail, json: async () => fail ? { error: 'Save unavailable' } : { ...body, revision: 1 } };
   } });
@@ -67,6 +70,7 @@ test('starters only fill an empty box, and selected people and managers are sent
     await click([...document.querySelectorAll('label')].find(node => node.textContent === 'Priya Shah').querySelector('input'));
     await change(field('Add manager'), 'arjun'); await click(button('Add'));
     assert.match(document.body.textContent, /Arjun Mehta/);
+    await click(button('Continue'));
     await click(button('Create agent'));
     assert.equal(writes.length, 1);
     assert.equal(writes[0].audience, 'selected'); assert.deepEqual(writes[0].people, ['priya']);
@@ -75,6 +79,7 @@ test('starters only fill an empty box, and selected people and managers are sent
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
+    if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
     writes.push(JSON.parse(options.body)); return response({ ...JSON.parse(options.body), revision: 1 });
   } });
 });
@@ -93,7 +98,44 @@ test('"See everything it receives" shows the server text for the current draft',
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
+    if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
     const body = JSON.parse(options.body); previews.push(body);
     return response({ prompt: `Your name is ${body.name}.\nUse only assigned capabilities.\nInstructions:\n${body.instructions}` });
+  } });
+});
+
+test('step 4 switches chosen connectors on and saves only the stricter choices', async () => {
+  const writes = [];
+  const connection = { id: 'books', server: 'books', name: 'Zoho Books', revision: 1, on: false, operations: [
+    { id: 'invoice.read', title: 'Read invoices', effect: 'read', workspace_mode: 'allow', needs_other: false, agent_mode: null, mode: 'allow', revision: 0 },
+    { id: 'invoice.send', title: 'Send an invoice email', effect: 'write', workspace_mode: 'ask', needs_other: true, agent_mode: null, mode: 'ask', revision: 0 },
+    { id: 'invoice.delete', title: 'Delete an invoice', effect: 'write', workspace_mode: 'block', needs_other: false, agent_mode: null, mode: 'block', revision: 0 }] };
+  await reactFixture(async ({ render, button, click, change }) => {
+    await open(render);
+    await change(field('Name'), 'Ledger'); await click(button('Continue'));
+    await change(field('Instructions'), 'Keep the books tidy.'); await click(button('Continue'));
+    await click(button('Continue'));
+    const zoho = document.querySelector('[aria-label="Zoho Books"]');
+    assert.equal(zoho.querySelector('[role=switch]').checked, false);
+    await click(zoho.querySelector('[role=switch]'));
+    // Looser than the admin's rule cannot be chosen; stricter can.
+    const send = zoho.querySelector('[aria-label="Send an invoice email rule"]');
+    assert.equal(send.querySelector('input[value=allow]').disabled, true);
+    assert.match(zoho.textContent, /someone other than the requester approves/);
+    assert.equal(zoho.querySelector('[aria-label="Delete an invoice rule"] input[value=ask]').disabled, true);
+    await click(zoho.querySelector('[aria-label="Read invoices rule"] input[value=ask]'));
+    await click(button('Create agent'));
+    assert.equal(writes.length, 3);
+    assert.ok(writes[0].path.endsWith('/agent-profiles'));
+    assert.ok(writes[1].path.endsWith('/control/tools'));
+    assert.ok(writes[2].path.endsWith('/control/rules'));
+    assert.deepEqual(writes[1].body, { connection: 'books', enabled: true });
+    assert.deepEqual(writes[2].body, { connection: 'books', operation: 'invoice.read', mode: 'ask', revision: 0 });
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
+    if (path.endsWith('/control/available')) return response({ connections: [connection], execution_available: true });
+    const body = JSON.parse(options.body); writes.push({ path, body });
+    return response(path.endsWith('/agent-profiles') ? { ...body, revision: 1 } : { saved: true });
   } });
 });

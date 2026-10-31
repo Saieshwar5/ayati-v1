@@ -91,6 +91,8 @@ test(
       revision: 0,
     });
     for (const agent of [app.profile.id, helper.id])
+      await app.request(`${app.path}/agent-profiles/${agent}/control/tools`, app.cookie, { connection, enabled: true });
+    for (const agent of [app.profile.id, helper.id])
       for (const [operation, mode] of [
         ['order.read', 'allow'],
         ['order.update', 'ask'],
@@ -99,8 +101,7 @@ test(
           connection,
           operation,
           mode,
-          revision: 0,
-          chat: channel,
+          revision: 0
         });
     const parentPrompt = 'Delegate the order review to Atlas then summarize the saved outcome',
       childPrompt = 'Ask delivery method then prepare the separately approved helper update';

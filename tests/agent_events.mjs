@@ -104,11 +104,12 @@ test(
       revision: 0,
     });
     const control = `${app.path}/agent-profiles/${app.profile.id}/control`;
+    await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
     for (const [operation, mode] of [
       ['order.read', 'allow'],
       ['order.update', 'ask'],
     ])
-      await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0, chat });
+      await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0 });
     const source = {
       id: randomUUID(),
       workspace: w,
@@ -180,7 +181,7 @@ test(
     const page = await pageFor(app.cookie),
       agents = `${app.base}/w/${w}/?view=agents`;
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Automation', exact: true }).click();
+    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
     await page.getByRole('button', { name: 'Create event trigger', exact: true }).click();
     let dialog = page.getByRole('dialog', { name: 'Create event trigger', exact: true });
     const prompt = 'Ask delivery method then prepare a separately approved connected update';
@@ -332,7 +333,6 @@ test(
       operation: 'order.read',
       mode: 'block',
       revision: 1,
-      chat,
     });
     await app.request(responsePath, app.cookie, undefined, 400);
     await app.request(`${app.path}/control/actions/${action.id}`, app.cookie, undefined, 400);
@@ -347,11 +347,10 @@ test(
       operation: 'order.read',
       mode: 'allow',
       revision: 2,
-      chat,
     });
     await app.request(responsePath, app.cookie, undefined, 400);
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Automation', exact: true }).click();
+    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
     await page
       .getByRole('article', { name: 'Event trigger: Review delayed orders', exact: true })
       .getByRole('button', { name: 'Review trigger and deliveries', exact: true })
