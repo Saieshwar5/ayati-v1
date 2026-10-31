@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react';
 import { Button, Dialog, Tabs } from '../ui';
 import { useMutation } from '../requests';
-import { audienceLabels, base, saveAgent, symbols, type Agent, type Audience, type Directory, type Settings } from './model';
-import { AgentFace, defaultRobot } from '../faces';
+import { audienceLabels, saveAgentWithPicture, type Agent, type Audience, type Directory, type Settings } from './model';
+import { AgentFace } from '../faces';
 import { Knowledge } from './knowledge';
 
-export function AgentEditor({ agent, directory, creating, close, saved }: { agent: Agent; directory: Directory; creating: boolean; close: () => void; saved: () => Promise<void> }) {
+/** Edits an existing agent. New agents use the create flow (create/create-flow.tsx). */
+export function AgentEditor({ agent, directory, close, saved }: { agent: Agent; directory: Directory; close: () => void; saved: () => Promise<void> }) {
   // New agents start with a robot picture chosen from their ID.
-  const [draft, setDraft] = useState(() => creating && symbols[agent.settings.avatar] ? { ...agent, settings: { ...agent.settings, avatar: defaultRobot(agent.id) } } : agent);
-  const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState(agent);
   const [file, setFile] = useState<File>();
   const mutation = useMutation();
   const first = useRef<HTMLInputElement>(null);
@@ -16,17 +16,8 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
   const change = (key: keyof Agent, value: string) => setDraft(old => ({ ...old, [key]: value }));
   const setting = <K extends keyof Settings>(key: K, value: Settings[K]) => setDraft(old => ({ ...old, settings: { ...old.settings, [key]: value } }));
   async function submit() {
-    let next = await saveAgent(draft);
-    // Keep the returned revision if an upload fails; retrying never recreates an agent.
-    setDraft(old => ({ ...old, revision: next.revision }));
-    if (file) {
-      const response = await fetch(`/api/identity${base}/${agent.id}/avatar`, { method: 'POST', headers: { 'X-Ayati-Request': 'identity' }, body: file });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Avatar upload failed. Your profile was saved.');
-      next = await saveAgent({ ...next, settings: { ...next.settings, avatar: result.avatar } });
-      setDraft(old => ({ ...old, revision: next.revision, settings: next.settings }));
-      setFile(undefined);
-    }
+    await saveAgentWithPicture(draft, file, next => setDraft(old => ({ ...old, revision: next.revision, settings: next.settings })));
+    setFile(undefined);
     await saved();
   }
   const profile = <div className="ui-form">
@@ -55,15 +46,12 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <label><input type="checkbox" checked={draft.settings.paused} onChange={e => setting('paused', e.target.checked)} /> Pause this agent</label>
   </div>;
   const instructions = <div className="ui-form"><label className="ui-field">Instructions<textarea rows={8} maxLength={24000} placeholder="Its character, its job and its rules. For example, when to ask a person." value={draft.settings.instructions} onChange={e => setting('instructions', e.target.value)} /></label><details><summary>Cuckoo rules (always included)</summary><p className="agent-prompt">{directory.system_prompt}</p></details></div>;
-  const review = <div className="ui-form"><h3>{draft.name || 'Your agent'}</h3><p>{draft.role}</p>
-    <p>{audienceLabels[draft.audience]} · {draft.model}</p><p>Knowledge {draft.settings.memory ? 'enabled' : 'disabled'} · {draft.settings.paused ? 'Paused' : 'Available for messages'}</p>{instructions}</div>;
-  const steps = [{ title: 'Identity', content: profile }, { title: 'Capabilities', content: capabilities }, { title: 'Controls', content: controls }, { title: 'Review', content: review }];
-  return <Dialog drawer title={creating ? 'Create an agent' : draft.name} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={editable && <>
-    {creating && step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}
-    {creating && step < 3 ? <Button primary disabled={mutation.busy || !draft.name.trim() || !draft.model.trim()} onClick={() => setStep(step + 1)}>Continue</Button> : <Button primary disabled={mutation.busy || !draft.name.trim() || !draft.settings.instructions.trim() || !draft.model.trim()} onClick={() => void mutation.run(submit)}>{creating ? 'Create agent' : 'Save changes'}</Button>}
+  const sections = [{ title: 'Identity', content: profile }, { title: 'Capabilities', content: capabilities }, { title: 'Controls', content: controls }, { title: 'Instructions', content: instructions }];
+  return <Dialog drawer title={draft.name} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={editable && <>
+    <Button primary disabled={mutation.busy || !draft.name.trim() || !draft.model.trim()} onClick={() => void mutation.run(submit)}>Save changes</Button>
   </>}>
-    {!creating && <p className="ui-help">Created by {agent.creator_name || 'Unknown'} · Maintained by {agent.owner_name || 'Unknown'}</p>}
-    <fieldset className="ui-fieldset" disabled={!editable}>{creating ? <><p className="ui-help">Step {step + 1} of 4 · {steps[step].title}</p>{steps[step].content}</> : <Tabs sections={[...steps.slice(0, 3), { title: 'Instructions', content: instructions }]} />}</fieldset>
-    {!creating && <Knowledge agent={agent} />}
+    <p className="ui-help">Created by {agent.creator_name || 'Unknown'} · Maintained by {agent.owner_name || 'Unknown'}</p>
+    <fieldset className="ui-fieldset" disabled={!editable}><Tabs sections={sections} /></fieldset>
+    <Knowledge agent={agent} />
   </Dialog>;
 }

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AgentEditor } from './editor';
-import { audienceLabels, defaults, loadAgents, type Agent } from './model';
+import { defaults, loadAgents, type Agent } from './model';
+import { AgentCreate, newAgent } from './create/create-flow';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
 import { AgentControl } from './control';
@@ -32,6 +33,7 @@ export function AgentsPage() {
   const [section, setSection] = useState<WorkspaceSection>(() => savedSection(selectedKey));
   const [query, setQuery] = useState('');
   const [editing, edit] = useState<Agent>();
+  const [creating, setCreating] = useState<Agent>();
   const [controlled, control] = useState<Agent>();
   const [guided, guide] = useState<Agent>();
   const [rehearsing, rehearse] = useState<Agent>();
@@ -81,23 +83,28 @@ export function AgentsPage() {
   };
   return <div id="app" className={`agents-page${showProfile ? ' show-agent-profile' : ''}`}>
     <aside className="agent-roster" aria-label="Agent team"><header><h1>Agents</h1>
-      <Button className="ui-icon" aria-label="＋ Create agent" title="Create agent" disabled={!data} onClick={() => edit({ id: crypto.randomUUID(), name: '', role: '', model: data!.default_model, audience: 'everyone', revision: 0, settings: { ...defaults }, editable: true })}>＋</Button>
+      <Button primary disabled={!data || Boolean(creating)} onClick={() => { setCreating(newAgent(data!)); setShowProfile(true); }}>＋ New agent</Button>
     </header>
     <input className="ui-search" type="search" aria-label="Find an agent" placeholder="Search agents" value={query} onChange={e => setQuery(e.target.value)} />
     {error && <p role="alert">{error}<Button onClick={() => void refresh().catch(() => {})}>Retry agents</Button></p>}
     {!data && !error && <p role="status">Loading agents…</p>}
     <div className="agent-roster-scroll"><h2>Your team <small>{filtered.length}</small></h2>
-      {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={key === `m:${agent.id}` ? 'true' : undefined} onClick={() => select(`m:${agent.id}`)}>
-        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small><small className="agent-roster-state">{agent.settings.paused ? 'Paused' : agent.pending ? `${agent.pending} visible requests` : audienceLabels[agent.audience]}</small></span>
+      {creating && <Button className="agent-team-row" aria-current="true" onClick={() => setShowProfile(true)}>
+        <AgentAvatar agent={creating} /><span><strong>New agent</strong><small>Not created yet</small></span>
+      </Button>}
+      {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={!creating && key === `m:${agent.id}` ? 'true' : undefined} disabled={Boolean(creating)} onClick={() => select(`m:${agent.id}`)}>
+        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small>{(agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
       </Button>)}
-      {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create an agent and give it a responsibility.'}</p>}
+      {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create your first agent.'}</p>}
     </div><footer>People, purpose and controlled work.</footer></aside>
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
-      {selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} rehearse={() => rehearse(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
-      {data && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
+      {creating && data && <AgentCreate key={creating.id} start={creating} directory={data} close={() => setCreating(undefined)}
+        created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
+      {!creating && selected && <AgentWorkspace key={selected.id} agent={selected} revision={revision} section={section} selectSection={selectSection} back={back} edit={() => edit(selected)} guide={() => guide(selected)} control={() => control(selected)} rehearse={() => rehearse(selected)} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} />}
+      {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
-    {editing && data && <AgentEditor creating={!data.agents.some(a => a.id === editing.id)} key={editing.id} agent={editing} directory={data} close={() => edit(undefined)} saved={async () => { const id = editing.id; edit(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
+    {editing && data && <AgentEditor key={editing.id} agent={editing} directory={data} close={() => edit(undefined)} saved={async () => { const id = editing.id; edit(undefined); await refresh(); select(`m:${id}`); setRevision(n => n + 1); }} />}
     {guided && <GuidedSetup key={guided.id} agent={guided} close={closeControls} />}
     {controlled && <AgentControl key={controlled.id} agent={controlled} close={closeControls} />}
     {rehearsing && <RehearsalLauncher key={rehearsing.id} agent={rehearsing} close={() => rehearse(undefined)} />}
