@@ -105,3 +105,35 @@ button.activity-row-button:hover { background: var(--soft); }
   .activity-status, .activity-count { border: 1px solid CanvasText; }
 }
 .activity-detail-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Charts (M7): one series each, #2a78d6 (validated on both surfaces; the dark
+ * step is #3987e5). Bars ≤24px with a 4px rounded data end and a 2px gap. */
+.activity-charts { --chart-series: #2a78d6; display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+:root[data-theme=dark] .activity-charts { --chart-series: #3987e5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .activity-charts { --chart-series: #3987e5; } }
+.activity-chart { margin:0; padding:14px 16px; border:1px solid var(--border-panel); border-radius:10px; min-width:0; }
+.activity-chart figcaption { font-weight:600; font-size:14px; margin-bottom:10px; }
+.chart-columns { list-style:none; margin:0; padding:20px 0 0; height:150px; display:grid; grid-template-columns:repeat(var(--columns), minmax(0,1fr)); gap:2px; align-items:stretch; border-bottom:1px solid var(--border); position:relative; }
+.chart-columns > li { position:relative; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; outline-offset:2px; }
+.chart-column-slot { position:relative; flex:1; width:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
+.chart-column { position:relative; display:block; width:100%; max-width:24px; min-height:0; background:var(--chart-series); border-radius:4px 4px 0 0; }
+.chart-value { position:absolute; bottom:calc(100% + 2px); left:50%; transform:translateX(-50%); font-size:11px; color:var(--text); font-weight:600; }
+.chart-axis-label { position:absolute; top:100%; margin-top:4px; font-size:11px; color:var(--muted); white-space:nowrap; }
+.chart-tip { position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); z-index:2; display:none; padding:4px 8px; border-radius:6px; background:var(--raised); color:var(--text); box-shadow:0 2px 8px var(--shadow); border:1px solid var(--border); font-size:12px; white-space:nowrap; pointer-events:none; }
+.chart-columns > li:hover .chart-tip, .chart-columns > li:focus .chart-tip { display:block; }
+.chart-columns > li:hover .chart-column, .chart-columns > li:focus .chart-column { opacity:.85; }
+.activity-chart:has(.chart-columns) { padding-bottom:30px; }
+.chart-bars { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.chart-bars > li { display:grid; grid-template-columns:minmax(80px,140px) minmax(0,1fr) 36px; align-items:center; gap:10px; font-size:13px; border-radius:6px; }
+.chart-bar-name { display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chart-bar-track { height:12px; border-radius:4px; background:var(--soft); overflow:hidden; }
+.chart-bar { display:block; height:100%; background:var(--chart-series); border-radius:0 4px 4px 0; }
+.chart-bar-value { color:var(--text); font-variant-numeric:tabular-nums; }
+.chart-table { grid-column:1 / -1; font-size:13px; }
+.chart-table summary { cursor:pointer; color:var(--muted); }
+.chart-table table { border-collapse:collapse; margin:8px 16px 8px 0; display:inline-table; vertical-align:top; }
+.chart-table caption { text-align:left; font-weight:600; padding:4px 0; }
+.chart-table th, .chart-table td { padding:4px 10px 4px 0; border-bottom:1px solid var(--border); text-align:left; font-weight:400; }
+@media (max-width:760px) { .activity-charts { grid-template-columns:1fr; } }
+@media (forced-colors: active) { .chart-column, .chart-bar { background:CanvasText; } }
+.activity-export { margin-left:auto; }

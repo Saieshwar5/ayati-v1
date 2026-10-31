@@ -18,8 +18,12 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
   running now with **Stop**. It follows the live change stream and polls every
   10 seconds as a fallback.
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
-  type, status) plus search; totals for the period; a timeline grouped by day with
-  **Show older**. Type "Setting changes" lists agent profile and owner changes.
+  type, status) plus search; totals for the period; two charts (M7): requests per
+  day (empty days included, the busiest labelled, a tooltip on hover or focus) and
+  requests by agent (top 12), each with **Show as table**; a timeline grouped by
+  day with **Show older**. **Export CSV** downloads the filtered requests (UTC
+  times, at most 5,000; cells that look like formulas are escaped). Type "Setting
+  changes" lists agent profile and owner changes.
 - **Request details** (a drawer from any row): the asking message, each tool step
   with how it was allowed (automatically, approved by whom, blocked, unconfirmed)
   and its fields, the reply, **How to fix it** for failures, and a warning when
@@ -28,7 +32,8 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
 
 An agent's **Activity** tab is History filtered to that agent, with its own
 search. Direct chats with an agent say "Activity with <agent> is visible to its
-managers and admins."
+managers and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
+which opens the same request details.
 
 ## Who sees what
 
@@ -56,6 +61,8 @@ cookie; every query applies the visibility rule above on the server.
   chat, schedule, trigger, handoff.
 - `GET /totals?…&offset` — counts and per-day/per-agent numbers for the same
   filters; `offset` is the browser's minutes east of UTC.
+- `GET /export?…` — the same filters as a CSV file; the `x-cuckoo-truncated`
+  header says whether more than 5,000 matched.
 - `GET /changes?agent&before` — agent setting changes as sentences.
 - `GET /now?today=<ms>` — agent cards, running requests and the away summary.
 - `POST /seen` with `{}` — record a catch-up.
@@ -87,5 +94,8 @@ Measured locally with 30 agents and 81,000 requests over 90 days
 - Browser journeys with real Goose: `workspace_attention`, `channel_approvals`,
   `agents_team_workspace`.
 
-Charts, CSV export, "See what it did" on chat replies and Home's Working now /
-Today panels arrive in M7.
+Chart colour: one series each, `#2a78d6` in light mode and `#3987e5` in dark,
+both checked against the surfaces with the data-visualisation palette validator.
+
+**Waiting for a design:** Home's Working now and Today's totals panels (M7). Home
+keeps its Notifications panel, which opens Needs me.

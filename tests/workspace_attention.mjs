@@ -98,6 +98,9 @@ test('Activity Needs me retains personal reads, resumes exact threaded work, rev
   // History shows the finished request, its approved step, and opens its source.
   await page.getByRole('tab', { name: 'History', exact: true }).click();
   const history = page.getByRole('region', { name: 'History', exact: true });
+  await history.locator('.activity-charts').waitFor();
+  await page.screenshot({ path: join(app.data, 'activity-history-desktop.png'), fullPage: true });
+  await page.emulateMedia({ colorScheme: 'dark' }); await page.screenshot({ path: join(app.data, 'activity-history-dark.png') }); await page.emulateMedia({ colorScheme: 'light' });
   await history.getByRole('button', { name: new RegExp(prompt) }).click();
   const details = page.getByRole('dialog', { name: prompt, exact: true });
   await details.getByText(/Approved by/).first().waitFor();

@@ -97,6 +97,9 @@ const FEED_FILTER: &str = include_str!("activity_filter.sql");
 const SOURCE: &str = include_str!("activity_source.sql");
 const FEED: &str = include_str!("activity_feed.sql");
 const TOTALS: &str = include_str!("activity_totals.sql");
+const EXPORT: &str = include_str!("activity_export.sql");
+/// At most this many requests per file; the person narrows the filters for more.
+pub(crate) const EXPORT_ROWS: usize = 5000;
 
 /// A template with its `/*FILTER*/` and `/*SOURCE*/` parts filled in.
 pub(super) fn query_with(template: &str) -> String {
@@ -181,6 +184,37 @@ impl PgStore {
         Ok(totals)
     }
 
+    /// The filtered requests as CSV text (UTF-8, header row), newest first, and
+    /// whether more matched than fit.
+    pub(crate) async fn activity_export(
+        &self,
+        user: &User,
+        w: &str,
+        filters: &Filters,
+    ) -> Result<(String, bool)> {
+        filters.validate()?;
+        let tx = self.activity_tx(w, false).await?;
+        let admin = role(&tx, w, &user.id).await? == "Admin";
+        let records = rows(&tx, &query_with(EXPORT), filters.values(w, &user.id, admin)).await?;
+        tx.commit().await?;
+        let more = records.len() > EXPORT_ROWS;
+        let mut csv = String::from("time_utc,agent,asked_by,where,type,status,request\n");
+        for row in records.into_iter().take(EXPORT_ROWS) {
+            let cells: [String; 7] = [
+                row.try_get("", "at")?,
+                row.try_get("", "agent")?,
+                row.try_get("", "requester")?,
+                row.try_get("", "place")?,
+                row.try_get("", "kind")?,
+                row.try_get("", "status")?,
+                row.try_get("", "summary")?,
+            ];
+            csv.push_str(&cells.iter().map(|c| cell(c)).collect::<Vec<_>>().join(","));
+            csv.push('\n');
+        }
+        Ok((csv, more))
+    }
+
     /// Agent setting changes, as readable sentences, for agents the person can see.
     pub(crate) async fn activity_changes(
         &self,
@@ -210,5 +244,33 @@ impl PgStore {
         };
         tx.commit().await?;
         Ok(json!({"changes": items, "next_before": next}))
+    }
+}
+
+/// One CSV cell: quoted when needed, and never read as a formula by spreadsheets.
+fn cell(value: &str) -> String {
+    let safe = if value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+        format!("'{value}")
+    } else {
+        value.to_string()
+    };
+    if safe.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", safe.replace('"', "\"\""))
+    } else {
+        safe
+    }
+}
+
+#[cfg(test)]
+mod csv_tests {
+    #[test]
+    fn cells_are_quoted_and_never_formulas() {
+        assert_eq!(super::cell("Quote, 40 chairs"), "\"Quote, 40 chairs\"");
+        assert_eq!(
+            super::cell("=HYPERLINK(\"x\")"),
+            "\"'=HYPERLINK(\"\"x\"\")\""
+        );
+        assert_eq!(super::cell("-5 days"), "'-5 days");
+        assert_eq!(super::cell("plain"), "plain");
     }
 }

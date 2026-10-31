@@ -44,9 +44,11 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
 }
 
 /** Appears on hover or focus: quick reactions, reply in thread and More. */
-export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove }: {
+export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove, details }: {
   message: Message; own: boolean; reactions: ReturnType<typeof useReactions>; cancel: ReturnType<typeof useCancelReply>;
   reply?: () => void; openThread?: () => void; edit: () => void; remove: () => void;
+  /** Agent replies: open what the agent did, step by step (Activity, D235). */
+  details?: () => void;
 }) {
   const [picking, setPicking] = useState(false);
   const [more, setMore] = useState(false);
@@ -74,6 +76,7 @@ export function MessageToolbar({ message, own, reactions, cancel, reply, openThr
       {more && <span className="chat-message-menu" role="menu">
         {quote && openThread && <button type="button" role="menuitem" onClick={() => { setMore(false); openThread(); }}>Reply in thread</button>}
         {own && <button type="button" role="menuitem" onClick={() => { setMore(false); edit(); }}>Edit message</button>}
+        {details && <button type="button" role="menuitem" onClick={() => { setMore(false); details(); }}>See what it did</button>}
         <button type="button" role="menuitem" onClick={() => void copy()}>Copy link</button>
         {own && <button type="button" role="menuitem" className="danger" onClick={() => { setMore(false); remove(); }}>Delete message</button>}
         {cancel.available && <button type="button" role="menuitem" className="danger" disabled={cancel.busy} onClick={() => { setMore(false); cancel.cancel(); }}>Cancel request</button>}
