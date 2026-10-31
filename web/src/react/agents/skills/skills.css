@@ -1,0 +1,24 @@
+/* Skills (D234): lists, the picker, upload review and the skill view. */
+.agent-skills { margin-top:24px; }
+.skill-list { list-style:none; margin:0; padding:0; }
+.skill-list > li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+.skill-list > li > span:first-child { display:grid; gap:3px; min-width:0; }
+.skill-list strong { font-weight:600; overflow-wrap:anywhere; }
+.skill-list small { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+.skill-group { margin:18px 0 4px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+.skill-menu { position:relative; }
+.skill-menu .chat-message-menu { right:0; top:100%; }
+.skill-upload { display:grid; gap:12px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+.skill-upload-sources { display:flex; gap:8px; flex-wrap:wrap; }
+.skill-upload textarea { width:100%; font:13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; padding:10px; border:1px solid var(--border-control); border-radius:8px; background:var(--surface); color:var(--text); }
+.skill-review, .skill-detail { display:grid; gap:10px; }
+.skill-review h4 { margin:0; font-size:16px; }
+.skill-review p, .skill-detail p { margin:0; }
+.skill-files { list-style:none; margin:0; padding:0; display:grid; gap:4px; }
+.skill-files summary { cursor:pointer; padding:6px 0; overflow-wrap:anywhere; }
+.skill-files small { color:var(--muted); margin-left:6px; }
+.skill-files pre, .skill-text { margin:4px 0 8px; padding:10px 12px; max-height:280px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; background:var(--soft); border-radius:8px; }
+.skill-chips { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.skill-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:8px; background:var(--soft); font-size:13px; font-weight:600; }
+.skill-chip button { border:0; background:transparent; cursor:pointer; color:var(--muted); font-size:14px; padding:2px 6px; border-radius:6px; }
+.skill-chip button:hover { background:var(--selection); }

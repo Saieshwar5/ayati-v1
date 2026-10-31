@@ -2,8 +2,6 @@
 mod accounts;
 pub(crate) mod activity;
 mod activity_migration;
-#[cfg(test)]
-mod activity_tests;
 mod admin_member_migration;
 #[cfg(test)]
 mod admin_member_migration_tests;
@@ -254,6 +252,7 @@ mod request_context_tests;
 mod response_tests;
 mod responses;
 pub(crate) mod settings;
+pub(crate) mod skills;
 mod source_access;
 mod task_continuation;
 #[cfg(test)]

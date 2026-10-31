@@ -9,6 +9,8 @@ import { InstructionsStep } from './instructions-step';
 import { loadMembers, PeopleStep } from './people-step';
 import { ToolsStep, type ToolChoices } from './tools-step';
 import { loadAvailable, saveRule, switchTool } from '../control-model';
+import { assignSkill, type Skill } from '../skills/model';
+import { SkillPicker } from '../skills/skill-picker';
 import './create.css';
 
 const steps = ['Name and picture', 'Instructions', 'People', 'Tools and safety'];
@@ -43,6 +45,8 @@ export function AgentCreate({ start, directory, close, created }: {
   const members = useResource(loadMembers);
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [pickingSkills, setPickingSkills] = useState(false);
   const mutation = useMutation();
   const first = useRef<HTMLInputElement>(null);
   const ready = [Boolean(draft.name.trim()), Boolean(draft.settings.instructions.trim()), managers.length > 0, true];
@@ -60,6 +64,8 @@ export function AgentCreate({ start, directory, close, created }: {
         if (mode && mode !== operation.workspace_mode) await saveRule(draft.id, { connection: connection.id, operation: operation.id, mode, revision: 0 });
       }
     }
+    // Assigning is idempotent, so a retry after a failure adds each skill once.
+    for (const skill of skills) await assignSkill(draft.id, skill.id, true);
     await created(draft.id);
   });
   return <section className="agent-create" aria-labelledby="agent-create-title">
@@ -77,11 +83,19 @@ export function AgentCreate({ start, directory, close, created }: {
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <InstructionsStep name={draft.name} title={draft.role} text={draft.settings.instructions} rules={directory.system_prompt}
         change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))} />}
+      {step === 1 && <section className="agent-create-skills" aria-label="Skills">
+        <h3>Skills <small>How-to steps loaded only when needed</small></h3>
+        <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip">{skill.name}
+          <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
+          <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
+      </section>}
       {step === 2 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
         members={members.data?.users} audience={audience} people={people} managers={managers}
         setAudience={setAudience} setPeople={setPeople} setManagers={setManagers} />}
       {step === 3 && <ToolsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
     </fieldset>
+    {pickingSkills && <SkillPicker owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
+      choose={skill => setSkills(old => old.some(s => s.id === skill.id) ? old : [...old, skill])} />}
     <footer className="agent-create-footer">
       {step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}
       {step < steps.length - 1

@@ -1,3 +1,4 @@
+import { AgentSkills } from './skills/agent-skills';
 import { useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
@@ -40,6 +41,7 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
           <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
         </div>}
       </section>
+      <AgentSkills agent={agent} />
       <section className="agent-knows" aria-label={`What ${agent.name} knows`}>
         <h3>What {agent.name} knows</h3>
         {agent.editable && <label className="ui-check"><input type="checkbox" checked={draft.memory} onChange={event => edit({ memory: event.target.checked })} />Use approved notes in its answers</label>}
