@@ -1,4 +1,17 @@
 use super::*;
+
+#[path = "front_desk.rs"]
+pub(crate) mod front_desk;
+#[cfg(test)]
+#[path = "front_desk_tests.rs"]
+mod front_desk_tests;
+#[path = "agent_updates.rs"]
+pub(crate) mod updates;
+#[path = "agent_updates_migration.rs"]
+pub(super) mod updates_migration;
+#[cfg(test)]
+#[path = "agent_updates_tests.rs"]
+mod updates_tests;
 use crate::identity::chat::model::{Job, NewChat};
 use serde_json::json;
 

@@ -28,6 +28,8 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
   let unavailable = false;
   let held = false;
   let heldMarkers = [];
+  // Plain-text replies for prompts that are not control scripts (the front desk).
+  const replies = new Map();
   let streamScript;
   let outputHeld = false;
   const timings = [];
@@ -76,7 +78,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     while ((held || heldMarkers.some(marker => textContent.includes(marker))) && !response.destroyed) await new Promise(resolve => setTimeout(resolve, 20));
     if (response.destroyed) return;
     let tool;
-    let text = 'GOOSE_FIXTURE_OK 🦀';
+    let text = replies.get(prompt) ?? 'GOOSE_FIXTURE_OK 🦀';
     const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
     const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
     const originalLine = savedTask ? contextCommand(textContent.split('Saved task continuation')[0]) : prompt;
@@ -150,8 +152,9 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
       if (!response.headersSent) response.setHeader('Content-Type', 'text/event-stream');
       const delta = (value, reason = null) => response.write(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta: value, finish_reason: reason }] })}\n\n`);
       if (tool) delta({ tool_calls: [{ index: 0, ...tool }] });
-      else if (script) {
-        // Controlled partial replies for reconnect/cancel and timing journeys.
+      else if (script && !replies.has(prompt)) {
+        // Controlled partial replies for reconnect/cancel and timing journeys;
+        // a reply scripted for its own prompt (setReply) is never held.
         delta({role:'assistant',reasoning_content:'PRIVATE_REASONING_SENTINEL'});
         if(script.firstDelayMs)await new Promise(resolve=>setTimeout(resolve,script.firstDelayMs));
         for (let part=0;part<script.chunks.length && !response.destroyed;part++) {
@@ -181,6 +184,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     url: `http://127.0.0.1:${server.address().port}`,
     requests,
     setControl: (prompt, command) => controlScripts.set(prompt, structuredClone(command)),
+    setReply: (prompt, text) => replies.set(prompt, text),
     timings,
     setStream: value => { streamScript=value; },
     setOutputHeld: value => { outputHeld=value; },

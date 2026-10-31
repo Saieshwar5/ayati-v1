@@ -11,9 +11,12 @@ export function useCancelReply(message: Message) {
   return { ...mutation, available, cancel };
 }
 
-/** States that wait for a person stay visible; all other work reads as typing. */
+/** States that wait for a person stay visible, and so does a request no machine
+ * has picked up yet (no progress at all): "typing" means the agent is actually
+ * at work. Everything else reads as typing. */
 function waitingLabel(message: Message) {
   switch (message.progress?.state) {
+    case undefined: return 'Waiting to start';
     case 'handoff': return 'Waiting for another agent';
     case 'approval': return 'Waiting for approval';
     case 'input': return 'Waiting for an answer';

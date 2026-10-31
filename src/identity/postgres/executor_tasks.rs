@@ -14,18 +14,23 @@ pub(crate) enum Purpose {
     /// AI suggestions for the retired guided permission setup (schema 47).
     /// Saved tasks are never run again; they finish as cancelled.
     SetupSuggestion,
+    /// The front desk: a short answer to a person while the agent's work lane
+    /// is busy (`relay_front_desk`).
+    FrontDesk,
 }
 impl Purpose {
     fn as_str(self) -> &'static str {
         match self {
             Self::Sample => "sample",
             Self::SetupSuggestion => "setup_suggestion",
+            Self::FrontDesk => "front_desk",
         }
     }
     fn parse(value: &str) -> Result<Self> {
         match value {
             "sample" => Ok(Self::Sample),
             "setup_suggestion" => Ok(Self::SetupSuggestion),
+            "front_desk" => Ok(Self::FrontDesk),
             _ => anyhow::bail!("Unknown executor task purpose"),
         }
     }
@@ -125,6 +130,7 @@ pub(super) async fn allowed(tx: &DatabaseTransaction, task: &Task) -> Result<boo
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::allowed(tx, task, &task.actor()).await,
         Purpose::SetupSuggestion => Ok(false),
+        Purpose::FrontDesk => super::chat::front_desk::allowed(tx, task).await,
     }
 }
 
@@ -133,6 +139,7 @@ pub(super) async fn context(db: &impl ConnectionTrait, task: &Task) -> Result<Pr
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::context(db, task).await,
         Purpose::SetupSuggestion => Err(super::worker_control::ControlDenied.into()),
+        Purpose::FrontDesk => super::chat::front_desk::context(db, task).await,
     }
 }
 
@@ -144,6 +151,7 @@ pub(super) async fn begin(tx: &DatabaseTransaction, task: &Task, claim: &str) ->
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::started(tx, task, claim).await,
         Purpose::SetupSuggestion => Ok(()),
+        Purpose::FrontDesk => super::chat::front_desk::started(tx, task).await,
     }
 }
 
@@ -169,6 +177,7 @@ pub(super) async fn finish(
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::finished(tx, task, state, text).await,
         Purpose::SetupSuggestion => Ok(()),
+        Purpose::FrontDesk => super::chat::front_desk::finished(tx, task, state, text).await,
     }
 }
 
@@ -179,6 +188,7 @@ pub(super) async fn invalidate(tx: &DatabaseTransaction, task: &Task, claim: &st
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::invalidate(tx, &task.workspace, &task.id).await,
         Purpose::SetupSuggestion => Ok(()),
+        Purpose::FrontDesk => super::chat::front_desk::closed(tx, task).await,
     }
 }
 
@@ -233,10 +243,15 @@ pub(super) async fn recover(tx: &DatabaseTransaction) -> Result<()> {
         match task.purpose {
             Purpose::Sample => super::rehearsal_queue::interrupted(tx, &task).await?,
             Purpose::SetupSuggestion => {}
+            Purpose::FrontDesk => super::chat::front_desk::closed(tx, &task).await?,
         }
     }
     execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='sample'
         AND NOT EXISTS(SELECT 1 FROM relay_agent_rehearsals r WHERE r.workspace=t.workspace AND r.id=t.id AND r.state='queued')",vec![]).await?;
+    execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='front_desk'
+        AND NOT EXISTS(SELECT 1 FROM relay_front_desk f JOIN relay_chat_messages m ON m.workspace=f.workspace AND m.id=f.reply WHERE f.id=t.id AND f.state='queued' AND m.state='queued')",vec![]).await?;
+    execute(tx,"UPDATE relay_front_desk f SET state='finished',decision='nothing',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
+        WHERE f.state='queued' AND EXISTS(SELECT 1 FROM relay_executor_tasks t WHERE t.id=f.id AND t.state='finished')",vec![]).await?;
     execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='setup_suggestion'
         AND NOT EXISTS(SELECT 1 FROM relay_control_drafts d WHERE d.workspace=t.workspace AND d.id=t.id AND d.suggestion_context IS NOT NULL)",vec![]).await?;
     Ok(())

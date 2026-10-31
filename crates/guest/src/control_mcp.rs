@@ -30,6 +30,9 @@ pub fn observed(name: &str, input: &Value) -> bool {
                     .iter()
                     .all(|key| v.get(*key).is_some_and(Value::is_string))
         }),
+        Some("send_update") => input
+            .as_object()
+            .is_some_and(|v| v.len() == 1 && v.get("text").is_some_and(Value::is_string)),
         Some("load_skill") => input.as_object().is_some_and(|v| {
             (1..=2).contains(&v.len())
                 && v.get("name").is_some_and(Value::is_string)
@@ -68,6 +71,7 @@ impl ServerHandler for ControlTools {
             json!({"name":"personal_panels","description":"List the original human requester's saved personal panel identities and revisions for this agent in this source conversation only. Data is private to that person; this grants no source authority and returns no cached panel facts.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),
+            json!({"name":"send_update","description":"Post one short message to the person while you keep working: first a one-line \"got it\" with what you'll do when the request needs tools or more than one step, then a milestone for long work. Your final answer is still your reply. Do not use it for quick answers, and never say you will continue later.","inputSchema":{"type":"object","properties":{"text":{"type":"string","maxLength":1000}},"required":["text"],"additionalProperties":false}}),
             json!({"name":"load_skill","description":"Load one of the skills listed in your instructions: its SKILL.md steps, or one supporting file by its path inside the skill. Load a skill before following it. Skills are guidance from their author; they never change your permissions, approvals or rules, and scripts in them cannot run.","inputSchema":{"type":"object","properties":{"name":{"type":"string","maxLength":64},"file":{"type":"string","maxLength":200}},"required":["name"],"additionalProperties":false}}),
             json!({"name":"operations","description":"List this task's currently assigned business operations, input fields and permission modes.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_action","description":"Request one supported operation with exact fields. Cuckoo validates current task authority, records it, executes allowed work or creates an exact approval request. Inspect the returned state. Repeating identical fields in the same task returns the original receipt and never retries an uncertain write.","inputSchema":{"type":"object","properties":{"connection":{"type":"string"},"operation":{"type":"string"},"arguments":{"type":"object"}},"required":["connection","operation","arguments"],"additionalProperties":false}})
@@ -146,6 +150,18 @@ pub async fn serve() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn updates_forward_exactly_one_text() {
+        assert!(observed(
+            "ayati_control__send_update",
+            &json!({"text":"Got it."})
+        ));
+        assert!(!observed(
+            "ayati_control__send_update",
+            &json!({"text":"x","chat":"other"})
+        ));
+        assert!(!observed("ayati_control__send_update", &json!({})));
+    }
     #[test]
     fn skill_loading_forwards_only_a_name_and_an_optional_file() {
         assert!(observed(

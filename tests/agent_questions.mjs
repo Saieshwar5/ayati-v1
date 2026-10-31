@@ -40,7 +40,9 @@ test('ordinary questions release execution, survive restart, reconstruct answers
   await writeFile(profiles, JSON.stringify([{ id: 'orders', workspace: w, name: 'Company orders', account: 'Test company', url: remote.url, bearer_file: bearer, operations: remote.operations }]));
   await app.request(`${app.path}/control/systems`, app.cookie, { server: 'orders', approved: true, revision: 0 });
   await app.request(`${app.path}/control/connections`, app.cookie, { id: connection, server: 'orders', enabled: true, revision: 0 });
-  for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0, chat: channel });
+  // The admin's rules for this connector, then the agent's Tools switch (schema 47).
+  for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${app.path}/control/connector-rules`, app.cookie, { connection, operation, mode, needs_other: false, revision: 0 });
+  await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   const state = job => JSON.parse(app.sql(`SELECT row_to_json(j) FROM relay_chat_jobs j WHERE reply='${job.reply}'`));
   const questionFor = async job => until(() => {
     const row = app.sql(`SELECT row_to_json(q) FROM relay_task_questions q WHERE reply='${job.reply}' ORDER BY created_ms DESC LIMIT 1`);
