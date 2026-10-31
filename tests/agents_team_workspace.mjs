@@ -41,7 +41,7 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   ];
   const agents = [];
   for (const [name, role] of team) {
-    const input = { id: randomUUID(), name, role, model: 'fixture', scope: 'workspace', revision: 0,
+    const input = { id: randomUUID(), name, role, model: 'fixture', audience: 'selected', revision: 0,
       settings: { provider: 'openai', escalation: 'When supplier terms or delivery details need a decision.' } };
     await app.request(`${app.path}/agent-profiles`, app.cookie, input); agents.push(input);
     await app.request(`${app.path}/chat-grants`, app.cookie, { user: memberUser.id, agent: input.id, allowed: true });

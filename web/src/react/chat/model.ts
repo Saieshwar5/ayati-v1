@@ -1,6 +1,6 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
 import type { QuestionReference } from '../questions/model';
-export type Participant = { id: string; name: string; email?: string; role?: string; scope?: 'private' | 'workspace'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
+export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };

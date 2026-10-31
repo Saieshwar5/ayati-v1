@@ -353,15 +353,16 @@ async fn event_owner_role_does_not_expose_private_agents_or_destinations_and_acc
     );
     execute(
         &s.db.db,
-        "UPDATE relay_shared_agents SET scope='private' WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_shared_agents SET audience='only_me' WHERE workspace=$1 AND id=$2",
         vec![s.w.clone().into(), s.a.clone().into()],
     )
     .await
     .unwrap();
+    // Admins see every agent, including only-me agents (D231).
     assert!(
         s.db.event_triggers(&other, &s.w, &s.a, std::slice::from_ref(&s.source))
             .await
-            .is_err()
+            .is_ok()
     );
 }
 #[tokio::test]

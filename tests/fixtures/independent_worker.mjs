@@ -213,7 +213,7 @@ export async function workerFixture(t, options = {}) {
   const cookie = await login(0);
   const path = '/api/identity/workspaces/' + info.workspace;
   const profile = { id: randomUUID(), name: 'Nova', role: 'Answer bounded workspace questions.',
-    model: options.model ?? 'fixture', scope: 'workspace', revision: 0, settings: { provider: 'openai' } };
+    model: options.model ?? 'fixture', audience: 'selected', revision: 0, settings: { provider: 'openai' } };
   await request(path + '/agent-profiles', cookie, profile);
   const conversation = (await request(path + '/chats', cookie, {
     id: randomUUID(), name: 'Worker proof', users: [], agents: [profile.id], kind: 'direct',

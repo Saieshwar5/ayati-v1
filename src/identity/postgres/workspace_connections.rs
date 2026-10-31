@@ -30,7 +30,7 @@ impl PgStore {
         manager(&tx, w, &user.id).await?;
         let systems=json_rows(&tx,"SELECT to_jsonb(s) AS data FROM relay_control_systems s WHERE workspace=$1 ORDER BY server",vec![w.into()]).await?;
         let connections=json_rows(&tx,"SELECT jsonb_build_object('id',id,'server',server,'definition',definition,'enabled',enabled,'revision',revision) AS data FROM relay_control_connections WHERE workspace=$1 ORDER BY server",vec![w.into()]).await?;
-        let people=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'role',m.role,'can_create',COALESCE(c.enabled,false),'revision',COALESCE(c.revision,0)) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id LEFT JOIN relay_agent_creators c ON c.workspace=m.workspace AND c.user_id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![w.into()]).await?;
+        let people=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![w.into()]).await?;
         let delegations=json_rows(&tx,"SELECT to_jsonb(d)||jsonb_build_object('approver_name',COALESCE(u.display_name,u.email)) AS data FROM relay_control_delegations d JOIN relay_users u ON u.id=d.approver WHERE d.workspace=$1 ORDER BY d.connection,d.user_id,d.operation",vec![w.into()]).await?;
         let approvers=json_rows(&tx,"SELECT to_jsonb(g) AS data FROM relay_control_approvers g WHERE workspace=$1 ORDER BY connection,operation,user_id",vec![w.into()]).await?;
         tx.commit().await?;

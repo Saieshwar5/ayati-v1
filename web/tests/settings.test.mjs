@@ -68,7 +68,7 @@ test('Members see counts and what admins can see, and leave naming who takes ove
     assert.equal(select.value,'lead','an admin takes over by default');
     assert.deepEqual([...select.options].map(option=>option.textContent),['Arjun Mehta (admin)']);
     const text=document.querySelector('dialog').textContent;
-    assert.match(text,/Moves to Arjun Mehta.*1 shared agent: Atlas/); assert.match(text,/Stays as it is.*1 private agent/);
+    assert.match(text,/Moves to Arjun Mehta.*1 agent: Atlas/); assert.match(text,/Paused for review.*1 only-me agent/);
     await change(select,'lead');
     const leave=document.querySelector('dialog .settings-remove');
     await click(leave); await click(leave);

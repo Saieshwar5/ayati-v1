@@ -37,10 +37,10 @@ async fn withdrawing_and_regranting_request_permission_cannot_revive_waiting_wor
     db.chat_finish(&job, "Waiting for approval", "complete")
         .await
         .unwrap();
-    db.chat_grant(&owner, &w, &requester.id, &job.agent, false)
+    db.channel_members(&owner, &w, &job.chat, std::slice::from_ref(&owner.id))
         .await
         .unwrap();
-    db.chat_grant(&owner, &w, &requester.id, &job.agent, true)
+    db.channel_members(&owner, &w, &job.chat, &[owner.id.clone(), requester.id.clone()])
         .await
         .unwrap();
     assert_eq!(state(&db, &job).await["state"], "finished");

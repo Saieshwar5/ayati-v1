@@ -13,7 +13,7 @@ export function ChannelMembers({ chat, directory }: { chat: Conversation; direct
 /** Channel managers choose which workspace agents work in the channel. */
 export function ChannelAgents({ chat, directory }: { chat: Conversation; directory: Directory }) {
   const [agents, setAgents] = useState(chat.agents); const mutation = useMutation();
-  const available = directory.agents.filter(agent => agent.scope !== 'private');
+  const available = directory.agents.filter(agent => agent.audience !== 'only_me');
   if (!chat.can_archive || !available.length) return null;
   return <form className="company-form" onSubmit={e => { e.preventDefault(); void mutation.run(async () => { await chatRequest(`/chats/${chat.id}/agents`, { agents }); mutation.setStatus('Agents saved.'); }); }}>
     <h3>Agents in this channel</h3>

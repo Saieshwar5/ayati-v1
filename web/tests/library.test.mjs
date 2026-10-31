@@ -28,7 +28,7 @@ test('Library sharing lets a User select existing people and separates agent rea
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users: [{ id: 'writer', name: 'Writer' }, { id: 'reader', name: 'Reader' }] });
-    if (path.endsWith('/agent-profiles')) return response({ agents: [{ id: 'support', name: 'Support', scope: 'workspace' }, { id: 'private', name: 'Private', scope: 'private' }] });
+    if (path.endsWith('/agent-profiles')) return response({ agents: [{ id: 'support', name: 'Support', audience: 'selected' }, { id: 'private', name: 'Private', audience: 'only_me' }] });
     assert.ok(path.endsWith('/library/page/share'));
     assert.equal(payload, undefined, 'double submission is blocked synchronously');
     payload = JSON.parse(options.body); return new Promise(resolve => { resolveWrite = resolve; });

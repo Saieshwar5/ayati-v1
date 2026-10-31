@@ -32,7 +32,6 @@ async fn connection_upgrade_preserves_owner_rules_without_delegating_to_members(
     assert_eq!(snapshot["rules"][0]["configured_by"], owner.id);
     assert_eq!(snapshot["rules"][0]["revision"], 4);
     assert!(snapshot["rules"][0]["delegation_revision"].is_null());
-    assert!(!db.can_create_workspace_agent(&member, &w).await.unwrap());
     assert!(
         db.workspace_connections(&owner, &w).await.unwrap()["delegations"]
             .as_array()

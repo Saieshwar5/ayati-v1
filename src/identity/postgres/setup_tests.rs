@@ -1,6 +1,6 @@
 use super::{tests::*, *};
 use crate::identity::control::{
-    connections_model::{Creator, Delegation, SystemApproval},
+    connections_model::{Delegation, SystemApproval},
     model::{ActionRequest, Rule},
     setup_model::{Activate, Choice, Draft, Edit, Inventory, Preview, Start},
 };
@@ -311,17 +311,6 @@ async fn delegated_limits_and_revocation_fence_a_saved_review() {
     let (db, owner, w, _, _, original) = setup().await;
     let member = user(&db, "setup-member").await;
     join(&db, &owner, &w, &member, "Member").await;
-    db.control_creator(
-        &owner,
-        &w,
-        &Creator {
-            user: member.id.clone(),
-            enabled: true,
-            revision: 0,
-        },
-    )
-    .await
-    .unwrap();
     let (private_chat, agent) = super::executor_slot_tests::agent(&db, &member, &w).await;
     let chat = chat(
         &db,

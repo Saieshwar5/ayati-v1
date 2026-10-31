@@ -11,7 +11,7 @@ import { useMutation, useResource } from '../requests';
 import { request, itemUrl, dateLabel, type Item } from './model';
 type Directory = {
   users: { id: string; name: string }[];
-  agents: { id: string; name: string; scope?: string; settings?: { paused: boolean } }[];
+  agents: { id: string; name: string; audience?: string; can_talk?: boolean; settings?: { paused: boolean } }[];
 };
 async function loadDirectory(): Promise<Directory> {
   const [people, agents] = await Promise.all([
@@ -20,7 +20,7 @@ async function loadDirectory(): Promise<Directory> {
   ]);
   return {
     users: people.users,
-    agents: agents.agents.filter((a) => a.scope === 'workspace' && !a.settings?.paused),
+    agents: agents.agents.filter((a) => a.audience !== 'only_me' && a.can_talk !== false && !a.settings?.paused),
   };
 }
 function useAttempt() {

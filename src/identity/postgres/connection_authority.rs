@@ -1,12 +1,7 @@
-//! Explicit creator rights and per-operation delegation ceilings.
+//! Per-operation delegation ceilings.
 use super::workspace_connections::stale_revision;
 use super::*;
-use crate::identity::control::connections_model::{Creator, Delegation};
-
-pub(super) async fn can_create(db: &impl ConnectionTrait, w: &str, user: &str) -> Result<bool> {
-    let owner = role(db, w, user).await? == "Admin";
-    Ok(owner || query(db,"SELECT user_id FROM relay_agent_creators WHERE workspace=$1 AND user_id=$2 AND enabled",vec![w.into(),user.into()]).await?.is_some())
-}
+use crate::identity::control::connections_model::Delegation;
 
 pub(super) async fn membership_changed(
     db: &impl ConnectionTrait,
@@ -20,53 +15,10 @@ pub(super) async fn membership_changed(
     execute(db,"UPDATE relay_control_actions a SET state='invalidated',result='\"Membership authority changed; request a new action.\"'::jsonb WHERE a.workspace=$1 AND a.state='pending' AND (a.approver=$2 OR EXISTS(SELECT 1 FROM relay_control_rules r WHERE r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation AND r.configured_by=$2))",vec![w.into(),user.into()]).await?;
     execute(db,"UPDATE relay_control_rules SET mode='block',revision=revision+1 WHERE workspace=$1 AND (configured_by=$2 OR approver=$2)",vec![w.into(),user.into()]).await?;
     execute(db,"UPDATE relay_control_delegations SET ceiling='block',revision=revision+1 WHERE workspace=$1 AND (user_id=$2 OR approver=$2)",vec![w.into(),user.into()]).await?;
-    execute(db,"UPDATE relay_agent_creators SET enabled=false,revision=revision+1 WHERE workspace=$1 AND user_id=$2",vec![w.into(),user.into()]).await?;
     Ok(())
 }
 
 impl PgStore {
-    pub(crate) async fn can_create_workspace_agent(&self, user: &User, w: &str) -> Result<bool> {
-        can_create(&self.db, w, &user.id).await
-    }
-
-    pub(crate) async fn control_creator(
-        &self,
-        user: &User,
-        w: &str,
-        input: &Creator,
-    ) -> Result<()> {
-        let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
-        ensure!(
-            role(&tx, w, &input.user).await? == "Member",
-            "Admins already have creation authority"
-        );
-        let old = query(
-            &tx,
-            "SELECT enabled,revision FROM relay_agent_creators WHERE workspace=$1 AND user_id=$2",
-            vec![w.into(), input.user.clone().into()],
-        )
-        .await?;
-        let rev = old
-            .as_ref()
-            .map(|r| r.try_get::<i64>("", "revision"))
-            .transpose()?
-            .unwrap_or(0);
-        let same = old
-            .as_ref()
-            .map(|r| r.try_get::<bool>("", "enabled"))
-            .transpose()?
-            == Some(input.enabled);
-        if stale_revision(rev, input.revision, same)? {
-            tx.commit().await?;
-            return Ok(());
-        }
-        execute(&tx,"INSERT INTO relay_agent_creators(workspace,user_id,enabled,revision) VALUES($1,$2,$3,1) ON CONFLICT(workspace,user_id) DO UPDATE SET enabled=excluded.enabled,revision=relay_agent_creators.revision+1",vec![w.into(),input.user.clone().into(),input.enabled.into()]).await?;
-        audit(&tx, &user.id, Some(w), "agent_creator_saved", &input.user).await?;
-        tx.commit().await?;
-        Ok(())
-    }
-
     pub(crate) async fn control_delegate(
         &self,
         user: &User,

@@ -154,16 +154,8 @@ async fn explicit_non_owner_authority_selects_one_approver_without_configuration
             .await
             .unwrap()
     );
-    assert!(
-        s.db.chat_send(
-            &s.approver,
-            &s.w,
-            &s.source,
-            &message("Not authorized to start work", Some(&s.agent))
-        )
-        .await
-        .is_err()
-    );
+    // Being in the source channel lets the approver ask its agent there (D231);
+    // approving still needs the explicit grant below.
     assert!(
         s.db.control_rule(&s.approver, &s.w, &s.agent, &s.rule())
             .await

@@ -150,7 +150,7 @@ test('ordinary questions release execution, survive restart, reconstruct answers
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   app.pass('Multiple choice uses stable option IDs and an explicitly enabled text alternative; selecting controls performs no business operation');
 
-  const privateAgent = { id: randomUUID(), name: 'Private planning helper', role: 'Clarify plans privately.', model: 'fixture', scope: 'private', revision: 0, settings: { provider: 'openai' } };
+  const privateAgent = { id: randomUUID(), name: 'Private planning helper', role: 'Clarify plans privately.', model: 'fixture', audience: 'only_me', revision: 0, settings: { provider: 'openai' } };
   await app.request(`${app.path}/agent-profiles`, app.cookie, privateAgent);
   const privateChat = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), kind: 'direct', name: privateAgent.name, users: [], agents: [privateAgent.id] })).value.id;
   const closed = text => ({ steps: [{ tool: 'ask_question', arguments: { key: 'decision', specification: { version: 1, kind: 'single_choice', title: text, options: [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }] } } }], checkpoint: 'A private clarification is saved. No business operation has been requested.' });

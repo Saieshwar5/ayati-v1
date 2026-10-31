@@ -1,6 +1,20 @@
 use super::*;
 use crate::identity::agents::config::{SaveAgent, Settings};
 
+/// The saved agent row, without an access check.
+pub(super) async fn stored(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Value> {
+    let row = query(
+        db,
+        "SELECT to_jsonb(a) AS data FROM relay_shared_agents a WHERE workspace=$1 AND id=$2",
+        vec![w.into(), id.into()],
+    )
+    .await?
+    .context("Agent unavailable")?;
+    let mut a: Value = row.try_get("", "data")?;
+    super::agent_audience::normalize(&mut a);
+    Ok(a)
+}
+
 pub(super) async fn managed_access(
     db: &impl ConnectionTrait,
     user: &str,
@@ -9,24 +23,21 @@ pub(super) async fn managed_access(
     manage: bool,
 ) -> Result<Value> {
     let member_role = role(db, w, user).await?;
-    let row = query(
-        db,
-        "SELECT to_jsonb(a) AS data FROM relay_shared_agents a WHERE workspace=$1 AND id=$2",
-        vec![w.into(), id.into()],
-    )
-    .await?
-    .context("Agent unavailable")?;
-    let a: Value = row.try_get("", "data")?;
+    let a = stored(db, w, id).await?;
+    // The owner and admins see and change every agent (D231/D233); others see the
+    // agents they can talk to.
     let own = a["owner_id"] == user;
-    if a["scope"] == "private" {
-        ensure!(own, "Agent unavailable");
-    } else if manage {
+    let admin = member_role == "Admin";
+    if manage {
         ensure!(
-            own || member_role == "Admin",
-            "Only agent maintainers can change this agent"
+            own || admin,
+            "Only the agent's owner or an admin can change this agent"
         );
     } else {
-        ensure!(own || member_role == "Admin" || query(db,"SELECT agent FROM relay_chat_access WHERE workspace=$1 AND user_id=$2 AND agent=$3",vec![w.into(),user.into(),id.into()]).await?.is_some(), "Agent unavailable");
+        ensure!(
+            own || admin || super::agent_audience::can_talk(db, w, id, user).await?,
+            "Agent unavailable"
+        );
     }
     Ok(a)
 }
@@ -62,6 +73,7 @@ impl PgStore {
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
+        let mut narrowed = false;
         let old = query(
             &tx,
             "SELECT revision FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
@@ -71,10 +83,6 @@ impl PgStore {
         if old.is_some() {
             let a = managed_access(&tx, &user.id, w, &input.id, true).await?;
             let settings = merged_guidance(&input.settings, &a["settings"])?;
-            ensure!(
-                a["scope"] == input.scope,
-                "Visibility cannot change; create a separate agent without private history"
-            );
             // An exact retry after a lost response succeeds without changing revision again.
             if a["revision"].as_i64() != Some(input.revision) {
                 ensure!(
@@ -82,6 +90,7 @@ impl PgStore {
                         && a["name"] == input.name.trim()
                         && a["role"] == input.role.trim()
                         && a["model"] == input.model
+                        && a["audience"] == input.audience
                         && a["settings"] == settings,
                     "Agent changed; reload before saving"
                 );
@@ -93,17 +102,21 @@ impl PgStore {
                 pending == 0 || input.settings.paused,
                 "Wait for active work to finish or pause the agent first"
             );
-            execute(&tx,"UPDATE relay_shared_agents SET name=$3,role=$4,model=$5,settings=$6,revision=revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),settings.into()]).await?;
+            if input.audience == "only_me" && a["audience"] != "only_me" {
+                super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
+            }
+            narrowed = a["audience"] != input.audience;
+            let audience = column(&tx).await?;
+            execute(&tx,&format!("UPDATE relay_shared_agents SET name=$3,role=$4,model=$5,settings=$6,{audience}=$7,revision=revision+1 WHERE workspace=$1 AND id=$2"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),settings.into(),audience_value(audience,&input.audience).into()]).await?;
         } else {
+            // Everyone may create agents (D231).
             let settings = serde_json::to_value(&input.settings)?;
             ensure!(input.revision == 0, "Agent missing");
-            ensure!(
-                input.scope == "private"
-                    || super::connection_authority::can_create(&tx, w, &user.id).await?,
-                "An admin must allow you to create workspace agents"
-            );
-            execute(&tx,"INSERT INTO relay_shared_agents(workspace,id,name,role,model,scope,owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)",vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),input.scope.clone().into(),user.id.clone().into(),settings.into()]).await?;
+            let audience = column(&tx).await?;
+            execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
+        let creating = old.is_none();
+        narrowed |= super::agent_audience::save_lists(&tx, &user.id, w, input, creating).await?;
         if uuid::Uuid::parse_str(&input.settings.avatar).is_ok() {
             ensure!(
                 query(
@@ -121,7 +134,8 @@ impl PgStore {
             );
         }
         audit(&tx, &user.id, Some(w), "agent_profile_saved", &input.id).await?;
-        if input.settings.paused {
+        // Pausing or narrowing who can talk stops work people may no longer ask for.
+        if input.settings.paused || narrowed {
             super::task_revocation::inaccessible(&tx, w).await?;
         }
         let result = managed_access(&tx, &user.id, w, &input.id, true).await?;
@@ -187,6 +201,22 @@ impl PgStore {
         .await?;
         row.map(|r| Ok(serde_json::from_value(r.try_get("", "settings")?)?))
             .transpose()
+    }
+}
+
+/// The column holding who can talk; schemas before 45 (upgrade tests) use `scope`.
+async fn column(db: &impl ConnectionTrait) -> Result<&'static str> {
+    Ok(if super::agent_audience::exists(db).await? {
+        "audience"
+    } else {
+        "scope"
+    })
+}
+fn audience_value(column: &str, audience: &str) -> String {
+    match (column, audience) {
+        ("scope", "only_me") => "private".into(),
+        ("scope", _) => "workspace".into(),
+        _ => audience.into(),
     }
 }
 

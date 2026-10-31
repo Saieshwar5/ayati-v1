@@ -1,7 +1,8 @@
 //! What a person is responsible for, and handing it on when an admin removes them.
-//! Shared agents and workspace-wide Library items move to the chosen person. Private
-//! agents, private pages and items shared with selected people stay as they are:
-//! moving them would show the new owner something it was never shared with. Existing safety rules still
+//! Their agents and workspace-wide Library items move to the chosen person; an
+//! only-me agent moves paused, so the new owner looks at it before it works again.
+//! Private pages and items shared with selected people stay as they are: moving
+//! them would show the new owner something it was never shared with. Existing safety rules still
 //! cancel their pending approvals, switch rules they set up or approve to Block,
 //! and pause their schedules and event triggers; those are reported, not moved.
 use super::*;
@@ -13,7 +14,7 @@ pub(super) async fn responsibilities(
     w: &str,
     person: &str,
 ) -> Result<Value> {
-    let agents = json_rows(db, "SELECT jsonb_build_object('id',id,'name',name) AS data FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 AND scope='workspace' ORDER BY name,id", vec![w.into(), person.into()]).await?;
+    let agents = json_rows(db, "SELECT jsonb_build_object('id',id,'name',name) AS data FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 ORDER BY name,id", vec![w.into(), person.into()]).await?;
     let count = |sql: &'static str| async move {
         query(db, sql, vec![w.into(), person.into()])
             .await?
@@ -23,7 +24,7 @@ pub(super) async fn responsibilities(
     };
     Ok(json!({
         "agents": agents,
-        "private_agents": count("SELECT count(*) AS count FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 AND scope<>'workspace'").await?,
+        "private_agents": count("SELECT count(*) AS count FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 AND audience='only_me'").await?,
         "library_items": count("SELECT count(*) AS count FROM relay_library_items WHERE workspace=$1 AND steward=$2 AND visibility='workspace' AND NOT trashed").await?,
         "kept_library_items": count("SELECT count(*) AS count FROM relay_library_items WHERE workspace=$1 AND steward=$2 AND visibility<>'workspace' AND NOT trashed").await?,
         "schedules": count("SELECT count(*) AS count FROM relay_agent_schedules WHERE workspace=$1 AND principal=$2 AND state='enabled'").await?,
@@ -42,7 +43,10 @@ pub(super) async fn hand_over(
     person: &str,
     heir: &str,
 ) -> Result<Vec<String>> {
-    execute(tx, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1 WHERE workspace=$1 AND owner_id=$2 AND scope='workspace'", vec![w.into(), person.into(), heir.into()]).await?;
+    // The new owner also manages the agents they take over.
+    execute(tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) SELECT workspace,id,$3,$3,$4 FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 ON CONFLICT DO NOTHING", vec![w.into(), person.into(), heir.into(), now().into()]).await?;
+    execute(tx, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1,settings=CASE WHEN audience='only_me' THEN jsonb_set(settings,'{paused}','true') ELSE settings END WHERE workspace=$1 AND owner_id=$2", vec![w.into(), person.into(), heir.into()]).await?;
+    super::agent_audience::keep_a_manager(tx, w, person).await?;
     execute(tx, "UPDATE relay_library_items SET steward=$3,access_revision=access_revision+1 WHERE workspace=$1 AND steward=$2 AND visibility='workspace'", vec![w.into(), person.into(), heir.into()]).await?;
     let cancelled = rows(tx, "UPDATE relay_invitations SET status='cancelled' WHERE workspace=$1 AND inviter=$2 AND status='pending' RETURNING provider", vec![w.into(), person.into()]).await?;
     Ok(cancelled
@@ -92,6 +96,7 @@ pub(super) fn removal_summary(
         parts.push(format!("{} moved to {heir}", moved.join(" and ")));
     }
     let paused: Vec<String> = [
+        plural(n("private_agents"), "only-me agent", "only-me agents"),
         plural(n("schedules"), "schedule", "schedules"),
         plural(n("event_triggers"), "event trigger", "event triggers"),
     ]
@@ -110,12 +115,6 @@ pub(super) fn removal_summary(
         ),
         ("tool_rules", "tool rule", "tool rules", "switched to Block"),
         ("invitations", "invitation", "invitations", "cancelled"),
-        (
-            "private_agents",
-            "private agent",
-            "private agents",
-            "left unused",
-        ),
         (
             "kept_library_items",
             "private or selected Library item",

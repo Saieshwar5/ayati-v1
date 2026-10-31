@@ -5,7 +5,7 @@ import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 const workspace = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${workspace}/?view=agents`;
-const agent = { id: 'agent', name: 'Orders assistant', scope: 'workspace', editable: true };
+const agent = { id: 'agent', name: 'Orders assistant', audience: 'selected', editable: true };
 const operation = { id: 'order.update', title: 'Update order', effect: 'write', schema: { type: 'object', properties: { order: { type: 'string' } }, required: ['order'], additionalProperties: false } };
 const account = { id: 'account', server: 'orders', name: 'Company orders', account: 'Northstar', permissions: [{ operation, ceiling: 'ask', approver: 'owner', approver_name: 'Ananya', delegation_revision: 2, rule_revision: 0 }] };
 const context = { name: agent.name, responsibility: 'Handle order questions', accounts: [account], conversations: [{ id: 'chat', name: 'Order support' }] };

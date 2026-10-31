@@ -3,6 +3,10 @@ mod accounts;
 mod admin_member_migration;
 #[cfg(test)]
 mod admin_member_migration_tests;
+mod agent_audience;
+mod agent_audience_migration;
+#[cfg(test)]
+mod agent_audience_tests;
 mod agent_knowledge;
 mod agent_profiles;
 mod agent_receipt_migration;
@@ -40,6 +44,7 @@ mod automation_tests;
 mod automations;
 #[cfg(test)]
 mod channel_archive_recovery_tests;
+mod channel_approval_migration;
 mod channel_lifecycle;
 mod chat;
 mod chat_intake;
@@ -466,6 +471,7 @@ mod company_tests;
 
 #[cfg(test)]
 mod messaging_tests;
+pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
 #[cfg(test)]
 mod agent_profile_tests;

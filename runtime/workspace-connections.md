@@ -23,7 +23,7 @@ the third permits no execution. The admin saving a delegation becomes its defaul
 when the member configures an Ask rule. [Scoped approval grants](channel-approvals.md)
 now allow that admin to authorize other people for selection. The page displays the current approver.
 
-**Agent creators** independently permits selected Users to create workspace agents.
+Since schema 45 everyone may create agents; the former **Agent creators** section is removed.
 Removing creation permission prevents new workspace agents; existing agents remain
 maintainable. Members retain private-agent creation. Neither creation right grants
 tool access, access to another person's private agent, or business approval rights.
@@ -85,7 +85,6 @@ Workspace admin endpoints under `/api/identity/workspaces/{workspace}/control`:
 | `GET /connections` | Reviewed catalog, account state, people and delegations |
 | `POST /systems` | Approve/revoke a configured system/account |
 | `POST /connections` | Verify/connect or disconnect an account |
-| `POST /creators` | Grant/revoke workspace-agent creation |
 | `POST /delegations` | Save one person's operation ceiling and responsible admin |
 
 Agent rule writes also carry `delegation_revision` for delegated Users. Agent

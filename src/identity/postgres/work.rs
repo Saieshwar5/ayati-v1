@@ -118,7 +118,7 @@ impl PgStore {
         };
         super::chat::access(&tx, &requester, w, &job.chat).await?;
         ensure!(
-            super::chat::agent_access(&tx, &job.requester, w, &job.agent).await?,
+            super::chat::agent_access_in(&tx, &job.requester, w, &job.agent, &job.chat).await?,
             "Agent access revoked"
         );
         ensure!(query(&tx,"SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND claim=$3 AND state='running' AND lease_until>$4",vec![w.clone().into(),job.reply.clone().into(),job.claim.clone().into(),now().into()]).await?.is_some(),"Worker claim expired");

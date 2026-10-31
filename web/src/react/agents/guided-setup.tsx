@@ -85,9 +85,9 @@ function SetupFlow({ agent, close, changed, setup }: Props & { setup: Setup }) {
           </section>
           <label className="ui-field">Work conversation<select aria-label="Work conversation" value={form.chat} onChange={e => setForm(old => ({ ...old, chat: e.target.value }))}><option value="">Choose a conversation</option>{conversations.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <p className="ui-help">Ask requests must be visible to the designated approver. {names.length > 0 && `For the selected accounts: ${names.join(', ')}.`}</p>
-          <p className="ui-help">Create a new conversation with you{agent.scope === 'workspace' && names.length ? ` and ${names.join(', ')}` : ''}. It starts empty.</p>
+          <p className="ui-help">Create a new conversation with you{agent.audience !== 'only_me' && names.length ? ` and ${names.join(', ')}` : ''}. It starts empty.</p>
           <Button disabled={mutation.busy || !form.accounts.length} onClick={() => void mutation.run(async () => {
-            const users = agent.scope === 'workspace' ? approvers : [];
+            const users = agent.audience !== 'only_me' ? approvers : [];
             const name = `${agent.name} · Work`;
             const result = await createWorkConversation(agent.id, name, users, identity({ conversation: name, users }));
             if (alive.current) { setConversations(old => old.some(c => c.id === result.id) ? old : [...old, { id: result.id, name }]); setForm(old => ({ ...old, chat: result.id })); }

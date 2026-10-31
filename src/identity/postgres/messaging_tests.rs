@@ -168,6 +168,7 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
     );
     let invalid = message(&format!("[@Outsider](mention:user:{})", outsider.id), None);
     assert!(db.chat_send(&owner, &w, &c, &invalid).await.is_err());
+    // Channel members may ask the channel's agents without a grant (D231).
     assert!(
         db.chat_send(
             &member,
@@ -176,7 +177,7 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
             &message(&format!("[@Helper](mention:agent:{agent})"), Some(&agent))
         )
         .await
-        .is_err()
+        .is_ok()
     );
     let mut threaded = message("Explicit thread", Some(&agent));
     threaded.thread = Some(request.id.clone());

@@ -57,7 +57,7 @@ export function AskPanel({
       }),
     [],
   );
-  const agents = directory?.agents.filter((a) => a.scope === 'workspace') ?? [];
+  const agents = directory?.agents.filter((a) => a.audience !== 'only_me') ?? [];
   const conversations = chats.filter((c) => c.agents.includes(agent) && !c.archived);
   const permitted = agents.some((a) => a.id === agent) && conversations.some((c) => c.id === chat);
   return (

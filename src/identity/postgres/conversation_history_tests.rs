@@ -278,22 +278,8 @@ async fn history_rechecks_join_policy_membership_and_request_permission_without_
         .unwrap(),
         saved
     );
-    db.chat_grant(&owner, &w, &member.id, &a, false)
-        .await
-        .unwrap();
-    assert!(
-        invoke(
-            &db,
-            &job,
-            "search_conversation_history",
-            json!({"query":""})
-        )
-        .await
-        .is_err()
-    );
-    db.chat_grant(&owner, &w, &member.id, &a, true)
-        .await
-        .unwrap();
+    // A channel member keeps asking without a grant (D231); leaving the channel
+    // removes access to its history.
     db.channel_members(&owner, &w, &c, std::slice::from_ref(&owner.id))
         .await
         .unwrap();

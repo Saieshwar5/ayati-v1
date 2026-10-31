@@ -138,7 +138,14 @@ pub(super) async fn execution_allowed(db: &impl ConnectionTrait, task: &Job) -> 
             email: String::new(),
             display_name: None,
         };
-        if !super::chat::agent_access(db, &task.requester, &task.workspace, &ancestor.agent).await?
+        if !super::chat::agent_access_in(
+            db,
+            &task.requester,
+            &task.workspace,
+            &ancestor.agent,
+            &ancestor.chat,
+        )
+        .await?
             || super::chat::access(db, &user, &task.workspace, &ancestor.chat)
                 .await
                 .is_err()

@@ -3,7 +3,7 @@ import { Button } from '../ui';
 import { useResource } from '../requests';
 import { Knowledge } from './knowledge';
 import { loadControls } from './control-model';
-import type { Agent } from './model';
+import { audienceLabels, type Agent } from './model';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspaceHeader } from './workspace-header';
 import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
@@ -60,7 +60,7 @@ function AgentOverview({ agent, viewWork, controls, controlsError, guide, contro
       {data && data.requests.length > 3 && <Button onClick={viewWork}>View all my open requests</Button>}
     </section>
   </div><aside className="agent-overview-side">
-    <section><h3>A place in your team</h3><dl className="agent-facts"><dt>Visibility</dt><dd>{agent.scope === 'private' ? 'Only you' : 'Workspace · people with access'}</dd><dt>Responsible person</dt><dd>{agent.owner_name ?? 'Not available'}</dd><dt>Business email</dt><dd>Not connected</dd><dt>Phone</dt><dd>Not connected</dd></dl></section>
+    <section><h3>A place in your team</h3><dl className="agent-facts"><dt>Who can talk to it</dt><dd>{audienceLabels[agent.audience]}</dd><dt>Responsible person</dt><dd>{agent.owner_name ?? 'Not available'}</dd><dt>Business email</dt><dd>Not connected</dd><dt>Phone</dt><dd>Not connected</dd></dl></section>
     <AuthoritySummary data={controls} error={controlsError} />
     <div className="agent-profile-shortcuts">{agent.editable && <Button aria-label={`Set up permissions for ${agent.name}`} onClick={guide}>Set up permissions</Button>}
       <Button aria-label={`Tools and approvals for ${agent.name}`} onClick={control}>Tools and approvals</Button></div>

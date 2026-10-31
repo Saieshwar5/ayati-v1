@@ -27,16 +27,16 @@ export function HandoverSummary({ summary, name, heirName, self = false }: {
   const who = self ? 'you' : name;
   const groups = data ? [
     { title: `Moves to ${heirName}`, tone: 'moves', rows: lines(
-      data.agents.length > 0 && `${count(data.agents.length, 'shared agent', 'shared agents')}: ${data.agents.map(agent => agent.name).join(', ')}`,
+      data.agents.length > 0 && `${count(data.agents.length, 'agent', 'agents')}: ${data.agents.map(agent => agent.name).join(', ')}`,
       data.library_items > 0 && count(data.library_items, 'Library item shared with everyone', 'Library items shared with everyone')) },
-    { title: 'Stays as it is', tone: 'stays', rows: lines(and(
-      data.private_agents > 0 && count(data.private_agents, 'private agent', 'private agents'),
-      data.kept_library_items > 0 && count(data.kept_library_items, 'private or selected Library item', 'private or selected Library items'))),
+    { title: 'Stays as it is', tone: 'stays', rows: lines(
+      data.kept_library_items > 0 && count(data.kept_library_items, 'private or selected Library item', 'private or selected Library items')),
       note: `Never shared with ${heirName}, so they don’t move.` },
     { title: 'Paused for review', tone: 'paused', rows: lines(and(
+      data.private_agents > 0 && count(data.private_agents, 'only-me agent', 'only-me agents'),
       data.schedules > 0 && count(data.schedules, 'schedule', 'schedules'),
       data.event_triggers > 0 && count(data.event_triggers, 'event trigger', 'event triggers'))),
-      note: `They run on ${self ? 'your' : `${name}’s`} authority, so the new agent owner reviews them and sets them up again.` },
+      note: `They worked for ${self ? 'you' : name}, so ${heirName} reviews them before they run again.` },
     { title: 'Cancelled', tone: 'cancelled', rows: lines(
       data.approvals > 0 && `${count(data.approvals, 'approval', 'approvals')} waiting for ${who}; the agent will ask again`,
       data.tool_rules > 0 && `${count(data.tool_rules, 'tool rule', 'tool rules')} ${self ? 'you set up or approve' : `${name} set up or approves`}, now set to Block`,

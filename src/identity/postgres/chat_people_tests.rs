@@ -258,7 +258,9 @@ async fn private_agents_and_direct_messages_cannot_gain_channel_agents() {
         name: "Mine".into(),
         role: "Personal".into(),
         model: "fixture".into(),
-        scope: "private".into(),
+        audience: "only_me".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Default::default(),
     };

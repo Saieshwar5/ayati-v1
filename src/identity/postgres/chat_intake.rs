@@ -1,6 +1,6 @@
 //! Server-owned request classification; shared authorization and idempotent intake.
 use super::{
-    chat::{access, agent_access},
+    chat::{access, agent_access_in},
     *,
 };
 use crate::identity::chat::model::{Job, NewMessage};
@@ -222,7 +222,7 @@ impl PgStore {
                 return Err(crate::identity::chat::model::QueueFull.into());
             }
             ensure!(
-                agent_access(tx, &user.id, workspace, agent).await?,
+                agent_access_in(tx, &user.id, workspace, agent, chat).await?,
                 "Agent is not shared with you"
             );
             ensure!(query(tx,"SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",vec![workspace.into(),chat.into(),agent.clone().into()]).await?.is_some(),"Agent is not in this conversation");

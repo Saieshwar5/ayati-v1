@@ -2,7 +2,7 @@ use super::{tests::*, *};
 use crate::identity::{
     agents::config::{SaveAgent, Settings},
     control::{
-        connections_model::{Creator, Delegation, SystemApproval, WorkspaceConnection},
+        connections_model::{Delegation, SystemApproval, WorkspaceConnection},
         model::{ActionRequest, Decision, Rule},
     },
 };
@@ -23,7 +23,9 @@ fn agent() -> SaveAgent {
         name: "Delegated agent".into(),
         role: "Orders".into(),
         model: "fixture".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings::default(),
     }
@@ -34,12 +36,6 @@ async fn setup() -> Setup {
     let member = user(&db, "connections-member").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
-    let creator = Creator {
-        user: member.id.clone(),
-        enabled: true,
-        revision: 0,
-    };
-    db.control_creator(&owner, &w, &creator).await.unwrap();
     let agent = agent();
     db.save_agent_profile(&member, &w, &agent).await.unwrap();
     let chat = chat(
@@ -130,38 +126,19 @@ impl Setup {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn creator_right_is_explicit_separate_from_tools_and_revocable() {
+async fn every_member_may_create_agents_without_tools() {
     let db = fixture().await;
     let owner = user(&db, "creator-owner").await;
     let member = user(&db, "creator-member").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
     let a = agent();
-    assert!(!db.can_create_workspace_agent(&member, &w).await.unwrap());
-    assert!(db.save_agent_profile(&member, &w, &a).await.is_err());
-    let mut grant = Creator {
-        user: member.id.clone(),
-        enabled: true,
-        revision: 0,
-    };
-    assert!(db.control_creator(&member, &w, &grant).await.is_err());
-    db.control_creator(&owner, &w, &grant).await.unwrap();
-    db.control_creator(&owner, &w, &grant).await.unwrap(); // Exact retry.
     db.save_agent_profile(&member, &w, &a).await.unwrap();
     let snapshot = db.control_snapshot(&member, &w, &a.id).await.unwrap();
     assert!(snapshot["connections"].as_array().unwrap().is_empty());
     assert!(snapshot["delegations"].as_array().unwrap().is_empty());
-    grant.enabled = false;
-    assert!(db.control_creator(&owner, &w, &grant).await.is_err()); // Stale different payload.
-    grant.revision = 1;
-    db.control_creator(&owner, &w, &grant).await.unwrap();
-    assert!(db.save_agent_profile(&member, &w, &agent()).await.is_err());
-    let mut existing = a.clone();
-    existing.revision = 1;
-    existing.name = "Still maintained".into();
-    db.save_agent_profile(&member, &w, &existing).await.unwrap();
     let mut private = agent();
-    private.scope = "private".into();
+    private.audience = "only_me".into();
     db.save_agent_profile(&member, &w, &private).await.unwrap();
 }
 
@@ -373,12 +350,6 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     s.db.change(&s.owner, &s.w, &s.member.id, Some("Member"), None)
         .await
         .unwrap();
-    assert!(
-        !s.db
-            .can_create_workspace_agent(&s.member, &s.w)
-            .await
-            .unwrap()
-    );
     s.db.control_delegate(&s.owner, &s.w, &s.grant("allow", 3))
         .await
         .unwrap();
@@ -392,12 +363,6 @@ async fn role_changes_and_rejoining_do_not_restore_old_agent_authority() {
     assert!(
         !s.db
             .control_enabled(&s.w, &s.agent.id, &s.chat)
-            .await
-            .unwrap()
-    );
-    assert!(
-        !s.db
-            .can_create_workspace_agent(&s.member, &s.w)
             .await
             .unwrap()
     );

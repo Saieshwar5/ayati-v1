@@ -1,6 +1,6 @@
 //! Workspace account approval and bounded delegation, separate from agent rules.
 use super::*;
-use connections_model::{Creator, Delegation, SystemApproval, WorkspaceConnection};
+use connections_model::{Delegation, SystemApproval, WorkspaceConnection};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
@@ -11,10 +11,6 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/control/systems",
             post(approve),
-        )
-        .route(
-            "/api/identity/workspaces/{w}/control/creators",
-            post(creator),
         )
         .route(
             "/api/identity/workspaces/{w}/control/delegations",
@@ -97,16 +93,6 @@ async fn connect(
     app.store
         .workspace_connection_save(&user, &w, &input, Some((server.public(), &fingerprint)))
         .await?;
-    Ok(Json(json!({"saved":true})))
-}
-async fn creator(
-    State(app): State<Shared>,
-    RoutePath(w): RoutePath<String>,
-    headers: HeaderMap,
-    Json(input): Json<Creator>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    app.store.control_creator(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn delegate(

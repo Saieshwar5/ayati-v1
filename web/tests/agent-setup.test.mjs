@@ -5,7 +5,7 @@ import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 const workspace = '11111111-1111-4111-8111-111111111111';
 const settings = { provider: '', instructions: '', escalation: '', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
-const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Mira', role: 'Purchasing', model: 'test', scope: 'private', revision: 0, settings, editable: true };
+const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Mira', role: 'Purchasing', model: 'test', audience: 'only_me', revision: 0, settings, editable: true };
 const directory = { role: 'Member', agents: [], default_model: 'test', system_prompt: 'System guidance', providers: [] };
 
 test('agent setup preserves a failed draft and prevents double submission', async () => {
@@ -13,7 +13,7 @@ test('agent setup preserves a failed draft and prevents double submission', asyn
   await reactFixture(async ({ render, button, click, change, update }) => {
     const { AgentEditor } = await import('../src/react/agents/editor.tsx');
     await render(AgentEditor, { agent, directory, creating: true, close() {}, saved: async () => { saved++; } });
-    assert.deepEqual([...document.querySelector('select').options].map(o => o.value), ['private']);
+    assert.deepEqual([...document.querySelector('select').options].map(o => o.value), ['everyone', 'selected', 'only_me']);
     await change(document.querySelector('input'), 'Nova');
     await click(button('Continue')); await click(button('Continue')); await click(button('Continue'));
     assert.equal(writes.length, 0);
@@ -23,14 +23,14 @@ test('agent setup preserves a failed draft and prevents double submission', asyn
     assert.match(document.querySelector('dialog').textContent, /Nova/);
     fail = false; await click(button('Create agent'));
     assert.equal(saved, 1); assert.equal(writes.length, 2); assert.deepEqual(writes[0], writes[1]);
-    assert.equal(writes[1].scope, 'private'); assert.equal(writes[1].settings.browser, false);
+    assert.equal(writes[1].audience, 'only_me'); assert.equal(writes[1].settings.browser, false);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options) => {
     const body = JSON.parse(options.body); writes.push(body);
     return { ok: !fail, json: async () => fail ? { error: 'Save unavailable' } : { ...body, revision: 1 } };
   } });
 });
 
-test('existing agent visibility stays fixed and read-only viewers cannot save', async () => {
+test('read-only viewers cannot change who can talk to an agent or save', async () => {
   const writes = [];
   await reactFixture(async ({ render, button }) => {
     const { AgentEditor } = await import('../src/react/agents/editor.tsx');

@@ -3,33 +3,40 @@ use super::*;
 use crate::identity::agents::config::{SaveAgent, Settings};
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn personal_agents_are_invisible_even_to_workspace_owner_and_cannot_be_shared() {
+async fn only_me_agents_talk_only_to_their_owner_and_admins_can_see_them() {
     let db = fixture().await;
     let owner = user(&db, "a-owner").await;
     let member = user(&db, "a-member").await;
+    let stranger = user(&db, "a-stranger").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &stranger, "Member").await;
     let mut a = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Nova".into(),
         role: "Personal assistant".into(),
         model: "test".into(),
-        scope: "private".into(),
+        audience: "only_me".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings::default(),
     };
     db.save_agent_profile(&member, &w, &a).await.unwrap();
     db.save_agent_profile(&member, &w, &a).await.unwrap();
     assert_eq!(db.agent_profiles(&member, &w).await.unwrap().len(), 1);
-    assert!(db.agent_profiles(&owner, &w).await.unwrap().is_empty());
+    // Admins see every agent (D231) but cannot talk to someone's only-me agent.
+    assert_eq!(db.agent_profiles(&owner, &w).await.unwrap().len(), 1);
+    assert!(db.managed_agent(&owner, &w, &a.id, false).await.is_ok());
+    assert!(!db.agent_access(&owner.id, &w, &a.id).await.unwrap());
     assert!(
         db.allowed_shared_agents(&owner, &w)
             .await
             .unwrap()
             .is_empty()
     );
-    assert!(!db.agent_access(&owner.id, &w, &a.id).await.unwrap());
-    assert!(db.managed_agent(&owner, &w, &a.id, false).await.is_err());
+    assert!(db.agent_profiles(&stranger, &w).await.unwrap().is_empty());
+    assert!(db.managed_agent(&stranger, &w, &a.id, false).await.is_err());
     assert!(
         db.chat_grant(&owner, &w, &owner.id, &a.id, true)
             .await
@@ -47,10 +54,12 @@ async fn personal_agents_are_invisible_even_to_workspace_owner_and_cannot_be_sha
     c.kind = "direct".into();
     let id = db.chat_create(&member, &w, &c).await.unwrap();
     assert!(db.chat_messages(&owner, &w, &id).await.is_err());
-    a.scope = "workspace".into();
+    // Who can talk may change; a stale save is still refused.
+    a.audience = "everyone".into();
     a.revision = 1;
-    assert!(db.save_agent_profile(&member, &w, &a).await.is_err());
-    a.scope = "private".into();
+    db.save_agent_profile(&member, &w, &a).await.unwrap();
+    assert!(db.agent_access(&stranger.id, &w, &a.id).await.unwrap());
+    a.audience = "only_me".into();
     a.name = "Changed".into();
     a.revision = 0;
     assert!(db.save_agent_profile(&member, &w, &a).await.is_err());
@@ -66,7 +75,9 @@ async fn managed_channel_context_and_memory_stay_within_their_audience() {
         name: "Mira".into(),
         role: "Purchasing".into(),
         model: "test".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings {
             memory: true,
@@ -135,14 +146,18 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
     let db = fixture().await;
     let owner = user(&db, "knowledge-owner").await;
     let member = user(&db, "knowledge-member").await;
+    let stranger = user(&db, "knowledge-stranger").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &stranger, "Member").await;
     let a = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Nova".into(),
         role: "Notes".into(),
         model: "test".into(),
-        scope: "private".into(),
+        audience: "only_me".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings::default(),
     };
@@ -151,7 +166,8 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
         .agent_avatar_save(&member, &w, &a.id, "image/png", vec![1, 2, 3])
         .await
         .unwrap();
-    assert!(db.agent_avatar(&owner, &w, &a.id, &avatar).await.is_err());
+    assert!(db.agent_avatar(&stranger, &w, &a.id, &avatar).await.is_err());
+    assert!(db.agent_avatar(&owner, &w, &a.id, &avatar).await.is_ok());
     assert_eq!(
         db.agent_avatar(&member, &w, &a.id, &avatar)
             .await
@@ -171,9 +187,9 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
     db.save_agent_knowledge(&member, &w, &a.id, &note)
         .await
         .unwrap();
-    assert!(db.agent_knowledge(&owner, &w, &a.id).await.is_err());
+    assert!(db.agent_knowledge(&stranger, &w, &a.id).await.is_err());
     assert!(
-        db.save_agent_knowledge(&owner, &w, &a.id, &note)
+        db.save_agent_knowledge(&stranger, &w, &a.id, &note)
             .await
             .is_err()
     );

@@ -279,7 +279,8 @@ pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: boo
         "Handoff origin access changed or the helper task ended"
     );
     ensure!(
-        super::chat::agent_access(db, &job.requester, &job.workspace, &job.agent).await?,
+        super::chat::agent_access_in(db, &job.requester, &job.workspace, &job.agent, &job.chat)
+            .await?,
         "Agent permission changed"
     );
     ensure!(
