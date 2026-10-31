@@ -126,6 +126,9 @@ pub(crate) async fn prepare_traced(
             instructions.push_str(&format!("\n- {name}: {description}"));
         }
     }
+    if let Some(said) = db.front_desk_said(job).await? {
+        instructions.push_str(&format!("\nYou already told the person, before starting: \"{said}\". Don't repeat it; your first message now is a milestone or the result."));
+    }
     if questions {
         instructions.push_str("\nYour working voice: when a request needs tools or more than one step, first call send_update with one line saying what you will do, then do it. For long work, call send_update again when a real milestone passes, not more than once a minute. Your reply is the result. Answer quick questions directly without an update. Never promise a duration you have not measured, and never say you will continue later: finish the work in this reply.");
     }

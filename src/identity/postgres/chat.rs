@@ -1,5 +1,10 @@
 use super::*;
 
+#[path = "front_desk.rs"]
+pub(crate) mod front_desk;
+#[cfg(test)]
+#[path = "front_desk_tests.rs"]
+mod front_desk_tests;
 #[path = "agent_updates.rs"]
 pub(crate) mod updates;
 #[path = "agent_updates_migration.rs"]

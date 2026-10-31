@@ -1,13 +1,13 @@
-use super::super::tests::{chat, fixture, join, message, user, workspace};
+use super::super::tests::{fixture, message, user, workspace};
 use super::updates::{MAX_UPDATES, MIN_GAP_SECONDS, Update};
 use super::*;
 use crate::identity::chat::model::NewChat;
 
-fn update(text: &str) -> Update {
+pub(super) fn update(text: &str) -> Update {
     Update { text: text.into() }
 }
 
-async fn updates(db: &PgStore, reply: &str) -> Vec<(String, Option<String>)> {
+pub(super) async fn updates(db: &PgStore, reply: &str) -> Vec<(String, Option<String>)> {
     rows(
         &db.db,
         "SELECT content,thread FROM relay_chat_messages WHERE update_of=$1 ORDER BY sequence",
@@ -25,7 +25,7 @@ async fn updates(db: &PgStore, reply: &str) -> Vec<(String, Option<String>)> {
     .collect()
 }
 
-async fn direct(db: &PgStore, who: &User, w: &str, agent: &str) -> String {
+pub(super) async fn direct(db: &PgStore, who: &User, w: &str, agent: &str) -> String {
     db.chat_create(
         who,
         w,
@@ -188,126 +188,5 @@ async fn updates_go_inline_first_then_into_the_thread_in_channels_and_stay_inlin
             .await
             .iter()
             .all(|(_, thread)| thread.is_none())
-    );
-}
-
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn a_request_that_queues_behind_other_work_hears_the_agent_is_busy_at_once() {
-    let mut db = fixture().await;
-    let owner = user(&db, "busy-owner").await;
-    let member = user(&db, "busy-member").await;
-    let w = workspace(&db, &owner).await;
-    join(&db, &owner, &w, &member, "Member").await;
-    let (_, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
-    execute(
-        &db.db,
-        "UPDATE relay_shared_agents SET audience='everyone' WHERE id=$1",
-        vec![agent.clone().into()],
-    )
-    .await
-    .unwrap();
-    let shared = chat(
-        &db,
-        &owner,
-        &w,
-        vec![member.id.clone()],
-        vec![agent.clone()],
-    )
-    .await;
-    let dm = direct(&db, &owner, &w, &agent).await;
-    // Free agent: no busy reply.
-    let first = db
-        .chat_send(
-            &owner,
-            &w,
-            &shared,
-            &message("Reconcile September", Some(&agent)),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(updates(&db, &first.reply).await.is_empty());
-    // A second request while the first is queued: it waits behind it.
-    let second = db
-        .chat_send(
-            &member,
-            &w,
-            &shared,
-            &message("Sharma's balance?", Some(&agent)),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        updates(&db, &second.reply).await[0].0,
-        "I'm working on busy-owner@example.test's request at the moment; I'll start on this right after."
-    );
-    let running = db.claim_job().await.unwrap().unwrap();
-    assert_eq!(running.reply, first.reply);
-    // The owner, from a private chat: the running work is theirs, and two are ahead.
-    let third = db
-        .chat_send(&owner, &w, &dm, &message("And the suppliers", Some(&agent)))
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        updates(&db, &third.reply).await[0].0,
-        "I'm still working on your earlier request; I'll get to this after 2 others."
-    );
-    // Someone who can't see the running conversation isn't told whose it is.
-    let private = direct(&db, &member, &w, &agent).await;
-    execute(
-        &db.db,
-        "UPDATE relay_chat_jobs SET state='finished' WHERE reply=$1",
-        vec![second.reply.clone().into()],
-    )
-    .await
-    .unwrap();
-    execute(
-        &db.db,
-        "UPDATE relay_chat_jobs SET state='finished' WHERE reply=$1",
-        vec![third.reply.clone().into()],
-    )
-    .await
-    .unwrap();
-    db.chat_finish(&running, "Done.", "complete").await.unwrap();
-    let owners = db
-        .chat_send(&owner, &w, &dm, &message("Private follow-up", Some(&agent)))
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(updates(&db, &owners.reply).await.is_empty(), "free again");
-    db.claim_job().await.unwrap().unwrap();
-    let fourth = db
-        .chat_send(&member, &w, &private, &message("Stock check", Some(&agent)))
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        updates(&db, &fourth.reply).await[0].0,
-        "I'm in the middle of another request; I'll start on this right after."
-    );
-    // Background work (schedules, triggers) never gets a busy reply.
-    db.pooled = true;
-    let background = db
-        .chat_background(
-            &owner,
-            &w,
-            &shared,
-            &message("Scheduled summary", Some(&agent)),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(updates(&db, &background.reply).await.is_empty());
-    // A busy reply is a step on the request too.
-    let details = db
-        .activity_request(&member, &w, &fourth.reply)
-        .await
-        .unwrap();
-    assert_eq!(
-        details["steps"][0]["title"],
-        "Said: I'm in the middle of another request; I'll start on this right after."
     );
 }

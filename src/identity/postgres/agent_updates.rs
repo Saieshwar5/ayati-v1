@@ -1,9 +1,10 @@
 //! An agent's working voice. While a request is in progress the agent can post
 //! short messages about its own work — "got it, I'll…", a milestone — through
-//! `send_update`; and when a request queues behind the agent's other work the
-//! controller posts an instant "I'm on another request" reply with no model
-//! call. Each such message links to its request (`update_of`) and is never the
-//! request's reply, so the reply still carries the result and the receipts.
+//! `send_update`; and when a request queues behind the agent's other work, the
+//! front desk (`front_desk.rs`) answers in the agent's own words. Each such
+//! message links to its request (`update_of`) and is never the request's
+//! reply, so the reply still carries the result and the receipts. Email and
+//! WhatsApp threads get neither: one complete reply (`manners`).
 use super::*;
 use crate::identity::chat::model::Job;
 use serde::Deserialize;
@@ -21,6 +22,33 @@ pub(crate) struct Update {
     pub text: String,
 }
 
+/// How an agent behaves on a channel: the built-in chat gets the human rhythm
+/// (acknowledge, then updates); an email or WhatsApp thread gets one complete
+/// reply when the work is done. Same agent, same work lane, different manners.
+pub(crate) struct Manners {
+    pub acknowledges: bool,
+    pub updates: bool,
+}
+pub(crate) async fn manners(db: &impl ConnectionTrait, w: &str, chat: &str) -> Result<Manners> {
+    let external = query(db, "SELECT to_regclass('relay_communication_conversations') IS NOT NULL
+        AND EXISTS(SELECT 1 FROM relay_communication_conversations c WHERE c.workspace=$1 AND c.chat=$2) AS external", vec![w.into(), chat.into()])
+        .await?
+        .map(|r| r.try_get::<bool>("", "external"))
+        .transpose()?
+        .unwrap_or(false);
+    Ok(if external {
+        Manners {
+            acknowledges: false,
+            updates: false,
+        }
+    } else {
+        Manners {
+            acknowledges: true,
+            updates: true,
+        }
+    })
+}
+
 /// Whether this schema stores updates (52+), so current code runs on older ones.
 pub(crate) async fn ready(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
@@ -35,7 +63,7 @@ pub(crate) async fn ready(db: &impl ConnectionTrait) -> Result<bool> {
 }
 
 /// Posts one update message from `agent` about `reply`, in `thread` of `chat`.
-async fn post(
+pub(crate) async fn post(
     tx: &DatabaseTransaction,
     w: &str,
     chat: &str,
@@ -66,6 +94,12 @@ impl PgStore {
         }
         let tx = self.workspace_tx(&job.workspace).await?;
         super::control_actions::authorize(&tx, job, true).await?;
+        if !manners(&tx, &job.workspace, &job.chat).await?.updates {
+            tx.commit().await?;
+            return Ok(
+                json!({"state":"not_here","message":"This conversation is an email or WhatsApp thread: the person gets one complete reply when the work is done. Keep working and put everything in your reply."}),
+            );
+        }
         let row = query(&tx, "SELECT m.thread,c.kind,j.request_message,
               (SELECT count(*) FROM relay_chat_messages u WHERE u.workspace=m.workspace AND u.update_of=m.id AND u.author=m.author) AS sent,
               (SELECT max(u.at) FROM relay_chat_messages u WHERE u.workspace=m.workspace AND u.update_of=m.id AND u.author=m.author) AS last_at
@@ -108,66 +142,6 @@ impl PgStore {
         tx.commit().await?;
         Ok(json!({"state":"sent","message_id":id,"in_thread":thread.is_some()}))
     }
-}
-
-/// When a new request queues behind the agent's other work, say so at once, in
-/// the agent's voice, without a model call. Names the other person only when
-/// the requester can see that conversation. Nothing is posted when the agent
-/// is free, or for background work (schedules, triggers, hand-offs).
-pub(crate) async fn busy_reply(
-    tx: &DatabaseTransaction,
-    w: &str,
-    job: &Job,
-    thread: Option<&str>,
-) -> Result<()> {
-    if !ready(tx).await? {
-        return Ok(());
-    }
-    let others = rows(tx, "SELECT j.reply,j.payload->>'requester' AS requester,m.chat,
-          (j.state='running' AND j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint) AS running
-        FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply
-        WHERE j.workspace=$1 AND j.payload->>'agent'=$2 AND j.reply<>$3
-        AND (j.state='queued' OR (j.state='running' AND j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint))
-        ORDER BY (j.state='running') DESC, j.sequence", vec![w.into(), job.agent.clone().into(), job.reply.clone().into()]).await?;
-    if others.is_empty() {
-        return Ok(());
-    }
-    let current = &others[0];
-    let requester: Option<String> = current.try_get("", "requester")?;
-    let chat: String = current.try_get("", "chat")?;
-    let viewer = User {
-        id: job.requester.clone(),
-        email: String::new(),
-        display_name: None,
-    };
-    let doing = if requester.as_deref() == Some(job.requester.as_str()) {
-        "I'm still working on your earlier request".to_string()
-    } else if super::chat::access(tx, &viewer, w, &chat).await.is_ok() {
-        match requester {
-            Some(person) => format!(
-                "I'm working on {}'s request at the moment",
-                super::member_handover::name(tx, &person).await?
-            ),
-            None => "I'm in the middle of another request".to_string(),
-        }
-    } else {
-        "I'm in the middle of another request".to_string()
-    };
-    let next = match others.len() {
-        1 => "I'll start on this right after.".to_string(),
-        n => format!("I'll get to this after {} others.", n),
-    };
-    post(
-        tx,
-        w,
-        &job.chat,
-        thread,
-        &job.agent,
-        &job.reply,
-        &format!("{doing}; {next}"),
-    )
-    .await?;
-    Ok(())
 }
 
 /// "Said: …" steps for Activity's request details, in order.

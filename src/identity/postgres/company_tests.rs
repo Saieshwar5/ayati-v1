@@ -165,6 +165,5 @@ async fn queue_bounds_and_history_pages_retain_all_records() {
     assert!(error.is::<crate::identity::chat::model::QueueFull>());
     let counts = db.company_counts(&owner, &w).await.unwrap();
     assert_eq!(counts["pending"], 64);
-    // 64 requests and replies, plus a busy reply for each request queued behind the first.
-    assert_eq!(counts["messages"], json!(225 + 128 + 63));
+    assert_eq!(counts["messages"], json!(225 + 128));
 }

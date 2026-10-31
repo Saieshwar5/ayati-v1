@@ -321,10 +321,10 @@ impl PgStore {
             )
             .await?;
             super::agent_receipts::delivered(tx, workspace, chat, &input.id, &job.agent).await?;
-            // A person's request that queues behind the agent's other work hears so at once.
-            if !class.background() {
-                super::chat::updates::busy_reply(tx, workspace, job, input.thread.as_deref())
-                    .await?;
+            // A person's request that queues behind the agent's other work gets a
+            // short answer from the front desk while the work lane stays busy.
+            if class == WorkClass::Interactive {
+                super::chat::front_desk::enqueue_if_busy(tx, self.pooled, user, job, input).await?;
             }
         }
         if class == WorkClass::Interactive {

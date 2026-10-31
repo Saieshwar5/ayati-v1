@@ -1,7 +1,8 @@
 // The agent's working voice with real Goose: it acknowledges long work through
-// send_update while it keeps going, a request that queues behind that work hears
-// "I'm on another request" at once with no model call, "typing" only shows while
-// the agent is actually at work, and the final reply still carries the result.
+// send_update while it keeps going; a request that queues behind that work is
+// answered at once by the front desk (a short model turn in the agent's voice);
+// "typing" only shows while the agent is actually at work; the final reply
+// still carries the result.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -17,7 +18,8 @@ test('an agent says "got it" and keeps working, tells a second requester it is b
 }, async t => {
   let browser; const errors = [];
   t.after(async () => { await browser?.close(); });
-  const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15 });
+  // Two slots: one for the long work, one for the front desk to answer at once.
+  const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 2, workspaceLimit: 2, modelLimit: 2, leaseSeconds: 15 });
   const w = app.path.split('/').at(-1), member = await app.login(1);
   const person = (await app.request('/api/identity/session', member)).value.user;
   await app.request(`${app.path}/chat-grants`, app.cookie, { user: person.id, agent: app.profile.id, allowed: true });
@@ -31,21 +33,28 @@ test('an agent says "got it" and keeps working, tells a second requester it is b
   // Hold the final reply mid-stream so the agent is genuinely at work.
   app.provider.setStream({ chunks: ['Done. ', '206 matched, 6 unmatched.'], holdAfter: 1 });
   app.provider.setOutputHeld(true);
-  await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+  // The front desk's own model turn, keyed on the new message.
+  const question = "What's Sharma Traders' outstanding balance?";
+  app.provider.setReply(`Front desk: ${question}`, '{"reply": "Sure, Vikram — I\'m in the middle of Ananya\'s September reconciliation; I\'ll pull Sharma\'s balance right after.", "answer_now": false}');
+  await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '2' });
   const first = await app.send(long, channel, app.cookie);
   await until(() => said(first.reply)?.startsWith('Got it.'), 'The acknowledgement did not arrive', 35000);
   await until(() => attempt(first.reply) === 'running', 'The request is not running', 20000);
   assert.equal(app.sql(`SELECT state FROM relay_chat_messages WHERE id='${first.reply}'`), 'queued', 'the reply is still in progress after the acknowledgement');
   app.pass('Real Goose acknowledged long work through send_update and kept working; the reply stayed open');
 
-  // A second person asks while it works: an instant answer, no model call. The
-  // first request makes exactly two model calls (the tool call, then the reply).
+  // A second person asks while it works: the front desk answers in the agent's
+  // own words from a short model turn, while the work lane stays busy.
   await until(() => app.provider.requests.length >= 2, 'The first request did not reach its reply', 20000);
-  const calls = app.provider.requests.length;
-  const second = await app.send("What's Sharma Traders' outstanding balance?", channel, member);
-  assert.equal(said(second.reply), `I'm working on ${app.sql(`SELECT COALESCE(display_name,email) FROM relay_users WHERE id='${first.requester}'`)}'s request at the moment; I'll start on this right after.`);
-  assert.equal(app.provider.requests.length, calls, 'the busy reply used no model call');
+  const second = await app.send(question, channel, member);
+  await until(() => said(second.reply)?.startsWith('Sure, Vikram'), 'The front desk did not answer', 30000);
+  assert.equal(said(second.reply), "Sure, Vikram — I'm in the middle of Ananya's September reconciliation; I'll pull Sharma's balance right after.");
   assert.equal(app.sql(`SELECT state FROM relay_chat_jobs WHERE reply='${second.reply}'`), 'queued', 'the second request is only queued');
+  assert.equal(app.sql(`SELECT decision FROM relay_front_desk WHERE reply='${second.reply}'`), 'acknowledged');
+  const desk = app.provider.requests.find(r => JSON.stringify(r.messages).includes(`Front desk: ${question}`));
+  const deskText = (desk?.messages ?? []).map(m => typeof m.content === 'string' ? m.content : (m.content ?? []).map(part => part.text ?? '').join('\n')).join('\n');
+  assert.match(deskText, /Right now you are working on a request from Ananya Rao \(they can see that conversation\): "Reconcile September/, 'the desk knew what the agent was doing');
+  assert.deepEqual((desk.tools ?? []).map(tool => tool.function?.name), [], 'the front desk has no tools');
 
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
@@ -55,11 +64,11 @@ test('an agent says "got it" and keeps working, tells a second requester it is b
   await page.goto(`${app.base}/w/${w}/?view=chat&conversation=${channel}`);
   const log = page.getByRole('log', { name: 'Messages', exact: true });
   await log.getByText("Got it. I'll match the 212 bank lines", { exact: false }).waitFor();
-  await log.getByText("I'm working on", { exact: false }).waitFor();
+  await log.getByText("Sure, Vikram", { exact: false }).waitFor();
   await log.getByText('Waiting to start', { exact: true }).waitFor();
   await log.getByText('Nova is typing…', { exact: true }).waitFor();
   await page.screenshot({ path: join(app.data, 'working-voice-busy.png') });
-  app.pass('The second requester saw the busy reply at once, their own request as "Waiting to start", and typing only on the request actually running');
+  app.pass('The second requester got the front desk\'s answer at once, saw their own request as "Waiting to start", and typing only on the request actually running');
 
   app.provider.setOutputHeld(false);
   await app.done(first);
@@ -67,6 +76,9 @@ test('an agent says "got it" and keeps working, tells a second requester it is b
   await app.done(second);
   const details = (await app.request(`${app.path}/activity/requests/${first.reply}`, app.cookie)).value;
   assert.deepEqual(details.steps.map(step => step.title), ["Said: Got it. I'll match the 212 bank lines to invoices and list anything I can't place."]);
+  const deskDetails = (await app.request(`${app.path}/activity/requests/${second.reply}`, app.cookie)).value;
+  assert.ok(deskDetails.steps.some(step => step.title.startsWith('Said: Sure, Vikram')), JSON.stringify(deskDetails.steps));
+  assert.match(JSON.stringify(app.provider.requests.filter(r => JSON.stringify(r.messages).includes(question)).at(-1)?.messages ?? ''), /You already told the person, before starting/, 'the work lane knew not to repeat the acknowledgement');
   controllerToolsOnly(app.provider.requests.at(-1));
   // The scripted model gives every later reply the same text; the first bubble is the request's.
   await log.getByText('206 matched, 6 unmatched', { exact: false }).first().waitFor();
