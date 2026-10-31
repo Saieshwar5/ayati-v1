@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
 
 const workspace = '11111111-1111-4111-8111-111111111111';
-const agent = { id: 'agent', name: 'Nova', role: 'Help', model: 'fixture', scope: 'workspace',
+const agent = { id: 'agent', name: 'Nova', role: 'Help', model: 'fixture', audience: 'selected',
   revision: 1, editable: true, settings: { memory: false, history: 'since_join' } };
 const chats = [{ id: 'private-chat', name: 'Private delivery', agents: ['agent'] },
   { id: 'other-agent-chat', name: 'Other private chat', agents: ['other'] }];

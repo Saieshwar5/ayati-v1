@@ -24,7 +24,7 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   await app.request(`${app.path}/control/systems`,app.cookie,{server:'orders',approved:true,revision:0});
   await app.request(`${app.path}/control/connections`,app.cookie,{id:connection,server:'orders',enabled:true,revision:0});
   await app.request(`${app.path}/control/creators`,app.cookie,{user:creatorUser.id,enabled:true,revision:0});
-  const agent={id:randomUUID(),name:'Order support',role:'Use assigned order operations and request exact approval before changes.',model:'fixture',scope:'workspace',revision:0,settings:{provider:'openai'}};
+  const agent={id:randomUUID(),name:'Order support',role:'Use assigned order operations and request exact approval before changes.',model:'fixture',audience:'selected',revision:0,settings:{provider:'openai'}};
   await app.request(`${app.path}/agent-profiles`,creator,agent);
   for(const [operation,ceiling] of [['order.read','allow'],['order.update','ask']])await app.request(`${app.path}/control/delegations`,app.cookie,{user:creatorUser.id,connection,operation,ceiling,revision:0,connection_revision:1});
   const source=(await app.request(`${app.path}/chats`,creator,{id:randomUUID(),name:'Order work',kind:'group',users:[ownerUser.id,approverUser.id],agents:[agent.id]})).value.id;

@@ -214,7 +214,7 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
     .unwrap();
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET scope='private',owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_shared_agents SET audience='only_me',owner_id=$3 WHERE workspace=$1 AND id=$2",
         vec![
             w.clone().into(),
             job.agent.clone().into(),
@@ -236,7 +236,7 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
     db.chat_finish(&job, "Finished", "complete").await.unwrap();
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET scope='workspace' WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_shared_agents SET audience='selected' WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), job.agent.clone().into()],
     )
     .await

@@ -188,7 +188,7 @@ async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore
     .await
     .unwrap();
     let current = db.managed_agent(&owner, &w, &a, true).await.unwrap();
-    let mut profile:SaveAgent=serde_json::from_value(json!({"id":a,"name":current["name"],"role":current["role"],"model":current["model"],"scope":current["scope"],"revision":current["revision"],"settings":current["settings"]})).unwrap();
+    let mut profile:SaveAgent=serde_json::from_value(json!({"id":a,"name":current["name"],"role":current["role"],"model":current["model"],"audience":current["audience"],"revision":current["revision"],"settings":current["settings"]})).unwrap();
     profile.settings.paused = true;
     db.save_agent_profile(&owner, &w, &profile).await.unwrap();
     assert_eq!(state(&db, &w, &input.id).await["state"], "blocked");
@@ -260,19 +260,23 @@ async fn automation_invalid_task_references_block_without_partial_messages_or_st
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn automation_private_agent_routines_remain_private_from_workspace_owners() {
+async fn automation_only_me_agent_routines_remain_private_from_other_members() {
     let mut db = fixture().await;
     db.pooled = true;
     let owner = user(&db, "private-schedule-owner").await;
     let member = user(&db, "private-schedule-member").await;
+    let stranger = user(&db, "private-schedule-stranger").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &stranger, "Member").await;
     let profile = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Private helper".into(),
         role: "Prepare personal drafts".into(),
         model: "fixture".into(),
-        scope: "private".into(),
+        audience: "only_me".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Default::default(),
     };
@@ -296,15 +300,15 @@ async fn automation_private_agent_routines_remain_private_from_workspace_owners(
     db.save_schedule(&member, &w, &profile.id, &input)
         .await
         .unwrap();
-    assert!(db.schedules(&owner, &w, &profile.id).await.is_err());
+    assert!(db.schedules(&stranger, &w, &profile.id).await.is_err());
     assert!(
-        db.schedule_runs(&owner, &w, &profile.id, &input.id)
+        db.schedule_runs(&stranger, &w, &profile.id, &input.id)
             .await
             .is_err()
     );
     assert!(
         db.change_schedule(
-            &owner,
+            &stranger,
             &w,
             &profile.id,
             &input.id,

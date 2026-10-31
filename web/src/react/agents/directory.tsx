@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AgentEditor } from './editor';
-import { defaults, loadAgents, type Agent } from './model';
+import { audienceLabels, defaults, loadAgents, type Agent } from './model';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
 import { AgentControl } from './control';
@@ -31,7 +31,6 @@ export function AgentsPage() {
   };
   const [section, setSection] = useState<WorkspaceSection>(() => savedSection(selectedKey));
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all');
   const [editing, edit] = useState<Agent>();
   const [controlled, control] = useState<Agent>();
   const [guided, guide] = useState<Agent>();
@@ -55,7 +54,7 @@ export function AgentsPage() {
   const key = selectedKey ?? (data && agents[0] ? `m:${agents[0].id}` : undefined);
   const selected = agents.find(a => `m:${a.id}` === key);
   const match = (name: string, role: string) => `${name} ${role}`.toLowerCase().includes(query.toLowerCase());
-  const filtered = agents.filter(a => (filter === 'all' || a.scope === filter) && match(a.name, a.role));
+  const filtered = agents.filter(a => match(a.name, a.role));
   const select = (next: string) => {
     epoch.current++; setSelected(next); setShowProfile(true);
     if (next !== key) setSection(savedSection(next));
@@ -82,15 +81,14 @@ export function AgentsPage() {
   };
   return <div id="app" className={`agents-page${showProfile ? ' show-agent-profile' : ''}`}>
     <aside className="agent-roster" aria-label="Agent team"><header><h1>Agents</h1>
-      <Button className="ui-icon" aria-label="＋ Create agent" title="Create agent" disabled={!data} onClick={() => edit({ id: crypto.randomUUID(), name: '', role: '', model: data!.default_model, scope: 'private', revision: 0, settings: { ...defaults }, editable: true })}>＋</Button>
+      <Button className="ui-icon" aria-label="＋ Create agent" title="Create agent" disabled={!data} onClick={() => edit({ id: crypto.randomUUID(), name: '', role: '', model: data!.default_model, audience: 'everyone', revision: 0, settings: { ...defaults }, editable: true })}>＋</Button>
     </header>
     <input className="ui-search" type="search" aria-label="Find an agent" placeholder="Search agents" value={query} onChange={e => setQuery(e.target.value)} />
-    <div className="agent-roster-filters" aria-label="Agent visibility">{[['all', 'All'], ['private', 'Private'], ['workspace', 'Workspace']].map(([value, label]) => <Button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}</div>
     {error && <p role="alert">{error}<Button onClick={() => void refresh().catch(() => {})}>Retry agents</Button></p>}
     {!data && !error && <p role="status">Loading agents…</p>}
     <div className="agent-roster-scroll"><h2>Your team <small>{filtered.length}</small></h2>
       {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={key === `m:${agent.id}` ? 'true' : undefined} onClick={() => select(`m:${agent.id}`)}>
-        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small><small className="agent-roster-state">{agent.settings.paused ? 'Paused' : agent.pending ? `${agent.pending} visible requests` : agent.scope === 'private' ? 'Only you' : 'Workspace'}</small></span>
+        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small><small className="agent-roster-state">{agent.settings.paused ? 'Paused' : agent.pending ? `${agent.pending} visible requests` : audienceLabels[agent.audience]}</small></span>
       </Button>)}
       {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create an agent and give it a responsibility.'}</p>}
     </div><footer>People, purpose and controlled work.</footer></aside>

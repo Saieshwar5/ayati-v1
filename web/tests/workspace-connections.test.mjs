@@ -7,7 +7,7 @@ const workspace = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${workspace}/?view=settings&scope=workspace&section=connections`;
 const operation = { id: 'order.update', title: 'Update order', effect: 'write', schema: {} };
 const server = { id: 'orders', name: 'Orders', account: 'Sample business', operations: [operation] };
-const person = { id: 'member', name: 'Priya', role: 'Member', can_create: false, revision: 0 };
+const person = { id: 'member', name: 'Priya', role: 'Member' };
 const connection = { id: 'connection', server: 'orders', enabled: true, revision: 4, definition: server };
 const state = extra => ({ servers: [server], systems: [], connections: [], people: [person], delegations: [], viewer: 'owner', execution_available: true, ...extra });
 const response = data => ({ ok: true, status: 200, json: async () => data });
@@ -69,19 +69,13 @@ test('delegation retains a failed draft, bounds its revision and names the respo
   } });
 });
 
-test('creator checkbox changes require save and do not grant operations', async () => {
-  const writes = [];
-  await reactFixture(async ({ render, button, click }) => {
+test('everyone may create agents, so there is no creator permission to grant', async () => {
+  await reactFixture(async ({ render }) => {
     const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
     await render(WorkspaceConnections);
-    await click(document.querySelector('input[type=checkbox]'));
-    assert.equal(writes.length, 0);
-    await click(button('Save agent creation for Priya'));
-    assert.deepEqual(writes, [{ user: 'member', enabled: true, revision: 0 }]);
-  }, { url, fetch: async (_, options = {}) => {
-    if (options.body) { writes.push(JSON.parse(options.body)); return response({ saved: true }); }
-    return response(state());
-  } });
+    assert.doesNotMatch(document.body.textContent, /Agent creators/);
+    assert.equal(document.querySelector('input[aria-label*="create workspace agents"]'), null);
+  }, { url, fetch: async () => response(state()) });
 });
 
 test('revoked workspace access clears account controls and a late response cannot repopulate a remount', async () => {

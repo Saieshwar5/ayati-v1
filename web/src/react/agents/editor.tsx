@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button, Dialog, Tabs } from '../ui';
 import { useMutation } from '../requests';
-import { base, saveAgent, symbols, type Agent, type Directory, type Settings } from './model';
+import { audienceLabels, base, saveAgent, symbols, type Agent, type Audience, type Directory, type Settings } from './model';
 import { AgentFace, defaultRobot } from '../faces';
 import { Knowledge } from './knowledge';
 
@@ -33,8 +33,8 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     <label className="ui-field">Name<input ref={first} required maxLength={80} value={draft.name} onChange={e => change('name', e.target.value)} /></label>
     <label className="ui-field">Responsibility<textarea required rows={4} maxLength={4000} placeholder="What should this agent help you accomplish?" value={draft.role} onChange={e => change('role', e.target.value)} /></label>
     <label className="ui-field">Successful outcome<textarea rows={2} maxLength={2000} placeholder="What should good work look like?" value={draft.settings.successful_outcome ?? ''} onChange={e => setting('successful_outcome', e.target.value)} /></label>
-    <label className="ui-field">Visibility<select disabled={!creating} value={draft.scope} onChange={e => change('scope', e.target.value)}><option value="private">Private · only you</option>{(directory.role === 'Admin' || directory.can_create_workspace || draft.scope === 'workspace') && <option value="workspace">Workspace · people with access</option>}</select></label>
-    <p className="ui-help">{draft.scope === 'private' ? 'Visible only to you. Cannot be added to channels. Workspace administrators cannot read this agent.' : 'Can participate in channels. An admin can grant teammates access in Settings. Personal conversations are never copied into channels.'} Visibility is fixed after creation.</p>
+    <label className="ui-field">Who can talk to it<select disabled={!editable} value={draft.audience} onChange={e => change('audience', e.target.value)}>{(Object.keys(audienceLabels) as Audience[]).map(value => <option key={value} value={value}>{audienceLabels[value]}</option>)}</select></label>
+    <p className="ui-help">{draft.audience === 'only_me' ? 'Only you can talk to it, and it cannot join channels. Admins can see its settings.' : 'Anyone in a channel it belongs to can ask it there. Personal conversations are never copied into channels.'}</p>
     <fieldset className="agent-pictures"><legend>Picture</legend>
       <div className="agent-picture-grid">{Array.from({ length: 24 }, (_, index) => `robot-${String(index + 1).padStart(2, '0')}`).map(robot =>
         <button type="button" key={robot} className="agent-picture-choice" aria-label={`Robot picture ${robot.slice(6)}`} aria-pressed={!file && draft.settings.avatar === robot}
@@ -63,7 +63,7 @@ export function AgentEditor({ agent, directory, creating, close, saved }: { agen
     {draft.settings.successful_outcome && <p>Successful outcome: {draft.settings.successful_outcome}</p>}
     {draft.settings.escalation && <p>Ask a person when: {draft.settings.escalation}</p>}
     {draft.settings.routine && <p>Routine: {draft.settings.routine}</p>}
-    <p>{draft.scope === 'private' ? 'Only you' : 'Workspace access'} · {draft.model}</p><p>Knowledge {draft.settings.memory ? 'enabled' : 'disabled'} · {draft.settings.paused ? 'Paused' : 'Available for messages'}</p>{instructions}</div>;
+    <p>{audienceLabels[draft.audience]} · {draft.model}</p><p>Knowledge {draft.settings.memory ? 'enabled' : 'disabled'} · {draft.settings.paused ? 'Paused' : 'Available for messages'}</p>{instructions}</div>;
   const steps = [{ title: 'Identity', content: profile }, { title: 'Capabilities', content: capabilities }, { title: 'Controls', content: controls }, { title: 'Review', content: review }];
   return <Dialog drawer title={creating ? 'Create an agent' : draft.name} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={editable && <>
     {creating && step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}

@@ -35,7 +35,7 @@ export function ProfileCard({ target, directory, chats, close, message }: {
       <ProfileLine label={agent ? 'Works in' : self ? 'Your channels' : 'Channels together'}>
         {shared.length ? <span className="profile-card-chips">{shared.slice(0, 8).map(chat => <span key={chat.id}># {chat.name}</span>)}{shared.length > 8 && <span>+{shared.length - 8} more</span>}</span> : 'No channels yet'}
       </ProfileLine>
-      {agent && agent.scope !== 'private' && <AddToChannel agent={agent.id} chats={chats} />}
+      {agent && agent.audience !== 'only_me' && <AddToChannel agent={agent.id} chats={chats} />}
       {agent && <p className="chat-help">{agent.name} is an AI agent. It acts when someone asks it and shows its work in the conversation.</p>}
     </div>}
   </Dialog>;

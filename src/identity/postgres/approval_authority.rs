@@ -10,16 +10,10 @@ pub(super) async fn agent_visible(
     agent: &str,
 ) -> Result<bool> {
     role(db, w, user).await?;
-    let row = query(
-        db,
-        "SELECT scope,owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
-        vec![w.into(), agent.into()],
-    )
-    .await?
-    .context("Agent unavailable")?;
-    let private = row.try_get::<String>("", "scope")? == "private";
+    let a = super::agent_profiles::stored(db, w, agent).await?;
+    let private = a["audience"] == "only_me";
     ensure!(
-        !private || row.try_get::<Option<String>>("", "owner_id")?.as_deref() == Some(user),
+        !private || a["owner_id"] == user,
         "Private agent approval unavailable"
     );
     Ok(private)
@@ -101,7 +95,7 @@ pub(super) async fn route(
     let private = agent_visible(db, &user.id, w, agent).await?;
     ensure!(
         !private,
-        "Private agents keep approval requests in their private work conversation"
+        "Only-me agents keep approval requests in their direct conversation"
     );
     let row=query(db,"SELECT s.visibility AS source_visibility,t.visibility AS target_visibility,t.kind FROM relay_chats s JOIN relay_chats t ON t.workspace=s.workspace WHERE s.workspace=$1 AND s.id=$2 AND t.id=$3",vec![w.into(),source.into(),target.into()]).await?.context("Approval channel unavailable")?;
     ensure!(

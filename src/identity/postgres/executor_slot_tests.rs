@@ -13,7 +13,9 @@ pub(super) async fn agent(db: &PgStore, owner: &User, w: &str) -> (String, Strin
         name: "Pool agent".into(),
         role: "Bounded fixture".into(),
         model: "fixture".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),

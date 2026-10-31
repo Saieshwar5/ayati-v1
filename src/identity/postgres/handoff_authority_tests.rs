@@ -7,6 +7,15 @@ use crate::identity::{
     },
 };
 use serde_json::json;
+async fn pause(s: &Setup, agent: &str, paused: bool) {
+    let current = s.db.managed_agent(&s.owner, &s.w, agent, true).await.unwrap();
+    let mut profile: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
+        "id":agent,"name":current["name"],"role":current["role"],"model":current["model"],
+        "audience":current["audience"],"revision":current["revision"],"settings":current["settings"]}))
+    .unwrap();
+    profile.settings.paused = paused;
+    s.db.save_agent_profile(&s.owner, &s.w, &profile).await.unwrap();
+}
 pub(super) async fn account(s: &Setup) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     s.db.control_system(
@@ -301,7 +310,7 @@ async fn handoff_archive_blocks_new_delegation_but_preserves_already_accepted_he
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn handoff_requester_requires_each_agent_and_revocation_regrant_does_not_restore_the_old_child()
+async fn handoff_requester_requires_each_agent_and_pause_resume_does_not_restore_the_old_child()
  {
     let s = setup().await;
     let member = user(&s.db, "handoff-requester").await;
@@ -328,14 +337,14 @@ async fn handoff_requester_requires_each_agent_and_revocation_regrant_does_not_r
         .unwrap()
         .unwrap();
     let parent = claim(&s.db, &job).await;
+    // A channel member may ask the channel's agents (D231); a paused helper may not.
+    pause(&s, &s.b, true).await;
     assert!(
         s.db.request_handoff(&parent, &request(&s.b, "member-helper"))
             .await
             .is_err()
     );
-    s.db.chat_grant(&s.owner, &s.w, &member.id, &s.b, true)
-        .await
-        .unwrap();
+    pause(&s, &s.b, false).await;
     let receipt =
         s.db.request_handoff(&parent, &request(&s.b, "member-helper"))
             .await
@@ -346,13 +355,9 @@ async fn handoff_requester_requires_each_agent_and_revocation_regrant_does_not_r
     s.db.chat_finish(&parent, "Waiting.", "complete")
         .await
         .unwrap();
-    s.db.chat_grant(&s.owner, &s.w, &member.id, &s.b, false)
-        .await
-        .unwrap();
+    pause(&s, &s.b, true).await;
     assert_eq!(state(&s.db, &child).await, "finished");
-    s.db.chat_grant(&s.owner, &s.w, &member.id, &s.b, true)
-        .await
-        .unwrap();
+    pause(&s, &s.b, false).await;
     assert_eq!(state(&s.db, &child).await, "finished");
     assert_eq!(state(&s.db, &parent).await, "queued");
 }

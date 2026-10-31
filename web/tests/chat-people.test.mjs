@@ -9,8 +9,8 @@ const directory={role:'Member',users:[
   {id:'meera',name:'Meera Iyer',title:'Design lead',about:'',photo:null,role:'Member'},
   {id:'ravi',name:'Ravi Kumar',title:'Operations',about:'Dispatch and suppliers.',photo:'33333333-3333-4333-8333-333333333333',role:'Member'},
   {id:'priya',name:'Priya Shah',title:'',about:'',photo:null,role:'Admin'}],
-  agents:[{id:'atlas',name:'Atlas',role:'Orders assistant',scope:'workspace',avatar:'robot-03',manager:'Priya Shah'},
-    {id:'nova',name:'Nova',role:'Research',scope:'private',avatar:'spark',manager:'Meera Iyer'}]};
+  agents:[{id:'atlas',name:'Atlas',role:'Orders assistant',audience:'selected',avatar:'robot-03',manager:'Priya Shah'},
+    {id:'nova',name:'Nova',role:'Research',audience:'only_me',avatar:'spark',manager:'Meera Iyer'}]};
 const orders={id:'orders',name:'orders',kind:'channel',visibility:'public',users:['meera','ravi'],agents:['atlas'],description:'',can_archive:true};
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 async function start(){await(await import('../src/workspace-context.ts')).enterWorkspace();}

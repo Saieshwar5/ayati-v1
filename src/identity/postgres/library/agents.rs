@@ -62,10 +62,10 @@ impl PgStore {
             super::super::agent_profiles::managed_access(&tx, &user.id, w, &input.agent, false)
                 .await?;
         ensure!(
-            agent["scope"] == "workspace"
+            agent["audience"] != "only_me"
                 && agent["revision"].as_i64().unwrap_or(0) > 0
                 && agent["settings"]["paused"] != true,
-            "Choose an available workspace agent; private runtime sources are not supported yet"
+            "Choose an available shared agent; only-me agents cannot read Library items yet"
         );
         let payload = json!({"ask":id,"input":input});
         if let Some(result) = retry(&tx, user, w, &input.request, &payload).await? {
@@ -146,8 +146,14 @@ impl PgStore {
     pub async fn library_job_context(&self, job: &Job) -> Result<Vec<Value>> {
         let tx = self.read_tx(&job.workspace).await?;
         ensure!(
-            super::super::chat::agent_access(&tx, &job.requester, &job.workspace, &job.agent)
-                .await?,
+            super::super::chat::agent_access_in(
+                &tx,
+                &job.requester,
+                &job.workspace,
+                &job.agent,
+                &job.chat
+            )
+            .await?,
             "Agent access changed"
         );
         let context = source_context(&tx, job).await?;

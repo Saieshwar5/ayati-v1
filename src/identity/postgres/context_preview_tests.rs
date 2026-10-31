@@ -9,7 +9,9 @@ async fn settings(db: &PgStore, owner: &User, w: &str, a: &str, settings: Settin
         name: profile["name"].as_str().unwrap().into(),
         role: profile["role"].as_str().unwrap().into(),
         model: "fixture".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: profile["revision"].as_i64().unwrap(),
         settings,
     };

@@ -47,9 +47,8 @@ test('Admin delegates workspace account access; a member creates a bounded agent
   await ownerPage.getByRole('button', { name: 'Connect account', exact: true }).click();
   await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).waitFor();
   const display = who.display_name || who.email;
-  await ownerPage.getByLabel(`Allow ${display} to create workspace agents`, { exact: true }).check();
-  await ownerPage.getByRole('button', { name: `Save agent creation for ${display}`, exact: true }).click();
-  await until(async () => (await app.request(`${app.path}/agent-profiles`, member)).value.can_create_workspace, 'Creator permission missing');
+  // Everyone may create agents (D231); there is no creator permission to grant.
+  assert.equal(await ownerPage.getByText('Agent creators').count(), 0);
   await ownerPage.getByRole('button', { name: 'Manage access', exact: true }).click();
   const access = ownerPage.getByRole('dialog', { name: 'Orders sample system · Configure access' });
   await access.getByLabel('Person', { exact: true }).selectOption(who.id);

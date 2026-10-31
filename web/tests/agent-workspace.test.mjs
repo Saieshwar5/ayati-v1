@@ -6,7 +6,7 @@ import { reactFixture } from './react-fixture.mjs';
 const workspace = '11111111-1111-4111-8111-111111111111';
 const session = { user: { id: 'owner', email: 'owner@example.test' }, simulation: true, workspaces: [{ id: workspace, name: 'Store', role: 'Admin' }] };
 const settings = { provider: '', instructions: '', escalation: 'When delivery details are unclear', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
-const agent = { id: 'alpha', name: 'Meera', role: 'Coordinate supplier work', model: 'fixture', scope: 'workspace', revision: 1, settings, editable: true, owner_name: 'Ananya' };
+const agent = { id: 'alpha', name: 'Meera', role: 'Coordinate supplier work', model: 'fixture', audience: 'selected', revision: 1, settings, editable: true, owner_name: 'Ananya' };
 const directory = { role: 'Admin', agents: [agent, { ...agent, id: 'beta', name: 'Tara', role: 'Sales coordination' }], default_model: 'fixture', providers: [], system_prompt: 'System guide' };
 const controls = { can_manage: true, connections: [], rules: [], actions: [], servers: [], conversations: [], delegations: [], viewer: 'owner' };
 const request = { id: 'reply', sequence: 1, chat: 'channel', thread: 'root', source_message: 'original', conversation_name: 'Procurement', requester: 'owner', requester_name: 'Ananya', summary: 'Check supplier delivery', state: 'approval', latest_update: 'Comparison saved; waiting for approval.', created_ms: 1000, can_cancel: true, approvals: [] };

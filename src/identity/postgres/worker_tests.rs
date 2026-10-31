@@ -68,14 +68,22 @@ async fn replacement_worker_rechecks_revocation_and_profile_scope() {
     db.chat_grant(&owner, &w, &member.id, &agent, true)
         .await
         .unwrap();
-    let c = chat(
-        &db,
-        &owner,
-        &w,
-        vec![member.id.clone()],
-        vec![agent.clone()],
-    )
-    .await;
+    // A direct conversation: outside a channel, only the grant gives access.
+    let c = db
+        .chat_create(
+            &member,
+            &w,
+            &crate::identity::chat::model::NewChat {
+                id: uuid::Uuid::new_v4().to_string(),
+                name: "Nova".into(),
+                kind: "direct".into(),
+                description: String::new(),
+                users: vec![],
+                agents: vec![agent.clone()],
+            },
+        )
+        .await
+        .unwrap();
     db.chat_send(&member, &w, &c, &message("private request", Some(&agent)))
         .await
         .unwrap();
@@ -98,7 +106,7 @@ async fn replacement_worker_rechecks_revocation_and_profile_scope() {
     db.chat_finish(&new, "MUST NOT PUBLISH", "complete")
         .await
         .unwrap();
-    let history = db.chat_messages(&owner, &w, &c).await.unwrap();
+    let history = db.chat_messages(&member, &w, &c).await.unwrap();
     assert_eq!(history["messages"][1]["state"], "cancelled");
     assert!(!history.to_string().contains("MUST NOT PUBLISH"));
 }

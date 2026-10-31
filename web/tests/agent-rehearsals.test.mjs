@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?view=agents`;
 const session={user:{id:'owner',email:'owner@example.test'},workspaces:[{id:w,name:'Store',role:'Admin'}]};
-const agent={id:'agent',name:'Nova',role:'Help customers',model:'fixture',scope:'workspace',revision:3,editable:true,settings:{provider:'openai',instructions:'Keep a clear tone',escalation:'When facts are missing',successful_outcome:'A clear sourced answer',routine:'Check supplied facts',memory:true,history:'all',avatar:'spark',browser:false,paused:false}};
+const agent={id:'agent',name:'Nova',role:'Help customers',model:'fixture',audience:'selected',revision:3,editable:true,settings:{provider:'openai',instructions:'Keep a clear tone',escalation:'When facts are missing',successful_outcome:'A clear sourced answer',routine:'Check supplied facts',memory:true,history:'all',avatar:'spark',browser:false,paused:false}};
 const source={id:'source',revision:2,access_revision:3,title:'PRIVATE_DELIVERY_GUIDE',kind:'page',visibility:'private'};
 const options={profile:agent,sources:[source],more:false,notes:[],execution_available:true,active_sample:null};
 const sample={id:'sample',state:'running',detail:'Working on the draft-only sample',input:{id:'sample',agent_revision:3,task:'Draft a customer response',sources:[source]},profile:agent,sources:[source],note_refs:[],created_ms:1000,started_ms:2000,finished_ms:null};

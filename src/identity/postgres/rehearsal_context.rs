@@ -91,5 +91,5 @@ pub(super) async fn readable(
 }
 pub(super) fn profile_snapshot(profile: &Value) -> Value {
     json!({"id":profile["id"],"name":profile["name"],"role":profile["role"],"model":profile["model"],
-        "scope":profile["scope"],"revision":profile["revision"],"settings":profile["settings"]})
+        "audience":profile["audience"],"revision":profile["revision"],"settings":profile["settings"]})
 }

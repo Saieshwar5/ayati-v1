@@ -32,8 +32,8 @@ impl PgStore {
         )
         .await?;
         ensure!(
-            profile["scope"] == "workspace" && profile["revision"].as_i64().is_some_and(|n| n > 0),
-            "Personal panels require a managed workspace agent"
+            profile["audience"] != "only_me" && profile["revision"].as_i64().is_some_and(|n| n > 0),
+            "Personal panels require a managed shared agent"
         );
         let old = query(
             &tx,

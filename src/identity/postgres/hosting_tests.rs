@@ -256,7 +256,9 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
         name: "Nova".into(),
         role: "Assistant".into(),
         model: "fixture".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings::default(),
     };

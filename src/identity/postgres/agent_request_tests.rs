@@ -152,7 +152,9 @@ async fn owner_can_stop_visible_work_after_requester_execution_access_is_revoked
     .await
     .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    db.chat_grant(&owner, &w, &requester.id, &job.agent, false)
+    // Channel members may ask the channel's agents (D231), so leaving the channel
+    // is what removes the requester's access.
+    db.channel_members(&owner, &w, &first.chat, std::slice::from_ref(&owner.id))
         .await
         .unwrap();
     let request = db

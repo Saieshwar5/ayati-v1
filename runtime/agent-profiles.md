@@ -1,17 +1,38 @@
 # Agent ownership and setup
 
-The PostgreSQL workspace Agents page supports personal and workspace profiles.
-Creation and editing use `/api/identity/workspaces/{workspace}/agent-profiles`.
+There is one agent type (D231, D233; schema 45). Creation and editing use
+`/api/identity/workspaces/{workspace}/agent-profiles`.
+
+## Who can talk to it, owners and managers
+
+- **Everyone may create agents.** The per-person creator right and its
+  `/control/creators` route were removed with `relay_agent_creators`.
+- **Who can talk to it** (`audience`) is `everyone`, `selected` (the owner,
+  admins and the people in `relay_chat_access`) or `only_me` (the owner alone).
+  `relay_agent_can_talk(workspace, agent, person)` is the single definition.
+  Saves may send `people` to replace the selected list; omitting it keeps it.
+- **In a channel or group** the agent belongs to, anyone who can see that
+  conversation may ask a shared agent there (`agent_access_in`). Only-me agents
+  cannot join channels, and choosing Only me is refused while the agent is in one.
+- **Seeing and changing:** the owner and admins see and change every agent,
+  including only-me agents (admins cannot talk to someone else's only-me agent).
+  Other members see the agents they can talk to.
+- **Managers** (`relay_agent_managers`) start as the owner; saves may send
+  `managers` (at least one workspace member). Approvals start using them in M3.
+- **Owner transfer:** `POST …/agent-profiles/{id}/owner` with `{owner, revision}`.
+  The new owner replaces the old one as a manager; the audit log records a
+  readable sentence. An exact retry by the previous owner succeeds.
+- **Removing a person** moves all their agents to the person taking over; only-me
+  agents move paused. An agent they managed alone falls back to its owner.
+- Narrowing who can talk, or pausing, stops queued and waiting work that the
+  requester may no longer ask for.
+- Upgrade tests run this code on older schemas, where `scope` (private/workspace)
+  and per-person grants still decide.
 
 ## Implemented boundaries
 
-- Private profiles belong to the creating user. Other members, including the
-  workspace admin, cannot list, read, edit or grant access to them. They support
-  one-person direct conversations and cannot be added to channels.
-- Workspace profiles are created by the workspace admin. The maintainer and
-  workspace admin can edit; explicit agent grants control other members' access.
-- Visibility is immutable. Profile writes use a revision and stable ID; exact
-  retries of a completed save are accepted, stale edits are rejected.
+- Profile writes use a revision and stable ID; exact retries of a completed save
+  are accepted, stale edits are rejected.
 - Names, responsibilities, custom instructions and escalation guidance are passed
   into execution. Escalation text is guidance, not a new authorization mechanism.
 - Paused agents reject new requests and fail the ongoing job authorization check.

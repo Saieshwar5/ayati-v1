@@ -11,15 +11,13 @@ async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Resul
         display_name: None,
     };
     super::chat::access(db, &user, &job.workspace, &job.chat).await?;
-    let profile =
-        super::agent_profiles::managed_access(db, &job.requester, &job.workspace, agent, false)
-            .await?;
+    let profile = super::agent_profiles::stored(db, &job.workspace, agent).await?;
     ensure!(
-        profile["scope"] == "workspace" && profile["revision"].as_i64().is_some_and(|r| r > 0),
-        "Handoffs require managed workspace agents"
+        profile["audience"] != "only_me" && profile["revision"].as_i64().is_some_and(|r| r > 0),
+        "Handoffs require managed shared agents"
     );
     ensure!(
-        super::chat::agent_access(db, &job.requester, &job.workspace, agent).await?,
+        super::chat::agent_access_in(db, &job.requester, &job.workspace, agent, &job.chat).await?,
         "Original requester lacks this agent's request permission"
     );
     ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind='channel' AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must participate in the same channel");
@@ -46,7 +44,7 @@ impl PgStore {
             child = h["parent"].as_str().unwrap().into();
         }
         let mut agents = vec![];
-        for candidate in json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.scope='workspace' AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await? {
+        for candidate in json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await? {
    let id=candidate["id"].as_str().unwrap();if lineage.iter().any(|v|v==id){continue}
    let access=async{participant(&tx,job,id).await?;super::handoff_access::event_source(&tx,job,id).await?;Ok::<_,anyhow::Error>(())}.await;
    match access {Ok(())=>agents.push(candidate),Err(e) if e.is::<sea_orm::DbErr>()=>return Err(e),Err(_)=>{}}

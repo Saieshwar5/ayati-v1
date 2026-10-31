@@ -292,19 +292,23 @@ async fn rehearsal_source_version_change_hides_newer_history_without_hiding_olde
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_workspace_owner_access()
+async fn rehearsal_only_me_agent_samples_require_the_owner_and_stay_hidden_from_other_members()
  {
     let db = fixture().await;
     let owner = user(&db, "private-sample-workspace-owner").await;
     let member = user(&db, "private-sample-person").await;
+    let stranger = user(&db, "private-sample-stranger").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &stranger, "Member").await;
     let agent = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: "Personal helper".into(),
         role: "Prepare private drafts".into(),
         model: "fixture".into(),
-        scope: "private".into(),
+        audience: "only_me".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),
@@ -315,12 +319,12 @@ async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_wo
     let mut input = start();
     input.agent_revision = 1;
     assert!(
-        db.rehearsal_options(&owner, &w, &agent.id, "")
+        db.rehearsal_options(&stranger, &w, &agent.id, "")
             .await
             .is_err()
     );
     assert!(
-        db.start_rehearsal(&owner, &w, &agent.id, &input)
+        db.start_rehearsal(&stranger, &w, &agent.id, &input)
             .await
             .is_err()
     );
@@ -333,17 +337,17 @@ async fn rehearsal_private_agent_samples_require_the_owner_and_remain_outside_wo
     assert!(!claim.context.control_tools);
     claim.finish("A private sample response").await;
     assert!(
-        db.rehearsal(&owner, &w, &agent.id, &input.id)
+        db.rehearsal(&stranger, &w, &agent.id, &input.id)
             .await
             .is_err()
     );
     assert!(
-        db.rehearsal_history(&owner, &w, &agent.id, None)
+        db.rehearsal_history(&stranger, &w, &agent.id, None)
             .await
             .is_err()
     );
     assert!(
-        db.stop_rehearsal(&owner, &w, &agent.id, &input.id)
+        db.stop_rehearsal(&stranger, &w, &agent.id, &input.id)
             .await
             .is_err()
     );

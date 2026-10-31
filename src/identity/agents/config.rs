@@ -99,7 +99,14 @@ pub struct SaveAgent {
     pub name: String,
     pub role: String,
     pub model: String,
-    pub scope: String,
+    /// Who can talk to it: `everyone`, `selected` or `only_me`.
+    pub audience: String,
+    /// The selected people; `None` keeps the saved list.
+    #[serde(default)]
+    pub people: Option<Vec<String>>,
+    /// Managers; `None` keeps the saved list (the owner, for a new agent).
+    #[serde(default)]
+    pub managers: Option<Vec<String>>,
     pub revision: i64,
     pub settings: Settings,
 }
@@ -123,9 +130,15 @@ impl SaveAgent {
             "Invalid model identifier"
         );
         ensure!(
-            ["private", "workspace"].contains(&self.scope.as_str()),
-            "Invalid agent visibility"
+            ["everyone", "selected", "only_me"].contains(&self.audience.as_str()),
+            "Choose who can talk to this agent"
         );
+        for list in [&self.people, &self.managers].into_iter().flatten() {
+            ensure!(
+                list.len() <= 200 && list.iter().all(|id| !id.is_empty() && id.len() <= 200),
+                "Choose at most 200 people"
+            );
+        }
         ensure!(
             self.revision >= 0 && self.revision < i64::MAX,
             "Invalid revision"

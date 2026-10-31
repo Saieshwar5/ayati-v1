@@ -15,7 +15,9 @@ async fn targeted_profile_lookup_rechecks_grants_and_preserves_private_and_works
         name: "Scoped lookup".into(),
         role: "Bounded assistance".into(),
         model: "fixture".into(),
-        scope: "workspace".into(),
+        audience: "selected".into(),
+        people: None,
+        managers: None,
         revision: 0,
         settings: Settings::default(),
     };
@@ -60,7 +62,7 @@ async fn targeted_profile_lookup_rechecks_grants_and_preserves_private_and_works
             .is_none()
     );
     agent.id = uuid::Uuid::new_v4().to_string();
-    agent.scope = "private".into();
+    agent.audience = "only_me".into();
     db.save_agent_profile(&member, &w, &agent).await.unwrap();
     assert!(
         db.allowed_shared_agent(&member, &w, &agent.id)

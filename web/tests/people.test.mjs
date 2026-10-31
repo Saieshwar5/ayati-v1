@@ -143,9 +143,9 @@ test('Removal shows what moves, hands it to the chosen person and sends one requ
     assert.ok(reads.some(path => path.endsWith('/members/employee/responsibilities')));
     const dialog = document.querySelector('dialog');
     assert.equal(dialog.querySelector('h2').textContent, `Remove ${member.email}?`);
-    assert.match(dialog.textContent, /Moves to owner@example.com3 shared agents: Atlas, Nova, Scout/);
-    assert.match(dialog.textContent, /Stays as it is1 private agent and 2 private or selected Library items/);
-    assert.match(dialog.textContent, /Paused for review2 schedules/);
+    assert.match(dialog.textContent, /Moves to owner@example.com3 agents: Atlas, Nova, Scout/);
+    assert.match(dialog.textContent, /Stays as it is2 private or selected Library items/);
+    assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 schedules/);
     assert.match(dialog.textContent, /1 invitation employee@example.com sent/);
     const heir = dialog.querySelector('select');
     assert.equal(heir.value, 'owner', 'the acting admin takes over by default');

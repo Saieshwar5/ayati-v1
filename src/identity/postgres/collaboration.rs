@@ -21,15 +21,15 @@ impl PgStore {
         agent: Option<&str>,
     ) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
-        let owner = role(&tx, w, &user.id).await? == "Admin";
-        let mut values = vec![w.into(), user.id.clone().into(), owner.into()];
+        role(&tx, w, &user.id).await?;
+        let mut values = vec![w.into(), user.id.clone().into()];
         let filter = if let Some(agent) = agent {
             values.push(agent.into());
-            " AND a.id=$4"
+            " AND a.id=$3"
         } else {
             ""
         };
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'scope',a.scope,'avatar',a.settings->>'avatar','manager',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND ((a.scope='private' AND a.owner_id=$2) OR (a.scope='workspace' AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_chat_access g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))){filter} ORDER BY a.name"),values).await?;
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }
@@ -169,8 +169,8 @@ impl PgStore {
         managed_channel(&tx, user, w, chat).await?;
         for agent in agents {
             ensure!(
-                query(&tx,"SELECT 1 AS n FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='workspace'",vec![w.into(),agent.clone().into()]).await?.is_some(),
-                "Only workspace agents can join channels"
+                query(&tx,"SELECT 1 AS n FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND audience<>'only_me'",vec![w.into(),agent.clone().into()]).await?.is_some(),
+                "Only-me agents cannot join channels"
             );
             ensure!(
                 super::chat::agent_access(&tx, &user.id, w, agent).await?,

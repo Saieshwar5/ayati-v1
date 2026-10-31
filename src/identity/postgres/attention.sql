@@ -33,7 +33,9 @@ WITH candidates AS (
  JOIN relay_shared_agents g ON g.workspace=j.workspace AND g.id=j.payload->>'agent'
  LEFT JOIN relay_attention_receipts r ON r.workspace=$1 AND r.user_id=$2
   AND r.kind=n.kind AND r.source=n.id AND r.version=n.version
- WHERE (g.scope<>'private' OR g.owner_id=$2)
+ -- Only-me agents' work is the owner's alone. Before schema 45 (upgrade tests) the
+ -- column was scope='private'.
+ WHERE (COALESCE(to_jsonb(g)->>'audience',CASE WHEN to_jsonb(g)->>'scope'='private' THEN 'only_me' END,'')<>'only_me' OR g.owner_id=$2)
  AND (c.visibility='public' OR EXISTS(
   SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2))
  -- Mirror the Library boundary before LIMIT. Rust rechecks the authoritative

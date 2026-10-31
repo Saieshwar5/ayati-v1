@@ -31,6 +31,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(knowledge).post(remember),
         )
         .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/owner",
+            post(transfer),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/avatar",
             post(upload).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
@@ -94,7 +98,7 @@ async fn list(
     let user = identity(&app, &headers).await?;
     let role = workspaces::membership(&app, &user, &w).await?;
     Ok(Json(
-        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"can_create_workspace":app.store.can_create_workspace_agent(&user,&w).await?,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":app.config.default_model}),
+        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":app.config.default_model}),
     ))
 }
 async fn save(
@@ -105,6 +109,15 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.save_agent_profile(&user, &w, &input).await?))
+}
+async fn transfer(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::TransferAgent>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agent_transfer(&user, &w, &id, &input).await?))
 }
 async fn knowledge(
     State(app): State<Shared>,

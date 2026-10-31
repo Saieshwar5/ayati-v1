@@ -30,23 +30,16 @@ pub(super) async fn agent_access(
     let member_role = role(db, workspace, user).await?;
     if let Some(row) = query(
         db,
-        "SELECT scope,owner_id,settings FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+        "SELECT settings FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
         vec![workspace.into(), agent.into()],
     )
     .await?
     {
         let settings: Value = row.try_get("", "settings")?;
-        if settings["paused"] == true {
-            return Ok(false);
-        }
-        let owner: Option<String> = row.try_get("", "owner_id")?;
-        if row.try_get::<String>("", "scope")? == "private" {
-            return Ok(owner.as_deref() == Some(user));
-        }
-        if owner.as_deref() == Some(user) {
-            return Ok(true);
-        }
+        return Ok(settings["paused"] != true
+            && super::agent_audience::can_talk(db, workspace, agent, user).await?);
     }
+    // An agent without a saved profile keeps the older admin-or-grant rule.
     Ok(member_role == "Admin"
         || query(
             db,
@@ -55,6 +48,32 @@ pub(super) async fn agent_access(
         )
         .await?
         .is_some())
+}
+/// Who may ask `agent` in `chat`: its "who can talk" setting, or, in a channel or
+/// group the shared agent belongs to, anyone who can see that conversation (D231).
+pub(super) async fn agent_access_in(
+    db: &impl ConnectionTrait,
+    user: &str,
+    workspace: &str,
+    agent: &str,
+    chat: &str,
+) -> Result<bool> {
+    let direct = agent_access(db, user, workspace, agent).await?;
+    if direct || !super::agent_audience::exists(db).await? {
+        return Ok(direct);
+    }
+    Ok(query(
+        db,
+        "SELECT 1 AS n FROM relay_shared_agents a
+         JOIN relay_chat_agents x ON x.workspace=a.workspace AND x.agent=a.id
+         JOIN relay_chats c ON c.workspace=x.workspace AND c.id=x.chat
+         WHERE a.workspace=$1 AND a.id=$2 AND x.chat=$3 AND a.audience<>'only_me'
+           AND NOT COALESCE((a.settings->>'paused')::BOOLEAN,FALSE) AND c.kind<>'direct'
+           AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$4))",
+        vec![workspace.into(), agent.into(), chat.into(), user.into()],
+    )
+    .await?
+    .is_some())
 }
 impl PgStore {
     pub async fn agent_access(&self, user: &str, workspace: &str, agent: &str) -> Result<bool> {
@@ -74,7 +93,9 @@ impl PgStore {
             "Only admins can share agents"
         );
         role(&tx, workspace, target).await?;
-        ensure!(query(&tx,"SELECT id FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='private'",vec![workspace.into(),agent.into()]).await?.is_none(),"Private agents cannot be shared");
+        if let Ok(profile) = super::agent_profiles::stored(&tx, workspace, agent).await {
+            ensure!(profile["audience"] != "only_me", "Only-me agents cannot be shared");
+        }
         if allowed {
             execute(&tx,"INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),target.into(),agent.into()]).await?;
         } else {
@@ -139,11 +160,14 @@ impl PgStore {
             role(&tx, workspace, member).await?;
         }
         for agent in &input.agents {
-            let personal=query(&tx,"SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND scope='private'",vec![workspace.into(),agent.clone().into()]).await?;
-            if personal.is_some() {
+            let personal = match super::agent_profiles::stored(&tx, workspace, agent).await {
+                Ok(profile) => profile["audience"] == "only_me",
+                Err(_) => false,
+            };
+            if personal {
                 ensure!(
                     input.kind == "direct" && input.users.is_empty() && input.agents.len() == 1,
-                    "Private agents can only have a direct conversation with their owner"
+                    "Only-me agents can only have a direct conversation with their owner"
                 );
             }
             ensure!(
@@ -225,7 +249,7 @@ impl PgStore {
             && access(&self.db, &user, &job.workspace, &job.chat)
                 .await
                 .is_ok()
-            && agent_access(&self.db, &user.id, &job.workspace, &job.agent)
+            && agent_access_in(&self.db, &user.id, &job.workspace, &job.agent, &job.chat)
                 .await
                 .unwrap_or(false)
     }
@@ -276,7 +300,7 @@ impl PgStore {
             && super::context_attempts::allowed(tx, job)
                 .await
                 .unwrap_or(false)
-            && agent_access(tx, &user.id, &job.workspace, &job.agent)
+            && agent_access_in(tx, &user.id, &job.workspace, &job.agent, &job.chat)
                 .await
                 .unwrap_or(false);
         if allowed

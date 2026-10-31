@@ -23,7 +23,7 @@ test('admins manage people from the Settings sidebar; removal and leaving hand s
   app.sql(`INSERT INTO relay_members(workspace,user_id,role) VALUES('${w}','${leaver.id}','Member'),('${w}','${taker.id}','Member')`);
   // The leaving member owns a shared agent and looks after a page shared with everyone.
   const agent = randomUUID();
-  await app.request(`/api/identity/workspaces/${w}/agent-profiles`, founder, { id: agent, name: 'Atlas', role: 'Orders assistant', model: 'fixture', scope: 'workspace', revision: 0, settings: { provider: 'openai' } });
+  await app.request(`/api/identity/workspaces/${w}/agent-profiles`, founder, { id: agent, name: 'Atlas', role: 'Orders assistant', model: 'fixture', audience: 'selected', revision: 0, settings: { provider: 'openai' } });
   app.sql(`UPDATE relay_shared_agents SET owner_id='${leaver.id}' WHERE workspace='${w}' AND id='${agent}'`);
   app.sql(`INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,visibility,document,text,created,updated) VALUES('${w}','price-list','page','Price list','${leaver.id}','${leaver.id}','workspace','{}'::jsonb,'',1,1)`);
 
@@ -58,7 +58,7 @@ test('admins manage people from the Settings sidebar; removal and leaving hand s
   await admin.getByRole('button', { name: `Actions for ${label(leaver)}` }).click();
   await admin.getByRole('menuitem', { name: 'Remove from workspace…' }).click();
   const dialog = admin.getByRole('dialog', { name: `Remove ${label(leaver)}?` });
-  await dialog.getByText('1 shared agent: Atlas').waitFor();
+  await dialog.getByText('1 agent: Atlas').waitFor();
   await dialog.getByText('1 Library item shared with everyone').waitFor();
   await dialog.getByLabel('Who takes over').selectOption(taker.id);
   await dialog.getByText(`Moves to ${label(taker)}`).waitFor();
@@ -92,7 +92,7 @@ test('admins manage people from the Settings sidebar; removal and leaving hand s
   await member.getByRole('button', { name: 'Leave workspace' }).click();
   const leave = member.getByRole('dialog', { name: 'Leave Mehta Furnishings?' });
   await leave.getByText(`Moves to ${label(owner)}`).waitFor();
-  await leave.getByText('1 shared agent: Atlas').waitFor();
+  await leave.getByText('1 agent: Atlas').waitFor();
   await shot(member, 'leave-dialog');
   await leave.getByRole('button', { name: 'Leave workspace' }).click();
   await member.waitForURL(/view=account&choose=1/);

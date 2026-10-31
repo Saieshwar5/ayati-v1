@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::control::connections_model::{Creator, Delegation};
+use crate::identity::control::connections_model::Delegation;
 use crate::identity::library::model::{AskItem, SavePage, ShareItem};
 
 #[tokio::test]
@@ -11,17 +11,6 @@ async fn delegated_creator_can_only_select_people_authorized_by_their_delegating
         .unwrap();
     let creator = user(&s.db, "route-creator").await;
     join(&s.db, &s.owner, &s.w, &creator, "Member").await;
-    s.db.control_creator(
-        &s.owner,
-        &s.w,
-        &Creator {
-            user: creator.id.clone(),
-            enabled: true,
-            revision: 0,
-        },
-    )
-    .await
-    .unwrap();
     let (_, agent) = super::super::executor_slot_tests::agent(&s.db, &creator, &s.w).await;
     s.db.chat_grant(&s.owner, &s.w, &s.approver.id, &agent, true)
         .await

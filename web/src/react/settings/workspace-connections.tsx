@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ConnectionAccess } from './connection-access';
-import { approveSystem, connectAccount, loadConnections, saveCreator, type Creator } from './workspace-connections-model';
+import { approveSystem, connectAccount, loadConnections } from './workspace-connections-model';
 import './workspace-connections.css';
 
 export function WorkspaceConnections() {
@@ -52,20 +52,7 @@ export function WorkspaceConnections() {
         </article>;
       })}</div>
       {!servers.length && <p className="ui-empty">No reviewed systems configured yet. Your operator can add a supported remote MCP account.</p>}
-      <section className="connection-creators" aria-label="Workspace agent creators"><h3>Agent creators</h3><p className="ui-help">Allow selected people to create workspace agents. Tool access is delegated separately for each connected account. Turning this off prevents new workspace agents; it does not remove existing agents.</p>
-        {data.people.filter(p => p.role === 'Member').map(person => <CreatorRow key={`${person.id}/${person.revision}`} person={person} busy={mutation.busy}
-          save={enabled => mutation.run(async () => { await saveCreator(person, enabled); await refresh(); mutation.setStatus('Agent creation permission saved.'); })} />)}
-        {!data.people.some(p => p.role === 'Member') && <p>Admins already have creation authority. Add workspace members to delegate it.</p>}
-      </section>
       {connection && <ConnectionAccess key={connection.id} connection={connection} data={data} close={() => select('')} refresh={refresh} />}
     </>}
   </section>;
-}
-function CreatorRow({ person, busy, save }: { person: Creator; busy: boolean; save: (value: boolean) => Promise<void> }) {
-  const [enabled, setEnabled] = useState(person.can_create);
-  return <form className="connection-creator-row" onSubmit={event => { event.preventDefault(); void save(enabled); }}>
-    <label className="ui-check"><input type="checkbox" aria-label={`Allow ${person.name} to create workspace agents`} checked={enabled} disabled={busy} onChange={event => setEnabled(event.target.checked)} />{person.name}</label>
-    <span>{person.can_create ? 'May create workspace agents' : 'Private agents only'}</span>
-    <Button type="submit" disabled={busy || enabled === person.can_create} aria-label={`Save agent creation for ${person.name}`}>Save</Button>
-  </form>;
 }

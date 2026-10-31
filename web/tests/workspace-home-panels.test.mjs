@@ -259,8 +259,8 @@ test('asking for a panel is explicit, keeps the draft on a failed send and reuse
           ? response({
               users: [],
               agents: [
-                { id: 'agent', name: 'Nova', scope: 'workspace' },
-                { id: 'private', name: 'Private', scope: 'private' },
+                { id: 'agent', name: 'Nova', audience: 'selected' },
+                { id: 'private', name: 'Private', audience: 'only_me' },
               ],
               role: 'Admin',
             })
@@ -332,7 +332,7 @@ test('an explicit panel change stays in its original agent/conversation, preserv
           return response({ ...page, panels: [{ ...panel, agent: 'agent', revision: stale ? 3 : 2 }] });
         return path.endsWith('/chat-directory')
           ? response({
-              agents: [{ id: 'agent', name: 'Nova', scope: 'workspace' }],
+              agents: [{ id: 'agent', name: 'Nova', audience: 'selected' }],
               users: [],
               role: 'Admin',
             })
