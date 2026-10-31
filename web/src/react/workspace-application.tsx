@@ -13,6 +13,7 @@ import { WorkspaceChat } from './chat/workspace-chat';
 import { LibraryUploads } from './library/uploads';
 import { LibraryBoundary } from './library/boundary';
 import './library/library.css';
+const ActivityPage = lazy(() => import('./activity/activity-page').then(module => ({ default: module.ActivityPage })));
 const LibraryPage = lazy(() => import('./library/library-page').then(module => ({ default: module.LibraryPage })));
 
 export function WorkspaceApplication() {
@@ -28,6 +29,7 @@ export function WorkspaceApplication() {
   }, [page, href]);
   return <LibraryUploads><WorkspaceShell page={page}>
     {page === 'agents' ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' ? <WorkspaceChat href={href} />
+      : page === 'activity' ? <Suspense fallback={<p role="status">Opening Activity…</p>}><ActivityPage key={href} href={href} /></Suspense>
       : page === 'account' ? <AccountPage embedded /> : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary>
       : <HomePage />}
   </WorkspaceShell></LibraryUploads>;

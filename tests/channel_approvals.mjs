@@ -68,8 +68,8 @@ test('Ask first reaches every manager, someone else approves, and conversation m
   await app.request(`${control}/actions/${revoked.id}/decision`,approver,{id:randomUUID(),decision:'approve'},400);assert.equal(remote.calls.length,1);
   await app.request(`${app.path}/control/connector-rules`,app.cookie,{connection,operation:'order.update',mode:'ask',needs_other:true,revision:(await app.request(`${app.path}/control/connections`,app.cookie)).value.safety[0].operations.find(o=>o.id==='order.update').revision});
   const changes=await propose('NEEDS_REVISION');
-  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.goto(`${app.base}/w/${w}/?view=home`);await approverPage.getByRole('button',{name:/^View attention/}).click();
-  const inbox=approverPage.getByRole('dialog',{name:'Your attention',exact:true});await inbox.locator('article').filter({hasText:'Update order'}).getByRole('button',{name:'Review action',exact:true}).click();
+  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.goto(`${app.base}/w/${w}/?view=home`);await approverPage.getByRole('link',{name:/^Open Activity/}).click();
+  const inbox=approverPage.getByRole('region',{name:'Needs me',exact:true});await inbox.locator('li').filter({hasText:'Update order'}).first().getByRole('button',{name:'Review',exact:true}).click();
   await review.getByRole('button',{name:'Request changes',exact:true}).click();await review.getByRole('status').filter({hasText:'Changes requested'}).waitFor();assert.equal(remote.calls.length,1);
   assert.equal((await snapshot()).actions.find(a=>a.id===changes.id).decision,'request_changes');
   await approverPage.evaluate(()=>{document.documentElement.dataset.theme='dark';});await approverPage.screenshot({path:join(app.data,'manager-attention-dark.png')});

@@ -1,4 +1,5 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
+mod activity;
 mod agents;
 mod attention;
 mod automations;
@@ -216,6 +217,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
 fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
+        .merge(activity::routes())
         .merge(member_profiles::routes())
         .merge(control::routes())
         .merge(attention::routes())

@@ -49,15 +49,13 @@ test('selected team workspace keeps selection while searching and does not creat
   } });
 });
 
-test('Stop guards duplicate submissions, retains a failure and reconciles the saved request on retry', async () => {
+test('Stop on the Overview guards duplicate submissions, retains a failure and reconciles the saved request on retry', async () => {
   const writes = []; let complete; let stopped = false;
   await reactFixture(async ({ render, button, click, update }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { AgentWork } = await import('../src/react/agents/work.tsx');
-    await render(AgentWork, { agent: 'alpha' });
+    const { AgentOverview } = await import('../src/react/agents/overview.tsx');
+    await render(AgentOverview, { agent, open() {}, people() {} });
     assert.match(document.body.textContent, /Check supplier delivery/);
-    const link = [...document.querySelectorAll('a')].find(a => a.textContent === 'Open conversation');
-    assert.match(link.href, /conversation=channel&message=reply&thread=root/);
     await update(() => { button('Stop request').click(); button('Stop request').click(); });
     assert.equal(writes.length, 1);
     await update(() => complete(response({ error: 'Cannot save cancellation yet' }, 503)));
@@ -70,41 +68,9 @@ test('Stop guards duplicate submissions, retains a failure and reconciles the sa
     assert.ok(writes.every(path => path.endsWith('/chats/channel/messages/reply/cancel')));
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (options.method === 'POST') { writes.push(path); return new Promise(resolve => { complete = resolve; }); }
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
     return response(path.endsWith('/session') ? session : stopped ? empty : { requests: [request], next_before: null });
   } });
-});
-
-test('fresh progress reads clear denied work and never start another business request', async () => {
-  let denied = false; const writes = [];
-  await reactFixture(async ({ render, button, click }) => {
-    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { AgentWork } = await import('../src/react/agents/work.tsx');
-    await render(AgentWork, { agent: 'alpha' });
-    denied = true; await click(button('Refresh progress'));
-    assert.equal(document.body.textContent.includes('Check supplier delivery'), false);
-    assert.equal(button('Stop request'), undefined);
-    assert.match(document.querySelector('[role=alert]').textContent, /Access denied/);
-    assert.equal(writes.length, 0);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
-    if (options.method === 'POST') writes.push(path);
-    return path.endsWith('/session') ? response(session) : denied ? response({ error: 'Access denied' }, 403) : response({ requests: [request], next_before: null });
-  } });
-});
-
-test('changing request scope discards a late private response and visible work does not grant Stop', async () => {
-  let late;
-  await reactFixture(async ({ render, change, update, button }) => {
-    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { AgentWork } = await import('../src/react/agents/work.tsx');
-    await render(AgentWork, { agent: 'alpha' });
-    await change(document.querySelector('select'), 'visible');
-    assert.match(document.body.textContent, /Other visible request/);
-    await update(() => late(response({ requests: [{ ...request, summary: 'STALE_PRIVATE_RESPONSE' }], next_before: null })));
-    assert.equal(document.body.textContent.includes('STALE_PRIVATE_RESPONSE'), false);
-    assert.equal(button('Stop request'), undefined);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async path => path.endsWith('/session') ? response(session)
-    : path.includes('scope=visible') ? response({ requests: [{ ...request, can_cancel: false, summary: 'Other visible request' }], next_before: null })
-      : new Promise(resolve => { late = resolve; }) });
 });
 
 test('switching selected agent during Open in Chat cannot create or navigate a stale conversation', async () => {

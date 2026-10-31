@@ -163,13 +163,17 @@ async fn every_manager_may_decide_and_the_first_decision_wins() {
     let id = a["id"].as_str().unwrap();
     let details = s.db.approval_details(&s.approver, &s.w, id).await.unwrap();
     assert_eq!(details["can_decide"], true);
-    let names: Vec<_> = details["deciders"]
+    let mut names: Vec<_> = details["deciders"]
         .as_array()
         .unwrap()
         .iter()
         .map(|p| p["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(names, [s.owner.id.clone(), s.approver.id.clone()]);
+    // Managers added in the same second have no meaningful order.
+    names.sort();
+    let mut expected = [s.owner.id.clone(), s.approver.id.clone()];
+    expected.sort();
+    assert_eq!(names, expected);
     // Someone in the conversation who doesn't manage the agent cannot decide.
     execute(
         &s.db.db,

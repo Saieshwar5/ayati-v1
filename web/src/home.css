@@ -20,7 +20,7 @@
 .home .standard-panel-heading h2 { margin: 0; }
 .standard-panel-heading .ui-button { font-size: .75rem; padding: 5px 9px; }
 .standard-panel-caption { font-size: .75rem; color: var(--muted); margin: 4px 0 12px; }
-.notification-row { display: flex; width: 100%; gap: 10px; padding: 10px 0; text-align: left; align-items: center; color: var(--text); border: 0; background: transparent; cursor: pointer; }
+.notification-row { display: flex; width: 100%; text-decoration: none; gap: 10px; padding: 10px 0; text-align: left; align-items: center; color: var(--text); border: 0; background: transparent; cursor: pointer; }
 .notification-row + .notification-row { border-top: 1px solid var(--border); }
 .notification-row:hover { background: var(--soft); }
 .notification-mark { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 9px; background: var(--soft); color: var(--muted); }

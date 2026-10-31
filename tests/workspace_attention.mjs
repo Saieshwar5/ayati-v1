@@ -9,7 +9,7 @@ import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { until, root } from './fixtures/polling.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 
-test('Home attention retains personal reads, resumes exact threaded work, reviews failed outcomes and clears revoked sources', {
+test('Activity Needs me retains personal reads, resumes exact threaded work, reviews failed outcomes and clears revoked sources', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000,
 }, async t => {
   let app, browser; const pages = [], errors = [];
@@ -37,7 +37,9 @@ test('Home attention retains personal reads, resumes exact threaded work, review
   await writeFile(profiles, JSON.stringify([{ id: 'orders', workspace: w, name: 'Company orders', account: 'Test company', url: remote.url, bearer_file: bearer, operations: remote.operations }]));
   await app.request(`${app.path}/control/systems`, app.cookie, { server: 'orders', approved: true, revision: 0 });
   await app.request(`${app.path}/control/connections`, app.cookie, { id: connection, server: 'orders', enabled: true, revision: 0 });
-  for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0, chat: channel });
+  // The admin's rules for this connector, then the agent's Tools switch (schema 47).
+  for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${app.path}/control/connector-rules`, app.cookie, { connection, operation, mode, needs_other: false, revision: 0 });
+  await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   const prompt = 'Ask for delivery method and prepare the separate exact reviewed update';
   const specification = { version: 1, kind: 'single_choice', title: 'Choose delivery method', options: [{ id: 'road', label: 'Road' }, { id: 'air', label: 'Air' }] };
   const write = { tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address: 'REVIEWED_FROM_HOME_ATTENTION' } } };
@@ -57,55 +59,62 @@ test('Home attention retains personal reads, resumes exact threaded work, review
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); pages.push(page); return page;
   }
   const page = await pageFor(app.cookie), otherSession = await pageFor(app.cookie), observer = await pageFor(member);
-  const home = `${app.base}/w/${w}/?view=home`, inboxFor = page => page.getByRole('dialog', { name: 'Your attention', exact: true });
-  await page.goto(home); await otherSession.goto(home); await observer.goto(home);
-  await page.getByRole('button', { name: 'View attention · 1', exact: true }).click();
+  const home = `${app.base}/w/${w}/?view=home`, activity = `${app.base}/w/${w}/?view=activity`;
+  const inboxFor = page => page.getByRole('region', { name: 'Needs me', exact: true });
+  const unread = inbox => inbox.getByText(/· new$/).count();
+  // Home's small panel opens Activity → Needs me.
+  await page.goto(home); await observer.goto(activity);
+  await page.getByRole('link', { name: 'Open Activity · 1', exact: true }).click(); await page.waitForURL(/view=activity&tab=needs/);
+  await otherSession.goto(activity);
   let inbox = inboxFor(page); await inbox.getByText('Choose delivery method', { exact: true }).waitFor();
+  await page.getByRole('tab', { name: /^Needs me/ }).getByText('1', { exact: true }).waitFor();
   assert.equal(await observer.getByText('Choose delivery method', { exact: true }).count(), 0);
   await page.screenshot({ path: join(app.data, 'attention-inbox-desktop.png') });
-  const answer = inbox.getByRole('button', { name: 'Answer question', exact: true }); await answer.focus(); await page.keyboard.press('Enter');
+  const answer = inbox.getByRole('button', { name: 'Answer', exact: true }); await answer.focus(); await page.keyboard.press('Enter');
   let question = page.getByRole('dialog', { name: 'Choose delivery method', exact: true }); await question.waitFor();
   await page.keyboard.press('Escape'); await question.waitFor({ state: 'detached' });
   assert.equal(await answer.evaluate(node => node === document.activeElement), true);
-  await inbox.getByRole('button', { name: 'Refresh attention', exact: true }).click();
-  await until(() => inbox.getByText('Unread', { exact: true }).count().then(count => count === 0), 'Reading did not save its personal marker');
+  await until(() => unread(inbox).then(count => count === 0), 'Reading did not save its personal marker');
   assert.equal(state(job.reply).state, 'waiting'); assert.equal(remote.calls.length, 0); assert.equal(app.provider.requests.length, idleCalls);
-  await otherSession.getByRole('button', { name: 'View attention · 1', exact: true }).click();
-  assert.equal(await inboxFor(otherSession).getByText('Unread', { exact: true }).count(), 0);
-  await app.stop(executor); await app.stopApi(); await app.startApi(); await page.reload();
-  await page.getByRole('button', { name: 'View attention · 1', exact: true }).click(); inbox = inboxFor(page);
-  assert.equal(await inbox.getByText('Unread', { exact: true }).count(), 0);
-  app.pass('Home derives a personal question queue, keyboard review saves only read state, a second session/restart retains it, and another channel member receives no requester notification');
-  await inbox.getByRole('button', { name: 'Answer question', exact: true }).click(); question = page.getByRole('dialog', { name: 'Choose delivery method', exact: true });
+  await otherSession.reload(); await inboxFor(otherSession).getByText('Choose delivery method', { exact: true }).waitFor();
+  assert.equal(await unread(inboxFor(otherSession)), 0);
+  await app.stop(executor); await app.stopApi(); await app.startApi(); await page.reload(); inbox = inboxFor(page);
+  await inbox.getByText('Choose delivery method', { exact: true }).waitFor();
+  assert.equal(await unread(inbox), 0);
+  app.pass('Needs me derives a personal question queue, keyboard review saves only read state, a second session/restart retains it, and another channel member receives no requester notification');
+  await inbox.getByRole('button', { name: 'Answer', exact: true }).click(); question = page.getByRole('dialog', { name: 'Choose delivery method', exact: true });
   await question.getByLabel('Road', { exact: true }).check(); await question.getByRole('button', { name: 'Submit answer', exact: true }).click();
   await question.getByText('Answer saved', { exact: true }).waitFor(); assert.equal(remote.calls.length, 0);
   await question.getByRole('button', { name: 'Close', exact: true }).click();
   executor = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
   await until(() => state(job.reply).state === 'waiting' && app.sql(`SELECT count(*) FROM relay_control_actions WHERE job='${job.reply}' AND state='pending'`) === '1', 'Answer did not reach separate approval', 35000);
-  await inbox.getByRole('button', { name: 'Refresh attention', exact: true }).click();
-  await inbox.getByRole('button', { name: 'Review action', exact: true }).click();
+  await inbox.getByRole('button', { name: 'Review', exact: true }).click();
   const approval = page.getByRole('dialog', { name: 'Review approval request', exact: true });
   await approval.getByText('REVIEWED_FROM_HOME_ATTENTION', { exact: true }).waitFor(); assert.equal(remote.calls.length, 0);
   await approval.getByRole('button', { name: 'Approve this action', exact: true }).click();
   await approval.getByRole('button', { name: 'Close', exact: true }).click(); await app.done(job);
   assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);
-  await inbox.getByRole('button', { name: 'Refresh attention', exact: true }).click();
-  await inbox.getByText('No requests or unreviewed problems available to you.', { exact: true }).waitFor();
-  await inbox.getByRole('tab', { name: 'Recent work', exact: true }).click();
-  await inbox.getByRole('button', { name: 'Open work', exact: true }).click();
+  await inbox.getByText('Nothing needs you right now', { exact: true }).waitFor();
+  // History shows the finished request, its approved step, and opens its source.
+  await page.getByRole('tab', { name: 'History', exact: true }).click();
+  const history = page.getByRole('region', { name: 'History', exact: true });
+  await history.getByRole('button', { name: new RegExp(prompt) }).click();
+  const details = page.getByRole('dialog', { name: prompt, exact: true });
+  await details.getByText(/Approved by/).first().waitFor();
+  await details.getByRole('link', { name: 'Open conversation', exact: true }).click();
   await page.waitForURL(new RegExp(`conversation=${channel}&message=${job.reply}&thread=${thread}`));
   await page.getByRole('dialog', { name: 'Thread', exact: true }).waitFor();
-  assert.equal(app.sql(`SELECT count(*) FROM relay_attention_receipts WHERE kind='outcome' AND source='${job.reply}'`), '1');
-  app.pass('The existing Home question and exact approval reviews continue the original real Goose task/thread and confirm one authenticated MCP write; Recent work opens its original saved source');
+  app.pass('Needs me question and exact approval reviews continue the original real Goose task/thread and confirm one authenticated MCP write; History shows the approved step and opens its saved source');
 
   app.provider.setUnavailable(true);
   const failed = await app.send('Prepare a failure outcome for explicit review'); await app.done(failed, 'failed'); app.provider.setUnavailable(false);
   const failedState = state(failed.reply), afterFailureCalls = app.provider.requests.length;
-  await page.goto(home); await page.getByRole('button', { name: 'View attention · 1', exact: true }).click(); inbox = inboxFor(page);
-  await inbox.getByRole('button', { name: 'Mark outcome reviewed', exact: true }).click();
-  await inbox.getByText('No requests or unreviewed problems available to you.', { exact: true }).waitFor();
+  await page.goto(activity); inbox = inboxFor(page);
+  await inbox.getByRole('button', { name: 'Mark reviewed', exact: true }).click();
+  await inbox.getByText('Nothing needs you right now', { exact: true }).waitFor();
   assert.equal(app.provider.requests.length, afterFailureCalls); assert.equal(state(failed.reply).state, failedState.state);
-  await inbox.getByRole('tab', { name: 'Recent work', exact: true }).click(); await inbox.getByText(/Reviewed/).waitFor();
+  await page.getByRole('tab', { name: 'History', exact: true }).click();
+  await page.getByRole('region', { name: 'History', exact: true }).locator('.activity-row').filter({ hasText: 'Could not complete' }).first().waitFor();
   await page.setViewportSize({ width: 390, height: 844 }); await page.emulateMedia({ colorScheme: 'dark' });
   await page.screenshot({ path: join(app.data, 'attention-recent-mobile-dark.png') });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -113,7 +122,7 @@ test('Home attention retains personal reads, resumes exact threaded work, review
   const privatePrompt = 'Ask the current requester for one missing private fact';
   app.provider.setControl(privatePrompt, { steps: [{ tool: 'ask_question', arguments: { key: 'private-fact', specification: { ...specification, title: 'PRIVATE_MEMBER_QUESTION' } } }], checkpoint: 'I saved a private requester question.' });
   const privateJob = await app.send(privatePrompt, channel, member); await until(() => state(privateJob.reply).state === 'waiting', 'Member question did not wait', 35000);
-  await observer.reload(); await observer.getByRole('button', { name: 'View attention · 1', exact: true }).click();
+  await observer.reload();
   await inboxFor(observer).getByText('PRIVATE_MEMBER_QUESTION', { exact: true }).waitFor();
   assert.equal((await app.request(`${app.path}/attention`, app.cookie)).value.items.some(item => item.reply === privateJob.reply), false);
   await app.request(`${app.path}/chats/${channel}/members`, app.cookie, { users: [owner.id] });

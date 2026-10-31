@@ -6,7 +6,7 @@
 > header with **Open in Chat** and a ⋯ menu (Pause or Resume, Name and picture,
 > Transfer owner) for its owner and admins, and six tabs: **Overview** (about,
 > your open requests, key facts with Change links), **Activity** (request
-> history), **Instructions** (edited in place, with the locked Cuckoo rules,
+> history; since M4 it is [Activity](activity.md) History filtered to the agent), **Instructions** (edited in place, with the locked Cuckoo rules,
 > what it knows and channel history), **Tools** (today's rules until M3),
 > **Schedules** and **Environment** (model, and "Coming later" cards). The
 > drawer editor, the Work, Access, Knowledge and Automation tabs, the "Not
