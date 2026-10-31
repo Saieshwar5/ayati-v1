@@ -213,7 +213,7 @@ async fn job_guidance_survives_older_clients_and_enters_normal_prompt_without_gr
         .unwrap();
     assert!(prepared.instructions.contains("A clear sourced draft"));
     assert!(prepared.instructions.contains("Check the supplied facts"));
-    assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());
+    assert!(!db.control_enabled(&w, &agent).await.unwrap());
     db.chat_finish(&job, "Normal draft saved", "complete")
         .await
         .unwrap();

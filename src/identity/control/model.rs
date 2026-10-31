@@ -151,20 +151,19 @@ fn schema(value: &Value) -> Result<()> {
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+/// An agent's own rule for one action; it can only be stricter than the admin's.
 pub(crate) struct Rule {
-    #[serde(default)]
-    pub approver: Option<String>,
-    #[serde(default)]
-    pub approver_revision: Option<i64>,
-    #[serde(default)]
-    pub approval_chat: Option<String>,
     pub connection: String,
     pub operation: String,
     pub mode: String,
     pub revision: i64,
-    pub chat: String,
-    #[serde(default)]
-    pub delegation_revision: Option<i64>,
+}
+/// Switches a connector on or off for one agent.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AgentConnection {
+    pub connection: String,
+    pub enabled: bool,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

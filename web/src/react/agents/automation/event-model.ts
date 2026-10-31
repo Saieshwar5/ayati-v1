@@ -9,6 +9,8 @@ export type EventChoice = {
   account?: string;
   account_name?: string;
   authority: Authority;
+  /** Conversations the work may be posted in; rules no longer pick one (schema 47). */
+  conversations?: { id: string; name: string; visibility: string }[];
 };
 export type EventInput = Authority & {
   id: string;

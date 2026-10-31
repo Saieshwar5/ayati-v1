@@ -166,7 +166,11 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
         .agent_avatar_save(&member, &w, &a.id, "image/png", vec![1, 2, 3])
         .await
         .unwrap();
-    assert!(db.agent_avatar(&stranger, &w, &a.id, &avatar).await.is_err());
+    assert!(
+        db.agent_avatar(&stranger, &w, &a.id, &avatar)
+            .await
+            .is_err()
+    );
     assert!(db.agent_avatar(&owner, &w, &a.id, &avatar).await.is_ok());
     assert_eq!(
         db.agent_avatar(&member, &w, &a.id, &avatar)

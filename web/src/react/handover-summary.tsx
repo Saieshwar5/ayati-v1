@@ -6,7 +6,7 @@ import { useResource } from './requests';
 // What the server reports a person is responsible for (member_handover.rs).
 type Responsibilities = {
   agents: { id: string; name: string }[]; private_agents: number; library_items: number; kept_library_items: number;
-  schedules: number; event_triggers: number; approvals: number; tool_rules: number; invitations: number;
+  schedules: number; event_triggers: number; invitations: number;
 };
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const lines = (...parts: (string | false)[]): string[] => parts.filter((part): part is string => Boolean(part));
@@ -38,8 +38,6 @@ export function HandoverSummary({ summary, name, heirName, self = false }: {
       data.event_triggers > 0 && count(data.event_triggers, 'event trigger', 'event triggers'))),
       note: `They worked for ${self ? 'you' : name}, so ${heirName} reviews them before they run again.` },
     { title: 'Cancelled', tone: 'cancelled', rows: lines(
-      data.approvals > 0 && `${count(data.approvals, 'approval', 'approvals')} waiting for ${who}; the agent will ask again`,
-      data.tool_rules > 0 && `${count(data.tool_rules, 'tool rule', 'tool rules')} ${self ? 'you set up or approve' : `${name} set up or approves`}, now set to Block`,
       data.invitations > 0 && `${count(data.invitations, 'invitation', 'invitations')} ${who} sent`) },
   ].filter(group => group.rows.length) : [];
   return <>

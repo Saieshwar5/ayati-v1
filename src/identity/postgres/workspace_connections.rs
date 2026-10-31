@@ -17,11 +17,29 @@ pub(super) async fn approved(db: &impl ConnectionTrait, w: &str, server: &str) -
     Ok(())
 }
 
+/// A re-reviewed, reconnected or disconnected account starts over: its actions may
+/// mean something new, so every rule for it and every agent's switch is removed.
+/// Old permissions never authorize changed credentials or operation meanings.
 pub(super) async fn reset_connection(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
-    execute(db,"UPDATE relay_control_rules SET mode='block',revision=revision+1 WHERE workspace=$1 AND connection=$2",vec![w.into(),id.into()]).await?;
-    execute(db,"UPDATE relay_control_delegations SET ceiling='block',revision=revision+1 WHERE workspace=$1 AND connection=$2",vec![w.into(),id.into()]).await?;
-    execute(db,"UPDATE relay_control_approvers SET enabled=false,revision=revision+1 WHERE workspace=$1 AND connection=$2",vec![w.into(),id.into()]).await?;
-    super::control_rules::invalidate(db, w, id, None).await
+    execute(
+        db,
+        "DELETE FROM relay_agent_connections WHERE workspace=$1 AND connection=$2",
+        vec![w.into(), id.into()],
+    )
+    .await?;
+    execute(
+        db,
+        "DELETE FROM relay_control_rules WHERE workspace=$1 AND connection=$2",
+        vec![w.into(), id.into()],
+    )
+    .await?;
+    execute(
+        db,
+        "DELETE FROM relay_connector_rules WHERE workspace=$1 AND connection=$2",
+        vec![w.into(), id.into()],
+    )
+    .await?;
+    super::control_rules::invalidate(db, w, id, None, None).await
 }
 
 impl PgStore {
@@ -31,11 +49,10 @@ impl PgStore {
         let systems=json_rows(&tx,"SELECT to_jsonb(s) AS data FROM relay_control_systems s WHERE workspace=$1 ORDER BY server",vec![w.into()]).await?;
         let connections=json_rows(&tx,"SELECT jsonb_build_object('id',id,'server',server,'definition',definition,'enabled',enabled,'revision',revision) AS data FROM relay_control_connections WHERE workspace=$1 ORDER BY server",vec![w.into()]).await?;
         let people=json_rows(&tx,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email),'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![w.into()]).await?;
-        let delegations=json_rows(&tx,"SELECT to_jsonb(d)||jsonb_build_object('approver_name',COALESCE(u.display_name,u.email)) AS data FROM relay_control_delegations d JOIN relay_users u ON u.id=d.approver WHERE d.workspace=$1 ORDER BY d.connection,d.user_id,d.operation",vec![w.into()]).await?;
-        let approvers=json_rows(&tx,"SELECT to_jsonb(g) AS data FROM relay_control_approvers g WHERE workspace=$1 ORDER BY connection,operation,user_id",vec![w.into()]).await?;
+        let safety = json_rows(&tx, include_str!("workspace_safety.sql"), vec![w.into()]).await?;
         tx.commit().await?;
         Ok(
-            json!({"approvers":approvers,"systems":systems,"connections":connections,"people":people,"delegations":delegations,"viewer":user.id}),
+            json!({"systems":systems,"connections":connections,"safety":safety,"people":people,"viewer":user.id}),
         )
     }
 

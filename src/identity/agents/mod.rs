@@ -152,7 +152,9 @@ async fn transfer(
     Json(input): Json<crate::identity::postgres::TransferAgent>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.agent_transfer(&user, &w, &id, &input).await?))
+    Ok(Json(
+        app.store.agent_transfer(&user, &w, &id, &input).await?,
+    ))
 }
 async fn knowledge(
     State(app): State<Shared>,

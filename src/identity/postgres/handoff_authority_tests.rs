@@ -1,20 +1,22 @@
 use super::{handoff_tests::*, tests::*, *};
 use crate::identity::{
     chat::model::Job,
-    control::{
-        connections_model::SystemApproval,
-        model::{ActionRequest, Rule},
-    },
+    control::{connections_model::SystemApproval, model::ActionRequest},
 };
 use serde_json::json;
 async fn pause(s: &Setup, agent: &str, paused: bool) {
-    let current = s.db.managed_agent(&s.owner, &s.w, agent, true).await.unwrap();
+    let current =
+        s.db.managed_agent(&s.owner, &s.w, agent, true)
+            .await
+            .unwrap();
     let mut profile: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
         "id":agent,"name":current["name"],"role":current["role"],"model":current["model"],
         "audience":current["audience"],"revision":current["revision"],"settings":current["settings"]}))
     .unwrap();
     profile.settings.paused = paused;
-    s.db.save_agent_profile(&s.owner, &s.w, &profile).await.unwrap();
+    s.db.save_agent_profile(&s.owner, &s.w, &profile)
+        .await
+        .unwrap();
 }
 pub(super) async fn account(s: &Setup) -> String {
     let id = uuid::Uuid::new_v4().to_string();
@@ -32,25 +34,9 @@ pub(super) async fn account(s: &Setup) -> String {
     s.db.control_connect(&s.owner,&s.w,&s.a,&id,json!({"id":"handoff-orders","name":"Orders","operations":[{"id":"order.read","title":"Read order","tool":"read_order","effect":"read","schema":{"type":"object","properties":{"order":{"type":"string"}},"required":["order"],"additionalProperties":false}},{"id":"order.update","title":"Update order","tool":"update_order","effect":"write","schema":{"type":"object","properties":{"order":{"type":"string"},"address":{"type":"string"}},"required":["order","address"],"additionalProperties":false}}]}),&"a".repeat(43)).await.unwrap();
     id
 }
-pub(super) async fn rule(s: &Setup, agent: &str, conn: &str, op: &str, mode: &str, revision: i64) {
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        agent,
-        &Rule {
-            connection: conn.into(),
-            operation: op.into(),
-            mode: mode.into(),
-            revision,
-            chat: s.c.clone(),
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
-        },
-    )
-    .await
-    .unwrap();
+/// This agent's own mode for the action (schema 47: rules belong to agents).
+pub(super) async fn rule(s: &Setup, agent: &str, conn: &str, op: &str, mode: &str, _revision: i64) {
+    super::tool_test_support::agent_rule(&s.db, &s.owner, &s.w, agent, conn, op, mode).await;
 }
 pub(super) fn write(conn: &str) -> ActionRequest {
     ActionRequest {
@@ -310,8 +296,7 @@ async fn handoff_archive_blocks_new_delegation_but_preserves_already_accepted_he
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn handoff_requester_requires_each_agent_and_pause_resume_does_not_restore_the_old_child()
- {
+async fn handoff_requester_requires_each_agent_and_pause_resume_does_not_restore_the_old_child() {
     let s = setup().await;
     let member = user(&s.db, "handoff-requester").await;
     join(&s.db, &s.owner, &s.w, &member, "Member").await;

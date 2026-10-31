@@ -87,12 +87,13 @@ test(
       revision: 0,
     });
     for (const agent of [app.profile.id, helper.id])
+      await app.request(`${app.path}/agent-profiles/${agent}/control/tools`, app.cookie, { connection, enabled: true });
+    for (const agent of [app.profile.id, helper.id])
       await app.request(`${app.path}/agent-profiles/${agent}/control/rules`, app.cookie, {
         connection,
         operation: 'order.read',
         mode: 'allow',
-        revision: 0,
-        chat: channel,
+        revision: 0
       });
     const source = {
       id: randomUUID(),
@@ -220,8 +221,7 @@ test(
       connection,
       operation: 'order.read',
       mode: 'block',
-      revision: 1,
-      chat: channel,
+      revision: 1
     });
     await until(
       async () => !(await page.content()).includes('PRIVATE_HELPER_SOURCE_RESULT'),
@@ -247,8 +247,7 @@ test(
       connection,
       operation: 'order.read',
       mode: 'allow',
-      revision: 2,
-      chat: channel,
+      revision: 2
     });
     await app.request(responsePath(parent.reply), app.cookie, undefined, 400);
     await app.stop(executor);

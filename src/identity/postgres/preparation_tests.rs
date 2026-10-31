@@ -101,8 +101,8 @@ async fn exact_start_replay_atomically_refreshes_lease_but_denied_replay_does_no
             role: "Bounded".into(),
             model: "fixture".into(),
             audience: "selected".into(),
-        people: None,
-        managers: None,
+            people: None,
+            managers: None,
             revision: 1,
             settings: Settings {
                 paused: true,
@@ -169,8 +169,8 @@ async fn v14_upgrade_demotes_unprepared_slots_and_preserves_an_owned_run() {
             role: "Bounded".into(),
             model: "fixture".into(),
             audience: "selected".into(),
-        people: None,
-        managers: None,
+            people: None,
+            managers: None,
             revision: 0,
             settings: Settings {
                 provider: "openai".into(),

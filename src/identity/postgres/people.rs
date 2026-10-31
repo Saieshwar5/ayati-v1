@@ -137,10 +137,9 @@ impl PgStore {
         };
         let actor_name = super::member_handover::name(&tx, &user.id).await?;
         let target_name = super::member_handover::name(&tx, target).await?;
-        // Revoke documents issued under the old role as well as on removal.
-        if assigned != Some(target_role.as_str()) {
-            super::connection_authority::membership_changed(&tx, workspace, target).await?;
-        }
+        // Pending approvals need no change: whoever may decide is checked when
+        // they decide (approval_authority::may_decide), so a removed manager's
+        // requests stay with the agent's other managers.
         execute(
             &tx,
             "DELETE FROM relay_member_app_sessions WHERE workspace=$1 AND user_id=$2",

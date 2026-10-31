@@ -6,7 +6,6 @@ use super::{
 };
 use crate::identity::{
     attention::Page,
-    control::{approval_model::ApproverGrant, model::Rule},
     library::model::{AskItem, SavePage, ShareItem},
 };
 use serde_json::json;
@@ -28,38 +27,18 @@ async fn attention_designated_approver_needs_source_but_not_agent_request_author
     )
     .await
     .unwrap();
-    db.control_approver_grant(
-        &owner,
-        &w,
-        &ApproverGrant {
-            user: approver.id.clone(),
-            connection: connection.clone(),
-            operation: "order.update".into(),
-            enabled: true,
-            revision: 0,
-            connection_revision: 1,
-        },
-    )
-    .await
+    // The approver manages the agent, so "Ask first" reaches them (D231).
+    let mut profile = db
+        .managed_agent(&owner, &w, &job.agent, true)
+        .await
+        .unwrap();
+    profile["managers"] = json!([approver.id.clone()]);
+    let input: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
+        "id":job.agent,"name":profile["name"],"role":profile["role"],"model":profile["model"],
+        "audience":profile["audience"],"revision":profile["revision"],"settings":profile["settings"],
+        "managers":[approver.id.clone()]}))
     .unwrap();
-    db.control_rule(
-        &owner,
-        &w,
-        &job.agent,
-        &Rule {
-            approver: Some(approver.id.clone()),
-            approver_revision: Some(1),
-            approval_chat: None,
-            delegation_revision: None,
-            connection: connection.clone(),
-            operation: "order.update".into(),
-            mode: "ask".into(),
-            revision: 1,
-            chat: job.chat.clone(),
-        },
-    )
-    .await
-    .unwrap();
+    db.save_agent_profile(&owner, &w, &input).await.unwrap();
     db.chat_send(
         &owner,
         &w,

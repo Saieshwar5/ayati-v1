@@ -8,7 +8,7 @@ pub(crate) struct SystemApproval {
     pub revision: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct WorkspaceConnection {
     pub id: String,
@@ -17,13 +17,14 @@ pub(crate) struct WorkspaceConnection {
     pub revision: i64,
 }
 
+/// The admin's rule for one connector action (Settings → Connections).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Delegation {
-    pub user: String,
+pub(crate) struct ConnectorRule {
     pub connection: String,
     pub operation: String,
-    pub ceiling: String,
+    pub mode: String,
+    #[serde(default)]
+    pub needs_other: bool,
     pub revision: i64,
-    pub connection_revision: i64,
 }

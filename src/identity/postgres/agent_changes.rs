@@ -43,10 +43,18 @@ pub(super) fn summary(
     let s = &old["settings"];
     let mut parts = Vec::new();
     if old["name"] != name {
-        parts.push(format!("name ({} → {})", quoted(old["name"].as_str().unwrap_or_default()), quoted(name)));
+        parts.push(format!(
+            "name ({} → {})",
+            quoted(old["name"].as_str().unwrap_or_default()),
+            quoted(name)
+        ));
     }
     if old["role"] != after.role.trim() {
-        parts.push(format!("job title ({} → {})", quoted(old["role"].as_str().unwrap_or_default()), quoted(&after.role)));
+        parts.push(format!(
+            "job title ({} → {})",
+            quoted(old["role"].as_str().unwrap_or_default()),
+            quoted(&after.role)
+        ));
     }
     if s["instructions"] != after.settings.instructions.as_str()
         || s["escalation"] != after.settings.escalation.as_str()
@@ -54,7 +62,11 @@ pub(super) fn summary(
         parts.push("instructions".into());
     }
     if old["audience"] != after.audience {
-        parts.push(format!("who can talk ({} → {})", audience(old["audience"].as_str().unwrap_or_default()), audience(&after.audience)));
+        parts.push(format!(
+            "who can talk ({} → {})",
+            audience(old["audience"].as_str().unwrap_or_default()),
+            audience(&after.audience)
+        ));
     }
     if lists.people {
         parts.push("selected people".into());
@@ -63,13 +75,20 @@ pub(super) fn summary(
         parts.push("managers".into());
     }
     if old["model"] != after.model {
-        parts.push(format!("model ({} → {})", old["model"].as_str().unwrap_or_default(), after.model));
+        parts.push(format!(
+            "model ({} → {})",
+            old["model"].as_str().unwrap_or_default(),
+            after.model
+        ));
     }
     if s["avatar"] != after.settings.avatar.as_str() {
         parts.push("picture".into());
     }
     if s["memory"] != after.settings.memory {
-        parts.push(format!("knowledge {}", if after.settings.memory { "on" } else { "off" }));
+        parts.push(format!(
+            "knowledge {}",
+            if after.settings.memory { "on" } else { "off" }
+        ));
     }
     if s["history"] != after.settings.history.as_str() {
         parts.push("channel history".into());
@@ -82,7 +101,15 @@ pub(super) fn summary(
         _ => format!("{actor} changed {name}"),
     };
     if !parts.is_empty() {
-        sentence.push_str(&format!("{}{}", if paused == after.settings.paused { ": " } else { " and changed " }, parts.join("; ")));
+        sentence.push_str(&format!(
+            "{}{}",
+            if paused == after.settings.paused {
+                ": "
+            } else {
+                " and changed "
+            },
+            parts.join("; ")
+        ));
     }
     sentence.chars().take(1000).collect()
 }
@@ -127,20 +154,38 @@ mod tests {
     fn sentences_name_what_changed_without_copying_instructions() {
         let old = json!({"name":"Atlas","role":"Orders","model":"m1","audience":"selected","settings":serde_json::to_value(Settings::default()).unwrap()});
         let none = ListChanges::default();
-        assert_eq!(summary("Arjun", None, &saved(), &none), "Arjun created Atlas");
-        assert_eq!(summary("Arjun", Some(&old), &saved(), &none), "Arjun saved Atlas without changes");
+        assert_eq!(
+            summary("Arjun", None, &saved(), &none),
+            "Arjun created Atlas"
+        );
+        assert_eq!(
+            summary("Arjun", Some(&old), &saved(), &none),
+            "Arjun saved Atlas without changes"
+        );
         let mut next = saved();
         next.audience = "everyone".into();
         next.settings.instructions = "SECRET PRICE LIST".into();
         next.role = "Order desk".into();
-        let lists = ListChanges { managers: true, ..Default::default() };
+        let lists = ListChanges {
+            managers: true,
+            ..Default::default()
+        };
         let text = summary("Arjun", Some(&old), &next, &lists);
-        assert_eq!(text, "Arjun changed Atlas: job title (“Orders” → “Order desk”); instructions; who can talk (Selected people → Everyone); managers");
+        assert_eq!(
+            text,
+            "Arjun changed Atlas: job title (“Orders” → “Order desk”); instructions; who can talk (Selected people → Everyone); managers"
+        );
         assert!(!text.contains("SECRET"));
         let mut paused = saved();
         paused.settings.paused = true;
-        assert_eq!(summary("Arjun", Some(&old), &paused, &none), "Arjun paused Atlas");
+        assert_eq!(
+            summary("Arjun", Some(&old), &paused, &none),
+            "Arjun paused Atlas"
+        );
         paused.model = "m2".into();
-        assert_eq!(summary("Arjun", Some(&old), &paused, &none), "Arjun paused Atlas and changed model (m1 → m2)");
+        assert_eq!(
+            summary("Arjun", Some(&old), &paused, &none),
+            "Arjun paused Atlas and changed model (m1 → m2)"
+        );
     }
 }

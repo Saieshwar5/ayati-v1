@@ -1,10 +1,8 @@
 use super::{event_tests::*, tests::*, *};
-use crate::identity::control::connections_model::Delegation;
 use serde_json::json;
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn event_standing_read_requires_a_current_allow_delegation_and_original_person_alone_resumes()
-{
+async fn event_standing_read_requires_an_allowed_read_and_original_person_alone_resumes() {
     let mut s = setup().await;
     let member = user(&s.db, "event-delegated-author").await;
     join(&s.db, &s.owner, &s.w, &member, "Member").await;
@@ -27,22 +25,21 @@ async fn event_standing_read_requires_a_current_allow_delegation_and_original_pe
     )
     .await
     .unwrap();
+    // The admin's workspace rule bounds every agent's standing reads.
+    let rule = |mode: &'static str| {
+        let (db, owner, w, conn) = (&s.db, &s.owner, s.w.clone(), s.source.connection.clone());
+        async move {
+            super::tool_test_support::workspace_rule(db, owner, &w, &conn, "order.read", mode).await
+        }
+    };
+    rule("block").await;
     assert!(
         s.db.save_event_trigger(&member, &s.w, &s.a, &s.input, Some(&s.source))
             .await
             .is_err()
     );
-    let grant = |ceiling: &str, revision| Delegation {
-        user: member.id.clone(),
-        connection: s.source.connection.clone(),
-        operation: s.source.read_operation.clone(),
-        ceiling: ceiling.into(),
-        revision,
-        connection_revision: 1,
-    };
-    s.db.control_delegate(&s.owner, &s.w, &grant("ask", 0))
-        .await
-        .unwrap();
+    // Ask first is not enough for a standing read.
+    rule("ask").await;
     assert!(
         s.db.event_triggers(&member, &s.w, &s.a, std::slice::from_ref(&s.source))
             .await
@@ -51,10 +48,13 @@ async fn event_standing_read_requires_a_current_allow_delegation_and_original_pe
             .unwrap()
             .is_empty()
     );
-    s.db.control_delegate(&s.owner, &s.w, &grant("allow", 1))
-        .await
-        .unwrap();
-    s.input.delegation_revision = Some(2);
+    rule("allow").await;
+    let choices =
+        s.db.event_triggers(&member, &s.w, &s.a, std::slice::from_ref(&s.source))
+            .await
+            .unwrap()["choices"]
+            .clone();
+    s.input.read_revision = choices[0]["authority"]["read_revision"].as_i64().unwrap();
     s.db.save_event_trigger(&member, &s.w, &s.a, &s.input, Some(&s.source))
         .await
         .unwrap();
@@ -70,8 +70,7 @@ async fn event_standing_read_requires_a_current_allow_delegation_and_original_pe
         .await
         .unwrap();
     assert_eq!(paused["state"], "paused");
-    let mut resume = s.change(2, true);
-    resume.delegation_revision = Some(2);
+    let resume = s.change(2, true);
     assert!(
         s.db.change_event_trigger(
             &s.owner,
@@ -98,13 +97,9 @@ async fn event_standing_read_requires_a_current_allow_delegation_and_original_pe
     s.db.dispatch_events().await.unwrap();
     let job = s.job().await;
     assert_eq!(job.requester, member.id);
-    s.db.control_delegate(&s.owner, &s.w, &grant("block", 2))
-        .await
-        .unwrap();
+    rule("block").await;
     assert!(s.db.event_job_context(&job).await.is_err());
-    s.db.control_delegate(&s.owner, &s.w, &grant("allow", 3))
-        .await
-        .unwrap();
+    rule("allow").await;
     assert!(s.db.event_job_context(&job).await.is_err());
 }
 #[tokio::test]

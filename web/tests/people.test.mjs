@@ -7,7 +7,7 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 const workspace = '11111111-1111-4111-8111-111111111111';
 const member = { id: 'employee', email: 'employee@example.com', role: 'Member' };
 const owner = { id: 'owner', email: 'owner@example.com', role: 'Admin' };
-const nothing = { agents: [], private_agents: 0, library_items: 0, kept_library_items: 0, schedules: 0, event_triggers: 0, approvals: 0, tool_rules: 0, invitations: 0 };
+const nothing = { agents: [], private_agents: 0, library_items: 0, kept_library_items: 0, schedules: 0, event_triggers: 0,  invitations: 0 };
 
 // The signed-in person is `owner`. `extra` adds people to the workspace.
 async function fixture(viewerRole, run, respond, extra = []) {

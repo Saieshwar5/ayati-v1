@@ -38,10 +38,14 @@ async fn schema_46_joins_old_guidance_into_instructions_and_keeps_short_titles()
     let row = |id: &'static str| {
         let db = &db;
         async move {
-            query(&db.db, "SELECT role,revision,settings FROM relay_shared_agents WHERE id=$1", vec![id.into()])
-                .await
-                .unwrap()
-                .unwrap()
+            query(
+                &db.db,
+                "SELECT role,revision,settings FROM relay_shared_agents WHERE id=$1",
+                vec![id.into()],
+            )
+            .await
+            .unwrap()
+            .unwrap()
         }
     };
     let short = row("short").await;
@@ -58,7 +62,10 @@ async fn schema_46_joins_old_guidance_into_instructions_and_keeps_short_titles()
     let long_row = row("long").await;
     assert_eq!(long_row.try_get::<String>("", "role").unwrap(), "");
     let settings: Value = long_row.try_get("", "settings").unwrap();
-    assert_eq!(settings["instructions"], format!("## Responsibility\n{long}"));
+    assert_eq!(
+        settings["instructions"],
+        format!("## Responsibility\n{long}")
+    );
     // The agent still reads everything it was told.
     let saved: Settings = serde_json::from_value(settings).unwrap();
     assert!(instructions("Nova", "", Some(&saved)).contains(long));

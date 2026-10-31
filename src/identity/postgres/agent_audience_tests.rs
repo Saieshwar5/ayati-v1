@@ -60,8 +60,18 @@ async fn who_can_talk_is_enforced_directly_and_channel_members_may_ask_there() {
     a.people = Some(vec![chosen.id.clone()]);
     db.save_agent_profile(&maker, &w, &a).await.unwrap();
     assert_eq!(managers(&db, &w, &a.id).await, vec![maker.id.clone()]);
-    for (person, allowed) in [(&maker, true), (&chosen, true), (&admin, true), (&other, false)] {
-        assert_eq!(db.agent_access(&person.id, &w, &a.id).await.unwrap(), allowed, "{}", person.id);
+    for (person, allowed) in [
+        (&maker, true),
+        (&chosen, true),
+        (&admin, true),
+        (&other, false),
+    ] {
+        assert_eq!(
+            db.agent_access(&person.id, &w, &a.id).await.unwrap(),
+            allowed,
+            "{}",
+            person.id
+        );
     }
     assert!(db.chat_create(&other, &w, &direct(&a.id)).await.is_err());
     assert!(db.agent_profiles(&other, &w).await.unwrap().is_empty());
@@ -72,7 +82,12 @@ async fn who_can_talk_is_enforced_directly_and_channel_members_may_ask_there() {
     // In a group the agent belongs to, everyone in it may ask.
     let group = chat(&db, &maker, &w, vec![other.id.clone()], vec![a.id.clone()]).await;
     let job = db
-        .chat_send(&other, &w, &group, &message("Where is order 12?", Some(&a.id)))
+        .chat_send(
+            &other,
+            &w,
+            &group,
+            &message("Where is order 12?", Some(&a.id)),
+        )
         .await
         .unwrap();
     assert!(job.is_some());
@@ -122,14 +137,31 @@ async fn owners_hand_agents_over_and_the_new_owner_manages_them() {
         revision,
     };
 
-    assert!(db.agent_transfer(&heir, &w, &a.id, &to(&heir, 1)).await.is_err());
-    assert!(db.agent_transfer(&maker, &w, &a.id, &to(&heir, 0)).await.is_err());
+    assert!(
+        db.agent_transfer(&heir, &w, &a.id, &to(&heir, 1))
+            .await
+            .is_err()
+    );
+    assert!(
+        db.agent_transfer(&maker, &w, &a.id, &to(&heir, 0))
+            .await
+            .is_err()
+    );
     let outsider = user(&db, "transfer-outsider").await;
-    assert!(db.agent_transfer(&maker, &w, &a.id, &to(&outsider, 1)).await.is_err());
-    let moved = db.agent_transfer(&maker, &w, &a.id, &to(&heir, 1)).await.unwrap();
+    assert!(
+        db.agent_transfer(&maker, &w, &a.id, &to(&outsider, 1))
+            .await
+            .is_err()
+    );
+    let moved = db
+        .agent_transfer(&maker, &w, &a.id, &to(&heir, 1))
+        .await
+        .unwrap();
     assert_eq!(moved["revision"], 2);
     // An exact retry succeeds without a second change.
-    db.agent_transfer(&maker, &w, &a.id, &to(&heir, 1)).await.unwrap();
+    db.agent_transfer(&maker, &w, &a.id, &to(&heir, 1))
+        .await
+        .unwrap();
 
     assert_eq!(managers(&db, &w, &a.id).await, vec![heir.id.clone()]);
     assert!(db.agent_access(&heir.id, &w, &a.id).await.unwrap());
@@ -166,10 +198,15 @@ async fn removal_moves_only_me_agents_paused_and_keeps_every_agent_managed() {
     theirs.managers = Some(vec![leaving.id.clone()]);
     db.save_agent_profile(&admin, &w, &theirs).await.unwrap();
 
-    let before = db.member_responsibilities(&admin, &w, &leaving.id).await.unwrap();
+    let before = db
+        .member_responsibilities(&admin, &w, &leaving.id)
+        .await
+        .unwrap();
     assert_eq!(before["agents"].as_array().unwrap().len(), 1);
     assert_eq!(before["private_agents"], 1);
-    db.change(&admin, &w, &leaving.id, None, None).await.unwrap();
+    db.change(&admin, &w, &leaving.id, None, None)
+        .await
+        .unwrap();
 
     let moved = db.managed_agent(&admin, &w, &mine.id, false).await.unwrap();
     assert_eq!(moved["owner_id"], admin.id);
@@ -228,12 +265,16 @@ async fn schema_45_keeps_who_could_talk_and_makes_owners_managers() {
     let audience = |id: &'static str| {
         let db = &db;
         async move {
-            query(&db.db, "SELECT audience FROM relay_shared_agents WHERE id=$1", vec![id.into()])
-                .await
-                .unwrap()
-                .unwrap()
-                .try_get::<String>("", "audience")
-                .unwrap()
+            query(
+                &db.db,
+                "SELECT audience FROM relay_shared_agents WHERE id=$1",
+                vec![id.into()],
+            )
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<String>("", "audience")
+            .unwrap()
         }
     };
     assert_eq!(audience("shared").await, "selected");
