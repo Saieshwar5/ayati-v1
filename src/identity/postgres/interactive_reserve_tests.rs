@@ -303,8 +303,8 @@ async fn editing_an_agent_cannot_free_its_running_models_reserved_quota() {
             role: "Bounded".into(),
             model: "different-model".into(),
             audience: "selected".into(),
-        people: None,
-        managers: None,
+            people: None,
+            managers: None,
             revision: 1,
             settings: Settings {
                 provider: "openai".into(),

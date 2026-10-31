@@ -2,7 +2,7 @@ use super::*;
 use crate::identity::chat::model::Job;
 use serde_json::json;
 pub(super) async fn snapshot(db: &impl ConnectionTrait, job: &Job) -> Result<Value> {
-    let rules=json_rows(db,"SELECT to_jsonb(r)||jsonb_build_object('connection_revision',c.revision) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 ORDER BY r.connection,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into()]).await?;
+    let rules=json_rows(db,"SELECT to_jsonb(r)||jsonb_build_object('connection_revision',c.revision) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 ORDER BY r.connection,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into()]).await?;
     let data = json!(rules);
     ensure!(
         serde_json::to_vec(&data)?.len() <= 60000,
@@ -20,7 +20,7 @@ pub(super) async fn allowed(
     if records.is_empty() {
         return Ok(true);
     }
-    let receiver=query(db,"SELECT to_jsonb(r) AS data FROM relay_control_effective_rules r WHERE workspace=$1 AND agent=$2 AND chat=$3 AND connection=$4 AND operation=$5",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),connection.into(),operation.into()]).await?;
+    let receiver=query(db,"SELECT to_jsonb(r) AS data FROM relay_control_effective_rules r WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![job.workspace.clone().into(),job.agent.clone().into(),connection.into(),operation.into()]).await?;
     let Some(receiver) = receiver else {
         return Ok(false);
     };
@@ -36,7 +36,7 @@ pub(super) async fn allowed(
         }) else {
             return Ok(false);
         };
-        let current=query(db,"SELECT to_jsonb(r)||jsonb_build_object('connection_revision',c.revision) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 AND r.connection=$4 AND r.operation=$5",vec![job.workspace.clone().into(),h["sender"].as_str().unwrap().into(),job.chat.clone().into(),connection.into(),operation.into()]).await?;
+        let current=query(db,"SELECT to_jsonb(r)||jsonb_build_object('connection_revision',c.revision) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4",vec![job.workspace.clone().into(),h["sender"].as_str().unwrap().into(),connection.into(),operation.into()]).await?;
         let Some(current) = current else {
             return Ok(false);
         };
@@ -50,10 +50,8 @@ pub(super) async fn allowed(
             let access = super::approval_authority::require(
                 db,
                 &job.workspace,
-                connection,
-                operation,
+                h["sender"].as_str().unwrap(),
                 saved["approver"].as_str().unwrap(),
-                saved["approver_revision"].as_i64(),
             )
             .await;
             if access.as_ref().is_err_and(|e| e.is::<sea_orm::DbErr>()) {

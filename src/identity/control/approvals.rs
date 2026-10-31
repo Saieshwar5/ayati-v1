@@ -1,10 +1,6 @@
 use super::*;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
-        .route(
-            "/api/identity/workspaces/{w}/control/approvers",
-            post(grant),
-        )
         .route("/api/identity/workspaces/{w}/control/approvals", get(inbox))
         .route(
             "/api/identity/workspaces/{w}/control/actions/{id}",
@@ -14,16 +10,6 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/control/actions/{id}/decision",
             post(decision),
         )
-}
-async fn grant(
-    State(app): State<Shared>,
-    RoutePath(w): RoutePath<String>,
-    headers: HeaderMap,
-    Json(input): Json<approval_model::ApproverGrant>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    app.store.control_approver_grant(&user, &w, &input).await?;
-    Ok(Json(json!({"saved":true})))
 }
 async fn inbox(
     State(app): State<Shared>,

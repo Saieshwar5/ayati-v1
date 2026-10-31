@@ -23,7 +23,7 @@ pub(super) async fn versions(
     source: &Source,
 ) -> Result<Value> {
     ensure!(source.workspace == w, "Event source workspace mismatch");
-    let row=query(db,"SELECT c.revision AS connection_revision,r.revision AS read_revision,c.definition FROM relay_control_connections c JOIN relay_control_effective_rules r ON r.workspace=c.workspace AND r.connection=c.id WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND c.fingerprint=$3 AND r.agent=$4 AND r.chat=$5 AND r.operation=$6 AND r.mode='allow'",vec![w.into(),source.connection.clone().into(),source.connection_fingerprint.clone().into(),agent.into(),chat.into(),source.read_operation.clone().into()]).await?.context("This destination needs an existing Allow rule for the reviewed source read operation")?;
+    let row=query(db,"SELECT c.revision AS connection_revision,r.revision AS read_revision,c.definition FROM relay_control_connections c JOIN relay_control_effective_rules r ON r.workspace=c.workspace AND r.connection=c.id WHERE c.workspace=$1 AND c.id=$2 AND c.enabled AND c.fingerprint=$3 AND r.agent=$4 AND r.operation=$5 AND r.mode='allow'",vec![w.into(),source.connection.clone().into(),source.connection_fingerprint.clone().into(),agent.into(),source.read_operation.clone().into()]).await?.context("This destination needs an existing Allow rule for the reviewed source read operation")?;
     let definition: Value = row.try_get("", "definition")?;
     ensure!(
         definition["operations"].as_array().is_some_and(|ops| ops
@@ -32,11 +32,9 @@ pub(super) async fn versions(
         "The source operation must be a reviewed read"
     );
     super::chat::access(db, user, w, chat).await?;
-    let delegation = if role(db, w, &user.id).await? == "Admin" {
-        None
-    } else {
-        Some(query(db,"SELECT d.revision FROM relay_control_delegations d JOIN relay_members m ON m.workspace=d.workspace AND m.user_id=d.approver AND m.role='Admin' WHERE d.workspace=$1 AND d.connection=$2 AND d.operation=$3 AND d.user_id=$4 AND d.ceiling='allow'",vec![w.into(),source.connection.clone().into(),source.read_operation.clone().into(),user.id.clone().into()]).await?.context("An admin must delegate automatic source reading before you can configure event work")?.try_get::<i64>("","revision")?)
-    };
+    // Per-person delegation limits were retired in schema 47; the workspace rule
+    // for the read action now bounds every agent, so there is no delegation.
+    let delegation: Option<i64> = None;
     Ok(
         json!({"connection_revision":row.try_get::<i64>("","connection_revision")?,"read_revision":row.try_get::<i64>("","read_revision")?,"delegation_revision":delegation}),
     )

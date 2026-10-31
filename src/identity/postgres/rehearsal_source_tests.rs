@@ -292,8 +292,7 @@ async fn rehearsal_source_version_change_hides_newer_history_without_hiding_olde
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn rehearsal_only_me_agent_samples_require_the_owner_and_stay_hidden_from_other_members()
- {
+async fn rehearsal_only_me_agent_samples_require_the_owner_and_stay_hidden_from_other_members() {
     let db = fixture().await;
     let owner = user(&db, "private-sample-workspace-owner").await;
     let member = user(&db, "private-sample-person").await;

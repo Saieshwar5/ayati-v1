@@ -32,6 +32,7 @@ pub(super) async fn setup() -> Setup {
     .await
     .unwrap();
     db.control_connect(&owner,&w,&a,&conn,json!({"id":"events","name":"Orders","account":"reviewed@example.test","operations":[{"id":"order.read","title":"Read orders","tool":"get_order","effect":"read","schema":{"type":"object","properties":{},"additionalProperties":false}},{"id":"order.update","title":"Update order","tool":"update_order","effect":"write","schema":{"type":"object","properties":{"order":{"type":"string"},"address":{"type":"string"}},"required":["order","address"],"additionalProperties":false}}]}),&fp).await.unwrap();
+    super::tool_test_support::grant(&db, &owner, &w, &a, &conn, "order.read", "allow").await;
     db.control_rule(&owner, &w, &a, &rule(&conn, &c, "allow", 0))
         .await
         .unwrap();
@@ -79,17 +80,14 @@ pub(super) async fn setup() -> Setup {
         input,
     }
 }
-pub(super) fn rule(conn: &str, c: &str, mode: &str, revision: i64) -> Rule {
+/// The agent's own rule for the read action. Rules no longer name a conversation
+/// (schema 47); `_c` keeps the older call sites readable.
+pub(super) fn rule(conn: &str, _c: &str, mode: &str, revision: i64) -> Rule {
     Rule {
         connection: conn.into(),
         operation: "order.read".into(),
         mode: mode.into(),
         revision,
-        chat: c.into(),
-        approver: None,
-        approver_revision: None,
-        approval_chat: None,
-        delegation_revision: None,
     }
 }
 pub(super) fn payload(id: &str, status: &str) -> Value {

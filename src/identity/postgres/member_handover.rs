@@ -3,8 +3,8 @@
 //! only-me agent moves paused, so the new owner looks at it before it works again.
 //! Private pages and items shared with selected people stay as they are: moving
 //! them would show the new owner something it was never shared with. Existing safety rules still
-//! cancel their pending approvals, switch rules they set up or approve to Block,
-//! and pause their schedules and event triggers; those are reported, not moved.
+//! pause their schedules and event triggers; those are reported, not moved. Pending
+//! approvals stay with the agent's other managers.
 use super::*;
 use serde_json::json;
 
@@ -29,8 +29,6 @@ pub(super) async fn responsibilities(
         "kept_library_items": count("SELECT count(*) AS count FROM relay_library_items WHERE workspace=$1 AND steward=$2 AND visibility<>'workspace' AND NOT trashed").await?,
         "schedules": count("SELECT count(*) AS count FROM relay_agent_schedules WHERE workspace=$1 AND principal=$2 AND state='enabled'").await?,
         "event_triggers": count("SELECT count(*) AS count FROM relay_event_triggers WHERE workspace=$1 AND principal=$2 AND state<>'blocked'").await?,
-        "approvals": count("SELECT count(*) AS count FROM relay_control_actions a WHERE a.workspace=$1 AND a.state='pending' AND (a.approver=$2 OR EXISTS(SELECT 1 FROM relay_control_rules r WHERE r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation AND r.configured_by=$2))").await?,
-        "tool_rules": count("SELECT count(*) AS count FROM relay_control_rules WHERE workspace=$1 AND mode<>'block' AND (configured_by=$2 OR approver=$2)").await?,
         "invitations": count("SELECT count(*) AS count FROM relay_invitations WHERE workspace=$1 AND inviter=$2 AND status='pending'").await?,
     }))
 }
@@ -107,13 +105,6 @@ pub(super) fn removal_summary(
         parts.push(format!("{} paused for review", paused.join(" and ")));
     }
     for (key, one, many, verb) in [
-        (
-            "approvals",
-            "waiting approval",
-            "waiting approvals",
-            "cancelled",
-        ),
-        ("tool_rules", "tool rule", "tool rules", "switched to Block"),
         ("invitations", "invitation", "invitations", "cancelled"),
         (
             "kept_library_items",
@@ -154,12 +145,13 @@ mod tests {
 
     #[test]
     fn summary_names_what_moved_paused_and_stopped() {
-        let before = json!({"agents":[{"id":"a"},{"id":"b"}],"library_items":1,"schedules":2,"event_triggers":0,"approvals":1,"tool_rules":0,"invitations":3,"private_agents":0,"kept_library_items":0});
+        let before = json!({"agents":[{"id":"a"},{"id":"b"}],"library_items":1,"schedules":2,"event_triggers":0,"invitations":3,"private_agents":0,"kept_library_items":0});
         assert_eq!(
             removal_summary(Some("Arjun Mehta"), "Ravi Kumar", "Meera Iyer", &before),
-            "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to Meera Iyer; 2 schedules paused for review; 1 waiting approval cancelled; 3 invitations cancelled"
+            "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to Meera Iyer; 2 schedules paused for review; 3 invitations cancelled"
         );
-        let empty = json!({"agents":[],"library_items":0,"schedules":0,"event_triggers":0,"approvals":0,"tool_rules":0,"invitations":0});
+        let empty =
+            json!({"agents":[],"library_items":0,"schedules":0,"event_triggers":0,"invitations":0});
         assert_eq!(removal_summary(Some("A"), "B", "A", &empty), "A removed B");
         let one = json!({"agents":[{"id":"a"}],"library_items":0});
         assert_eq!(

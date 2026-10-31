@@ -32,6 +32,11 @@ async fn event_setup() -> (Setup, String, Source) {
         secret_file: String::new(),
     })
     .unwrap();
+    let authority =
+        s.db.event_triggers(&s.owner, &s.w, &s.a, std::slice::from_ref(&source))
+            .await
+            .unwrap()["choices"][0]["authority"]
+            .clone();
     let input = Trigger {
         id: uuid::Uuid::new_v4().to_string(),
         source: source.id.clone(),
@@ -39,8 +44,8 @@ async fn event_setup() -> (Setup, String, Source) {
         chat: s.c.clone(),
         name: "Source task".into(),
         instructions: "Review the event and obtain help if needed.".into(),
-        connection_revision: 1,
-        read_revision: 1,
+        connection_revision: authority["connection_revision"].as_i64().unwrap(),
+        read_revision: authority["read_revision"].as_i64().unwrap(),
         delegation_revision: None,
         filter: json!({}),
     };

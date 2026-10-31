@@ -20,6 +20,8 @@ mod agent_receipts;
 #[cfg(test)]
 mod agent_request_tests;
 mod agent_requests;
+#[cfg(test)]
+mod agent_tools_tests;
 mod approval_authority;
 mod approval_delivery;
 #[cfg(test)]
@@ -46,9 +48,9 @@ mod automation_scope_tests;
 #[cfg(test)]
 mod automation_tests;
 mod automations;
+mod channel_approval_migration;
 #[cfg(test)]
 mod channel_archive_recovery_tests;
-mod channel_approval_migration;
 mod channel_lifecycle;
 mod chat;
 mod chat_intake;
@@ -79,11 +81,12 @@ mod communication_outbox;
 mod communication_recovery_tests;
 #[cfg(test)]
 mod communication_tests;
-mod connection_authority;
-#[cfg(test)]
-mod connection_authority_tests;
 #[cfg(test)]
 mod connection_migration_tests;
+mod connector_rules;
+#[cfg(test)]
+mod connector_rules_tests;
+mod connector_safety_migration;
 pub(crate) mod control_actions;
 mod control_rules;
 #[cfg(test)]
@@ -115,6 +118,8 @@ mod message_reply_tests;
 mod pool_metrics;
 #[cfg(test)]
 mod pool_metrics_tests;
+#[cfg(test)]
+mod tool_test_support;
 pub(crate) use pool_metrics::PoolSnapshot;
 #[cfg(test)]
 mod preparation_tests;
@@ -245,13 +250,6 @@ mod request_context_tests;
 mod response_tests;
 mod responses;
 mod settings;
-mod setup_context;
-mod setup_drafts;
-#[cfg(test)]
-mod setup_suggestion_tests;
-mod setup_suggestions;
-#[cfg(test)]
-mod setup_tests;
 mod source_access;
 mod task_continuation;
 #[cfg(test)]

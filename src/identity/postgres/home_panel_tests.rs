@@ -161,15 +161,17 @@ async fn panel_operation_provenance_is_automatic_retained_on_revisions_and_regra
         operation: "order.update".into(),
         mode: "block".into(),
         revision: 1,
-        chat: job.chat.clone(),
-        approver: None,
-        approver_revision: None,
-        approval_chat: None,
-        delegation_revision: None,
     };
-    db.control_rule(&owner, &w, &job.agent, &rule)
-        .await
-        .unwrap();
+    super::tool_test_support::agent_rule(
+        &db,
+        &owner,
+        &w,
+        &job.agent,
+        &rule.connection,
+        &rule.operation,
+        &rule.mode,
+    )
+    .await;
     assert_eq!(
         db.home_panels(&owner, &w).await.unwrap()["panels"][0]["active"]["available"],
         false
@@ -190,9 +192,16 @@ async fn panel_operation_provenance_is_automatic_retained_on_revisions_and_regra
     );
     rule.mode = "allow".into();
     rule.revision = 2;
-    db.control_rule(&owner, &w, &job.agent, &rule)
-        .await
-        .unwrap();
+    super::tool_test_support::agent_rule(
+        &db,
+        &owner,
+        &w,
+        &job.agent,
+        &rule.connection,
+        &rule.operation,
+        &rule.mode,
+    )
+    .await;
     assert_eq!(
         db.home_panels(&owner, &w).await.unwrap()["panels"][0]["active"]["available"],
         false

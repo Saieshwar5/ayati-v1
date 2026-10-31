@@ -108,7 +108,10 @@ async fn candidates(
 ) -> Result<Vec<QueryResult>> {
     rows(
         tx,
-        include_str!("attention.sql"),
+        &include_str!("attention.sql").replace(
+            "a.approver=$2",
+            super::approval_authority::decider_clause(tx).await?,
+        ),
         vec![
             w.into(),
             user.id.clone().into(),
@@ -150,11 +153,19 @@ async fn project(
     let id: String = row.try_get("", "id")?;
     if kind == "approval" {
         let action = super::approval_delivery::action(tx, w, &id).await?;
-        if action["approver"] != user.id
-            || super::approval_delivery::viewer(tx, user, w, &action)
+        // Pending decisions show to whoever may decide them now; later states to
+        // the person who decided, or to the approver named on older records.
+        let shown = if action["state"] == "pending" {
+            super::approval_authority::may_decide(tx, user, w, &action)
                 .await
-                .is_err()
-        {
+                .is_ok()
+        } else {
+            (action["decided_by"] == user.id || action["approver"] == user.id)
+                && super::approval_delivery::viewer(tx, user, w, &action)
+                    .await
+                    .is_ok()
+        };
+        if !shown {
             return Ok(None);
         }
     } else if job.requester != user.id {

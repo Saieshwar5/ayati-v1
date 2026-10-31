@@ -23,7 +23,7 @@ impl PgStore {
     pub(crate) async fn control_operations(&self, job: &Job) -> Result<Value> {
         let tx = self.read_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
-        let operations=json_rows(&tx,"SELECT jsonb_build_object('connection',c.id,'operation',op->>'id','title',op->>'title','effect',op->>'effect','schema',op->'schema','mode',r.mode) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE r.workspace=$1 AND r.agent=$2 AND r.chat=$3 AND c.enabled AND op->>'id'=r.operation AND r.mode<>'block' ORDER BY c.id,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into()]).await?;
+        let operations=json_rows(&tx,"SELECT jsonb_build_object('connection',c.id,'operation',op->>'id','title',op->>'title','effect',op->>'effect','schema',op->'schema','mode',r.mode) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE r.workspace=$1 AND r.agent=$2 AND c.enabled AND op->>'id'=r.operation AND r.mode<>'block' ORDER BY c.id,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into()]).await?;
         let mut visible = vec![];
         for op in operations {
             if super::handoff_controls::allowed(
@@ -122,22 +122,22 @@ impl PgStore {
         if operation.effect == "write" {
             ensure!(query(&tx,"SELECT id FROM relay_control_actions WHERE workspace=$1 AND connection=$2 AND effect='write' AND state IN ('executing','uncertain') LIMIT 1",vec![job.workspace.clone().into(),input.connection.clone().into()]).await?.is_none(),"An earlier write outcome needs reconciliation before another write");
         }
-        let rule=query(&tx,"SELECT mode,approver,revision FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4 AND chat=$5",vec![job.workspace.clone().into(),job.agent.clone().into(),input.connection.clone().into(),input.operation.clone().into(),job.chat.clone().into()]).await?;
-        let (mode, approver, revision) = if let Some(rule) = rule {
+        let rule=query(&tx,"SELECT mode,approver,revision,needs_other FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4",vec![job.workspace.clone().into(),job.agent.clone().into(),input.connection.clone().into(),input.operation.clone().into()]).await?;
+        let (mode, approver, revision, needs_other) = if let Some(rule) = rule {
             (
                 rule.try_get::<String>("", "mode")?,
                 rule.try_get::<String>("", "approver")?,
                 rule.try_get::<i64>("", "revision")?,
+                rule.try_get::<bool>("", "needs_other")?,
             )
         } else {
-            ("block".into(), job.requester.clone(), 0)
+            ("block".into(), job.requester.clone(), 0, false)
         };
         let state = if mode == "block" { "denied" } else { "pending" };
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_control_actions(id,workspace,agent,chat,thread,job,requester,request_id,connection,operation,arguments,title,effect,rule_revision,connection_revision,approver,state,created,updated) SELECT $1,$2,$3,$4,m.thread,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,floor(extract(epoch FROM clock_timestamp()))::bigint,floor(extract(epoch FROM clock_timestamp()))::bigint FROM relay_chat_messages m WHERE m.workspace=$2 AND m.id=$5",vec![id.clone().into(),job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),job.reply.clone().into(),job.requester.clone().into(),request_id.into(),input.connection.clone().into(),input.operation.clone().into(),input.arguments.clone().into(),operation.title.clone().into(),operation.effect.clone().into(),revision.into(),connection.try_get::<i64>("","revision")?.into(),approver.into(),state.into()]).await?;
-        execute(&tx,"UPDATE relay_control_actions SET run_cycle=(SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2),requires_approval=$4 WHERE workspace=$1 AND id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),id.clone().into(),(mode == "ask").into()]).await?;
+        execute(&tx,"UPDATE relay_control_actions SET run_cycle=(SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2),requires_approval=$4,needs_other=$5 WHERE workspace=$1 AND id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),id.clone().into(),(mode == "ask").into(),(mode == "ask" && needs_other).into()]).await?;
         if mode == "ask" {
-            execute(&tx,"UPDATE relay_control_actions SET approval_chat=(SELECT approval_chat FROM relay_control_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4) WHERE workspace=$1 AND id=$5",vec![job.workspace.clone().into(),job.agent.clone().into(),input.connection.clone().into(),input.operation.clone().into(),id.clone().into()]).await?;
             super::approval_delivery::deliver(&tx, &job.workspace, &id).await?;
         }
         let dispatch = if mode == "allow" {
@@ -200,7 +200,8 @@ impl PgStore {
             execute(&tx,"UPDATE relay_control_actions SET state='rejected',updated=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
             None
         };
-        execute(&tx,"UPDATE relay_control_actions SET decision=$3,decision_id=$4 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.decision.clone().into(),input.id.clone().into()]).await?;
+        // The first decision wins: later ones see it and return or conflict above.
+        execute(&tx,"UPDATE relay_control_actions SET decision=$3,decision_id=$4,decided_by=$5,decided_at=$6 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.decision.clone().into(),input.id.clone().into(),user.id.clone().into(),now().into()]).await?;
         audit(&tx, &user.id, Some(w), "control_action_decided", id).await?;
         let action = visible(&tx, w, id).await?;
         tx.commit().await?;
@@ -221,7 +222,7 @@ impl PgStore {
     }
     pub(crate) async fn control_ready(&self, w: &str, dispatch: &Dispatch) -> Result<()> {
         let tx = self.workspace_tx(w).await?;
-        let row=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation AND r.chat=a.chat JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='executing' AND a.dispatch_token=$3 AND r.revision=a.rule_revision AND c.revision=a.connection_revision AND c.enabled AND r.mode<>'block'",vec![w.into(),dispatch.id.clone().into(),dispatch.token.clone().into()]).await?.context("Action authority changed before dispatch")?;
+        let row=query(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='executing' AND a.dispatch_token=$3 AND r.revision=a.rule_revision AND c.revision=a.connection_revision AND c.enabled AND r.mode<>'block'",vec![w.into(),dispatch.id.clone().into(),dispatch.token.clone().into()]).await?.context("Action authority changed before dispatch")?;
         let action: Value = row.try_get("", "data")?;
         let job = if let Some(job) = &dispatch.origin {
             job.clone()
@@ -241,7 +242,11 @@ impl PgStore {
         );
         if action["decision"] == "approve" {
             let approver = User {
-                id: action["approver"].as_str().unwrap().into(),
+                id: action["decided_by"]
+                    .as_str()
+                    .or(action["approver"].as_str())
+                    .unwrap()
+                    .into(),
                 email: String::new(),
                 display_name: None,
             };
@@ -351,7 +356,7 @@ pub(super) async fn visible(db: &impl ConnectionTrait, w: &str, id: &str) -> Res
     .try_get("", "data")?)
 }
 async fn claim(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Dispatch> {
-    let row=query(db,"SELECT a.arguments,a.operation,a.rule_revision,a.connection_revision,r.revision,r.mode,c.revision AS current_connection_revision,c.server,c.fingerprint,c.definition FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation AND r.chat=a.chat JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='pending' AND c.enabled",vec![w.into(),id.into()]).await?.context("Action permission changed")?;
+    let row=query(db,"SELECT a.arguments,a.operation,a.rule_revision,a.connection_revision,r.revision,r.mode,c.revision AS current_connection_revision,c.server,c.fingerprint,c.definition FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='pending' AND c.enabled",vec![w.into(),id.into()]).await?.context("Action permission changed")?;
     ensure!(
         row.try_get::<i64>("", "rule_revision")? == row.try_get::<i64>("", "revision")?
             && row.try_get::<i64>("", "connection_revision")?

@@ -94,7 +94,10 @@ impl PgStore {
         );
         role(&tx, workspace, target).await?;
         if let Ok(profile) = super::agent_profiles::stored(&tx, workspace, agent).await {
-            ensure!(profile["audience"] != "only_me", "Only-me agents cannot be shared");
+            ensure!(
+                profile["audience"] != "only_me",
+                "Only-me agents cannot be shared"
+            );
         }
         if allowed {
             execute(&tx,"INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),target.into(),agent.into()]).await?;

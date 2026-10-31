@@ -11,7 +11,8 @@ use crate::identity::chat::execution::Prepared;
 pub(crate) enum Purpose {
     /// A draft-only sample of an agent's job (`relay_agent_rehearsals`).
     Sample,
-    /// AI suggestions for a permission review (`relay_control_drafts`).
+    /// AI suggestions for the retired guided permission setup (schema 47).
+    /// Saved tasks are never run again; they finish as cancelled.
     SetupSuggestion,
 }
 impl Purpose {
@@ -123,9 +124,7 @@ pub(super) async fn running(tx: &DatabaseTransaction, task: &Task, claim: &str) 
 pub(super) async fn allowed(tx: &DatabaseTransaction, task: &Task) -> Result<bool> {
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::allowed(tx, task, &task.actor()).await,
-        Purpose::SetupSuggestion => {
-            super::setup_suggestions::allowed(tx, task, &task.actor()).await
-        }
+        Purpose::SetupSuggestion => Ok(false),
     }
 }
 
@@ -133,7 +132,7 @@ pub(super) async fn allowed(tx: &DatabaseTransaction, task: &Task) -> Result<boo
 pub(super) async fn context(db: &impl ConnectionTrait, task: &Task) -> Result<Prepared> {
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::context(db, task).await,
-        Purpose::SetupSuggestion => super::setup_suggestions::context(db, task).await,
+        Purpose::SetupSuggestion => Err(super::worker_control::ControlDenied.into()),
     }
 }
 
@@ -169,7 +168,7 @@ pub(super) async fn finish(
     close(tx, task, claim, state).await?;
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::finished(tx, task, state, text).await,
-        Purpose::SetupSuggestion => super::setup_suggestions::finished(tx, task, state, text).await,
+        Purpose::SetupSuggestion => Ok(()),
     }
 }
 
@@ -179,7 +178,7 @@ pub(super) async fn invalidate(tx: &DatabaseTransaction, task: &Task, claim: &st
     close(tx, task, claim, "cancelled").await?;
     match task.purpose {
         Purpose::Sample => super::rehearsal_queue::invalidate(tx, &task.workspace, &task.id).await,
-        Purpose::SetupSuggestion => super::setup_suggestions::invalidate(tx, task).await,
+        Purpose::SetupSuggestion => Ok(()),
     }
 }
 
@@ -233,7 +232,7 @@ pub(super) async fn recover(tx: &DatabaseTransaction) -> Result<()> {
         finished(tx, &task.id).await?;
         match task.purpose {
             Purpose::Sample => super::rehearsal_queue::interrupted(tx, &task).await?,
-            Purpose::SetupSuggestion => super::setup_suggestions::interrupted(tx, &task).await?,
+            Purpose::SetupSuggestion => {}
         }
     }
     execute(tx,"UPDATE relay_executor_tasks t SET state='finished',finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE t.state='queued' AND t.purpose='sample'

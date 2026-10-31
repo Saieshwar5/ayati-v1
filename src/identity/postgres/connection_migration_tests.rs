@@ -3,7 +3,7 @@ use sea_orm_migration::MigratorTrait;
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn connection_upgrade_preserves_owner_rules_without_delegating_to_members() {
+async fn connection_upgrade_keeps_the_agent_rule_through_role_changes() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
     let schema = format!("relay_connection_upgrade_{}", uuid::Uuid::new_v4().simple());
@@ -22,31 +22,26 @@ async fn connection_upgrade_preserves_owner_rules_without_delegating_to_members(
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
     let (chat, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
-    execute(&db.db, "INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint) VALUES($1,'account','orders','{}','old-reviewed')", vec![w.clone().into()]).await.unwrap();
+    execute(&db.db, r#"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint) VALUES($1,'account','orders','{"id":"orders","operations":[{"id":"order.read","title":"Read","tool":"read","effect":"read","schema":{}}]}','old-reviewed')"#, vec![w.clone().into()]).await.unwrap();
     execute(&db.db, "INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,revision,chat) VALUES($1,$2,'account','order.read','allow',$3,4,$4)", vec![w.clone().into(), agent.clone().into(), owner.id.clone().into(), chat.clone().into()]).await.unwrap();
     db.migrate().await.unwrap();
     db.migrate().await.unwrap();
     db.verify_schema().await.unwrap();
-    assert!(db.control_enabled(&w, &agent, &chat).await.unwrap());
+    // Schema 47: the agent keeps the connector and its own rule.
+    assert!(db.control_enabled(&w, &agent).await.unwrap());
     let snapshot = db.control_snapshot(&owner, &w, &agent).await.unwrap();
-    assert_eq!(snapshot["rules"][0]["configured_by"], owner.id);
-    assert_eq!(snapshot["rules"][0]["revision"], 4);
-    assert!(snapshot["rules"][0]["delegation_revision"].is_null());
-    assert!(
-        db.workspace_connections(&owner, &w).await.unwrap()["delegations"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+    assert_eq!(snapshot["connections"][0]["on"], true);
+    assert_eq!(
+        snapshot["connections"][0]["operations"][0]["agent_mode"],
+        "allow"
     );
+    assert_eq!(snapshot["connections"][0]["operations"][0]["mode"], "allow");
     db.change(&owner, &w, &member.id, Some("Admin"), None)
         .await
         .unwrap();
     db.change(&member, &w, &owner.id, Some("Member"), None)
         .await
         .unwrap();
-    assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());
-    db.change(&member, &w, &owner.id, Some("Admin"), None)
-        .await
-        .unwrap();
-    assert!(!db.control_enabled(&w, &agent, &chat).await.unwrap());
+    // Rules belong to the agent, so changing who set them up changes nothing.
+    assert!(db.control_enabled(&w, &agent).await.unwrap());
 }
