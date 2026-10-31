@@ -1,5 +1,10 @@
 # Agent job guidance and draft-only rehearsal
 
+> **Updated 2026-10-31 (D233):** "Try a sample task" was removed from the Agents
+> page and its browser journey (`tests/agent_rehearsals.mjs`) with it. The
+> server routes, tables and PostgreSQL tests remain until a later cleanup. Job
+> guidance is now one instructions text (schema 46, see [agent profiles](agent-profiles.md)).
+
 Implemented locally 26 October 2026, serially after Home attention PR #71.
 The initial plan was saved before implementation. This is a job-guidance and
 draft-only sample increment, not full guided activation or model-quality acceptance.

@@ -82,7 +82,7 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   const page = await pageFor(member), ownerPage = await pageFor(app.cookie);
   const agentsUrl = `${app.base}/w/${w}/?view=agents`;
   await page.goto(agentsUrl); await page.getByRole('button', { name: 'Open agent Meera', exact: true }).click();
-  await page.getByRole('heading', { name: 'My open requests', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Your open requests', exact: true }).waitFor();
   await page.getByRole('article', { name: `Request: ${taskText}`, exact: true }).waitFor();
   const roster = await page.getByRole('complementary', { name: 'Agent team', exact: true }).boundingBox();
   const profile = await page.getByRole('main', { name: 'Selected agent', exact: true }).boundingBox();
@@ -90,7 +90,7 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   assert.equal(await page.getByRole('button', { name: '‹ Agents', exact: true }).isVisible(), false);
   await page.screenshot({ path: join(app.data, 'agents-overview-desktop.png') });
   assert.equal(await page.getByText(/meera@|Available around the clock/).count(), 0);
-  await page.getByRole('tab', { name: 'Work', exact: true }).click();
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   const modelCount = app.provider.requests.length;
   await page.getByRole('button', { name: 'Refresh progress', exact: true }).click();
   assert.equal(app.provider.requests.length, modelCount);
@@ -104,7 +104,7 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   await page.screenshot({ path: join(app.data, 'original-thread-request.png') });
   await original.getByRole('button', { name: 'Close', exact: true }).click();
   await page.goto(agentsUrl); await page.getByRole('heading', { name: 'Meera', exact: true }).waitFor();
-  await page.getByRole('tab', { name: 'Work', exact: true }).click();
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   app.pass('Open conversation reaches the exact original request/thread beyond the latest history page; returning preserves the selected agent');
 
   const runningText = 'Prepare today’s supplier comparison and check the open commitments.';
@@ -150,10 +150,10 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   await page.screenshot({ path: join(app.data, 'agents-profile-mobile.png') });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.setViewportSize({ width: 1440, height: 700 }); await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-  await page.getByRole('tab', { name: 'Access', exact: true }).click();
-  await page.screenshot({ path: join(app.data, 'agents-access-dark.png') });
+  await page.getByRole('tab', { name: 'Tools', exact: true }).click();
+  await page.screenshot({ path: join(app.data, 'agents-tools-dark.png') });
   await ownerPage.goto(agentsUrl); await ownerPage.getByRole('button', { name: 'Open agent Meera', exact: true }).click();
-  await ownerPage.getByRole('tab', { name: 'Work', exact: true }).click();
+  await ownerPage.getByRole('tab', { name: 'Activity', exact: true }).click();
   await ownerPage.getByRole('combobox', { name: 'Show requests', exact: true }).selectOption('visible');
   assert.deepEqual(errors, []); assert.equal(JSON.stringify(app.provider.requests).includes(remote.token), false);
   assert.equal(app.processes().some(p => p.logs.includes(remote.token)), false);

@@ -35,13 +35,14 @@ test('selected team workspace keeps selection while searching and does not creat
     assert.equal(button('Open agent Tara'), undefined);
     assert.ok(button('Open agent Meera'));
     assert.equal(writes.length, 0);
-    assert.match(document.body.textContent, /Not connected/);
-    assert.equal(document.body.textContent.includes('Available around the clock'), false);
-    await click(button('Knowledge'));
-    assert.match(document.querySelector('[role=tabpanel]').textContent, /Approved knowledge/);
-    await update(() => button('Knowledge').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
-    assert.equal(document.activeElement, button('Access'));
-    assert.equal(button('Access').getAttribute('aria-selected'), 'true');
+    // The six tabs of D233; the old "Not connected" placeholders are gone.
+    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Activity', 'Instructions', 'Tools', 'Schedules', 'Environment']);
+    assert.equal(document.body.textContent.includes('Not connected'), false);
+    await click(button('Instructions'));
+    assert.match(document.querySelector('[role=tabpanel]').textContent, /What Tara knows/);
+    await update(() => button('Instructions').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+    assert.equal(document.activeElement, button('Tools'));
+    assert.equal(button('Tools').getAttribute('aria-selected'), 'true');
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (options.method === 'POST') writes.push(path);
     return response(read(path));

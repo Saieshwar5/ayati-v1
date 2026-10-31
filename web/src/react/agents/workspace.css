@@ -105,3 +105,35 @@
   .agent-work-heading { flex-direction: column; gap: 8px; }
   .agent-work-filters { gap: 12px; }
 }
+/* Agent page (D233, designs/agents-simplified 5, 8, 11). */
+.agent-identity-name { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.agent-identity-name h2 { margin: 0; }
+.agent-identity-name .agent-availability { font-size: 12px; font-weight: 600; background: #e6f4ea; color: #1f6b3a; padding: 3px 10px; }
+.agent-identity-name .agent-availability.paused { background: var(--selection); color: var(--muted); }
+.agent-menu { position: relative; }
+.agent-page-notice { margin: 0 32px 8px; font-size: 13px; color: var(--muted); }
+.agent-key-facts { margin: 0; }
+.agent-fact { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.agent-fact dt { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; }
+.agent-fact dd { grid-column: 1; margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.agent-fact .agent-fact-change { grid-column: 2; grid-row: 1 / span 2; align-self: center; border: 0; background: transparent; min-height: 32px; padding: 4px 6px; text-decoration: underline; }
+.agent-instructions-tab { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 340px); gap: 24px; align-items: start; }
+.agent-instructions-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.agent-save-row .ui-status { margin: 0; font-size: 13px; }
+.agent-knows { border-top: 1px solid var(--border); padding-top: 18px; }
+.agent-knows .agent-knowledge { border: 0; padding: 0; margin: 8px 0 0; }
+.agent-advanced { border-top: 1px solid var(--border); padding-top: 14px; }
+.agent-advanced summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.agent-environment section + section { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 20px; }
+.agent-environment .ui-form { max-width: 520px; }
+.agent-later-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.agent-later-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--soft); }
+.agent-later-card h4 { margin: 0 0 6px; font-size: 14px; color: var(--text); text-transform: none; }
+.agent-later-card p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.agent-later-card span { font-size: 11px; font-weight: 600; background: var(--selection); border-radius: 5px; padding: 3px 8px; }
+.agent-tools .agent-profile-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+@media (max-width: 760px) {
+  .agent-instructions-tab { grid-template-columns: 1fr; }
+  .agent-page-notice { margin: 0 18px 8px; }
+}

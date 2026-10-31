@@ -6,39 +6,42 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 const workspace = '11111111-1111-4111-8111-111111111111';
 const settings = { provider: '', instructions: '', escalation: '', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
 const agent = { id: '22222222-2222-4222-8222-222222222222', name: 'Mira', role: 'Purchasing', model: 'test', audience: 'only_me', revision: 0, settings, editable: true };
-const directory = { role: 'Member', agents: [], default_model: 'test', system_prompt: 'System guidance', providers: [] };
 
-test('agent setup preserves a failed draft and prevents double submission', async () => {
-  const writes = []; let fail = true; let saved = 0;
-  await reactFixture(async ({ render, button, click, change, update }) => {
-    const { AgentEditor } = await import('../src/react/agents/editor.tsx');
-    await render(AgentEditor, { agent, directory, creating: true, close() {}, saved: async () => { saved++; } });
-    assert.deepEqual([...document.querySelector('select').options].map(o => o.value), ['everyone', 'selected', 'only_me']);
-    await change(document.querySelector('input'), 'Nova');
-    await click(button('Continue')); await click(button('Continue')); await click(button('Continue'));
-    assert.equal(writes.length, 0);
-    await update(() => { button('Create agent').click(); button('Create agent').click(); });
-    assert.equal(writes.length, 1); assert.equal(saved, 0);
-    assert.match(document.querySelector('[role=status]').textContent, /Save unavailable/);
-    assert.match(document.querySelector('dialog').textContent, /Nova/);
-    fail = false; await click(button('Create agent'));
-    assert.equal(saved, 1); assert.equal(writes.length, 2); assert.deepEqual(writes[0], writes[1]);
-    assert.equal(writes[1].audience, 'only_me'); assert.equal(writes[1].settings.browser, false);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options) => {
-    const body = JSON.parse(options.body); writes.push(body);
-    return { ok: !fail, json: async () => fail ? { error: 'Save unavailable' } : { ...body, revision: 1 } };
-  } });
-});
-
-test('read-only viewers cannot change who can talk to an agent or save', async () => {
+test('read-only viewers read the instructions but cannot save them', async () => {
   const writes = [];
   await reactFixture(async ({ render, button }) => {
-    const { AgentEditor } = await import('../src/react/agents/editor.tsx');
-    await render(AgentEditor, { agent: { ...agent, revision: 1, editable: false }, directory, creating: false, close() {}, saved: async () => {} });
+    const { InstructionsTab } = await import('../src/react/agents/instructions-tab.tsx');
+    await render(InstructionsTab, { agent: { ...agent, revision: 1, editable: false, settings: { ...settings, instructions: 'Buy from approved suppliers.' } }, rules: 'System guidance', saved: async () => {} });
+    assert.match(document.body.textContent, /Buy from approved suppliers\./);
+    assert.equal(document.querySelector('textarea'), null);
     assert.equal(document.querySelector('select').disabled, true);
-    assert.equal(document.querySelector('input').matches(':disabled'), true);
     assert.equal(button('Save changes'), undefined); assert.equal(button('Add approved note'), undefined); assert.equal(writes.length, 0);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options = {}) => { if (options.body) writes.push(options.body); return { ok: true, json: async () => ({ notes: [] }) }; } });
+});
+
+test('instructions save once with the revision the draft started from and keep a failed draft', async () => {
+  const writes = []; let fail = true; let saved = 0;
+  await reactFixture(async ({ render, button, change, click, update }) => {
+    const { InstructionsTab } = await import('../src/react/agents/instructions-tab.tsx');
+    const props = { agent: { ...agent, revision: 3, settings: { ...settings, instructions: 'Old' } }, rules: 'System guidance', saved: async () => { saved++; } };
+    await render(InstructionsTab, props);
+    assert.equal(button('Save changes').disabled, true);
+    await change(document.querySelector('textarea'), 'New words');
+    // A background refresh with someone else's change must not replace the draft or its revision.
+    await render(InstructionsTab, { ...props, agent: { ...props.agent, revision: 4 } });
+    assert.equal(document.querySelector('textarea').value, 'New words');
+    await update(() => { button('Save changes').click(); button('Save changes').click(); });
+    assert.equal(writes.length, 1); assert.equal(writes[0].revision, 3); assert.equal(saved, 0);
+    assert.match(document.body.textContent, /Agent changed; reload before saving/);
+    assert.equal(document.querySelector('textarea').value, 'New words');
+    fail = false; await click(button('Save changes'));
+    assert.equal(writes.length, 2); assert.equal(writes[1].settings.instructions, 'New words'); assert.equal(saved, 1);
+    assert.equal(writes[1].people, undefined); assert.equal(writes[1].managers, undefined);
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.endsWith('/knowledge')) return { ok: true, json: async () => ({ notes: [] }) };
+    const body = JSON.parse(options.body); writes.push(body);
+    return fail ? { ok: false, json: async () => ({ error: 'Agent changed; reload before saving' }) } : { ok: true, json: async () => ({ ...body, revision: body.revision + 1 }) };
+  } });
 });
 
 test('forgetting knowledge uses its exact scope and revision', async () => {

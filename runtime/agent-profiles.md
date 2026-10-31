@@ -29,12 +29,29 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
 - Upgrade tests run this code on older schemas, where `scope` (private/workspace)
   and per-person grants still decide.
 
+## Job title, instructions and change records (schema 46)
+
+- `role` is the **job title** shown under the name (at most 80 characters, may be
+  empty). `settings.instructions` is the **one instructions text** (24,000 bytes)
+  for character, job and rules.
+- Schema 46 joined responsibility, custom instructions, "ask a person when",
+  successful outcome and routine under `## ` headings, in the order the agent read
+  them. A responsibility of 60 characters or fewer became the job title. Revisions
+  were raised so stale editors reload.
+- The agent receives its name, job title, the locked Cuckoo rules and its
+  instructions. Guidance saved by an older client in the old fields still reaches it.
+- `POST …/agent-profiles/prompt` with `{name, role, instructions}` returns exactly
+  that text for a draft ("See everything it receives"); nothing is saved.
+- Every save writes a readable audit sentence, such as "Arjun changed Atlas:
+  instructions; who can talk (Selected people → Everyone)". It names what changed,
+  never the instructions themselves.
+
 ## Implemented boundaries
 
 - Profile writes use a revision and stable ID; exact retries of a completed save
   are accepted, stale edits are rejected.
-- Names, responsibilities, custom instructions and escalation guidance are passed
-  into execution. Escalation text is guidance, not a new authorization mechanism.
+- Names, job titles and instructions are passed into execution. Instructions are
+  guidance, not a new authorization mechanism.
 - Paused agents reject new requests and fail the ongoing job authorization check.
   Pending job counts are displayed as pending, not inferred provider availability.
 - Preset and uploaded PNG/JPEG/WebP avatars are supported, with a 2 MiB upload

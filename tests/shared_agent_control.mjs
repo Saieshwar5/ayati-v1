@@ -38,7 +38,7 @@ test('shared real Goose obeys UI rules through remote MCP, with exact approvals 
   await page.getByRole('button', { name: 'Connect account', exact: true }).click();
   await page.getByRole('button', { name: 'Manage access', exact: true }).waitFor();
   await page.goto(`${app.base}/w/${workspace}/?view=agents`);
-  await page.getByRole('button', { name: 'Tools and approvals for Nova' }).click();
+  await page.getByRole('tab', { name: 'Tools', exact: true }).click(); await page.getByRole('button', { name: 'Tools and approvals for Nova' }).click();
   const drawer = page.getByRole('dialog', { name: 'Nova · Tools and approvals' });
   await drawer.getByRole('tab', { name: 'Permissions', exact: true }).click();
   await drawer.getByLabel('Read order permission', { exact: true }).selectOption('allow');
@@ -95,7 +95,7 @@ test('shared real Goose obeys UI rules through remote MCP, with exact approvals 
   app.pass('lost write response is retained as uncertain across controller restart, without automatic retry');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Tools and approvals for Nova' }).click();
+  await page.getByRole('tab', { name: 'Tools', exact: true }).click(); await page.getByRole('button', { name: 'Tools and approvals for Nova' }).click();
   await drawer.getByRole('button', { name: 'Refresh activity' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: join(app.data, 'tools-approvals-mobile.png') });

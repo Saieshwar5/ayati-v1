@@ -23,7 +23,6 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   const [ownerUser,creatorUser,approverUser,observerUser]=await Promise.all([who(app.cookie),who(creator),who(approver),who(observer)]);
   await app.request(`${app.path}/control/systems`,app.cookie,{server:'orders',approved:true,revision:0});
   await app.request(`${app.path}/control/connections`,app.cookie,{id:connection,server:'orders',enabled:true,revision:0});
-  await app.request(`${app.path}/control/creators`,app.cookie,{user:creatorUser.id,enabled:true,revision:0});
   const agent={id:randomUUID(),name:'Order support',role:'Use assigned order operations and request exact approval before changes.',model:'fixture',audience:'selected',revision:0,settings:{provider:'openai'}};
   await app.request(`${app.path}/agent-profiles`,creator,agent);
   for(const [operation,ceiling] of [['order.read','allow'],['order.update','ask']])await app.request(`${app.path}/control/delegations`,app.cookie,{user:creatorUser.id,connection,operation,ceiling,revision:0,connection_revision:1});
@@ -41,7 +40,7 @@ test('delegated setup routes exact approvals to an authorized User; channel memb
   await access.getByRole('button',{name:'Save Update order approval authority',exact:true}).click();
   await until(async()=>(await app.request(`${app.path}/control/connections`,app.cookie)).value.approvers.some(g=>g.user_id===approverUser.id&&g.enabled),'Approval authority missing');
   await ownerPage.screenshot({path:join(app.data,'owner-approval-authority.png')});
-  await creatorPage.goto(`${app.base}/w/${w}/?view=agents`);await creatorPage.getByRole('button',{name:'Set up permissions for Order support',exact:true}).click();
+  await creatorPage.goto(`${app.base}/w/${w}/?view=agents`);await creatorPage.getByRole('tab', { name: 'Tools', exact: true }).click(); await creatorPage.getByRole('button',{name:'Set up permissions for Order support',exact:true}).click();
   const setup=creatorPage.getByRole('dialog',{name:'Order support · Set up permissions'});
   await setup.getByLabel('Use Company orders',{exact:true}).check();await setup.getByLabel('Work conversation',{exact:true}).selectOption(source);
   await setup.getByRole('button',{name:'Create review draft',exact:true}).click();

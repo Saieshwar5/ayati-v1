@@ -1,5 +1,18 @@
 # Agents team workspace
 
+> **Updated 2026-10-31 (D233, M2):** the agent page now follows
+> `designs/agents-simplified/`. **＋ New agent** opens a three-step create flow
+> (Name and picture, Instructions, People) beside the list. An agent page has a
+> header with **Open in Chat** and a ⋯ menu (Pause or Resume, Name and picture,
+> Transfer owner) for its owner and admins, and six tabs: **Overview** (about,
+> your open requests, key facts with Change links), **Activity** (request
+> history), **Instructions** (edited in place, with the locked Cuckoo rules,
+> what it knows and channel history), **Tools** (today's rules until M3),
+> **Schedules** and **Environment** (model, and "Coming later" cards). The
+> drawer editor, the Work, Access, Knowledge and Automation tabs, the "Not
+> connected" placeholders and "Try a sample task" were removed. Sections below
+> describe the earlier B workspace where they differ.
+
 The Agents screen implements the selected **B / Agent workspace** OpenPencil
 concept. A searchable team roster stays beside the selected profile on desktop.
 On phones, selecting a person opens their profile; **Agents** returns to the

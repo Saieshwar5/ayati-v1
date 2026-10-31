@@ -56,7 +56,7 @@ test('context preview shows only current permitted evidence, stays read-only and
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${app.base}/w/${app.path.split('/').at(-1)}/?view=agents&selected=${app.profile.id}`);
-    await page.getByRole('tab', { name: 'Knowledge', exact: true }).click();
+    await page.getByRole('tab', { name: 'Instructions', exact: true }).click();
     await page.getByRole('button', { name: 'Preview conversation context', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Conversation context preview', exact: true });
     await dialog.waitFor();
