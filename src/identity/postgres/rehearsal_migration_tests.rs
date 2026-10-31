@@ -72,13 +72,14 @@ async fn rehearsal_upgrade_preserves_v25_questions_attention_and_agent_settings_
             .is_none()
     );
     assert!(db.claim_job().await.unwrap().is_none());
+    // Schema 46 joined the job guidance into one text and raised the revision.
     let mut input = start();
-    input.agent_revision = 1;
+    input.agent_revision = 2;
     let sample = db
         .start_rehearsal(&owner, &w, &agent, &input)
         .await
         .unwrap();
-    assert_eq!(sample["profile"]["revision"], 1);
+    assert_eq!(sample["profile"]["revision"], 2);
     assert!(
         sample["profile"]["settings"]
             .get("successful_outcome")

@@ -47,10 +47,7 @@ function AgentOverview({ agent, viewWork, controls, controlsError, guide, contro
 }) {
   const { data, error, refresh } = useAgentRequests(agent.id, 'mine', 'active');
   return <div className="agent-overview"><div className="agent-overview-main">
-    <section><h3>Responsibility</h3><p className="agent-responsibility">{agent.role}</p>
-      {agent.settings.successful_outcome && <><h4>Successful outcome</h4><p>{agent.settings.successful_outcome}</p></>}
-      {agent.settings.escalation && <><h4>Ask a person when</h4><p>{agent.settings.escalation}</p></>}
-      {agent.settings.routine && <><h4>Routine</h4><p>{agent.settings.routine}</p></>}
+    <section><h3>About</h3><p className="agent-responsibility">{agent.settings.instructions.split('\n').filter(line => line.trim() && !line.startsWith('## ')).slice(0, 3).join(' ') || 'No instructions yet.'}</p>
       {agent.editable && <Button onClick={rehearse}>Try a sample task</Button>}
     </section>
     <section><header className="agent-section-heading"><h3>My open requests</h3><Button onClick={viewWork}>View work</Button></header>

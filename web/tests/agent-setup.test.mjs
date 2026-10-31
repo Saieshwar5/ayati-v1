@@ -16,6 +16,7 @@ test('agent setup preserves a failed draft and prevents double submission', asyn
     assert.deepEqual([...document.querySelector('select').options].map(o => o.value), ['everyone', 'selected', 'only_me']);
     await change(document.querySelector('input'), 'Nova');
     await click(button('Continue')); await click(button('Continue')); await click(button('Continue'));
+    await change(document.querySelector('textarea'), 'Answer order questions.');
     assert.equal(writes.length, 0);
     await update(() => { button('Create agent').click(); button('Create agent').click(); });
     assert.equal(writes.length, 1); assert.equal(saved, 0);
