@@ -70,18 +70,15 @@ test('Admin delegates workspace account access; a member creates a bounded agent
   app.pass('Admin uses Settings to approve an account and delegate creation, read and approval-required write authority');
 
   await memberPage.goto(`${app.base}/w/${w}/?view=agents`);
-  await memberPage.getByRole('button', { name: '＋ Create agent', exact: true }).click();
-  const editor = memberPage.getByRole('dialog', { name: 'Create an agent' });
-  await editor.getByLabel('Name', { exact: true }).fill('Orders assistant');
-  await editor.getByLabel('Responsibility', { exact: true }).fill('Help with sample orders using assigned operations.');
-  await editor.getByLabel('Visibility').selectOption('workspace');
-  await editor.getByRole('button', { name: 'Continue', exact: true }).click();
-  await editor.getByLabel('Model provider').selectOption('openai');
-  await editor.getByLabel('Model identifier', { exact: true }).fill('fixture');
-  await editor.getByRole('button', { name: 'Continue', exact: true }).click();
-  await editor.getByRole('button', { name: 'Continue', exact: true }).click();
-  await editor.getByRole('button', { name: 'Create agent', exact: true }).click();
-  await editor.waitFor({ state: 'hidden' });
+  // Any member creates an agent in three steps (D233); the defaults are fine.
+  await memberPage.getByRole('button', { name: '＋ New agent', exact: true }).click();
+  const create = memberPage.getByRole('region', { name: 'New agent' });
+  await create.getByLabel('Name', { exact: true }).fill('Orders assistant');
+  await create.getByRole('button', { name: 'Continue', exact: true }).click();
+  await create.getByLabel(/^Instructions/).fill('Help with sample orders using assigned operations.');
+  await create.getByRole('button', { name: 'Continue', exact: true }).click();
+  await create.getByRole('button', { name: 'Create agent', exact: true }).click();
+  await create.waitFor({ state: 'hidden' });
   const a = (await app.request(`${app.path}/agent-profiles`, member)).value.agents.find(a => a.name === 'Orders assistant');
   assert.equal(a.owner_id, who.id);
   const owner = (await app.request('/api/identity/session', app.cookie)).value.user;

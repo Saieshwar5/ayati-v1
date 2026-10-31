@@ -111,7 +111,7 @@ test('editing instructions stays an explicit profile save with existing authorit
   const writes=[];
   await reactFixture(async({render,button,change,click})=>{
     await setup();const {AgentEditor}=await import('../src/react/agents/editor.tsx');
-    await render(AgentEditor,{agent,directory:{agents:[agent],role:'Admin',providers:[],default_model:'fixture',system_prompt:'System guide'},creating:false,close:()=>{},saved:async()=>{}});
+    await render(AgentEditor,{agent,directory:{agents:[agent],role:'Admin',providers:[],default_model:'fixture',system_prompt:'System guide'},close:()=>{},saved:async()=>{}});
     await click(button('Instructions'));
     const text=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Instructions')).querySelector('textarea');
     await change(text,'Verify the supplied delivery facts');assert.equal(writes.length,0);
