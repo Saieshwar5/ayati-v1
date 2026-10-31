@@ -81,24 +81,25 @@ async fn members(db: &impl ConnectionTrait, w: &str, people: &[String]) -> Resul
 }
 
 /// Saves the selected people and managers that `input` names. A new agent's
-/// first manager is its creator. Returns true when someone lost access.
+/// first manager is its creator. Reports what changed and whether someone lost access.
 pub(super) async fn save_lists(
     tx: &impl ConnectionTrait,
     actor: &str,
     w: &str,
     input: &SaveAgent,
     creating: bool,
-) -> Result<bool> {
+) -> Result<super::agent_changes::ListChanges> {
+    let mut changes = super::agent_changes::ListChanges::default();
     if !exists(tx).await? {
-        return Ok(false);
+        return Ok(changes);
     }
     let agent = input.id.as_str();
-    let mut narrowed = false;
     if let Some(people) = &input.people {
         let wanted = members(tx, w, people).await?;
         let current = listed(tx, "SELECT user_id FROM relay_chat_access WHERE workspace=$1 AND agent=$2 ORDER BY user_id", w, agent).await?;
         if wanted != current {
-            narrowed = current.iter().any(|person| !wanted.contains(person));
+            changes.people = true;
+            changes.narrowed = current.iter().any(|person| !wanted.contains(person));
             execute(tx, "DELETE FROM relay_chat_access WHERE workspace=$1 AND agent=$2", vec![w.into(), agent.into()]).await?;
             for person in &wanted {
                 execute(tx, "INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3)", vec![w.into(), person.clone().into(), agent.into()]).await?;
@@ -116,13 +117,14 @@ pub(super) async fn save_lists(
     if let Some(wanted) = managers {
         let current = listed(tx, "SELECT user_id FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 ORDER BY user_id", w, agent).await?;
         if wanted != current {
+            changes.managers = !creating;
             execute(tx, "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2", vec![w.into(), agent.into()]).await?;
             for person in &wanted {
                 execute(tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,$5)", vec![w.into(), agent.into(), person.clone().into(), actor.into(), now().into()]).await?;
             }
         }
     }
-    Ok(narrowed)
+    Ok(changes)
 }
 
 /// After `person` leaves, an agent they managed alone is managed by its owner.

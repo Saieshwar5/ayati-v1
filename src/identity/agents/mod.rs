@@ -31,6 +31,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(knowledge).post(remember),
         )
         .route(
+            "/api/identity/workspaces/{w}/agent-profiles/prompt",
+            post(prompt),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/owner",
             post(transfer),
         )
@@ -109,6 +113,37 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.save_agent_profile(&user, &w, &input).await?))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PromptDraft {
+    name: String,
+    role: String,
+    instructions: String,
+}
+/// "See everything it receives": the exact text an agent with this draft gets,
+/// including the locked Cuckoo rules. Nothing is saved.
+async fn prompt(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<PromptDraft>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    workspaces::membership(&app, &user, &w).await?;
+    check(
+        input.name.len() <= 80
+            && input.role.chars().count() <= 80
+            && input.instructions.len() <= config::INSTRUCTIONS_LIMIT,
+        "Draft is too long",
+    )?;
+    let settings = config::Settings {
+        instructions: input.instructions,
+        ..Default::default()
+    };
+    Ok(Json(
+        json!({"prompt":config::instructions(input.name.trim(), &input.role, Some(&settings))}),
+    ))
 }
 async fn transfer(
     State(app): State<Shared>,

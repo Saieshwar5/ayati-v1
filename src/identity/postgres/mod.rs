@@ -7,6 +7,10 @@ mod agent_audience;
 mod agent_audience_migration;
 #[cfg(test)]
 mod agent_audience_tests;
+mod agent_changes;
+mod agent_instructions_migration;
+#[cfg(test)]
+mod agent_instructions_tests;
 mod agent_knowledge;
 mod agent_profiles;
 mod agent_receipt_migration;

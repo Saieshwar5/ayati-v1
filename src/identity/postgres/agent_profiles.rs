@@ -74,6 +74,7 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
         let mut narrowed = false;
+        let mut before = None;
         let old = query(
             &tx,
             "SELECT revision FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
@@ -106,6 +107,7 @@ impl PgStore {
                 super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
             }
             narrowed = a["audience"] != input.audience;
+            before = Some(a.clone());
             let audience = column(&tx).await?;
             execute(&tx,&format!("UPDATE relay_shared_agents SET name=$3,role=$4,model=$5,settings=$6,{audience}=$7,revision=revision+1 WHERE workspace=$1 AND id=$2"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),settings.into(),audience_value(audience,&input.audience).into()]).await?;
         } else {
@@ -116,7 +118,8 @@ impl PgStore {
             execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
         let creating = old.is_none();
-        narrowed |= super::agent_audience::save_lists(&tx, &user.id, w, input, creating).await?;
+        let lists = super::agent_audience::save_lists(&tx, &user.id, w, input, creating).await?;
+        narrowed |= lists.narrowed;
         if uuid::Uuid::parse_str(&input.settings.avatar).is_ok() {
             ensure!(
                 query(
@@ -133,7 +136,9 @@ impl PgStore {
                 "Avatar does not belong to this agent"
             );
         }
-        audit(&tx, &user.id, Some(w), "agent_profile_saved", &input.id).await?;
+        let actor = super::member_handover::name(&tx, &user.id).await?;
+        let sentence = super::agent_changes::summary(&actor, before.as_ref(), input, &lists);
+        super::agent_changes::record(&tx, user, w, &input.id, Some(sentence)).await?;
         // Pausing or narrowing who can talk stops work people may no longer ask for.
         if input.settings.paused || narrowed {
             super::task_revocation::inaccessible(&tx, w).await?;

@@ -22,7 +22,7 @@ test('sample context review is read-only and double Start saves one exact reques
     await change(document.querySelector('textarea'),'Draft a customer response');
     await update(()=>document.querySelector('input[type=checkbox]').click());
     await click(button('Review sample context'));assert.equal(writes.length,0);
-    assert.match(document.body.textContent,/A clear sourced answer/);assert.match(document.body.textContent,/PRIVATE_DELIVERY_GUIDE · version 2/);
+    assert.match(document.body.textContent,/Keep a clear tone/);assert.match(document.body.textContent,/PRIVATE_DELIVERY_GUIDE · version 2/);
     await update(()=>{const node=button('Start draft-only sample');node.click();node.click();});
     assert.equal(writes.length,1);assert.equal(writes[0].agent_revision,3);assert.deepEqual(writes[0].sources,[{id:'source',revision:2,access_revision:3}]);
     await update(()=>finish(response({...sample,state:'queued'})));
@@ -107,17 +107,16 @@ test('late Start acknowledgments after closing cannot reopen a sample or issue f
   },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(path);return new Promise(resolve=>{finish=resolve;});}return baseline(path);}});
 });
 
-test('editing job outcomes and routines stays an explicit profile save with existing authority fields preserved',async()=>{
+test('editing instructions stays an explicit profile save with existing authority fields preserved',async()=>{
   const writes=[];
   await reactFixture(async({render,button,change,click})=>{
     await setup();const {AgentEditor}=await import('../src/react/agents/editor.tsx');
     await render(AgentEditor,{agent,directory:{agents:[agent],role:'Admin',providers:[],default_model:'fixture',system_prompt:'System guide'},creating:false,close:()=>{},saved:async()=>{}});
-    const outcome=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Successful outcome')).querySelector('textarea');
-    await change(outcome,'Accurate, sourced draft');await click(button('Controls'));
-    const routine=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Routine')).querySelector('textarea');
-    await change(routine,'Verify the supplied delivery facts');assert.equal(writes.length,0);
+    await click(button('Instructions'));
+    const text=[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith('Instructions')).querySelector('textarea');
+    await change(text,'Verify the supplied delivery facts');assert.equal(writes.length,0);
     await click(button('Save changes'));assert.equal(writes.length,1);
-    assert.equal(writes[0].settings.successful_outcome,'Accurate, sourced draft');assert.equal(writes[0].settings.routine,'Verify the supplied delivery facts');
+    assert.equal(writes[0].settings.instructions,'Verify the supplied delivery facts');
     assert.equal(writes[0].settings.provider,'openai');assert.equal(writes[0].settings.memory,true);assert.equal(writes[0].settings.browser,false);
   },{url,fetch:async(path,init={})=>{
     if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({...agent,revision:4});}
