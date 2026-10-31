@@ -1,8 +1,5 @@
 use super::{home_maintenance_tests::*, tests::*, *};
-use crate::identity::{
-    control::model::Rule,
-    home_panels::{maintenance::Agreement, model::Review},
-};
+use crate::identity::home_panels::{maintenance::Agreement, model::Review};
 use serde_json::json;
 
 #[tokio::test]
@@ -22,24 +19,16 @@ async fn home_maintenance_member_owns_updates_without_agent_management_authority
         vec![original.agent.clone()],
     )
     .await;
-    db.control_rule(
+    super::tool_test_support::agent_rule(
+        &db,
         &owner,
         &w,
         &original.agent,
-        &Rule {
-            connection: read.clone(),
-            operation: "order.read".into(),
-            mode: "allow".into(),
-            revision: 1,
-            chat: c.clone(),
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
-        },
+        &read.clone(),
+        "order.read",
+        "allow",
     )
-    .await
-    .unwrap();
+    .await;
     db.pooled = false;
     db.chat_send(
         &member,

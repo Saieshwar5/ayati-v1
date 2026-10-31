@@ -1,87 +1,5 @@
 use super::*;
-use crate::identity::control::connections_model::Delegation;
 use crate::identity::library::model::{AskItem, SavePage, ShareItem};
-
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn delegated_creator_can_only_select_people_authorized_by_their_delegating_owner() {
-    let s = setup().await;
-    s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"), None)
-        .await
-        .unwrap();
-    let creator = user(&s.db, "route-creator").await;
-    join(&s.db, &s.owner, &s.w, &creator, "Member").await;
-    let (_, agent) = super::super::executor_slot_tests::agent(&s.db, &creator, &s.w).await;
-    s.db.chat_grant(&s.owner, &s.w, &s.approver.id, &agent, true)
-        .await
-        .unwrap();
-    let work = chat(
-        &s.db,
-        &creator,
-        &s.w,
-        vec![s.owner.id.clone(), s.approver.id.clone()],
-        vec![agent.clone()],
-    )
-    .await;
-    s.db.control_delegate(
-        &s.owner,
-        &s.w,
-        &Delegation {
-            user: creator.id.clone(),
-            connection: s.connection.clone(),
-            operation: "order.update".into(),
-            ceiling: "ask".into(),
-            revision: 0,
-            connection_revision: 1,
-        },
-    )
-    .await
-    .unwrap();
-    s.db.control_approver_grant(&s.other, &s.w, &s.grant(true, 0))
-        .await
-        .unwrap();
-    let mut rule = Rule {
-        approver: Some(s.approver.id.clone()),
-        approver_revision: Some(1),
-        approval_chat: None,
-        connection: s.connection.clone(),
-        operation: "order.update".into(),
-        mode: "ask".into(),
-        revision: 0,
-        chat: work.clone(),
-        delegation_revision: Some(1),
-    };
-    assert!(
-        s.db.control_rule(&creator, &s.w, &agent, &rule)
-            .await
-            .is_err()
-    );
-    let context = s.db.setup_context(&creator, &s.w, &agent).await.unwrap();
-    assert!(
-        !context.accounts[0].permissions[0]
-            .approvers
-            .iter()
-            .any(|p| p["id"] == s.approver.id)
-    );
-    s.db.control_approver_grant(&s.owner, &s.w, &s.grant(true, 1))
-        .await
-        .unwrap();
-    rule.approver_revision = Some(2);
-    s.db.control_rule(&creator, &s.w, &agent, &rule)
-        .await
-        .unwrap();
-    assert!(s.db.control_enabled(&s.w, &agent, &work).await.unwrap());
-    let other_workspace = workspace(&s.db, &s.owner).await;
-    let foreign = chat(&s.db, &s.owner, &other_workspace, vec![], vec![]).await;
-    rule.approval_chat = Some(foreign);
-    rule.revision = 1;
-    assert!(
-        s.db.control_rule(&creator, &s.w, &agent, &rule)
-            .await
-            .is_err()
-    );
-}
-
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn library_source_details_never_publish_to_new_channel_members_even_with_agent_access() {
@@ -126,20 +44,16 @@ async fn library_source_details_never_publish_to_new_channel_members_even_with_a
         .await
         .unwrap();
     let source = result["chat"].as_str().unwrap();
-    let rule = Rule {
-        approver: None,
-        approver_revision: None,
-        approval_chat: None,
-        connection: s.connection.clone(),
-        operation: "order.update".into(),
-        mode: "ask".into(),
-        revision: 0,
-        chat: source.into(),
-        delegation_revision: None,
-    };
-    s.db.control_rule(&s.owner, &s.w, &s.agent, &rule)
-        .await
-        .unwrap();
+    super::super::tool_test_support::grant(
+        &s.db,
+        &s.owner,
+        &s.w,
+        &s.agent,
+        &s.connection,
+        "order.update",
+        "ask",
+    )
+    .await;
     let job = s.db.claim_job().await.unwrap().unwrap();
     let action =
         s.db.control_propose(&job, &s.request())

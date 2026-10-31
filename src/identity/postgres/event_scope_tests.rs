@@ -22,14 +22,19 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
     let before = s.db.sync_page(&s.owner, &s.w, None).await.unwrap()["cursor"]
         .as_i64()
         .unwrap();
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        &s.a,
-        &rule(&s.source.connection, &s.c, "block", 1),
-    )
-    .await
-    .unwrap();
+    {
+        let r = rule(&s.source.connection, &s.c, "block", 1);
+        super::tool_test_support::agent_rule(
+            &s.db,
+            &s.owner,
+            &s.w,
+            &s.a,
+            &r.connection,
+            &r.operation,
+            &r.mode,
+        )
+        .await;
+    }
     assert!(
         s.db.response_body(&s.owner, &s.w, &s.c, &job.reply, false)
             .await
@@ -73,14 +78,19 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
             .any(|e| e["kind"] == "event_access" && e["source"] == s.source.id)
     );
     assert!(!changes.to_string().contains("PRIVATE-EVENT-RESULT"));
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        &s.a,
-        &rule(&s.source.connection, &s.c, "allow", 2),
-    )
-    .await
-    .unwrap();
+    {
+        let r = rule(&s.source.connection, &s.c, "allow", 2);
+        super::tool_test_support::agent_rule(
+            &s.db,
+            &s.owner,
+            &s.w,
+            &s.a,
+            &r.connection,
+            &r.operation,
+            &r.mode,
+        )
+        .await;
+    }
     assert!(
         s.db.response_body(&s.owner, &s.w, &s.c, &job.reply, false)
             .await
@@ -123,14 +133,19 @@ async fn event_pending_question_source_and_answer_are_denied_after_read_revocati
         s.db.agent_profiles(&s.owner, &s.w).await.unwrap()[0]["pending"],
         1
     );
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        &s.a,
-        &rule(&s.source.connection, &s.c, "block", 1),
-    )
-    .await
-    .unwrap();
+    {
+        let r = rule(&s.source.connection, &s.c, "block", 1);
+        super::tool_test_support::agent_rule(
+            &s.db,
+            &s.owner,
+            &s.w,
+            &s.a,
+            &r.connection,
+            &r.operation,
+            &r.mode,
+        )
+        .await;
+    }
     assert!(s.db.question(&s.owner, &s.w, id).await.is_err());
     assert_eq!(
         s.db.agent_profiles(&s.owner, &s.w).await.unwrap()[0]["pending"],
@@ -152,14 +167,19 @@ async fn event_pending_question_source_and_answer_are_denied_after_read_revocati
             .unwrap()
             .is_empty()
     );
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        &s.a,
-        &rule(&s.source.connection, &s.c, "allow", 2),
-    )
-    .await
-    .unwrap();
+    {
+        let r = rule(&s.source.connection, &s.c, "allow", 2);
+        super::tool_test_support::agent_rule(
+            &s.db,
+            &s.owner,
+            &s.w,
+            &s.a,
+            &r.connection,
+            &r.operation,
+            &r.mode,
+        )
+        .await;
+    }
     let answer = crate::identity::interactions::model::Submission {
         id: uuid::Uuid::new_v4().to_string(),
         revision: 1,
@@ -191,9 +211,16 @@ async fn event_approval_inbox_details_tools_and_decision_require_the_original_so
     let s = setup().await;
     let mut write = rule(&s.source.connection, &s.c, "ask", 0);
     write.operation = "order.update".into();
-    s.db.control_rule(&s.owner, &s.w, &s.a, &write)
-        .await
-        .unwrap();
+    super::tool_test_support::agent_rule(
+        &s.db,
+        &s.owner,
+        &s.w,
+        &s.a,
+        &write.connection,
+        &write.operation,
+        &write.mode,
+    )
+    .await;
     s.save().await;
     s.accept("approval", "delayed").await;
     s.db.dispatch_events().await.unwrap();
@@ -211,14 +238,19 @@ async fn event_approval_inbox_details_tools_and_decision_require_the_original_so
             .to_string()
             .contains("PRIVATE-EVENT-DESTINATION")
     );
-    s.db.control_rule(
-        &s.owner,
-        &s.w,
-        &s.a,
-        &rule(&s.source.connection, &s.c, "block", 1),
-    )
-    .await
-    .unwrap();
+    {
+        let r = rule(&s.source.connection, &s.c, "block", 1);
+        super::tool_test_support::agent_rule(
+            &s.db,
+            &s.owner,
+            &s.w,
+            &s.a,
+            &r.connection,
+            &r.operation,
+            &r.mode,
+        )
+        .await;
+    }
     assert!(s.db.approval_details(&s.owner, &s.w, id).await.is_err());
     assert!(
         s.db.approval_inbox(&s.owner, &s.w).await.unwrap()["actions"]

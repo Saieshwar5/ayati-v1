@@ -4,7 +4,7 @@ use serde_json::json;
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn question_upgrade_preserves_a_saved_v22_approval_wait_and_its_checkpoint() {
+async fn question_upgrade_keeps_a_v22_approval_wait_checkpoint_and_asks_again_under_new_rules() {
     let base = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&base).await.unwrap();
     let schema = format!("relay_question_upgrade_{}", uuid::Uuid::new_v4().simple());
@@ -57,29 +57,15 @@ async fn question_upgrade_preserves_a_saved_v22_approval_wait_and_its_checkpoint
     .unwrap()
     .try_get::<Value>("", "data")
     .unwrap();
-    assert_eq!(saved["state"], "waiting");
-    assert_eq!(saved["run_cycle"], 0);
+    // Schema 47 moved permissions to the new rules, so the old approval was
+    // invalidated and the same original task resumes to ask again.
+    assert_eq!(saved["state"], "queued");
     assert_eq!(saved["payload"], serde_json::to_value(&job).unwrap());
-    let history = db.chat_messages(&owner, &w, &chat).await.unwrap();
-    assert!(
-        history["messages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|m| m["id"] == job.reply && m["progress"]["state"] == "approval")
-    );
-    execute(
-        &db.db,
-        "UPDATE relay_control_actions SET state='rejected',decision='reject' WHERE id='old-action'",
-        vec![],
-    )
-    .await
-    .unwrap();
     let resumed = db.claim_job().await.unwrap().unwrap();
     assert_eq!(resumed.reply, job.reply);
     let data: Value =
         serde_json::from_str(&db.task_continuation(&resumed).await.unwrap().unwrap()).unwrap();
     assert_eq!(data["checkpoint"], "Preserved original checkpoint");
     assert_eq!(data["questions"], json!([]));
-    assert_eq!(data["actions"][0]["state"], "rejected");
+    assert_eq!(data["actions"][0]["state"], "invalidated");
 }

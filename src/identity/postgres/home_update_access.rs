@@ -81,7 +81,7 @@ pub(super) async fn scopes(
         .as_array()
         .context("Panel sources unavailable")?
     {
-        let row=query(db,"SELECT jsonb_build_object('connection',a.connection,'operation',a.operation,'arguments',a.arguments,'rule_revision',a.rule_revision,'connection_revision',a.connection_revision) AS data FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.chat=a.chat AND r.connection=a.connection AND r.operation=a.operation WHERE a.workspace=$1 AND a.id=$2 AND a.effect='read' AND a.state='completed' AND r.mode='allow' AND r.revision=a.rule_revision",vec![w.into(),source["id"].as_str().context("Invalid panel source")?.into()]).await?.context("Automatic updates require currently allowed read receipts only; review a new read-based panel first")?;
+        let row=query(db,"SELECT jsonb_build_object('connection',a.connection,'operation',a.operation,'arguments',a.arguments,'rule_revision',a.rule_revision,'connection_revision',a.connection_revision) AS data FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation WHERE a.workspace=$1 AND a.id=$2 AND a.effect='read' AND a.state='completed' AND r.mode='allow' AND r.revision=a.rule_revision",vec![w.into(),source["id"].as_str().context("Invalid panel source")?.into()]).await?.context("Automatic updates require currently allowed read receipts only; review a new read-based panel first")?;
         let scope: Value = row.try_get("", "data")?;
         if !scopes.contains(&scope) {
             scopes.push(scope);

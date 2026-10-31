@@ -6,6 +6,9 @@ use crate::identity::events::{
     model::{Change, Trigger, fingerprint},
 };
 use serde_json::json;
+/// Where an event source's work may be posted for this person: the agent's
+/// conversations where it may read the source and the person may post. Rules
+/// belong to the agent (schema 47), so the destination is chosen, not derived.
 async fn choice(
     db: &DatabaseTransaction,
     user: &User,
@@ -14,12 +17,35 @@ async fn choice(
     source: &Source,
 ) -> Result<Value> {
     source.secret()?;
-    let row=query(db,"SELECT r.chat,c.name,c.visibility,conn.definition->>'account' AS account,conn.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_chats c ON c.workspace=r.workspace AND c.id=r.chat JOIN relay_control_connections conn ON conn.workspace=r.workspace AND conn.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("Configure an Allow read rule in a destination first")?;
-    let chat: String = row.try_get("", "chat")?;
-    super::automation_access::authority(db, user, w, agent, &chat).await?;
-    let authority = versions(db, user, w, agent, &chat, source).await?;
+    let account=query(db,"SELECT c.definition->>'account' AS account,c.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("The agent needs this read action set to Allow on its Tools tab first")?;
+    let candidates=json_rows(db,"SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived ORDER BY c.name,c.id LIMIT 50",vec![w.into(),agent.into()]).await?;
+    let mut conversations = vec![];
+    let mut authority = Value::Null;
+    for chat in candidates {
+        let id = chat["id"].as_str().unwrap();
+        if super::automation_access::authority(db, user, w, agent, id)
+            .await
+            .is_err()
+        {
+            continue;
+        }
+        match versions(db, user, w, agent, id, source).await {
+            Ok(v) => {
+                authority = v;
+                conversations.push(chat);
+            }
+            Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
+            Err(_) => {}
+        }
+    }
+    let first = conversations
+        .first()
+        .context("Add the agent to a conversation you can post in first")?
+        .clone();
     Ok(
-        json!({"source":source.public(),"chat":chat,"chat_name":row.try_get::<String>("","name")?,"visibility":row.try_get::<String>("","visibility")?,"account":row.try_get::<Option<String>>("","account")?,"account_name":row.try_get::<Option<String>>("","account_name")?,"authority":authority}),
+        json!({"source":source.public(),"chat":first["id"],"chat_name":first["name"],"visibility":first["visibility"],
+        "conversations":conversations,"account":account.try_get::<Option<String>>("","account")?,
+        "account_name":account.try_get::<Option<String>>("","account_name")?,"authority":authority}),
     )
 }
 async fn present(
@@ -60,7 +86,10 @@ async fn present(
         None
     };
     data["can_resume"] = json!(
-        data["principal"] == user.id && current.as_ref().is_some_and(|c| c["chat"] == data["chat"])
+        data["principal"] == user.id
+            && current.as_ref().is_some_and(|c| c["conversations"]
+                .as_array()
+                .is_some_and(|list| list.iter().any(|chat| chat["id"] == data["chat"])))
     );
     data["choice"] = json!(current);
     Ok(data)

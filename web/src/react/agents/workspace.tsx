@@ -1,12 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Button } from '../ui';
-import { useMutation, useResource } from '../requests';
-import { loadControls } from './control-model';
+import { useState } from 'react';
+import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Directory } from './model';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspaceHeader, type AgentAction } from './workspace-header';
 import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
-import { AuthoritySummary } from './authority-summary';
+import { ToolsTab } from './tools-tab';
 import { AgentWork } from './work';
 import { AutomationLauncher } from './automation/launcher';
 import { AgentOverview } from './overview';
@@ -14,15 +12,12 @@ import { InstructionsTab } from './instructions-tab';
 import { EnvironmentTab } from './environment-tab';
 import { IdentityDialog, PeopleDialog, TransferDialog } from './profile-dialogs';
 
-/** One agent's page: header, ⋯ menu and six tabs (D233). Tools keeps today's
- * rules until the per-agent rule picker arrives in M3. */
-export function AgentWorkspace({ agent, directory, revision, back, guide, control, openChat, busy, section, selectSection, saved }: {
-  agent: Agent; directory: Directory; revision: number; back: () => void; guide: () => void; control: () => void;
+/** One agent's page: header, ⋯ menu and six tabs (D233). */
+export function AgentWorkspace({ agent, directory, back, openChat, busy, section, selectSection, saved }: {
+  agent: Agent; directory: Directory; back: () => void;
   openChat: () => void; busy: boolean; section: WorkspaceSection; selectSection: (section: WorkspaceSection) => void;
   saved: () => Promise<void>;
 }) {
-  const load = useCallback(() => loadControls(agent.id), [agent.id, revision]);
-  const controls = useResource(load);
   const [dialog, setDialog] = useState<AgentAction | 'people'>();
   const mutation = useMutation();
   const choose = (action: AgentAction) => {
@@ -44,14 +39,7 @@ export function AgentWorkspace({ agent, directory, revision, back, guide, contro
       {section === 'Overview' && <AgentOverview agent={agent} open={selectSection} people={() => setDialog('people')} />}
       {section === 'Activity' && <AgentWork agent={agent.id} activity />}
       {section === 'Instructions' && <InstructionsTab key={agent.id} agent={agent} rules={directory.system_prompt} saved={saved} />}
-      {section === 'Tools' && <section className="agent-tools" aria-label="Tools">
-        <p className="ui-help">Business actions it may take, and which need someone to approve them first.</p>
-        <AuthoritySummary data={controls.data} error={controls.error} />
-        <div className="agent-profile-shortcuts">
-          {agent.editable && <Button aria-label={`Set up permissions for ${agent.name}`} onClick={guide}>Set up permissions</Button>}
-          <Button aria-label={`Tools and approvals for ${agent.name}`} onClick={control}>Tools and approvals</Button>
-        </div>
-      </section>}
+      {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} />}
       {section === 'Schedules' && <AutomationLauncher agent={agent} />}
       {section === 'Environment' && <EnvironmentTab key={agent.id} agent={agent} directory={directory} saved={saved} />}
     </div>

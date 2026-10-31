@@ -27,24 +27,8 @@ pub(super) async fn setup() -> (PgStore, User, String, Job, String, String, Pane
     .await
     .unwrap();
     db.control_connect(&owner,&w,&job.agent,&read,json!({"id":"order-reads","name":"Order reads","operations":[{"id":"order.read","title":"Read order","tool":"read_order","effect":"read","schema":{"type":"object","properties":{"order":{"type":"string"}},"required":["order"],"additionalProperties":false}}]}),"reviewed-read").await.unwrap();
-    db.control_rule(
-        &owner,
-        &w,
-        &job.agent,
-        &Rule {
-            connection: read.clone(),
-            operation: "order.read".into(),
-            mode: "allow".into(),
-            revision: 0,
-            chat: job.chat.clone(),
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
-        },
-    )
-    .await
-    .unwrap();
+    super::tool_test_support::agent_rule(&db, &owner, &w, &job.agent, &read, "order.read", "allow")
+        .await;
     observed(&db, &job, &read).await;
     let panel:PanelDraft=serde_json::from_value(json!({"id":uuid::Uuid::new_v4().to_string(),"expected_revision":0,"title":"Personal order","purpose":"Track this reviewed order","template":"metric","sections":[{"kind":"metric","label":"Order count","value":"1"}],"sources":[]})).unwrap();
     db.save_personal_panel(&job, &panel).await.unwrap();
@@ -299,7 +283,7 @@ async fn home_maintenance_pause_fences_inflight_and_cancels_unstarted_manual_upd
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn home_maintenance_schedule_coalesces_and_revocation_hides_saved_data() {
-    let (db, owner, w, original, read, _, p) = setup().await;
+    let (db, owner, w, _original, read, _, p) = setup().await;
     db.save_home_agreement(&owner, &w, &p.id, &agreement(0, Some(60)))
         .await
         .unwrap();
@@ -321,15 +305,17 @@ async fn home_maintenance_schedule_coalesces_and_revocation_hides_saved_data() {
         operation: "order.read".into(),
         mode: "block".into(),
         revision: 1,
-        chat: original.chat.clone(),
-        approver: None,
-        approver_revision: None,
-        approval_chat: None,
-        delegation_revision: None,
     };
-    db.control_rule(&owner, &w, &job.agent, &rule)
-        .await
-        .unwrap();
+    super::tool_test_support::agent_rule(
+        &db,
+        &owner,
+        &w,
+        &job.agent,
+        &rule.connection,
+        &rule.operation,
+        &rule.mode,
+    )
+    .await;
     assert_eq!(panel(&db, &owner, &w).await["active"]["available"], false);
     assert!(!super::source_access::allowed(&db.db, &job).await.unwrap());
     assert_eq!(db.dispatch_schedules_at(due + 180000).await.unwrap(), 0);
@@ -340,9 +326,16 @@ async fn home_maintenance_schedule_coalesces_and_revocation_hides_saved_data() {
     );
     rule.mode = "allow".into();
     rule.revision = 2;
-    db.control_rule(&owner, &w, &job.agent, &rule)
-        .await
-        .unwrap();
+    super::tool_test_support::agent_rule(
+        &db,
+        &owner,
+        &w,
+        &job.agent,
+        &rule.connection,
+        &rule.operation,
+        &rule.mode,
+    )
+    .await;
     assert_eq!(panel(&db, &owner, &w).await["active"]["available"], false);
 }
 

@@ -27,7 +27,7 @@ async function fixture(role, run, simulation=false) {
     if(path.endsWith('/chats'))data={chats:[]};
     if(path.endsWith('/chat-directory'))data={role,users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null,role},{id:'lead',name:'Arjun Mehta',email:'arjun@test',role:'Admin'}],agents:[]};
     if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
-    if(path.endsWith('/responsibilities'))data={agents:[{id:'a1',name:'Atlas'}],private_agents:1,library_items:0,kept_library_items:0,schedules:0,event_triggers:0,approvals:0,tool_rules:0,invitations:0};
+    if(path.endsWith('/responsibilities'))data={agents:[{id:'a1',name:'Atlas'}],private_agents:1,library_items:0,kept_library_items:0,schedules:0,event_triggers:0,invitations:0};
     if(body&&path.endsWith('/members/person')&&refuseLeave)return {ok:false,status:400,json:async()=>({error:'A workspace must keep at least one admin'})};
     return {ok:true,status:200,json:async()=>data};
   }});

@@ -1,5 +1,11 @@
 # Workspace connections and delegated agent setup
 
+> **Updated 2026-10-31 (schema 47):** tools and approvals now follow
+> [agent tools and approvals](tools-and-approvals.md). Rules belong to the agent,
+> admins set safety per action and "Ask first" goes to the agent's managers. Where
+> this page describes conversation rules, delegations, designated approvers or the
+> guided setup, it records the replaced model.
+
 This increment makes the existing shared-agent control engine configurable by an
 Admin and explicitly delegated members. It requires PostgreSQL **schema 22**.
 It provides reviewed, operator-configured MCP accounts; it does not yet provide

@@ -1,5 +1,11 @@
 # Authorized approvers and channel delivery
 
+> **Updated 2026-10-31 (schema 47):** tools and approvals now follow
+> [agent tools and approvals](tools-and-approvals.md). Rules belong to the agent,
+> admins set safety per action and "Ask first" goes to the agent's managers. Where
+> this page describes conversation rules, delegations, designated approvers or the
+> guided setup, it records the replaced model.
+
 This increment adds explicit account-action approval authority, per-operation
 approver/channel selection, saved channel request cards and a restricted **My
 approvals** inbox. It extends [guided permission review](guided-permissions.md)

@@ -18,7 +18,10 @@ pub(crate) fn instructions(name: &str, title: &str, settings: Option<&Settings>)
     text.push_str(SYSTEM_GUIDE);
     if let Some(settings) = settings {
         if !settings.instructions.trim().is_empty() {
-            text.push_str(&format!("\nInstructions:\n{}", settings.instructions.trim()));
+            text.push_str(&format!(
+                "\nInstructions:\n{}",
+                settings.instructions.trim()
+            ));
         }
         // Guidance saved by older clients still reaches the agent.
         if !settings.escalation.trim().is_empty() {
@@ -85,7 +88,10 @@ impl Settings {
             "Instructions are too long"
         );
         ensure!(
-            !self.instructions.chars().any(|c| c.is_control() && c != '\n' && c != '\t'),
+            !self
+                .instructions
+                .chars()
+                .any(|c| c.is_control() && c != '\n' && c != '\t'),
             "Instructions cannot contain control characters"
         );
         for value in [&self.successful_outcome, &self.routine]

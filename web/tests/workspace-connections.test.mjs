@@ -9,7 +9,8 @@ const operation = { id: 'order.update', title: 'Update order', effect: 'write', 
 const server = { id: 'orders', name: 'Orders', account: 'Sample business', operations: [operation] };
 const person = { id: 'member', name: 'Priya', role: 'Member' };
 const connection = { id: 'connection', server: 'orders', enabled: true, revision: 4, definition: server };
-const state = extra => ({ servers: [server], systems: [], connections: [], people: [person], delegations: [], viewer: 'owner', execution_available: true, ...extra });
+const safety = { connection: 'connection', agents: ['Atlas'], operations: [{ id: 'order.update', title: 'Update order', effect: 'write', mode: 'ask', needs_other: false, revision: 0, default: true }] };
+const state = extra => ({ servers: [server], systems: [], connections: [], safety: [safety], people: [person], viewer: 'owner', execution_available: true, ...extra });
 const response = data => ({ ok: true, status: 200, json: async () => data });
 
 test('Owner approval is explicit and does not connect an account or assign agent authority', async () => {
@@ -50,21 +51,28 @@ test('connecting guards double submission and reuses the exact identity after an
   } });
 });
 
-test('delegation retains a failed draft, bounds its revision and names the responsible Owner', async () => {
-  const writes = []; let release;
-  await reactFixture(async ({ render, button, click, change, update }) => {
+test('safety rules save once per action, keep a failed choice and ask who else must approve', async () => {
+  const writes = []; let release; let fail = true;
+  await reactFixture(async ({ render, click, update }) => {
     const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
-    await render(WorkspaceConnections); await click(button('Manage access'));
-    assert.match(document.querySelector('dialog').textContent, /default approver/);
-    const select = document.querySelector('[aria-label="Update order delegation"]');
-    await change(select, 'ask');
-    await update(() => { button('Save access').click(); button('Save access').click(); });
+    await render(WorkspaceConnections);
+    const panel = document.querySelector('[aria-label="Safety for Orders"]');
+    assert.match(panel.textContent, /used by Atlas/);
+    assert.match(panel.textContent, /New connectors start safe/);
+    const block = panel.querySelector('input[value=block]');
+    await update(() => { block.click(); block.click(); });
     assert.equal(writes.length, 1); await update(() => release());
-    assert.equal(select.value, 'ask');
-    assert.match(document.querySelector('dialog').textContent, /Access changed/);
-    assert.deepEqual(writes[0], { user: 'member', connection: 'connection', operation: 'order.update', ceiling: 'ask', revision: 0, connection_revision: 4 });
+    assert.match(panel.textContent, /Settings changed; reload/);
+    assert.deepEqual(writes[0], { connection: 'connection', operation: 'order.update', mode: 'block', needs_other: false, revision: 0 });
+    fail = false;
+    await click(panel.querySelector('input[type=checkbox]'));
+    assert.deepEqual(writes[1], { connection: 'connection', operation: 'order.update', mode: 'ask', needs_other: true, revision: 0 });
   }, { url, fetch: async (_, options = {}) => {
-    if (options.body) { writes.push(JSON.parse(options.body)); await new Promise(resolve => { release = resolve; }); return { ok: false, status: 400, json: async () => ({ error: 'Access changed; reload' }) }; }
+    if (options.body) {
+      writes.push(JSON.parse(options.body));
+      if (fail) { await new Promise(resolve => { release = resolve; }); return { ok: false, status: 400, json: async () => ({ error: 'Settings changed; reload before saving' }) }; }
+      return response({ saved: true });
+    }
     return response(state({ connections: [connection] }));
   } });
 });
@@ -83,9 +91,9 @@ test('revoked workspace access clears account controls and a late response canno
   await reactFixture(async ({ render, button, click, update }) => {
     const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
     await render(WorkspaceConnections, { key: 'owner' });
-    assert.ok(button('Manage access')); deny = true;
+    assert.ok(document.querySelector('[aria-label="Safety for Orders"]')); deny = true;
     await click(button('Refresh connections'));
-    assert.equal(button('Manage access'), undefined);
+    assert.equal(document.querySelector('[aria-label="Safety for Orders"]'), null);
     assert.match(document.querySelector('[role=alert]').textContent, /Owner access required/);
     deny = 'late'; await render(WorkspaceConnections, { key: 'old-identity' });
     await render(() => null); await update(() => release());

@@ -1,6 +1,6 @@
 //! Workspace account approval and bounded delegation, separate from agent rules.
 use super::*;
-use connections_model::{Delegation, SystemApproval, WorkspaceConnection};
+use connections_model::{ConnectorRule, SystemApproval, WorkspaceConnection};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
@@ -13,8 +13,12 @@ pub(super) fn routes() -> Router<Shared> {
             post(approve),
         )
         .route(
-            "/api/identity/workspaces/{w}/control/delegations",
-            post(delegate),
+            "/api/identity/workspaces/{w}/control/connector-rules",
+            post(connector_rule),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/control/available",
+            get(available),
         )
 }
 async fn snapshot(
@@ -95,13 +99,23 @@ async fn connect(
         .await?;
     Ok(Json(json!({"saved":true})))
 }
-async fn delegate(
+async fn connector_rule(
     State(app): State<Shared>,
     RoutePath(w): RoutePath<String>,
     headers: HeaderMap,
-    Json(input): Json<Delegation>,
+    Json(input): Json<ConnectorRule>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    app.store.control_delegate(&user, &w, &input).await?;
+    app.store.control_connector_rule(&user, &w, &input).await?;
     Ok(Json(json!({"saved":true})))
+}
+async fn available(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let mut value = app.store.control_available(&user, &w).await?;
+    value["execution_available"] = json!(app.store.pooled);
+    Ok(Json(value))
 }

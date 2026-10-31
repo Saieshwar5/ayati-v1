@@ -48,25 +48,12 @@ pub(super) async fn decision_authority(
         .await?,
         "Handoff operation ceiling changed"
     );
+    let rule=query(db,"SELECT revision FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4 AND mode='ask'",vec![w.into(),a["agent"].as_str().unwrap().into(),a["connection"].as_str().unwrap().into(),a["operation"].as_str().unwrap().into()]).await?.context("Approval authority changed")?;
     ensure!(
-        a["approver"] == user.id,
-        "Only the designated authorized person can decide this action"
-    );
-    let rule=query(db,"SELECT approver,approver_revision,revision FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4 AND chat=$5 AND mode='ask'",vec![w.into(),a["agent"].as_str().unwrap().into(),a["connection"].as_str().unwrap().into(),a["operation"].as_str().unwrap().into(),a["chat"].as_str().unwrap().into()]).await?.context("Approval authority changed")?;
-    ensure!(
-        rule.try_get::<i64>("", "revision")? == a["rule_revision"].as_i64().unwrap()
-            && rule.try_get::<String>("", "approver")? == user.id,
+        rule.try_get::<i64>("", "revision")? == a["rule_revision"].as_i64().unwrap(),
         "Approval authority changed"
     );
-    super::approval_authority::require(
-        db,
-        w,
-        a["connection"].as_str().unwrap(),
-        a["operation"].as_str().unwrap(),
-        &user.id,
-        rule.try_get("", "approver_revision")?,
-    )
-    .await
+    super::approval_authority::may_decide(db, user, w, a).await
 }
 pub(super) async fn details(
     db: &impl ConnectionTrait,
@@ -84,42 +71,34 @@ pub(super) async fn details(
     value["agent_name"] = json!(names.try_get::<String>("", "name")?);
     value["account_name"] = json!(names.try_get::<String>("", "account")?);
     value["approver_name"] = json!(names.try_get::<String>("", "approver")?);
+    // "Waiting for Ravi or Meera", and when admins may step in.
+    value["deciders"] = json!(super::approval_authority::deciders(db, w, a).await?);
+    value["backup_at"] = json!(super::approval_authority::backup_at(db, w, a).await?);
+    value["needs_other"] = a["needs_other"].clone();
+    value["decided_by_name"] = match a["decided_by"].as_str() {
+        Some(id) => json!(super::member_handover::name(db, id).await.ok()),
+        None => Value::Null,
+    };
     value["can_decide"] =
         json!(a["state"] == "pending" && decision_authority(db, user, w, a).await.is_ok());
     Ok(value)
 }
 pub(super) async fn deliver(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
     let a = action(db, w, id).await?;
-    let person = User {
-        id: a["approver"].as_str().unwrap().into(),
-        email: String::new(),
-        display_name: None,
-    };
-    let source = a["chat"].as_str().unwrap();
-    let target = a["approval_chat"].as_str().unwrap_or(source);
-    let safe = viewer(db, &person, w, &a).await.is_ok()
-        && super::approval_authority::route(
-            db,
-            &person,
-            w,
-            a["agent"].as_str().unwrap(),
-            source,
-            target,
-            &person.id,
-        )
-        .await
-        .is_ok();
-    if safe {
+    // The request appears where it was asked, for the requester and every
+    // manager in that conversation. When no manager can see it, the record says
+    // so; an admin may then decide (approval_authority::may_decide).
+    let target = a["chat"].as_str().unwrap();
+    if !super::approval_authority::deciders(db, w, &a)
+        .await?
+        .is_empty()
+    {
         let message = uuid::Uuid::new_v4().to_string();
-        let thread = if source == target {
-            a["thread"].as_str()
-        } else {
-            None
-        };
+        let thread = a["thread"].as_str();
         execute(db,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,thread) VALUES($1,$2,$3,$4,'agent','Approval request','complete',$5,$6)",vec![message.clone().into(),w.into(),target.into(),a["agent"].as_str().unwrap().into(),now().into(),thread.into()]).await?;
         execute(db,"INSERT INTO relay_control_deliveries(workspace,action,chat,message,status) VALUES($1,$2,$3,$4,'channel')",vec![w.into(),id.into(),target.into(),message.into()]).await?;
     } else {
-        execute(db,"INSERT INTO relay_control_deliveries(workspace,action,status,reason) VALUES($1,$2,'inbox','The configured audience or approver access needs review. Details are available only in the restricted approval view when authorized.')",vec![w.into(),id.into()]).await?;
+        execute(db,"INSERT INTO relay_control_deliveries(workspace,action,status,reason) VALUES($1,$2,'inbox','None of this agent''s managers can see this conversation, so an admin who can see it may decide.')",vec![w.into(),id.into()]).await?;
     }
     Ok(())
 }
@@ -156,7 +135,8 @@ impl PgStore {
     pub(crate) async fn approval_inbox(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let actions=json_rows(&tx,"SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE workspace=$1 AND approver=$2 AND (decision IS NOT NULL OR state='pending') ORDER BY (state='pending') DESC,created DESC,id DESC LIMIT 50",vec![w.into(),user.id.clone().into()]).await?;
+        let clause = super::approval_authority::decider_clause(&tx).await?;
+        let actions=json_rows(&tx,&format!("SELECT to_jsonb(a) AS data FROM relay_control_actions a WHERE a.workspace=$1 AND {clause} AND (a.decision IS NOT NULL OR a.state='pending') ORDER BY (a.state='pending') DESC,a.created DESC,a.id DESC LIMIT 50"),vec![w.into(),user.id.clone().into()]).await?;
         let mut result = Vec::new();
         for a in actions {
             if let Ok(value) = details(&tx, user, w, &a).await {

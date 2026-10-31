@@ -29,13 +29,15 @@ test('restricted channel viewers cannot open details or infer the saved action i
   },{url,fetch:async()=>{reads++;return response(approval);}});
 });
 
-test('only a server-authorized approver sees decision controls',async()=>{
+test('people who cannot decide see who can, and when an admin may step in',async()=>{
   await reactFixture(async({render,button})=>{
     const {ApprovalDialog}=await import('../src/react/approvals/approval-dialog.tsx');
     await render(ApprovalDialog,{id:'action',close(){}});
     assert.equal(button('Approve this action'),undefined);assert.equal(button('Reject'),undefined);assert.equal(button('Request changes'),undefined);
-    assert.match(document.body.textContent,/Waiting for the designated authorized approver/);
-  },{url,fetch:async()=>response({...approval,can_decide:false})});
+    assert.match(document.body.textContent,/Waiting for Priya or Meera/);
+    assert.match(document.body.textContent,/Someone other than the person who asked must approve/);
+    assert.match(document.body.textContent,/If nobody decides by .+, an admin can/);
+  },{url,fetch:async()=>response({...approval,can_decide:false,needs_other:true,backup_at:1800000000,deciders:[{id:'priya',name:'Priya'},{id:'meera',name:'Meera'}]})});
 });
 
 test('approval guards double submission and retries an uncertain response with the same decision identity',async()=>{
@@ -79,15 +81,3 @@ test('a late request cannot replace details for another action',async()=>{
   }});
 });
 
-test('routing selections bind the authorized person revision and chosen delivery channel',async()=>{
-  let route={};
-  await reactFixture(async({render,change})=>{
-    const {ApprovalRoute}=await import('../src/react/approvals/approval-route.tsx');
-    const props={label:'Update order',people:[{id:'priya',name:'Priya',revision:7}],channels:[{id:'channel',name:'Approvals'}],change:value=>{route=value;}};
-    await render(ApprovalRoute,{...props,route});
-    await change(document.querySelector('[aria-label="Update order approver"]'),'priya');
-    assert.deepEqual(route,{approver:'priya',approver_revision:7});
-    await render(ApprovalRoute,{...props,route});await change(document.querySelector('[aria-label="Update order approval channel"]'),'channel');
-    assert.equal(route.approval_chat,'channel');assert.equal(route.approver,'priya');
-  },{url});
-});

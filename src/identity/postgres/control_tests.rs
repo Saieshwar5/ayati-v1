@@ -26,24 +26,8 @@ pub(super) async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
     db.control_connect(&owner, &w, &agent, &connection, definition, "reviewed")
         .await
         .unwrap();
-    db.control_rule(
-        &owner,
-        &w,
-        &agent,
-        &Rule {
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
-            connection: connection.clone(),
-            operation: "order.update".into(),
-            mode: mode.into(),
-            revision: 0,
-            chat: chat.clone(),
-        },
-    )
-    .await
-    .unwrap();
+    super::tool_test_support::grant(&db, &owner, &w, &agent, &connection, "order.update", mode)
+        .await;
     db.chat_send(
         &owner,
         &w,
@@ -168,16 +152,12 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
             .await
             .is_err()
     );
+    // The agent's own rule may be stricter than the workspace's.
     let rule = Rule {
-        approver: None,
-        approver_revision: None,
-        approval_chat: None,
-        delegation_revision: None,
         connection: connection.clone(),
         operation: "order.update".into(),
         mode: "block".into(),
-        revision: 1,
-        chat: job.chat.clone(),
+        revision: 0,
     };
     assert!(
         db.control_rule(&member, &w, &job.agent, &rule)
@@ -207,11 +187,7 @@ async fn control_owner_rules_revoke_pending_approval_without_reviving_it() {
         &w,
         &job.agent,
         &Rule {
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
-            revision: 2,
+            revision: 1,
             mode: "ask".into(),
             ..rule
         },
@@ -314,7 +290,7 @@ async fn control_lost_channel_access_hides_receipts_and_prevents_approval() {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() {
+async fn control_rules_follow_the_agent_and_recheck_fences_revocation_during_setup() {
     let (db, owner, w, connection, job) = setup("allow").await;
     let proposal = db
         .control_propose(&job, &request(&connection, "one"))
@@ -327,15 +303,10 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
             mode: "block".into(),
-            revision: 1,
-            chat: job.chat.clone(),
+            revision: 0,
         },
     )
     .await
@@ -350,15 +321,10 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
         &w,
         &job.agent,
         &Rule {
-            approver: None,
-            approver_revision: None,
-            approval_chat: None,
-            delegation_revision: None,
             connection: connection.clone(),
             operation: "order.update".into(),
             mode: "allow".into(),
-            revision: 2,
-            chat: job.chat.clone(),
+            revision: 1,
         },
     )
     .await
@@ -375,32 +341,43 @@ async fn control_conversation_scope_and_recheck_fence_revocation_during_setup() 
     )
     .await
     .unwrap();
+    // Rules belong to the agent (D233), so they apply in every conversation it is in.
     let other_job = db.claim_job().await.unwrap().unwrap();
-    assert!(
+    assert_eq!(
         db.control_operations(&other_job).await.unwrap()["operations"]
             .as_array()
             .unwrap()
-            .is_empty()
+            .len(),
+        1
     );
-    assert_eq!(
+    assert!(
         db.control_propose(&other_job, &request(&connection, "two"))
             .await
             .unwrap()
-            .action["state"],
-        "denied"
+            .dispatch
+            .is_some()
     );
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn control_connection_review_never_inherits_previous_operation_grants() {
     let (db, owner, w, connection, job) = setup("allow").await;
-    let snapshot = db.control_snapshot(&owner, &w, &job.agent).await.unwrap();
+    let definition: Value = query(
+        &db.db,
+        "SELECT definition FROM relay_control_connections WHERE id=$1",
+        vec![connection.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "definition")
+    .unwrap();
     db.control_connect(
         &owner,
         &w,
         &job.agent,
         &connection,
-        snapshot["connections"][0]["definition"].clone(),
+        definition,
         "new-credential-or-operation-revision",
     )
     .await

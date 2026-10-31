@@ -52,8 +52,9 @@ test('selected Agents workspace exposes actual private work, exact Stop and orig
   await app.request(`${app.path}/control/systems`, app.cookie, { server: 'orders', approved: true, revision: 0 });
   await app.request(`${app.path}/control/connections`, app.cookie, { id: connection, server: 'orders', enabled: true, revision: 0 });
   const channel = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), kind: 'channel', name: 'Supplier coordination', users: [memberUser.id], agents: [agent.id] })).value.id;
+  await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) {
-    await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0, chat: channel });
+    await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0 });
   }
   const thread = randomUUID();
   await app.request(`${app.path}/chats/${channel}/messages`, member, { id: thread, content: 'Coordinate the delivery for order one.' });

@@ -1,5 +1,4 @@
 //! Shared-workspace authority boundary for supported, reviewed remote MCP operations.
-pub(crate) mod approval_model;
 mod approvals;
 pub(crate) mod broker;
 pub(crate) mod catalog;
@@ -8,13 +7,10 @@ pub(crate) mod connections_model;
 mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
-mod setup;
-pub(crate) mod setup_assistant;
-pub(crate) mod setup_model;
 use super::*;
 use anyhow::ensure;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
-use model::{Decision, Rule};
+use model::{AgentConnection, Decision, Rule};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -22,7 +18,6 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
         .merge(approvals::routes())
-        .merge(setup::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
             get(snapshot),
@@ -34,6 +29,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control/rules",
             post(rule),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{agent}/control/tools",
+            post(tools),
         )
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control/actions/{action}/decision",
@@ -55,11 +54,6 @@ async fn snapshot(
     value["execution_available"] = json!(available);
     // Account discovery belongs to the admin-only workspace settings endpoint.
     value["servers"] = json!([]);
-    if value["can_manage"] == true {
-        let context = app.store.setup_context(&user, &w, &agent).await?;
-        value["approval_accounts"] = json!(context.accounts);
-        value["approval_channels"] = json!(context.approval_channels);
-    }
     Ok(Json(value))
 }
 #[derive(Deserialize)]
@@ -124,6 +118,22 @@ async fn rule(
         "Business tools need controller-managed execution; ask your operator to enable it",
     )?;
     app.store.control_rule(&user, &w, &agent, &input).await?;
+    Ok(Json(json!({"saved":true})))
+}
+async fn tools(
+    State(app): State<Shared>,
+    RoutePath((w, agent)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<AgentConnection>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    check(
+        !input.enabled || execution_available(&app)?,
+        "Business tools need controller-managed execution; ask your operator to enable it",
+    )?;
+    app.store
+        .control_agent_connection(&user, &w, &agent, &input)
+        .await?;
     Ok(Json(json!({"saved":true})))
 }
 async fn decide(

@@ -51,6 +51,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::audit_summary_migration::AuditSummaries),
             Box::new(super::agent_audience_migration::AgentAudience),
             Box::new(super::agent_instructions_migration::AgentInstructions),
+            Box::new(super::connector_safety_migration::ConnectorSafety),
         ]
     }
 }

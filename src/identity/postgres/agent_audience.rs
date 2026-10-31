@@ -100,9 +100,19 @@ pub(super) async fn save_lists(
         if wanted != current {
             changes.people = true;
             changes.narrowed = current.iter().any(|person| !wanted.contains(person));
-            execute(tx, "DELETE FROM relay_chat_access WHERE workspace=$1 AND agent=$2", vec![w.into(), agent.into()]).await?;
+            execute(
+                tx,
+                "DELETE FROM relay_chat_access WHERE workspace=$1 AND agent=$2",
+                vec![w.into(), agent.into()],
+            )
+            .await?;
             for person in &wanted {
-                execute(tx, "INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3)", vec![w.into(), person.clone().into(), agent.into()]).await?;
+                execute(
+                    tx,
+                    "INSERT INTO relay_chat_access(workspace,user_id,agent) VALUES($1,$2,$3)",
+                    vec![w.into(), person.clone().into(), agent.into()],
+                )
+                .await?;
             }
         }
     }
@@ -118,7 +128,12 @@ pub(super) async fn save_lists(
         let current = listed(tx, "SELECT user_id FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 ORDER BY user_id", w, agent).await?;
         if wanted != current {
             changes.managers = !creating;
-            execute(tx, "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2", vec![w.into(), agent.into()]).await?;
+            execute(
+                tx,
+                "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2",
+                vec![w.into(), agent.into()],
+            )
+            .await?;
             for person in &wanted {
                 execute(tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,$5)", vec![w.into(), agent.into(), person.clone().into(), actor.into(), now().into()]).await?;
             }
@@ -182,19 +197,35 @@ impl PgStore {
         let a = super::agent_profiles::managed_access(&tx, &user.id, w, id, true).await?;
         let revision = a["revision"].as_i64().unwrap_or(0);
         let owner = a["owner_id"].as_str().unwrap_or_default().to_string();
-        ensure!(revision == input.revision, "Agent changed; reload before saving");
+        ensure!(
+            revision == input.revision,
+            "Agent changed; reload before saving"
+        );
         ensure!(owner != input.owner, "They already own this agent");
         role(&tx, w, &input.owner)
             .await
             .context("The new owner must be in this workspace")?;
         execute(&tx, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1 WHERE workspace=$1 AND id=$2", vec![w.into(), id.into(), input.owner.clone().into()]).await?;
-        execute(&tx, "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 AND user_id=$3", vec![w.into(), id.into(), owner.into()]).await?;
+        execute(
+            &tx,
+            "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 AND user_id=$3",
+            vec![w.into(), id.into(), owner.into()],
+        )
+        .await?;
         execute(&tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", vec![w.into(), id.into(), input.owner.clone().into(), user.id.clone().into(), now().into()]).await?;
         super::task_revocation::inaccessible(&tx, w).await?;
         let actor = super::member_handover::name(&tx, &user.id).await?;
         let heir = super::member_handover::name(&tx, &input.owner).await?;
         let agent = a["name"].as_str().unwrap_or("an agent");
-        audit_with_summary(&tx, &user.id, Some(w), "agent_owner_changed", id, &format!("{actor} made {heir} the owner of {agent}")).await?;
+        audit_with_summary(
+            &tx,
+            &user.id,
+            Some(w),
+            "agent_owner_changed",
+            id,
+            &format!("{actor} made {heir} the owner of {agent}"),
+        )
+        .await?;
         tx.commit().await?;
         Ok(json!({"owner":input.owner,"revision":revision + 1}))
     }
