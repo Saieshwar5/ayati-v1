@@ -168,6 +168,9 @@ impl PgStore {
         if class != WorkClass::Communication {
             super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }
+        if class != WorkClass::Background {
+            super::work_rooms::ordinary(tx, workspace, chat).await?;
+        }
         let (author, kind) = match class {
             WorkClass::Handoff(sender) | WorkClass::Private(sender) => (sender, "agent"),
             _ => (user.id.as_str(), "user"),

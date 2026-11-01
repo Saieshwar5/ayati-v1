@@ -7,8 +7,7 @@ use crate::identity::{agents::config::SaveAgent, automations::model::Change};
 use serde_json::json;
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn automation_source_revocation_blocks_future_runs_and_cancels_queued_work_without_regrant_revival()
- {
+async fn automation_source_revocation_blocks_future_runs_without_regrant_revival() {
     let (db, owner, w, _, a) = setup().await;
     let other = user(&db, "schedule-other-owner").await;
     join(&db, &owner, &w, &other, "Member").await;
@@ -28,9 +27,11 @@ async fn automation_source_revocation_blocks_future_runs_and_cancels_queued_work
         json!([])
     );
     assert_eq!(state(&db, &w, &hidden.id).await["state"], "blocked");
+    // The run already accepted continues in the schedule's own room; only
+    // its post to the conversation is skipped. Future runs stay blocked.
     assert_eq!(
         db.schedule_runs(&other, &w, &a, &hidden.id).await.unwrap()["runs"][0]["state"],
-        "cancelled"
+        "queued"
     );
     db.channel_members(&other, &w, &c, &[other.id.clone(), owner.id.clone()])
         .await
@@ -72,11 +73,13 @@ async fn automation_source_revocation_blocks_future_runs_and_cancels_queued_work
     )
     .await
     .unwrap();
+    // The run accepted before the revocation is still waiting in the work
+    // room, so a resumed routine never overlaps it.
     assert_eq!(
         db.dispatch_schedules_at(hidden.first_ms + 100000)
             .await
             .unwrap(),
-        1
+        0
     );
     let foreign = workspace(&db, &other).await;
     assert!(
@@ -121,7 +124,13 @@ async fn automation_archive_preserves_accepted_work_but_restore_never_reenables_
         .as_str()
         .unwrap()
         .to_owned();
-    db.cancel_assignment(&owner, &w, &c, &reply).await.unwrap();
+    let room = db.schedule_runs(&owner, &w, &a, &input.id).await.unwrap()["runs"][0]["chat"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    db.cancel_assignment(&owner, &w, &room, &reply)
+        .await
+        .unwrap();
     assert_eq!(
         db.dispatch_schedules_at(input.first_ms + 100000)
             .await

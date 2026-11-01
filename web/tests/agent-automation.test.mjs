@@ -20,7 +20,11 @@ test('schedule context review starts no work and concurrent explicit saves retai
  const writes=[];let finish;
  await reactFixture(async({render,button,change,click,update})=>{
   const {CreateSchedule}=await setup();await render(CreateSchedule,{agent:'agent',data:directory,clock,close:()=>{},saved:async()=>{}});
-  await fill(change);await click(button('Review schedule'));assert.equal(writes.length,0);assert.match(document.body.textContent,/PRIVATE_DELIVERY_CHANNEL/);assert.match(document.body.textContent,/grants no new permissions/);
+  await fill(change);
+  // Activity only is the default; posting a summary is an explicit choice.
+  const [activityOnly,postTo]=document.querySelectorAll('input[type=radio]');assert.equal(activityOnly.checked,true);assert.equal(field('Conversation'),undefined);
+  await click(postTo);assert.equal(field('Conversation').value,'channel');
+  await click(button('Review schedule'));assert.equal(writes.length,0);assert.match(document.body.textContent,/Activity, and a summary in PRIVATE_DELIVERY_CHANNEL/);assert.match(document.body.textContent,/grants no new permissions/);
   await update(()=>{button('Create schedule').click();button('Create schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].chat,'channel');assert.equal(writes[0].timezone,'Asia/Kolkata');assert.equal(writes[0].interval_seconds,null);
   await update(()=>finish(response(routine)));assert.match(document.body.textContent,/Schedule saved/);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return new Promise(resolve=>{finish=resolve;});}return base(path);}});
@@ -30,7 +34,7 @@ test('unacknowledged routine saves keep their exact ID across reopen and editing
  const writes=[];
  await reactFixture(async({render,button,change,click})=>{
   const {CreateSchedule}=await setup();const props={agent:'agent',data:directory,clock,close:()=>{},saved:async()=>{}};
-  await render(CreateSchedule,props);await fill(change);await click(button('Review schedule'));await click(button('Create schedule'));assert.match(document.body.textContent,/Save result unavailable/);
+  await render(CreateSchedule,props);await fill(change);await click(button('Review schedule'));assert.match(document.body.textContent,/ResultsActivity only/);await click(button('Create schedule'));assert.match(document.body.textContent,/Save result unavailable/);assert.equal(writes[0].chat,null);
   await render(()=>createElement('p',null,'Closed'));await render(CreateSchedule,props);assert.match(document.body.textContent,/A save was not acknowledged/);
   await click(button('Retry same save'));assert.deepEqual(writes[1],writes[0]);
   await click(button('Edit as a new schedule'));assert.equal(field('Routine name').value,'Delivery review');assert.equal(field('Task instructions').value,writes[0].content);

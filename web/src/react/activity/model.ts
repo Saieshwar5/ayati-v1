@@ -9,7 +9,12 @@ export type ActivityItem = {
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null };
+/** The schedule a run came from, and whether its result was posted (schema 56). */
+export type RunSchedule = { id: string; name: string; agent: string; state: string; revision: number; principal: string; interval_seconds: number | null;
+  post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
+  /** The run happened in the schedule's own work room, which isn't a conversation. */
+  room: boolean };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null };
 export type Totals = {
   requests: number; done: number; failed: number; review: number; waiting: number; automatic: number; approved: number;
   people: number; channels: number; schedule_runs: number;
@@ -57,7 +62,7 @@ export function status(item: { state: string; approvals?: { state: string }[] })
   }
 }
 export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off' };
-export const where = (item: ActivityItem) => item.kind === 'schedule' ? `schedule in ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
+export const where = (item: ActivityItem) => item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
   : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 export function dayLabel(ms: number): string {

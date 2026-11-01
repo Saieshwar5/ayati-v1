@@ -1,5 +1,5 @@
 //! Saved shared routines. Model output and viewing never create standing authority.
-use super::automation_access::{authority, present, record, visible};
+use super::automation_access::{authority, present, record, run_authority, visible};
 use super::*;
 use crate::identity::automations::model::{Change, Schedule, fingerprint, uuid};
 use serde_json::json;
@@ -26,7 +26,8 @@ impl PgStore {
             }
         }
         let mut conversations = Vec::new();
-        for data in json_rows(&tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind) AS data FROM relay_chats c JOIN relay_chat_agents a ON a.workspace=c.workspace AND a.chat=c.id WHERE c.workspace=$1 AND a.agent=$2 AND NOT c.archived AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)) ORDER BY c.id LIMIT 101",vec![w.into(),agent.into(),user.id.clone().into()]).await? {
+        let hidden = super::work_rooms::hidden(&tx).await?;
+        for data in json_rows(&tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind) AS data FROM relay_chats c JOIN relay_chat_agents a ON a.workspace=c.workspace AND a.chat=c.id WHERE c.workspace=$1 AND a.agent=$2 AND NOT c.archived{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)) ORDER BY c.id LIMIT 101"),vec![w.into(),agent.into(),user.id.clone().into()]).await? {
             if authority(&tx,user,w,agent,data["id"].as_str().unwrap()).await.is_ok() { conversations.push(data); }
         }
         let more = conversations.len() > 100;
@@ -71,7 +72,7 @@ impl PgStore {
             self.pooled,
             "Shared schedules require pooled background execution"
         );
-        authority(&tx, user, w, agent, &input.chat).await?;
+        run_authority(&tx, user, w, agent, input.chat.as_deref()).await?;
         ensure!(
             query(
                 &tx,
@@ -148,7 +149,7 @@ impl PgStore {
                 data["principal"] == user.id,
                 "Only the original authorizing person can resume this routine"
             );
-            authority(&tx, user, w, agent, data["chat"].as_str().unwrap()).await?;
+            run_authority(&tx, user, w, agent, data["chat"].as_str()).await?;
         }
         ensure!(
             (data["state"] == "enabled") != input.enabled,

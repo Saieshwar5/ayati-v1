@@ -1,5 +1,6 @@
 import { Marked } from 'marked';
 import createDOMPurify from 'dompurify';
+import { workspaceUrl } from './workspace-context';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const parser = new Marked({ gfm: true, breaks: true, renderer: {
@@ -10,6 +11,8 @@ const parser = new Marked({ gfm: true, breaks: true, renderer: {
   link({ href, tokens }) {
     const text = this.parser.parseInline(tokens);
     if (/^mention:(user|agent):[a-zA-Z0-9_-]+$/.test(href)) return `<span class="message-mention">${text}</span>`;
+    // A run Cuckoo posted from a schedule: opens it in Activity, same tab.
+    if (/^run:[0-9a-f-]{36}$/.test(href)) return `<a href="${escape(workspaceUrl(`/?view=activity&tab=history&run=${href.slice(4)}`))}">${text}</a>`;
     if (!/^(https?:|mailto:)/i.test(href)) return text;
     return `<a href="${escape(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   },

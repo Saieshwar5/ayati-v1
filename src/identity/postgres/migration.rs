@@ -60,6 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::connector_providers::migration::ConnectorProviders),
             Box::new(super::communications::migration::CommunicationGateway),
             Box::new(super::shared_rooms::migration::SharedRooms),
+            Box::new(super::work_rooms::migration::WorkRooms),
         ]
     }
 }

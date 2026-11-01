@@ -1,5 +1,5 @@
 //! Atomic schedule occurrence admission. Execution remains in the ordinary worker pool.
-use super::automation_access::{authority, principal, record};
+use super::automation_access::{principal, record, run_authority};
 use super::*;
 use crate::identity::{automations::model::due, chat::model::NewMessage};
 pub(super) async fn cancel_unstarted(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<()> {
@@ -58,10 +58,11 @@ impl PgStore {
             tx.commit().await?;
             return Ok(false);
         }
-        if let Err(error) = if super::home_update_access::panel_schedule(&tx, w, id).await? {
+        let panel = super::home_update_access::panel_schedule(&tx, w, id).await?;
+        if let Err(error) = if panel {
             Ok(())
         } else {
-            authority(&tx, &person, w, agent, data["chat"].as_str().unwrap()).await
+            run_authority(&tx, &person, w, agent, data["chat"].as_str()).await
         } {
             if error.is::<sea_orm::DbErr>() {
                 return Err(error);
@@ -91,9 +92,19 @@ impl PgStore {
             thread: None,
             attachments: vec![],
         };
+        // A personal Home panel update keeps its own source; every other
+        // schedule runs in its own work room, never in a conversation.
+        let target = if panel {
+            data["chat"]
+                .as_str()
+                .context("Missing panel source")?
+                .to_owned()
+        } else {
+            super::work_rooms::room(&tx, w, &data).await?
+        };
         let intake = tx.begin().await?;
         let job = match self
-            .background_in(&intake, &person, w, data["chat"].as_str().unwrap(), &input)
+            .background_in(&intake, &person, w, &target, &input)
             .await
         {
             Ok(job) => {

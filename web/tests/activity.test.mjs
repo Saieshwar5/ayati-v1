@@ -175,3 +175,27 @@ test('"See what it did" on an agent reply opens its request details', async () =
     return response({});
   } });
 });
+
+test('a link to a scheduled run opens it: its schedule, where the result went, Pause, and no conversation to open', async () => {
+  const writes = [];
+  const run = '22222222-2222-4222-8222-222222222222';
+  const schedule = { id: 'chase', name: 'Monday invoice chase', agent: 'nova', state: 'enabled', revision: 4, principal: 'owner', interval_seconds: 604800,
+    post_to: 'finance', posted: 'posted', post_reason: null, room: true };
+  await reactFixture(async ({ render, button, click }) => {
+    await render(await page(), { href: `${url}&run=${run}` });
+    const drawer = document.querySelector('dialog');
+    assert.match(drawer.textContent, /Started bySchedule · Monday invoice chase · Every 7 24-hour periods/);
+    assert.match(drawer.textContent, /ResultsActivity, and a summary in finance · Posted/);
+    assert.equal(drawer.querySelector('a[href*="view=chat"]'), null, 'a work room is not a conversation');
+    await click(button('Pause schedule'));
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].path, '/api/identity/workspaces/' + w + '/agent-profiles/nova/schedules/chase/state');
+    assert.deepEqual({ revision: writes[0].body.revision, enabled: writes[0].body.enabled }, { revision: 4, enabled: false });
+  }, { url: `${url}&run=${run}`, fetch: async (path, init = {}) => {
+    if (init.method === 'POST') { writes.push({ path, body: JSON.parse(init.body) }); return response({ id: 'chase', state: 'paused', revision: 5 }); }
+    const shared = common(path); if (shared) return shared;
+    if (path.includes(`/activity/requests/${run}`)) return response({ ...item(run, 'Monday invoice chase', { kind: 'schedule', chat: 'room', conversation_name: 'Monday invoice chase', conversation_kind: 'direct' }),
+      message: 'Scheduled work · Monday invoice chase', reply: 'Sent 14 reminders.', steps: [], fix: null, disagreement: null, schedule });
+    return response({ items: [], next_before: null });
+  } });
+});
