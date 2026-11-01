@@ -1,12 +1,16 @@
+import type { ReactNode } from 'react';
 import type { PanelDefinition } from '../../panel-types';
 import { sourceUrl, type Snapshot } from './model';
 import { PanelSection } from './sections';
 export function PanelContent({
   definition,
   scrollable = false,
+  after,
 }: {
   definition: PanelDefinition;
   scrollable?: boolean;
+  /** Shown after the sections, inside the scrolling area (the frame's note). */
+  after?: ReactNode;
 }) {
   return (
     <div
@@ -22,6 +26,7 @@ export function PanelContent({
           <PanelSection section={s} />
         </section>
       ))}
+      {after}
     </div>
   );
 }

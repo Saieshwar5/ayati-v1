@@ -46,4 +46,8 @@ pub(crate) struct Update {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Refresh {
     pub sections: Vec<Section>,
+    /// The agent's short note on what changed since the last update, shown on
+    /// the panel. Only when something meaningful changed; at most 280 characters.
+    #[serde(default)]
+    pub what_changed: Option<String>,
 }

@@ -6,11 +6,14 @@ import { useAttention } from './use-attention';
 const needsMe = () => workspaceUrl('/?view=activity&tab=needs');
 
 /** Home's small Needs me panel; everything opens Activity (D235). */
-export function HomeAttention() {
-  const { data, error, loading, refresh } = useAttention('needs_you', null);
+export function HomeAttention({ shared }: { shared?: ReturnType<typeof useAttention> } = {}) {
+  // Home passes its one read; on its own the panel reads for itself.
+  const own = useAttention('needs_you', null, !shared);
+  const { data, error, loading, refresh } = shared ?? own;
+  const waiting = data?.items.filter(item => item.kind !== 'outcome').length ?? 0;
   return <section className="home-notifications" aria-label="Notifications">
     <header className="standard-panel-heading"><h2>Notifications</h2>
-      <a className="ui-button" href={needsMe()}>Open Activity{data?.items.length ? ` · ${data.items.length}${data.next_before ? '+' : ''}` : ''}</a>
+      <a className="ui-button" href={needsMe()}>{waiting ? `${waiting}${data?.next_before ? '+' : ''} ${waiting === 1 && !data?.next_before ? 'needs' : 'need'} you →` : `Open Activity${data?.items.length ? ` · ${data.items.length}${data.next_before ? '+' : ''}` : ''}`}</a>
     </header>
     <p className="standard-panel-caption">Agent questions, approvals and outcomes</p>
     {error && <><p role="alert">{error}</p><Button disabled={loading} onClick={() => void refresh()}>Retry attention</Button></>}

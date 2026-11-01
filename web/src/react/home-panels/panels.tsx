@@ -8,9 +8,13 @@ import { AskPanel } from './create';
 import { PanelReview } from './review';
 import { PanelMaintenance } from './maintenance';
 import { panelTemplate } from '../../panel-types';
+import type { AttentionPage } from '../attention/model';
+import { healthLine, PanelFooterLine, PanelHealth, PanelNeedsYou, PanelNote } from './frame';
 import '../../home-panels.css';
 import './panels.css';
-export function WorkspacePanels() {
+/** `needsYou` is Home's one read of waiting approvals and questions, shared with the
+ * Notifications panel, so each panel can say what needs you without reading again. */
+export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {}) {
   const { data, error, busy, refresh } = usePanels();
   const [arrange, setArrange] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -90,10 +94,13 @@ export function WorkspacePanels() {
         {panels.map((panel) => {
           const snapshot = panel.active ?? panel.draft,
             definition = snapshot?.available ? snapshot.definition : undefined,
-            metric = definition?.sections[0]?.kind === 'metric';
+            metric = definition?.sections[0]?.kind === 'metric',
+            // The frame describes the published result, never a draft under review.
+            published = panel.active?.available ? panel.active : undefined,
+            stale = Boolean(published && healthLine(panel, published));
           return (
             <article
-              className={`home-panel-card${layout?.wide.includes(panel.id) && !metric ? ' panel-wide' : ''}`}
+              className={`home-panel-card${layout?.wide.includes(panel.id) && !metric ? ' panel-wide' : ''}${stale ? ' panel-is-stale' : ''}`}
               data-panel={panel.id}
               key={panel.id}
               aria-label={definition?.title ?? 'Panel source unavailable'}
@@ -102,21 +109,26 @@ export function WorkspacePanels() {
               data-comparison={definition?.sections[0]?.kind === 'metric' && definition.sections[0].comparison ? 'true' : undefined}
               data-maintained={panel.maintenance?.revision ? 'true' : undefined}
             >
-              {definition ? <PanelContent definition={definition} scrollable /> : <h3>Panel source unavailable</h3>}
+              {published && <PanelHealth panel={panel} snapshot={published} />}
+              {definition ? <PanelContent definition={definition} scrollable after={published && <PanelNote snapshot={published} />} />
+                : <h3>Panel source unavailable</h3>}
               {definition && snapshot ? (
                 <div className="workspace-panel-footer">
-                  <small
+                  {published ? <PanelFooterLine panel={panel} snapshot={published}
+                    needs={<PanelNeedsYou agent={panel.agent} items={needsYou?.available === false ? undefined : needsYou?.items}
+                      more={Boolean(needsYou?.next_before)} />} /> : <small
                     className="workspace-panel-attribution"
                     title={`${panel.agent_name ?? 'Agent'} · Saved ${new Date(snapshot.saved_ms!).toLocaleString()}`}
                   >
                     {panel.agent_name ?? 'Agent'} · Saved {new Date(snapshot.saved_ms!).toLocaleString()} ·
                     Personal
-                  </small>
-                  <small>
+                  </small>}
+                  {/* A published panel's receipts are behind Show proof and Sources and details. */}
+                  {!published && <small>
                     {snapshot.source_operations
                       ? `${snapshot.source_operations} source receipt${snapshot.source_operations === 1 ? '' : 's'} · Review the interpretation`
                       : 'Agent findings · Review the basis'}
-                  </small>
+                  </small>}
                   {!panel.active && <small>Draft · Review required</small>}
                   <div>
                     {panel.draft?.available && (

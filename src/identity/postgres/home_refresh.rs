@@ -5,6 +5,9 @@ use crate::{
     panels::PanelDraft,
 };
 use serde_json::json;
+#[cfg(test)]
+#[path = "home_frame_tests.rs"]
+mod frame_tests;
 impl PgStore {
     pub(crate) async fn refresh_home_panel(&self, job: &Job, input: &Refresh) -> Result<Value> {
         let tx = self.workspace_tx(&job.workspace).await?;
@@ -45,9 +48,18 @@ impl PgStore {
                     "Perform every reviewed source read in this update before publishing",
                 )?);
         }
+        let what_changed = input
+            .what_changed
+            .as_deref()
+            .map(str::trim)
+            .filter(|note| !note.is_empty());
+        ensure!(
+            what_changed.is_none_or(|note| note.chars().count() <= 280),
+            "Keep what_changed to 280 characters: one or two plain sentences"
+        );
         let provenance = super::home_sources::capture(&tx, job, None, &[]).await?;
         let generation = data["expected_generation"].as_i64().unwrap() + 1;
-        execute(&tx,"INSERT INTO relay_home_snapshots(workspace,panel,generation,panel_revision,definition,provenance,task,checked_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",vec![job.workspace.clone().into(),data["panel"].as_str().unwrap().into(),generation.into(),data["panel_revision"].as_i64().unwrap().into(),definition.into(),provenance.into(),job.reply.clone().into(),checked_ms.into()]).await?;
+        execute(&tx,"INSERT INTO relay_home_snapshots(workspace,panel,generation,panel_revision,definition,provenance,task,checked_ms,what_changed) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![job.workspace.clone().into(),data["panel"].as_str().unwrap().into(),generation.into(),data["panel_revision"].as_i64().unwrap().into(),definition.into(),provenance.into(),job.reply.clone().into(),checked_ms.into(),what_changed.map(str::to_string).into()]).await?;
         execute(&tx,"UPDATE relay_home_update_runs SET published_generation=$3,request_hash=$4 WHERE workspace=$1 AND reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into(),generation.into(),hash.into()]).await?;
         execute(
             &tx,

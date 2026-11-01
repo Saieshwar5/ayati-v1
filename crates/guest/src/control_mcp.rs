@@ -15,10 +15,15 @@ pub fn observed(name: &str, input: &Value) -> bool {
         }
         Some("home_panel_update_context") => input == &json!({}),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
-            v.len() == 1
+            v.keys()
+                .all(|key| key == "sections" || key == "what_changed")
                 && v.get("sections")
                     .and_then(Value::as_array)
                     .is_some_and(|s| s.len() == 1)
+                && v.get("what_changed").is_none_or(|note| {
+                    note.as_str()
+                        .is_some_and(|text| text.chars().count() <= 280)
+                })
         }),
         Some("save_home_panel") => crate::panel_schema::panel_write_input(input),
         Some("ask_question") => input.as_object().is_some_and(|v| {
@@ -69,7 +74,7 @@ impl ServerHandler for ControlTools {
             crate::history_schema::read_tool(),
             crate::personal_panel_schema::tool(),
             json!({"name":"home_panel_update_context","description":"Read the controller-bound update agreement, fixed panel definition and exact source reads for this maintenance task only. Available only after the human enabled panel updates. It grants no new source authority.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
-            json!({"name":"refresh_home_panel","description":"Publish one bounded data snapshot for this controller-bound Home maintenance task. First perform every exact reviewed source read from home_panel_update_context. Send only sections, preserving headings, columns, units, chart variants/series names, comparison direction and targets. The controller fixes panel identity, owner, agent, purpose and audience. Ordinary tasks cannot use this tool.","inputSchema":{"type":"object","properties":{"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}}},"required":["sections"],"additionalProperties":false}}),
+            json!({"name":"refresh_home_panel","description":"Publish one bounded data snapshot for this controller-bound Home maintenance task. First perform every exact reviewed source read from home_panel_update_context. Send sections, preserving headings, columns, units, chart variants/series names, comparison direction and targets. Add what_changed (one or two plain sentences) only when something meaningful changed since the last update; it is shown on the panel. The controller fixes panel identity, owner, agent, purpose and audience. Ordinary tasks cannot use this tool.","inputSchema":{"type":"object","properties":{"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}},"what_changed":{"type":"string","maxLength":280}},"required":["sections"],"additionalProperties":false}}),
             json!({"name":"personal_panels","description":"List the original human requester's saved personal panel identities and revisions for this agent in this source conversation only. Data is private to that person; this grants no source authority and returns no cached panel facts.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),
@@ -175,6 +180,29 @@ mod tests {
         ] {
             assert!(!observed("ayati_control__continue_privately", &chosen));
         }
+    }
+    #[test]
+    fn a_panel_refresh_forwards_one_section_and_an_optional_short_note() {
+        let section = json!([{"kind":"metric","label":"Orders","value":"12"}]);
+        let name = "ayati_control__refresh_home_panel";
+        assert!(observed(name, &json!({"sections": section})));
+        assert!(observed(
+            name,
+            &json!({"sections": section, "what_changed": "Orders doubled since morning."})
+        ));
+        assert!(!observed(
+            name,
+            &json!({"sections": section, "what_changed": "x".repeat(281)})
+        ));
+        assert!(!observed(
+            name,
+            &json!({"sections": section, "what_changed": 7})
+        ));
+        assert!(!observed(
+            name,
+            &json!({"sections": section, "owner": "someone"})
+        ));
+        assert!(!observed(name, &json!({"what_changed": "No sections."})));
     }
     #[test]
     fn skill_loading_forwards_only_a_name_and_an_optional_file() {

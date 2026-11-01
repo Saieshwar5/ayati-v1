@@ -189,3 +189,46 @@
     height: 520px;
   }
 }
+
+/* The panel frame (people-and-agents-first, Phase 1e). These lines never scroll
+   away: only the saved content between them does. */
+.workspace-panels .panel-changed,
+.workspace-panels .panel-stale {
+  flex-shrink: 0;
+  margin: 10px 0 0;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.workspace-panels .panel-changed { background: var(--soft); }
+.workspace-panels .panel-stale {
+  margin: 0 0 8px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+}
+.workspace-panels .panel-stale a { color: inherit; font-weight: 600; }
+.workspace-panels .panel-is-stale .panel-snapshot { opacity: 0.6; }
+.workspace-panels .panel-needs-you {
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--warning);
+  background: var(--warning-bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.workspace-panels .panel-needs-you:hover,
+.workspace-panels .panel-needs-you:focus-visible { text-decoration: underline; }
+.panel-frame-line { display: grid; gap: 4px; min-width: 0; }
+.panel-frame-line > small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-frame-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
+.panel-frame-links a { color: var(--text); }
+.panel-frame-links .panel-ask { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+@media (forced-colors: active) {
+  .workspace-panels .panel-stale,
+  .workspace-panels .panel-needs-you { border: 1px solid CanvasText; }
+}

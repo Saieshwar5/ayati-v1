@@ -104,7 +104,8 @@ test('Home refreshes on focus, aborts owned reads when it unmounts and links to 
     const {HomeAttention}=await import('../src/react/attention/home-attention.tsx');
     await render(HomeAttention);
     assert.match(document.body.textContent,/Choose the customer group/);
-    const open=[...document.querySelectorAll('a')].find(node=>node.textContent==='Open Activity · 1+');
+    // A waiting question reads as what needs you (people-and-agents-first, Phase 1e).
+    const open=[...document.querySelectorAll('a')].find(node=>node.textContent==='1+ need you →');
     assert.match(open.href,/view=activity&tab=needs/);
     delay=true;
     await update(()=>window.dispatchEvent(new window.Event('focus')));

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { workspaceSession } from '../../workspace-context';
+import { storageScope, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { chatRequest, type Conversation, type Participant } from './model';
 
@@ -34,4 +34,20 @@ export function useDirectConversation(chats: Conversation[], opened: (id: string
     if (alive.current) opened(id);
   });
   return { ...mutation, choose, ensure };
+}
+
+/** Open the person's direct chat with an agent (creating it when needed) and start
+ * the message with `opening`, never replacing a draft they already have. Used by
+ * Activity's "Discuss in chat" and a Home panel's "Ask about this". `attempt` keeps
+ * one conversation id per opening, so a double click creates one chat. */
+export async function openAgentChat(agent: { id: string; name: string }, opening: string, attempt: { current?: string }) {
+  const { chats } = await chatRequest<{ chats: Conversation[] }>('/chats');
+  let id = existingDirect(chats, { id: agent.id, name: agent.name, kind: 'agent' }, workspaceSession?.user?.id)?.id;
+  if (!id) {
+    attempt.current ??= crypto.randomUUID();
+    id = (await chatRequest<{ id: string }>('/chats', { id: attempt.current, kind: 'direct', name: agent.name, description: '', users: [], agents: [agent.id] })).id;
+  }
+  const draft = storageScope(`relay.chat.draft.${id}`);
+  try { if (!sessionStorage.getItem(draft)) sessionStorage.setItem(draft, opening); } catch { /* Optional draft. */ }
+  location.assign(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`));
 }

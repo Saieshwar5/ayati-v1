@@ -11,12 +11,16 @@ export type Snapshot = {
   task?: string;
   checked_ms?: number;
   generation?: number;
+  /** The agent's note on what changed with this update, when it wrote one. */
+  what_changed?: string | null;
 };
 export type Maintenance = {
   revision: number; panel_revision: number; enabled: boolean; eligible: boolean;
   execution_available: boolean; instructions: string; interval_seconds: number | null;
   stale_seconds: number; scopes: {connection: string; operation: string; arguments: unknown}[] | null;
   status: string; checked_ms: number | null; saved_ms: number | null; next_ms: number | null;
+  /** The latest update request, opened from a delayed or failed panel. */
+  last_update?: string | null;
 };
 export type PersonalPanel = {
   id: string;

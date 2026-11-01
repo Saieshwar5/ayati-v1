@@ -135,7 +135,7 @@ impl PgStore {
         let data = active(&tx, job)
             .await?
             .context("This task is not a Home panel update")?;
-        let result = json!({"definition":data["definition"],"instructions":data["policy"]["instructions"],"reads":data["policy"]["scopes"],"message":"Perform every reviewed read, then call refresh_home_panel with one section matching this definition. Never infer that old facts are current. This task cannot create panels, hand off work or perform writes."});
+        let result = json!({"definition":data["definition"],"instructions":data["policy"]["instructions"],"reads":data["policy"]["scopes"],"message":"Perform every reviewed read, then call refresh_home_panel with one section matching this definition. Never infer that old facts are current. Add what_changed (one or two plain sentences, at most 280 characters) only when something meaningful changed since the last update: a number moved noticeably, a target was crossed, something needs a person, or a source could not be read. Say what changed and why; never invent numbers. This task cannot create panels, hand off work or perform writes."});
         tx.commit().await?;
         Ok(result)
     }
