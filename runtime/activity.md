@@ -160,6 +160,34 @@ managers and admins; with My agents, the agents they manage):
   "Not now" dismisses it. A retried save is the same routine. "Remind me on Friday" is a
   task with a start time (`create_task start_in_minutes`, Phase 2).
 
+## Review: getting better over time (schema 63)
+
+People-and-agents-first, Phase 5. Activity → **Progress** (`&tab=review`), for the people
+who can fix an agent (owner, managers, admins; My agents narrows it):
+
+- **Measures, last 30 days**, per agent and per person: tasks done of all, failed, done
+  on time of those with a due time, tasks that needed a person, **person-minutes** (from
+  reading a question or approval to answering it, at most ten minutes each; read times
+  come from Needs me receipts), requests and model runs. Counts, not money: there are
+  no per-call token counts yet (D232).
+- **Let agents do more**: five or more approvals of the same action for the same agent
+  in 30 days, and nothing else decided for it, offers "Let it" — the agent's own rule
+  becomes Allow through the ordinary rule path, so it is never looser than the admin's
+  rule (nothing is offered while the admin's rule says Ask) and it can be changed back
+  on the agent's Tools tab. "Keep asking" hides the offer for that person.
+- **Goals**: up to five per agent (name, target, unit, per week or month), set here. The
+  agent reads them (`my_goals`) and reports progress and an early risk (`update_goal
+  {goal, current, risk?}`); Review shows a progress bar and the risk.
+- **Weekly review**: "Turn on" makes a weekly routine for the agent (run as the person
+  who turned it on, in its own work room) in which it writes `write_review {done,
+  went_wrong, learned, suggestion?}`, once per request. Review lists the last 30 days'
+  reviews with any suggested change and a link to set up the agent.
+
+Home (HP7): a one-line "N things need you →" when anything does; "You asked Nova “How
+many orders today?” 4 times lately — Ask for a panel" from the person's own repeated
+questions in the last 14 days (at most three, "Not now" per device); and "2 panels
+haven't changed in two weeks · Hide them".
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -173,7 +201,11 @@ records a new catch-up; opening the page does not.
   `needs_fixing` count. `POST /activity/needs/{id}/dismiss`;
   `POST /activity/tasks/{id}/follow-up/cancel`; `POST /activity/requests/{reply}/steer {text}`,
   `POST /activity/tasks/{id}/steer {text}`, `POST /activity/routine-proposals/{id} {save}`.
-  Request details add `added`; Chat agent replies add `routines`. Attention approvals add `operation`,
+  Request details add `added`; Chat agent replies add `routines`.
+- `GET /activity/review?days&scope`; `POST /activity/rule-suggestions {agent, connection,
+  operation, accept}`, `/activity/goals {agent, id?, name, target, unit, period}`,
+  `/activity/goals/{id}/archive`, `/activity/weekly-review {agent, enabled}`;
+  `GET /home-panels/suggestions`. Attention approvals add `operation`,
   `connection`, `operation_title`, `created_at` and `backup_at`.
 
 All under `/api/identity/workspaces/{w}/activity`, authenticated by the session
@@ -244,3 +276,8 @@ step once and is carried into a new request if unread; a task's addition reaches
 running request; a proposed routine is saved only by the person who asked, once), web
 `activity-steering`, journey `tests/agent_steering.mjs` (real Goose reads the addition
 with a tool result; its weekly routine is saved on confirmation).
+Review: PostgreSQL `activity::now::better` (rule offered only under an Allow ceiling and
+taken through the rule path; goals, reviews once per request, measures, weekly routine
+on and off, fixers only; panel suggestions from the asker's own messages), web
+`activity-review`, journey `tests/agent_needs.mjs` (real Goose reads its goal, reports
+progress and risk, writes a review).

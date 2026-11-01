@@ -1,5 +1,6 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 mod activity;
+mod activity_review;
 mod agents;
 mod attention;
 mod automations;

@@ -24,6 +24,8 @@ fn claims_change(reply: &str) -> bool {
         .any(|word| CLAIMS.contains(&word))
 }
 
+#[path = "getting_better.rs"]
+pub(in crate::identity::postgres) mod better;
 #[path = "activity_fixing.rs"]
 pub(in crate::identity::postgres) mod fixing;
 #[path = "steering.rs"]

@@ -220,6 +220,18 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
                 .await
         }
         "follow_up" => pg.follow_up(job, &serde_json::from_value(arguments)?).await,
+        "my_goals" => {
+            ensure!(arguments == json!({}), "Invalid goals request");
+            pg.my_goals(job).await
+        }
+        "update_goal" => {
+            pg.update_goal(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "write_review" => {
+            pg.write_review(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "propose_schedule" => {
             pg.propose_schedule(job, &serde_json::from_value(arguments)?)
                 .await

@@ -33,3 +33,28 @@ test('an agent reports a need through report_problem and Needs fixing shows it, 
   await app.stop(executor);
   app.pass('Real Goose reports a need with report_problem; Needs fixing groups it for the agent\'s owner, and dismissing clears it');
 });
+
+test('an agent reads its goals, reports progress and a risk, and writes its weekly review, with real Goose', {
+  skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000,
+}, async t => {
+  const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15 });
+  const goal = (await app.request(`${app.path}/activity/goals`, app.cookie, { agent: app.profile.id, name: 'Quotes sent', target: 50, unit: 'quotes', period: 'week' })).value.id;
+  const ask = 'Sent the Acme quotes; also write your weekly review';
+  app.provider.setControl(ask, { steps: [
+    { tool: 'my_goals', arguments: {} },
+    { tool: 'update_goal', arguments: { goal, current: 42, risk: 'Two suppliers are late with prices' } },
+    { tool: 'write_review', arguments: { done: 'Sent 42 quotes', went_wrong: 'Two failed on Zoho', learned: 'Check the token first', suggestion: 'Add the price list skill' } },
+  ] });
+  const executor = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+  const job = await app.send(ask);
+  await app.done(job);
+  assert.ok(JSON.stringify(app.provider.requests).includes('Quotes sent'), 'my_goals returned the goal to the agent');
+  const review = (await app.request(`${app.path}/activity/review?days=30&scope=all`, app.cookie)).value;
+  assert.equal(review.goals[0].current, 42);
+  assert.equal(review.goals[0].risk, 'Two suppliers are late with prices');
+  assert.equal(review.reviews[0].suggestion, 'Add the price list skill');
+  const weekly = (await app.request(`${app.path}/activity/weekly-review`, app.cookie, { agent: app.profile.id, enabled: true })).value;
+  assert.equal(app.sql(`SELECT interval_seconds FROM relay_agent_schedules WHERE id='${weekly.schedule}'`), '604800');
+  await app.stop(executor);
+  app.pass('Real Goose reads its goal, reports progress with an early risk and writes a weekly review; the manager turns on the weekly routine');
+});

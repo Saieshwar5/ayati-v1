@@ -169,3 +169,15 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-add-note { display: grid; gap: 6px; margin: 12px 0; }
 .activity-add-note textarea { width: 100%; box-sizing: border-box; }
 .activity-add-note button { justify-self: start; }
+.activity-table-wrap { overflow-x: auto; }
+.activity-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.activity-table th, .activity-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-control); text-align: left; white-space: nowrap; }
+.activity-goal-bar { display: block; height: 6px; margin-top: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; max-width: 320px; }
+.activity-goal-bar span { display: block; height: 100%; background: var(--success, #2e7d32); }
+.activity-goal-bar.problem span { background: var(--danger); }
+.activity-goal-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.activity-goal-form input, .activity-goal-form select { min-width: 0; max-width: 100%; }
+.activity-review-card { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-control); }
+.activity-review-card h3, .activity-review-card p { margin: 0; }
+.activity-review .activity-list li { flex-wrap: wrap; }
+.activity-review .activity-list li .activity-main { flex: 1 1 260px; }
