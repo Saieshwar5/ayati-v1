@@ -33,6 +33,39 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/requests/{reply}/retry",
             post(retry),
         )
+        .route(
+            "/api/identity/workspaces/{w}/activity/unhandled",
+            get(unhandled),
+        )
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnhandledPage {
+    from: Option<i64>,
+    before: Option<i64>,
+    scope: Option<String>,
+    agent: Option<String>,
+}
+/// Events that arrived but no agent acted on, with the recorded reason.
+async fn unhandled(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Query(page): Query<UnhandledPage>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .activity_unhandled(
+                &user,
+                &w,
+                page.from,
+                page.before,
+                page.scope.as_deref(),
+                page.agent.as_deref(),
+            )
+            .await?,
+    ))
 }
 /// Send a failed request's message again, as a new request quoting the failed
 /// reply. Only the person who asked; never when an action's outcome is unknown.

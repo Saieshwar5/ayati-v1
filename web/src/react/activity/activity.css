@@ -47,6 +47,7 @@ h2.activity-group:first-child { margin-top: 0; }
 .activity-card header { display: flex; align-items: flex-start; gap: 12px; }
 .activity-card header > span:nth-child(2) { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .activity-card small { color: var(--muted); font-size: 13px; }
+.activity-unhandled { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 0; padding: 10px 14px; border: 1px solid var(--border-panel); border-radius: 10px; color: var(--warning); font-weight: 600; }
 .activity-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .activity-card-setup { color: var(--muted); font-size: 13px; text-decoration: none; }
 .activity-card-setup:hover, .activity-card-setup:focus-visible { color: var(--text); text-decoration: underline; }
@@ -69,6 +70,8 @@ h2.activity-group:first-child { margin-top: 0; }
 button.activity-row-button:hover { background: var(--soft); }
 .activity-row-button:focus-visible { outline-offset: -3px; }
 .activity-row-button time { color: var(--muted); font-size: 13px; }
+.activity-fold { margin: 0 0 8px 76px; border-left: 2px solid var(--border); }
+.activity-fold > li:last-child { border-bottom: 0; }
 .activity-agent { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
 
 /* Request details */
@@ -95,6 +98,7 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-fix p { margin: 6px 0 0; }
 
 @media (max-width: 760px) {
+  .activity-fold { margin-left: 12px; }
   .activity-page { padding: 20px 16px 28px; }
   .activity-filters { display: grid; grid-template-columns: 1fr 1fr; }
   .activity-filters .activity-search { grid-column: 1 / -1; width: 100%; }

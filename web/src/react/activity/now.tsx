@@ -20,7 +20,7 @@ function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone:
 /** Now: "while you were away", every agent's state, and work running right now
  * (designs/activity 2). The summary covers everything since the person last
  * caught up; only "See in History" or "Dismiss" moves that point. */
-export function NowView({ scope, search, openHistory }: { scope: Scope; search: string; openHistory: (from: number) => void }) {
+export function NowView({ scope, search, openHistory, openUnhandled }: { scope: Scope; search: string; openHistory: (from: number) => void; openUnhandled?: () => void }) {
   const { data, error, refresh } = useLive(useCallback(() => loadNow(scope), [scope]));
   const [open, setOpen] = useState<string>();
   const mutation = useMutation();
@@ -44,6 +44,9 @@ export function NowView({ scope, search, openHistory }: { scope: Scope; search: 
       <Button disabled={mutation.busy} onClick={() => caughtUp(() => openHistory(data.away.since))}>See in History</Button>
       <Button disabled={mutation.busy} onClick={() => caughtUp(refresh)}>Dismiss</Button>
     </section>}
+    {data && Boolean(data.unhandled_today) && <p className="activity-unhandled" role="note">
+      <span>{data.unhandled_today} {data.unhandled_today === 1 ? 'event' : 'events'} not handled today</span>
+      {openUnhandled && <Button onClick={openUnhandled}>See why</Button>}</p>}
     {data && <h2 className="activity-group">{scope === 'mine' ? 'My agents' : 'Agents'}</h2>}
     <div className="activity-cards">{agents.map(agent => {
       const state = cardState(agent, Boolean(data?.agents_paused));

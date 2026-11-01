@@ -1,8 +1,8 @@
 //! Controls on Activity's agent cards and requests: pause or resume one agent
 //! (owner, managers, admins) and retry a failed request (only the person who
 //! asked; never when an action's outcome is unknown).
-use super::tests::{chat, fixture, join, message, user, workspace};
-use super::*;
+use super::super::tests::{chat, fixture, join, message, user, workspace};
+use super::super::*;
 
 async fn add_manager(db: &PgStore, w: &str, agent: &str, person: &User, by: &User) {
     execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,1)", vec![w.into(), agent.into(), person.id.clone().into(), by.id.clone().into()]).await.unwrap();
@@ -61,7 +61,7 @@ async fn managers_owners_and_admins_pause_one_agent_and_others_cannot() {
     let w = workspace(&db, &admin).await;
     join(&db, &admin, &w, &manager, "Member").await;
     join(&db, &admin, &w, &other, "Member").await;
-    let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
+    let (_, agent) = super::super::executor_slot_tests::agent(&db, &admin, &w).await;
     everyone_may_talk(&db, &agent).await;
     add_manager(&db, &w, &agent, &manager, &admin).await;
 
@@ -125,7 +125,7 @@ async fn only_the_asker_retries_a_failed_request_once_and_never_an_unsure_one() 
     let asker = user(&db, "retry-asker").await;
     let w = workspace(&db, &admin).await;
     join(&db, &admin, &w, &asker, "Member").await;
-    let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
+    let (_, agent) = super::super::executor_slot_tests::agent(&db, &admin, &w).await;
     everyone_may_talk(&db, &agent).await;
     let room = chat(&db, &admin, &w, vec![asker.id.clone()], vec![agent.clone()]).await;
     let job = db
@@ -154,6 +154,11 @@ async fn only_the_asker_retries_a_failed_request_once_and_never_an_unsure_one() 
             .contains("Only the person who asked")
     );
 
+    // The details say what kind of request it is, so the screen can offer Retry.
+    let details = db.activity_request(&asker, &w, &job.reply).await.unwrap();
+    assert_eq!(details["kind"], "chat");
+    assert_eq!(details["requester"], asker.id.as_str());
+    assert_eq!(details["state"], "failed");
     let first = db.request_retry(&asker, &w, &job.reply).await.unwrap();
     let retry = first["reply"].as_str().unwrap().to_string();
     assert_ne!(retry, job.reply);
