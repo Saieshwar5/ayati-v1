@@ -29,10 +29,12 @@ export function ActivityPage({ href }: { href: string }) {
   const [scope, setScope] = useState<Scope>(savedScope);
   const pick = (next: Scope) => { setScope(next); saveScope(next); };
   const [since, setSince] = useState<number>();
+  // History opened from Now's "events not handled" line starts on that type.
+  const [historyKind, setHistoryKind] = useState<string>();
   const attention = useAttention('needs_you', null);
   const count = attention.data?.items.length ?? 0;
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const select = (next: Tab) => { setTab(next); if (next !== 'history') setSince(undefined); };
+  const select = (next: Tab) => { setTab(next); if (next !== 'history') { setSince(undefined); setHistoryKind(undefined); } };
   const keys = (event: React.KeyboardEvent, index: number) => {
     const moves: Record<string, number> = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: tabs.length - 1 };
     if (!(event.key in moves)) return;
@@ -59,8 +61,9 @@ export function ActivityPage({ href }: { href: string }) {
       </div>}</div>
     <div id="activity-panel" className="activity-panel" role="tabpanel" aria-labelledby={`activity-tab-${tab}`}>
       {tab === 'needs' && <NeedsMe first={attention} search={search} />}
-      {tab === 'now' && <NowView scope={scope} search={search} openHistory={from => { setSince(from); setTab('history'); }} />}
-      {tab === 'history' && <HistoryView key={since ?? 'period'} scope={scope} search={search} since={since} />}
+      {tab === 'now' && <NowView scope={scope} search={search} openHistory={from => { setSince(from); setTab('history'); }}
+        openUnhandled={() => { setSince(undefined); setHistoryKind('unhandled'); setTab('history'); }} />}
+      {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}`} scope={scope} search={search} since={since} initialKind={historyKind} />}
     </div>
     {run && <RequestDetails reply={run} close={closeRun} />}
   </section>;

@@ -3,6 +3,8 @@ JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply
 JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat
 JOIN relay_shared_agents ag ON ag.workspace=j.workspace AND ag.id=j.payload->>'agent'
 CROSS JOIN LATERAL (SELECT CASE
+ -- A Home panel refresh is a panel update even when a routine starts it.
+ WHEN EXISTS(SELECT 1 FROM relay_home_update_runs hu WHERE hu.workspace=j.workspace AND hu.reply=j.reply) THEN 'panel'
  WHEN EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.reply=j.reply) THEN 'schedule'
  WHEN EXISTS(SELECT 1 FROM relay_event_deliveries d WHERE d.workspace=j.workspace AND d.reply=j.reply) THEN 'trigger'
  WHEN EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=j.workspace AND h.child=j.reply) THEN 'handoff'
@@ -12,6 +14,10 @@ WHERE j.workspace=$1
 -- managers and admins ($3).
 AND (j.payload->>'requester'=$2 OR c.visibility='public' OR $3
  OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)
+ OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
+-- A panel update belongs to the panel's owner (its requester), the agent's
+-- managers and admins, never to everyone in the panel's source conversation.
+AND (k.kind<>'panel' OR j.payload->>'requester'=$2 OR $3
  OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
 -- Work that used Library sources stays with its requester.
 AND (j.payload->>'requester'=$2 OR NOT EXISTS(

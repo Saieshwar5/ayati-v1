@@ -7,7 +7,9 @@ export type Filters = { agent?: string; person?: string; chat?: string; status?:
 export type Step = { id: string; title: string; effect: string; state: string; automatic: boolean; decision: string | null; decided_by: string | null; account: string | null; arguments: Record<string, unknown>; at: number };
 export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
-  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff';
+  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
+  /** A Home panel refresh names its panel. */
+  panel?: { id: string; title: string } | null;
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
@@ -28,7 +30,12 @@ export type AgentCard = { id: string; name: string; role: string; avatar: string
   last_failed?: string | null;
   /** The viewer owns or manages it, or is an admin, so may pause or resume it. */
   can_pause?: boolean };
-export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean };
+export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean;
+  /** Events that arrived today but no agent acted on. */
+  unhandled_today?: number };
+/** An event no agent acted on, with the recorded reason; never the event's contents. */
+export type Unhandled = { id: string; sequence: number; at: number; trigger: string; title: string; reason: string | null;
+  agent: string; agent_name: string; agent_avatar: string | null };
 export type Change = { id: number; at: number; agent: string; agent_name: string; agent_avatar: string | null; summary: string; actor_name: string };
 
 const root = `/workspaces/${workspaceId}/activity`;
@@ -47,6 +54,8 @@ export const loadChanges = (agent?: string, before?: number, signal?: AbortSigna
 export const exportUrl = (filters: Filters) => `/api/identity${root}/export?${query(filters)}`;
 export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 export const loadNow = (scope: Scope, signal?: AbortSignal) => identityRequest<Now>(`${root}/now?today=${startOfToday()}&scope=${scope}`, undefined, signal);
+export const loadUnhandled = (params: { from?: number; scope?: Scope; agent?: string }, before?: number, signal?: AbortSignal) =>
+  identityRequest<{ items: Unhandled[]; next_before: number | null }>(`${root}/unhandled?${query({ from: params.from, scope: params.scope, agent: params.agent }, { before })}`, undefined, signal);
 /** Pause or resume one agent (its owner, managers and admins). */
 export const pauseAgent = (agent: string, paused: boolean) =>
   identityRequest<{ paused: boolean; revision: number }>(`/workspaces/${workspaceId}/agent-profiles/${encodeURIComponent(agent)}/pause`, { paused });
@@ -79,8 +88,8 @@ export function status(item: { state: string; approvals?: { state: string }[] })
     default: return { label: 'Working', tone: 'working' };
   }
 }
-export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off' };
-export const where = (item: ActivityItem) => item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
+export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
+export const where = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
   : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 export function dayLabel(ms: number): string {
@@ -96,4 +105,24 @@ export function ago(ms: number): string {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.round(minutes / 60);
   return hours < 24 ? `${hours} h` : dayLabel(ms).toLowerCase();
+}
+
+/** A History row: one request, or one panel's routine updates on one day. */
+export type HistoryEntry = { kind: 'item'; item: ActivityItem } | { kind: 'panel-fold'; key: string; items: ActivityItem[] };
+/** Routine Home panel updates fold into one line per panel per day, at the newest
+ * one, so hourly refreshes don't bury people's requests. Updates that went wrong
+ * stay on their own line. */
+export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
+  const entries: HistoryEntry[] = [];
+  const folds = new Map<string, ActivityItem[]>();
+  for (const item of items) {
+    if (item.kind === 'panel' && item.panel && status(item).tone !== 'problem') {
+      const key = `${item.panel.id}.${dayLabel(item.created_ms)}`;
+      const fold = folds.get(key);
+      if (fold) { fold.push(item); continue; }
+      const group = [item]; folds.set(key, group);
+      entries.push({ kind: 'panel-fold', key, items: group });
+    } else entries.push({ kind: 'item', item });
+  }
+  return entries.map(entry => entry.kind === 'panel-fold' && entry.items.length === 1 ? { kind: 'item', item: entry.items[0] } : entry);
 }

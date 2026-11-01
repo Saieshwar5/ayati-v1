@@ -341,6 +341,15 @@ async fn the_request_card_is_a_reference_and_current_access_controls_its_details
     assert_eq!(cards.len(), 1);
     assert_eq!(cards[0]["approval"]["id"], id);
     assert_eq!(cards[0]["content"], "Approval request");
+    // The manager in the conversation decides here; the card names who decides.
+    assert_eq!(cards[0]["approval"]["may_decide"], true);
+    assert!(
+        !cards[0]["approval"]["waiting_for"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(cards[0]["approval"]["backup_at"].as_i64().unwrap() > 0);
     assert!(
         !serde_json::to_string(&history)
             .unwrap()
@@ -360,6 +369,23 @@ async fn the_request_card_is_a_reference_and_current_access_controls_its_details
     .unwrap();
     let details = s.db.approval_details(&s.other, &s.w, id).await.unwrap();
     assert_eq!(details["can_decide"], false);
+    // In the conversation they see whom it waits for, without a decision.
+    let theirs =
+        s.db.chat_page(&s.other, &s.w, &s.source, None)
+            .await
+            .unwrap();
+    let card = theirs["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["approval"]["id"] == id)
+        .unwrap()
+        .clone();
+    assert_eq!(card["approval"]["may_decide"], false);
+    assert_eq!(
+        card["approval"]["waiting_for"],
+        cards[0]["approval"]["waiting_for"]
+    );
 }
 
 #[tokio::test]

@@ -43,6 +43,27 @@ requester. Losing access to a channel hides its requests again. When a manager o
 admin opens a request from a conversation they are not in, the details say so and
 the view is recorded in the audit log (`activity_private_viewed`).
 
+## Panel updates
+
+A Home panel refresh is a request of its own type, `panel` (it is linked in
+`relay_home_update_runs`), even when a routine starts it. It reads "Updated panel:
+<title>", names its panel and is filtered with Type → Panel updates. Only the panel's
+owner, the agent's managers and admins see it; being in the panel's source
+conversation is not enough. History folds routine updates into one line per panel per
+day ("Updated panel: Sales today · updated 12 times"), which expands to each update;
+an update that could not complete keeps its own line.
+
+## Events not handled
+
+An event that arrived but no agent acted on (its trigger was paused or blocked, all
+agents were paused, or access changed) never becomes a request, so it has its own
+list: History → Type → **Events not handled**, newest first by arrival, with the
+recorded reason ("All agents were paused when this event arrived, so it was not
+handled."). Now shows "N events not handled today" with **See why**, which opens that
+list. Only the person who set up the trigger, the agent's managers and admins see an
+event, and only its trigger's name, agent, time and reason: never the event's
+contents. My agents narrows it to triggers the person set up or agents they manage.
+
 ## My agents
 
 `scope=mine` narrows History, totals, export and Now to the requests the person
@@ -109,6 +130,8 @@ cookie; every query applies the visibility rule above on the server.
 - `POST /seen` with `{}` — record a catch-up.
 - `GET /requests/{reply}` — one request's details.
 - `POST /requests/{reply}/retry` — ask a failed request again (see Controls).
+- `GET /unhandled?from&before&scope&agent` — 25 events not handled, newest first;
+  `next_before` is the cursor. Now's `unhandled_today` counts today's.
 
 ## Storage and performance
 
@@ -128,14 +151,16 @@ Measured locally with 30 agents and 81,000 requests over 90 days
 
 ## Checks
 
-- PostgreSQL: `activity_controls_tests` (pause by owner, manager and admin but not
+- PostgreSQL: `activity_panel_tests` (panel type, title and owner-only visibility),
+  `activity_unhandled_tests` (reason, visibility, no contents, Now's count);
+  `activity_controls_tests` (pause by owner, manager and admin but not
   others; retry only by the asker, once, never after an unconfirmed action);
   `activity_scope_tests` (My agents for a manager, an admin and an
   unknown scope across History, totals, export and Now); `activity_tests` (visibility for requester, conversation members,
   managers, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
-- Web: `tests/activity.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
+- Web: `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
   pause with a double click, How to fix it, Retry only for the asker, Discuss in chat),
   `tests/workspace-attention.test.mjs`.
 - Browser journeys with real Goose: `workspace_attention`, `channel_approvals`,

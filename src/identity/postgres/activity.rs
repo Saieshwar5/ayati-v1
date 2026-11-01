@@ -7,14 +7,23 @@
 use super::*;
 use serde::Deserialize;
 
+#[cfg(test)]
+#[path = "activity_controls_tests.rs"]
+mod controls_tests;
 #[path = "activity_now.rs"]
 mod now;
+#[cfg(test)]
+#[path = "activity_panel_tests.rs"]
+mod panel_tests;
 #[cfg(test)]
 #[path = "activity_scope_tests.rs"]
 mod scope_tests;
 #[cfg(test)]
 #[path = "activity_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "activity_unhandled_tests.rs"]
+mod unhandled_tests;
 use serde_json::json;
 
 /// History filters; every field is optional.
@@ -26,7 +35,7 @@ pub(crate) struct Filters {
     pub chat: Option<String>,
     /// active, waiting, done, failed, review, stopped.
     pub status: Option<String>,
-    /// chat, schedule, trigger, handoff.
+    /// chat, schedule, trigger, handoff, panel.
     pub kind: Option<String>,
     pub from: Option<i64>,
     pub to: Option<i64>,
@@ -52,7 +61,7 @@ impl Filters {
         ensure!(
             self.kind
                 .as_deref()
-                .is_none_or(|k| ["chat", "schedule", "trigger", "handoff"].contains(&k)),
+                .is_none_or(|k| ["chat", "schedule", "trigger", "handoff", "panel"].contains(&k)),
             "Invalid type filter"
         );
         ensure!(
@@ -95,6 +104,18 @@ impl Filters {
             self.before.unwrap_or(i64::MAX).into(),
             self.scope.clone().into(),
         ]
+    }
+}
+
+/// A Home panel refresh reads as "Updated panel: <title>" and names its panel,
+/// instead of showing the controller's maintenance instructions as a request.
+pub(super) fn panel_update(item: &mut Value, panel: Option<Value>) {
+    if let Some(panel) = panel {
+        item["summary"] = json!(format!(
+            "Updated panel: {}",
+            panel["title"].as_str().unwrap_or("Home panel")
+        ));
+        item["panel"] = panel;
     }
 }
 
@@ -158,6 +179,7 @@ impl PgStore {
         for row in records.into_iter().take(25) {
             cursor = Some(row.try_get::<i64>("", "sequence")?);
             let agent: String = row.try_get("", "agent")?;
+            let panel: Option<Value> = row.try_get("", "panel")?;
             let extra = json!({
                 "agent": agent, "agent_name": row.try_get::<String>("", "agent_name")?,
                 "agent_avatar": row.try_get::<Option<String>>("", "agent_avatar")?,
@@ -173,6 +195,7 @@ impl PgStore {
                 if let (Some(item), Some(extra)) = (item.as_object_mut(), extra.as_object()) {
                     item.extend(extra.clone());
                 }
+                panel_update(&mut item, panel);
                 items.push(item);
             }
         }

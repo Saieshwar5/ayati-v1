@@ -116,7 +116,28 @@ pub(super) async fn hydrate(
         if let Some(m) = messages.iter_mut().find(|m| m["id"] == message) {
             let a = action(db, w, &id).await?;
             m["approval"] = if viewer(db, user, w, &a).await.is_ok() {
-                json!({"id":id,"state":super::control_actions::visible(db,w,&id).await?["state"]})
+                let state = super::control_actions::visible(db, w, &id).await?["state"].clone();
+                let mut card = json!({"id": id, "state": state});
+                // Approvals follow where they came from (owner decision 2026-11-01):
+                // the conversation shows the card to everyone who can see the work,
+                // but only the people who may decide get the decision; others see
+                // whom it waits for and when admins may step in.
+                if state == "pending" {
+                    let waiting: Vec<Value> = super::approval_authority::deciders(db, w, &a)
+                        .await?
+                        .into_iter()
+                        .map(|person| person["name"].clone())
+                        .collect();
+                    card["may_decide"] = json!(
+                        super::approval_authority::may_decide(db, user, w, &a)
+                            .await
+                            .is_ok()
+                    );
+                    card["waiting_for"] = json!(waiting);
+                    card["backup_at"] =
+                        json!(super::approval_authority::backup_at(db, w, &a).await?);
+                }
+                card
             } else {
                 json!({"restricted":true})
             };
