@@ -58,6 +58,8 @@ pub(super) fn agreement(revision: i64, interval: Option<i64>) -> Agreement {
         instructions: "Read the reviewed order and update its count".into(),
         interval_seconds: interval,
         stale_seconds: 3600,
+        follow_sources: None,
+        min_gap_seconds: None,
     }
 }
 pub(super) fn update(revision: i64) -> Update {

@@ -5,12 +5,16 @@ import { AgentFace } from '../faces';
 import { ago, clock, dayLabel, loadNow, markSeen, pauseAgent, status, stopRequest, where, type AgentCard, type ActivityItem, type Scope } from './model';
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
+import { ComingUp, NeedsFixing } from './fixing';
 import { PauseAgentsControl } from './agents-pause';
+import { QuestionDialog } from '../questions/dialog';
+import type { AttentionItem } from '../attention/model';
 import { currentWorkspace, workspaceUrl } from '../../workspace-context';
 
 function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone: string; line: string } {
   if (allPaused) return { label: 'Paused', tone: 'quiet', line: 'All agents are paused' };
   if (agent.paused) return { label: 'Paused', tone: 'quiet', line: agent.paused_note ?? 'Paused' };
+  if (agent.needs_fixing) return { label: 'Needs fixing', tone: 'problem', line: `${agent.needs_fixing} ${agent.needs_fixing === 1 ? 'thing needs' : 'things need'} fixing · see above` };
   if (agent.running > 0) return { label: 'Working', tone: 'working', line: `${agent.doing ?? 'Working on a request'} · today ${agent.today} requests` };
   if (agent.waiting > 0) return { label: 'Waiting', tone: 'waiting', line: agent.doing ?? 'Waiting for someone' };
   if (agent.failed_today > 0) return { label: 'Failing', tone: 'problem', line: `${agent.failed_today} could not complete today` };
@@ -20,9 +24,12 @@ function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone:
 /** Now: "while you were away", every agent's state, and work running right now
  * (designs/activity 2). The summary covers everything since the person last
  * caught up; only "See in History" or "Dismiss" moves that point. */
-export function NowView({ scope, search, openHistory, openUnhandled }: { scope: Scope; search: string; openHistory: (from: number) => void; openUnhandled?: () => void }) {
+export function NowView({ scope, search, openHistory, openUnhandled, waiting }: { scope: Scope; search: string; openHistory: (from: number) => void; openUnhandled?: () => void;
+  /** The page's Needs me items, so a running request's question can be answered here. */
+  waiting?: AttentionItem[] }) {
   const { data, error, refresh } = useLive(useCallback(() => loadNow(scope), [scope]));
   const [open, setOpen] = useState<string>();
+  const [answering, setAnswering] = useState<string>();
   const mutation = useMutation();
   const matches = (text: string) => !search || text.toLowerCase().includes(search.toLowerCase());
   const agents = (data?.agents ?? []).filter(a => matches(`${a.name} ${a.role}`));
@@ -47,6 +54,7 @@ export function NowView({ scope, search, openHistory, openUnhandled }: { scope: 
     {data && Boolean(data.unhandled_today) && <p className="activity-unhandled" role="note">
       <span>{data.unhandled_today} {data.unhandled_today === 1 ? 'event' : 'events'} not handled today</span>
       {openUnhandled && <Button onClick={openUnhandled}>See why</Button>}</p>}
+    {data && <NeedsFixing groups={data.fixing ?? []} openRequest={setOpen} changed={() => void refresh().catch(() => {})} />}
     {data && <h2 className="activity-group">{scope === 'mine' ? 'My agents' : 'Agents'}</h2>}
     <div className="activity-cards">{agents.map(agent => {
       const state = cardState(agent, Boolean(data?.agents_paused));
@@ -60,7 +68,7 @@ export function NowView({ scope, search, openHistory, openUnhandled }: { scope: 
           {agent.last_failed && <Button onClick={() => setOpen(agent.last_failed!)}>How to fix it</Button>}
           {agent.can_pause && !data?.agents_paused && <Button disabled={mutation.busy} aria-label={`${agent.paused ? 'Resume' : 'Pause'} ${agent.name}`}
             onClick={() => pause(agent, !agent.paused)}>{agent.paused ? 'Resume' : 'Pause'}</Button>}
-          <a className="activity-card-setup" href={workspaceUrl('/?view=agents')}>Set up {agent.name} →</a>
+          <a className="activity-card-setup" href={workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent.id)}`)}>Set up {agent.name} →</a>
         </div>
       </article>;
     })}</div>
@@ -74,10 +82,16 @@ export function NowView({ scope, search, openHistory, openUnhandled }: { scope: 
         <AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />
         <span className="activity-main"><strong>{item.summary}</strong><small>{item.agent_name} · {item.requester_name ?? 'Someone'} · {where(item)} · {ago(item.created_ms)}</small></span>
         <span className={`activity-status ${shown.tone}`}>{shown.label}</span>
+        {(() => {
+          const question = waiting?.find(entry => entry.kind === 'question' && entry.reply === item.id);
+          return question && <Button primary onClick={() => setAnswering(question.id)}>Answer</Button>;
+        })()}
         {item.can_cancel ? <Button disabled={mutation.busy} onClick={() => stop(item)}>Stop</Button> : <Button onClick={() => setOpen(item.id)}>Review</Button>}
       </li>;
     })}</ul>
     {data && !running.length && <p className="activity-empty">Nothing is running right now.</p>}
+    {data && <ComingUp items={data.coming_up ?? []} changed={() => void refresh().catch(() => {})} />}
     {open && <RequestDetails reply={open} close={() => setOpen(undefined)} />}
+    {answering && <QuestionDialog key={answering} id={answering} close={() => { setAnswering(undefined); void refresh().catch(() => {}); }} />}
   </section>;
 }

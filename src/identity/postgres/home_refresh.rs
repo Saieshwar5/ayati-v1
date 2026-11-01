@@ -57,6 +57,33 @@ impl PgStore {
             what_changed.is_none_or(|note| note.chars().count() <= 280),
             "Keep what_changed to 280 characters: one or two plain sentences"
         );
+        let bindings = match &input.bindings {
+            None => Value::Null,
+            Some(list) => match super::home_update_runs::living::keep_bindings(
+                &tx,
+                job,
+                &data,
+                &definition["sections"][0],
+                list,
+            )
+            .await?
+            {
+                Ok(()) => {
+                    json!({"saved": true, "message": "Saved: the controller now refreshes these numbers from the reads itself, and calls you only when something meaningful changes."})
+                }
+                Err(reason) => {
+                    json!({"saved": false, "message": format!("Bindings not saved: {reason}")})
+                }
+            },
+        };
+        super::home_views::team::checked(
+            &tx,
+            job,
+            &data,
+            &definition["sections"][0],
+            bindings["saved"] == true,
+        )
+        .await?;
         let provenance = super::home_sources::capture(&tx, job, None, &[]).await?;
         let generation = data["expected_generation"].as_i64().unwrap() + 1;
         execute(&tx,"INSERT INTO relay_home_snapshots(workspace,panel,generation,panel_revision,definition,provenance,task,checked_ms,what_changed) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![job.workspace.clone().into(),data["panel"].as_str().unwrap().into(),generation.into(),data["panel_revision"].as_i64().unwrap().into(),definition.into(),provenance.into(),job.reply.clone().into(),checked_ms.into(),what_changed.map(str::to_string).into()]).await?;
@@ -90,6 +117,10 @@ impl PgStore {
         )
         .await?;
         tx.commit().await?;
-        Ok(json!({"state":"published","generation":generation}))
+        let mut result = json!({"state":"published","generation":generation});
+        if !bindings.is_null() {
+            result["bindings"] = bindings;
+        }
+        Ok(result)
     }
 }

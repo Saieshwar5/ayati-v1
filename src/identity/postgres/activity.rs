@@ -11,7 +11,7 @@ use serde::Deserialize;
 #[path = "activity_controls_tests.rs"]
 mod controls_tests;
 #[path = "activity_now.rs"]
-mod now;
+pub(super) mod now;
 #[cfg(test)]
 #[path = "activity_panel_tests.rs"]
 mod panel_tests;
@@ -111,8 +111,14 @@ impl Filters {
 /// instead of showing the controller's maintenance instructions as a request.
 pub(super) fn panel_update(item: &mut Value, panel: Option<Value>) {
     if let Some(panel) = panel {
+        // Living panels say what made them update (Phase 3 HP2).
+        let after = match panel["reason"].as_str() {
+            Some("work") => " · after the agent's work",
+            Some("event") => " · after a new event",
+            _ => "",
+        };
         item["summary"] = json!(format!(
-            "Updated panel: {}",
+            "Updated panel: {}{after}",
             panel["title"].as_str().unwrap_or("Home panel")
         ));
         item["panel"] = panel;
@@ -180,7 +186,9 @@ impl PgStore {
             cursor = Some(row.try_get::<i64>("", "sequence")?);
             let agent: String = row.try_get("", "agent")?;
             let panel: Option<Value> = row.try_get("", "panel")?;
+            let task: Option<Value> = row.try_get("", "task")?;
             let extra = json!({
+                "task": task,
                 "agent": agent, "agent_name": row.try_get::<String>("", "agent_name")?,
                 "agent_avatar": row.try_get::<Option<String>>("", "agent_avatar")?,
                 "kind": row.try_get::<String>("", "kind")?,

@@ -45,7 +45,7 @@ test('Ask first reaches every manager, someone else approves, and conversation m
   const cards=async cookie=>(await app.request(`${app.path}/chats/${source}/messages`,cookie)).value.messages.filter(m=>m.approval);
   const firstCards=await cards(approver);assert.equal(firstCards.length,1);assert.equal(firstCards[0].approval.id,action.id);assert.equal(JSON.stringify(firstCards).includes('PRIVATE_REVIEWED_ADDRESS'),false);
   await approverPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${source}`);
-  await approverPage.getByRole('button',{name:'Review saved request',exact:true}).click();
+  await approverPage.getByRole('button',{name:'Review and decide',exact:true}).click();
   const review=approverPage.getByRole('dialog',{name:'Review approval request'});
   await review.getByRole('button',{name:'Approve this action',exact:true}).waitFor();
   const text=await review.innerText();assert.match(text,/PRIVATE_REVIEWED_ADDRESS/);assert.match(text,/Someone other than the person who asked must approve/);
@@ -55,7 +55,7 @@ test('Ask first reaches every manager, someone else approves, and conversation m
   // its members while work waits would fence that work, so they joined at the start.)
   assert.equal((await app.request(`${app.path}/control/actions/${action.id}`,observer)).value.can_decide,false);
   await app.request(`${control}/actions/${action.id}/decision`,observer,{id:randomUUID(),decision:'approve'},400);
-  await observerPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${source}`);await observerPage.getByRole('button',{name:'Review saved request',exact:true}).click();
+  await observerPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${source}`);const card=observerPage.getByRole('region',{name:'Saved approval request',exact:true});await card.getByText('Waiting for approval from',{exact:false}).waitFor();await card.getByRole('button',{name:'Details',exact:true}).click();
   assert.equal(await observerPage.getByRole('button',{name:'Approve this action'}).count(),0);
   await review.getByRole('button',{name:'Approve this action',exact:true}).click();await until(async()=>remote.records.get('one').address==='PRIVATE_REVIEWED_ADDRESS','Approved external write missing');
   assert.equal(remote.calls.filter(c=>c.name==='update_order').length,1);
@@ -68,7 +68,7 @@ test('Ask first reaches every manager, someone else approves, and conversation m
   await app.request(`${control}/actions/${revoked.id}/decision`,approver,{id:randomUUID(),decision:'approve'},400);assert.equal(remote.calls.length,1);
   await app.request(`${app.path}/control/connector-rules`,app.cookie,{connection,operation:'order.update',mode:'ask',needs_other:true,revision:(await app.request(`${app.path}/control/connections`,app.cookie)).value.safety[0].operations.find(o=>o.id==='order.update').revision});
   const changes=await propose('NEEDS_REVISION');
-  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.goto(`${app.base}/w/${w}/?view=home`);await approverPage.getByRole('link',{name:/^Open Activity/}).click();
+  await review.getByRole('button',{name:'Close',exact:true}).click();await approverPage.goto(`${app.base}/w/${w}/?view=home`);await approverPage.getByRole('region',{name:'Notifications',exact:true}).getByRole('link',{name:/^(Open Activity|\d+\+? needs? you)/}).first().click();
   const inbox=approverPage.getByRole('region',{name:'Needs me',exact:true});await inbox.locator('li').filter({hasText:'Update order'}).first().getByRole('button',{name:'Review',exact:true}).click();
   await review.getByRole('button',{name:'Request changes',exact:true}).click();await review.getByRole('status').filter({hasText:'Changes requested'}).waitFor();assert.equal(remote.calls.length,1);
   assert.equal((await snapshot()).actions.find(a=>a.id===changes.id).decision,'request_changes');

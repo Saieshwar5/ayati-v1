@@ -7,6 +7,7 @@ import { PanelContent } from './snapshot';
 import { AskPanel } from './create';
 import { PanelReview } from './review';
 import { PanelMaintenance } from './maintenance';
+import { PanelAudience } from './audience';
 import { panelTemplate } from '../../panel-types';
 import type { AttentionPage } from '../attention/model';
 import { healthLine, PanelFooterLine, PanelHealth, PanelNeedsYou, PanelNote } from './frame';
@@ -73,7 +74,7 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
           </Button>
         </div>
       </header>
-      <p className="ui-help">Personal views from your agents. Opening Home reads saved results.</p>
+      <p className="ui-help">Views your agents keep for you, and panels teammates share with you. Opening Home reads saved results.</p>
       {error && (
         <p role="alert">
           {error}{' '}
@@ -130,7 +131,7 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
                       : 'Agent findings · Review the basis'}
                   </small>}
                   {!panel.active && <small>Draft · Review required</small>}
-                  <div>
+                  {panel.shared ? null : <div>
                     {panel.draft?.available && (
                       <Button onClick={() => setReview(panel.id)}>Review draft {panel.draft.revision}</Button>
                     )}
@@ -150,7 +151,8 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
                       </Button>
                     )}
                     {panel.active && <PanelMaintenance panel={panel} refresh={refresh} />}
-                  </div>
+                    {panel.active && <PanelAudience panel={panel} refresh={refresh} />}
+                  </div>}
                 </div>
               ) : (
                 <p>Saved content is hidden because its source access changed.</p>

@@ -102,3 +102,61 @@ test('Ask about this opens the direct chat with the agent once for a double clic
     return response(page([panel('current')]));
   } });
 });
+
+test('numbers the controller read straight from the source say so', async () => {
+  await reactFixture(async ({ render }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    const card = document.querySelector('.home-panel-card');
+    assert.match(card.textContent, /Kept by Nova · for you · Updated 20 min ago · numbers from the source, /);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session)
+    : response(page([panel('current', { active: { ...published, from_source: true } })])) });
+});
+
+test('a panel shared with you is read-only and says who shared it with whom', async () => {
+  await reactFixture(async ({ render }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    const card = document.querySelector('.home-panel-card');
+    assert.match(card.textContent, /Kept by Nova · for #sales · shared by Kavya Nair/);
+    const labels = [...card.querySelectorAll('button')].map(b => b.textContent);
+    for (const owner of ['Panel updates', 'Update now', 'Who sees this', 'Ask for changes', 'Ask about this']) assert.ok(!labels.includes(owner), owner);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session)
+    : response(page([panel('current', { shared: true, owner_name: 'Kavya Nair', audience: 'channel', audience_name: 'sales',
+      active: { ...published, what_changed: null, task: undefined, from_source: true } })])) });
+});
+
+test('the owner chooses who sees a panel; a panel that cannot be shared says why', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, button, click, update }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    await click(button('Who sees this'));
+    const dialog = document.querySelector('dialog');
+    assert.match(dialog.textContent, /now for you/);
+    const everyone = [...dialog.querySelectorAll('label')].find(l => l.textContent.includes('Everyone in the workspace')).querySelector('input');
+    await update(() => everyone.click());
+    assert.match(dialog.textContent, /agent's notes stay with people who can see the conversation/);
+    await update(() => { const b = button('Share with everyone'); b.click(); b.click(); });
+    assert.equal(writes.length, 1, 'once for a double click');
+    assert.equal(writes[0].body.audience, 'workspace');
+    assert.equal(writes[0].body.revision, 0);
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/chats')) return response({ chats: [{ id: 'sales', name: 'sales', kind: 'channel', users: [], agents: ['nova'], description: '' }] });
+    if (options.method === 'POST') { writes.push({ path, body: JSON.parse(options.body) }); return response({ audience: 'workspace', audience_revision: 1 }); }
+    return response(page([panel('current', { audience: 'personal', audience_revision: 0, shareable: { ok: true } })]));
+  } });
+  await reactFixture(async ({ render, button, click, update }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    await click(button('Who sees this'));
+    const dialog = document.querySelector('dialog');
+    const everyone = [...dialog.querySelectorAll('label')].find(l => l.textContent.includes('Everyone in the workspace')).querySelector('input');
+    await update(() => everyone.click());
+    assert.match(dialog.textContent, /Its numbers must come straight from the source first/);
+    assert.equal(button('Share with everyone').disabled, true);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : path.endsWith('/chats') ? response({ chats: [] })
+    : response(page([panel('current', { audience: 'personal', audience_revision: 0,
+      shareable: { ok: false, reason: 'Its numbers must come straight from the source first. Ask for an update; the agent can link each number to its read.' } })])) });
+});
