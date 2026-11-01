@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
 import { cadence, changeSchedule } from '../agents/automation/model';
-import { conversationUrl, dayLabel, clock, loadDetails, status, stopRequest, where, type Details } from './model';
+import { conversationUrl, dayLabel, clock, loadDetails, retryRequest, status, stopRequest, where, type Details } from './model';
+import { chatRequest, type Conversation } from '../chat/model';
+import { existingDirect } from '../chat/direct-conversation';
+import { storageScope, workspaceSession, workspaceUrl } from '../../workspace-context';
 
 /** One request, step by step from Cuckoo's own records (designs/activity 4).
  * Work that is still running can be stopped here, as from the conversation. */
@@ -31,6 +34,29 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   });
   // A run in its schedule's own room has no conversation to open.
   const room = Boolean(data?.schedule?.room);
+  const me = workspaceSession?.user?.id;
+  const failed = data?.state === 'failed' || data?.state === 'interrupted';
+  const unsure = Boolean(data?.steps.some(step => step.state === 'uncertain'));
+  // Only the person who asked may ask again, and never after an unconfirmed action.
+  const canRetry = Boolean(data && failed && data.kind === 'chat' && data.requester === me && !unsure);
+  const retry = (item: Details) => void mutation.run(async () => {
+    await retryRequest(item.id);
+    mutation.setStatus(`Asked ${item.agent_name} again. The new request is in Running now.`); setVersion(v => v + 1);
+  });
+  // One conversation id per opening, so a double click opens one direct chat.
+  const direct = useRef<string>(undefined);
+  const discuss = (item: Details) => void mutation.run(async () => {
+    const { chats } = await chatRequest<{ chats: Conversation[] }>('/chats');
+    let id = existingDirect(chats, { id: item.agent, name: item.agent_name, kind: 'agent' }, me)?.id;
+    if (!id) {
+      direct.current ??= crypto.randomUUID();
+      id = (await chatRequest<{ id: string }>('/chats', { id: direct.current, kind: 'direct', name: item.agent_name, description: '', users: [], agents: [item.agent] })).id;
+    }
+    // Start the message with what it's about; never replace a draft the person already has.
+    const draft = storageScope(`relay.chat.draft.${id}`);
+    try { if (!sessionStorage.getItem(draft)) sessionStorage.setItem(draft, `About "${item.summary}" (${where(item)}, ${dayLabel(item.created_ms).toLowerCase()} ${clock(item.created_ms)}): `); } catch { /* Optional draft. */ }
+    location.assign(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`));
+  });
   return <Dialog drawer title={data ? data.summary : 'Request'} close={close} busy={mutation.busy} status={mutation.status}>
     {!data && !state.error && <p role="status">Loading request…</p>}
     {state.error && <p role="alert">{state.error}</p>}
@@ -68,6 +94,9 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       <div className="activity-detail-actions">
         {data.can_cancel && <Button disabled={mutation.busy} onClick={() => stop(data)}>Stop request</Button>}
         {data.schedule?.state === 'enabled' && <Button disabled={mutation.busy} onClick={() => pause(data)}>Pause schedule</Button>}
+        {canRetry && <Button primary disabled={mutation.busy} onClick={() => retry(data)}>Retry</Button>}
+        {failed && unsure && <p className="ui-help">An action here may or may not have happened. Check it before asking again.</p>}
+        <Button disabled={mutation.busy} onClick={() => discuss(data)}>Discuss in chat</Button>
         {data.in_conversation && !room && <a className="ui-button" href={conversationUrl(data)}>Open conversation</a>}
       </div>
     </section>}

@@ -54,6 +54,36 @@ agent, so an admin's Mine is their own agents and requests. The owner chose My
 agents as the screen's default for everyone (2026-11-01); the switch itself waits
 for an approved design.
 
+## Controls
+
+Activity is where people control agents as well as watch them
+(people-and-agents-first, Phase 1b). Every control uses a server route with its own
+checks; the screen only hides what a person may not do.
+
+- **My agents / All agents** on Now and History (not on Needs me, whose items are
+  already the person's own decisions and questions). The choice is remembered on the
+  device, per person and workspace; the default is My agents.
+- **Pause or resume one agent** from its card: `POST
+  /api/identity/workspaces/{w}/agent-profiles/{id}/pause` with `{"paused": bool}`.
+  The agent's owner, its managers and admins may do it (D231). It has the same
+  effect as the Agents page's pause and writes the same readable audit sentence
+  ("Meera paused Atlas"); asking for the state it already has changes nothing. The
+  card shows the button only when `can_pause` is true. While all agents are paused
+  the card has no button; the workspace switch decides.
+- **How to fix it** on a failing card opens today's latest failed request
+  (`last_failed`), whose details explain the fix.
+- **Retry** in a failed request's details: `POST …/activity/requests/{reply}/retry`.
+  Only the person who asked; only a request that could not complete, that a person
+  started with their own message and that had no files. It sends the same message
+  again in the same conversation and thread, quoting the failed reply, so the agent
+  and Chat see the link; every ordinary intake check applies. A request with an
+  action whose outcome is unknown is refused: the action may already have happened
+  (D228). The message id is derived from the request and the person, so a double
+  click or two tabs give one retry.
+- **Discuss in chat** in any request's details opens the person's direct chat with
+  the agent (creating it when needed) and starts the message with what it is about,
+  without replacing an existing draft.
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -78,6 +108,7 @@ cookie; every query applies the visibility rule above on the server.
 - `GET /now?today=<ms>&scope` — agent cards, running requests and the away summary.
 - `POST /seen` with `{}` — record a catch-up.
 - `GET /requests/{reply}` — one request's details.
+- `POST /requests/{reply}/retry` — ask a failed request again (see Controls).
 
 ## Storage and performance
 
@@ -97,12 +128,16 @@ Measured locally with 30 agents and 81,000 requests over 90 days
 
 ## Checks
 
-- PostgreSQL: `activity_scope_tests` (My agents for a manager, an admin and an
+- PostgreSQL: `activity_controls_tests` (pause by owner, manager and admin but not
+  others; retry only by the asker, once, never after an unconfirmed action);
+  `activity_scope_tests` (My agents for a manager, an admin and an
   unknown scope across History, totals, export and Now); `activity_tests` (visibility for requester, conversation members,
   managers, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
-- Web: `tests/activity.test.mjs`, `tests/workspace-attention.test.mjs`.
+- Web: `tests/activity.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
+  pause with a double click, How to fix it, Retry only for the asker, Discuss in chat),
+  `tests/workspace-attention.test.mjs`.
 - Browser journeys with real Goose: `workspace_attention`, `channel_approvals`,
   `agents_team_workspace`.
 

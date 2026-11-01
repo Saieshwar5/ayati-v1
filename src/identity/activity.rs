@@ -29,6 +29,20 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/requests/{reply}",
             get(request),
         )
+        .route(
+            "/api/identity/workspaces/{w}/activity/requests/{reply}/retry",
+            post(retry),
+        )
+}
+/// Send a failed request's message again, as a new request quoting the failed
+/// reply. Only the person who asked; never when an action's outcome is unknown.
+async fn retry(
+    State(app): State<Shared>,
+    RoutePath((w, reply)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.request_retry(&user, &w, &reply).await?))
 }
 async fn history(
     State(app): State<Shared>,

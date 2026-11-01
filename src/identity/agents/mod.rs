@@ -39,6 +39,10 @@ pub(super) fn routes() -> Router<Shared> {
             post(transfer),
         )
         .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/pause",
+            post(pause),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/avatar",
             post(upload).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
@@ -155,6 +159,26 @@ async fn transfer(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.agent_transfer(&user, &w, &id, &input).await?,
+    ))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PauseAgent {
+    paused: bool,
+}
+/// Pause or resume one agent: its owner, its managers or an admin (Activity's
+/// agent cards use this; the Agents page keeps its own pause switch).
+async fn pause(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<PauseAgent>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .agent_pause_set(&user, &w, &id, input.paused)
+            .await?,
     ))
 }
 async fn knowledge(

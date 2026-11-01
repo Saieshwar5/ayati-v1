@@ -1,7 +1,9 @@
-import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-context';
+import { identityRequest, storageScope, workspaceId, workspaceUrl } from '../../workspace-context';
 
 /** Filters shared by History, its totals and an agent's Activity tab. */
-export type Filters = { agent?: string; person?: string; chat?: string; status?: string; kind?: string; from?: number; to?: number; q?: string };
+/** Whose agents: `mine` (agents you manage and your own requests) or `all` (everything you may see). */
+export type Scope = 'mine' | 'all';
+export type Filters = { agent?: string; person?: string; chat?: string; status?: string; kind?: string; from?: number; to?: number; q?: string; scope?: Scope };
 export type Step = { id: string; title: string; effect: string; state: string; automatic: boolean; decision: string | null; decided_by: string | null; account: string | null; arguments: Record<string, unknown>; at: number };
 export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
@@ -21,7 +23,11 @@ export type Totals = {
   per_day: { day: string; count: number }[]; by_agent: { agent: string; name: string; avatar: string | null; count: number }[];
 };
 export type AgentCard = { id: string; name: string; role: string; avatar: string | null; paused: boolean; paused_note: string | null;
-  running: number; waiting: number; today: number; failed_today: number; doing: string | null; next_run: number | null };
+  running: number; waiting: number; today: number; failed_today: number; doing: string | null; next_run: number | null;
+  /** Today's latest request that could not complete, for "How to fix it". */
+  last_failed?: string | null;
+  /** The viewer owns or manages it, or is an admin, so may pause or resume it. */
+  can_pause?: boolean };
 export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean };
 export type Change = { id: number; at: number; agent: string; agent_name: string; agent_avatar: string | null; summary: string; actor_name: string };
 
@@ -40,7 +46,19 @@ export const loadChanges = (agent?: string, before?: number, signal?: AbortSigna
 /** History as CSV for the same filters (at most 5,000 requests). */
 export const exportUrl = (filters: Filters) => `/api/identity${root}/export?${query(filters)}`;
 export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
-export const loadNow = (signal?: AbortSignal) => identityRequest<Now>(`${root}/now?today=${startOfToday()}`, undefined, signal);
+export const loadNow = (scope: Scope, signal?: AbortSignal) => identityRequest<Now>(`${root}/now?today=${startOfToday()}&scope=${scope}`, undefined, signal);
+/** Pause or resume one agent (its owner, managers and admins). */
+export const pauseAgent = (agent: string, paused: boolean) =>
+  identityRequest<{ paused: boolean; revision: number }>(`/workspaces/${workspaceId}/agent-profiles/${encodeURIComponent(agent)}/pause`, { paused });
+/** Ask a failed request again, as the person who asked. Repeats give the same retry. */
+export const retryRequest = (reply: string) =>
+  identityRequest<{ reply: string; chat: string; retry_of: string }>(`${root}/requests/${encodeURIComponent(reply)}/retry`, {});
+const scopeKey = () => storageScope('activity.scope');
+/** The last chosen scope on this device; My agents until the person picks another. */
+export function savedScope(): Scope {
+  try { return localStorage.getItem(scopeKey()) === 'all' ? 'all' : 'mine'; } catch { return 'mine'; }
+}
+export function saveScope(scope: Scope) { try { localStorage.setItem(scopeKey(), scope); } catch { /* Only a convenience. */ } }
 export const markSeen = () => identityRequest<{ since: number | null }>(`${root}/seen`, {});
 export const loadDetails = (reply: string, signal?: AbortSignal) => identityRequest<Details>(`${root}/requests/${encodeURIComponent(reply)}`, undefined, signal);
 export const stopRequest = (item: ActivityItem) => identityRequest(`/workspaces/${workspaceId}/chats/${encodeURIComponent(item.chat)}/messages/${encodeURIComponent(item.id)}/cancel`, {});

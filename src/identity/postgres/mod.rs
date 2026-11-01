@@ -1,6 +1,8 @@
 //! PostgreSQL identity storage. All access stays behind the existing Cuckoo API.
 mod accounts;
 pub(crate) mod activity;
+#[cfg(test)]
+mod activity_controls_tests;
 mod activity_migration;
 mod admin_member_migration;
 #[cfg(test)]
@@ -14,6 +16,7 @@ mod agent_instructions_migration;
 #[cfg(test)]
 mod agent_instructions_tests;
 mod agent_knowledge;
+mod agent_pause_switch;
 mod agent_profiles;
 mod agent_receipt_migration;
 #[cfg(test)]
@@ -241,6 +244,7 @@ mod reply_views;
 mod request_context;
 #[cfg(test)]
 mod request_context_tests;
+mod request_retry;
 #[cfg(test)]
 mod response_tests;
 mod responses;

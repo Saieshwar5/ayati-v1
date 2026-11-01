@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
 import { AgentFace } from '../faces';
-import { ago, clock, dayLabel, loadNow, markSeen, status, stopRequest, where, type AgentCard, type ActivityItem } from './model';
+import { ago, clock, dayLabel, loadNow, markSeen, pauseAgent, status, stopRequest, where, type AgentCard, type ActivityItem, type Scope } from './model';
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
 import { PauseAgentsControl } from './agents-pause';
-import { currentWorkspace } from '../../workspace-context';
+import { currentWorkspace, workspaceUrl } from '../../workspace-context';
 
 function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone: string; line: string } {
   if (allPaused) return { label: 'Paused', tone: 'quiet', line: 'All agents are paused' };
@@ -20,8 +20,8 @@ function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone:
 /** Now: "while you were away", every agent's state, and work running right now
  * (designs/activity 2). The summary covers everything since the person last
  * caught up; only "See in History" or "Dismiss" moves that point. */
-export function NowView({ search, openHistory }: { search: string; openHistory: (from: number) => void }) {
-  const { data, error, refresh } = useLive(loadNow);
+export function NowView({ scope, search, openHistory }: { scope: Scope; search: string; openHistory: (from: number) => void }) {
+  const { data, error, refresh } = useLive(useCallback(() => loadNow(scope), [scope]));
   const [open, setOpen] = useState<string>();
   const mutation = useMutation();
   const matches = (text: string) => !search || text.toLowerCase().includes(search.toLowerCase());
@@ -30,6 +30,10 @@ export function NowView({ search, openHistory }: { search: string; openHistory: 
   const away = data?.away.totals;
   const stop = (item: ActivityItem) => void mutation.run(async () => { await stopRequest(item); await refresh(); mutation.setStatus('Stop requested.'); });
   const caughtUp = (then: () => Promise<void> | void) => void mutation.run(async () => { await markSeen(); await then(); });
+  const pause = (agent: AgentCard, paused: boolean) => void mutation.run(async () => {
+    await pauseAgent(agent.id, paused); await refresh();
+    mutation.setStatus(paused ? `${agent.name} is paused. It takes no new work until someone resumes it.` : `${agent.name} is working again.`);
+  });
   return <section className="activity-now" aria-label="Now">
     {currentWorkspace()?.role === 'Admin' && <div className="activity-now-header"><PauseAgentsControl changed={() => void refresh().catch(() => {})} /></div>}
     {error && <p role="alert">{error}</p>}
@@ -40,7 +44,7 @@ export function NowView({ search, openHistory }: { search: string; openHistory: 
       <Button disabled={mutation.busy} onClick={() => caughtUp(() => openHistory(data.away.since))}>See in History</Button>
       <Button disabled={mutation.busy} onClick={() => caughtUp(refresh)}>Dismiss</Button>
     </section>}
-    {data && <h2 className="activity-group">Agents</h2>}
+    {data && <h2 className="activity-group">{scope === 'mine' ? 'My agents' : 'Agents'}</h2>}
     <div className="activity-cards">{agents.map(agent => {
       const state = cardState(agent, Boolean(data?.agents_paused));
       return <article key={agent.id} className="activity-card" aria-label={agent.name}>
@@ -48,9 +52,17 @@ export function NowView({ search, openHistory }: { search: string; openHistory: 
           <span><strong>{agent.name}</strong><small>{agent.role}</small></span>
           <span className={`activity-status ${state.tone}`}>{state.label}</span></header>
         <p>{state.line}</p>
+        <div className="activity-card-actions">
+          {/* Also once paused: a manager often pauses a failing agent, then fixes it. */}
+          {agent.last_failed && <Button onClick={() => setOpen(agent.last_failed!)}>How to fix it</Button>}
+          {agent.can_pause && !data?.agents_paused && <Button disabled={mutation.busy} aria-label={`${agent.paused ? 'Resume' : 'Pause'} ${agent.name}`}
+            onClick={() => pause(agent, !agent.paused)}>{agent.paused ? 'Resume' : 'Pause'}</Button>}
+          <a className="activity-card-setup" href={workspaceUrl('/?view=agents')}>Set up {agent.name} →</a>
+        </div>
       </article>;
     })}</div>
-    {data && !agents.length && <p className="activity-empty">No agents to show.</p>}
+    {data && !agents.length && <p className="activity-empty">{scope === 'mine' && !search
+      ? 'You don\'t manage any agents yet. Choose All agents to see the rest.' : 'No agents to show.'}</p>}
     {data && <h2 className="activity-group">Running now · {running.length}</h2>}
     <p className="ui-status" role="status">{mutation.status}</p>
     <ul className="activity-list">{running.map(item => {
