@@ -151,8 +151,15 @@ async fn project(
     }
     let kind: String = row.try_get("", "kind")?;
     let id: String = row.try_get("", "id")?;
+    // Needs me at volume (Phase 4): approvals say which operation they are and when an
+    // admin may step in, so similar ones group and the most urgent come first.
+    let mut extra = json!({});
     if kind == "approval" {
         let action = super::approval_delivery::action(tx, w, &id).await?;
+        extra = json!({"operation": action["operation"], "connection": action["connection"],
+            "operation_title": action["title"],
+            "backup_at": super::approval_authority::backup_at(tx, w, &action).await? * 1000,
+            "created_at": action["created"].as_i64().unwrap_or_default() * 1000});
         // Pending decisions show to whoever may decide them now; later states to
         // the person who decided, or to the approver named on older records.
         let shown = if action["state"] == "pending" {
@@ -171,13 +178,15 @@ async fn project(
     } else if job.requester != user.id {
         return Ok(None);
     }
-    Ok(Some(
-        json!({"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"kind":kind,"id":id,"version":row.try_get::<String>("","version")?,
+    let mut item = json!({"source_scope":super::event_access::scope(tx,w,&job.reply).await?,"kind":kind,"id":id,"version":row.try_get::<String>("","version")?,
         "title":row.try_get::<String>("","title")?,"status":row.try_get::<String>("","status")?,
         "at":row.try_get::<i64>("","at")?,"agent":job.agent,"agent_name":row.try_get::<String>("","agent_name")?,
         "chat":job.chat,"thread":row.try_get::<Option<String>>("","thread")?,"reply":job.reply,
         "conversation_name":row.try_get::<String>("","conversation_name")?,"archived":row.try_get::<bool>("","archived")?,
         "read":row.try_get::<Option<i64>>("","read_ms")?.is_some(),
-        "reviewed":row.try_get::<Option<i64>>("","reviewed_ms")?.is_some(),"cursor":cursor_for(&row)?}),
-    ))
+        "reviewed":row.try_get::<Option<i64>>("","reviewed_ms")?.is_some(),"cursor":cursor_for(&row)?});
+    if let (Some(item), Some(extra)) = (item.as_object_mut(), extra.as_object()) {
+        item.extend(extra.clone());
+    }
+    Ok(Some(item))
 }

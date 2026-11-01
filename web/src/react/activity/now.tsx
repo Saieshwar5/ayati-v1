@@ -5,6 +5,7 @@ import { AgentFace } from '../faces';
 import { ago, clock, dayLabel, loadNow, markSeen, pauseAgent, status, stopRequest, where, type AgentCard, type ActivityItem, type Scope } from './model';
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
+import { ComingUp, NeedsFixing } from './fixing';
 import { PauseAgentsControl } from './agents-pause';
 import { QuestionDialog } from '../questions/dialog';
 import type { AttentionItem } from '../attention/model';
@@ -13,6 +14,7 @@ import { currentWorkspace, workspaceUrl } from '../../workspace-context';
 function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone: string; line: string } {
   if (allPaused) return { label: 'Paused', tone: 'quiet', line: 'All agents are paused' };
   if (agent.paused) return { label: 'Paused', tone: 'quiet', line: agent.paused_note ?? 'Paused' };
+  if (agent.needs_fixing) return { label: 'Needs fixing', tone: 'problem', line: `${agent.needs_fixing} ${agent.needs_fixing === 1 ? 'thing needs' : 'things need'} fixing · see above` };
   if (agent.running > 0) return { label: 'Working', tone: 'working', line: `${agent.doing ?? 'Working on a request'} · today ${agent.today} requests` };
   if (agent.waiting > 0) return { label: 'Waiting', tone: 'waiting', line: agent.doing ?? 'Waiting for someone' };
   if (agent.failed_today > 0) return { label: 'Failing', tone: 'problem', line: `${agent.failed_today} could not complete today` };
@@ -52,6 +54,7 @@ export function NowView({ scope, search, openHistory, openUnhandled, waiting }: 
     {data && Boolean(data.unhandled_today) && <p className="activity-unhandled" role="note">
       <span>{data.unhandled_today} {data.unhandled_today === 1 ? 'event' : 'events'} not handled today</span>
       {openUnhandled && <Button onClick={openUnhandled}>See why</Button>}</p>}
+    {data && <NeedsFixing groups={data.fixing ?? []} openRequest={setOpen} changed={() => void refresh().catch(() => {})} />}
     {data && <h2 className="activity-group">{scope === 'mine' ? 'My agents' : 'Agents'}</h2>}
     <div className="activity-cards">{agents.map(agent => {
       const state = cardState(agent, Boolean(data?.agents_paused));
@@ -87,6 +90,7 @@ export function NowView({ scope, search, openHistory, openUnhandled, waiting }: 
       </li>;
     })}</ul>
     {data && !running.length && <p className="activity-empty">Nothing is running right now.</p>}
+    {data && <ComingUp items={data.coming_up ?? []} changed={() => void refresh().catch(() => {})} />}
     {open && <RequestDetails reply={open} close={() => setOpen(undefined)} />}
     {answering && <QuestionDialog key={answering} id={answering} close={() => { setAnswering(undefined); void refresh().catch(() => {}); }} />}
   </section>;

@@ -50,6 +50,34 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/requests/{reply}/task",
             post(make_task),
         )
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}/follow-up/cancel",
+            post(cancel_follow_up),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/needs/{id}/dismiss",
+            post(dismiss_need),
+        )
+}
+/// Coming up: stop a booked follow-up (the person it's for, managers, admins).
+async fn cancel_follow_up(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.task_cancel_follow_up(&user, &w, &id).await?;
+    Ok(Json(serde_json::json!({"cancelled": true})))
+}
+/// Needs fixing: dismiss something an agent reported (owners, managers, admins).
+async fn dismiss_need(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.dismiss_need(&user, &w, &id).await?;
+    Ok(Json(serde_json::json!({"dismissed": true})))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

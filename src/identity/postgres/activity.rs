@@ -11,7 +11,7 @@ use serde::Deserialize;
 #[path = "activity_controls_tests.rs"]
 mod controls_tests;
 #[path = "activity_now.rs"]
-mod now;
+pub(super) mod now;
 #[cfg(test)]
 #[path = "activity_panel_tests.rs"]
 mod panel_tests;

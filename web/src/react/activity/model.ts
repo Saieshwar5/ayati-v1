@@ -30,11 +30,24 @@ export type AgentCard = { id: string; name: string; role: string; avatar: string
   running: number; waiting: number; today: number; failed_today: number; doing: string | null; next_run: number | null;
   /** Today's latest request that could not complete, for "How to fix it". */
   last_failed?: string | null;
+  /** How many Needs fixing groups this agent is in (Phase 4). */
+  needs_fixing?: number;
   /** The viewer owns or manages it, or is an admin, so may pause or resume it. */
   can_pause?: boolean };
 export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean;
   /** Events that arrived today but no agent acted on. */
-  unhandled_today?: number };
+  unhandled_today?: number;
+  /** What's wrong across the agents this person can fix, grouped by cause (Phase 4). */
+  fixing?: FixGroup[];
+  /** Routines, follow-ups and due tasks in the next 24 hours. */
+  coming_up?: ComingItem[] };
+export type FixKind = 'request' | 'needs' | 'tasks' | 'agent' | 'settings' | 'need';
+export type FixGroup = { cause: string; title: string; count: number; fix: { kind: FixKind; label: string; ref?: string };
+  agents: { id: string; name: string }[];
+  items: { agent: string; agent_name: string; ref: string; detail: string | null; at: number | null; cause?: string; request?: string; fix?: string | null }[] };
+export type ComingItem = { kind: 'routine' | 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; revision?: number; can_pause: boolean };
+export const dismissNeed = (id: string) => identityRequest(`${root}/needs/${encodeURIComponent(id)}/dismiss`, {});
+export const cancelFollowUp = (task: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/follow-up/cancel`, {});
 /** An event no agent acted on, with the recorded reason; never the event's contents. */
 export type Unhandled = { id: string; sequence: number; at: number; trigger: string; title: string; reason: string | null;
   agent: string; agent_name: string; agent_avatar: string | null };

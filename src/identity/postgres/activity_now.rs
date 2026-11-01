@@ -24,6 +24,9 @@ fn claims_change(reply: &str) -> bool {
         .any(|word| CLAIMS.contains(&word))
 }
 
+#[path = "activity_fixing.rs"]
+pub(in crate::identity::postgres) mod fixing;
+
 impl PgStore {
     /// Records that the person has caught up: "while you were away" then starts
     /// from now. It is set by an explicit action, never by opening the page.
@@ -76,6 +79,21 @@ impl PgStore {
         .transpose()?
         .flatten();
         let agents_paused = super::super::settings::pause::paused(&tx, w).await?;
+        // Needs fixing and Coming up (Phase 4): for the people who can fix the agents.
+        let fixing = fixing::groups(&tx, user, w, admin, scope.as_deref()).await?;
+        let coming_up = fixing::coming_up(&tx, user, w, admin, scope.as_deref()).await?;
+        let mut agents = agents;
+        for agent in &mut agents {
+            let n = fixing
+                .iter()
+                .filter(|g| {
+                    g["agents"]
+                        .as_array()
+                        .is_some_and(|a| a.iter().any(|x| x["id"] == agent["id"]))
+                })
+                .count();
+            agent["needs_fixing"] = json!(n);
+        }
         // Events that arrived today but no agent acted on, for a line on Now.
         let unhandled = super::super::activity_unhandled::count_since(
             &tx,
@@ -111,7 +129,7 @@ impl PgStore {
             )
             .await?;
         Ok(
-            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}, "agents_paused": agents_paused, "unhandled_today": unhandled}),
+            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}, "agents_paused": agents_paused, "unhandled_today": unhandled, "fixing": fixing, "coming_up": coming_up}),
         )
     }
 

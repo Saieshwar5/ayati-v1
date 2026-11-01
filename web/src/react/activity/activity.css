@@ -157,3 +157,12 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-task-line { margin: 0; font-size: 13px; color: var(--muted); }
 .activity-task-line a { color: var(--text); font-weight: 600; }
 .activity-open > section + section { margin-top: 8px; }
+
+/* Needs fixing and Coming up (Phase 4). */
+.activity-fix-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.activity-fix-faces { display: inline-flex; }
+.activity-fix-faces .activity-face + .activity-face { margin-left: -6px; }
+.activity-coming li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.activity-coming time { min-width: 72px; color: var(--muted); font-size: 13px; }
+.activity-review-list { display: grid; gap: 14px; padding-left: 20px; }
+.activity-review-list li { display: grid; gap: 6px; }

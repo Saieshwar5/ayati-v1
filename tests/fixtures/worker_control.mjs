@@ -10,7 +10,7 @@ export function controllerToolsOnly(request) {
     'ayati_control__continue_privately', 'ayati_control__create_task', 'ayati_control__follow_up', 'ayati_control__handoff_targets',
     'ayati_control__home_panel_update_context', 'ayati_control__load_skill', 'ayati_control__open_tasks',
     'ayati_control__operations', 'ayati_control__personal_panels',
-    'ayati_control__read_conversation_history', 'ayati_control__refresh_home_panel', 'ayati_control__request_action',
+    'ayati_control__read_conversation_history', 'ayati_control__refresh_home_panel', 'ayati_control__report_problem', 'ayati_control__request_action',
     'ayati_control__request_handoff', 'ayati_control__save_home_panel',
     'ayati_control__save_working_context',
     'ayati_control__search_conversation_history', 'ayati_control__send_update',

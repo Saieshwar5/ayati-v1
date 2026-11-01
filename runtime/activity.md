@@ -107,6 +107,40 @@ checks; the screen only hides what a person may not do.
   the agent (creating it when needed) and starts the message with what it is about,
   without replacing an existing draft.
 
+## Supervising at scale (schema 61)
+
+People-and-agents-first, Phase 4. For the people who can fix an agent (its owner,
+managers and admins; with My agents, the agents they manage):
+
+- **Needs fixing** on Now, grouped by cause, each with one fix:
+  - an account needs reconnecting (every agent using it; **Reconnect** in Settings for
+    admins, "Ask an admin to reconnect" for others);
+  - actions whose outcome couldn't be confirmed (Check it);
+  - agents failing twice or more today (How to fix it, the latest failure);
+  - routines or event triggers that stopped (Review routines/triggers on the agent);
+  - requests waiting on a person for over 4 hours (Open Needs me);
+  - requests running far longer than the agent usually takes (3 × its median of the
+    last 30, at least 10 minutes);
+  - what agents reported they need (see below; Dismiss);
+  - tasks that need fixing (Open Tasks).
+  An agent in any group shows **Needs fixing** on its card. Someone who only talks to
+  an agent isn't asked to fix it.
+- **Agents report needs in a fixed shape.** The `report_problem {cause, detail, fix?}`
+  tool (cause: connection, permission, information, external or other; detail up to 300
+  characters; fix up to 200; at most five per request) saves it for the people who can
+  fix the agent (`relay_agent_needs`), shown for 24 hours or until dismissed. The agent's
+  instructions say to use it instead of a raw error, then tell the person and stop.
+- **Coming up**: the next 24 hours of routines (Pause), follow-ups (Cancel follow-up;
+  the task stays open) and tasks due, soonest first. Routines bound to a Home panel are
+  left out. Follow-ups and due tasks show to the person the task is for and the agent's
+  fixers; routines to its fixers and the routine's person.
+- **Needs me at volume**: approvals carry their operation and the backup clock. Items
+  where an admin may already step in come first, then the longest waiting; approvals
+  for the same action from the same agent fold into one row ("3 × Refund order") with
+  **Review together**: one screen listing each request's details, each approved or
+  rejected on its own. **Approve all N** sends the decisions one by one; the server
+  still checks every one.
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -115,6 +149,11 @@ first catch-up it covers the last day. Only **See in History** or **Dismiss**
 records a new catch-up; opening the page does not.
 
 ## API
+
+- `GET /activity/now` also returns `fixing` (groups) and `coming_up`, and each agent's
+  `needs_fixing` count. `POST /activity/needs/{id}/dismiss`;
+  `POST /activity/tasks/{id}/follow-up/cancel`. Attention approvals add `operation`,
+  `connection`, `operation_title`, `created_at` and `backup_at`.
 
 All under `/api/identity/workspaces/{w}/activity`, authenticated by the session
 cookie; every query applies the visibility rule above on the server.
@@ -173,3 +212,9 @@ both checked against the surfaces with the data-visualisation palette validator.
 
 **Waiting for a design:** Home's Working now and Today's totals panels (M7). Home
 keeps its Notifications panel, which opens Needs me.
+
+Supervising at scale: PostgreSQL `activity::now::fixing` (each cause grouped with its fix
+for fixers only, report_problem refused for made-up causes, dismiss by fixers only;
+Coming up soonest first), web `activity-supervising` (Needs fixing, Coming up's Pause
+and Cancel follow-up, Review together and urgency order), guest `task_schema`
+(report_problem), journey `tests/agent_needs.mjs` (real Goose reports a need).
