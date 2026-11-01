@@ -59,6 +59,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::chat::updates_migration::AgentUpdates),
             Box::new(super::connector_providers::migration::ConnectorProviders),
             Box::new(super::communications::migration::CommunicationGateway),
+            Box::new(super::shared_rooms::migration::SharedRooms),
         ]
     }
 }

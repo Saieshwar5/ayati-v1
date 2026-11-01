@@ -38,6 +38,11 @@ identity. The model is instructed not to repeat private contact details without 
 relevant authorized purpose; actual business operations still pass server checks.
 This improves attribution, not a guarantee against every model disclosure error.
 
+In a [shared room](shared-rooms.md) since schema 55, a request in a thread reads
+that thread first and then the latest main-timeline messages, the agent is told
+who reads the reply, and a private question moves to the asker's direct
+conversation (`continue_privately`).
+
 Managed recent history remains scoped to the current conversation, at most 60
 messages. Revision-zero profiles retain their existing 30-message/thread selection.
 The 14,000-byte budget now counts serialized attribution and escaped content. The

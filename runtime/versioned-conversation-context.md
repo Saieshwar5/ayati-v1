@@ -32,8 +32,10 @@ An agent is instructed to save a summary when useful for long work. There is no
 additional automatic summarization model call and no semantic-search engine.
 
 Versions are scoped by workspace + agent + conversation + requesting human.
-Participants share permitted channel messages; one participant's personalized
-summary is not silently loaded into another person's request. Summaries use an
+Since schema 55, a [shared room](shared-rooms.md) (a conversation two or more
+people read) has one brief for the room instead: everyone there reads the same
+summary. In private conversations, one participant's personalized summary is
+not silently loaded into another person's request. Summaries use an
 expected revision and monotonic task-message cutoff. Exact retries are idempotent;
 stale writers and older tasks cannot overwrite newer work or consume future
 summaries. Evidence that fell outside recent context can be retrieved through the

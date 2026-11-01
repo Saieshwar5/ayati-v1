@@ -67,7 +67,9 @@ pub(super) async fn latest(tx: &DatabaseTransaction, job: &Job) -> Result<Value>
     if !super::context_attempts::exists(tx).await? {
         return Ok(json!({"revision":0,"available":false}));
     }
-    let row=query(tx,"SELECT revision,generation,brief,cutoff,task,claim FROM relay_working_context WHERE workspace=$1 AND agent=$2 AND chat=$3 AND requester=$4 ORDER BY revision DESC LIMIT 1",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),job.requester.clone().into()]).await?;
+    // A shared room has one brief everyone in it reads; otherwise it is the requester's.
+    let owner = super::shared_rooms::brief_owner(tx, job).await?;
+    let row=query(tx,"SELECT revision,generation,brief,cutoff,task,claim FROM relay_working_context WHERE workspace=$1 AND agent=$2 AND chat=$3 AND requester=$4 ORDER BY revision DESC LIMIT 1",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),owner.clone().into()]).await?;
     let Some(row) = row else {
         return Ok(json!({"revision":0,"available":false}));
     };
@@ -152,7 +154,8 @@ impl PgStore {
             collect_ids(&read["message"], &mut eligible);
         }
         input.validate(&eligible)?;
-        execute(&tx,"INSERT INTO relay_working_context(workspace,agent,chat,requester,revision,task,claim,generation,cutoff,brief) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),job.requester.clone().into(),(revision+1).into(),job.reply.clone().into(),job.claim.clone().unwrap_or_default().into(),row.try_get::<Value>("","generation")?.into(),cutoff.into(),body.into()]).await?;
+        let owner = super::shared_rooms::brief_owner(&tx, job).await?;
+        execute(&tx,"INSERT INTO relay_working_context(workspace,agent,chat,requester,revision,task,claim,generation,cutoff,brief) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),owner.into(),(revision+1).into(),job.reply.clone().into(),job.claim.clone().unwrap_or_default().into(),row.try_get::<Value>("","generation")?.into(),cutoff.into(),body.into()]).await?;
         tx.commit().await?;
         Ok(json!({"state":"saved","revision":revision+1}))
     }

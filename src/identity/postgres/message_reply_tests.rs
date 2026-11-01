@@ -71,6 +71,7 @@ async fn replies_quote_one_message_of_the_same_conversation_and_reach_the_agent(
             chat: &c,
             agent: &agent,
             thread: None,
+            main_only: false,
             since_join: false,
             limit: 1,
             before: i64::MAX,

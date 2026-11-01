@@ -58,7 +58,12 @@ test('prepared slots dispatch different agents concurrently and replenish withou
   assert.ok(next.every(s => !initial.some(old => old.pid === s.pid)));
   const last = JSON.stringify(app.provider.requests.at(-1));
   assert.equal(last.includes('INVENTORY_PRIVATE_SENTINEL'), false);
-  for (const request of app.provider.requests) controllerToolsOnly(request);
+  // The front desk (schema 52) answers a queued person with no tools at all;
+  // every other request has exactly the reviewed controller tools.
+  for (const request of app.provider.requests) {
+    if (JSON.stringify(request.messages).includes('You are answering at the front desk')) assert.deepEqual(request.tools ?? [], []);
+    else controllerToolsOnly(request);
+  }
   await app.assertChildrenStopped(activePids);
   assert.equal((await app.scratchFiles()).length, 2, 'Only the new ready harness scratch should remain');
   app.pass('Tool-free reserve preparation invokes no model; fresh controlled sessions serve two agents concurrently and are reaped before clean generations replace them');

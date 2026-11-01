@@ -167,7 +167,7 @@ tab needs an approved design.
 
 ## Not built yet
 
-- **Shared context for Chat channels** (G2).
+- **Shared context for Chat channels**: built in schema 55, see [shared rooms](shared-rooms.md).
 - **Contacts and verification** (G3): pairing, one-time codes, assurance levels.
 - **Knowledge audiences and actions tied to the asker** (G4). No public
   endpoint should open before G3 and G4.

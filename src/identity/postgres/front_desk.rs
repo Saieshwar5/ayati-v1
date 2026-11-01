@@ -163,6 +163,7 @@ pub(crate) async fn enqueue_if_busy(
             chat: &job.chat,
             agent: &job.agent,
             thread: input.thread.as_deref(),
+            main_only: false,
             since_join: settings.history == "since_join",
             limit: 12,
             before: i64::MAX,

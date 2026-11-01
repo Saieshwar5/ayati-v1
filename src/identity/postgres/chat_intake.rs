@@ -12,16 +12,22 @@ enum WorkClass<'a> {
     Communication,
     Background,
     Handoff(&'a str),
+    /// A person's question the agent moved from a shared room to their direct
+    /// conversation: written by that agent, answered for the same person.
+    Private(&'a str),
 }
 impl WorkClass<'_> {
     fn as_str(self) -> &'static str {
         match self {
-            Self::Interactive | Self::Communication => "interactive",
+            Self::Interactive | Self::Communication | Self::Private(_) => "interactive",
             Self::Background | Self::Handoff(_) => "background",
         }
     }
     fn background(self) -> bool {
-        !matches!(self, Self::Interactive | Self::Communication)
+        !matches!(
+            self,
+            Self::Interactive | Self::Communication | Self::Private(_)
+        )
     }
 }
 impl PgStore {
@@ -129,6 +135,18 @@ impl PgStore {
         )
         .await
     }
+    pub(super) async fn private_in(
+        &self,
+        tx: &DatabaseTransaction,
+        user: &User,
+        w: &str,
+        chat: &str,
+        input: &NewMessage,
+        agent: &str,
+    ) -> Result<Option<Job>> {
+        self.enqueue_chat_in(tx, user, w, chat, input, WorkClass::Private(agent))
+            .await
+    }
     async fn enqueue_chat_in(
         &self,
         tx: &DatabaseTransaction,
@@ -151,7 +169,7 @@ impl PgStore {
             super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }
         let (author, kind) = match class {
-            WorkClass::Handoff(sender) => (sender, "agent"),
+            WorkClass::Handoff(sender) | WorkClass::Private(sender) => (sender, "agent"),
             _ => (user.id.as_str(), "user"),
         };
         if let Some(row) = query(
@@ -285,6 +303,7 @@ impl PgStore {
                     chat,
                     agent,
                     thread: context_thread,
+                    main_only: false,
                     since_join,
                     limit: context_limit,
                     before: i64::MAX,

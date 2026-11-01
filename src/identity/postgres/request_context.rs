@@ -30,27 +30,45 @@ impl PgStore {
             ).await?.context("Original request evidence unavailable")?;
             let managed = row.try_get::<i64>("", "revision")? > 0;
             let settings: Value = row.try_get("", "settings")?;
-            let thread = if managed {
-                None
-            } else {
-                row.try_get::<Option<String>>("", "thread")?.or_else(|| {
-                    (identity["conversation"]["kind"] != "direct").then(|| id.to_owned())
-                })
+            let in_thread: Option<String> = row.try_get("", "thread")?;
+            let before: i64 = row.try_get("", "sequence")?;
+            let scope = |thread, main_only, limit| super::conversation_context::RecentScope {
+                workspace: &job.workspace,
+                chat: &job.chat,
+                agent: &job.agent,
+                thread,
+                main_only,
+                since_join: settings["history"] == "since_join",
+                limit,
+                before,
+                request: id,
             };
-            let mut messages = super::conversation_context::recent(
-                &tx,
-                super::conversation_context::RecentScope {
-                    workspace: &job.workspace,
-                    chat: &job.chat,
-                    agent: &job.agent,
-                    thread: thread.as_deref(),
-                    since_join: settings["history"] == "since_join",
-                    limit: if managed { 60 } else { 30 },
-                    before: row.try_get("", "sequence")?,
-                    request: id,
-                },
-            )
-            .await?;
+            let mut messages = match (managed, in_thread.as_deref()) {
+                // A request in a thread reads that thread first, then the latest
+                // of the main timeline; other threads stay out.
+                (true, Some(thread)) => {
+                    let mut main =
+                        super::conversation_context::recent(&tx, scope(None, true, 10)).await?;
+                    let replies =
+                        super::conversation_context::recent(&tx, scope(Some(thread), false, 50))
+                            .await?;
+                    main.retain(|m| replies.iter().all(|r| r["id"] != m["id"]));
+                    main.extend(replies);
+                    main.sort_by_key(|m| m["sequence"].as_i64());
+                    super::conversation_context::bound(&mut main)?;
+                    main
+                }
+                (true, None) => {
+                    super::conversation_context::recent(&tx, scope(None, false, 60)).await?
+                }
+                (false, _) => {
+                    let thread = in_thread.clone().or_else(|| {
+                        (identity["conversation"]["kind"] != "direct").then(|| id.to_owned())
+                    });
+                    super::conversation_context::recent(&tx, scope(thread.as_deref(), false, 30))
+                        .await?
+                }
+            };
             ensure!(
                 messages.iter().any(|message| message["id"] == id),
                 "Original request is no longer eligible for this task"
@@ -100,10 +118,18 @@ async fn identity_in(tx: &DatabaseTransaction, job: &Job) -> Result<Value> {
         (Some("user"), _) => "human_message",
         _ => "historical_request",
     };
-    let initiating_actor = if origin == "background_automation" {
+    let mut initiating_actor = if origin == "background_automation" {
         None
     } else {
         sender.map(|id| json!({"id":id,"kind":sender_kind,"display_name":sender_name}))
+    };
+    // A person's own question, moved by the agent from a shared conversation.
+    let moved = super::shared_rooms::moved_from(tx, job).await?;
+    let origin = if let Some(asker) = moved {
+        initiating_actor = Some(asker);
+        "private_continuation"
+    } else {
+        origin
     };
     Ok(json!({
         "version":1,"workspace":job.workspace,"agent":job.agent,"task":job.reply,
