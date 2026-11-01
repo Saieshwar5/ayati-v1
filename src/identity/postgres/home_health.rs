@@ -7,13 +7,13 @@ pub(super) async fn snapshot(
     id: &str,
     revision: i64,
 ) -> Result<Option<Value>> {
-    let Some(row)=query(db,"SELECT s.definition,s.provenance,s.saved_ms,s.checked_ms,s.task,s.generation,s.what_changed,m.chat,m.thread FROM relay_home_snapshots s JOIN relay_chat_messages m ON m.workspace=s.workspace AND m.id=s.task WHERE s.workspace=$1 AND s.panel=$2 AND s.panel_revision=$3 ORDER BY s.generation DESC LIMIT 1",vec![w.into(),id.into(),revision.into()]).await? else {return Ok(None)};
+    let Some(row)=query(db,"SELECT s.definition,s.provenance,s.saved_ms,s.checked_ms,s.task,s.generation,s.what_changed,m.chat,m.thread,COALESCE((SELECT (to_jsonb(r)->>'direct')::boolean FROM relay_home_update_runs r WHERE r.workspace=s.workspace AND r.reply=s.task),false) AS direct FROM relay_home_snapshots s JOIN relay_chat_messages m ON m.workspace=s.workspace AND m.id=s.task WHERE s.workspace=$1 AND s.panel=$2 AND s.panel_revision=$3 ORDER BY s.generation DESC LIMIT 1",vec![w.into(),id.into(),revision.into()]).await? else {return Ok(None)};
     let provenance: Value = row.try_get("", "provenance")?;
     if !super::home_sources::allowed(db, w, &user.id, &provenance).await? {
         return Ok(Some(json!({"revision":revision,"available":false})));
     }
     Ok(Some(
-        json!({"revision":revision,"available":true,"definition":row.try_get::<Value>("","definition")?,"saved_ms":row.try_get::<i64>("","saved_ms")?,"checked_ms":row.try_get::<i64>("","checked_ms")?,"generation":row.try_get::<i64>("","generation")?,"source_operations":provenance["operations"].as_array().map_or(0,Vec::len),"chat":row.try_get::<String>("","chat")?,"thread":row.try_get::<Option<String>>("","thread")?,"task":row.try_get::<String>("","task")?,"what_changed":row.try_get::<Option<String>>("","what_changed")?}),
+        json!({"revision":revision,"available":true,"definition":row.try_get::<Value>("","definition")?,"saved_ms":row.try_get::<i64>("","saved_ms")?,"checked_ms":row.try_get::<i64>("","checked_ms")?,"generation":row.try_get::<i64>("","generation")?,"source_operations":provenance["operations"].as_array().map_or(0,Vec::len),"chat":row.try_get::<String>("","chat")?,"thread":row.try_get::<Option<String>>("","thread")?,"task":row.try_get::<String>("","task")?,"what_changed":row.try_get::<Option<String>>("","what_changed")?,"from_source":row.try_get::<bool>("","direct")?}),
     ))
 }
 pub(super) async fn maintenance(
@@ -63,6 +63,10 @@ pub(super) async fn maintenance(
         .map(|r| r.try_get::<i64>("", "checked_ms"))
         .transpose()?;
     data["checked_ms"] = json!(checked);
+    // Living panels: how many updates in the last day, and how many ran without the agent.
+    let day = query(db, "SELECT count(*) AS updates,count(*) FILTER (WHERE to_jsonb(r)->>'direct'='true') AS direct FROM relay_home_update_runs r WHERE r.workspace=$1 AND r.panel=$2 AND r.created_ms>(extract(epoch FROM clock_timestamp())*1000)::bigint-86400000", vec![w.into(), id.into()]).await?.context("Update counts")?;
+    data["last_day"] = json!({"updates": day.try_get::<i64>("", "updates")?, "without_agent": day.try_get::<i64>("", "direct")?});
+    data["from_source"] = json!(!data["bindings"].is_null());
     data["saved_ms"] = json!(
         saved
             .map(|r| r.try_get::<i64>("", "saved_ms"))

@@ -1,10 +1,11 @@
+import { AddNote } from './add-note';
 import { useEffect, useRef, useState } from 'react';
 import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
 import { cadence, changeSchedule } from '../agents/automation/model';
-import { conversationUrl, dayLabel, clock, loadDetails, retryRequest, status, stopRequest, where, type Details } from './model';
+import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details, steerRequest } from './model';
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
 
@@ -44,6 +45,9 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   });
   // One conversation id per opening, so a double click opens one direct chat.
   const direct = useRef<string>(undefined);
+  const toTask = (item: Details) => void mutation.run(async () => {
+    await makeTask(item.id); mutation.setStatus('Saved as a task. It stays in Activity → Tasks until it is closed.'); setVersion(v => v + 1);
+  });
   const discuss = (item: Details) => void mutation.run(() =>
     openAgentChat({ id: item.agent, name: item.agent_name }, `About "${item.summary}" (${where(item)}, ${dayLabel(item.created_ms).toLowerCase()} ${clock(item.created_ms)}): `, direct));
   return <Dialog drawer title={data ? data.summary : 'Request'} close={close} busy={mutation.busy} status={mutation.status}>
@@ -64,6 +68,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
         </>}
         <dt>When</dt><dd>{dayLabel(data.created_ms)} {clock(data.created_ms)}{data.finished_ms ? ` · ${Math.max(1, Math.round((data.finished_ms - data.created_ms) / 1000))} s` : ''}</dd>
       </dl>
+      {data.task && <p className="activity-task-line">Part of task <a href={taskUrl(data.task.id)}>{data.task.title}</a> · {taskLabels[data.task.status]}</p>}
       {!data.in_conversation && <p className="ui-help">You are not in this conversation. As a manager or admin you can read this request; your view is recorded in the audit log.</p>}
       <h3>What {data.agent_name} did</h3>
       <ol className="activity-steps">
@@ -80,11 +85,17 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       </ol>
       {data.disagreement && <p className="activity-warning" role="note">{data.disagreement}</p>}
       {data.fix && <section className="activity-fix" aria-label="How to fix it"><h3>How to fix it</h3><p>{data.fix}</p></section>}
+      {Boolean(data.added?.length) && <section aria-label="Added while it ran"><h3>Added while it ran</h3><ul className="activity-steps">
+        {data.added!.map(note => <li key={note.at} className={note.seen ? 'done' : 'waiting'}><strong>{note.text}</strong>
+          <small>{note.from} · {note.seen ? 'the agent read it' : note.carried ? 'sent as a new request' : 'not read yet'}</small></li>)}</ul></section>}
+      {data.requester === me && ['queued', 'running', 'waiting', 'streaming'].includes(data.state) && <AddNote label="Add to this request"
+        send={text => steerRequest(data.id, text)} sent={() => setVersion(v => v + 1)} />}
       <div className="activity-detail-actions">
         {data.can_cancel && <Button disabled={mutation.busy} onClick={() => stop(data)}>Stop request</Button>}
         {data.schedule?.state === 'enabled' && <Button disabled={mutation.busy} onClick={() => pause(data)}>Pause schedule</Button>}
         {canRetry && <Button primary disabled={mutation.busy} onClick={() => retry(data)}>Retry</Button>}
         {failed && unsure && <p className="ui-help">An action here may or may not have happened. Check it before asking again.</p>}
+        {!data.task && !data.panel && <Button disabled={mutation.busy} onClick={() => toTask(data)}>Make this a task</Button>}
         <Button disabled={mutation.busy} onClick={() => discuss(data)}>Discuss in chat</Button>
         {data.in_conversation && !room && <a className="ui-button" href={conversationUrl(data)}>Open conversation</a>}
       </div>

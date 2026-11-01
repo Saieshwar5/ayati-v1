@@ -116,6 +116,21 @@ pub(crate) struct RemoteRequest {
     pub arguments: Value,
 }
 pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> Result<Value> {
+    let mut result = invoke_tool(pg, job, tool, arguments).await?;
+    // Steering (Phase 4 AC6): what the person added to this running request reaches
+    // the agent with the result of its next step.
+    let added = pg.take_steers(job).await?;
+    if !added.is_empty() {
+        match result.as_object_mut() {
+            Some(fields) => {
+                fields.insert("person_added".into(), json!(added));
+            }
+            None => result = json!({"result": result, "person_added": added}),
+        }
+    }
+    Ok(result)
+}
+async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> Result<Value> {
     pg.home_maintenance_tool(job, tool).await?;
     match tool {
         "home_panel_update_context" => {
@@ -187,6 +202,43 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
         "load_skill" => {
             let input = serde_json::from_value(arguments)?;
             pg.load_skill(job, &input).await
+        }
+        "create_task" => {
+            pg.create_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "attach_to_task" => {
+            pg.attach_to_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "open_tasks" => {
+            ensure!(arguments == json!({}), "Invalid open tasks request");
+            pg.open_tasks(job).await
+        }
+        "close_task" => {
+            pg.close_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "follow_up" => pg.follow_up(job, &serde_json::from_value(arguments)?).await,
+        "my_goals" => {
+            ensure!(arguments == json!({}), "Invalid goals request");
+            pg.my_goals(job).await
+        }
+        "update_goal" => {
+            pg.update_goal(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "write_review" => {
+            pg.write_review(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "propose_schedule" => {
+            pg.propose_schedule(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "report_problem" => {
+            pg.report_agent_need(job, &serde_json::from_value(arguments)?)
+                .await
         }
         "operations" => {
             ensure!(arguments == json!({}), "Invalid discovery request");

@@ -232,3 +232,50 @@
   .workspace-panels .panel-stale,
   .workspace-panels .panel-needs-you { border: 1px solid CanvasText; }
 }
+
+/* Phones show one column, so cards grow to fit their content instead of a fixed
+   height that hid "What changed" (owner decision 2026-11-01). Charts keep a fixed
+   height because they size themselves to it. */
+@media (max-width: 560px) {
+  .workspace-panels .home-panels:not(.is-arranging) .home-panel-card:not([data-template='chart']),
+  .workspace-panels .home-panels:not(.is-arranging) .home-panel-card[data-template]:not([data-template='chart']) {
+    height: auto;
+    max-height: none;
+  }
+}
+
+/* "Also update when its sources change" (living panels). */
+.workspace-panel-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: start;
+}
+.workspace-panel-check small {
+  grid-column: 2;
+  color: var(--muted);
+}
+
+/* Who sees this panel (team panels). */
+.workspace-panel-audience {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.workspace-panel-audience legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.workspace-panel-audience select {
+  max-width: 100%;
+}
+
+/* Pipeline (HP6): stages with a bar for how many are in each. */
+.panel-pipeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.panel-pipeline li { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto auto; align-items: center; gap: 8px; }
+.panel-pipeline-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-pipeline-bar { display: block; height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.panel-pipeline-bar span { display: block; height: 100%; background: var(--accent, #3b5bdb); }
+.panel-pipeline small { color: var(--muted); }

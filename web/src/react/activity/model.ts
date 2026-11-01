@@ -10,6 +10,8 @@ export type ActivityItem = {
   agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
   /** A Home panel refresh names its panel. */
   panel?: { id: string; title: string } | null;
+  /** The task this request works towards, if any. */
+  task?: TaskRef | null;
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
@@ -18,7 +20,11 @@ export type RunSchedule = { id: string; name: string; agent: string; state: stri
   post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
   /** The run happened in the schedule's own work room, which isn't a conversation. */
   room: boolean };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null;
+  /** What the person added while it ran (Phase 4), and whether the agent saw it. */
+  added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[] };
+export const steerRequest = (reply: string, text: string) => identityRequest(`${root}/requests/${encodeURIComponent(reply)}/steer`, { text });
+export const steerTask = (task: string, text: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/steer`, { text });
 export type Totals = {
   requests: number; done: number; failed: number; review: number; waiting: number; automatic: number; approved: number;
   people: number; channels: number; schedule_runs: number;
@@ -28,11 +34,24 @@ export type AgentCard = { id: string; name: string; role: string; avatar: string
   running: number; waiting: number; today: number; failed_today: number; doing: string | null; next_run: number | null;
   /** Today's latest request that could not complete, for "How to fix it". */
   last_failed?: string | null;
+  /** How many Needs fixing groups this agent is in (Phase 4). */
+  needs_fixing?: number;
   /** The viewer owns or manages it, or is an admin, so may pause or resume it. */
   can_pause?: boolean };
 export type Now = { agents: AgentCard[]; running: ActivityItem[]; away: { since: number; totals: Totals }; agents_paused?: boolean;
   /** Events that arrived today but no agent acted on. */
-  unhandled_today?: number };
+  unhandled_today?: number;
+  /** What's wrong across the agents this person can fix, grouped by cause (Phase 4). */
+  fixing?: FixGroup[];
+  /** Routines, follow-ups and due tasks in the next 24 hours. */
+  coming_up?: ComingItem[] };
+export type FixKind = 'request' | 'needs' | 'tasks' | 'agent' | 'settings' | 'need';
+export type FixGroup = { cause: string; title: string; count: number; fix: { kind: FixKind; label: string; ref?: string };
+  agents: { id: string; name: string }[];
+  items: { agent: string; agent_name: string; ref: string; detail: string | null; at: number | null; cause?: string; request?: string; fix?: string | null }[] };
+export type ComingItem = { kind: 'routine' | 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; revision?: number; can_pause: boolean };
+export const dismissNeed = (id: string) => identityRequest(`${root}/needs/${encodeURIComponent(id)}/dismiss`, {});
+export const cancelFollowUp = (task: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/follow-up/cancel`, {});
 /** An event no agent acted on, with the recorded reason; never the event's contents. */
 export type Unhandled = { id: string; sequence: number; at: number; trigger: string; title: string; reason: string | null;
   agent: string; agent_name: string; agent_avatar: string | null };
@@ -126,3 +145,30 @@ export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
   }
   return entries.map(entry => entry.kind === 'panel-fold' && entry.items.length === 1 ? { kind: 'item', item: entry.items[0] } : entry);
 }
+
+/** A task: a promise with an outcome (people-and-agents-first, Phase 2). */
+export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'done' | 'failed' | 'cancelled' | 'not_task';
+export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus };
+export type TaskItem = TaskRef & {
+  origin: string; done_when: string | null; waiting_on: 'approval' | 'question' | 'helper' | null;
+  agent: string; agent_name: string; agent_avatar: string | null; requester: string; requester_name: string | null;
+  chat: string; conversation_name: string; conversation_kind: string; created_ms: number; start_ms: number | null; due_ms: number | null;
+  closed_ms: number | null; outcome: string | null; result: string | null; steps: number;
+  /** The agent's next booked follow-up, and why the last one couldn't run. */
+  next_wakeup_ms?: number | null; blocked_wakeup?: string | null;
+};
+export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
+export const taskLabels: Record<TaskStatus, string> = {
+  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Scheduled', late: 'Late',
+  done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',
+};
+export const taskTone = (status: TaskStatus) => status === 'needs_fixing' || status === 'late' || status === 'failed' ? 'problem'
+  : status === 'waiting' ? 'waiting' : status === 'working' ? 'working' : status === 'done' ? 'done' : 'quiet';
+export const waitingLabels: Record<string, string> = { approval: 'an approval', question: 'an answer', helper: 'another agent' };
+export const loadTasks = (scope: Scope, signal?: AbortSignal) =>
+  identityRequest<{ items: TaskItem[]; more: boolean }>(`${root}/tasks?scope=${scope}`, undefined, signal);
+export const loadTask = (id: string, signal?: AbortSignal) => identityRequest<TaskDetail>(`${root}/tasks/${encodeURIComponent(id)}`, undefined, signal);
+export const closeTask = (id: string, outcome: 'done' | 'cancelled' | 'not_task') =>
+  identityRequest<{ id: string; outcome: string }>(`${root}/tasks/${encodeURIComponent(id)}/close`, { outcome });
+export const makeTask = (reply: string) => identityRequest<{ id: string; title: string }>(`${root}/requests/${encodeURIComponent(reply)}/task`, {});
+export const taskUrl = (id: string) => workspaceUrl(`/?view=activity&tab=open&task=${encodeURIComponent(id)}`);

@@ -156,6 +156,7 @@ impl PgStore {
             }
         };
         execute(&tx,"UPDATE relay_event_deliveries SET state='accepted',message=$3,reply=$4 WHERE workspace=$1 AND id=$2 AND state='pending'",vec![w.into(),id.into(),input.id.into(),job.reply.clone().into()]).await?;
+        super::tasks::ensure_automatic(&tx, &job, "event").await?;
         audit(
             &tx,
             data["principal"].as_str().unwrap(),

@@ -4,14 +4,16 @@ import { NeedsMe } from './needs-me';
 import { NowView } from './now';
 import { HistoryView } from './history';
 import { RequestDetails } from './request-details';
+import { OpenTasks } from './open-tasks';
+import { ReviewView } from './review';
 import { saveScope, savedScope, type Scope } from './model';
 import './activity.css';
 
-type Tab = 'needs' | 'now' | 'history';
-const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['history', 'History']];
+type Tab = 'needs' | 'now' | 'open' | 'history' | 'review';
+const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['open', 'Tasks'], ['history', 'History'], ['review', 'Progress']];
 const chosen = (href: string): Tab | undefined => {
   const tab = new URL(href).searchParams.get('tab');
-  return tab === 'needs' || tab === 'now' || tab === 'history' ? tab : undefined;
+  return tab === 'needs' || tab === 'now' || tab === 'open' || tab === 'history' || tab === 'review' ? tab : undefined;
 };
 
 /** Activity (D235): what needs me, what agents are doing now, and everything
@@ -19,7 +21,9 @@ const chosen = (href: string): Tab | undefined => {
 export function ActivityPage({ href }: { href: string }) {
   // A link to one run (from a schedule's posted result or its runs) opens it here.
   const [run, setRun] = useState(() => new URL(href).searchParams.get('run') ?? undefined);
-  const [tab, setTab] = useState<Tab>(() => chosen(href) ?? (run ? 'history' : 'needs'));
+  // A link to one task (from a task chip in Chat) opens it in Open.
+  const [task] = useState(() => new URL(href).searchParams.get('task') ?? undefined);
+  const [tab, setTab] = useState<Tab>(() => chosen(href) ?? (run ? 'history' : task ? 'open' : 'needs'));
   const closeRun = () => {
     setRun(undefined);
     const url = new URL(window.location.href); url.searchParams.delete('run'); window.history.replaceState(null, '', url);
@@ -61,8 +65,10 @@ export function ActivityPage({ href }: { href: string }) {
       </div>}</div>
     <div id="activity-panel" className="activity-panel" role="tabpanel" aria-labelledby={`activity-tab-${tab}`}>
       {tab === 'needs' && <NeedsMe first={attention} search={search} />}
-      {tab === 'now' && <NowView scope={scope} search={search} openHistory={from => { setSince(from); setTab('history'); }}
+      {tab === 'now' && <NowView scope={scope} search={search} waiting={attention.data?.items} openHistory={from => { setSince(from); setTab('history'); }}
         openUnhandled={() => { setSince(undefined); setHistoryKind('unhandled'); setTab('history'); }} />}
+      {tab === 'open' && <OpenTasks scope={scope} search={search} initial={task} />}
+      {tab === 'review' && <ReviewView scope={scope} />}
       {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}`} scope={scope} search={search} since={since} initialKind={historyKind} />}
     </div>
     {run && <RequestDetails reply={run} close={closeRun} />}

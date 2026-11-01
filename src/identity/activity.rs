@@ -37,6 +37,176 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/unhandled",
             get(unhandled),
         )
+        .route("/api/identity/workspaces/{w}/activity/tasks", get(tasks))
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}",
+            get(task),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}/close",
+            post(close_task),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/requests/{reply}/task",
+            post(make_task),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}/follow-up/cancel",
+            post(cancel_follow_up),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/needs/{id}/dismiss",
+            post(dismiss_need),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/requests/{reply}/steer",
+            post(steer_request),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}/steer",
+            post(steer_task),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/routine-proposals/{id}",
+            post(decide_routine),
+        )
+        .merge(super::activity_review::routes())
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Steer {
+    text: String,
+}
+/// Add to a running request (the person who asked); the agent reads it next step.
+async fn steer_request(
+    State(app): State<Shared>,
+    RoutePath((w, reply)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Steer>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .steer_request(&user, &w, &reply, &input.text)
+            .await?,
+    ))
+}
+/// Add to the request a task is running now.
+async fn steer_task(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Steer>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.steer_task(&user, &w, &id, &input.text).await?,
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RoutineDecision {
+    save: bool,
+}
+/// Save or dismiss a routine an agent proposed in Chat (the person who asked).
+async fn decide_routine(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<RoutineDecision>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .decide_schedule_draft(&user, &w, &id, input.save)
+            .await?,
+    ))
+}
+/// Coming up: stop a booked follow-up (the person it's for, managers, admins).
+async fn cancel_follow_up(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.task_cancel_follow_up(&user, &w, &id).await?;
+    Ok(Json(serde_json::json!({"cancelled": true})))
+}
+/// Needs fixing: dismiss something an agent reported (owners, managers, admins).
+async fn dismiss_need(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.dismiss_need(&user, &w, &id).await?;
+    Ok(Json(serde_json::json!({"dismissed": true})))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TaskList {
+    scope: Option<String>,
+}
+/// Activity → Open: the open tasks a person may see, what needs a person first.
+async fn tasks(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Query(page): Query<TaskList>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .tasks_open(&user, &w, page.scope.as_deref())
+            .await?,
+    ))
+}
+async fn task(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.task_details(&user, &w, &id).await?))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CloseTask {
+    outcome: String,
+    result: Option<String>,
+}
+/// Close a task: done or cancelled, or "Not a task".
+async fn close_task(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<CloseTask>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .task_close(&user, &w, &id, &input.outcome, input.result.as_deref())
+            .await?,
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MakeTask {
+    title: Option<String>,
+}
+/// "Make this a task" on a request the person can see.
+async fn make_task(
+    State(app): State<Shared>,
+    RoutePath((w, reply)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<MakeTask>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .task_from_request(&user, &w, &reply, input.title.as_deref())
+            .await?,
+    ))
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

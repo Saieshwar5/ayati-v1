@@ -21,6 +21,12 @@ export type Message = {
     text: string; generation?: number;
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;
+  /** The task this reply works towards, shown as a chip (people-and-agents-first). */
+  task?: import('../activity/model').TaskRef | null;
+  /** A request the agent started itself, from a follow-up it booked on this task. */
+  follow_up?: import('../activity/model').TaskRef | null;
+  /** Routines the agent proposed with this reply (Phase 4), saved only by the person who asked. */
+  routines?: import('./routine-proposal').RoutineProposal[];
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null; reply_to?: string | null;
   edited_at?: number | null; for_me?: boolean; reactions?: { emoji: string; count: number; mine: boolean }[];

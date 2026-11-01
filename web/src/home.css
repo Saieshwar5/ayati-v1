@@ -35,3 +35,11 @@
 .notifications-clear p { color: var(--muted); font-size: .75rem; margin-bottom: 0; }
 @media (max-width: 800px) { .home-standard-panels { grid-template-columns: 1fr; } .home-clock-panel { padding: 18px; } .home-clock-panel h2 { margin-bottom: 10px; } .home-clock-panel .home-location { margin-top: 12px; } }
 @media (max-width: 400px) { .home-notifications-host { padding: 16px; } .notification-action { display: none; } .home-section-heading { gap: 8px; } }
+
+/* HP7: the one line of what needs you, and panel suggestions. */
+.home-needs-line { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--warning, #b26a00) 14%, transparent); color: var(--text); font-weight: 600; text-decoration: none; }
+.home-panel-suggestions { display: grid; gap: 8px; margin: 0 0 12px; }
+.home-panel-suggestions p { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 10px 12px;
+  border: 1px dashed var(--border-control); border-radius: 10px; }
+.home-panel-suggestions span { flex: 1 1 260px; }

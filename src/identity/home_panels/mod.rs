@@ -1,3 +1,4 @@
+pub(crate) mod direct;
 pub(crate) mod maintenance;
 pub(crate) mod model;
 use super::*;
@@ -22,6 +23,37 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/home-panels/{panel}/refresh",
             post(refresh),
         )
+        .route(
+            "/api/identity/workspaces/{w}/home-panels/{panel}/audience",
+            post(audience),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/home-panels/suggestions",
+            get(suggestions),
+        )
+}
+/// Panels this person might want, from questions they keep asking (HP7).
+async fn suggestions(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.panel_suggestions(&user, &w).await?))
+}
+/// Team panels: the owner chooses who sees the panel.
+async fn audience(
+    State(app): State<Shared>,
+    RoutePath((w, panel)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<model::Share>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .share_home_panel(&user, &w, &panel, &input)
+            .await?,
+    ))
 }
 async fn agreement(
     State(app): State<Shared>,

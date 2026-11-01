@@ -1,6 +1,9 @@
 use super::*;
 use crate::identity::home_panels::model::{Layout, Review};
 use serde_json::json;
+
+#[path = "home_team.rs"]
+pub(super) mod team;
 async fn version(
     tx: &DatabaseTransaction,
     user: &User,
@@ -33,6 +36,10 @@ impl PgStore {
    let maintenance=if visible && active.is_some() {Some(super::home_health::maintenance(&tx,user,w,&id,self.pooled).await?)}else{None};
    panels.push(json!({"maintenance":maintenance,"id":id,"revision":revision,"active_revision":active,"agent":if visible {Some(r.try_get::<String>("","agent")?)}else{None},"agent_name":if visible {Some(r.try_get::<String>("","agent_name")?)}else{None},"draft":if active==Some(revision){None}else{Some(draft)},"active":saved}));
   }
+        for panel in &mut panels {
+            team::decorate(&tx, user, w, panel).await?;
+        }
+        panels.extend(team::shared_with(&tx, user, w, self.pooled).await?);
         let layout = super::home_receipts::layout(&tx, user, w).await?;
         tx.commit().await?;
         Ok(json!({"available":true,"panels":panels,"layout":layout}))
@@ -112,7 +119,19 @@ impl PgStore {
             .chain(&input.hidden)
             .cloned()
             .collect::<std::collections::HashSet<_>>();
-        let n=rows(&tx,"SELECT id FROM relay_home_panels WHERE workspace=$1 AND owner_id=$2 AND id IN (SELECT jsonb_array_elements_text($3::jsonb))",vec![w.into(),user.id.clone().into(),json!(ids).into()]).await?.len();
+        // Their own panels and those shared with them (team panels).
+        let placeable = if team::available(&tx).await? {
+            team::PLACEABLE
+        } else {
+            "SELECT id FROM relay_home_panels WHERE workspace=$1 AND owner_id=$2 AND id IN (SELECT jsonb_array_elements_text($3::jsonb))"
+        };
+        let n = rows(
+            &tx,
+            placeable,
+            vec![w.into(), user.id.clone().into(), json!(ids).into()],
+        )
+        .await?
+        .len();
         ensure!(
             n == ids.len(),
             "Home arrangement contains an unavailable personal panel"

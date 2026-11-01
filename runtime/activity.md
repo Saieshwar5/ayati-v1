@@ -17,6 +17,8 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
   Waiting, Failing, Paused or Idle with its next schedule run) and requests
   running now with **Stop**. It follows the live change stream and polls every
   10 seconds as a fallback.
+- **Tasks** (`&tab=open`): every open task the person may see (needs fixing first), with
+  each task's details, steps and closing. See [tasks](tasks.md). `&task=<id>` opens one.
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
   type, status) plus search; totals for the period; two charts (M7): requests per
   day (empty days included, the busiest labelled, a tooltip on hover or focus) and
@@ -105,6 +107,87 @@ checks; the screen only hides what a person may not do.
   the agent (creating it when needed) and starts the message with what it is about,
   without replacing an existing draft.
 
+## Supervising at scale (schema 61)
+
+People-and-agents-first, Phase 4. For the people who can fix an agent (its owner,
+managers and admins; with My agents, the agents they manage):
+
+- **Needs fixing** on Now, grouped by cause, each with one fix:
+  - an account needs reconnecting (every agent using it; **Reconnect** in Settings for
+    admins, "Ask an admin to reconnect" for others);
+  - actions whose outcome couldn't be confirmed (Check it);
+  - agents failing twice or more today (How to fix it, the latest failure);
+  - routines or event triggers that stopped (Review routines/triggers on the agent);
+  - requests waiting on a person for over 4 hours (Open Needs me);
+  - requests running far longer than the agent usually takes (3 × its median of the
+    last 30, at least 10 minutes);
+  - what agents reported they need (see below; Dismiss);
+  - tasks that need fixing (Open Tasks).
+  An agent in any group shows **Needs fixing** on its card. Someone who only talks to
+  an agent isn't asked to fix it.
+- **Agents report needs in a fixed shape.** The `report_problem {cause, detail, fix?}`
+  tool (cause: connection, permission, information, external or other; detail up to 300
+  characters; fix up to 200; at most five per request) saves it for the people who can
+  fix the agent (`relay_agent_needs`), shown for 24 hours or until dismissed. The agent's
+  instructions say to use it instead of a raw error, then tell the person and stop.
+- **Coming up**: the next 24 hours of routines (Pause), follow-ups (Cancel follow-up;
+  the task stays open) and tasks due, soonest first. Routines bound to a Home panel are
+  left out. Follow-ups and due tasks show to the person the task is for and the agent's
+  fixers; routines to its fixers and the routine's person.
+- **Needs me at volume**: approvals carry their operation and the backup clock. Items
+  where an admin may already step in come first, then the longest waiting; approvals
+  for the same action from the same agent fold into one row ("3 × Refund order") with
+  **Review together**: one screen listing each request's details, each approved or
+  rejected on its own. **Approve all N** sends the decisions one by one; the server
+  still checks every one.
+
+## Steering and routines from Chat (schema 62)
+
+- **Add to a running request** (Phase 4 AC6): the person who asked adds a note from the
+  request's details ("Add to this request") or the task's ("Add to this task", which
+  goes to the task's running request). It reaches the agent with the result of its next
+  tool call as `person_added` (once), instead of waiting behind it as a new request; the
+  agent's instructions say to take it into account. Anything the agent never read
+  becomes a new request from the same person when it finishes ("Added while you were
+  working on my last request: …"); a stopped request carries nothing. Request details
+  list what was added and whether the agent read it. At most 20 per request, 2,000
+  characters each; never on a finished request.
+- **Routines from Chat** (T3): for something that repeats, the agent calls
+  `propose_schedule {name, instructions, first_in_minutes, every_minutes?}` (every hour to
+  every 30 days, or once; at most three per request). It shows under the agent's reply
+  ("Routine: Monday sales summary · Every week, first Mon 9:00") and is saved only when
+  the person who asked presses **Save routine**, through the ordinary routine checks;
+  "Not now" dismisses it. A retried save is the same routine. "Remind me on Friday" is a
+  task with a start time (`create_task start_in_minutes`, Phase 2).
+
+## Review: getting better over time (schema 63)
+
+People-and-agents-first, Phase 5. Activity → **Progress** (`&tab=review`), for the people
+who can fix an agent (owner, managers, admins; My agents narrows it):
+
+- **Measures, last 30 days**, per agent and per person: tasks done of all, failed, done
+  on time of those with a due time, tasks that needed a person, **person-minutes** (from
+  reading a question or approval to answering it, at most ten minutes each; read times
+  come from Needs me receipts), requests and model runs. Counts, not money: there are
+  no per-call token counts yet (D232).
+- **Let agents do more**: five or more approvals of the same action for the same agent
+  in 30 days, and nothing else decided for it, offers "Let it" — the agent's own rule
+  becomes Allow through the ordinary rule path, so it is never looser than the admin's
+  rule (nothing is offered while the admin's rule says Ask) and it can be changed back
+  on the agent's Tools tab. "Keep asking" hides the offer for that person.
+- **Goals**: up to five per agent (name, target, unit, per week or month), set here. The
+  agent reads them (`my_goals`) and reports progress and an early risk (`update_goal
+  {goal, current, risk?}`); Review shows a progress bar and the risk.
+- **Weekly review**: "Turn on" makes a weekly routine for the agent (run as the person
+  who turned it on, in its own work room) in which it writes `write_review {done,
+  went_wrong, learned, suggestion?}`, once per request. Review lists the last 30 days'
+  reviews with any suggested change and a link to set up the agent.
+
+Home (HP7): a one-line "N things need you →" when anything does; "You asked Nova “How
+many orders today?” 4 times lately — Ask for a panel" from the person's own repeated
+questions in the last 14 days (at most three, "Not now" per device); and "2 panels
+haven't changed in two weeks · Hide them".
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -113,6 +196,17 @@ first catch-up it covers the last day. Only **See in History** or **Dismiss**
 records a new catch-up; opening the page does not.
 
 ## API
+
+- `GET /activity/now` also returns `fixing` (groups) and `coming_up`, and each agent's
+  `needs_fixing` count. `POST /activity/needs/{id}/dismiss`;
+  `POST /activity/tasks/{id}/follow-up/cancel`; `POST /activity/requests/{reply}/steer {text}`,
+  `POST /activity/tasks/{id}/steer {text}`, `POST /activity/routine-proposals/{id} {save}`.
+  Request details add `added`; Chat agent replies add `routines`.
+- `GET /activity/review?days&scope`; `POST /activity/rule-suggestions {agent, connection,
+  operation, accept}`, `/activity/goals {agent, id?, name, target, unit, period}`,
+  `/activity/goals/{id}/archive`, `/activity/weekly-review {agent, enabled}`;
+  `GET /home-panels/suggestions`. Attention approvals add `operation`,
+  `connection`, `operation_title`, `created_at` and `backup_at`.
 
 All under `/api/identity/workspaces/{w}/activity`, authenticated by the session
 cookie; every query applies the visibility rule above on the server.
@@ -171,3 +265,19 @@ both checked against the surfaces with the data-visualisation palette validator.
 
 **Waiting for a design:** Home's Working now and Today's totals panels (M7). Home
 keeps its Notifications panel, which opens Needs me.
+
+Supervising at scale: PostgreSQL `activity::now::fixing` (each cause grouped with its fix
+for fixers only, report_problem refused for made-up causes, dismiss by fixers only;
+Coming up soonest first), web `activity-supervising` (Needs fixing, Coming up's Pause
+and Cancel follow-up, Review together and urgency order), guest `task_schema`
+(report_problem), journey `tests/agent_needs.mjs` (real Goose reports a need).
+Steering and routines: PostgreSQL `activity::now::steering` (an addition reaches the next
+step once and is carried into a new request if unread; a task's addition reaches its
+running request; a proposed routine is saved only by the person who asked, once), web
+`activity-steering`, journey `tests/agent_steering.mjs` (real Goose reads the addition
+with a tool result; its weekly routine is saved on confirmation).
+Review: PostgreSQL `activity::now::better` (rule offered only under an Allow ceiling and
+taken through the rule path; goals, reviews once per request, measures, weekly routine
+on and off, fixers only; panel suggestions from the asker's own messages), web
+`activity-review`, journey `tests/agent_needs.mjs` (real Goose reads its goal, reports
+progress and risk, writes a review).

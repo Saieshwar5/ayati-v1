@@ -34,6 +34,17 @@ pub fn shape(mut definition: Value) -> Value {
                 Some("collection") => {
                     fields.remove("items");
                 }
+                // A pipeline's stages are its shape; how many and how much change.
+                Some("pipeline") => {
+                    if let Some(stages) = fields.get_mut("stages").and_then(Value::as_array_mut) {
+                        for stage in stages {
+                            if let Some(stage) = stage.as_object_mut() {
+                                stage.remove("count");
+                                stage.remove("value");
+                            }
+                        }
+                    }
+                }
                 Some("metrics" | "progress") => {
                     if let Some(items) = fields.get_mut("items").and_then(Value::as_array_mut) {
                         for item in items {

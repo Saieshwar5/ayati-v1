@@ -228,7 +228,7 @@ test(
     );
     assert.equal(state(parent), 'waiting');
     assert.equal(remote.calls.length, 0);
-    await page.getByRole('button', { name: 'Review saved request', exact: true }).click();
+    await page.getByRole('button', { name: 'Review and decide', exact: true }).click();
     dialog = page.getByRole('dialog', { name: 'Review approval request', exact: true });
     await dialog.getByText('ONE_APPROVED_HANDOFF_UPDATE', { exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 844 });

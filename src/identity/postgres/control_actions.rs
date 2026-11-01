@@ -143,6 +143,10 @@ impl PgStore {
         if mode == "ask" {
             super::approval_delivery::deliver(&tx, &job.workspace, &id).await?;
         }
+        // A request that changes a real system is a task (people-and-agents-first).
+        if operation.effect == "write" && state != "denied" {
+            super::tasks::ensure_automatic(&tx, job, "request").await?;
+        }
         let dispatch = if mode == "allow" {
             let mut dispatch = claim(&tx, &job.workspace, &id).await?;
             dispatch.origin = Some(job.clone());

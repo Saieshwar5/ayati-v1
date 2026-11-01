@@ -7,6 +7,7 @@ import { PanelContent } from './snapshot';
 import { AskPanel } from './create';
 import { PanelReview } from './review';
 import { PanelMaintenance } from './maintenance';
+import { PanelAudience } from './audience';
 import { panelTemplate } from '../../panel-types';
 import type { AttentionPage } from '../attention/model';
 import { healthLine, PanelFooterLine, PanelHealth, PanelNeedsYou, PanelNote } from './frame';
@@ -73,7 +74,7 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
           </Button>
         </div>
       </header>
-      <p className="ui-help">Personal views from your agents. Opening Home reads saved results.</p>
+      <p className="ui-help">Views your agents keep for you, and panels teammates share with you. Opening Home reads saved results.</p>
       {error && (
         <p role="alert">
           {error}{' '}
@@ -83,6 +84,14 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
         </p>
       )}
       {!data && !error && <p role="status">Checking your saved panels…</p>}
+      {/* HP7: panels that stopped changing are probably not used; offer to hide them. */}
+      {(() => {
+        const quiet = !hidden && layout ? panels.filter(p => p.active?.available && p.active.saved_ms && p.active.saved_ms < Date.now() - 14 * 86400000) : [];
+        return quiet.length > 0 && layout && <p className="workspace-panels-quiet" role="note">
+          {quiet.length === 1 ? `“${quiet[0].active?.definition?.title ?? 'A panel'}” hasn't changed` : `${quiet.length} panels haven't changed`} in two weeks.{' '}
+          <Button disabled={m.busy} onClick={() => update({ ...layout, hidden: [...layout.hidden, ...quiet.map(p => p.id)] })}>Hide {quiet.length === 1 ? 'it' : 'them'}</Button>
+        </p>;
+      })()}
       {data && !panels.length && (
         <p className="workspace-panels-empty">
           {hidden
@@ -130,7 +139,7 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
                       : 'Agent findings · Review the basis'}
                   </small>}
                   {!panel.active && <small>Draft · Review required</small>}
-                  <div>
+                  {panel.shared ? null : <div>
                     {panel.draft?.available && (
                       <Button onClick={() => setReview(panel.id)}>Review draft {panel.draft.revision}</Button>
                     )}
@@ -150,7 +159,8 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
                       </Button>
                     )}
                     {panel.active && <PanelMaintenance panel={panel} refresh={refresh} />}
-                  </div>
+                    {panel.active && <PanelAudience panel={panel} refresh={refresh} />}
+                  </div>}
                 </div>
               ) : (
                 <p>Saved content is hidden because its source access changed.</p>
