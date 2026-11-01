@@ -5,7 +5,7 @@ import { AgentFace } from '../faces';
 import { loadAgents } from '../agents/model';
 import { loadMembers } from '../agents/create/people-step';
 import { chatRequest, type Conversation } from '../chat/model';
-import { clock, dayLabel, exportUrl, foldPanelUpdates, kindLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Scope, type Totals } from './model';
+import { clock, dayLabel, exportUrl, foldPanelUpdates, kindLabels, taskLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Scope, type Totals } from './model';
 import { RequestDetails } from './request-details';
 import { ActivityCharts } from './charts';
 import { UnhandledEvents } from './unhandled';
@@ -126,12 +126,15 @@ function Results({ query }: { query: Filters }) {
 
 function Row({ item, open }: { item: ActivityItem; open: (id: string) => void }) {
   const shown = status(item);
-  return <button type="button" className="activity-row-button" onClick={() => open(item.id)}>
+  // A conversation turn that isn't part of any task reads lighter than real work.
+  const light = item.kind === 'chat' && !item.task;
+  return <button type="button" className={`activity-row-button${light ? ' activity-row-light' : ''}`} onClick={() => open(item.id)}>
     <time>{clock(item.created_ms)}</time>
     <span className="activity-agent"><AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />{item.agent_name}</span>
     <span className="activity-main"><strong>{item.kind === 'chat' ? `“${item.summary}”` : item.summary}</strong>
       <small>{item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${where(item)}` : `${kindLabels[item.kind]} · ${where(item)}`}</small>
-      {item.approvals.map(a => <small key={a.id} className="activity-action">→ {a.title} · {a.state === 'completed' ? 'done' : a.state}</small>)}</span>
+      {item.approvals.map(a => <small key={a.id} className="activity-action">→ {a.title} · {a.state === 'completed' ? 'done' : a.state}</small>)}
+      {item.task && item.task.kind === 'commitment' && <small className="activity-action">Task: {item.task.title} · {taskLabels[item.task.status]}</small>}</span>
     <span className={`activity-status ${shown.tone}`}>{shown.label}</span>
   </button>;
 }

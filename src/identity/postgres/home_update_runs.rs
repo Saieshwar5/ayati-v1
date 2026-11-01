@@ -5,6 +5,9 @@ use crate::identity::{
 };
 use serde_json::json;
 
+#[path = "home_living.rs"]
+pub(super) mod living;
+
 async fn unfinished(db: &impl ConnectionTrait, w: &str, panel: &str) -> Result<Option<String>> {
     query(db,"SELECT r.reply FROM relay_home_update_runs r JOIN relay_chat_jobs j ON j.workspace=r.workspace AND j.reply=r.reply JOIN relay_home_maintenance u ON u.workspace=r.workspace AND u.panel=r.panel AND u.revision=r.policy_revision WHERE r.workspace=$1 AND r.panel=$2 AND j.state<>'finished' ORDER BY r.created_ms DESC LIMIT 1",vec![w.into(),panel.into()]).await?.map(|r|r.try_get("","reply").map_err(Into::into)).transpose()
 }
@@ -16,7 +19,7 @@ pub(super) async fn cancel_unstarted(tx: &DatabaseTransaction, w: &str, panel: &
 }
 pub(super) async fn bind(db: &impl ConnectionTrait, w: &str, panel: &str, job: &Job) -> Result<()> {
     ensure!(execute(db,"INSERT INTO relay_home_update_runs(workspace,panel,reply,policy_revision,panel_revision,expected_generation) SELECT workspace,panel,$3,revision,panel_revision,generation FROM relay_home_maintenance WHERE workspace=$1 AND panel=$2 AND enabled",vec![w.into(),panel.into(),job.reply.clone().into()]).await?==1,"Panel update agreement unavailable");
-    Ok(())
+    living::claim_direct(db, w, panel, &job.reply).await
 }
 pub(super) async fn schedule_authority(
     tx: &DatabaseTransaction,

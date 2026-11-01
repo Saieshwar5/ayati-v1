@@ -20,6 +20,9 @@ pub(crate) async fn start(app: Shared) {
                     pg.dispatch_schedules().await,
                     pg.dispatch_events().await,
                     pg.reconcile_handoffs().await,
+                    pg.dispatch_task_wakeups().await,
+                    pg.dispatch_panel_updates().await,
+                    crate::identity::home_panels::direct::run(&owner).await,
                 ] {
                     match result {
                         Ok(n) if n > 0 => owner.runtimes.chat_wake.notify_one(),

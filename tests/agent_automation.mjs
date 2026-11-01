@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
@@ -170,5 +170,6 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   await page.getByRole('button', { name: 'Refresh schedules', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).getByText('blocked', { exact: true }).waitFor();
   assert.equal(runs(blocked.id).length, 0); assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1); assert.deepEqual(errors, []);
   await page.screenshot({ path: join(app.data, 'schedules-blocked-desktop.png') });
+  await mkdir(join(root, '.tmp/shared-agent-automation'), { recursive: true });
   await writeFile(join(root, '.tmp/shared-agent-automation/browser-evidence.json'), JSON.stringify({ data: app.data, schedule: live.id, channel, reply: job.reply, occurrences: runs(live.id).length, model_requests: app.provider.requests.length, confirmed_writes: remote.calls.filter(call => call.name === 'update_order').length, errors }, null, 2));
 });

@@ -4,6 +4,7 @@ import { MessageReceipt, useSeen } from './receipt';
 import { workspaceSession } from '../../workspace-context';
 import type { Directory, Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
+import { FollowUpLine, TaskChip } from './task-chip';
 import { ReplyProgress, useCancelReply } from './reply-progress';
 import { QuotedMessage } from './quoted-message';
 import { QuestionCards } from '../questions/card';
@@ -38,6 +39,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
   const deleted = message.state === 'deleted';
   const time = <time dateTime={new Date(message.at * 1000).toISOString()}>{new Date(message.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>;
   const edited = message.edited_at && !deleted ? <span className="chat-message-edited">edited</span> : null;
+  if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
@@ -48,6 +50,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       {message.handoff && <HandoffCard handoff={message.handoff}/>}
       <CoordinationView data={message.coordination}/>
       {message.approval && <ApprovalCard reference={message.approval} />}
+      {message.task && <TaskChip task={message.task} />}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
       {!own && edited}
