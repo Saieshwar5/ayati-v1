@@ -2,7 +2,7 @@
 -- can see ($14 is the start of today in ms). Nothing here is counted from work
 -- the person could not open.
 WITH v AS (
- SELECT ag.id AS agent,j.state AS job_state,m.state,j.created_ms AS created_ms,j.sequence,
+ SELECT ag.id AS agent,j.reply,j.state AS job_state,m.state,j.created_ms AS created_ms,j.sequence,
   COALESCE(NULLIF(m.progress->>'text',''),(SELECT left(s.content,140) FROM (/*SOURCE*/) s)) AS doing
  /*FILTER*/
  AND $12::bigint>0
@@ -18,7 +18,11 @@ SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'avatar',a.setti
  'today',(SELECT count(*) FROM v WHERE v.agent=a.id AND v.created_ms>=$14),
  'failed_today',(SELECT count(*) FROM v WHERE v.agent=a.id AND v.created_ms>=$14 AND v.state IN ('failed','interrupted')),
  'doing',(SELECT v.doing FROM v WHERE v.agent=a.id AND v.job_state<>'finished' ORDER BY v.sequence DESC LIMIT 1),
- 'next_run',(SELECT min(s.next_ms) FROM relay_agent_schedules s WHERE s.workspace=a.workspace AND s.agent=a.id AND s.state='enabled')
+ 'next_run',(SELECT min(s.next_ms) FROM relay_agent_schedules s WHERE s.workspace=a.workspace AND s.agent=a.id AND s.state='enabled'),
+ -- The latest of today's requests that could not complete, for "How to fix it".
+ 'last_failed',(SELECT v.reply FROM v WHERE v.agent=a.id AND v.state IN ('failed','interrupted') ORDER BY v.sequence DESC LIMIT 1),
+ -- Owners, managers and admins may pause or resume it from the card.
+ 'can_pause',($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
 ) AS data
 FROM relay_shared_agents a
 WHERE a.workspace=$1 AND a.revision>0

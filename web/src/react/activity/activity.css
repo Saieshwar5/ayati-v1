@@ -9,6 +9,10 @@
 .activity-tabs button:hover:not([aria-selected=true]) { background: var(--soft); }
 .activity-tabs button[aria-selected=true] { color: var(--text); background: var(--selection); font-weight: 600; }
 .activity-tabs button:focus-visible { outline-offset: -3px; }
+.activity-scope { margin-left: auto; display: inline-flex; border: 1px solid var(--border-control); border-radius: 9px; overflow: hidden; }
+.activity-tabs .activity-scope button { min-height: 36px; border-radius: 0; padding: 6px 14px; font-size: 13px; color: var(--text); }
+.activity-tabs .activity-scope button:hover:not([aria-pressed=true]) { background: var(--soft); }
+.activity-tabs .activity-scope button[aria-pressed=true] { color: var(--on-accent); background: var(--accent); font-weight: 600; }
 .activity-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--danger); color: var(--on-accent); font-size: 11px; font-weight: 700; text-align: center; }
 .activity-panel { margin-top: 18px; }
 .activity-panel:focus-visible { outline-offset: 4px; }
@@ -43,6 +47,9 @@ h2.activity-group:first-child { margin-top: 0; }
 .activity-card header { display: flex; align-items: flex-start; gap: 12px; }
 .activity-card header > span:nth-child(2) { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .activity-card small { color: var(--muted); font-size: 13px; }
+.activity-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.activity-card-setup { color: var(--muted); font-size: 13px; text-decoration: none; }
+.activity-card-setup:hover, .activity-card-setup:focus-visible { color: var(--text); text-decoration: underline; }
 .activity-card p { margin: 10px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .activity-card-face.face, .activity-card-face { width: 40px; height: 40px; border-radius: 10px; flex: none; }
 

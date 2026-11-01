@@ -5,7 +5,7 @@ import { AgentFace } from '../faces';
 import { loadAgents } from '../agents/model';
 import { loadMembers } from '../agents/create/people-step';
 import { chatRequest, type Conversation } from '../chat/model';
-import { clock, dayLabel, exportUrl, kindLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Totals } from './model';
+import { clock, dayLabel, exportUrl, kindLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Scope, type Totals } from './model';
 import { RequestDetails } from './request-details';
 import { ActivityCharts } from './charts';
 
@@ -23,14 +23,14 @@ function useSettled(text: string): string {
 
 /** History: totals and a timeline of everything agents did, with filters in one
  * row (designs/activity 3). An agent's Activity tab is this view for one agent. */
-export function HistoryView({ agent, search: outer, since }: { agent?: string; search?: string; since?: number }) {
+export function HistoryView({ agent, search: outer, since, scope }: { agent?: string; search?: string; since?: number; scope?: Scope }) {
   // An agent's tab has no page search above it, so it brings its own.
   const [own, setOwn] = useState('');
   const search = useSettled(outer ?? own);
   const [period, setPeriod] = useState(since ? 'since' : '7');
   const [filters, setFilters] = useState<Filters>({ agent });
   const from = period === 'since' && since ? since : fromPeriod(period);
-  const query: Filters = { ...filters, agent: agent ?? filters.agent, from, q: search.trim() || undefined };
+  const query: Filters = { ...filters, agent: agent ?? filters.agent, from, q: search.trim() || undefined, scope };
   const agents = useResource(loadAgents);
   const members = useResource(loadMembers);
   const chats = useResource(loadChats);

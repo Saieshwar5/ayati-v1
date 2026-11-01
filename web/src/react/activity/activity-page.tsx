@@ -4,6 +4,7 @@ import { NeedsMe } from './needs-me';
 import { NowView } from './now';
 import { HistoryView } from './history';
 import { RequestDetails } from './request-details';
+import { saveScope, savedScope, type Scope } from './model';
 import './activity.css';
 
 type Tab = 'needs' | 'now' | 'history';
@@ -24,6 +25,9 @@ export function ActivityPage({ href }: { href: string }) {
     const url = new URL(window.location.href); url.searchParams.delete('run'); window.history.replaceState(null, '', url);
   };
   const [search, setSearch] = useState('');
+  // Whose agents Now and History show; My agents by default (owner decision, 2026-11-01).
+  const [scope, setScope] = useState<Scope>(savedScope);
+  const pick = (next: Scope) => { setScope(next); saveScope(next); };
   const [since, setSince] = useState<number>();
   const attention = useAttention('needs_you', null);
   const count = attention.data?.items.length ?? 0;
@@ -48,11 +52,15 @@ export function ActivityPage({ href }: { href: string }) {
         onClick={() => select(id)} onKeyDown={event => keys(event, index)}>
         {label}{id === 'needs' && count > 0 && <span className="activity-count" aria-label={`${count}${attention.data?.next_before ? ' or more' : ''} waiting`}>
           {count}{attention.data?.next_before ? '+' : ''}</span>}
-      </button>)}</div>
+      </button>)}
+      {tab !== 'needs' && <div className="activity-scope" role="group" aria-label="Whose agents">
+        {([['mine', 'My agents'], ['all', 'All agents']] as const).map(([value, label]) =>
+          <button key={value} type="button" aria-pressed={scope === value} onClick={() => pick(value)}>{label}</button>)}
+      </div>}</div>
     <div id="activity-panel" className="activity-panel" role="tabpanel" aria-labelledby={`activity-tab-${tab}`}>
       {tab === 'needs' && <NeedsMe first={attention} search={search} />}
-      {tab === 'now' && <NowView search={search} openHistory={from => { setSince(from); setTab('history'); }} />}
-      {tab === 'history' && <HistoryView key={since ?? 'period'} search={search} since={since} />}
+      {tab === 'now' && <NowView scope={scope} search={search} openHistory={from => { setSince(from); setTab('history'); }} />}
+      {tab === 'history' && <HistoryView key={since ?? 'period'} scope={scope} search={search} since={since} />}
     </div>
     {run && <RequestDetails reply={run} close={closeRun} />}
   </section>;
