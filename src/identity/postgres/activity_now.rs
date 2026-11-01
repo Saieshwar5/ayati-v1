@@ -41,25 +41,24 @@ impl PgStore {
         Ok(json!({"since": since}))
     }
 
-    /// Agent cards, running work and totals since the last visit.
-    pub(crate) async fn activity_now(&self, user: &User, w: &str, today_ms: i64) -> Result<Value> {
+    /// Agent cards, running work and totals since the last visit. With
+    /// `scope` `mine`, only the agents the person manages and their own requests.
+    pub(crate) async fn activity_now(
+        &self,
+        user: &User,
+        w: &str,
+        today_ms: i64,
+        scope: Option<&str>,
+    ) -> Result<Value> {
+        super::valid_scope(scope)?;
+        let scope = scope.map(str::to_string);
         let tx = self.activity_tx(w, false).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
-        let none = Filters::default();
-        let mut values: Vec<sea_orm::Value> = vec![
-            w.into(),
-            user.id.clone().into(),
-            admin.into(),
-            none.agent.clone().into(),
-            none.person.clone().into(),
-            none.chat.clone().into(),
-            none.status.clone().into(),
-            0i64.into(),
-            i64::MAX.into(),
-            Option::<String>::None.into(),
-            none.kind.clone().into(),
-            i64::MAX.into(),
-        ];
+        let mut values = Filters {
+            scope: scope.clone(),
+            ..Filters::default()
+        }
+        .values_for(w, &user.id, admin);
         values.push(today_ms.into());
         let agents = json_rows(
             &tx,
@@ -85,6 +84,7 @@ impl PgStore {
                 w,
                 &Filters {
                     from: Some(since),
+                    scope: scope.clone(),
                     ..Filters::default()
                 },
             )
@@ -95,6 +95,7 @@ impl PgStore {
                 w,
                 &Filters {
                     status: Some("active".into()),
+                    scope,
                     ..Filters::default()
                 },
             )

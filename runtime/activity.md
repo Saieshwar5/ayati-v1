@@ -43,6 +43,17 @@ requester. Losing access to a channel hides its requests again. When a manager o
 admin opens a request from a conversation they are not in, the details say so and
 the view is recorded in the audit log (`activity_private_viewed`).
 
+## My agents
+
+`scope=mine` narrows History, totals, export and Now to the requests the person
+made and the work of agents they manage (`relay_agent_managers`); on Now, only the
+agents they manage get a card. `scope=all`, or no scope, keeps everything the
+visibility rule above allows. The scope only narrows; it never shows anything the
+person could not see. An admin is a manager of the agents they own, not of every
+agent, so an admin's Mine is their own agents and requests. The owner chose My
+agents as the screen's default for everyone (2026-11-01); the switch itself waits
+for an approved design.
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -55,16 +66,16 @@ records a new catch-up; opening the page does not.
 All under `/api/identity/workspaces/{w}/activity`, authenticated by the session
 cookie; every query applies the visibility rule above on the server.
 
-- `GET /history?agent&person&chat&status&kind&from&to&q&before` — 25 requests,
+- `GET /history?agent&person&chat&status&kind&from&to&q&before&scope` — 25 requests,
   newest first; `next_before` is the cursor (no gaps or repeats).
   `status` is one of active, waiting, done, failed, review, stopped; `kind` one of
-  chat, schedule, trigger, handoff.
+  chat, schedule, trigger, handoff; `scope` one of mine, all (default all).
 - `GET /totals?…&offset` — counts and per-day/per-agent numbers for the same
   filters; `offset` is the browser's minutes east of UTC.
 - `GET /export?…` — the same filters as a CSV file; the `x-cuckoo-truncated`
   header says whether more than 5,000 matched.
 - `GET /changes?agent&before` — agent setting changes as sentences.
-- `GET /now?today=<ms>` — agent cards, running requests and the away summary.
+- `GET /now?today=<ms>&scope` — agent cards, running requests and the away summary.
 - `POST /seen` with `{}` — record a catch-up.
 - `GET /requests/{reply}` — one request's details.
 
@@ -86,7 +97,8 @@ Measured locally with 30 agents and 81,000 requests over 90 days
 
 ## Checks
 
-- PostgreSQL: `activity_tests` (visibility for requester, conversation members,
+- PostgreSQL: `activity_scope_tests` (My agents for a manager, an admin and an
+  unknown scope across History, totals, export and Now); `activity_tests` (visibility for requester, conversation members,
   managers, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).

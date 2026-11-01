@@ -23,6 +23,10 @@ AND j.created_ms>=$8 AND j.created_ms<$9
 AND ($10::text IS NULL OR m.content ILIKE $10 OR c.name ILIKE $10 OR ag.name ILIKE $10
  OR EXISTS(SELECT 1 FROM (/*SOURCE*/) s WHERE s.content ILIKE $10))
 AND ($11::text IS NULL OR k.kind=$11)
+-- My agents ($13='mine'): requests the person made, and the work of agents they
+-- manage. It only narrows what the visibility rule above already allows.
+AND ($13::text IS DISTINCT FROM 'mine' OR j.payload->>'requester'=$2
+ OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
 AND ($7::text IS NULL
  OR ($7='active' AND j.state<>'finished')
  OR ($7='waiting' AND j.state='waiting')

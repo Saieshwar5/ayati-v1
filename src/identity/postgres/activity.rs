@@ -10,6 +10,9 @@ use serde::Deserialize;
 #[path = "activity_now.rs"]
 mod now;
 #[cfg(test)]
+#[path = "activity_scope_tests.rs"]
+mod scope_tests;
+#[cfg(test)]
 #[path = "activity_tests.rs"]
 mod tests;
 use serde_json::json;
@@ -31,6 +34,9 @@ pub(crate) struct Filters {
     pub before: Option<i64>,
     /// Minutes east of UTC, for the requests-per-day chart.
     pub offset: Option<i32>,
+    /// `mine`: requests the person made and the work of agents they manage;
+    /// `all` or absent: everything they may see. Visibility applies either way.
+    pub scope: Option<String>,
 }
 
 impl Filters {
@@ -58,9 +64,9 @@ impl Filters {
             "Invalid time zone offset"
         );
         ensure!(self.before.is_none_or(|b| b > 0), "Invalid cursor");
-        Ok(())
+        valid_scope(self.scope.as_deref())
     }
-    /// `$1` workspace … `$12` before, in the order `FEED_FILTER` expects.
+    /// `$1` workspace … `$12` before, `$13` scope, in the order `FEED_FILTER` expects.
     pub(super) fn values_for(&self, w: &str, user: &str, admin: bool) -> Vec<sea_orm::Value> {
         self.values(w, user, admin)
     }
@@ -87,8 +93,18 @@ impl Filters {
             pattern.into(),
             self.kind.clone().into(),
             self.before.unwrap_or(i64::MAX).into(),
+            self.scope.clone().into(),
         ]
     }
+}
+
+/// Activity's scope: `mine` or `all`; absent means `all`.
+pub(crate) fn valid_scope(scope: Option<&str>) -> Result<()> {
+    ensure!(
+        scope.is_none_or(|s| ["mine", "all"].contains(&s)),
+        "Invalid scope"
+    );
+    Ok(())
 }
 
 /// Visibility and filters over `relay_chat_jobs j`, its reply `m` and

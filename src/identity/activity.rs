@@ -98,6 +98,8 @@ async fn changes(
 struct NowPage {
     /// The start of the person's day, in ms, from their device.
     today: i64,
+    /// `mine` (agents the person manages and their own requests) or `all`.
+    scope: Option<String>,
 }
 async fn now_view(
     State(app): State<Shared>,
@@ -107,7 +109,11 @@ async fn now_view(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     check(page.today > 0, "Invalid day")?;
-    Ok(Json(app.store.activity_now(&user, &w, page.today).await?))
+    Ok(Json(
+        app.store
+            .activity_now(&user, &w, page.today, page.scope.as_deref())
+            .await?,
+    ))
 }
 async fn seen(
     State(app): State<Shared>,
