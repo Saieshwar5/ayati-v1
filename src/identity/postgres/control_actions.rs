@@ -9,7 +9,10 @@ use serde_json::json;
 pub(crate) struct Dispatch {
     pub id: String,
     pub token: String,
+    pub connection: String,
     pub server: String,
+    pub provider: String,
+    pub binding: Option<Value>,
     pub fingerprint: String,
     pub operation: Operation,
     pub arguments: Value,
@@ -23,7 +26,7 @@ impl PgStore {
     pub(crate) async fn control_operations(&self, job: &Job) -> Result<Value> {
         let tx = self.read_tx(&job.workspace).await?;
         authorize(&tx, job, true).await?;
-        let operations=json_rows(&tx,"SELECT jsonb_build_object('connection',c.id,'operation',op->>'id','title',op->>'title','effect',op->>'effect','schema',op->'schema','mode',r.mode) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE r.workspace=$1 AND r.agent=$2 AND c.enabled AND op->>'id'=r.operation AND r.mode<>'block' ORDER BY c.id,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into()]).await?;
+        let operations=json_rows(&tx,"SELECT jsonb_build_object('connection',c.id,'operation',op->>'id','title',op->>'title','effect',op->>'effect','schema',op->'schema','mode',r.mode) AS data FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE r.workspace=$1 AND r.agent=$2 AND c.enabled AND NOT EXISTS(SELECT 1 FROM relay_connector_reconnects n WHERE n.workspace=c.workspace AND n.connection=c.id) AND NOT EXISTS(SELECT 1 FROM relay_connector_providers p WHERE p.provider=c.provider AND NOT p.enabled) AND op->>'id'=r.operation AND r.mode<>'block' ORDER BY c.id,r.operation",vec![job.workspace.clone().into(),job.agent.clone().into()]).await?;
         let mut visible = vec![];
         for op in operations {
             if super::handoff_controls::allowed(
@@ -233,6 +236,10 @@ impl PgStore {
         // An approval decided just before a pause must not be sent during it.
         super::settings::pause::ensure_running(&tx, w).await?;
         ensure!(
+            query(&tx, "SELECT 1 AS paused FROM relay_connector_providers WHERE provider=$1 AND NOT enabled", vec![dispatch.provider.clone().into()]).await?.is_none(),
+            "Cuckoo paused this connector provider"
+        );
+        ensure!(
             super::handoff_controls::allowed(
                 &tx,
                 &job,
@@ -257,13 +264,17 @@ impl PgStore {
         tx.commit().await?;
         Ok(())
     }
+    /// Nothing was sent: the connection, its provider or current authority could
+    /// not be confirmed. `reason` says why, when it is known.
     pub(crate) async fn control_preflight_failed(
         &self,
         w: &str,
         dispatch: &Dispatch,
+        reason: Option<&str>,
     ) -> Result<Value> {
         let tx = self.workspace_tx(w).await?;
-        ensure!(execute(&tx,"UPDATE relay_control_actions SET state='invalidated',result='\"Connection or current authority could not be verified; no operation call was dispatched.\"'::jsonb,updated=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE workspace=$1 AND id=$2 AND state='executing' AND dispatch_token=$3",vec![w.into(),dispatch.id.clone().into(),dispatch.token.clone().into()]).await?==1,"Action outcome ownership changed");
+        let reason = reason.unwrap_or("Connection or current authority could not be verified; no operation call was dispatched.");
+        ensure!(execute(&tx,"UPDATE relay_control_actions SET state='invalidated',result=to_jsonb($4::text),updated=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE workspace=$1 AND id=$2 AND state='executing' AND dispatch_token=$3",vec![w.into(),dispatch.id.clone().into(),dispatch.token.clone().into(),reason.into()]).await?==1,"Action outcome ownership changed");
         let action = visible(&tx, w, &dispatch.id).await?;
         tx.commit().await?;
         Ok(action)
@@ -358,7 +369,7 @@ pub(super) async fn visible(db: &impl ConnectionTrait, w: &str, id: &str) -> Res
     .try_get("", "data")?)
 }
 async fn claim(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Dispatch> {
-    let row=query(db,"SELECT a.arguments,a.operation,a.rule_revision,a.connection_revision,r.revision,r.mode,c.revision AS current_connection_revision,c.server,c.fingerprint,c.definition FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='pending' AND c.enabled",vec![w.into(),id.into()]).await?.context("Action permission changed")?;
+    let row=query(db,"SELECT a.arguments,a.operation,a.rule_revision,a.connection_revision,r.revision,r.mode,c.revision AS current_connection_revision,c.id AS connection,c.server,c.provider,c.binding,c.fingerprint,c.definition FROM relay_control_actions a JOIN relay_control_effective_rules r ON r.workspace=a.workspace AND r.agent=a.agent AND r.connection=a.connection AND r.operation=a.operation JOIN relay_control_connections c ON c.workspace=a.workspace AND c.id=a.connection WHERE a.workspace=$1 AND a.id=$2 AND a.state='pending' AND c.enabled",vec![w.into(),id.into()]).await?.context("Action permission changed")?;
     ensure!(
         row.try_get::<i64>("", "rule_revision")? == row.try_get::<i64>("", "revision")?
             && row.try_get::<i64>("", "connection_revision")?
@@ -385,7 +396,10 @@ async fn claim(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Dispatch>
     Ok(Dispatch {
         id: id.into(),
         token,
+        connection: row.try_get("", "connection")?,
         server: row.try_get("", "server")?,
+        provider: row.try_get("", "provider")?,
+        binding: row.try_get("", "binding")?,
         fingerprint: row.try_get("", "fingerprint")?,
         arguments: row.try_get("", "arguments")?,
         operation,

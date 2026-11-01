@@ -29,8 +29,8 @@ async fn snapshot(
     let user = identity(&app, &headers).await?;
     let mut value = app.store.workspace_connections(&user, &w).await?;
     // Broken operator configuration must not hide the controls for revoking access.
-    value["servers"] = match catalog::servers(&w) {
-        Ok(servers) => json!(servers.iter().map(|s| s.public()).collect::<Vec<_>>()),
+    value["servers"] = match crate::identity::connectors::apps(&w) {
+        Ok(apps) => json!(apps.iter().map(|a| a.public()).collect::<Vec<_>>()),
         Err(_) => {
             value["catalog_error"] = json!(
                 "Account configuration is unavailable. Ask your operator to check it. Existing access can still be removed."
@@ -53,23 +53,33 @@ async fn approve(
         "Only workspace admins can approve systems",
     )?;
     if input.approved {
-        catalog::server(&w, &input.server)?;
+        crate::identity::connectors::provider_for(&w, &input.server)?;
     }
-    app.store.control_system(&user, &w, &input).await?;
-    Ok(Json(json!({"saved":true})))
+    let released = app.store.control_system(&user, &w, &input).await?;
+    let revoked = crate::identity::connectors::routes::release(&w, released).await;
+    Ok(Json(json!({"saved":true,"provider_revoked":revoked})))
 }
+/// Connects an account, or disconnects one. An operator-configured account is
+/// verified at once; an app that signs in through its provider returns the
+/// sign-in page to open, and finishes when the provider sends the admin back.
 async fn connect(
     State(app): State<Shared>,
     RoutePath(w): RoutePath<String>,
     headers: HeaderMap,
     Json(input): Json<WorkspaceConnection>,
 ) -> ApiResult<Json<Value>> {
+    use crate::identity::connectors::{self, Connect};
+    use crate::identity::postgres::{
+        connector_providers::StartSignIn, workspace_connections::Verified,
+    };
     let user = identity(&app, &headers).await?;
     if !input.enabled {
-        app.store
-            .workspace_connection_save(&user, &w, &input, None)
+        let released = app
+            .store
+            .workspace_connection_bind(&user, &w, &input, None)
             .await?;
-        return Ok(Json(json!({"saved":true})));
+        let revoked = connectors::routes::release(&w, released).await;
+        return Ok(Json(json!({"saved":true,"provider_revoked":revoked})));
     }
     check(
         execution_available(&app)?,
@@ -77,27 +87,62 @@ async fn connect(
     )?;
     crate::identity::worker_control::model::uuid(&input.id)?;
     app.store.connection_preflight(&user, &w, &input).await?;
-    let server = catalog::server(&w, &input.server)?;
-    let fingerprint = server.fingerprint()?;
-    tokio::time::timeout(std::time::Duration::from_secs(30), async {
-        let mut remote = mcp::Remote::connect(server.clone(), &fingerprint).await?;
-        remote.verify(&server.operations).await
-    })
-    .await
-    .map_err(|_| anyhow::anyhow!("Connection verification timed out"))?
-    .map_err(|_| {
-        anyhow::anyhow!(
-            "The configured account could not be verified. Check its connection and try again."
-        )
-    })?;
+    let provider = connectors::provider_for(&w, &input.server)?;
     check(
-        catalog::server(&w, &input.server)?.fingerprint()? == fingerprint,
-        "Connection changed during verification",
+        app.store
+            .connector_provider_paused(provider.name())
+            .await?
+            .is_none(),
+        "Cuckoo paused this connector provider; try again later",
     )?;
-    app.store
-        .workspace_connection_save(&user, &w, &input, Some((server.public(), &fingerprint)))
-        .await?;
-    Ok(Json(json!({"saved":true})))
+    let sign_in = uuid::Uuid::new_v4().to_string();
+    let callback = format!(
+        "{}/api/identity/connectors/return/{sign_in}",
+        app.config.origin
+    );
+    let started = tokio::time::timeout(
+        std::time::Duration::from_secs(45),
+        provider.connect(&w, &input.server, &callback),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("Connecting timed out. Try again."))??;
+    match started {
+        Connect::Ready(account) => {
+            let verified = Verified {
+                definition: account.definition,
+                fingerprint: account.fingerprint,
+                provider: provider.name().into(),
+                binding: account.binding,
+            };
+            let released = app
+                .store
+                .workspace_connection_bind(&user, &w, &input, Some(&verified))
+                .await?;
+            connectors::routes::release(&w, released).await;
+            Ok(Json(json!({"saved":true})))
+        }
+        Connect::SignIn {
+            binding,
+            url,
+            expires,
+        } => {
+            let start = StartSignIn {
+                id: &sign_in,
+                provider: provider.name(),
+                binding: &binding,
+                expires,
+            };
+            if let Err(error) = app
+                .store
+                .connector_sign_in_start(&user, &w, &input, &start)
+                .await
+            {
+                let _ = provider.disconnect(&w, &input.server, Some(&binding)).await;
+                return Err(error.into());
+            }
+            Ok(Json(json!({"redirect_url":url})))
+        }
+    }
 }
 async fn connector_rule(
     State(app): State<Shared>,

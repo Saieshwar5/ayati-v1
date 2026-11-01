@@ -6,6 +6,7 @@ mod automations;
 mod chat;
 mod collaboration;
 mod communications;
+pub(crate) mod connectors;
 pub(crate) mod control;
 mod events;
 pub mod executor;
@@ -175,6 +176,7 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
 fn configure_process(config: &crate::config::Controller) {
     start_trace::enable(config.trace_start);
     control::catalog::configure(config.mcp_servers_file.clone());
+    connectors::configure(connectors::settings(config));
     events::catalog::configure(config.event_sources_file.clone());
 }
 
@@ -223,6 +225,7 @@ fn router(app: Shared) -> Router {
         .merge(skills::routes())
         .merge(member_profiles::routes())
         .merge(control::routes())
+        .merge(connectors::routes::routes())
         .merge(attention::routes())
         .merge(home_panels::routes())
         .merge(automations::routes())

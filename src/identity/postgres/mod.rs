@@ -85,6 +85,7 @@ mod communication_recovery_tests;
 mod communication_tests;
 #[cfg(test)]
 mod connection_migration_tests;
+pub(crate) mod connector_providers;
 mod connector_rules;
 #[cfg(test)]
 mod connector_rules_tests;
@@ -139,7 +140,7 @@ mod questions;
 mod task_progress;
 #[cfg(test)]
 mod task_progress_tests;
-mod workspace_connections;
+pub(crate) mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
 mod context_attempts;
 mod context_migration;

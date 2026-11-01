@@ -26,7 +26,9 @@ test('personal panel agreements drive real managed reads, automatic snapshots, s
   await writeFile(profiles,JSON.stringify([{id:'orders',workspace:w,name:'Orders',account:'orders@example.test',url:remote.url,bearer_file:bearer,operations:remote.operations}]));
   await app.request(`${app.path}/control/systems`,app.cookie,{server:'orders',approved:true,revision:0});
   await app.request(`${app.path}/control/connections`,app.cookie,{id:connection,server:'orders',enabled:true,revision:0});
-  for(const operation of ['order.read','order.update'])await app.request(`${control}/rules`,app.cookie,{connection,operation,mode:'allow',revision:0,chat:channel});
+  // The admin's rules for this connector, then the agent's Tools switch (schema 47).
+  for(const operation of ['order.read','order.update'])await app.request(`${app.path}/control/connector-rules`,app.cookie,{connection,operation,mode:'allow',needs_other:false,revision:0});
+  await app.request(`${control}/tools`,app.cookie,{connection,enabled:true});
   const id=randomUUID(),prompt='Prepare my order address panel.';
   app.provider.setControl(prompt,{steps:[
     {tool:'request_action',arguments:{connection,operation:'order.read',arguments:{order:'one'}}},
@@ -101,7 +103,7 @@ test('personal panel agreements drive real managed reads, automatic snapshots, s
   }
   const idle=app.provider.requests.length;await page.reload();await card().getByText('Scheduled address',{exact:true}).waitFor();
   assert.equal(app.provider.requests.length,idle,'Home reads must not wake an agent');
-  await app.request(`${control}/rules`,app.cookie,{connection,operation:'order.read',mode:'block',revision:1,chat:channel});
+  await app.request(`${control}/rules`,app.cookie,{connection,operation:'order.read',mode:'block',revision:0});
   await card().getByText('Saved content is hidden because its source access changed.',{exact:true}).waitFor();
   assert.ok(!(await page.content()).includes('Scheduled address'));
   assert.ok(remote.calls.every(c=>c.name==='read_order'));assert.deepEqual(errors,[]);

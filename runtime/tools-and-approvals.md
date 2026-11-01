@@ -59,6 +59,10 @@ built in M3).
   `relay_control_approvers`.
 - Approval channels: requests appear in the conversation where they were asked.
 
+Since schema 53 a connected account can come from a provider such as Composio,
+signed in from Settings; rules and approvals work the same way. See
+[connector providers](connector-providers.md).
+
 Earlier contracts ([shared control](shared-agent-control.md),
 [channel approvals](channel-approvals.md), [guided permissions](guided-permissions.md),
 [workspace connections](workspace-connections.md)) describe the replaced model where

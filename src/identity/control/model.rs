@@ -11,6 +11,10 @@ pub(crate) struct Operation {
     pub tool: String,
     pub effect: String,
     pub schema: Value,
+    /// The provider's version of `tool` this definition was reviewed against,
+    /// when the provider versions its tools (Composio does; MCP servers don't).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 impl Operation {
     pub fn validate(&self) -> Result<()> {
@@ -191,6 +195,7 @@ mod tests {
             tool: "read_order".into(),
             effect: "read".into(),
             schema: json!({"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}),
+            version: None,
         };
         assert!(op.arguments(&json!({"id":"one"})).is_ok());
         for input in [

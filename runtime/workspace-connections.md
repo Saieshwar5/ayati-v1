@@ -1,5 +1,8 @@
 # Workspace connections and delegated agent setup
 
+> **Updated 2026-11-01 (schema 53):** apps such as Gmail now connect through a
+> provider's sign-in page from this screen; see [connector providers](connector-providers.md).
+>
 > **Updated 2026-10-31 (schema 47):** tools and approvals now follow
 > [agent tools and approvals](tools-and-approvals.md). Rules belong to the agent,
 > admins set safety per action and "Ask first" goes to the agent's managers. Where

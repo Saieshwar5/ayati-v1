@@ -64,8 +64,13 @@ pub(crate) fn configure(path: Option<std::path::PathBuf>) {
         let _ = FILE.set(path);
     }
 }
-pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
-    let Some(path) = FILE.get() else {
+/// The configured operator file, if any.
+pub(crate) fn file() -> Option<std::path::PathBuf> {
+    FILE.get().cloned()
+}
+/// Profiles for `workspace` from one operator file; no file means none.
+pub(crate) fn servers_in(path: Option<&Path>, workspace: &str) -> Result<Vec<Server>> {
+    let Some(path) = path else {
         return Ok(vec![]);
     };
     let servers: Vec<Server> = serde_json::from_str(&private_file(path)?)
@@ -99,12 +104,6 @@ pub(crate) fn servers(workspace: &str) -> Result<Vec<Server>> {
         .into_iter()
         .filter(|s| s.workspace == workspace)
         .collect())
-}
-pub(crate) fn server(workspace: &str, id: &str) -> Result<Server> {
-    servers(workspace)?
-        .into_iter()
-        .find(|s| s.id == id)
-        .context("Remote MCP profile is unavailable for this workspace")
 }
 
 #[cfg(test)]

@@ -14,6 +14,9 @@ publish = false
 ayati-guest = { path = "crates/guest" }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anyhow = "1"
+# Connector providers are trait objects with async methods; already in the
+# dependency tree via sea-orm-migration.
+async-trait = "0.1"
 base64 = "0.22"
 ring = "=0.17.14"
 axum = { version = "0.8", features = ["multipart"] }
