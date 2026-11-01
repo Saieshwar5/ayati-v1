@@ -66,6 +66,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::home_update_runs::living::migration::HomeLiving),
             Box::new(super::home_views::team::migration::HomeTeam),
             Box::new(super::activity::now::fixing::migration::Supervising),
+            Box::new(super::activity::now::steering::migration::Steering),
         ]
     }
 }

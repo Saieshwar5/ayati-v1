@@ -141,6 +141,25 @@ managers and admins; with My agents, the agents they manage):
   rejected on its own. **Approve all N** sends the decisions one by one; the server
   still checks every one.
 
+## Steering and routines from Chat (schema 62)
+
+- **Add to a running request** (Phase 4 AC6): the person who asked adds a note from the
+  request's details ("Add to this request") or the task's ("Add to this task", which
+  goes to the task's running request). It reaches the agent with the result of its next
+  tool call as `person_added` (once), instead of waiting behind it as a new request; the
+  agent's instructions say to take it into account. Anything the agent never read
+  becomes a new request from the same person when it finishes ("Added while you were
+  working on my last request: …"); a stopped request carries nothing. Request details
+  list what was added and whether the agent read it. At most 20 per request, 2,000
+  characters each; never on a finished request.
+- **Routines from Chat** (T3): for something that repeats, the agent calls
+  `propose_schedule {name, instructions, first_in_minutes, every_minutes?}` (every hour to
+  every 30 days, or once; at most three per request). It shows under the agent's reply
+  ("Routine: Monday sales summary · Every week, first Mon 9:00") and is saved only when
+  the person who asked presses **Save routine**, through the ordinary routine checks;
+  "Not now" dismisses it. A retried save is the same routine. "Remind me on Friday" is a
+  task with a start time (`create_task start_in_minutes`, Phase 2).
+
 ## "While you were away"
 
 The summary covers everything since the person last caught up, stored per person
@@ -152,7 +171,9 @@ records a new catch-up; opening the page does not.
 
 - `GET /activity/now` also returns `fixing` (groups) and `coming_up`, and each agent's
   `needs_fixing` count. `POST /activity/needs/{id}/dismiss`;
-  `POST /activity/tasks/{id}/follow-up/cancel`. Attention approvals add `operation`,
+  `POST /activity/tasks/{id}/follow-up/cancel`; `POST /activity/requests/{reply}/steer {text}`,
+  `POST /activity/tasks/{id}/steer {text}`, `POST /activity/routine-proposals/{id} {save}`.
+  Request details add `added`; Chat agent replies add `routines`. Attention approvals add `operation`,
   `connection`, `operation_title`, `created_at` and `backup_at`.
 
 All under `/api/identity/workspaces/{w}/activity`, authenticated by the session
@@ -218,3 +239,8 @@ for fixers only, report_problem refused for made-up causes, dismiss by fixers on
 Coming up soonest first), web `activity-supervising` (Needs fixing, Coming up's Pause
 and Cancel follow-up, Review together and urgency order), guest `task_schema`
 (report_problem), journey `tests/agent_needs.mjs` (real Goose reports a need).
+Steering and routines: PostgreSQL `activity::now::steering` (an addition reaches the next
+step once and is carried into a new request if unread; a task's addition reaches its
+running request; a proposed routine is saved only by the person who asked, once), web
+`activity-steering`, journey `tests/agent_steering.mjs` (real Goose reads the addition
+with a tool result; its weekly routine is saved on confirmation).

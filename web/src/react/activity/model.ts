@@ -20,7 +20,11 @@ export type RunSchedule = { id: string; name: string; agent: string; state: stri
   post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
   /** The run happened in the schedule's own work room, which isn't a conversation. */
   room: boolean };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null;
+  /** What the person added while it ran (Phase 4), and whether the agent saw it. */
+  added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[] };
+export const steerRequest = (reply: string, text: string) => identityRequest(`${root}/requests/${encodeURIComponent(reply)}/steer`, { text });
+export const steerTask = (task: string, text: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/steer`, { text });
 export type Totals = {
   requests: number; done: number; failed: number; review: number; waiting: number; automatic: number; approved: number;
   people: number; channels: number; schedule_runs: number;

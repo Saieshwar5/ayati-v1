@@ -94,3 +94,6 @@
   margin-left: 6px;
   font-size: 12px;
 }
+.routine-card { display: grid; gap: 4px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: 10px; max-width: 420px; box-sizing: border-box; }
+.routine-card small { color: var(--muted); }
+.routine-card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }

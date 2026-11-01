@@ -58,6 +58,68 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/needs/{id}/dismiss",
             post(dismiss_need),
         )
+        .route(
+            "/api/identity/workspaces/{w}/activity/requests/{reply}/steer",
+            post(steer_request),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/tasks/{id}/steer",
+            post(steer_task),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/activity/routine-proposals/{id}",
+            post(decide_routine),
+        )
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Steer {
+    text: String,
+}
+/// Add to a running request (the person who asked); the agent reads it next step.
+async fn steer_request(
+    State(app): State<Shared>,
+    RoutePath((w, reply)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Steer>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .steer_request(&user, &w, &reply, &input.text)
+            .await?,
+    ))
+}
+/// Add to the request a task is running now.
+async fn steer_task(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Steer>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.steer_task(&user, &w, &id, &input.text).await?,
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RoutineDecision {
+    save: bool,
+}
+/// Save or dismiss a routine an agent proposed in Chat (the person who asked).
+async fn decide_routine(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<RoutineDecision>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .decide_schedule_draft(&user, &w, &id, input.save)
+            .await?,
+    ))
 }
 /// Coming up: stop a booked follow-up (the person it's for, managers, admins).
 async fn cancel_follow_up(

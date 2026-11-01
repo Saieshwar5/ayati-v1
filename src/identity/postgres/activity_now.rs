@@ -26,6 +26,8 @@ fn claims_change(reply: &str) -> bool {
 
 #[path = "activity_fixing.rs"]
 pub(in crate::identity::postgres) mod fixing;
+#[path = "steering.rs"]
+pub(in crate::identity::postgres) mod steering;
 
 impl PgStore {
     /// Records that the person has caught up: "while you were away" then starts
@@ -223,6 +225,8 @@ impl PgStore {
             object.insert("kind".into(), json!(kind));
             object.insert("task".into(), json!(task));
             object.insert("conversation_kind".into(), json!(conversation_kind));
+            // What the person added while it ran, and whether the agent saw it.
+            object.insert("added".into(), json!(self.steers_for(&tx, w, reply).await?));
             object.insert("in_conversation".into(), json!(in_conversation));
             // A scheduled run: its schedule, and whether its result was posted.
             object.insert(

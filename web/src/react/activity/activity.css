@@ -166,3 +166,6 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-coming time { min-width: 72px; color: var(--muted); font-size: 13px; }
 .activity-review-list { display: grid; gap: 14px; padding-left: 20px; }
 .activity-review-list li { display: grid; gap: 6px; }
+.activity-add-note { display: grid; gap: 6px; margin: 12px 0; }
+.activity-add-note textarea { width: 100%; box-sizing: border-box; }
+.activity-add-note button { justify-self: start; }
