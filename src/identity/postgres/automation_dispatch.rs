@@ -138,6 +138,7 @@ impl PgStore {
         execute(&tx,"INSERT INTO relay_schedule_occurrences(workspace,schedule,due_ms,message,reply) VALUES($1,$2,$3,$4,$5)",vec![w.into(),id.into(),at.into(),input.id.into(),job.reply.clone().into()]).await?;
         execute(&tx,"UPDATE relay_agent_schedules SET next_ms=$3,state=CASE WHEN $3::bigint IS NULL THEN 'completed' ELSE 'enabled' END,revision=revision+CASE WHEN $3::bigint IS NULL THEN 1 ELSE 0 END,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),next.into()]).await?;
         super::home_update_runs::bind_schedule(&tx, w, id, &job).await?;
+        super::tasks::ensure_automatic(&tx, &job, "schedule").await?;
         audit(
             &tx,
             &person.id,

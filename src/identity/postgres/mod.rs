@@ -256,6 +256,7 @@ mod task_continuation;
 #[cfg(test)]
 mod task_continuation_tests;
 mod task_revocation;
+mod tasks;
 mod work;
 mod work_rooms;
 pub(crate) mod worker_control;

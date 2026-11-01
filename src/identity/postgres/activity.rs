@@ -180,7 +180,9 @@ impl PgStore {
             cursor = Some(row.try_get::<i64>("", "sequence")?);
             let agent: String = row.try_get("", "agent")?;
             let panel: Option<Value> = row.try_get("", "panel")?;
+            let task: Option<Value> = row.try_get("", "task")?;
             let extra = json!({
+                "task": task,
                 "agent": agent, "agent_name": row.try_get::<String>("", "agent_name")?,
                 "agent_avatar": row.try_get::<Option<String>>("", "agent_avatar")?,
                 "kind": row.try_get::<String>("", "kind")?,

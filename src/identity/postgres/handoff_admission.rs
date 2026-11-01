@@ -138,6 +138,7 @@ impl PgStore {
             &id,
         )
         .await?;
+        super::tasks::ensure_automatic(&tx, job, "request").await?;
         tx.commit().await?;
         Ok(
             json!({"id":id,"state":"pending","reply":child.reply,"message":"Helper task saved in the original channel/thread. Explain what is waiting and finish this bounded attempt. The controller releases your worker and resumes the same task when the helper ends; do not poll or request more business actions."}),
