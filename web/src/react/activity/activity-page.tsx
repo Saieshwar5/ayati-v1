@@ -61,7 +61,7 @@ export function ActivityPage({ href }: { href: string }) {
       </div>}</div>
     <div id="activity-panel" className="activity-panel" role="tabpanel" aria-labelledby={`activity-tab-${tab}`}>
       {tab === 'needs' && <NeedsMe first={attention} search={search} />}
-      {tab === 'now' && <NowView scope={scope} search={search} openHistory={from => { setSince(from); setTab('history'); }}
+      {tab === 'now' && <NowView scope={scope} search={search} waiting={attention.data?.items} openHistory={from => { setSince(from); setTab('history'); }}
         openUnhandled={() => { setSince(undefined); setHistoryKind('unhandled'); setTab('history'); }} />}
       {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}`} scope={scope} search={search} since={since} initialKind={historyKind} />}
     </div>
