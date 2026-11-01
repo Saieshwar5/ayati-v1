@@ -61,6 +61,31 @@ health updates, preserving open form drafts. Source/access changes retain immedi
 personal invalidation; reconnect rechecks authoritative data.
 Personal arrangement/hiding never changes maintenance authority.
 
+## The panel frame (schema 57)
+
+Since 2026-11-01 every published panel on Home carries the same frame
+(people-and-agents-first, Phase 1e). A panel only shows; every decision opens Activity.
+
+- **Kept by <agent> · for you · Updated 20 min ago · sources read 10:22.** Times come
+  from the snapshot, not from the agent.
+- **What changed.** `refresh_home_panel` takes an optional `what_changed`: one or two
+  plain sentences, at most 280 characters, only when something meaningful changed (a
+  number moved noticeably, a target was crossed, something needs a person, or a source
+  could not be read). It is saved with that snapshot (`relay_home_snapshots.what_changed`,
+  migration `m20261101_000057_home_frame`) and shown below the panel's numbers inside
+  its scrolling content. A blank note is stored as none; drafts never show one.
+- **Freshness from the server's status.** `delayed` (older than the agreement's maximum
+  age) says "Not updated for 3 h. These numbers may be out of date." and dims the
+  numbers; `failed` says the last update could not complete and the previous result is
+  shown; `blocked` says access to a source changed. Delayed and failed link **How to
+  fix it →** to the latest update (`maintenance.last_update`) in Activity.
+- **N need you →** counts the waiting approvals and questions from this panel's agent
+  that the viewer can act on, from Home's one `needs_you` read (shared with the
+  Notifications panel, which now reads "2 need you →"). It opens Activity → Needs me.
+- **Show proof** opens the update that produced these numbers (`snapshot.task`) in
+  Activity; **Ask about this** opens the person's direct chat with the agent, starting
+  "About the <title> panel: " and keeping any existing draft.
+
 ## Delivery and acceptance
 
 1. Save this contract and desktop/phone design before application UI edits.

@@ -5,9 +5,8 @@ import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
 import { cadence, changeSchedule } from '../agents/automation/model';
 import { conversationUrl, dayLabel, clock, loadDetails, retryRequest, status, stopRequest, where, type Details } from './model';
-import { chatRequest, type Conversation } from '../chat/model';
-import { existingDirect } from '../chat/direct-conversation';
-import { storageScope, workspaceSession, workspaceUrl } from '../../workspace-context';
+import { openAgentChat } from '../chat/direct-conversation';
+import { workspaceSession } from '../../workspace-context';
 
 /** One request, step by step from Cuckoo's own records (designs/activity 4).
  * Work that is still running can be stopped here, as from the conversation. */
@@ -45,18 +44,8 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   });
   // One conversation id per opening, so a double click opens one direct chat.
   const direct = useRef<string>(undefined);
-  const discuss = (item: Details) => void mutation.run(async () => {
-    const { chats } = await chatRequest<{ chats: Conversation[] }>('/chats');
-    let id = existingDirect(chats, { id: item.agent, name: item.agent_name, kind: 'agent' }, me)?.id;
-    if (!id) {
-      direct.current ??= crypto.randomUUID();
-      id = (await chatRequest<{ id: string }>('/chats', { id: direct.current, kind: 'direct', name: item.agent_name, description: '', users: [], agents: [item.agent] })).id;
-    }
-    // Start the message with what it's about; never replace a draft the person already has.
-    const draft = storageScope(`relay.chat.draft.${id}`);
-    try { if (!sessionStorage.getItem(draft)) sessionStorage.setItem(draft, `About "${item.summary}" (${where(item)}, ${dayLabel(item.created_ms).toLowerCase()} ${clock(item.created_ms)}): `); } catch { /* Optional draft. */ }
-    location.assign(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`));
-  });
+  const discuss = (item: Details) => void mutation.run(() =>
+    openAgentChat({ id: item.agent, name: item.agent_name }, `About "${item.summary}" (${where(item)}, ${dayLabel(item.created_ms).toLowerCase()} ${clock(item.created_ms)}): `, direct));
   return <Dialog drawer title={data ? data.summary : 'Request'} close={close} busy={mutation.busy} status={mutation.status}>
     {!data && !state.error && <p role="status">Loading request…</p>}
     {state.error && <p role="alert">{state.error}</p>}

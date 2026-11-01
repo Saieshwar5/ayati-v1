@@ -7,13 +7,13 @@ pub(super) async fn snapshot(
     id: &str,
     revision: i64,
 ) -> Result<Option<Value>> {
-    let Some(row)=query(db,"SELECT s.definition,s.provenance,s.saved_ms,s.checked_ms,s.task,s.generation,m.chat,m.thread FROM relay_home_snapshots s JOIN relay_chat_messages m ON m.workspace=s.workspace AND m.id=s.task WHERE s.workspace=$1 AND s.panel=$2 AND s.panel_revision=$3 ORDER BY s.generation DESC LIMIT 1",vec![w.into(),id.into(),revision.into()]).await? else {return Ok(None)};
+    let Some(row)=query(db,"SELECT s.definition,s.provenance,s.saved_ms,s.checked_ms,s.task,s.generation,s.what_changed,m.chat,m.thread FROM relay_home_snapshots s JOIN relay_chat_messages m ON m.workspace=s.workspace AND m.id=s.task WHERE s.workspace=$1 AND s.panel=$2 AND s.panel_revision=$3 ORDER BY s.generation DESC LIMIT 1",vec![w.into(),id.into(),revision.into()]).await? else {return Ok(None)};
     let provenance: Value = row.try_get("", "provenance")?;
     if !super::home_sources::allowed(db, w, &user.id, &provenance).await? {
         return Ok(Some(json!({"revision":revision,"available":false})));
     }
     Ok(Some(
-        json!({"revision":revision,"available":true,"definition":row.try_get::<Value>("","definition")?,"saved_ms":row.try_get::<i64>("","saved_ms")?,"checked_ms":row.try_get::<i64>("","checked_ms")?,"generation":row.try_get::<i64>("","generation")?,"source_operations":provenance["operations"].as_array().map_or(0,Vec::len),"chat":row.try_get::<String>("","chat")?,"thread":row.try_get::<Option<String>>("","thread")?,"task":row.try_get::<String>("","task")?}),
+        json!({"revision":revision,"available":true,"definition":row.try_get::<Value>("","definition")?,"saved_ms":row.try_get::<i64>("","saved_ms")?,"checked_ms":row.try_get::<i64>("","checked_ms")?,"generation":row.try_get::<i64>("","generation")?,"source_operations":provenance["operations"].as_array().map_or(0,Vec::len),"chat":row.try_get::<String>("","chat")?,"thread":row.try_get::<Option<String>>("","thread")?,"task":row.try_get::<String>("","task")?,"what_changed":row.try_get::<Option<String>>("","what_changed")?}),
     ))
 }
 pub(super) async fn maintenance(
@@ -56,7 +56,7 @@ pub(super) async fn maintenance(
     );
     data["scopes"] = json!(scope.as_ref().ok());
     data["execution_available"] = json!(pooled);
-    let last=query(db,"SELECT r.created_ms,r.published_generation,j.state FROM relay_home_update_runs r JOIN relay_chat_jobs j ON j.workspace=r.workspace AND j.reply=r.reply WHERE r.workspace=$1 AND r.panel=$2 AND r.policy_revision=$3 ORDER BY r.created_ms DESC,r.reply DESC LIMIT 1",vec![w.into(),id.into(),data["revision"].as_i64().unwrap().into()]).await?;
+    let last=query(db,"SELECT r.reply,r.created_ms,r.published_generation,j.state FROM relay_home_update_runs r JOIN relay_chat_jobs j ON j.workspace=r.workspace AND j.reply=r.reply WHERE r.workspace=$1 AND r.panel=$2 AND r.policy_revision=$3 ORDER BY r.created_ms DESC,r.reply DESC LIMIT 1",vec![w.into(),id.into(),data["revision"].as_i64().unwrap().into()]).await?;
     let saved=query(db,"SELECT checked_ms,saved_ms FROM relay_home_snapshots WHERE workspace=$1 AND panel=$2 AND panel_revision=$3 ORDER BY generation DESC LIMIT 1",vec![w.into(),id.into(),p["active_revision"].as_i64().unwrap().into()]).await?;
     let checked = saved
         .as_ref()
@@ -124,5 +124,11 @@ pub(super) async fn maintenance(
         "awaiting_update"
     };
     data["status"] = json!(status);
+    // The latest update, so a delayed or failed panel can open it in Activity.
+    data["last_update"] = json!(
+        last.as_ref()
+            .map(|r| r.try_get::<String>("", "reply"))
+            .transpose()?
+    );
     Ok(data)
 }

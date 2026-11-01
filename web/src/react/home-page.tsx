@@ -2,6 +2,7 @@ import { currentWorkspace } from '../workspace-context';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { AttentionBoundary } from './attention/boundary';
 import { WorkRecords } from './work-records';
+import { useAttention } from './attention/use-attention';
 import '../home.css';
 
 const WorkspacePanels = lazy(() => import('./home-panels/panels').then(module => ({ default: module.WorkspacePanels })));
@@ -27,14 +28,16 @@ function BusinessClock() {
 }
 
 export function HomePage() {
+  // One read of what needs you, shared by Notifications and every panel's "needs you".
+  const attention = useAttention('needs_you', null);
   return <main className="home" aria-label="Home">
     <div className="home-standard-panels">
       <BusinessClock />
       <div className="home-notifications-host"><AttentionBoundary>
-        <Suspense fallback={<p role="status">Checking saved work…</p>}><HomeAttention /></Suspense>
+        <Suspense fallback={<p role="status">Checking saved work…</p>}><HomeAttention shared={attention} /></Suspense>
       </AttentionBoundary></div>
     </div>
-    <AttentionBoundary><Suspense fallback={<p role="status">Opening saved panels…</p>}><WorkspacePanels /></Suspense></AttentionBoundary>
+    <AttentionBoundary><Suspense fallback={<p role="status">Opening saved panels…</p>}><WorkspacePanels needsYou={attention.data} /></Suspense></AttentionBoundary>
     <WorkRecords />
   </main>;
 }
