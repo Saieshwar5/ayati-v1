@@ -1,4 +1,4 @@
-use super::{tests::*, *};
+use super::super::{tests::*, *};
 use crate::identity::{
     chat::execution::prepare,
     communications::model::{Binding, Endpoint, Message, Outcome, Transport},
@@ -29,7 +29,7 @@ async fn communications_migration_preserves_inflight_v31_chat_and_starts_receipt
     migration::Migrator::up(&db.db, Some(31)).await.unwrap();
     let owner = user(&db, "upgrade-owner").await;
     let w = workspace(&db, &owner).await;
-    let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (c, a) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_send(&owner, &w, &c, &message("Existing request", Some(&a)))
         .await
         .unwrap();
@@ -69,7 +69,7 @@ async fn communications_dispatch_rechecks_context_and_database_fences_exact_enve
     let db = fixture().await;
     let owner = user(&db, "source-owner").await;
     let w = workspace(&db, &owner).await;
-    let (_, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (_, a) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     let endpoint = Endpoint {
         id: uuid::Uuid::new_v4().to_string(),
         agent: a.clone(),
@@ -102,6 +102,7 @@ async fn communications_dispatch_rechecks_context_and_database_fences_exact_enve
             text: "Help".into(),
             attachments: vec![],
             automated: false,
+            thread: None,
         },
     )
     .await
@@ -156,7 +157,7 @@ async fn communications_revoked_agent_grant_blocks_inflight_reply_and_new_intake
     let member = user(&db, "revoke-member").await;
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &member, "Member").await;
-    let (_, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (_, a) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     db.chat_grant(&owner, &w, &member.id, &a, true)
         .await
         .unwrap();
@@ -188,6 +189,7 @@ async fn communications_revoked_agent_grant_blocks_inflight_reply_and_new_intake
         text: "Help".into(),
         attachments: vec![],
         automated: false,
+        thread: None,
     };
     db.simulate_incoming(&owner, &w, &endpoint.id, &input)
         .await

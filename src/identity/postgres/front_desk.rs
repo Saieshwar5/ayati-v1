@@ -345,7 +345,7 @@ pub(crate) async fn finished(
         // Published like any finished chat reply; the desk turn is its source.
         let mut job = super::handoff_access::job(tx, w, &reply).await?;
         job.claim = Some(task.id.clone());
-        super::communication_outbox::complete(tx, &job, &decision.reply).await?;
+        super::communications::outbox::complete(tx, &job, &decision.reply).await?;
         "answered"
     } else {
         super::chat::updates::post(

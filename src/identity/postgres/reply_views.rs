@@ -48,7 +48,7 @@ pub(super) async fn hydrate(
     } else {
         ""
     };
-    let communication_clause = if super::communication_access::exists(tx).await? {
+    let communication_clause = if super::communications::access::exists(tx).await? {
         " OR EXISTS(SELECT 1 FROM relay_communication_inbox ci WHERE ci.workspace=j.workspace AND ci.reply=j.reply AND ci.transport<>'chat')"
     } else {
         ""

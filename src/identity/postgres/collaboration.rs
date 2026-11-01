@@ -222,7 +222,7 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         super::chat::access(&tx, user, w, chat).await?;
-        super::communication_access::ordinary_chat(&tx, w, chat).await?;
+        super::communications::access::ordinary_chat(&tx, w, chat).await?;
         ensure!(execute(&tx,"UPDATE relay_chats SET visibility=$3,announcements=$4,name=coalesce($5,name) WHERE workspace=$1 AND id=$2 AND kind<>'direct'",vec![w.into(),chat.into(),visibility.into(),announcements.into(),name.into()]).await?==1,"Direct messages cannot become public channels");
         super::task_revocation::inaccessible(&tx, w).await?;
         audit(
@@ -261,7 +261,7 @@ impl PgStore {
 /// Channel membership is managed by its creator or a workspace owner.
 async fn managed_channel(tx: &DatabaseTransaction, user: &User, w: &str, chat: &str) -> Result<()> {
     super::chat::access(tx, user, w, chat).await?;
-    super::communication_access::ordinary_chat(tx, w, chat).await?;
+    super::communications::access::ordinary_chat(tx, w, chat).await?;
     let own_role = role(tx, w, &user.id).await?;
     let row = query(
         tx,

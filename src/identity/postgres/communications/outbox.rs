@@ -5,8 +5,12 @@ use crate::identity::{
 };
 use serde_json::json;
 
-pub(super) async fn complete(tx: &DatabaseTransaction, job: &Job, content: &str) -> Result<()> {
-    if !super::communication_access::exists(tx).await? {
+pub(in crate::identity::postgres) async fn complete(
+    tx: &DatabaseTransaction,
+    job: &Job,
+    content: &str,
+) -> Result<()> {
+    if !super::access::exists(tx).await? {
         return Ok(());
     }
     let Some(inbox)=json_rows(tx,"SELECT to_jsonb(i) AS data FROM relay_communication_inbox i WHERE workspace=$1 AND reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.into_iter().next() else {return Ok(());};
@@ -14,7 +18,7 @@ pub(super) async fn complete(tx: &DatabaseTransaction, job: &Job, content: &str)
     let original = &inbox["envelope"];
     let envelope = json!({"event":job.reply,"sender":if chat {json!(job.agent)} else {original["recipient"].clone()},
         "recipient":if chat {json!(job.chat)} else {original["sender"].clone()},
-        "conversation":original["conversation"],"text":content,"attachments":[],"automated":true});
+        "conversation":original["conversation"],"thread":original["thread"],"text":content,"attachments":[],"automated":true});
     execute(tx,"INSERT INTO relay_communication_outbox(workspace,id,endpoint,event,transport,envelope,job,source_claim,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",vec![job.workspace.clone().into(),job.reply.clone().into(),inbox["endpoint"].as_str().unwrap().into(),inbox["event"].as_str().unwrap().into(),inbox["transport"].as_str().unwrap().into(),envelope.into(),serde_json::to_value(job)?.into(),job.claim.clone().context("Missing completion claim")?.into(),if chat {"published"} else {"queued"}.into()]).await?;
     Ok(())
 }
@@ -28,13 +32,13 @@ impl PgStore {
         outcome: Outcome,
     ) -> Result<Value> {
         let tx = self.workspace_tx(w).await?;
-        super::communication_access::owner(&tx, actor, w).await?;
+        super::access::owner(&tx, actor, w).await?;
         let row = load(&tx, w, id).await?;
         ensure!(
             row["transport"] != "chat",
             "Chat publication is committed with its reply"
         );
-        let e = super::communication_endpoints::endpoint(&tx, w, row["endpoint"].as_str().unwrap())
+        let e = super::endpoints::endpoint(&tx, w, row["endpoint"].as_str().unwrap())
             .await?
             .context("Endpoint unavailable")?;
         ensure!(e["simulated"] == true, "Live dispatch is not implemented");
@@ -52,23 +56,7 @@ impl PgStore {
             row["attempts"].as_i64().unwrap() < 3,
             "Simulation send attempts exhausted"
         );
-        let mut job: Job = serde_json::from_value(row["job"].clone())?;
-        job.claim = Some(
-            row["source_claim"]
-                .as_str()
-                .context("Missing source claim")?
-                .into(),
-        );
-        let user = User {
-            id: job.requester.clone(),
-            email: String::new(),
-            display_name: None,
-        };
-        let current=super::source_access::allowed(&tx,&job).await?
-            && super::context_attempts::allowed(&tx,&job).await?
-            && super::chat::access(&tx,&user,w,&job.chat).await.is_ok()
-            && super::chat::agent_access(&tx,&user.id,w,&job.agent).await.unwrap_or(false)
-            && query(&tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND id=$2 AND state='complete' AND content=$3",vec![w.into(),id.into(),row["envelope"]["text"].as_str().context("Missing output")?.into()]).await?.is_some();
+        let current = deliverable(&tx, w, &row).await?;
         if !current {
             execute(&tx,"UPDATE relay_communication_outbox SET state='cancelled' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
             let result = metadata(&load(&tx, w, id).await?);
@@ -101,7 +89,7 @@ impl PgStore {
         input: &Receipt,
     ) -> Result<Value> {
         let tx = self.workspace_tx(w).await?;
-        super::communication_access::owner(&tx, actor, w).await?;
+        super::access::owner(&tx, actor, w).await?;
         let row = load(&tx, w, id).await?;
         ensure!(
             row["transport"] != "chat"
@@ -126,7 +114,31 @@ impl PgStore {
         Ok(result)
     }
 }
-async fn load(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<Value> {
+/// Whether a saved reply may still go out: the request's sources, context,
+/// conversation and agent access still hold, and the reply text is unchanged.
+pub(super) async fn deliverable(tx: &DatabaseTransaction, w: &str, row: &Value) -> Result<bool> {
+    let id = row["id"]
+        .as_str()
+        .context("Communication output unavailable")?;
+    let mut job: Job = serde_json::from_value(row["job"].clone())?;
+    job.claim = Some(
+        row["source_claim"]
+            .as_str()
+            .context("Missing source claim")?
+            .into(),
+    );
+    let user = User {
+        id: job.requester.clone(),
+        email: String::new(),
+        display_name: None,
+    };
+    Ok(super::super::source_access::allowed(tx,&job).await?
+        && super::super::context_attempts::allowed(tx,&job).await?
+        && super::super::chat::access(tx,&user,w,&job.chat).await.is_ok()
+        && super::super::chat::agent_access(tx,&user.id,w,&job.agent).await.unwrap_or(false)
+        && query(tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND id=$2 AND state='complete' AND content=$3",vec![w.into(),id.into(),row["envelope"]["text"].as_str().context("Missing output")?.into()]).await?.is_some())
+}
+pub(super) async fn load(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<Value> {
     json_rows(
         tx,
         "SELECT to_jsonb(o) AS data FROM relay_communication_outbox o WHERE workspace=$1 AND id=$2",
@@ -137,8 +149,8 @@ async fn load(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<Value> {
     .next()
     .context("Communication output unavailable")
 }
-fn metadata(row: &Value) -> Value {
-    json!({"id":row["id"],"state":row["state"],"attempt":row["attempt"],"provider_id":row["provider_id"],"attempts":row["attempts"]})
+pub(super) fn metadata(row: &Value) -> Value {
+    json!({"id":row["id"],"state":row["state"],"attempt":row["attempt"],"provider_id":row["provider_id"],"attempts":row["attempts"],"reason":row["reason"]})
 }
 fn provider_id(id: &str, attempt: &str) -> String {
     format!("sim:{id}:{attempt}")

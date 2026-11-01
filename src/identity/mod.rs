@@ -178,6 +178,7 @@ fn configure_process(config: &crate::config::Controller) {
     control::catalog::configure(config.mcp_servers_file.clone());
     connectors::configure(connectors::settings(config));
     events::catalog::configure(config.event_sources_file.clone());
+    communications::adapters::configure(communications::adapters::settings(config));
 }
 
 pub async fn serve(config: crate::config::Controller) -> Result<()> {
@@ -214,6 +215,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     let control = worker_control::start(app.clone()).await?;
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
+    communications::gateway::start(app.clone());
     metrics::start(app.clone());
     data_cleanup::start(app.clone());
     shutdown::serve(app, listener, control).await
