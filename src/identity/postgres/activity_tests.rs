@@ -305,13 +305,13 @@ async fn now_shows_agent_states_running_work_and_what_happened_while_away() {
     .unwrap();
 
     // Before the first "caught up", the last day counts as "while you were away".
-    let first = db.activity_now(&owner, &w, 1).await.unwrap();
+    let first = db.activity_now(&owner, &w, 1, None).await.unwrap();
     assert!(first["away"]["since"].as_i64().unwrap() < now() * 1000 - 23 * 3600 * 1000);
     assert_eq!(first["away"]["totals"]["requests"], 2);
     // Catching up empties it, on every device.
     db.activity_seen(&owner, &w).await.unwrap();
     assert_eq!(
-        db.activity_now(&owner, &w, 1).await.unwrap()["away"]["totals"]["requests"],
+        db.activity_now(&owner, &w, 1, None).await.unwrap()["away"]["totals"]["requests"],
         0
     );
     // A visit an hour ago shows what happened since.
@@ -328,7 +328,7 @@ async fn now_shows_agent_states_running_work_and_what_happened_while_away() {
         .unwrap()
         .try_get("", "seen_ms")
         .unwrap();
-    let now = db.activity_now(&owner, &w, 1).await.unwrap();
+    let now = db.activity_now(&owner, &w, 1, None).await.unwrap();
     assert_eq!(now["away"]["since"], since);
     assert_eq!(now["away"]["totals"]["requests"], 2);
     assert_eq!(now["away"]["totals"]["done"], 1);
@@ -422,7 +422,7 @@ async fn thirty_agents_over_ninety_days_stay_within_the_response_budget() {
     times.push((t.0, t.1.elapsed()));
     assert_eq!(found["items"].as_array().unwrap().len(), 1);
     let t = timed("now");
-    db.activity_now(&owner, &w, now() * 1000 - 3600 * 1000)
+    db.activity_now(&owner, &w, now() * 1000 - 3600 * 1000, None)
         .await
         .unwrap();
     times.push((t.0, t.1.elapsed()));

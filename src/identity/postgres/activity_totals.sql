@@ -21,7 +21,7 @@ SELECT jsonb_build_object(
  'channels',(SELECT count(DISTINCT chat) FROM v WHERE conversation_kind<>'direct'),
  'schedule_runs',(SELECT count(*) FROM v WHERE kind='schedule'),
  'per_day',(SELECT COALESCE(jsonb_agg(jsonb_build_object('day',d,'count',n) ORDER BY d),'[]'::jsonb) FROM (
-   SELECT to_char(to_timestamp(created_ms/1000.0+$13*60) AT TIME ZONE 'UTC','YYYY-MM-DD') AS d,count(*) AS n FROM v GROUP BY 1) days),
+   SELECT to_char(to_timestamp(created_ms/1000.0+$14*60) AT TIME ZONE 'UTC','YYYY-MM-DD') AS d,count(*) AS n FROM v GROUP BY 1) days),
  'by_agent',(SELECT COALESCE(jsonb_agg(jsonb_build_object('agent',agent,'name',agent_name,'avatar',avatar,'count',n) ORDER BY n DESC,agent_name),'[]'::jsonb) FROM (
    SELECT agent,agent_name,avatar,count(*) AS n FROM v GROUP BY 1,2,3 ORDER BY n DESC,agent_name LIMIT 12) agents)
 ) AS data

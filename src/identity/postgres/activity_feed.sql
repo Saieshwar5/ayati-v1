@@ -8,5 +8,5 @@ SELECT j.payload,j.sequence,j.state AS job_state,j.lease_until,j.started_ms,j.fi
  (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) AS in_conversation
 /*FILTER*/
 AND j.sequence<$12
-AND ($13::text IS NULL OR j.reply=$13)
+AND ($14::text IS NULL OR j.reply=$14)
 ORDER BY j.sequence DESC LIMIT 26
