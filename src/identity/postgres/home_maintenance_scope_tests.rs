@@ -91,6 +91,7 @@ async fn home_maintenance_member_owns_updates_without_agent_management_authority
             chat: &c,
             agent: &original.agent,
             thread: None,
+            main_only: false,
             since_join: false,
             limit: 100,
             before: i64::MAX,

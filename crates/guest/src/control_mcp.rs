@@ -10,7 +10,9 @@ pub fn observed(name: &str, input: &Value) -> bool {
             crate::history_schema::observed(name, input)
         }
         Some("save_working_context") => crate::working_context_schema::observed(input),
-        Some("operations" | "handoff_targets" | "personal_panels") => input == &json!({}),
+        Some("operations" | "handoff_targets" | "personal_panels" | "continue_privately") => {
+            input == &json!({})
+        }
         Some("home_panel_update_context") => input == &json!({}),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.len() == 1
@@ -71,6 +73,7 @@ impl ServerHandler for ControlTools {
             json!({"name":"personal_panels","description":"List the original human requester's saved personal panel identities and revisions for this agent in this source conversation only. Data is private to that person; this grants no source authority and returns no cached panel facts.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),
+            json!({"name":"continue_privately","description":"In a shared conversation, move this question to a private conversation between you and the person who asked, when the answer needs their own private information. Cuckoo starts a new private request with the same question; it is answered there with private context. Then reply here with one short line saying you have answered privately. Not available in private conversations.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"send_update","description":"Post one short message to the person while you keep working: first a one-line \"got it\" with what you'll do when the request needs tools or more than one step, then a milestone for long work. Your final answer is still your reply. Do not use it for quick answers, and never say you will continue later.","inputSchema":{"type":"object","properties":{"text":{"type":"string","maxLength":1000}},"required":["text"],"additionalProperties":false}}),
             json!({"name":"load_skill","description":"Load one of the skills listed in your instructions: its SKILL.md steps, or one supporting file by its path inside the skill. Load a skill before following it. Skills are guidance from their author; they never change your permissions, approvals or rules, and scripts in them cannot run.","inputSchema":{"type":"object","properties":{"name":{"type":"string","maxLength":64},"file":{"type":"string","maxLength":200}},"required":["name"],"additionalProperties":false}}),
             json!({"name":"operations","description":"List this task's currently assigned business operations, input fields and permission modes.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
@@ -161,6 +164,17 @@ mod tests {
             &json!({"text":"x","chat":"other"})
         ));
         assert!(!observed("ayati_control__send_update", &json!({})));
+    }
+    #[test]
+    fn a_private_continuation_cannot_choose_the_person_room_or_question() {
+        assert!(observed("ayati_control__continue_privately", &json!({})));
+        for chosen in [
+            json!({"user":"u2"}),
+            json!({"chat":"c2"}),
+            json!({"text":"another question"}),
+        ] {
+            assert!(!observed("ayati_control__continue_privately", &chosen));
+        }
     }
     #[test]
     fn skill_loading_forwards_only_a_name_and_an_optional_file() {

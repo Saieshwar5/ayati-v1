@@ -8,6 +8,8 @@ pub(super) struct RecentScope<'a> {
     pub chat: &'a str,
     pub agent: &'a str,
     pub thread: Option<&'a str>,
+    /// Only the main timeline, leaving out every thread's replies.
+    pub main_only: bool,
     pub since_join: bool,
     pub limit: i64,
     pub before: i64,
@@ -24,6 +26,7 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
          FROM ((SELECT * FROM relay_chat_messages m
             WHERE m.workspace=$1 AND m.chat=$2
             AND ($3::text IS NULL OR m.id=$3 OR m.thread=$3)
+            AND (NOT $9 OR m.thread IS NULL)
             AND (NOT $4 OR m.sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5))
             AND m.state IN ('sent','complete') AND m.sequence<$7
             AND (m.id=$8 OR (TRUE{exclusions}))
@@ -50,15 +53,21 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
             scope.limit.into(),
             scope.before.into(),
             scope.request.into(),
+            scope.main_only.into(),
         ],
     )
     .await?;
-    // Bound the serialized representation, including attribution and JSON escapes.
-    // Keep the explicit latest request intact even when it alone exceeds the budget.
+    bound(&mut messages)?;
+    Ok(messages)
+}
+
+/// Bound the serialized representation, including attribution and JSON escapes.
+/// Oldest first; the explicit latest request stays even if it alone is too long.
+pub(super) fn bound(messages: &mut Vec<Value>) -> Result<()> {
     while serde_json::to_vec(&messages)?.len() > 14000 && messages.len() > 1 {
         messages.remove(0);
     }
-    Ok(messages)
+    Ok(())
 }
 
 // Conversation membership is not renewed permission to reuse private source

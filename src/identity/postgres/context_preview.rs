@@ -44,6 +44,7 @@ impl PgStore {
                 chat: conversation,
                 agent,
                 thread: None,
+                main_only: false,
                 since_join: settings.history == "since_join",
                 limit,
                 before: i64::MAX,

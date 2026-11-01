@@ -245,6 +245,7 @@ mod request_context_tests;
 mod response_tests;
 mod responses;
 pub(crate) mod settings;
+mod shared_rooms;
 pub(crate) mod skills;
 mod source_access;
 mod task_continuation;

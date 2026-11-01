@@ -173,6 +173,13 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             let input = serde_json::from_value(arguments)?;
             pg.request_handoff(job, &input).await
         }
+        "continue_privately" => {
+            ensure!(
+                arguments == json!({}),
+                "Invalid private continuation request"
+            );
+            pg.continue_privately(job).await
+        }
         "send_update" => {
             let input = serde_json::from_value(arguments)?;
             pg.send_update(job, &input).await
