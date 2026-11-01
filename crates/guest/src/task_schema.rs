@@ -15,11 +15,31 @@ fn only(v: &serde_json::Map<String, Value>, keys: &[&str]) -> bool {
     v.keys().all(|key| keys.contains(&key.as_str()))
 }
 
+fn minutes(v: &serde_json::Map<String, Value>, key: &str, max: i64, required: bool) -> bool {
+    match v.get(key) {
+        None => !required,
+        Some(value) => value.as_i64().is_some_and(|m| (1..=max).contains(&m)),
+    }
+}
+
 pub(crate) fn create(input: &Value) -> bool {
     input.as_object().is_some_and(|v| {
-        only(v, &["title", "done_when"])
-            && text(v, "title", 160, true)
+        only(
+            v,
+            &["title", "done_when", "start_in_minutes", "due_in_minutes"],
+        ) && text(v, "title", 160, true)
             && text(v, "done_when", 400, false)
+            && minutes(v, "start_in_minutes", 43_200, false)
+            && minutes(v, "due_in_minutes", 525_600, false)
+    })
+}
+
+pub(crate) fn follow_up(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["task", "in_minutes", "note"])
+            && text(v, "task", 64, true)
+            && minutes(v, "in_minutes", 43_200, true)
+            && text(v, "note", 400, false)
     })
 }
 
@@ -60,5 +80,16 @@ mod tests {
         ));
         assert!(!super::close(&json!({"task":"t-1","outcome":"not_task"})));
         assert!(!super::close(&json!({"task":"t-1"})));
+        assert!(super::create(
+            &json!({"title":"Call back","start_in_minutes":1440,"due_in_minutes":2880})
+        ));
+        assert!(!super::create(
+            &json!({"title":"Call back","start_in_minutes":0})
+        ));
+        assert!(super::follow_up(
+            &json!({"task":"t-1","in_minutes":60,"note":"Check the courier"})
+        ));
+        assert!(!super::follow_up(&json!({"task":"t-1"})));
+        assert!(!super::follow_up(&json!({"task":"t-1","in_minutes":50000})));
     }
 }

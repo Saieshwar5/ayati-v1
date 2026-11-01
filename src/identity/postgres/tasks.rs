@@ -18,6 +18,8 @@ pub(super) mod migration;
 mod tests;
 #[path = "task_views.rs"]
 pub(super) mod views;
+#[path = "task_wakeups.rs"]
+pub(super) mod wakeups;
 
 /// Who may see task `t` ($2 the person, $3 admin): the person it is for, anyone who
 /// can see its conversation, the agent's managers and admins.
@@ -31,6 +33,10 @@ pub(super) const VISIBLE: &str = "(t.requester=$2 OR $3
 pub(crate) struct CreateTask {
     pub title: String,
     pub done_when: Option<String>,
+    /// Start later: the agent is woken to continue the task then (1 minute to 30 days).
+    pub start_in_minutes: Option<i64>,
+    /// Due by: the task shows as late after this (1 minute to a year).
+    pub due_in_minutes: Option<i64>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -136,7 +142,7 @@ pub(super) async fn ensure_automatic(
 
 /// A task the agent of `job` may work on: its own, for the same person or in the
 /// same conversation.
-async fn agent_task(tx: &DatabaseTransaction, job: &Job, id: &str) -> Result<Value> {
+pub(super) async fn agent_task(tx: &DatabaseTransaction, job: &Job, id: &str) -> Result<Value> {
     let row = query(tx, "SELECT jsonb_build_object('id',t.id,'kind',t.kind,'title',t.title,'outcome',t.outcome,'status',relay_task_status(t.workspace,t.id)) AS data
         FROM relay_tasks t WHERE t.workspace=$1 AND t.id=$2 AND t.agent=$3 AND (t.requester=$4 OR t.chat=$5) FOR UPDATE",
         vec![job.workspace.clone().into(), id.into(), job.agent.clone().into(), job.requester.clone().into(), job.chat.clone().into()]).await?
@@ -148,6 +154,18 @@ impl PgStore {
     /// `create_task`: the agent promises something that outlives this reply.
     pub(crate) async fn create_task(&self, job: &Job, input: &CreateTask) -> Result<Value> {
         let title = line(&input.title, 160, "the title")?;
+        ensure!(
+            input
+                .start_in_minutes
+                .is_none_or(|m| (1..=43_200).contains(&m)),
+            "start_in_minutes is 1 to 43200 (30 days)"
+        );
+        ensure!(
+            input
+                .due_in_minutes
+                .is_none_or(|m| (1..=525_600).contains(&m)),
+            "due_in_minutes is 1 to 525600 (a year)"
+        );
         let done_when = input
             .done_when
             .as_deref()
@@ -194,10 +212,19 @@ impl PgStore {
                 id
             }
         };
+        execute(&tx, "UPDATE relay_tasks SET start_ms=CASE WHEN $3::bigint IS NULL THEN start_ms ELSE (extract(epoch FROM clock_timestamp())*1000)::bigint+$3::bigint*60000 END,
+            due_ms=CASE WHEN $4::bigint IS NULL THEN due_ms ELSE (extract(epoch FROM clock_timestamp())*1000)::bigint+$4::bigint*60000 END WHERE workspace=$1 AND id=$2",
+            vec![job.workspace.clone().into(), id.clone().into(), input.start_in_minutes.into(), input.due_in_minutes.into()]).await?;
+        if let Some(minutes) = input.start_in_minutes {
+            wakeups::book(&tx, &job.workspace, &id, minutes, None).await?;
+        }
         tx.commit().await?;
-        Ok(
-            json!({"id": id, "title": title, "state": "open", "message": "Task saved. Keep working on it now if you can; when its outcome is reached, call close_task."}),
-        )
+        let message = if input.start_in_minutes.is_some() {
+            "Task saved. You'll be woken to continue it at its start time; tell the person when that is."
+        } else {
+            "Task saved. Keep working on it now if you can; when its outcome is reached, call close_task. To check again later, call follow_up."
+        };
+        Ok(json!({"id": id, "title": title, "state": "open", "message": message}))
     }
 
     /// `attach_to_task`: this request continues an open task.
@@ -278,6 +305,7 @@ impl PgStore {
         ensure!(task["outcome"].is_null(), "That task is already closed");
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![job.workspace.clone().into(), input.task.clone().into(), input.outcome.clone().into(), result.into()]).await?;
+        wakeups::cancel(&tx, &job.workspace, &input.task).await?;
         tx.commit().await?;
         Ok(json!({"id": task["id"], "state": input.outcome}))
     }

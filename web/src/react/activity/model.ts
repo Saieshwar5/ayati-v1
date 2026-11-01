@@ -137,6 +137,8 @@ export type TaskItem = TaskRef & {
   agent: string; agent_name: string; agent_avatar: string | null; requester: string; requester_name: string | null;
   chat: string; conversation_name: string; conversation_kind: string; created_ms: number; start_ms: number | null; due_ms: number | null;
   closed_ms: number | null; outcome: string | null; result: string | null; steps: number;
+  /** The agent's next booked follow-up, and why the last one couldn't run. */
+  next_wakeup_ms?: number | null; blocked_wakeup?: string | null;
 };
 export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
 export const taskLabels: Record<TaskStatus, string> = {

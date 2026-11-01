@@ -25,7 +25,9 @@ const FIELDS: &str = "'id',t.id,'title',t.title,'kind',t.kind,'origin',t.origin,
  'requester_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=t.requester),
  'chat',t.chat,'conversation_name',c.name,'conversation_kind',c.kind,'created_ms',t.created_ms,'start_ms',t.start_ms,'due_ms',t.due_ms,
  'closed_ms',t.closed_ms,'outcome',t.outcome,'result',t.result,
- 'steps',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=t.workspace AND j.task=t.id)";
+ 'steps',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=t.workspace AND j.task=t.id),
+ 'next_wakeup_ms',(SELECT min(k.due_ms) FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending'),
+ 'blocked_wakeup',(SELECT CASE WHEN k.state='blocked' THEN k.detail END FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id ORDER BY k.created_ms DESC LIMIT 1)";
 
 async fn admin(tx: &DatabaseTransaction, w: &str, user: &User) -> Result<bool> {
     Ok(role(tx, w, &user.id).await? == "Admin")
@@ -144,6 +146,7 @@ impl PgStore {
             }
         );
         audit_with_summary(&tx, &user.id, Some(w), "task_closed", id, &summary).await?;
+        super::wakeups::cancel(&tx, w, id).await?;
         tx.commit().await?;
         Ok(json!({"id": id, "outcome": outcome}))
     }
@@ -210,13 +213,20 @@ pub(in crate::identity::postgres) async fn hydrate(
     w: &str,
     messages: &mut [Value],
 ) -> Result<()> {
-    let ids: Vec<Value> = messages
-        .iter()
-        .filter(|m| m["kind"] == "agent")
-        .map(|m| m["id"].clone())
-        .collect();
+    let ids: Vec<Value> = messages.iter().map(|m| m["id"].clone()).collect();
     if ids.is_empty() || !super::available(tx).await? {
         return Ok(());
+    }
+    // A follow-up the agent booked reads as the agent following up, not as the person.
+    let woken = rows(tx, "SELECT k.message,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id)) AS task
+        FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
+        WHERE k.workspace=$1 AND k.message IN (SELECT jsonb_array_elements_text($2::jsonb))",
+        vec![w.into(), json!(ids).into()]).await?;
+    for row in woken {
+        let id: String = row.try_get("", "message")?;
+        if let Some(m) = messages.iter_mut().find(|m| m["id"] == id.as_str()) {
+            m["follow_up"] = row.try_get("", "task")?;
+        }
     }
     let rows = rows(tx, "SELECT j.reply,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id)) AS task
         FROM relay_chat_jobs j JOIN relay_tasks t ON t.workspace=j.workspace AND t.id=j.task

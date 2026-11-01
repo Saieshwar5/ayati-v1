@@ -25,12 +25,13 @@ export function OpenTasks({ scope, search, initial }: { scope: Scope; search: st
         <h2 className="activity-group">{label} · {group.length}</h2>
         <ul className="activity-list">{group.map(task => <li key={task.id} className="activity-row">
           <button type="button" className="activity-row-button" onClick={() => setOpen(task.id)}>
-            <time>{task.due_ms ? `Due ${clock(task.due_ms)}` : clock(task.created_ms)}</time>
+            <time>{task.due_ms ? `Due ${dayLabel(task.due_ms) === 'Today' ? '' : `${dayLabel(task.due_ms)} `}${clock(task.due_ms)}` : clock(task.created_ms)}</time>
             <span className="activity-agent"><AgentFace agent={{ id: task.agent, name: task.agent_name, avatar: task.agent_avatar }} className="activity-face" />{task.agent_name}</span>
             <span className="activity-main"><strong>{task.title}</strong>
               <small>{task.requester_name ?? 'Someone'} · {task.conversation_kind === 'direct' ? 'direct chat' : `#${task.conversation_name}`} · {dayLabel(task.created_ms)}
                 {task.status === 'waiting' && task.waiting_on ? ` · waiting for ${waitingLabels[task.waiting_on]}` : ''}
-                {task.steps > 1 ? ` · ${task.steps} steps` : ''}</small></span>
+                {task.steps > 1 ? ` · ${task.steps} steps` : ''}
+                {task.blocked_wakeup ? " · couldn't continue" : task.next_wakeup_ms ? ` · next check ${dayLabel(task.next_wakeup_ms)} ${clock(task.next_wakeup_ms)}` : ''}</small></span>
             <span className={`activity-status ${taskTone(task.status)}`}>{taskLabels[task.status]}</span>
           </button>
         </li>)}</ul>

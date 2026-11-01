@@ -111,3 +111,37 @@ test('the chat chip shows promises, and tracked work only when it needs a look o
     }, { url: openUrl });
   }
 });
+
+test('follow-ups: the next check and a follow-up that could not run show on the task', async () => {
+  await reactFixture(async ({ render, click }) => {
+    await render(await activity(), { href: openUrl });
+    const rows = [...document.querySelectorAll('.activity-row-button')].map(b => b.textContent);
+    assert.ok(rows.find(r => r.includes('Chase the courier')).includes("couldn't continue"));
+    assert.match(rows.find(r => r.includes('Call Acme back')), /next check/);
+    assert.match(rows.find(r => r.includes('Call Acme back')), /^Due /);
+    await click([...document.querySelectorAll('.activity-row-button')].find(b => b.textContent.includes('Chase the courier')));
+    const drawer = document.querySelector('dialog');
+    assert.match(drawer.textContent, /The agent couldn't continue: Kavya can no longer ask Nova in #sales\./);
+    assert.doesNotMatch(drawer.textContent, /Follow-up blocked/);
+  }, { url: openUrl, fetch: async path => {
+    const shared = common(path); if (shared) return shared;
+    const blocked = task('t-4', 'Chase the courier', 'needs_fixing', { blocked_wakeup: 'Follow-up blocked: Kavya can no longer ask Nova in #sales.' });
+    if (path.includes('/activity/tasks/t-4')) return response({ ...blocked, may_close: true, requests: [] });
+    if (path.includes('/activity/tasks')) return response({ more: false, items: [blocked,
+      task('t-5', 'Call Acme back', 'scheduled', { next_wakeup_ms: now + 3600000, due_ms: now + 7200000 })] });
+  } });
+});
+
+test('a follow-up the agent booked reads as one light line in Chat, linking to its task', async () => {
+  const message = { id: 'm-1', kind: 'user', author: 'kavya', name: 'Kavya Nair', state: 'sent', at: Math.floor(now / 1000), chat: 'sales',
+    content: 'Follow-up · Call Acme back\nYou booked this follow-up for your task…', follow_up: { id: 't-5', title: 'Call Acme back', kind: 'commitment', status: 'working' } };
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
+    const { ChatMessage } = await import('../src/react/chat/message.tsx');
+    await render(() => createElement(ChatMessage, { message, directory: { agents: [], users: [] } }));
+    const line = document.querySelector('.chat-follow-up');
+    assert.match(line.textContent, /Following up on Call Acme back/);
+    assert.match(line.querySelector('a').href, /tab=open&task=t-5/);
+    assert.doesNotMatch(document.body.textContent, /You booked this follow-up/, 'the instruction to the agent stays out of Chat');
+  }, { url: openUrl, fetch: async path => common(path) ?? response({}) });
+});

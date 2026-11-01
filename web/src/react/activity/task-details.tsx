@@ -39,8 +39,10 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
         <dt>Started</dt><dd>{when(data.created_ms)}{data.kind === 'automatic' ? ' · tracked automatically' : data.origin === 'person' ? ' · made a task by a person' : ' · promised by the agent'}</dd>
         {data.start_ms && <><dt>Starts</dt><dd>{when(data.start_ms)}</dd></>}
         {data.due_ms && <><dt>Due</dt><dd>{when(data.due_ms)}</dd></>}
+        {data.next_wakeup_ms && <><dt>Next check</dt><dd>{when(data.next_wakeup_ms)} · the agent continues then</dd></>}
         {data.done_when && <><dt>Done when</dt><dd>{data.done_when}</dd></>}
       </dl>
+      {data.blocked_wakeup && <p className="activity-fix" role="note"><strong>The agent couldn't continue:</strong> {data.blocked_wakeup.replace(/^Follow-up blocked: /, '')} Fix access, then ask the agent again, or close the task.</p>}
       {data.result && <p className="activity-fix"><strong>Result:</strong> {data.result}</p>}
       <h3>Steps</h3>
       <ol className="activity-steps">{data.requests.map(step => {

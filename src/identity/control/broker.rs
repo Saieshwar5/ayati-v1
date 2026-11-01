@@ -204,6 +204,7 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             pg.close_task(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "follow_up" => pg.follow_up(job, &serde_json::from_value(arguments)?).await,
         "operations" => {
             ensure!(arguments == json!({}), "Invalid discovery request");
             pg.control_operations(job).await

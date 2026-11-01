@@ -87,7 +87,8 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     const controlPrompt = originalLine
       ?.replace(/^(?:Connected event work|Scheduled work) · [^\n]*\n/, '')
       .replace(/^\[Personal Home panel (?:request|change)\]\n[^\n]*\n/, '');
-    const scriptedCommand = controlScripts.get(originalLine) ?? controlScripts.get(controlPrompt);
+    // A follow-up's first line ("Follow-up · <task title>") can key a script too.
+    const scriptedCommand = controlScripts.get(originalLine) ?? controlScripts.get(controlPrompt) ?? controlScripts.get(originalLine?.split('\n')[0]);
     if (controlPrompt?.startsWith('permission_draft ')) {
       const setup = JSON.parse(controlPrompt.slice(17));
       text = JSON.stringify({ rules: setup.actions.filter(a => a.operation !== 'order.delete').map(a => ({ connection: a.connection, operation: a.operation, mode: a.effect === 'read' ? 'allow' : 'ask' })), warnings: ['Fixture suggestion: delete is omitted and must remain blocked.'] });
