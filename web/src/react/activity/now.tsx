@@ -6,6 +6,8 @@ import { ago, clock, dayLabel, loadNow, markSeen, pauseAgent, status, stopReques
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
 import { PauseAgentsControl } from './agents-pause';
+import { QuestionDialog } from '../questions/dialog';
+import type { AttentionItem } from '../attention/model';
 import { currentWorkspace, workspaceUrl } from '../../workspace-context';
 
 function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone: string; line: string } {
@@ -20,9 +22,12 @@ function cardState(agent: AgentCard, allPaused: boolean): { label: string; tone:
 /** Now: "while you were away", every agent's state, and work running right now
  * (designs/activity 2). The summary covers everything since the person last
  * caught up; only "See in History" or "Dismiss" moves that point. */
-export function NowView({ scope, search, openHistory, openUnhandled }: { scope: Scope; search: string; openHistory: (from: number) => void; openUnhandled?: () => void }) {
+export function NowView({ scope, search, openHistory, openUnhandled, waiting }: { scope: Scope; search: string; openHistory: (from: number) => void; openUnhandled?: () => void;
+  /** The page's Needs me items, so a running request's question can be answered here. */
+  waiting?: AttentionItem[] }) {
   const { data, error, refresh } = useLive(useCallback(() => loadNow(scope), [scope]));
   const [open, setOpen] = useState<string>();
+  const [answering, setAnswering] = useState<string>();
   const mutation = useMutation();
   const matches = (text: string) => !search || text.toLowerCase().includes(search.toLowerCase());
   const agents = (data?.agents ?? []).filter(a => matches(`${a.name} ${a.role}`));
@@ -60,7 +65,7 @@ export function NowView({ scope, search, openHistory, openUnhandled }: { scope: 
           {agent.last_failed && <Button onClick={() => setOpen(agent.last_failed!)}>How to fix it</Button>}
           {agent.can_pause && !data?.agents_paused && <Button disabled={mutation.busy} aria-label={`${agent.paused ? 'Resume' : 'Pause'} ${agent.name}`}
             onClick={() => pause(agent, !agent.paused)}>{agent.paused ? 'Resume' : 'Pause'}</Button>}
-          <a className="activity-card-setup" href={workspaceUrl('/?view=agents')}>Set up {agent.name} →</a>
+          <a className="activity-card-setup" href={workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent.id)}`)}>Set up {agent.name} →</a>
         </div>
       </article>;
     })}</div>
@@ -74,10 +79,15 @@ export function NowView({ scope, search, openHistory, openUnhandled }: { scope: 
         <AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />
         <span className="activity-main"><strong>{item.summary}</strong><small>{item.agent_name} · {item.requester_name ?? 'Someone'} · {where(item)} · {ago(item.created_ms)}</small></span>
         <span className={`activity-status ${shown.tone}`}>{shown.label}</span>
+        {(() => {
+          const question = waiting?.find(entry => entry.kind === 'question' && entry.reply === item.id);
+          return question && <Button primary onClick={() => setAnswering(question.id)}>Answer</Button>;
+        })()}
         {item.can_cancel ? <Button disabled={mutation.busy} onClick={() => stop(item)}>Stop</Button> : <Button onClick={() => setOpen(item.id)}>Review</Button>}
       </li>;
     })}</ul>
     {data && !running.length && <p className="activity-empty">Nothing is running right now.</p>}
     {open && <RequestDetails reply={open} close={() => setOpen(undefined)} />}
+    {answering && <QuestionDialog key={answering} id={answering} close={() => { setAnswering(undefined); void refresh().catch(() => {}); }} />}
   </section>;
 }
