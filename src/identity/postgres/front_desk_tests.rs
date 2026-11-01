@@ -304,6 +304,7 @@ async fn email_threads_get_one_complete_reply_with_no_acknowledgement_or_updates
         text: text.into(),
         attachments: vec![],
         automated: false,
+        thread: None,
     };
     // An agent working on an email can't post progress into the thread.
     db.simulate_incoming(

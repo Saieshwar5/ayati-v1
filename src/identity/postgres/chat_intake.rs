@@ -148,7 +148,7 @@ impl PgStore {
         );
         access(tx, user, workspace, chat).await?;
         if class != WorkClass::Communication {
-            super::communication_access::ordinary_chat(tx, workspace, chat).await?;
+            super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }
         let (author, kind) = match class {
             WorkClass::Handoff(sender) => (sender, "agent"),
@@ -328,8 +328,15 @@ impl PgStore {
             }
         }
         if class == WorkClass::Interactive {
-            super::communication_inbox::record_chat(tx, user, workspace, chat, input, job.as_ref())
-                .await?;
+            super::communications::inbox::record_chat(
+                tx,
+                user,
+                workspace,
+                chat,
+                input,
+                job.as_ref(),
+            )
+            .await?;
         }
         Ok(job)
     }

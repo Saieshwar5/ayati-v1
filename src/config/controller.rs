@@ -58,6 +58,8 @@ pub struct Controller {
     /// Toolkit to Composio auth config, for apps that sign in with your own OAuth app.
     pub composio_auth_configs: std::collections::BTreeMap<String, String>,
     pub event_sources_file: Option<PathBuf>,
+    /// Developer transport servers (Communication MCP), a private 0600 file.
+    pub transport_servers_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
@@ -201,6 +203,7 @@ impl Controller {
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),
+            transport_servers_file: absolute(env, "AYATI_TRANSPORT_SERVERS_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),

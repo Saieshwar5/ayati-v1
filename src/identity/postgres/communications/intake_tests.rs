@@ -1,4 +1,4 @@
-use super::{tests::*, *};
+use super::super::{tests::*, *};
 use crate::identity::chat::model::Job;
 use crate::identity::communications::model::{
     Binding, Endpoint, Message, Outcome, Receipt, SetState, Transport,
@@ -9,7 +9,7 @@ async fn setup() -> (PgStore, User, String, String, Endpoint) {
     let db = fixture().await;
     let owner = user(&db, "communications-owner").await;
     let w = workspace(&db, &owner).await;
-    let (chat, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (chat, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     let endpoint = Endpoint {
         id: uuid::Uuid::new_v4().to_string(),
         agent,
@@ -41,6 +41,7 @@ fn incoming(event: &str, text: &str) -> Message {
         text: text.into(),
         attachments: vec![],
         automated: false,
+        thread: None,
     }
 }
 async fn finish(db: &PgStore) -> Job {

@@ -104,7 +104,7 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
             }
         }
     }
-    if super::communication_access::exists(db).await? {
+    if super::communications::access::exists(db).await? {
         clauses.push_str(" AND relay_communication_current(m.workspace,m.chat)");
     }
     Ok(clauses)

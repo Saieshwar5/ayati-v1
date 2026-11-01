@@ -36,7 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::handoff_migration::Handoffs),
             Box::new(super::home_migration::HomePanels),
             Box::new(super::context_migration::ConversationContext),
-            Box::new(super::communication_migration::Communications),
+            Box::new(super::communications::migration::Communications),
             Box::new(super::home_maintenance_migration::HomeMaintenance),
             Box::new(super::executor_task_migration::ExecutorTasks),
             Box::new(super::data_lifecycle_migration::DataLifecycle),
@@ -58,6 +58,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::settings::pause_migration::AgentPause),
             Box::new(super::chat::updates_migration::AgentUpdates),
             Box::new(super::connector_providers::migration::ConnectorProviders),
+            Box::new(super::communications::migration::CommunicationGateway),
         ]
     }
 }

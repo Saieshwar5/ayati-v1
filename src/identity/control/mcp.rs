@@ -8,6 +8,8 @@ pub(crate) struct Remote {
     server: Server,
     session: Option<String>,
     bearer: Option<String>,
+    capabilities: Value,
+    limit: usize,
 }
 impl Remote {
     pub async fn connect(server: Server, fingerprint: &str) -> Result<Self> {
@@ -41,16 +43,37 @@ impl Remote {
             server,
             session: None,
             bearer,
+            capabilities: Value::Null,
+            limit: 65536,
         };
         let init = remote.rpc("initialize", json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cuckoo-control","version":env!("CARGO_PKG_VERSION")}}), Some(1)).await?;
         ensure!(
             init["protocolVersion"] == "2025-11-25" && init["capabilities"]["tools"].is_object(),
             "Unsupported remote MCP protocol or capabilities"
         );
+        remote.capabilities = init["capabilities"].clone();
         remote
             .rpc("notifications/initialized", json!({}), None)
             .await?;
         Ok(remote)
+    }
+    /// What the server declared when it connected.
+    pub fn capabilities(&self) -> &Value {
+        &self.capabilities
+    }
+    /// Accept results up to `bytes` (64 KiB by default).
+    pub fn limit(mut self, bytes: usize) -> Self {
+        self.limit = bytes;
+        self
+    }
+    /// Calls one tool and returns its raw result, error results included.
+    pub async fn call_tool(&mut self, name: &str, arguments: &Value) -> Result<Value> {
+        self.rpc(
+            "tools/call",
+            json!({"name":name,"arguments":arguments}),
+            Some(3),
+        )
+        .await
     }
     pub async fn verify(&mut self, operations: &[Operation]) -> Result<()> {
         self.inventory(operations).await.map(|_| ())
@@ -149,8 +172,8 @@ impl Remote {
             .map_err(|_| anyhow::anyhow!("Remote MCP result was interrupted"))?
         {
             ensure!(
-                bytes.len() + chunk.len() <= 65536,
-                "Remote MCP result exceeds 64 KiB"
+                bytes.len() + chunk.len() <= self.limit,
+                "Remote MCP result is too large"
             );
             bytes.extend_from_slice(&chunk);
             if let Some(value) = super::mcp_reply::parse_reply(&bytes, sse, id.unwrap())? {

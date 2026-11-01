@@ -1,5 +1,9 @@
 # Native communication foundation
 
+> Schema 54 adds the [communication gateway](communication-gateway.md): live
+> transports behind one adapter contract, starting with developer transports
+> through the Communication MCP. The simulations below are unchanged.
+
 This local implementation adds a common communication envelope and PostgreSQL
 inbox/outbox to the existing controller. Chat records ordinary message intake and
 successful final reply publication. Email and WhatsApp are **local simulations

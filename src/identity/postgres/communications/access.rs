@@ -1,7 +1,7 @@
 use super::*;
 use crate::identity::chat::model::Job;
 
-pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
+pub(in crate::identity::postgres) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
         db,
         "SELECT to_regclass('relay_communication_inbox') IS NOT NULL AS present",
@@ -18,7 +18,10 @@ pub(super) async fn owner(tx: &DatabaseTransaction, user: &User, w: &str) -> Res
     );
     Ok(())
 }
-pub(super) async fn allowed(db: &impl ConnectionTrait, job: &Job) -> Result<bool> {
+pub(in crate::identity::postgres) async fn allowed(
+    db: &impl ConnectionTrait,
+    job: &Job,
+) -> Result<bool> {
     if !exists(db).await? {
         return Ok(true);
     }
@@ -31,7 +34,11 @@ pub(super) async fn allowed(db: &impl ConnectionTrait, job: &Job) -> Result<bool
     .context("Missing communication scope")?
     .try_get("", "allowed")?)
 }
-pub(super) async fn ordinary_chat(tx: &DatabaseTransaction, w: &str, chat: &str) -> Result<()> {
+pub(in crate::identity::postgres) async fn ordinary_chat(
+    tx: &DatabaseTransaction,
+    w: &str,
+    chat: &str,
+) -> Result<()> {
     if exists(tx).await? {
         ensure!(
             query(
