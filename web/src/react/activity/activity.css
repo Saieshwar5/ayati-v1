@@ -151,3 +151,9 @@ button.activity-row-button:hover { background: var(--soft); }
 
 /* Pause all agents: its control on Now. */
 .activity-now-header { display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px; }
+
+/* Tasks (people-and-agents-first, Phase 2). */
+.activity-row-light strong { font-weight: 500; color: var(--muted); }
+.activity-task-line { margin: 0; font-size: 13px; color: var(--muted); }
+.activity-task-line a { color: var(--text); font-weight: 600; }
+.activity-open > section + section { margin-top: 8px; }

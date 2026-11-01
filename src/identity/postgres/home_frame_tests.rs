@@ -2,7 +2,6 @@
 //! published update, is limited to 280 characters, and the panel names its latest
 //! update so a delayed or failed panel can open it in Activity.
 use super::super::home_maintenance_tests::{agreement, claim, observed, panel, setup, update};
-use super::super::*;
 use crate::identity::home_panels::maintenance::Refresh;
 use serde_json::json;
 

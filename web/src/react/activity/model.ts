@@ -10,6 +10,8 @@ export type ActivityItem = {
   agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
   /** A Home panel refresh names its panel. */
   panel?: { id: string; title: string } | null;
+  /** The task this request works towards, if any. */
+  task?: TaskRef | null;
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
@@ -126,3 +128,28 @@ export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
   }
   return entries.map(entry => entry.kind === 'panel-fold' && entry.items.length === 1 ? { kind: 'item', item: entry.items[0] } : entry);
 }
+
+/** A task: a promise with an outcome (people-and-agents-first, Phase 2). */
+export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'done' | 'failed' | 'cancelled' | 'not_task';
+export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus };
+export type TaskItem = TaskRef & {
+  origin: string; done_when: string | null; waiting_on: 'approval' | 'question' | 'helper' | null;
+  agent: string; agent_name: string; agent_avatar: string | null; requester: string; requester_name: string | null;
+  chat: string; conversation_name: string; conversation_kind: string; created_ms: number; start_ms: number | null; due_ms: number | null;
+  closed_ms: number | null; outcome: string | null; result: string | null; steps: number;
+};
+export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
+export const taskLabels: Record<TaskStatus, string> = {
+  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Scheduled', late: 'Late',
+  done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',
+};
+export const taskTone = (status: TaskStatus) => status === 'needs_fixing' || status === 'late' || status === 'failed' ? 'problem'
+  : status === 'waiting' ? 'waiting' : status === 'working' ? 'working' : status === 'done' ? 'done' : 'quiet';
+export const waitingLabels: Record<string, string> = { approval: 'an approval', question: 'an answer', helper: 'another agent' };
+export const loadTasks = (scope: Scope, signal?: AbortSignal) =>
+  identityRequest<{ items: TaskItem[]; more: boolean }>(`${root}/tasks?scope=${scope}`, undefined, signal);
+export const loadTask = (id: string, signal?: AbortSignal) => identityRequest<TaskDetail>(`${root}/tasks/${encodeURIComponent(id)}`, undefined, signal);
+export const closeTask = (id: string, outcome: 'done' | 'cancelled' | 'not_task') =>
+  identityRequest<{ id: string; outcome: string }>(`${root}/tasks/${encodeURIComponent(id)}/close`, { outcome });
+export const makeTask = (reply: string) => identityRequest<{ id: string; title: string }>(`${root}/requests/${encodeURIComponent(reply)}/task`, {});
+export const taskUrl = (id: string) => workspaceUrl(`/?view=activity&tab=open&task=${encodeURIComponent(id)}`);

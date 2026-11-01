@@ -21,6 +21,8 @@ export type Message = {
     text: string; generation?: number;
   } | null;
   approval?: import('../approvals/approval-card').ApprovalReference;
+  /** The task this reply works towards, shown as a chip (people-and-agents-first). */
+  task?: import('../activity/model').TaskRef | null;
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null; reply_to?: string | null;
   edited_at?: number | null; for_me?: boolean; reactions?: { emoji: string; count: number; mine: boolean }[];

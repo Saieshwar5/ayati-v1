@@ -39,6 +39,7 @@ impl PgStore {
             &id,
         )
         .await?;
+        super::tasks::ensure_automatic(&tx, job, "request").await?;
         tx.commit().await?;
         Ok(
             json!({"id":id,"key":input.key,"revision":1,"state":"pending","message":"Question saved for the original requester. Explain what is waiting, then finish this attempt without polling or more business operations. The original task will continue after an answer or decline."}),

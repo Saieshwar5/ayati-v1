@@ -188,6 +188,22 @@ pub(crate) async fn invoke(pg: &PgStore, job: &Job, tool: &str, arguments: Value
             let input = serde_json::from_value(arguments)?;
             pg.load_skill(job, &input).await
         }
+        "create_task" => {
+            pg.create_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "attach_to_task" => {
+            pg.attach_to_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "open_tasks" => {
+            ensure!(arguments == json!({}), "Invalid open tasks request");
+            pg.open_tasks(job).await
+        }
+        "close_task" => {
+            pg.close_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "operations" => {
             ensure!(arguments == json!({}), "Invalid discovery request");
             pg.control_operations(job).await
