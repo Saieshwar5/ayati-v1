@@ -70,8 +70,8 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
           <dt>Results</dt><dd>{data.schedule.post_to ? `Activity, and a summary in ${data.schedule.post_to}` : 'Activity only'}
             {data.schedule.posted === 'posted' && ' · Posted'}{data.schedule.posted === 'skipped' && ` · Not posted: ${data.schedule.post_reason ?? ''}`}</dd>
         </> : <>
-          <dt>Asked by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
-          <dt>Where</dt><dd>{where(data)}</dd>
+          <dt>{data.panel ? 'For' : 'Asked by'}</dt><dd>{data.requester_name ?? 'Former member'}</dd>
+          <dt>Where</dt><dd>{data.panel ? `Home panel · ${data.panel.title}` : where(data)}</dd>
         </>}
         <dt>When</dt><dd>{dayLabel(data.created_ms)} {clock(data.created_ms)}{data.finished_ms ? ` · ${Math.max(1, Math.round((data.finished_ms - data.created_ms) / 1000))} s` : ''}</dd>
       </dl>

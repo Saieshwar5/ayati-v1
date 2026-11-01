@@ -76,6 +76,16 @@ impl PgStore {
         .transpose()?
         .flatten();
         let agents_paused = super::super::settings::pause::paused(&tx, w).await?;
+        // Events that arrived today but no agent acted on, for a line on Now.
+        let unhandled = super::super::activity_unhandled::count_since(
+            &tx,
+            w,
+            &user.id,
+            admin,
+            today_ms,
+            scope.as_deref(),
+        )
+        .await?;
         tx.commit().await?;
         let since = since.unwrap_or(now() * 1000 - 24 * 3600 * 1000);
         let away = self
@@ -101,7 +111,7 @@ impl PgStore {
             )
             .await?;
         Ok(
-            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}, "agents_paused": agents_paused}),
+            json!({"agents": agents, "running": running["items"], "away": {"since": since, "totals": away}, "agents_paused": agents_paused, "unhandled_today": unhandled}),
         )
     }
 
@@ -128,9 +138,13 @@ impl PgStore {
         let conversation: String = row.try_get("", "conversation_name")?;
         let reply_text: String = row.try_get("", "content")?;
         let source: Option<String> = row.try_get("", "source_message")?;
+        let panel: Option<Value> = row.try_get("", "panel")?;
+        let kind: String = row.try_get("", "kind")?;
+        let conversation_kind: String = row.try_get("", "conversation_kind")?;
         let mut item = super::super::agent_requests::project(&tx, user, w, &agent, row)
             .await?
             .context("Request unavailable")?;
+        super::panel_update(&mut item, panel);
         let message = match source {
             Some(id) => query(&tx,"SELECT left(content,4000) AS content FROM relay_chat_messages WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?.map(|r| r.try_get::<String>("","content")).transpose()?,
             None => None,
@@ -185,6 +199,10 @@ impl PgStore {
             object.insert("fix".into(), json!(fix));
             object.insert("disagreement".into(), json!(disagreement));
             object.insert("agent_name".into(), json!(agent_name));
+            // The screen needs these to label the request and offer Retry.
+            object.insert("agent".into(), json!(agent));
+            object.insert("kind".into(), json!(kind));
+            object.insert("conversation_kind".into(), json!(conversation_kind));
             object.insert("in_conversation".into(), json!(in_conversation));
             // A scheduled run: its schedule, and whether its result was posted.
             object.insert(

@@ -48,7 +48,16 @@ When the agent proposes an Ask operation, the controller saves the immutable
 action and one delivery record in the same transaction. The configured channel
 gets an **Approval request** card. Open **Review saved request** to fetch the
 exact account, operation, arguments, requester, source and designated approver.
-Only that currently authorized person receives decision controls:
+Only that currently authorized person receives decision controls.
+
+Since 2026-11-01 the card itself follows where the request came from (owner
+decision, people-and-agents-first): while it waits, the server adds `may_decide`,
+`waiting_for` (the managers who could decide now) and `backup_at` for the person
+looking. A person who may decide sees **Waiting for your decision** and **Review and
+decide**; everyone else in the conversation sees **Waiting for approval from Priya or
+Meera** (with "An admin can step in after …" while the backup delay runs) and a
+**Details** button that opens the same read-only review. Activity → Needs me always
+has the item; deciding in either place resolves both. The decision controls are:
 
 - **Approve this action:** dispatch the saved operation through the existing
   current-authority, schema and outcome checks.
