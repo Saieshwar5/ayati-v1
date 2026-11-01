@@ -160,3 +160,18 @@ test('the owner chooses who sees a panel; a panel that cannot be shared says why
     : response(page([panel('current', { audience: 'personal', audience_revision: 0,
       shareable: { ok: false, reason: 'Its numbers must come straight from the source first. Ask for an update; the agent can link each number to its read.' } })])) });
 });
+
+test('a panel can have up to three sections, including a pipeline of stages', async () => {
+  const pipeline = { kind: 'pipeline', stages: [{ id: 'l', label: 'Leads', count: 12 }, { id: 'q', label: 'Quoted', count: 5, value: '₹4.2L' }, { id: 'w', label: 'Won', count: 2 }] };
+  const two = { ...published, definition: { title: 'Sales pipeline', purpose: 'Deals', sections: [pipeline, { kind: 'metric', label: 'Revenue', value: '₹48,200' }] } };
+  await reactFixture(async ({ render }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    const card = document.querySelector('.home-panel-card');
+    assert.equal(card.dataset.template, 'pipeline');
+    const stages = [...card.querySelectorAll('.panel-pipeline li')].map(li => li.textContent);
+    assert.deepEqual(stages, ['Leads12', 'Quoted5₹4.2L', 'Won2']);
+    assert.equal(card.querySelector('.panel-pipeline li span span').style.width, '100%', 'the largest stage fills its bar');
+    assert.match(card.textContent, /Revenue₹48,200/);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response(page([panel('current', { active: two })])) });
+});

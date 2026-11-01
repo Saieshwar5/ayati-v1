@@ -161,6 +161,16 @@ API: `POST /home-panels/{panel}/audience {request, revision, audience: personal|
 the person (`shared: true`, `owner_name`). Schema 60: `relay_home_panels.audience`,
 `audience_chat`, `audience_revision`; `relay_home_update_runs.source_checked`.
 
+## Several sections and pipelines (HP6)
+
+A panel can have **one to three sections**; the first names its family (template).
+Every section is validated, and the reviewed shape covers all of them. A new
+**pipeline** section shows ordered stages (`stages: [{id, label, count, value?}]`,
+1–8 stages, count of zero or more, value up to 20 bytes such as "₹4.2L") with a bar for
+how many are in each; its stages are its shape, counts and values change. Bindings take
+an optional `section` (0–2) and can target `stages.N.count`; a shared panel needs every
+section bound (pipelines without values).
+
 ## Delivery and acceptance
 
 1. Save this contract and desktop/phone design before application UI edits.

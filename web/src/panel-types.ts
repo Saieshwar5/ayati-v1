@@ -1,4 +1,4 @@
-export type PanelFamily = 'metric' | 'chart' | 'table' | 'collection' | 'progress' | 'timeline' | 'text';
+export type PanelFamily = 'metric' | 'chart' | 'table' | 'collection' | 'progress' | 'timeline' | 'pipeline' | 'text';
 export type PanelTemplate = PanelFamily | 'list' | 'agenda' | 'brief';
 export type ChartVariant = 'line' | 'bar' | 'area' | 'stacked_bar' | 'donut';
 export type Comparison = {
@@ -19,7 +19,8 @@ export type Section =
   | { kind: 'chart'; title: string; points?: Point[]; variant?: ChartVariant; series?: Series[]; unit?: string }
   | { kind: 'collection'; items: { id: string; title: string; description?: string; status?: string }[] }
   | { kind: 'progress'; items: Progress[] }
-  | { kind: 'timeline'; events: { id: string; at_ms: number; label: string; description?: string }[] };
+  | { kind: 'timeline'; events: { id: string; at_ms: number; label: string; description?: string }[] }
+  | { kind: 'pipeline'; stages: { id: string; label: string; count: number; value?: string }[] };
 export type ChartSection = Extract<Section, { kind: 'chart' }>;
 export type TableSection = Extract<Section, { kind: 'table' }>;
 export type PanelDefinition = { title: string; purpose: string; template?: PanelTemplate; sections: Section[] };
@@ -31,6 +32,7 @@ export const PANEL_FAMILIES: { id: PanelFamily; label: string; description: stri
   { id: 'collection', label: 'Collection', description: 'Scan items with descriptions and optional status labels.' },
   { id: 'progress', label: 'Progress', description: 'Actual values against a defined target or range.' },
   { id: 'timeline', label: 'Timeline', description: 'Events arranged by when they happened.' },
+  { id: 'pipeline', label: 'Pipeline', description: 'How many are at each stage, from lead to done.' },
   { id: 'text', label: 'Text / summary', description: 'A heading and written context or findings.' },
 ];
 export const CHART_VARIANTS: { id: ChartVariant; label: string }[] = [
@@ -39,6 +41,7 @@ export const CHART_VARIANTS: { id: ChartVariant; label: string }[] = [
 ];
 
 export function panelTemplate(definition?: PanelDefinition | null): string {
-  if (definition?.sections.length !== 1) return 'legacy';
-  return definition.template ?? ({ metric: 'metric', metrics: 'metric', table: 'table', chart: 'chart', text: 'text', collection: 'collection', progress: 'progress', timeline: 'timeline' }[definition.sections[0].kind]);
+  // Up to three sections (HP6); the first names the family.
+  if (!definition?.sections.length || definition.sections.length > 3) return 'legacy';
+  return definition.template ?? ({ metric: 'metric', metrics: 'metric', table: 'table', chart: 'chart', text: 'text', collection: 'collection', progress: 'progress', timeline: 'timeline', pipeline: 'pipeline' }[definition.sections[0].kind]);
 }

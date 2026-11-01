@@ -59,13 +59,16 @@ pub(crate) async fn refresh(pg: &PgStore, job: &Job) -> Result<()> {
         results.iter().all(|r| !r.is_null()),
         "A source read did not complete"
     );
-    let section = bindings::apply(&plan.section, &plan.bindings, &results)?;
+    let sections = bindings::apply_all(&plan.sections, &plan.bindings, &results)?;
     ensure!(
-        !bindings::meaningful(&plan.section, &section, &plan.bindings, MEANINGFUL),
+        !bindings::meaningful_all(&plan.sections, &sections, &plan.bindings, MEANINGFUL),
         "Something meaningful changed: the agent writes what changed"
     );
     let input = Refresh {
-        sections: vec![serde_json::from_value(section)?],
+        sections: sections
+            .into_iter()
+            .map(serde_json::from_value)
+            .collect::<std::result::Result<_, _>>()?,
         what_changed: None,
         bindings: None,
     };

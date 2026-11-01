@@ -108,7 +108,7 @@ pub(in crate::identity::postgres) async fn keep_bindings(
     tx: &DatabaseTransaction,
     job: &Job,
     data: &Value,
-    section: &Value,
+    sections: &[Value],
     list: &[crate::panels::bindings::Binding],
 ) -> Result<std::result::Result<(), String>> {
     if !available(tx).await? {
@@ -118,11 +118,11 @@ pub(in crate::identity::postgres) async fn keep_bindings(
         .as_array()
         .cloned()
         .unwrap_or_default();
-    if let Err(error) = crate::panels::bindings::validate(list, scopes.len(), section) {
+    if let Err(error) = crate::panels::bindings::validate_all(list, scopes.len(), sections) {
         return Ok(Err(error.to_string()));
     }
     let results = read_results(tx, job, &scopes).await?;
-    if let Err(error) = crate::panels::bindings::check(section, list, &results) {
+    if let Err(error) = crate::panels::bindings::check_all(sections, list, &results) {
         return Ok(Err(error.to_string()));
     }
     execute(tx, "UPDATE relay_home_maintenance SET bindings=$3 WHERE workspace=$1 AND panel=$2 AND revision=$4",

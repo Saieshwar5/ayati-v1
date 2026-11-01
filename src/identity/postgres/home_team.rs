@@ -28,7 +28,19 @@ pub(in crate::identity::postgres) async fn available(db: &impl ConnectionTrait) 
 }
 
 /// Every changing value of the section is bound to the source.
-fn fully_bound(section: &Value, bindings: &[Binding]) -> std::result::Result<(), String> {
+fn fully_bound(sections: &[Value], bindings: &[Binding]) -> std::result::Result<(), String> {
+    for (i, section) in sections.iter().enumerate() {
+        let list: Vec<Binding> = bindings
+            .iter()
+            .filter(|b| b.section == i)
+            .cloned()
+            .collect();
+        bound(section, &list)?;
+    }
+    Ok(())
+}
+
+fn bound(section: &Value, bindings: &[Binding]) -> std::result::Result<(), String> {
     let has = |t: String| bindings.iter().any(|b| b.target == t);
     let items = section["items"].as_array().map_or(0, Vec::len);
     let ok = match section["kind"].as_str() {
@@ -41,6 +53,13 @@ fn fully_bound(section: &Value, bindings: &[Binding]) -> std::result::Result<(),
         }
         Some("progress") => (0..items).all(|i| has(format!("items.{i}.actual"))),
         Some("table") => has("rows".into()),
+        Some("pipeline") => {
+            let stages = section["stages"].as_array().cloned().unwrap_or_default();
+            (0..stages.len()).all(|i| has(format!("stages.{i}.count")))
+                && stages
+                    .iter()
+                    .all(|s| s["value"].as_str().unwrap_or_default().is_empty())
+        }
         _ => {
             return Err(
                 "Only number, list-of-numbers, progress and table panels can be shared.".into(),
@@ -70,7 +89,12 @@ async fn shareable(
     else {
         return Ok(Err("Its numbers must come straight from the source first. Ask for an update; the agent can link each number to its read.".into()));
     };
-    if let Err(reason) = fully_bound(&p["definition"]["sections"][0], &bindings) {
+    if let Err(reason) = fully_bound(
+        p["definition"]["sections"]
+            .as_array()
+            .map_or(&[][..], Vec::as_slice),
+        &bindings,
+    ) {
         return Ok(Err(reason));
     }
     if latest_checked(
@@ -146,7 +170,7 @@ pub(in crate::identity::postgres) async fn checked(
     tx: &DatabaseTransaction,
     job: &crate::identity::chat::model::Job,
     data: &Value,
-    section: &Value,
+    sections: &[Value],
     kept: bool,
 ) -> Result<()> {
     if !available(tx).await? {
@@ -161,7 +185,7 @@ pub(in crate::identity::postgres) async fn checked(
                     .unwrap_or_default();
                 let results =
                     super::super::home_update_runs::living::read_results(tx, job, &scopes).await?;
-                match crate::panels::bindings::check(section, &bindings, &results) {
+                match crate::panels::bindings::check_all(sections, &bindings, &results) {
                     Ok(()) => true,
                     Err(error) => {
                         let team = query(tx, "SELECT audience<>'personal' AS team FROM relay_home_panels WHERE workspace=$1 AND id=$2", vec![job.workspace.clone().into(), data["panel"].as_str().unwrap_or_default().into()]).await?

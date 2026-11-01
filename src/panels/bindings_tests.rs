@@ -145,3 +145,45 @@ fn numbers_format_like_people_write_them() {
     );
     assert_eq!(format(7.0, &b(json!({"target":"value","read":0}))), "7");
 }
+
+#[test]
+fn bindings_reach_every_section_including_pipeline_stages() {
+    let reads =
+        vec![json!({"leads": 14, "quotes": [{"id": 1}, {"id": 2}], "won": 3, "revenue": 48200})];
+    let sections = vec![
+        json!({"kind":"pipeline","stages":[{"id":"l","label":"Leads","count":0.0},{"id":"q","label":"Quoted","count":0.0},{"id":"w","label":"Won","count":0.0}]}),
+        json!({"kind":"metric","label":"Revenue","value":"0"}),
+    ];
+    let b = vec![
+        bind(json!({"target":"stages.0.count","read":0,"path":"leads"})),
+        bind(json!({"target":"stages.1.count","read":0,"path":"quotes","op":"count"})),
+        bind(json!({"target":"stages.2.count","read":0,"path":"won"})),
+        bind(
+            json!({"section":1,"target":"value","read":0,"path":"revenue","group":"indian","prefix":"₹"}),
+        ),
+    ];
+    validate_all(&b, 1, &sections).unwrap();
+    let filled = apply_all(&sections, &b, &reads).unwrap();
+    assert_eq!(filled[0]["stages"][1]["count"], 2.0);
+    assert_eq!(filled[1]["value"], "₹48,200");
+    check_all(&filled, &b, &reads).unwrap();
+    assert!(!meaningful_all(&filled, &filled, &b, 0.10));
+    assert!(
+        validate_all(
+            &[bind(json!({"section":2,"target":"value","read":0}))],
+            1,
+            &sections
+        )
+        .is_err(),
+        "no third section"
+    );
+    assert!(
+        validate_all(
+            &[bind(json!({"target":"stages.9.count","read":0}))],
+            1,
+            &sections
+        )
+        .is_err(),
+        "no tenth stage"
+    );
+}

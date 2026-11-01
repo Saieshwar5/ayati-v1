@@ -143,7 +143,7 @@ async fn the_controller_refreshes_numbers_itself_once_bindings_reproduce_an_upda
     assert!(db.direct_pick().await.unwrap().is_empty(), "taken once");
     let job = picked[0].clone();
     let plan = db.direct_plan(&job).await.unwrap();
-    assert_eq!(plan.section["value"], "2");
+    assert_eq!(plan.sections[0]["value"], "2");
     read(
         &db,
         &job,
@@ -152,10 +152,11 @@ async fn the_controller_refreshes_numbers_itself_once_bindings_reproduce_an_upda
     )
     .await;
     let results = db.direct_results(&job, &plan.scopes).await.unwrap();
-    let section = crate::panels::bindings::apply(&plan.section, &plan.bindings, &results).unwrap();
+    let section =
+        crate::panels::bindings::apply(&plan.sections[0], &plan.bindings, &results).unwrap();
     assert_eq!(section["value"], "2.10");
     assert!(!crate::panels::bindings::meaningful(
-        &plan.section,
+        &plan.sections[0],
         &section,
         &plan.bindings,
         0.10

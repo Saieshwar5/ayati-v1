@@ -11,7 +11,7 @@ use crate::panels::bindings::Binding;
 pub(crate) struct Plan {
     pub scopes: Vec<Value>,
     pub bindings: Vec<Binding>,
-    pub section: Value,
+    pub sections: Vec<Value>,
 }
 
 impl PgStore {
@@ -53,7 +53,10 @@ impl PgStore {
                 .cloned()
                 .unwrap_or_default(),
             bindings,
-            section: definition["sections"][0].clone(),
+            sections: definition["sections"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default(),
         })
     }
 

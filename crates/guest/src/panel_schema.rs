@@ -8,13 +8,15 @@ pub const TEMPLATES: &[&str] = &[
     "progress",
     "timeline",
     "text",
+    "pipeline",
     "list",
     "agenda",
     "brief",
 ];
 pub const GUIDE: &str = concat!(
-    "Home supports general reusable families: Metric, Chart, Table, Collection, Progress, Timeline and Text. ",
-    "Business purposes are configurations, never new UI types. Supply exactly one section with kind: ",
+    "Home supports general reusable families: Metric, Chart, Table, Collection, Progress, Timeline, Pipeline and Text. ",
+    "Business purposes are configurations, never new UI types. Supply one to three sections (the first names the family) with kind: ",
+    "pipeline {stages:[{id,label,count,value?}]} for 1–8 ordered stages (count >= 0, value<=20 bytes, e.g. ₹4.2L); ",
     "metric {label,value,comparison?}; metrics {items:[{id,label,value,comparison?}]} for 1–4 measures; ",
     "table {columns:[string],rows:[[string]],column_types?:[text|number]} with 1–3 columns/0–8 matching rows; ",
     "chart {title,points:[{label,value}],variant?,unit?} OR chart {title,series:[{name,points:[{label,value}]}],variant?,unit?}. ",

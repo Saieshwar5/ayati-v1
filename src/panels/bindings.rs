@@ -21,8 +21,11 @@ pub enum Op {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Binding {
-    /// Where in the panel's section: `value` (metric), `items.N.value` (metrics),
-    /// `items.N.actual` (progress) or `rows` (table).
+    /// Which of the panel's sections (0 to 2); the first by default.
+    #[serde(default, skip_serializing_if = "is_first")]
+    pub section: usize,
+    /// Where in that section: `value` (metric), `items.N.value` (metrics),
+    /// `items.N.actual` (progress), `stages.N.count` (pipeline) or `rows` (table).
     pub target: String,
     /// Which reviewed read, by its position in the update's reads.
     pub read: usize,
@@ -51,6 +54,74 @@ pub struct Binding {
 }
 
 const MAX_ROWS: usize = 50;
+
+fn is_first(section: &usize) -> bool {
+    *section == 0
+}
+
+fn of(bindings: &[Binding], section: usize) -> Vec<Binding> {
+    bindings
+        .iter()
+        .filter(|b| b.section == section)
+        .cloned()
+        .collect()
+}
+
+/// `validate` for a panel with several sections (HP6).
+pub fn validate_all(bindings: &[Binding], reads: usize, sections: &[Value]) -> Result<()> {
+    ensure!((1..=16).contains(&bindings.len()), "Give 1 to 16 bindings");
+    ensure!(
+        bindings.iter().all(|b| b.section < sections.len()),
+        "Bind only the panel's own sections"
+    );
+    for (i, section) in sections.iter().enumerate() {
+        let list = of(bindings, i);
+        if !list.is_empty() {
+            validate(&list, reads, section)?;
+        }
+    }
+    Ok(())
+}
+
+/// `apply` for every section.
+pub fn apply_all(
+    sections: &[Value],
+    bindings: &[Binding],
+    results: &[Value],
+) -> Result<Vec<Value>> {
+    sections
+        .iter()
+        .enumerate()
+        .map(|(i, section)| {
+            let list = of(bindings, i);
+            if list.is_empty() {
+                Ok(section.clone())
+            } else {
+                apply(section, &list, results)
+            }
+        })
+        .collect()
+}
+
+/// `check` for every section.
+pub fn check_all(published: &[Value], bindings: &[Binding], results: &[Value]) -> Result<()> {
+    for (i, section) in published.iter().enumerate() {
+        let list = of(bindings, i);
+        if !list.is_empty() {
+            check(section, &list, results)?;
+        }
+    }
+    Ok(())
+}
+
+/// `meaningful` for any section.
+pub fn meaningful_all(old: &[Value], new: &[Value], bindings: &[Binding], share: f64) -> bool {
+    old.len() != new.len()
+        || old.iter().zip(new).enumerate().any(|(i, (a, z))| {
+            let list = of(bindings, i);
+            !list.is_empty() && meaningful(a, z, &list, share)
+        })
+}
 
 pub fn validate(bindings: &[Binding], reads: usize, section: &Value) -> Result<()> {
     ensure!((1..=16).contains(&bindings.len()), "Give 1 to 16 bindings");
@@ -95,6 +166,14 @@ fn target<'a>(section: &'a Value, target: &str, b: &Binding) -> Result<&'a str> 
                 "No item {n} in this panel"
             );
             Ok(if kind == "progress" { "number" } else { "text" })
+        }
+        ("pipeline", ["stages", n, "count"]) => {
+            let n: usize = n.parse().context("Stage number")?;
+            ensure!(
+                section["stages"].get(n).is_some(),
+                "No stage {n} in this panel"
+            );
+            Ok("number")
         }
         ("table", ["rows"]) => {
             ensure!(

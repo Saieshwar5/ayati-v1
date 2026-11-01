@@ -155,6 +155,16 @@ pub(super) fn validate(section: &Section) -> Result<()> {
                     && v.target > v.minimum),
             "Progress supports 1–4 unique measures with finite actual/range and target greater than minimum"
         ),
+        Section::Pipeline { stages } => ensure!(
+            (1..=8).contains(&stages.len())
+                && ids(stages.iter().map(|s| s.id.as_str()))
+                && stages.iter().all(|s| !s.label.trim().is_empty()
+                    && text(&s.label, 40)
+                    && s.count.is_finite()
+                    && s.count >= 0.0
+                    && text(&s.value, 20)),
+            "A pipeline has 1 to 8 stages, each with a label up to 40 characters, a count of zero or more and a value up to 20"
+        ),
         Section::Timeline { events } => ensure!(
             events.len() <= 8
                 && ids(events.iter().map(|v| v.id.as_str()))
