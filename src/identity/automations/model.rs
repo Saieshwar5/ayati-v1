@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub(crate) struct Schedule {
     pub id: String,
-    pub chat: String,
+    /// Where to post one short result message, if anywhere. Runs themselves
+    /// happen in the schedule's own work room and show in Activity.
+    #[serde(default)]
+    pub chat: Option<String>,
     pub name: String,
     pub content: String,
     pub first_ms: i64,
@@ -14,7 +17,9 @@ pub(crate) struct Schedule {
 impl Schedule {
     pub(crate) fn validate(&self) -> Result<()> {
         uuid(&self.id)?;
-        uuid(&self.chat)?;
+        if let Some(chat) = &self.chat {
+            uuid(chat)?;
+        }
         ensure!(
             !self.name.trim().is_empty()
                 && self.name.len() <= 100

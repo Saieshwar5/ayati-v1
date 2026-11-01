@@ -185,6 +185,11 @@ impl PgStore {
             object.insert("disagreement".into(), json!(disagreement));
             object.insert("agent_name".into(), json!(agent_name));
             object.insert("in_conversation".into(), json!(in_conversation));
+            // A scheduled run: its schedule, and whether its result was posted.
+            object.insert(
+                "schedule".into(),
+                json!(super::super::work_rooms::run_source(&tx, w, reply).await?),
+            );
         }
         tx.commit().await?;
         Ok(item)

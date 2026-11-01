@@ -3,6 +3,7 @@ import { useAttention } from '../attention/use-attention';
 import { NeedsMe } from './needs-me';
 import { NowView } from './now';
 import { HistoryView } from './history';
+import { RequestDetails } from './request-details';
 import './activity.css';
 
 type Tab = 'needs' | 'now' | 'history';
@@ -15,7 +16,13 @@ const chosen = (href: string): Tab | undefined => {
 /** Activity (D235): what needs me, what agents are doing now, and everything
  * they did. It opens on Needs me unless a link asks for another view. */
 export function ActivityPage({ href }: { href: string }) {
-  const [tab, setTab] = useState<Tab>(() => chosen(href) ?? 'needs');
+  // A link to one run (from a schedule's posted result or its runs) opens it here.
+  const [run, setRun] = useState(() => new URL(href).searchParams.get('run') ?? undefined);
+  const [tab, setTab] = useState<Tab>(() => chosen(href) ?? (run ? 'history' : 'needs'));
+  const closeRun = () => {
+    setRun(undefined);
+    const url = new URL(window.location.href); url.searchParams.delete('run'); window.history.replaceState(null, '', url);
+  };
   const [search, setSearch] = useState('');
   const [since, setSince] = useState<number>();
   const attention = useAttention('needs_you', null);
@@ -47,5 +54,6 @@ export function ActivityPage({ href }: { href: string }) {
       {tab === 'now' && <NowView search={search} openHistory={from => { setSince(from); setTab('history'); }} />}
       {tab === 'history' && <HistoryView key={since ?? 'period'} search={search} since={since} />}
     </div>
+    {run && <RequestDetails reply={run} close={closeRun} />}
   </section>;
 }

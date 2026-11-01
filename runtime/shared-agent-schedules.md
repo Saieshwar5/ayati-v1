@@ -1,5 +1,41 @@
 # Shared agent schedules
 
+## Since schema 56: runs happen in Activity, not in Chat
+
+Built 2026-11-01 (D237, milestone B1). The rule: Chat is for conversations
+people start or join; work an agent does on its own appears in Activity.
+
+- **Work rooms.** Each schedule runs in its own private room
+  (`relay_chats.work`), holding the person who set it up and the agent. It is
+  opened at the first run and never appears in Chat, its directory or alerts.
+  People can't write into it. It is also the schedule's memory: each run reads
+  the earlier runs, never anyone's conversation.
+- **Where results go.** A schedule's conversation (`chat`) is now optional and
+  means "also post the result to". The default is **Activity only**. When a
+  conversation is set, a completed run posts one short message there: the
+  schedule's name, the first 400 characters of the result and a
+  `[View run](run:<id>)` link that opens the run in Activity. The outcome is
+  recorded in `relay_run_posts` (posted, or skipped with a reason).
+- **Existing schedules** keep their conversation as the post-to target, so
+  nothing quietly disappears.
+- **Authority.** A run needs its person's current maintainership of and direct
+  access to the agent. A schedule that posts somewhere also needs the
+  conversation authority it always did (membership, agent participation,
+  posting, an open channel). Losing that blocks future runs for review, as
+  before. A run already accepted continues in its room, and its post is
+  skipped with a reason.
+- **Activity.** A run's details show **Started by** (the schedule), **Set up
+  by** and **Results** (posted or not, and why), with **Pause schedule**.
+  There is no conversation to open. A run's question and approvals wait in
+  **Needs me**. Links of the form `?view=activity&tab=history&run=<id>` open a
+  run directly. In an agent's Schedules, **View runs** opens each run in
+  Activity, and the create dialog asks "Where results go".
+- **Unchanged:** personal Home panel updates keep their own source.
+  Event-triggered work still posts in its channel until milestone B1b.
+
+The sections below describe the original schedules increment. Where they say
+runs enter the source conversation, the work room above replaces that.
+
 Implemented locally 26 October 2026, serially after PR 72. The initial plan was
 saved before source/UI edits. This increment adds shared scheduled intake; external
 events and channel handoffs remain separate.

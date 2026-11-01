@@ -14,5 +14,9 @@ test('agent markdown renders headings, lists, tables and literal code through a 
   assert.equal(main.querySelector('script,img,iframe,svg'),null);assert.equal(main.querySelector('.message-mention').textContent,'@Sam');
   assert.doesNotMatch(main.innerHTML, /href="javascript:/);
   assert.ok(messageHtml('Incomplete **stream').includes('Incomplete'));
+  // A posted schedule result links to its run in Activity, in the same tab; nothing else using run: does.
+  main.innerHTML=messageHtml('[View run](run:22222222-2222-4222-8222-222222222222) [Odd](run:../../admin)');
+  assert.equal(main.querySelectorAll('a').length,1);assert.match(main.querySelector('a').getAttribute('href'),/view=activity&tab=history&run=22222222-2222-4222-8222-222222222222$/);
+  assert.equal(main.querySelector('a').target,'');
  } finally {globalThis.document=previous;dom.window.close();}
 });

@@ -330,6 +330,7 @@ impl PgStore {
         execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         if allowed && state == "complete" {
             super::communications::outbox::complete(tx, job, content).await?;
+            super::work_rooms::post_result(tx, job, content).await?;
         }
         Ok(true)
     }
@@ -341,6 +342,7 @@ pub(super) async fn chats_in(
     workspace: &str,
 ) -> Result<Value> {
     let owner = role(tx, workspace, &user.id).await? == "Admin";
-    let chats=json_rows(tx,"SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC",vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
+    let hidden = super::work_rooms::hidden(tx).await?;
+    let chats=json_rows(tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC"),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
     Ok(json!({"chats":chats}))
 }

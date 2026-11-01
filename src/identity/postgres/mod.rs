@@ -253,6 +253,7 @@ mod task_continuation;
 mod task_continuation_tests;
 mod task_revocation;
 mod work;
+mod work_rooms;
 pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;

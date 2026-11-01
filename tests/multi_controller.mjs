@@ -55,7 +55,9 @@ test('two controllers on one database share work exactly once, across sessions, 
     content: 'Report once', first_ms: Date.now() + 2500, interval_seconds: 3600, timezone: 'UTC' });
   await until(() => app.sql(`SELECT count(*) FROM relay_schedule_occurrences WHERE schedule='${schedule}'`) === '1', 'Schedule did not fire', 20000);
   const occurrence = { reply: app.sql(`SELECT reply FROM relay_schedule_occurrences WHERE schedule='${schedule}'`) };
-  await finished(b, occurrence);
+  // The run happens in the schedule's own work room; the channel gets one short result.
+  await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${occurrence.reply}'`) === 'complete', 'Scheduled run did not complete', 45000);
+  await until(() => app.sql(`SELECT state FROM relay_run_posts WHERE reply='${occurrence.reply}'`) === 'posted', 'Scheduled result was not posted', 15000);
   await new Promise(resolve => setTimeout(resolve, 3000));
   assert.equal(app.sql(`SELECT count(*) FROM relay_schedule_occurrences WHERE schedule='${schedule}'`), '1');
   app.pass('A due schedule fires once although both controllers run the scheduler');

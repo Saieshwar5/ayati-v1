@@ -6,7 +6,7 @@ import { subscribeChanges } from '../../chat/live';
 import { CreateSchedule } from './create-dialog';
 import { ScheduleState } from './state-dialog';
 import { ScheduleRuns } from './runs-dialog';
-import { cadence, date, deviceClock, loadSchedules, type Routine } from './model';
+import { cadence, date, deviceClock, loadSchedules, results, type Routine } from './model';
 import './schedules.css';
 import { EventTriggers } from './events';
 
@@ -45,7 +45,7 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
   }, [resource.refresh, resource.setData]);
   const ready = Boolean(resource.data && !resource.error);
   return <section className="shared-schedules" aria-label={`${agent.name} automation`}>
-    <header className="agent-section-heading"><div><h3>Schedules</h3><p>Give {agent.name} a routine in an existing conversation.</p></div>
+    <header className="agent-section-heading"><div><h3>Schedules</h3><p>Give {agent.name} a routine. Its runs and anything that needs you appear in Activity.</p></div>
       <Button disabled={!ready || !resource.data?.execution_available} onClick={() => show({ kind: 'create' })}>Create schedule</Button>
     </header>
     {resource.error && <p role="alert">{resource.error}</p>}
@@ -56,7 +56,7 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
       <header><h4>{routine.name}</h4><span>{routine.state === 'completed' ? 'One-time occurrence accepted' : routine.state}</span></header>
       <p className="routine-instructions">{routine.content}{routine.instructions_long && '…'}</p>
       <p>{cadence(routine.interval_seconds)} · {routine.timezone}</p>
-      <p>{routine.chat_name} · Authorized by {routine.principal_name}</p>
+      <p>Results: {results(routine.chat, routine.chat_name)} · Authorized by {routine.principal_name}</p>
       {routine.next_ms && <p>Next due: {date(routine.next_ms, routine.timezone)}</p>}
       {routine.unfinished && <p className="ui-help">An earlier run is still unfinished. View runs to check its progress or use task Stop.</p>}
       {routine.detail && <p role="status">{routine.detail}</p>}

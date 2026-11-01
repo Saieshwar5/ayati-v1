@@ -14,3 +14,10 @@
 .routine-triggers { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 24px; }
 .routine-run { padding: 18px 0; border-bottom: 1px solid var(--border); }
 @media (max-width: 600px) { .shared-schedules > .agent-section-heading, .routine-triggers > .agent-section-heading { flex-wrap: wrap; } .routine-interval { grid-template-columns: 1fr; } }
+
+.routine-results { display: grid; gap: 8px; border: 0; padding: 0; margin: 0; }
+.routine-results legend { font-weight: 600; margin-bottom: 6px; }
+.routine-choice { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.routine-choice:has(input:checked) { border-color: var(--text); }
+.routine-choice span { display: grid; gap: 4px; }
+.routine-choice small { color: var(--muted); }

@@ -12,7 +12,7 @@ pub(super) async fn setup() -> (PgStore, User, String, String, String) {
 pub(super) fn schedule(chat: &str, repeat: Option<i64>) -> Schedule {
     Schedule {
         id: uuid::Uuid::new_v4().to_string(),
-        chat: chat.into(),
+        chat: Some(chat.into()),
         name: "Delivery review".into(),
         content: "Review delivery exceptions. Ask separately before changing an order.".into(),
         first_ms: now() * 1000 + 60000,
@@ -66,7 +66,9 @@ async fn automation_atomic_occurrence_and_exact_creation_survive_replica_duplica
     assert_eq!(job["work_class"], "background");
     assert_eq!(job["dispatch"], "pooled");
     assert_eq!(job["payload"]["requester"], owner.id);
-    assert_eq!(job["payload"]["chat"], c);
+    // The run is in the schedule's own work room, not the conversation it posts to.
+    assert_eq!(job["payload"]["chat"], runs["runs"][0]["chat"]);
+    assert_ne!(job["payload"]["chat"], c);
     assert_eq!(job["request_message"], runs["runs"][0]["message"]);
     assert!(
         job["payload"]["prompt"]
@@ -128,7 +130,8 @@ async fn automation_coalesces_missed_intervals_and_never_overlaps_or_replays_a_s
         0
     );
     let reply = runs["runs"][0]["reply"].as_str().unwrap();
-    db.cancel_assignment(&owner, &w, &c, reply).await.unwrap();
+    let room = runs["runs"][0]["chat"].as_str().unwrap();
+    db.cancel_assignment(&owner, &w, room, reply).await.unwrap();
     assert_eq!(
         db.dispatch_schedules_at(input.first_ms + 305000)
             .await
