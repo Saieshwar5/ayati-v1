@@ -76,6 +76,14 @@ impl PgStore {
                 }
             },
         };
+        super::home_views::team::checked(
+            &tx,
+            job,
+            &data,
+            &definition["sections"][0],
+            bindings["saved"] == true,
+        )
+        .await?;
         let provenance = super::home_sources::capture(&tx, job, None, &[]).await?;
         let generation = data["expected_generation"].as_i64().unwrap() + 1;
         execute(&tx,"INSERT INTO relay_home_snapshots(workspace,panel,generation,panel_revision,definition,provenance,task,checked_ms,what_changed) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",vec![job.workspace.clone().into(),data["panel"].as_str().unwrap().into(),generation.into(),data["panel_revision"].as_i64().unwrap().into(),definition.into(),provenance.into(),job.reply.clone().into(),checked_ms.into(),what_changed.map(str::to_string).into()]).await?;

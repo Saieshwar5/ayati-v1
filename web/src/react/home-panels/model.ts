@@ -38,7 +38,18 @@ export type PersonalPanel = {
   active: Snapshot | null;
   draft: Snapshot | null;
   maintenance?: Maintenance | null;
+  /** Team panels (Phase 3 HP4): who sees it. The owner's own panels carry these too. */
+  audience?: Audience; audience_chat?: string | null; audience_name?: string | null; audience_revision?: number;
+  /** Whether the owner may share it now, and why not. */
+  shareable?: { ok: boolean; reason?: string };
+  /** Someone else's panel, shared with you: read-only, kept by its owner. */
+  shared?: boolean; owner_name?: string | null;
 };
+export type Audience = 'personal' | 'channel' | 'workspace';
+export const audienceLabel = (panel: PersonalPanel) => panel.audience === 'workspace' ? 'everyone'
+  : panel.audience === 'channel' ? `#${panel.audience_name ?? 'channel'}` : 'you';
+export const shareHomePanel = (id: string, input: { request: string; revision: number; audience: Audience; chat?: string | null }) =>
+  identityRequest<{ audience: Audience; audience_revision: number }>(`${base}/${encodeURIComponent(id)}/audience`, input);
 export type HomeLayout = { revision: number; order: string[]; wide: string[]; hidden: string[] };
 export type PanelsPage = { available: boolean; panels: PersonalPanel[]; layout: HomeLayout };
 export const base = `/workspaces/${workspaceId}/home-panels`;

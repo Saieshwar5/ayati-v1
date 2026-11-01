@@ -4,7 +4,7 @@ import { useMutation } from '../requests';
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceUrl } from '../../workspace-context';
 import type { AttentionItem } from '../attention/model';
-import type { PersonalPanel, Snapshot } from './model';
+import { audienceLabel, type PersonalPanel, type Snapshot } from './model';
 
 // The panel frame (people-and-agents-first, Phase 1e): who keeps it, what changed in
 // the agent's words, honest freshness, what needs you, and links to the proof and the
@@ -69,11 +69,11 @@ export function PanelFooterLine({ panel, snapshot, needs }: { panel: PersonalPan
   // Numbers the controller read straight from the source say so (living panels, HP3).
   const read = at ? snapshot.from_source ? `numbers from the source, ${at}` : `sources read ${at}` : undefined;
   return <div className="panel-frame-line">
-    <small>Kept by {panel.agent_name ?? 'an agent'} · for you{updated ? ` · ${updated}` : ''}{read ? ` · ${read}` : ''}</small>
+    <small>Kept by {panel.agent_name ?? 'an agent'} · for {audienceLabel(panel)}{panel.shared ? ` · shared by ${panel.owner_name ?? 'a teammate'}` : ''}{updated ? ` · ${updated}` : ''}{read ? ` · ${read}` : ''}</small>
     <span className="panel-frame-links">
       {needs}
       {snapshot.task && <a href={activity(`tab=history&run=${encodeURIComponent(snapshot.task)}`)}>Show proof</a>}
-      {panel.agent && <Button className="panel-ask" disabled={ask.busy}
+      {panel.agent && !panel.shared && <Button className="panel-ask" disabled={ask.busy}
         onClick={() => void ask.run(() => openAgentChat({ id: panel.agent!, name: panel.agent_name ?? 'Agent' }, `About the ${title} panel: `, attempt))}>
         Ask about this</Button>}
     </span>

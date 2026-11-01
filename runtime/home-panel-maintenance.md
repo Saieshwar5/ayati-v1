@@ -130,6 +130,37 @@ People see "numbers from the source, 10:42" on the panel's frame, and in Panel u
 whether numbers refresh from the source and the last 24 hours' updates and how many ran
 without the agent.
 
+## Team panels (schema 60)
+
+People-and-agents-first, Phase 3 (HP4). A panel's owner can show it to a channel's
+members or the whole workspace (**Who sees this** on the panel). The audience rule is
+enforced by the server on every read, not promised:
+
+- **Only source-bound panels can be shared.** Its updates must be on, and every value
+  bound to a reviewed source read (metric value, each metrics item, each progress
+  actual, or table rows; no comparisons). The dialog says why when it can't be.
+- **Who:** everyone, only for an agent everyone may use; a channel, only one the owner
+  is in and the panel's agent is in. These are checked again on every read: if they
+  stop holding, viewers stop seeing the panel. Narrowing back to the owner is always
+  allowed; only the owner chooses.
+- **What viewers see:** only snapshots whose every value was checked against the source
+  reads (`relay_home_update_runs.source_checked`: saving bindings checks them, saved
+  bindings are checked on every update, controller-run updates always are), and only
+  while the owner's own access to those sources holds. A shared panel refuses an update
+  whose numbers don't match its source. The agent's words (what changed) and the proof
+  link reach only viewers who can see the conversation they came from.
+- **Placement stays personal:** viewers can hide or move a shared panel on their own Home;
+  it's read-only for them (no updates, sharing or "Ask about this"), and the frame says
+  "for #sales · shared by Kavya".
+- Updates still run as the owner. A new snapshot or a changed audience notifies the
+  viewers (old and new) without ids, titles or values on the wire.
+
+API: `POST /home-panels/{panel}/audience {request, revision, audience: personal|channel|workspace, chat?}`;
+`GET /home-panels` returns the owner's panels with `audience`, `audience_chat`,
+`audience_name`, `audience_revision`, `shareable {ok, reason}`, then panels shared with
+the person (`shared: true`, `owner_name`). Schema 60: `relay_home_panels.audience`,
+`audience_chat`, `audience_revision`; `relay_home_update_runs.source_checked`.
+
 ## Delivery and acceptance
 
 1. Save this contract and desktop/phone design before application UI edits.
@@ -227,3 +258,9 @@ hands a meaningful change back), web `home-maintenance` and `home-panel-frame`, 
 real-Goose journey `tests/living_panels.mjs` (bindings from a real update, a refresh
 from a real MCP server with no model call, a meaningful change to the agent, the
 agent's work updating the panel).
+
+Team panels (schema 60): PostgreSQL `home_views::team` (not shareable until source-bound;
+everyone only for an agent everyone may use; viewers see checked numbers without the
+conversation's words; a shared panel refuses unmatched numbers; channel members only;
+layout for viewers; narrowing; owner-only), web `home-panel-frame` (read-only shared
+card, Who sees this).
