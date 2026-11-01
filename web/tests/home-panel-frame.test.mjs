@@ -102,3 +102,13 @@ test('Ask about this opens the direct chat with the agent once for a double clic
     return response(page([panel('current')]));
   } });
 });
+
+test('numbers the controller read straight from the source say so', async () => {
+  await reactFixture(async ({ render }) => {
+    const WorkspacePanels = await panels();
+    await render(WorkspacePanels, {});
+    const card = document.querySelector('.home-panel-card');
+    assert.match(card.textContent, /Kept by Nova · for you · Updated 20 min ago · numbers from the source, /);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session)
+    : response(page([panel('current', { active: { ...published, from_source: true } })])) });
+});

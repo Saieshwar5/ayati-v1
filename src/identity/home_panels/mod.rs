@@ -1,3 +1,4 @@
+pub(crate) mod direct;
 pub(crate) mod maintenance;
 pub(crate) mod model;
 use super::*;

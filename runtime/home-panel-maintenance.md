@@ -86,6 +86,50 @@ Since 2026-11-01 every published panel on Home carries the same frame
   Activity; **Ask about this** opens the person's direct chat with the agent, starting
   "About the <title> panel: " and keeping any existing draft.
 
+## Living panels (schema 59)
+
+People-and-agents-first, Phase 3 (HP2, HP3). A panel keeps itself true as its agent
+works, and its numbers refresh without a model call when they come straight from the
+source.
+
+**Updates after work and events.** With the agreement's **Also update when its sources
+change** on (`follow_sources`, default on), a panel wants an update when:
+
+- its agent finishes a request with a completed action on one of the panel's source
+  connections (any request, by anyone; a panel update itself never counts), or
+- an event arrives on one of its source connections (`accept_event`).
+
+Wants merge into one row per panel (`relay_home_update_wanted`). The scheduler loop
+starts it as the panel's owner, with the same checks as Update now: at most one update
+every `min_gap_seconds` (default 5 minutes, 1 minute to 24 hours); if an update is
+running, one more follows it; paused agents or a full queue retry in five minutes; a
+panel that can't update any more drops the want and shows why on Home. The update run
+records why (`reason` work or event, `cause` the request or event id), and Activity says
+"Updated panel: … · after the agent's work" or "· after a new event".
+
+**Numbers from the source (bindings).** `refresh_home_panel` takes optional `bindings`:
+for each value, which reviewed read it comes from (`read`, by position), a dot `path`
+into the result, an `op` (`value`, `count` of a list, `sum` of a `field`), and how to
+write it (`decimals` 0–2, `group` thousands or indian, `prefix`/`suffix` up to 8
+characters). Targets: `value` (metric), `items.N.value` (metrics), `items.N.actual`
+(progress), `rows` (table, a path per column, at most 50 rows). MCP results are read
+from `structuredContent`, else JSON text content. Bindings are kept only when they
+reproduce exactly what the agent published from the same reads; the tool result says
+why not otherwise. Changing the agreement forgets them.
+
+With bindings saved, a new update of the panel is claimed by the controller as it is
+created (before any executor sees it). The controller performs the reviewed reads
+through the ordinary action path (same rules, receipts and Activity record), fills the
+numbers and publishes, then finishes the request: "Numbers refreshed from the source."
+No model is called. The update goes back to the agent, unchanged and with the reason
+in `home_panel_update_context.handed_back`, when a bound number moved by more than 10%
+or a table changed size (so the agent writes what changed), or when a read or binding
+fails. Runs record `direct` and `fallback`.
+
+People see "numbers from the source, 10:42" on the panel's frame, and in Panel updates
+whether numbers refresh from the source and the last 24 hours' updates and how many ran
+without the agent.
+
 ## Delivery and acceptance
 
 1. Save this contract and desktop/phone design before application UI edits.
@@ -174,3 +218,12 @@ loopback disposable `relay_simulation_*` database. Storage cases run with
 `cargo test --locked --lib home_maintenance -- --ignored`. Retained local logs and
 check index: `.tmp/home-maintenance/`; final connected evidence:
 `.tmp/independent-worker-a5iWr3/`. No real provider or cloud service was activated.
+
+Living panels (schema 59): `cargo test --lib panels::bindings` (values, counts, sums,
+rows, formats, kept-only-if-exact, meaningful change), PostgreSQL
+`home_update_runs::living` (work and events want updates, merged, gap, running update,
+follows-sources switch; the controller runs an update once bindings reproduce one, and
+hands a meaningful change back), web `home-maintenance` and `home-panel-frame`, and the
+real-Goose journey `tests/living_panels.mjs` (bindings from a real update, a refresh
+from a real MCP server with no model call, a meaningful change to the agent, the
+agent's work updating the panel).

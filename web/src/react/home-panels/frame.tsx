@@ -65,7 +65,9 @@ export function PanelFooterLine({ panel, snapshot, needs }: { panel: PersonalPan
   const attempt = useRef<string>(undefined);
   const title = snapshot.definition?.title ?? 'this panel';
   const updated = snapshot.saved_ms ? `Updated ${since(snapshot.saved_ms)}` : undefined;
-  const read = snapshot.checked_ms ? `sources read ${new Date(snapshot.checked_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : undefined;
+  const at = snapshot.checked_ms ? new Date(snapshot.checked_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
+  // Numbers the controller read straight from the source say so (living panels, HP3).
+  const read = at ? snapshot.from_source ? `numbers from the source, ${at}` : `sources read ${at}` : undefined;
   return <div className="panel-frame-line">
     <small>Kept by {panel.agent_name ?? 'an agent'} · for you{updated ? ` · ${updated}` : ''}{read ? ` · ${read}` : ''}</small>
     <span className="panel-frame-links">

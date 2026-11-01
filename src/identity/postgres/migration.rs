@@ -63,6 +63,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::work_rooms::migration::WorkRooms),
             Box::new(super::home_frame_migration::HomeFrame),
             Box::new(super::tasks::migration::Tasks),
+            Box::new(super::home_update_runs::living::migration::HomeLiving),
         ]
     }
 }

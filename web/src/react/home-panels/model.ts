@@ -13,6 +13,8 @@ export type Snapshot = {
   generation?: number;
   /** The agent's note on what changed with this update, when it wrote one. */
   what_changed?: string | null;
+  /** Published by the controller from the source, without the agent. */
+  from_source?: boolean;
 };
 export type Maintenance = {
   revision: number; panel_revision: number; enabled: boolean; eligible: boolean;
@@ -21,6 +23,11 @@ export type Maintenance = {
   status: string; checked_ms: number | null; saved_ms: number | null; next_ms: number | null;
   /** The latest update request, opened from a delayed or failed panel. */
   last_update?: string | null;
+  /** Also update after the agent's work or an event on its sources, at most every min_gap_seconds. */
+  follow_sources?: boolean; min_gap_seconds?: number;
+  /** Numbers refresh from the source without the agent (saved bindings). */
+  from_source?: boolean;
+  last_day?: { updates: number; without_agent: number };
 };
 export type PersonalPanel = {
   id: string;
@@ -43,6 +50,7 @@ export const keepPanel = (id: string, revision: number, request: string) =>
 export const saveAgreement = (id: string, input: {
   request: string; revision: number; panel_revision: number; enabled: boolean;
   instructions: string; interval_seconds: number | null; stale_seconds: number;
+  follow_sources?: boolean; min_gap_seconds?: number;
 }) => identityRequest(`${base}/${encodeURIComponent(id)}/maintenance`, input);
 export const requestUpdate = (id: string, revision: number, request: string) =>
   identityRequest(`${base}/${encodeURIComponent(id)}/refresh`, {request, revision});

@@ -243,3 +243,15 @@
     max-height: none;
   }
 }
+
+/* "Also update when its sources change" (living panels). */
+.workspace-panel-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: start;
+}
+.workspace-panel-check small {
+  grid-column: 2;
+  color: var(--muted);
+}

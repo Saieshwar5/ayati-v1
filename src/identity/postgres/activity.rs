@@ -111,8 +111,14 @@ impl Filters {
 /// instead of showing the controller's maintenance instructions as a request.
 pub(super) fn panel_update(item: &mut Value, panel: Option<Value>) {
     if let Some(panel) = panel {
+        // Living panels say what made them update (Phase 3 HP2).
+        let after = match panel["reason"].as_str() {
+            Some("work") => " · after the agent's work",
+            Some("event") => " · after a new event",
+            _ => "",
+        };
         item["summary"] = json!(format!(
-            "Updated panel: {}",
+            "Updated panel: {}{after}",
             panel["title"].as_str().unwrap_or("Home panel")
         ));
         item["panel"] = panel;
