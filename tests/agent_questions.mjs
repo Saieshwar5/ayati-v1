@@ -128,7 +128,7 @@ test('ordinary questions release execution, survive restart, reconstruct answers
   await until(() => state(original).state === 'waiting' && app.sql(`SELECT count(*) FROM relay_control_actions WHERE job='${original.reply}' AND state='pending'`) === '1', 'Ordinary answer did not continue to a separate exact approval', 35000);
   assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 0);
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto(url(original));
-  await page.getByRole('button', { name: 'Review saved request', exact: true }).click();
+  await page.getByRole('button', { name: 'Review and decide', exact: true }).click();
   const approval = page.getByRole('dialog', { name: 'Review approval request', exact: true });
   await approval.getByRole('button', { name: 'Approve this action', exact: true }).click();
   await approval.getByRole('button', { name: 'Close', exact: true }).click();

@@ -10,6 +10,7 @@ pub(super) async fn hydrate(
     super::handoff_views::hydrate(tx, user, workspace, messages).await?;
     super::approval_delivery::hydrate(tx, user, workspace, messages).await?;
     super::question_views::hydrate(tx, user, workspace, messages).await?;
+    super::tasks::views::hydrate(tx, workspace, messages).await?;
     let ids = messages
         .iter()
         .filter(|m| m["kind"] == "agent")

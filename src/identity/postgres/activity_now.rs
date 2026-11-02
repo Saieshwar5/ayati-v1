@@ -140,6 +140,7 @@ impl PgStore {
         let source: Option<String> = row.try_get("", "source_message")?;
         let panel: Option<Value> = row.try_get("", "panel")?;
         let kind: String = row.try_get("", "kind")?;
+        let task: Option<Value> = row.try_get("", "task")?;
         let conversation_kind: String = row.try_get("", "conversation_kind")?;
         let mut item = super::super::agent_requests::project(&tx, user, w, &agent, row)
             .await?
@@ -202,6 +203,7 @@ impl PgStore {
             // The screen needs these to label the request and offer Retry.
             object.insert("agent".into(), json!(agent));
             object.insert("kind".into(), json!(kind));
+            object.insert("task".into(), json!(task));
             object.insert("conversation_kind".into(), json!(conversation_kind));
             object.insert("in_conversation".into(), json!(in_conversation));
             // A scheduled run: its schedule, and whether its result was posted.

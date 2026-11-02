@@ -98,7 +98,7 @@ test('saved task releases execution for approval and continues on a different ex
   await app.stopApi(); await app.startApi();
   await page.reload();
   await page.locator('.chat-reply-progress [role=status]').filter({ hasText: 'Waiting for approval' }).waitFor();
-  await page.getByRole('button', { name: 'Review saved request', exact: true }).click();
+  await page.getByRole('button', { name: 'Review and decide', exact: true }).click();
   const review = page.getByRole('dialog', { name: 'Review approval request' });
   await review.getByRole('button', { name: 'Approve this action', exact: true }).click();
   await until(() => jobState(original).state === 'queued', 'Saved approval did not queue continuation');

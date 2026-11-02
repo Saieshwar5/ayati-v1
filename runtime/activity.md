@@ -17,6 +17,8 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
   Waiting, Failing, Paused or Idle with its next schedule run) and requests
   running now with **Stop**. It follows the live change stream and polls every
   10 seconds as a fallback.
+- **Tasks** (`&tab=open`): every open task the person may see (needs fixing first), with
+  each task's details, steps and closing. See [tasks](tasks.md). `&task=<id>` opens one.
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
   type, status) plus search; totals for the period; two charts (M7): requests per
   day (empty days included, the busiest labelled, a tooltip on hover or focus) and
