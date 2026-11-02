@@ -6,6 +6,8 @@ export type AttentionItem = {
   status: string; at: number; agent: string; agent_name: string; chat: string;
   thread: string | null; reply: string; conversation_name: string; archived: boolean;
   read: boolean; reviewed: boolean;
+  /** Approvals (Phase 4): the operation, when it was asked, and when an admin may step in. */
+  operation?: string; connection?: string; operation_title?: string; backup_at?: number; created_at?: number;
 };
 export type AttentionPage = { available: boolean; items: AttentionItem[]; next_before: string | null };
 export const attentionKey = (item: AttentionItem) => `${item.kind}/${item.id}/${item.version}`;

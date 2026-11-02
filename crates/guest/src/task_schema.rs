@@ -60,6 +60,37 @@ pub(crate) fn close(input: &Value) -> bool {
     })
 }
 
+pub(crate) fn problem(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["cause", "detail", "fix"])
+            && v.get("cause").and_then(Value::as_str).is_some_and(|c| {
+                [
+                    "connection",
+                    "permission",
+                    "information",
+                    "external",
+                    "other",
+                ]
+                .contains(&c)
+            })
+            && text(v, "detail", 300, true)
+            && text(v, "fix", 200, false)
+    })
+}
+
+pub(crate) fn routine(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(
+            v,
+            &["name", "instructions", "first_in_minutes", "every_minutes"],
+        ) && text(v, "name", 80, true)
+            && text(v, "instructions", 2000, true)
+            && minutes(v, "first_in_minutes", 525_600, true)
+            && v.get("every_minutes")
+                .is_none_or(|m| m.as_i64().is_some_and(|m| (60..=43_200).contains(&m)))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -91,5 +122,16 @@ mod tests {
         ));
         assert!(!super::follow_up(&json!({"task":"t-1"})));
         assert!(!super::follow_up(&json!({"task":"t-1","in_minutes":50000})));
+        assert!(super::problem(
+            &json!({"cause":"connection","detail":"Shopify needs reconnecting","fix":"Reconnect Shopify in Settings"})
+        ));
+        assert!(!super::problem(&json!({"cause":"bug","detail":"x"})));
+        assert!(!super::problem(&json!({"cause":"other"})));
+        assert!(super::routine(
+            &json!({"name":"Monday sales summary","instructions":"Send me last week's sales","first_in_minutes":600,"every_minutes":10080})
+        ));
+        assert!(!super::routine(
+            &json!({"name":"x","instructions":"y","first_in_minutes":5,"every_minutes":5})
+        ));
     }
 }

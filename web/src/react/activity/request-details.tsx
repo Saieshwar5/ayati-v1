@@ -1,10 +1,11 @@
+import { AddNote } from './add-note';
 import { useEffect, useRef, useState } from 'react';
 import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
 import { cadence, changeSchedule } from '../agents/automation/model';
-import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details } from './model';
+import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details, steerRequest } from './model';
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
 
@@ -84,6 +85,11 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       </ol>
       {data.disagreement && <p className="activity-warning" role="note">{data.disagreement}</p>}
       {data.fix && <section className="activity-fix" aria-label="How to fix it"><h3>How to fix it</h3><p>{data.fix}</p></section>}
+      {Boolean(data.added?.length) && <section aria-label="Added while it ran"><h3>Added while it ran</h3><ul className="activity-steps">
+        {data.added!.map(note => <li key={note.at} className={note.seen ? 'done' : 'waiting'}><strong>{note.text}</strong>
+          <small>{note.from} · {note.seen ? 'the agent read it' : note.carried ? 'sent as a new request' : 'not read yet'}</small></li>)}</ul></section>}
+      {data.requester === me && ['queued', 'running', 'waiting', 'streaming'].includes(data.state) && <AddNote label="Add to this request"
+        send={text => steerRequest(data.id, text)} sent={() => setVersion(v => v + 1)} />}
       <div className="activity-detail-actions">
         {data.can_cancel && <Button disabled={mutation.busy} onClick={() => stop(data)}>Stop request</Button>}
         {data.schedule?.state === 'enabled' && <Button disabled={mutation.busy} onClick={() => pause(data)}>Pause schedule</Button>}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Button, Dialog } from '../ui';
+import { AddNote } from './add-note';
 import { errorMessage, useMutation } from '../requests';
 import { workspaceUrl } from '../../workspace-context';
-import { clock, closeTask, dayLabel, loadTask, status, taskLabels, taskTone, waitingLabels, type TaskDetail } from './model';
+import { clock, closeTask, dayLabel, loadTask, status, steerTask, taskLabels, taskTone, waitingLabels, type TaskDetail } from './model';
 
 const when = (ms: number) => `${dayLabel(ms)} ${clock(ms)}`;
 
@@ -52,6 +53,7 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
           <small>{when(step.created_ms)} · {shown.label}</small>
         </li>;
       })}</ol>
+      {['working', 'waiting'].includes(data.status) && <AddNote label="Add to this task" send={text => steerTask(id, text)} />}
       {open && <div className="activity-detail-actions">
         {data.may_close && <Button primary disabled={mutation.busy} onClick={() => finish('done', 'Marked done.')}>Mark done</Button>}
         {data.may_close && <Button disabled={mutation.busy} onClick={() => finish('cancelled', 'Task cancelled.')}>Cancel task</Button>}

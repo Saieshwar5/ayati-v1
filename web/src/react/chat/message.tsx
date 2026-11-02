@@ -5,6 +5,7 @@ import { workspaceSession } from '../../workspace-context';
 import type { Directory, Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
+import { RoutineCard } from './routine-proposal';
 import { ReplyProgress, useCancelReply } from './reply-progress';
 import { QuotedMessage } from './quoted-message';
 import { QuestionCards } from '../questions/card';
@@ -51,6 +52,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       <CoordinationView data={message.coordination}/>
       {message.approval && <ApprovalCard reference={message.approval} />}
       {message.task && <TaskChip task={message.task} />}
+      {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} />)}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
       {!own && edited}
