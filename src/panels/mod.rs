@@ -1,5 +1,6 @@
 //! Home panel definitions: the one data contract agents and people review.
 //! Storage, review and refresh live in the identity PostgreSQL store.
+pub mod bindings;
 pub mod presentation;
 mod sections;
 mod templates;

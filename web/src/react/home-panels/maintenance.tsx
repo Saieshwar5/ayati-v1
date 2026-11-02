@@ -42,6 +42,8 @@ function UpdateAgreement({panel, close, refresh}: {
   const [instructions, setInstructions] = useState(agreement.instructions);
   const [interval, setInterval] = useState(agreement.interval_seconds ? String(agreement.interval_seconds / 60) : '');
   const [age, setAge] = useState(String(agreement.stale_seconds / 60));
+  const [follow, setFollow] = useState(agreement.follow_sources ?? true);
+  const [gap, setGap] = useState(String((agreement.min_gap_seconds ?? 300) / 60));
   const m = useMutation();
   const fields = useId();
   const attempt = useRef<{key: string; id: string}>(undefined);
@@ -51,6 +53,8 @@ function UpdateAgreement({panel, close, refresh}: {
       instructions: pause ? agreement.instructions : instructions,
       interval_seconds: pause ? agreement.interval_seconds : interval ? Number(interval) * 60 : null,
       stale_seconds: pause ? agreement.stale_seconds : Number(age) * 60,
+      follow_sources: pause ? agreement.follow_sources ?? true : follow,
+      min_gap_seconds: pause ? agreement.min_gap_seconds ?? 300 : Number(gap) * 60,
     };
     const key = JSON.stringify(content);
     if (attempt.current?.key !== key) attempt.current = {key, id: crypto.randomUUID()};
@@ -78,6 +82,12 @@ function UpdateAgreement({panel, close, refresh}: {
         <input id={`${fields}-interval`} type="number" min="1" max="1440" step="1" placeholder="Manual updates only"
           value={interval} disabled={m.busy} onChange={event => setInterval(event.target.value)} />
         <small>Leave blank for Update now only. Scheduled checks use elapsed intervals.</small></div>
+      <label className="workspace-panel-check"><input type="checkbox" checked={follow} disabled={m.busy}
+        onChange={event => setFollow(event.target.checked)} /> Also update when its sources change
+        <small>After {panel.agent_name ?? 'the agent'} finishes work that used them, or a new event arrives on them.</small></label>
+      {follow && <div className="workspace-panel-field"><label htmlFor={`${fields}-gap`}>At most every (minutes)</label>
+        <input id={`${fields}-gap`} type="number" min="1" max="1440" step="1" required
+          value={gap} disabled={m.busy} onChange={event => setGap(event.target.value)} /></div>}
       <div className="workspace-panel-field"><label htmlFor={`${fields}-age`}>Consider delayed after (minutes)</label>
         <input id={`${fields}-age`} type="number" min={interval || '1'} max="10080" step="1" required
           value={age} disabled={m.busy} onChange={event => setAge(event.target.value)} /></div>
@@ -85,6 +95,8 @@ function UpdateAgreement({panel, close, refresh}: {
         and current permissions. Business writes and changes to this panel’s purpose or sources need separate authority.
         Scheduled checks may use agent inference.</p>
       {agreement.checked_ms && <p>Last successful source read: {new Date(agreement.checked_ms).toLocaleString()}.</p>}
+      {agreement.from_source && <p>Numbers refresh straight from the source; {panel.agent_name ?? 'the agent'} is asked only when something meaningful changes.</p>}
+      {agreement.last_day && agreement.last_day.updates > 0 && <p>Last 24 hours: {agreement.last_day.updates} {agreement.last_day.updates === 1 ? 'update' : 'updates'}, {agreement.last_day.without_agent} without the agent.</p>}
       {agreement.enabled && agreement.next_ms && <p>Next scheduled check: {new Date(agreement.next_ms).toLocaleString()}.</p>}
       <div className="panel-maintenance-actions">
         <Button primary type="submit" disabled={m.busy || !agreement.eligible || !instructions.trim()}>

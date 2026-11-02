@@ -27,6 +27,7 @@ test('enabling maintenance is explicit, guards double submission and preserves a
       dialog.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));});
     assert.equal(writes.length,1);
     assert.equal(writes[0].body.interval_seconds,900);assert.equal(writes[0].body.stale_seconds,1800);
+    assert.equal(writes[0].body.follow_sources,true,'living panels follow their sources by default');assert.equal(writes[0].body.min_gap_seconds,300);
     assert.equal(writes[0].body.enabled,true);assert.equal(writes[0].body.panel_revision,1);
     await update(()=>finish(response({error:'Save acknowledgment unavailable'},503)));
     assert.match(dialog.textContent,/Save acknowledgment unavailable/);
@@ -84,4 +85,43 @@ test('pause uses the saved agreement even when an unsaved form draft differs and
     if(path.endsWith('/session'))return response(session);
     writes.push({path,body:JSON.parse(options.body)});return response({revision:3,enabled:false});
   }});
+});
+
+test('a panel can stop following its sources or update at most every N minutes',async()=>{
+  const writes=[];
+  await reactFixture(async({render,button,click,change,update})=>{
+    const {PanelMaintenance}=await setup();
+    await render(PanelMaintenance,{panel,refresh:async()=>{}});
+    await click(button('Panel updates'));
+    let dialog=document.querySelector('dialog');
+    assert.match(dialog.textContent,/Also update when its sources change/);
+    await change(dialog.querySelector('textarea'),'Read assigned requests');
+    await change(dialog.querySelector('input[id$="-gap"]'),'15');
+    await update(()=>dialog.querySelector('input[type=checkbox]').click());
+    assert.equal(dialog.querySelector('input[id$="-gap"]'),null,'no gap without following sources');
+    await update(()=>dialog.querySelector('input[type=checkbox]').click());
+    await update(()=>dialog.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+    assert.equal(writes.at(-1).body.follow_sources,true);assert.equal(writes.at(-1).body.min_gap_seconds,900);
+    await click(button('Panel updates'));
+    dialog=document.querySelector('dialog');
+    await change(dialog.querySelector('textarea'),'Read assigned requests');
+    await update(()=>dialog.querySelector('input[type=checkbox]').click());
+    await update(()=>dialog.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+    assert.equal(writes.at(-1).body.follow_sources,false);
+  },{url,fetch:async(path,options={})=>{
+    if(path.endsWith('/session'))return response(session);
+    writes.push({path,body:JSON.parse(options.body)});return response({revision:1,enabled:true});
+  }});
+});
+
+test('the update dialog says when numbers come from the source and counts the last day',async()=>{
+  await reactFixture(async({render,button,click})=>{
+    const {PanelMaintenance}=await setup();
+    const living={...panel,maintenance:{...panel.maintenance,enabled:true,revision:1,from_source:true,last_day:{updates:12,without_agent:9}}};
+    await render(PanelMaintenance,{panel:living,refresh:async()=>{}});
+    await click(button('Panel updates'));
+    const dialog=document.querySelector('dialog');
+    assert.match(dialog.textContent,/Numbers refresh straight from the source; Mira is asked only when something meaningful changes/);
+    assert.match(dialog.textContent,/Last 24 hours: 12 updates, 9 without the agent/);
+  },{url,fetch:async path=>path.endsWith('/session')?response(session):response({})});
 });

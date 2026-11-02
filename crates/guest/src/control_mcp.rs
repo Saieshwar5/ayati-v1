@@ -21,7 +21,12 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some("follow_up") => crate::task_schema::follow_up(input),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.keys()
-                .all(|key| key == "sections" || key == "what_changed")
+                .all(|key| ["sections", "what_changed", "bindings"].contains(&key.as_str()))
+                && v.get("bindings").is_none_or(|b| {
+                    b.as_array().is_some_and(|b| {
+                        (1..=16).contains(&b.len()) && b.iter().all(Value::is_object)
+                    })
+                })
                 && v.get("sections")
                     .and_then(Value::as_array)
                     .is_some_and(|s| s.len() == 1)
@@ -79,7 +84,7 @@ impl ServerHandler for ControlTools {
             crate::history_schema::read_tool(),
             crate::personal_panel_schema::tool(),
             json!({"name":"home_panel_update_context","description":"Read the controller-bound update agreement, fixed panel definition and exact source reads for this maintenance task only. Available only after the human enabled panel updates. It grants no new source authority.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
-            json!({"name":"refresh_home_panel","description":"Publish one bounded data snapshot for this controller-bound Home maintenance task. First perform every exact reviewed source read from home_panel_update_context. Send sections, preserving headings, columns, units, chart variants/series names, comparison direction and targets. Add what_changed (one or two plain sentences) only when something meaningful changed since the last update; it is shown on the panel. The controller fixes panel identity, owner, agent, purpose and audience. Ordinary tasks cannot use this tool.","inputSchema":{"type":"object","properties":{"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}},"what_changed":{"type":"string","maxLength":280}},"required":["sections"],"additionalProperties":false}}),
+            json!({"name":"refresh_home_panel","description":"Publish one bounded data snapshot for this controller-bound Home maintenance task. First perform every exact reviewed source read from home_panel_update_context. Send sections, preserving headings, columns, units, chart variants/series names, comparison direction and targets. Add what_changed (one or two plain sentences) only when something meaningful changed since the last update; it is shown on the panel. When values come straight from the reads (a field, a count of a list, or a sum of a field), add bindings so the controller refreshes the numbers itself next time; they are kept only if they reproduce exactly what you publish. The controller fixes panel identity, owner, agent, purpose and audience. Ordinary tasks cannot use this tool.","inputSchema":{"type":"object","properties":{"sections":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object"}},"what_changed":{"type":"string","maxLength":280},"bindings":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","properties":{"target":{"type":"string","description":"value (metric), items.N.value (metrics), items.N.actual (progress) or rows (table)"},"read":{"type":"integer","minimum":0,"description":"Position of the read in home_panel_update_context reads"},"path":{"type":"string","maxLength":200,"description":"Dot path into the read's result, e.g. orders or totals.revenue"},"op":{"type":"string","enum":["value","count","sum"]},"field":{"type":"string","description":"For sum: the field of each item"},"columns":{"type":"array","items":{"type":"string"},"description":"For rows: a path within each item per column"},"decimals":{"type":"integer","minimum":0,"maximum":2},"group":{"type":"string","enum":["thousands","indian"]},"prefix":{"type":"string","maxLength":8},"suffix":{"type":"string","maxLength":8}},"required":["target","read"],"additionalProperties":false}}},"required":["sections"],"additionalProperties":false}}),
             json!({"name":"personal_panels","description":"List the original human requester's saved personal panel identities and revisions for this agent in this source conversation only. Data is private to that person; this grants no source authority and returns no cached panel facts.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"handoff_targets","description":"Discover eligible managed helper agents in this task's same channel under the original human requester's current access. This grants no permissions.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_handoff","description":"Save one bounded helper task in this original channel/thread. Use a stable key for exact retries. The original human remains the requester; the helper must fit its own rules and every sender ceiling. After a pending receipt, explain the wait and finish this attempt without polling or more business operations. The controller releases execution and resumes this same task from the helper outcome.","inputSchema":{"type":"object","properties":{"key":{"type":"string","maxLength":64},"agent":{"type":"string"},"task":{"type":"string","maxLength":4000}},"required":["key","agent","task"],"additionalProperties":false}}),
@@ -199,6 +204,14 @@ mod tests {
         assert!(observed(
             name,
             &json!({"sections": section, "what_changed": "Orders doubled since morning."})
+        ));
+        assert!(observed(
+            name,
+            &json!({"sections": section, "bindings": [{"target":"value","read":0,"path":"count"}]})
+        ));
+        assert!(!observed(
+            name,
+            &json!({"sections": section, "bindings": []})
         ));
         assert!(!observed(
             name,

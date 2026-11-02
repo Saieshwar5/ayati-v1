@@ -243,3 +243,31 @@
     max-height: none;
   }
 }
+
+/* "Also update when its sources change" (living panels). */
+.workspace-panel-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: start;
+}
+.workspace-panel-check small {
+  grid-column: 2;
+  color: var(--muted);
+}
+
+/* Who sees this panel (team panels). */
+.workspace-panel-audience {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.workspace-panel-audience legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.workspace-panel-audience select {
+  max-width: 100%;
+}

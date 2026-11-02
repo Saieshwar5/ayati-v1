@@ -59,3 +59,15 @@ mod tests {
         assert!(serde_json::from_value::<Layout>(serde_json::json!({"request":layout.request,"revision":0,"order":[],"wide":[],"hidden":[],"owner":"forged"})).is_err());
     }
 }
+
+/// Who sees a panel (team panels, Phase 3 HP4): `personal`, `channel` (with `chat`)
+/// or `workspace`. Only its owner chooses.
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Share {
+    pub request: String,
+    pub revision: i64,
+    pub audience: String,
+    #[serde(default)]
+    pub chat: Option<String>,
+}

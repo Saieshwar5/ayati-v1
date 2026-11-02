@@ -12,6 +12,12 @@ pub(crate) struct Agreement {
     pub instructions: String,
     pub interval_seconds: Option<i64>,
     pub stale_seconds: i64,
+    /// Also update when the agent's work or an event touches the panel's sources.
+    #[serde(default)]
+    pub follow_sources: Option<bool>,
+    /// At most one update every this many seconds (1 minute to 24 hours).
+    #[serde(default)]
+    pub min_gap_seconds: Option<i64>,
 }
 impl Agreement {
     pub(crate) fn validate(&self) -> Result<()> {
@@ -33,6 +39,11 @@ impl Agreement {
                     .is_none_or(|v| (60..=86400).contains(&v) && v <= self.stale_seconds),
             "Choose a 1 minute–24 hour interval and a maximum age at least as long (up to 7 days)"
         );
+        ensure!(
+            self.min_gap_seconds
+                .is_none_or(|v| (60..=86400).contains(&v)),
+            "Updates can be at most once a minute and at least once a day apart"
+        );
         Ok(())
     }
 }
@@ -50,4 +61,8 @@ pub(crate) struct Refresh {
     /// the panel. Only when something meaningful changed; at most 280 characters.
     #[serde(default)]
     pub what_changed: Option<String>,
+    /// How each value comes from the reviewed reads, so the controller can refresh
+    /// the numbers itself. Kept only when they reproduce this update exactly.
+    #[serde(default)]
+    pub bindings: Option<Vec<crate::panels::bindings::Binding>>,
 }

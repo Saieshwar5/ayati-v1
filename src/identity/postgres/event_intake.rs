@@ -54,6 +54,7 @@ impl PgStore {
             return Err(InboxFull.into());
         }
         execute(&tx,"INSERT INTO relay_event_inbox(workspace,source,id,fingerprint,binding,data) VALUES($1,$2,$3,$4,$5,$6)",vec![w.clone().into(),source.id.clone().into(),id.into(),hash.into(),binding.into(),if matching.is_empty(){None}else{Some(data)}.into()]).await?;
+        super::home_update_runs::living::on_event(&tx, w, &source.connection, id).await?;
         for (trigger, authority) in matching {
             execute(&tx,"INSERT INTO relay_event_deliveries(workspace,id,trigger_id,source,event_id,authority) VALUES($1,$2,$3,$4,$5,$6)",vec![w.clone().into(),uuid::Uuid::new_v4().to_string().into(),trigger["id"].as_str().unwrap().into(),source.id.clone().into(),id.into(),authority.into()]).await?;
         }
