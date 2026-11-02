@@ -12,6 +12,7 @@ use serde::Deserialize;
 mod controls_tests;
 #[path = "activity_now.rs"]
 pub(super) mod now;
+pub(crate) use now::better::Goal;
 #[cfg(test)]
 #[path = "activity_panel_tests.rs"]
 mod panel_tests;

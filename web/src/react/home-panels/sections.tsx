@@ -50,6 +50,14 @@ export function PanelSection({ section: s }: { section: Section }) {
         {Boolean(item.minimum) && <small>Range starts at {formatValue(item.minimum!, item.unit)}</small>}
       </div>;
     })}</div>;
+    case 'pipeline': {
+      const top = Math.max(1, ...s.stages.map(stage => stage.count));
+      return <ol className="panel-pipeline">{s.stages.map(stage => <li key={stage.id}>
+        <span className="panel-pipeline-label">{stage.label}</span>
+        <span className="panel-pipeline-bar" aria-hidden="true"><span style={{ width: `${Math.round(stage.count / top * 100)}%` }} /></span>
+        <strong>{formatValue(stage.count)}</strong>{stage.value && <small>{stage.value}</small>}
+      </li>)}</ol>;
+    }
     case 'timeline': return s.events.length ? <ol className="panel-timeline">{[...s.events].sort((a, b) => b.at_ms - a.at_ms).map(event => <li key={event.id}>
       <time dateTime={new Date(event.at_ms).toISOString()}>{new Date(event.at_ms).toLocaleString()}</time>
       <div><strong>{event.label}</strong>{event.description && <p>{event.description}</p>}</div>

@@ -70,6 +70,7 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/routine-proposals/{id}",
             post(decide_routine),
         )
+        .merge(super::activity_review::routes())
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

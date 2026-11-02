@@ -84,6 +84,14 @@ export function WorkspacePanels({ needsYou }: { needsYou?: AttentionPage } = {})
         </p>
       )}
       {!data && !error && <p role="status">Checking your saved panels…</p>}
+      {/* HP7: panels that stopped changing are probably not used; offer to hide them. */}
+      {(() => {
+        const quiet = !hidden && layout ? panels.filter(p => p.active?.available && p.active.saved_ms && p.active.saved_ms < Date.now() - 14 * 86400000) : [];
+        return quiet.length > 0 && layout && <p className="workspace-panels-quiet" role="note">
+          {quiet.length === 1 ? `“${quiet[0].active?.definition?.title ?? 'A panel'}” hasn't changed` : `${quiet.length} panels haven't changed`} in two weeks.{' '}
+          <Button disabled={m.busy} onClick={() => update({ ...layout, hidden: [...layout.hidden, ...quiet.map(p => p.id)] })}>Hide {quiet.length === 1 ? 'it' : 'them'}</Button>
+        </p>;
+      })()}
       {data && !panels.length && (
         <p className="workspace-panels-empty">
           {hidden

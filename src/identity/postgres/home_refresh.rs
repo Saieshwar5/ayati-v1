@@ -63,7 +63,10 @@ impl PgStore {
                 &tx,
                 job,
                 &data,
-                &definition["sections"][0],
+                &definition["sections"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default(),
                 list,
             )
             .await?
@@ -80,7 +83,10 @@ impl PgStore {
             &tx,
             job,
             &data,
-            &definition["sections"][0],
+            &definition["sections"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default(),
             bindings["saved"] == true,
         )
         .await?;

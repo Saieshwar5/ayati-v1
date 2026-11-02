@@ -271,3 +271,11 @@
 .workspace-panel-audience select {
   max-width: 100%;
 }
+
+/* Pipeline (HP6): stages with a bar for how many are in each. */
+.panel-pipeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.panel-pipeline li { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto auto; align-items: center; gap: 8px; }
+.panel-pipeline-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-pipeline-bar { display: block; height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.panel-pipeline-bar span { display: block; height: 100%; background: var(--accent, #3b5bdb); }
+.panel-pipeline small { color: var(--muted); }

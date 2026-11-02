@@ -5,14 +5,15 @@ import { NowView } from './now';
 import { HistoryView } from './history';
 import { RequestDetails } from './request-details';
 import { OpenTasks } from './open-tasks';
+import { ReviewView } from './review';
 import { saveScope, savedScope, type Scope } from './model';
 import './activity.css';
 
-type Tab = 'needs' | 'now' | 'open' | 'history';
-const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['open', 'Tasks'], ['history', 'History']];
+type Tab = 'needs' | 'now' | 'open' | 'history' | 'review';
+const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['open', 'Tasks'], ['history', 'History'], ['review', 'Progress']];
 const chosen = (href: string): Tab | undefined => {
   const tab = new URL(href).searchParams.get('tab');
-  return tab === 'needs' || tab === 'now' || tab === 'open' || tab === 'history' ? tab : undefined;
+  return tab === 'needs' || tab === 'now' || tab === 'open' || tab === 'history' || tab === 'review' ? tab : undefined;
 };
 
 /** Activity (D235): what needs me, what agents are doing now, and everything
@@ -67,6 +68,7 @@ export function ActivityPage({ href }: { href: string }) {
       {tab === 'now' && <NowView scope={scope} search={search} waiting={attention.data?.items} openHistory={from => { setSince(from); setTab('history'); }}
         openUnhandled={() => { setSince(undefined); setHistoryKind('unhandled'); setTab('history'); }} />}
       {tab === 'open' && <OpenTasks scope={scope} search={search} initial={task} />}
+      {tab === 'review' && <ReviewView scope={scope} />}
       {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}`} scope={scope} search={search} since={since} initialKind={historyKind} />}
     </div>
     {run && <RequestDetails reply={run} close={closeRun} />}

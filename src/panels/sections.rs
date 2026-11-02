@@ -43,6 +43,21 @@ pub enum Section {
     Timeline {
         events: Vec<Event>,
     },
+    /// A sales or work pipeline (HP6): ordered stages with how many are in each,
+    /// and optionally what they are worth.
+    Pipeline {
+        stages: Vec<Stage>,
+    },
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Stage {
+    pub id: String,
+    pub label: String,
+    pub count: f64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub value: String,
 }
 
 #[derive(Deserialize, Serialize)]

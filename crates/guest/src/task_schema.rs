@@ -91,6 +91,27 @@ pub(crate) fn routine(input: &Value) -> bool {
     })
 }
 
+pub(crate) fn goal(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["goal", "current", "risk"])
+            && text(v, "goal", 64, true)
+            && v.get("current")
+                .and_then(Value::as_f64)
+                .is_some_and(|c| c >= 0.0)
+            && text(v, "risk", 280, false)
+    })
+}
+
+pub(crate) fn review(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["done", "went_wrong", "learned", "suggestion"])
+            && text(v, "done", 1000, true)
+            && text(v, "went_wrong", 1000, true)
+            && text(v, "learned", 1000, true)
+            && text(v, "suggestion", 1000, false)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -133,5 +154,13 @@ mod tests {
         assert!(!super::routine(
             &json!({"name":"x","instructions":"y","first_in_minutes":5,"every_minutes":5})
         ));
+        assert!(super::goal(
+            &json!({"goal":"g-1","current":42.5,"risk":"Two suppliers are late"})
+        ));
+        assert!(!super::goal(&json!({"goal":"g-1","current":-1})));
+        assert!(super::review(
+            &json!({"done":"Sent 40 quotes","went_wrong":"Two failed on Zoho","learned":"Check the token first"})
+        ));
+        assert!(!super::review(&json!({"done":"x"})));
     }
 }
