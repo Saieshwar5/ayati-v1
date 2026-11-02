@@ -131,3 +131,25 @@ test('Discuss in chat opens the direct chat with the agent and starts the messag
     return response(details());
   } });
 });
+
+test("a running request's question is answered from Now, and Set up opens that agent's page", async () => {
+  const reads = [];
+  await reactFixture(async ({ render, button, click }) => {
+    await render(await page(), { href: nowUrl });
+    const setup = [...document.querySelectorAll('a')].find(a => a.textContent.startsWith('Set up Atlas'));
+    assert.match(setup.href, /view=agents&selected=atlas/);
+    await click(button('Answer'));
+    assert.ok(reads.some(path => path.includes('/questions/q-7')), 'the question for this request');
+    assert.ok(document.querySelector('dialog'));
+  }, { url: nowUrl, fetch: async path => {
+    reads.push(path);
+    if (path.endsWith('/session')) return response(session);
+    if (path.includes('/attention')) return response({ available: true, next_before: null, items: [
+      { kind: 'question', id: 'q-7', version: '1', title: 'Which supplier?', status: 'pending', at: now, agent: 'atlas', agent_name: 'Atlas',
+        chat: 'sales', thread: null, reply: 'run-1', conversation_name: 'sales', archived: false, read: false, reviewed: false }] });
+    if (path.includes('/activity/now')) return response({ agents: [card('atlas', 'Atlas')], away: { since: now, totals },
+      running: [{ ...item('run-1', 'Reorder steel bottles'), state: 'question', can_cancel: false }] });
+    if (path.includes('/questions/')) return response({ id: 'q-7', state: 'pending', title: 'Which supplier?', specification: { kind: 'choice', options: [] } });
+    return response({});
+  } });
+});

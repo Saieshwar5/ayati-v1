@@ -232,3 +232,14 @@
   .workspace-panels .panel-stale,
   .workspace-panels .panel-needs-you { border: 1px solid CanvasText; }
 }
+
+/* Phones show one column, so cards grow to fit their content instead of a fixed
+   height that hid "What changed" (owner decision 2026-11-01). Charts keep a fixed
+   height because they size themselves to it. */
+@media (max-width: 560px) {
+  .workspace-panels .home-panels:not(.is-arranging) .home-panel-card:not([data-template='chart']),
+  .workspace-panels .home-panels:not(.is-arranging) .home-panel-card[data-template]:not([data-template='chart']) {
+    height: auto;
+    max-height: none;
+  }
+}
