@@ -36,7 +36,7 @@ pub(crate) struct ReadDocument {
 /// Items `i` whose folder (or self) `s` this agent ($2) was given and may use for this
 /// reply ($3). The grant join keeps the per-item audience check to granted items.
 const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
-const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for)";
+const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for,'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision))";
 /// Passages matching any of the question's words ($4), best first, among documents
 /// granted to this agent (optionally in one folder, $5); the audience check runs once
 /// per matching document.
@@ -49,7 +49,8 @@ const MATCHES: &str = "WITH q AS (SELECT replace(plainto_tsquery('english',$4)::
   ORDER BY rank DESC,p.item,p.position LIMIT 200),
  usable AS (SELECT item FROM (SELECT DISTINCT item FROM hits) d WHERE relay_library_agent_use($1,d.item,$2,$3) IS NOT NULL)
  SELECT jsonb_build_object('id',h.item,'title',h.title,'folder',h.folder,'section',h.section,'passage',h.position,'revision',h.revision,'access_revision',h.access_revision,
-  'preview',ts_headline('english',h.text,h.q,'MaxWords=45,MinWords=20,StartSel=**,StopSel=**')) AS data
+  'preview',ts_headline('english',h.text,h.q,'MaxWords=45,MinWords=20,StartSel=**,StopSel=**'),
+  'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=$1 AND m.item=h.item AND m.revision=h.revision)) AS data
  FROM hits h WHERE h.item IN (SELECT item FROM usable) ORDER BY h.rank DESC,h.item,h.position LIMIT 60";
 
 fn link(w: &str, id: &str) -> String {
@@ -61,6 +62,23 @@ fn binds(job: &Job) -> Vec<sea_orm::Value> {
         job.agent.clone().into(),
         job.reply.clone().into(),
     ]
+}
+/// Word and meaning matches in one order: each passage scores by its rank in each list
+/// (reciprocal rank fusion), so a passage both find comes first.
+fn fuse(words: Vec<Value>, meaning: Vec<Value>) -> Vec<Value> {
+    let key = |v: &Value| format!("{}#{}", v["id"].as_str().unwrap_or(""), v["passage"]);
+    let mut scored: Vec<(f64, Value)> = vec![];
+    for list in [words, meaning] {
+        for (rank, value) in list.into_iter().enumerate() {
+            let points = 1.0 / (60.0 + rank as f64);
+            match scored.iter_mut().find(|(_, v)| key(v) == key(&value)) {
+                Some(entry) => entry.0 += points,
+                None => scored.push((points, value)),
+            }
+        }
+    }
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0));
+    scored.into_iter().map(|(_, v)| v).collect()
 }
 /// The best passages, at most a few from any one document.
 fn best(matches: Vec<Value>) -> Vec<Value> {
@@ -190,13 +208,35 @@ impl PgStore {
                 json!({"state":"invalid","message":"Search with a few words, such as \"refund window\"."}),
             );
         }
+        // The question's meaning, asked before taking the workspace lock. Without a
+        // model, or if it fails, word search answers alone.
+        let mut meaning = None;
+        if let Some(models) = &self.library_models
+            && let Some(settings) = models.embedding()
+            && let Ok((mut vectors, _)) =
+                crate::identity::library::models::embed(&settings, &[query_text.to_owned()]).await
+        {
+            meaning = vectors.pop().map(|v| {
+                (
+                    crate::identity::library::models::vector_text(&v),
+                    settings.model.to_owned(),
+                )
+            });
+        }
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
         super::passages::catch_up(&tx, &job.workspace).await?;
         let mut values = binds(job);
         values.push(query_text.into());
-        values.push(folder.into());
-        let results = best(json_rows(&tx, MATCHES, values).await?);
+        values.push(folder.clone().into());
+        let words = json_rows(&tx, MATCHES, values).await?;
+        let near = match &meaning {
+            Some((vector, model)) => {
+                super::meaning::nearest(&tx, job, vector, &folder, model).await?
+            }
+            None => vec![],
+        };
+        let results = best(fuse(words, near));
         // What the agent was shown fences its reply, even if it never reads it.
         for result in &results {
             receipt(&tx, job, result, false, "").await?;
@@ -210,7 +250,7 @@ impl PgStore {
             })
             .collect();
         Ok(
-            json!({"state":"available","query":query_text,"results":results,
+            json!({"state":"available","query":query_text,"results":results,"by_meaning":meaning.is_some(),
             "next":"Read the passages you need with read_document (id and passage) before answering; previews are cut short. Only what you read is cited."}),
         )
     }

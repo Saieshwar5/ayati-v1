@@ -79,6 +79,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::folders::LibraryFolders),
             Box::new(super::library::passages::LibraryPassages),
             Box::new(super::library::fence::LibraryFence),
+            Box::new(super::library::meaning::LibraryMeaning),
         ]
     }
 }

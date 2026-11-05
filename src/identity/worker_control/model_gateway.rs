@@ -24,7 +24,7 @@ struct Provider {
 }
 
 /// The configured providers; read on each request so keys can be rotated in place.
-fn provider(file: &std::path::Path, name: &str) -> Result<(String, String)> {
+pub(crate) fn provider(file: &std::path::Path, name: &str) -> Result<(String, String)> {
     let providers: Vec<Provider> =
         serde_json::from_slice(&std::fs::read(file).context("Model providers file unavailable")?)
             .context("Invalid model providers file")?;
@@ -67,7 +67,7 @@ pub(crate) fn usage(body: &[u8]) -> Option<(i64, i64)> {
         .find_map(|value| read(&value))
 }
 
-fn upstream_client() -> &'static reqwest::Client {
+pub(crate) fn upstream_client() -> &'static reqwest::Client {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
