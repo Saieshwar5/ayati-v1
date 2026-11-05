@@ -6,8 +6,17 @@ import type { AgentIdentity } from '../faces';
 /** One connected service on the Apps page (AP1): what agents may do with each action. */
 export type WorkspaceApp = { id: string; server: string; name: string; kind: 'service'; provider: string; account?: string | null; status: 'connected' | 'reconnect';
   actions: { id: string; title: string; meaning: Meaning; mode: Mode }[]; agents: AgentIdentity[]; rules: number };
-export type AppsView = { apps: WorkspaceApp[]; can_manage: boolean };
-export const loadApps = () => identityRequest<AppsView>(`/workspaces/${workspaceId}/apps`);
+/** A company system (AP2/AP3): opens through Cuckoo for the people allowed. */
+export type CompanySystem = { id: string; kind: 'link'; name: string; description: string; audience: 'everyone' | 'selected'; revision: number;
+  can_open: boolean; url?: string | null; owner?: string | null; owner_name?: string | null; can_decide: boolean;
+  people?: { id: string; name: string }[] | null; requested: boolean };
+export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; can_manage: boolean; requests_waiting: number };
+export type AppRequestRow = { id: string; kind: 'access' | 'suggestion'; app?: string | null; app_name?: string | null; name: string; url: string; reason: string; created: number; requester: string };
+const base = () => `/workspaces/${workspaceId}/apps`;
+export const loadApps = () => identityRequest<AppsView>(base());
+export const appsRequest = <T>(path: string, body?: unknown) => identityRequest<T>(`${base()}${path}`, body);
+/** Opening goes through Cuckoo, which checks access before sending the browser on. */
+export const openUrl = (id: string) => `/api/identity${base()}/systems/${encodeURIComponent(id)}/open`;
 
 const COLOURS = ['#4f46e5', '#0284c7', '#d97706', '#059669', '#7c3aed', '#dc4a26', '#2563eb', '#475569'];
 /** A stable colour per app, so a card looks the same everywhere. */

@@ -82,6 +82,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::meaning::LibraryMeaning),
             Box::new(super::library::always::LibraryAlways),
             Box::new(super::library::edits::LibraryEdits),
+            Box::new(super::company_apps::CompanyApps),
         ]
     }
 }

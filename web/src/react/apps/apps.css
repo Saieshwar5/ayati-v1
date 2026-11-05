@@ -34,4 +34,19 @@
 .app-mode { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--selection); color: var(--muted); }
 .app-mode.allow { background: color-mix(in srgb, var(--success, #26745c) 14%, var(--surface)); color: var(--success, #26745c); }
 .app-mode.ask { background: var(--warning-bg); color: var(--warning); }
+.apps-filters { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.apps-filters > button:not(.apps-needs) { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-panel); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.apps-filters > button[aria-pressed="true"]:not(.apps-needs) { background: var(--text); color: var(--surface); border-color: var(--text); }
+.apps-filters .apps-needs { margin-top: 0; }
+.app-status.quiet { background: var(--soft); color: var(--muted); }
+.apps-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.apps-choices { display: grid; gap: 10px; }
+.apps-choices button { display: grid; gap: 4px; text-align: left; padding: 16px; border-radius: 14px; border: 1px solid var(--border-panel); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.apps-choices button:hover { background: var(--soft); }
+.apps-choices span { color: var(--muted); font-size: 13.5px; }
+.apps-people { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 6px; max-height: 220px; overflow: auto; }
+.apps-people legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.apps-requests { list-style: none; margin: 0; padding: 0; }
+.apps-requests li { padding: 14px 0; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.apps-requests p { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .apps-main { padding: 20px 16px; } .app-panel { border-left: 0; border-top: 1px solid var(--border); padding: 20px 16px; } }

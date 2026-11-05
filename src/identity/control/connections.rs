@@ -21,6 +21,26 @@ pub(super) fn routes() -> Router<Shared> {
             get(available),
         )
         .route("/api/identity/workspaces/{w}/apps", get(apps))
+        .route(
+            "/api/identity/workspaces/{w}/apps/systems",
+            post(save_system),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/systems/{id}/remove",
+            post(remove_system),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/systems/{id}/open",
+            get(open_system),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/requests",
+            get(requests).post(request),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/requests/{id}",
+            post(decide),
+        )
 }
 async fn snapshot(
     State(app): State<Shared>,
@@ -173,4 +193,60 @@ async fn apps(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.workspace_apps(&user, &w).await?))
+}
+
+async fn save_system(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::CompanyApp>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.company_app_save(&user, &w, &input).await?))
+}
+async fn remove_system(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.company_app_remove(&user, &w, &id).await?))
+}
+/// Opens a company app: Cuckoo checks who may first, then sends the browser on.
+async fn open_system(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<axum::response::Redirect> {
+    let user = identity(&app, &headers).await?;
+    let url = app.store.company_app_open(&user, &w, &id).await?;
+    Ok(axum::response::Redirect::to(&url))
+}
+async fn requests(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.app_requests(&user, &w).await?))
+}
+async fn request(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::AppRequest>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.app_request(&user, &w, &input).await?))
+}
+async fn decide(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::AppDecision>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.app_request_decide(&user, &w, &id, &input).await?,
+    ))
 }
