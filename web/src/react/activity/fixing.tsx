@@ -9,7 +9,7 @@ import { cancelFollowUp, clock, dayLabel, dismissNeed, taskUrl, type ComingItem,
 const fixUrl = (fix: FixGroup['fix']) => fix.kind === 'needs' ? workspaceUrl('/?view=activity&tab=needs')
   : fix.kind === 'tasks' ? workspaceUrl('/?view=activity&tab=open')
   : fix.kind === 'agent' ? workspaceUrl(`/?view=agents&selected=${encodeURIComponent(fix.ref ?? '')}`)
-  : fix.kind === 'settings' ? workspaceUrl('/?view=settings&section=connections') : undefined;
+  : fix.kind === 'settings' ? workspaceUrl('/?view=apps&manage=1') : undefined;
 
 /** Needs fixing (people-and-agents-first, Phase 4 AC3): what's wrong across the
  * agents you can fix, grouped by cause, each with one fix. */

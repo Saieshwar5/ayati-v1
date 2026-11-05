@@ -10,7 +10,7 @@ const topics: [string, string][] = [
 ];
 const guides: [string, string][] = [
   ['Invite your team', '/?view=settings&section=people'], ['Create your first agent', '/?view=agents'],
-  ['Connect your business tools', '/?view=settings&section=connections'], ['See what your agents did', '/?view=activity&tab=history'],
+  ['Connect your business tools', '/?view=apps'], ['See what your agents did', '/?view=activity&tab=history'],
 ];
 
 /** Help (designs/settings 10): "Report a problem" goes to the Cuckoo team, and

@@ -20,6 +20,7 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/control/available",
             get(available),
         )
+        .route("/api/identity/workspaces/{w}/apps", get(apps))
 }
 async fn snapshot(
     State(app): State<Shared>,
@@ -163,4 +164,13 @@ async fn available(
     let mut value = app.store.control_available(&user, &w).await?;
     value["execution_available"] = json!(app.store.pooled);
     Ok(Json(value))
+}
+/// The Apps page (AP1): every member reads which services agents use and how.
+async fn apps(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.workspace_apps(&user, &w).await?))
 }

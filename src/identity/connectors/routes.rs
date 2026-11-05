@@ -41,10 +41,7 @@ async fn returned(
     let Ok(sign_in) = app.store.connector_sign_in(&user, &id).await else {
         return Redirect::to("/").into_response();
     };
-    let page = format!(
-        "/w/{}/?view=settings&section=connections",
-        sign_in.workspace
-    );
+    let page = format!("/w/{}/?view=apps&manage=1", sign_in.workspace);
     let finished = match named(&sign_in.provider) {
         Ok(provider) => finish_sign_in(&app.store, &user, &id, sign_in, provider.as_ref()).await,
         Err(error) => Err(error),
