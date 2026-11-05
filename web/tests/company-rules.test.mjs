@@ -124,3 +124,33 @@ test('One rule can cover every money action, and time rules read back their wind
     return response({});
   } });
 });
+
+test('A rule can use a value Cuckoo read earlier, or require that read first', async () => {
+  const posts = [];
+  const withRead = [...actions, { connection: 'c1', account: 'Shop', operation: 'order.read', title: 'Find an order', effect: 'read', meaning: 'read', fields: [{ name: 'order', type: 'string' }] }];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
+    await render(SettingsPage, { href: base });
+    await click(button('Add rule'));
+    await change(field('Taken from'), 'order.read');
+    assert.equal(field('Matched on').value, 'order');
+    await change(field('Field in the result'), 'total');
+    await change([...document.querySelectorAll('label')].find(n => n.firstChild?.textContent === 'Value').querySelector('input'), '2000');
+    assert.equal(document.querySelector('.company-rule-readback').textContent, 'Refund an order: if total from Find an order is over 2000, ask first.');
+    await click(button('Save rule'));
+    assert.deepEqual({ kind: posts[0].kind, field: posts[0].field, value: posts[0].value, source: posts[0].source },
+      { kind: 'field', field: 'total', value: 2000, source: { operation: 'order.read', match: 'order', path: 'total' } });
+    await click(button('Add rule'));
+    await click([...document.querySelectorAll('label')].find(l => l.textContent === 'Read first').querySelector('input'));
+    assert.equal(document.querySelector('.company-rule-readback').textContent, 'Refund an order: unless Find an order for the same order ran first in this task, ask first.');
+    await click(button('Save rule'));
+    assert.deepEqual({ kind: posts[1].kind, field: posts[1].field, comparator: posts[1].comparator, value: posts[1].value, source: posts[1].source },
+      { kind: 'read_first', field: '', comparator: '=', value: true, source: { operation: 'order.read', match: 'order' } });
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Admin');
+    if (path.endsWith('/guard/rules') && options.body) { const body = JSON.parse(options.body); posts.push(body); return response({ ...body, summary: 'saved' }); }
+    if (path.endsWith('/guard/rules')) return response({ rules: [], actions: withRead, can_manage: true });
+    return response({});
+  } });
+});

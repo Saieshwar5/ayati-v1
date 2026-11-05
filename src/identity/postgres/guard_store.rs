@@ -17,6 +17,9 @@ pub(crate) struct GuardRule {
     #[serde(default)]
     pub meaning: Option<String>,
     pub kind: String,
+    /// A value from an earlier read in the same task: `{operation, match, path?}`.
+    #[serde(default)]
+    pub source: Option<Value>,
     #[serde(default)]
     pub field: String,
     pub comparator: String,
@@ -36,7 +39,7 @@ pub(crate) struct ActionMeaning {
     pub revision: i64,
 }
 
-const VIEW: &str = "jsonb_build_object('id',g.id,'operation',g.operation,'connection',g.connection,'meaning',g.meaning,'kind',g.kind,'field',g.field,'comparator',g.comparator,'value',g.value,'effect',g.effect,'note',g.note,'enabled',g.enabled,'revision',g.revision,'updated_ms',g.updated_ms,'updated_by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=g.updated_by))";
+const VIEW: &str = "jsonb_build_object('id',g.id,'operation',g.operation,'connection',g.connection,'meaning',g.meaning,'source',g.source,'kind',g.kind,'field',g.field,'comparator',g.comparator,'value',g.value,'effect',g.effect,'note',g.note,'enabled',g.enabled,'revision',g.revision,'updated_ms',g.updated_ms,'updated_by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=g.updated_by))";
 const MAX_RULES: i64 = 200;
 /// Every connected action with its meaning and fields, for the rule editor.
 const ACTIONS: &str = "SELECT jsonb_build_object('connection',c.id,'account',c.definition->>'name','operation',op->>'id','title',op->>'title','effect',op->>'effect','meaning',relay_action_meaning(c.workspace,c.id,op),'fields',(SELECT COALESCE(jsonb_agg(jsonb_build_object('name',f.key,'type',f.value->>'type') ORDER BY f.key),'[]'::jsonb) FROM jsonb_each(op->'schema'->'properties') f)) AS data FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.enabled ORDER BY c.definition->>'name',op->>'title'";
@@ -71,7 +74,7 @@ fn clock(value: Option<&str>) -> bool {
 fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
     crate::identity::worker_control::model::uuid(&input.id)?;
     ensure!(
-        ["field", "daily_total", "time"].contains(&input.kind.as_str()),
+        ["field", "daily_total", "time", "read_first"].contains(&input.kind.as_str()),
         "Unsupported rule kind"
     );
     ensure!(
@@ -115,6 +118,13 @@ fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
     ensure!(
         !targets.is_empty(),
         "No connected account offers this action"
+    );
+    if let Some(source) = &input.source {
+        return validate_source(input, source, &targets, actions);
+    }
+    ensure!(
+        input.kind != "read_first",
+        "A read-first rule needs the reading action"
     );
     if input.kind == "time" {
         let window = input
@@ -194,6 +204,85 @@ fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
     Ok(())
 }
 
+/// A rule that takes its value from an earlier read, or needs that read first.
+fn validate_source(
+    input: &GuardRule,
+    source: &Value,
+    targets: &[&Value],
+    actions: &[Value],
+) -> Result<()> {
+    let source = source.as_object().context("Unsupported source")?;
+    ensure!(
+        input.operation.is_some(),
+        "A value from a read needs one action"
+    );
+    ensure!(
+        source
+            .keys()
+            .all(|k| ["operation", "match", "path", "title"].contains(&k.as_str())),
+        "Unsupported source"
+    );
+    let read = source
+        .get("operation")
+        .and_then(Value::as_str)
+        .context("Choose the reading action")?;
+    let key = source
+        .get("match")
+        .and_then(Value::as_str)
+        .context("Choose the field both share")?;
+    let has = |x: &Value| {
+        x["fields"]
+            .as_array()
+            .is_some_and(|f| f.iter().any(|f| f["name"] == key))
+    };
+    let paired = targets.iter().any(|t| {
+        has(t)
+            && actions.iter().any(|a| {
+                a["connection"] == t["connection"]
+                    && a["operation"] == read
+                    && a["effect"] == "read"
+                    && has(a)
+            })
+    });
+    ensure!(
+        paired,
+        "The reading action must be on the same account and share the matched field"
+    );
+    if input.kind == "read_first" {
+        ensure!(
+            input.field.is_empty()
+                && input.comparator == "="
+                && input.value == Value::Bool(true)
+                && !source.contains_key("path"),
+            "A read-first rule has no value"
+        );
+        return Ok(());
+    }
+    ensure!(
+        ["field", "daily_total"].contains(&input.kind.as_str()),
+        "This kind of rule can't use a read"
+    );
+    let path = source
+        .get("path")
+        .and_then(Value::as_str)
+        .context("Choose the value in the read's result")?;
+    ensure!(path == input.field && path.len() <= 80 && path.split('.').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')), "The result field is a dotted name");
+    let numeric = !["=", "!="].contains(&input.comparator.as_str()) || input.kind == "daily_total";
+    ensure!(
+        input.kind == "field" || [">", ">="].contains(&input.comparator.as_str()),
+        "A daily total can be over or reach a limit"
+    );
+    ensure!(
+        !numeric || input.value.is_number(),
+        "Compare amounts with a number"
+    );
+    ensure!(
+        input.value.is_number() || input.value.is_string() || input.value.is_boolean(),
+        "Unsupported rule value"
+    );
+    Ok(())
+}
+
 impl PgStore {
     /// Company rules, readable by every member; the actions they can apply to.
     pub(crate) async fn guard_rules(&self, user: &User, w: &str) -> Result<Value> {
@@ -221,6 +310,18 @@ impl PgStore {
         );
         let actions = json_rows(&tx, ACTIONS, vec![w.into()]).await?;
         validate(input, &actions)?;
+        // The read's title goes with the source, so the read-back can name it.
+        let source = input.source.clone().map(|mut source| {
+            let read = source["operation"].as_str().unwrap_or_default().to_owned();
+            if let Some(title) = actions
+                .iter()
+                .find(|a| a["operation"] == read.as_str())
+                .and_then(|a| a["title"].as_str())
+            {
+                source["title"] = json!(title);
+            }
+            source
+        });
         let current: Option<i64> = query(
             &tx,
             "SELECT revision FROM relay_guard_rules WHERE workspace=$1 AND id=$2",
@@ -247,8 +348,8 @@ impl PgStore {
                 "This workspace reached its company rule limit"
             );
         }
-        execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,meaning,kind,field,comparator,value,effect,note,enabled,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) ON CONFLICT(workspace,id) DO UPDATE SET operation=EXCLUDED.operation,connection=EXCLUDED.connection,meaning=EXCLUDED.meaning,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into()]).await?;
+        execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,meaning,kind,field,comparator,value,effect,note,enabled,created_by,updated_by,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14) ON CONFLICT(workspace,id) DO UPDATE SET source=EXCLUDED.source,operation=EXCLUDED.operation,connection=EXCLUDED.connection,meaning=EXCLUDED.meaning,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
+            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into(), source.into()]).await?;
         let mut rule: Value = query(
             &tx,
             &format!(

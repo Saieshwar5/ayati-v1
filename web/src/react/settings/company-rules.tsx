@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
-import { comparisons, dayNames, kindLabels, loadRules, numeric, readBack, saveRule, type CompanyRule, type Comparator, type Effect, type RuleAction, type RuleField, type RuleInput, type RuleKind, type TimeWindow } from './company-rules-model';
+import { comparisons, dayNames, kindLabels, loadRules, numeric, readBack, saveRule, type CompanyRule, type Comparator, type Effect, type RuleAction, type RuleField, type RuleInput, type RuleKind, type RuleSource, type TimeWindow } from './company-rules-model';
 import type { Meaning } from './workspace-connections-model';
+import { ReadSource } from './company-rule-source';
 
 /** Settings → Company rules (core-agent CA1): conditions every agent must follow on
  * top of each action's Allow / Ask first / Block. Everyone reads them; admins edit. */
@@ -56,6 +57,11 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
   const [targetKey, setTargetKey] = useState(initial.key);
   const target = options.find(t => t.key === targetKey) ?? initial;
   const [kind, setKind] = useState<RuleKind>(rule?.kind ?? 'field');
+  const action = actions.find(a => target.operation && actionKey(a) === target.key);
+  // Reading actions on the same account that share a field with the guarded action.
+  const reads = action ? actions.filter(a => a.effect === 'read' && a.connection === action.connection && a.fields.some(f => action.fields.some(g => g.name === f.name))) : [];
+  const [sourceDraft, setSource] = useState<RuleSource | null>(rule?.source ?? null);
+  const source = reads.length && kind !== 'time' ? sourceDraft : null;
   const choices = target.fields.filter(f => kind === 'field' || numeric(f));
   const [fieldName, setFieldName] = useState(rule?.field || (choices.find(numeric)?.name ?? choices[0]?.name ?? ''));
   const field = choices.find(f => f.name === fieldName) ?? choices[0];
@@ -69,11 +75,20 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
   const [note, setNote] = useState(rule?.note ?? '');
   const [id] = useState(() => rule?.id ?? crypto.randomUUID());
   const mutation = useMutation();
+  const comparing = source && kind !== 'read_first';
+  const sourceAllowed: Comparator[] = kind === 'daily_total' ? ['>', '>='] : ['>', '>=', '<', '<=', '=', '!='];
+  const sourceComparator = sourceAllowed.includes(chosen) ? chosen : sourceAllowed[0];
+  const sourceValue = !['=', '!='].includes(sourceComparator) || kind === 'daily_total' ? (text.trim() === '' ? NaN : Number(text)) : (text.trim() !== '' && Number.isFinite(Number(text)) ? Number(text) : text);
   const value = !field ? '' : numeric(field) ? (text.trim() === '' ? NaN : Number(text)) : field.type === 'boolean' ? text === 'true' : text;
   const ready = kind === 'time' ? /^\d\d:\d\d$/.test(window.from) && /^\d\d:\d\d$/.test(window.to)
     : Boolean(field) && (typeof value !== 'number' || Number.isFinite(value)) && (field?.type !== 'string' || text.trim() !== '');
   const base = { id, operation: target.operation, connection: target.connection, meaning: target.meaning, effect, note: note.trim(), enabled: rule?.enabled ?? true, revision: rule?.revision ?? 0 };
-  const input: RuleInput | undefined = !ready ? undefined : kind === 'time'
+  const readTitle = reads.find(r => r.operation === source?.operation)?.title ?? '';
+  const input: RuleInput | undefined = kind === 'read_first'
+    ? (source?.operation && source.match ? { ...base, kind, field: '', comparator: '=', value: true, source: { operation: source.operation, match: source.match } } : undefined)
+    : comparing ? (source.match && source.path && /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/.test(source.path) && text.trim() !== '' && (typeof sourceValue !== 'number' || Number.isFinite(sourceValue))
+      ? { ...base, kind, field: source.path, comparator: sourceComparator, value: sourceValue, source: { operation: source.operation, match: source.match, path: source.path } } : undefined)
+    : !ready ? undefined : kind === 'time'
     ? { ...base, kind, field: '', comparator: '=', value: { ...window, days: [...window.days].sort() } }
     : { ...base, kind, field: field!.name, comparator, value };
   const toggleDay = (day: number) => setWindow(old => ({ ...old, days: old.days.includes(day) ? old.days.filter(d => d !== day) : [...old.days, day] }));
@@ -89,7 +104,9 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
         <label><input type="radio" name="kind" checked={kind === 'field'} onChange={() => setKind('field')} />Each request</label>
         <label><input type="radio" name="kind" checked={kind === 'daily_total'} onChange={() => setKind('daily_total')} />Today's total</label>
         <label><input type="radio" name="kind" checked={kind === 'time'} onChange={() => setKind('time')} />Time of day</label>
+        {reads.length > 0 && <label><input type="radio" name="kind" checked={kind === 'read_first'} onChange={() => { setKind('read_first'); if (!sourceDraft) setSource({ operation: reads[0].operation, match: action!.fields.find(f => reads[0].fields.some(r => r.name === f.name))!.name }); }} />Read first</label>}
       </fieldset>
+      {reads.length > 0 && kind !== 'time' && <ReadSource reads={reads} action={action} source={source} change={setSource} required={kind === 'read_first'} />}
       {kind === 'time' ? <>
         <div className="company-rule-times">
           <label>From<input type="time" value={window.from} onChange={event => setWindow(old => ({ ...old, from: event.target.value }))} /></label>
@@ -98,6 +115,10 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
         <fieldset className="company-rule-kind"><legend>Days <small>none for every day</small></legend>
           {dayNames.map((day, index) => <label key={day}><input type="checkbox" checked={window.days.includes(index + 1)} onChange={() => toggleDay(index + 1)} />{day.slice(0, 3)}</label>)}
         </fieldset>
+      </> : kind === 'read_first' ? null : comparing ? <>
+        <label>Comparison<select value={sourceComparator} onChange={event => setComparator(event.target.value as Comparator)}>
+          {sourceAllowed.map(c => <option key={c} value={c}>{kind === 'daily_total' ? (c === '>=' ? 'would reach' : 'would go over') : comparisons[c]}</option>)}</select></label>
+        <label>Value<input value={text} onChange={event => setText(event.target.value)} /></label>
       </> : <>
         {!choices.length && <p role="alert">This target has no {kind === 'daily_total' ? 'amount ' : ''}fields a rule can check.</p>}
         {field && <>
@@ -115,7 +136,7 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
         <label><input type="radio" name="effect" checked={effect === 'block'} onChange={() => setEffect('block')} />Block</label>
       </fieldset>
       <label>Note <small>optional</small><input value={note} maxLength={280} onChange={event => setNote(event.target.value)} /></label>
-      <p className="company-rule-readback" aria-live="polite">{input ? readBack(input, target.title.split(' · ').at(-1)!) : 'Choose what to check to see the rule in plain words.'}</p>
+      <p className="company-rule-readback" aria-live="polite">{input ? readBack(input, target.title.split(' · ').at(-1)!, readTitle) : 'Choose what to check to see the rule in plain words.'}</p>
       <p className="ui-help">If a request doesn't include the field, a person decides. Waiting approvals count towards today's total. Times use the workspace's time zone.</p>
     </div>
   </Dialog>;
