@@ -1,7 +1,14 @@
 import { identityRequest, storageScope, workspaceId, workspaceUrl } from '../../workspace-context';
 export type Document = Record<string, unknown>;
 /** What one agent may do with a folder or item, and whose questions it may answer. */
-export type AgentGrant = { agent: string; level: 'read'; use_for: 'viewers' | 'staff' };
+export type AgentGrant = {
+  agent: string;
+  level: 'read' | 'suggest' | 'edit' | 'save';
+  use_for: 'viewers' | 'staff';
+};
+export const levelName = (value: string) =>
+  ({ read: 'Read', suggest: 'Suggest edits', edit: 'Edit', save: 'Edit and save here' })[value] ??
+  value;
 export type Item = {
   id: string;
   kind: 'page' | 'file' | 'folder';

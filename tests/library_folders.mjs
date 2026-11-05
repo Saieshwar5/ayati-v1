@@ -51,7 +51,7 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   await ownerPage.getByRole('button', { name: 'Share folder', exact: true }).click();
   const sharing = ownerPage.getByRole('dialog', { name: 'People and agents' });
   await sharing.getByText('Everything in this folder follows these settings.', { exact: false }).waitFor();
-  await sharing.getByRole('checkbox', { name: 'Iris Read' }).check();
+  await sharing.getByRole('checkbox', { name: 'Iris No access' }).check();
   await sharing.getByLabel('Use for, Iris').selectOption('staff');
   await ownerPage.screenshot({ path: join(app.data, 'library-folder-share.png') });
   await sharing.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -188,5 +188,47 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.ok(prompts.some(p => p.includes('Company documents you always have') && p.includes('## Returns policy') && p.includes('refund window is 30 days')), 'the model received the policy');
   assert.ok(!prompts.some(p => p.includes('40k')), 'HR stays out of a colleague\'s request');
   app.pass('Real Goose: the owner chooses an always-read policy on the Instructions tab; the next request carries it, uncited, and never HR');
+
+  // Agents changing documents (LB3): Iris may edit and save in Policies.
+  const folderNow = (await app.request(`${app.path}/library/${policies}`, app.cookie)).value;
+  await app.request(`${app.path}/library/${policies}/share`, app.cookie, { request: randomUUID(), revision: folderNow.access_revision, visibility: 'private', people: [], agents: [{ agent: agent.id, level: 'save', use_for: 'staff' }] });
+  const ownerChat = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), name: 'Owner and Iris', kind: 'group', users: [], agents: [agent.id] })).value.id;
+  const policyNow = (await app.request(`${app.path}/library/${returns}`, app.cookie)).value;
+  const changeAsk = 'Suggest a 45 day refund window';
+  app.provider.setControl(changeAsk, { steps: [{ tool: 'suggest_edit', arguments: { id: returns, text: '# Refunds\nThe refund window is 45 days from delivery.', note: 'Asked in Chat' } }], checkpoint: 'I suggested the change.' });
+  const suggested = await app.send(changeAsk, ownerChat, app.cookie, agent.id);
+  await until(async () => (await app.history(ownerChat, app.cookie)).find(m => m.id === suggested.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  await ownerPage.goto(`${app.base}/w/${w}/?view=library&item=${returns}`);
+  await ownerPage.getByText('Iris suggested a change.', { exact: false }).waitFor();
+  await ownerPage.getByRole('button', { name: 'Review', exact: true }).click();
+  const review = ownerPage.getByRole('dialog', { name: 'Suggested changes' });
+  await review.getByText('“Asked in Chat”', { exact: true }).waitFor();
+  await ownerPage.screenshot({ path: join(app.data, 'library-suggestion-review.png') });
+  await review.getByRole('button', { name: 'Accept', exact: true }).click();
+  // With nothing left waiting the review closes and the page shows the accepted text.
+  await review.waitFor({ state: 'hidden' });
+  await ownerPage.getByText('The refund window is 45 days from delivery.', { exact: true }).waitFor();
+  const accepted = (await app.request(`${app.path}/library/${returns}`, app.cookie)).value;
+  assert.equal(accepted.revision, policyNow.revision + 1);
+  assert.equal(accepted.document.content[0].type, 'heading');
+  const history = (await app.request(`${app.path}/library/${returns}/versions`, app.cookie)).value.versions;
+  assert.equal(history[0].agent, 'Iris');
+  app.pass('Real Goose: Iris suggests an edit; the owner reviews it on the page and accepts it as a version marked with Iris');
+  const saveAsk = 'Save a quote for Acme';
+  app.provider.setControl(saveAsk, { steps: [
+    { tool: 'edit_document', arguments: { id: returns, revision: accepted.revision, text: '# Refunds\nThe refund window is 60 days from delivery.' } },
+    { tool: 'save_document', arguments: { folder: policies, title: 'Quote for Acme', text: '# Quote\n- Standing desk: 1250' } },
+  ] });
+  const saving = await app.send(saveAsk, ownerChat, app.cookie, agent.id);
+  const savedReply = await until(async () => (await app.history(ownerChat, app.cookie)).find(m => m.id === saving.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  const [edit, save] = JSON.parse(savedReply.content.replace(/^CONTROL_RESULT /, '')).map(r => JSON.parse(r));
+  assert.equal(edit.state, 'edited');
+  assert.equal(save.state, 'saved');
+  const quote = (await app.request(`${app.path}/library/${save.id}`, app.cookie)).value;
+  assert.equal(quote.folder, policies);
+  assert.equal(quote.document.content[1].type, 'bulletList');
+  const audit = (await app.request(`${app.path}/activity?kind=all`, app.cookie)).value.activity.map(e => e.sentence).join('\n');
+  assert.match(audit, /Iris saved "Quote for Acme" in "Policies"/);
+  app.pass('Real Goose: Iris edits the policy as a new version and saves a quote in Policies; both are audited');
   assert.deepEqual(errors, []);
 });

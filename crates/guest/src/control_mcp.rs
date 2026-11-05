@@ -25,9 +25,10 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some("update_goal") => crate::task_schema::goal(input),
         Some("write_review") => crate::task_schema::review(input),
         Some("propose_rule") => crate::rule_schema::proposal(input),
-        Some(name @ ("list_folder" | "search_library" | "read_document")) => {
-            crate::library_schema::observed(name, input)
-        }
+        Some(
+            name @ ("list_folder" | "search_library" | "read_document" | "suggest_edit"
+            | "edit_document" | "save_document"),
+        ) => crate::library_schema::observed(name, input),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.keys()
                 .all(|key| ["sections", "what_changed", "bindings"].contains(&key.as_str()))

@@ -2,6 +2,7 @@ mod actions;
 pub(super) mod agent_tools;
 mod agents;
 pub(super) mod always;
+pub(super) mod edits;
 pub(super) mod fence;
 pub(super) mod folders;
 pub(super) mod meaning;

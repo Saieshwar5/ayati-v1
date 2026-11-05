@@ -400,7 +400,7 @@ async fn use_for_decides_whose_questions_a_document_answers() {
 async fn agents_only_read_and_answer_staff_or_viewers_for_now() {
     let s = setup().await;
     for (level, use_for) in [
-        ("edit", "staff"),
+        ("edit_approval", "staff"),
         ("read", "customers"),
         ("read", "everyone"),
     ] {

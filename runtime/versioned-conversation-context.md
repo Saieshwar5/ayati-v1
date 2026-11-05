@@ -58,7 +58,7 @@ Library changes no longer do (schema 71): every way Library content reaches an a
 has its own receipt (Ask sources, agent reads and search previews, rehearsal samples,
 Home panels) checked against the item's access revision, so a page edit keeps earlier
 answers and running work, and a sharing change, move or trash fences only the work and
-history entries that used that item ([Library](library.md)).
+history entries that used that item ([Library and agents](library-agents.md)).
 Revoking then regranting access does not make an old context version current again.
 Independent Home snapshots and question records retain their existing precise
 connector/Library source checks, plus content-specific note/profile/message fences.
