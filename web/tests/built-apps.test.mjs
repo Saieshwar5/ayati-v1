@@ -241,6 +241,7 @@ test('An app starts from a template, and its builder decides what agents may do 
     assert.match(section().textContent, /File a leave request.*Approve or decline a leave request/);
     const decide = section().querySelector('[aria-label="Agents: Approve or decline a leave request"]');
     assert.equal(decide.value, 'block');
+    assert.deepEqual([...decide.options].map(o => o.textContent), ['Allow', 'Ask first', 'Block']);
     await change(section().querySelector('[aria-label="Agents: File a leave request"]'), 'allow');
     assert.deepEqual(rules, [{ action: 'file_leave', mode: 'allow' }]);
     await click(button('Build an app'));

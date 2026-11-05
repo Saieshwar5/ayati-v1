@@ -123,8 +123,8 @@ impl PgStore {
         input: &AgentRule,
     ) -> Result<Value> {
         ensure!(
-            ["allow", "block"].contains(&input.mode.as_str()),
-            "Allow or block it"
+            ["allow", "ask", "block"].contains(&input.mode.as_str()),
+            "Allow it, ask first or block it"
         );
         let tx = self.workspace_tx(w).await?;
         let (found, _) = super::app(&tx, user, w, id).await?;
@@ -145,6 +145,11 @@ impl PgStore {
         let name = found["name"].as_str().unwrap_or("");
         let said = if input.mode == "allow" {
             format!("Agents may \"{}\" in \"{name}\"", action.title)
+        } else if input.mode == "ask" {
+            format!(
+                "Agents may \"{}\" in \"{name}\" after asking the person",
+                action.title
+            )
         } else {
             format!("Agents may no longer \"{}\" in \"{name}\"", action.title)
         };
@@ -163,7 +168,7 @@ impl PgStore {
         .await?
         .context("Schema check")?
         .try_get("", "present")?;
-        Ok(present && query(&self.db, "SELECT 1 AS found FROM relay_built_app_agent_rules r JOIN relay_built_apps a ON a.workspace=r.workspace AND a.id=r.app WHERE r.workspace=$1 AND r.mode='allow' AND a.published IS NOT NULL AND NOT a.removed LIMIT 1", vec![job.workspace.clone().into()]).await?.is_some())
+        Ok(present && query(&self.db, "SELECT 1 AS found FROM relay_built_app_agent_rules r JOIN relay_built_apps a ON a.workspace=r.workspace AND a.id=r.app WHERE r.workspace=$1 AND r.mode IN ('allow','ask') AND a.published IS NOT NULL AND NOT a.removed LIMIT 1", vec![job.workspace.clone().into()]).await?.is_some())
     }
 
     /// Agent tool `app_actions`: what the agent may do, for this person, in each app
@@ -172,7 +177,7 @@ impl PgStore {
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
         let requester = person(&tx, &job.requester).await?;
-        let ids: Vec<String> = rows(&tx, "SELECT DISTINCT r.app FROM relay_built_app_agent_rules r JOIN relay_built_apps a ON a.workspace=r.workspace AND a.id=r.app WHERE r.workspace=$1 AND r.mode='allow' AND a.published IS NOT NULL AND NOT a.removed ORDER BY r.app", vec![job.workspace.clone().into()]).await?.into_iter().map(|r| r.try_get("", "app")).collect::<std::result::Result<_, _>>()?;
+        let ids: Vec<String> = rows(&tx, "SELECT DISTINCT r.app FROM relay_built_app_agent_rules r JOIN relay_built_apps a ON a.workspace=r.workspace AND a.id=r.app WHERE r.workspace=$1 AND r.mode IN ('allow','ask') AND a.published IS NOT NULL AND NOT a.removed ORDER BY r.app", vec![job.workspace.clone().into()]).await?.into_iter().map(|r| r.try_get("", "app")).collect::<std::result::Result<_, _>>()?;
         let mut apps = vec![];
         for id in ids {
             let Ok((found, _)) = super::app(&tx, &requester, &job.workspace, &id).await else {
@@ -192,9 +197,9 @@ impl PgStore {
                 continue;
             };
             let set = modes(&tx, &job.workspace, &id).await?;
-            let actions: Vec<Value> = manifest.actions.iter().filter(|a| set.iter().any(|(action, mode)| *action == a.id && mode == "allow")).map(|a| {
+            let actions: Vec<Value> = manifest.actions.iter().filter(|a| set.iter().any(|(action, mode)| *action == a.id && mode != "block")).map(|a| {
                 let types = &manifest.collections[&a.collection].fields;
-                json!({"id":a.id,"title":a.title,"does":a.does,"fields":a.fields.iter().map(|f| json!({"name":f,"type":types[f]})).collect::<Vec<_>>()})
+                json!({"id":a.id,"title":a.title,"does":a.does,"asks_first":set.iter().any(|(action, mode)| *action == a.id && mode == "ask"),"fields":a.fields.iter().map(|f| json!({"name":f,"type":types[f]})).collect::<Vec<_>>()})
             }).collect();
             if !actions.is_empty() {
                 apps.push(json!({"app":id,"name":found["name"],"actions":actions}));
@@ -241,10 +246,12 @@ impl PgStore {
             tx.commit().await?;
             return Ok(refused("This person can't open that app."));
         };
-        let allowed = modes(&tx, &job.workspace, &input.app)
+        let mode = modes(&tx, &job.workspace, &input.app)
             .await?
             .into_iter()
-            .any(|(action, mode)| action == input.action && mode == "allow");
+            .find(|(action, _)| *action == input.action)
+            .map_or_else(|| "block".to_owned(), |(_, mode)| mode);
+        let allowed = mode != "block";
         let Some(action) = manifest
             .actions
             .iter()
@@ -264,6 +271,35 @@ impl PgStore {
                     action.title,
                     action.fields.join(", ")
                 )));
+            }
+        }
+        if mode == "ask" {
+            let agent: String = query(
+                &tx,
+                "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+                vec![job.workspace.clone().into(), job.agent.clone().into()],
+            )
+            .await?
+            .context("Agent")?
+            .try_get("", "name")?;
+            let (key, specification) = super::asking::question(
+                &agent,
+                &action.title,
+                found["name"].as_str().unwrap_or(""),
+                &serde_json::to_value(input)?,
+            )?;
+            match super::asking::answered(&tx, job, &key, &specification).await? {
+                None => {
+                    tx.commit().await?;
+                    return Ok(
+                        json!({"state":"needs_confirmation","message":"This action asks the person first. Call ask_question with exactly this key and specification; once they answer, call run_app_action again with the same fields.","question":{"key":key,"specification":specification}}),
+                    );
+                }
+                Some(false) => {
+                    tx.commit().await?;
+                    return Ok(refused("The person didn't agree, so it wasn't done."));
+                }
+                Some(true) => {}
             }
         }
         let op = match (action.does.as_str(), input.record.is_some()) {

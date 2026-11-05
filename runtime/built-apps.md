@@ -131,8 +131,15 @@ Every template passes its checks as it is, so it can be published at once.
   `does` is `create`, `update` or `read`; create and update name the fields an agent may
   set. Up to 20 actions; the manifest check rejects unknown collections and fields.
 - **Every action starts blocked.** On the app's panel, **Agents can** lists the actions
-  for everyone who can see the app; its builder or an admin sets each to Allow or Block
-  (`relay_built_app_agent_rules`), audited.
+  for everyone who can see the app; its builder or an admin sets each to **Allow**,
+  **Ask first** or **Block** (`relay_built_app_agent_rules`, schema 85 adds ask), audited.
+- **Ask first**: `run_app_action` answers `needs_confirmation` with a question Cuckoo
+  wrote — "May Nia file a leave request in Leave?" with the fields, Yes/No — and a key
+  derived from the exact fields. The agent puts it to the person with `ask_question`;
+  when they answer, the same request runs the action again and it goes ahead only if
+  that exact question was answered **yes** by the person the agent works for. A changed
+  question, a "no" or a decline refuses it. `app_actions` marks such actions
+  `asks_first`.
 - An agent gets `app_actions` (what it may do, per app the person it works for can open)
   and `run_app_action` (`{app, action, data, record, revision}`), and an instructions
   line when any action is allowed. It **acts as that person**: the same checks as their
@@ -303,11 +310,17 @@ or download.
 - Real Goose (`tests/built_app_events.mjs`): the builder asks Nia from the panel in the
   browser; a colleague asks for leave in the running app; Nia, working for the builder,
   replies in their conversation and opens a task to decide; audited.
+- PostgreSQL (`built_app_actions_tests.rs`, ask first): Cuckoo hands back its question;
+  a different question under the key, even answered yes, refuses; the exact question
+  answered yes runs it; a no refuses it.
+- Real Goose (`tests/built_app_ask_first.mjs`): asked in Chat, Nia is handed Cuckoo's
+  question and asks Mina; nothing is filed until Mina answers yes in the browser; then
+  the same request files it; audited.
 
 ## Not yet
 
 - The agent seeing what a preview shows or the errors it raises.
-- "Ask first" for app actions (a person confirms in Needs me), company rules from the
-  Guard on app actions; events for changed records ("request approved").
+- Company rules from the Guard on app actions; events for changed records ("request
+  approved").
 - Agent actions declared in the manifest and run under company rules.
 - Templates beyond the starter, and a Git-backed code store.

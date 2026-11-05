@@ -223,3 +223,237 @@ async fn agents_file_leave_for_a_person_but_cannot_approve_it() {
         "{said}"
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn an_ask_first_action_runs_only_after_the_person_says_yes_to_cuckoos_question() {
+    let db = fixture().await;
+    let owner = user(&db, "asking-owner").await;
+    let mina = user(&db, "asking-mina").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &mina, "Member").await;
+    let (_, agent) = executor_slot_tests::agent(&db, &owner, &w).await;
+    db.chat_grant(&owner, &w, &mina.id, &agent, true)
+        .await
+        .unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    db.built_app_create(
+        &owner,
+        &w,
+        &NewApp {
+            id: id.clone(),
+            name: "Leave".into(),
+            description: String::new(),
+            audience: "everyone".into(),
+            people: vec![],
+            template: "leave".into(),
+        },
+    )
+    .await
+    .unwrap();
+    db.built_app_publish(
+        &owner,
+        &w,
+        &id,
+        &AppRelease {
+            note: String::new(),
+            revision: 1,
+        },
+    )
+    .await
+    .unwrap();
+    db.built_app_agent_rule(
+        &owner,
+        &w,
+        &id,
+        &AgentRule {
+            action: "file_leave".into(),
+            mode: "ask".into(),
+        },
+    )
+    .await
+    .unwrap();
+    let conversation = chat(&db, &mina, &w, vec![], vec![agent.clone()]).await;
+    db.chat_send(
+        &mina,
+        &w,
+        &conversation,
+        &message("File two days of leave", Some(&agent)),
+    )
+    .await
+    .unwrap();
+    let job = queued(&db).await;
+    let offered = invoke(&db, &job, "app_actions", json!({})).await.unwrap();
+    assert_eq!(offered["apps"][0]["actions"][0]["asks_first"], true);
+    let file = json!({"app":id,"action":"file_leave","data":{"start":"2026-11-10","days":2}});
+    // First Cuckoo hands back the exact question to ask.
+    let first = invoke(&db, &job, "run_app_action", file.clone())
+        .await
+        .unwrap();
+    assert_eq!(first["state"], "needs_confirmation");
+    let spec = first["question"]["specification"].clone();
+    assert!(
+        spec["title"].as_str().unwrap().starts_with("May "),
+        "{spec}"
+    );
+    assert!(
+        spec["title"]
+            .as_str()
+            .unwrap()
+            .ends_with("file a leave request in Leave?"),
+        "{spec}"
+    );
+    assert_eq!(spec["description"], "start: 2026-11-10 · days: 2");
+    let key = first["question"]["key"].as_str().unwrap().to_owned();
+    // A different question under the key doesn't count, even if answered yes.
+    let mut wrong = spec.clone();
+    wrong["title"] = "Do you like Mondays?".into();
+    let asked = invoke(
+        &db,
+        &job,
+        "ask_question",
+        json!({"key":key,"specification":wrong}),
+    )
+    .await
+    .unwrap();
+    let question = asked["question"]["id"]
+        .as_str()
+        .or(asked["id"].as_str())
+        .map(str::to_owned)
+        .unwrap_or_else(|| panic!("{asked}"));
+    db.answer_question(
+        &mina,
+        &w,
+        &question,
+        &crate::identity::interactions::model::Submission {
+            id: uuid::Uuid::new_v4().to_string(),
+            revision: 1,
+            decision: "answer".into(),
+            values: json!({"choices":["yes"]}),
+        },
+    )
+    .await
+    .unwrap();
+    let resumed = reclaim(&db, &job).await;
+    assert_eq!(
+        invoke(&db, &resumed, "run_app_action", file.clone())
+            .await
+            .unwrap()["state"],
+        "refused"
+    );
+    db.chat_finish(&resumed, "Not done.", "complete")
+        .await
+        .unwrap();
+    // The exact question, answered yes by Mina, lets it run once.
+    db.chat_send(
+        &mina,
+        &w,
+        &conversation,
+        &message("File two days of leave, please", Some(&agent)),
+    )
+    .await
+    .unwrap();
+    let job = queued(&db).await;
+    let first = invoke(&db, &job, "run_app_action", file.clone())
+        .await
+        .unwrap();
+    let asked = invoke(&db, &job, "ask_question", first["question"].clone())
+        .await
+        .unwrap();
+    let question = asked["question"]["id"]
+        .as_str()
+        .or(asked["id"].as_str())
+        .map(str::to_owned)
+        .unwrap_or_else(|| panic!("{asked} / {first}"));
+    db.answer_question(
+        &mina,
+        &w,
+        &question,
+        &crate::identity::interactions::model::Submission {
+            id: uuid::Uuid::new_v4().to_string(),
+            revision: 1,
+            decision: "answer".into(),
+            values: json!({"choices":["yes"]}),
+        },
+    )
+    .await
+    .unwrap();
+    let resumed = reclaim(&db, &job).await;
+    let done = invoke(&db, &resumed, "run_app_action", file.clone())
+        .await
+        .unwrap();
+    assert_eq!(done["state"], "done", "{done}");
+    assert_eq!(done["result"]["mine"], true);
+    db.chat_finish(&resumed, "Filed.", "complete")
+        .await
+        .unwrap();
+    // A "no" refuses it.
+    db.chat_send(
+        &mina,
+        &w,
+        &conversation,
+        &message("File one more day", Some(&agent)),
+    )
+    .await
+    .unwrap();
+    let job = queued(&db).await;
+    let more = json!({"app":id,"action":"file_leave","data":{"start":"2026-12-01","days":1}});
+    let first = invoke(&db, &job, "run_app_action", more.clone())
+        .await
+        .unwrap();
+    let asked = invoke(&db, &job, "ask_question", first["question"].clone())
+        .await
+        .unwrap();
+    let question = asked["question"]["id"]
+        .as_str()
+        .or(asked["id"].as_str())
+        .map(str::to_owned)
+        .unwrap();
+    db.answer_question(
+        &mina,
+        &w,
+        &question,
+        &crate::identity::interactions::model::Submission {
+            id: uuid::Uuid::new_v4().to_string(),
+            revision: 1,
+            decision: "answer".into(),
+            values: json!({"choices":["no"]}),
+        },
+    )
+    .await
+    .unwrap();
+    let resumed = reclaim(&db, &job).await;
+    let refused = invoke(&db, &resumed, "run_app_action", more).await.unwrap();
+    assert!(
+        refused["message"]
+            .as_str()
+            .unwrap()
+            .contains("didn't agree"),
+        "{refused}"
+    );
+}
+
+/// Claims the request just sent, as an executor would.
+async fn queued(db: &crate::identity::postgres::PgStore) -> crate::identity::chat::model::Job {
+    let row = crate::identity::postgres::query(
+        &db.db,
+        "SELECT payload FROM relay_chat_jobs WHERE state='queued' ORDER BY sequence DESC LIMIT 1",
+        vec![],
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let job: crate::identity::chat::model::Job =
+        serde_json::from_value(row.try_get("", "payload").unwrap()).unwrap();
+    reclaim(db, &job).await
+}
+/// Takes a task back after the person answered its question, as an executor would.
+async fn reclaim(
+    db: &crate::identity::postgres::PgStore,
+    job: &crate::identity::chat::model::Job,
+) -> crate::identity::chat::model::Job {
+    let mut job = job.clone();
+    job.claim = Some(uuid::Uuid::new_v4().to_string());
+    crate::identity::postgres::execute(&db.db, "UPDATE relay_chat_jobs SET state='running',claim=$2,lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300 WHERE reply=$1", vec![job.reply.clone().into(), job.claim.clone().into()]).await.unwrap();
+    job
+}
