@@ -3,7 +3,6 @@
 //! changes the draft, runs the checks and publishes; admins can roll back or remove any
 //! app. People open a published app only if it is for everyone or they were chosen.
 use super::*;
-use crate::identity::built_apps::files as built_apps;
 use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaManager};
 use serde::Deserialize;
 use serde_json::json;
@@ -40,6 +39,9 @@ pub(crate) struct NewApp {
     pub audience: String,
     #[serde(default)]
     pub people: Vec<String>,
+    /// blank (the default), leave, expenses or stock; only when starting an app.
+    #[serde(default)]
+    pub template: String,
 }
 
 /// May open the published app: everyone, the people chosen, its builder, or an admin.
@@ -115,6 +117,11 @@ impl PgStore {
             ["everyone", "selected"].contains(&input.audience.as_str()),
             "Choose who can use it"
         );
+        let starting = crate::identity::built_apps::templates::files(
+            &input.template,
+            name,
+            input.description.trim(),
+        )?;
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
         if query(
@@ -144,7 +151,7 @@ impl PgStore {
                 .context("Choose people in this workspace")?;
             execute(&tx, "INSERT INTO relay_built_app_people(workspace,app,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", vec![w.into(), input.id.clone().into(), person.clone().into()]).await?;
         }
-        for (path, content) in built_apps::starter(name, input.description.trim()) {
+        for (path, content) in starting {
             execute(&tx, "INSERT INTO relay_built_app_files(workspace,app,version,path,content) VALUES($1,$2,0,$3,$4)", vec![w.into(), input.id.clone().into(), path.into(), content.into()]).await?;
         }
         audit_with_summary(
@@ -256,6 +263,9 @@ pub(crate) use data::{BuiltAppData, DataRequest, RoleChange};
 #[path = "built_app_agents.rs"]
 mod agents;
 pub(crate) use agents::{BuiltAppAgents, Helper};
+#[path = "built_app_actions.rs"]
+mod actions;
+pub(crate) use actions::{AgentRule, BuiltAppActions};
 
 #[cfg(test)]
 #[path = "built_apps_tests.rs"]

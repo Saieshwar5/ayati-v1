@@ -137,6 +137,9 @@ pub(crate) async fn prepare_traced(
     {
         instructions.push_str("\nYou were given company documents in the Library. When a question may be answered by a policy, procedure, price list or guide, use search_library or list_folder, then read_document, and answer from what you read; say which document it comes from. Cuckoo shows only documents that suit the people in this conversation and lists the ones you read under your answer. If nothing fits, say so instead of guessing. Where you were allowed to change documents, suggest_edit leaves a suggestion for a person, edit_document saves a new version (give the revision you read) and save_document files a new page; never say a change was made unless the tool says so. For prices, limits and other numbers in a Library table, use lookup by the row's key; set_table_row changes one row where allowed. When a document is marked review_due, say it may be out of date.");
     }
+    if control_tools && db.built_app_actions_offered(job).await? {
+        instructions.push_str("\nYou can act in apps built in Cuckoo for the person you work for: call app_actions to see what you may do in each app they can open, then run_app_action. You act as that person and can never do more in an app than they could. Read before you change a record and give its revision. Never say something was done unless run_app_action says done; if it is refused, tell the person to do it in the app.");
+    }
     if control_tools && db.built_app_agent_helps(job).await? {
         instructions.push_str(&format!(
             "\n{}",

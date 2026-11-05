@@ -4,7 +4,9 @@ People build small apps for their team inside Cuckoo — a leave request form, a
 counter — and publish them on the [Apps page](apps-page.md). From the Apps plan
 (AP4–AP9). Built 2026-11-05: the code store, the checks, versions and a safe runner
 (schema 78), the app's own data and roles through a message bridge (schema 79), and
-agents that write the draft for the builder who asks (schema 80).
+agents that write the draft for the builder who asks (schema 80), and agents acting in
+apps for a person, under per-action rules, with Leave, Expenses and Stock templates
+(schema 81).
 Apps can't read or change other Cuckoo data.
 
 ## How an app is kept
@@ -103,6 +105,45 @@ source is that app's own frame, allows eight waiting at once, and relays each on
 `POST …/apps/built/{id}/data`, where the server makes every decision. Answers go back
 by message; failures reject the promise with the server's plain-words reason.
 
+## Templates
+
+**Build an app → Start from** offers a blank page or a template: **Leave requests**,
+**Expenses** or **Stock** (`built_apps/templates/`). Each is a manifest with roles,
+a collection and agent actions, plus `config.js` (collection, fields, the decision field
+and who decides) read by one shared `records.js` screen: a form to add a record, the
+records the person may see, and Approve/Decline for roles that may change any record.
+Every template passes its checks as it is, so it can be published at once.
+
+## Agents acting in apps
+
+- The manifest's `actions` list what agents may be allowed to do:
+
+  ```json
+  "actions": [
+    { "id": "file_leave", "title": "File a leave request", "collection": "requests",
+      "does": "create", "fields": ["start", "days", "reason"] },
+    { "id": "my_leave", "title": "See leave requests", "collection": "requests", "does": "read" },
+    { "id": "decide_leave", "title": "Approve or decline a leave request",
+      "collection": "requests", "does": "update", "fields": ["status"] }
+  ]
+  ```
+
+  `does` is `create`, `update` or `read`; create and update name the fields an agent may
+  set. Up to 20 actions; the manifest check rejects unknown collections and fields.
+- **Every action starts blocked.** On the app's panel, **Agents can** lists the actions
+  for everyone who can see the app; its builder or an admin sets each to Allow or Block
+  (`relay_built_app_agent_rules`), audited.
+- An agent gets `app_actions` (what it may do, per app the person it works for can open)
+  and `run_app_action` (`{app, action, data, record, revision}`), and an instructions
+  line when any action is allowed. It **acts as that person**: the same checks as their
+  own requests, by the published manifest and their roles, so it can never do more than
+  they could. Fields beyond the action's are refused; a stale revision returns
+  `changed`.
+- A run is kept by a one-time key (the request plus its exact arguments,
+  `relay_built_app_action_runs`); repeating it returns the first result. Records keep
+  the agent that made or last changed them (`by_agent`, shown as `agent`). Creates and
+  updates are audited: "Nia did \"File a leave request\" in \"Leave\" for Mina".
+
 ## Building with an agent
 
 - On the app's panel the builder chooses **Build with an agent**, an agent and what to
@@ -158,6 +199,8 @@ All under `/api/identity/workspaces/{w}/apps`:
 | `GET /built/{id}/roles` | builder, admins | the roles and who holds them |
 | `POST /built/{id}/roles` `{role, people}` | builder, admins | who holds a role (not the first); audited |
 | `POST /built/{id}/helpers` `{agent, helps}` | builder | asks an agent to build the draft, or stops it; audited |
+| `GET /built/{id}/agent-rules` | anyone who can see it | each manifest action and whether agents may run it |
+| `POST /built/{id}/agent-rules` `{action, mode}` | builder, admins | allow or block one action for agents; audited |
 
 ## In the browser
 
@@ -215,9 +258,27 @@ or download.
   Goose and ayati_control) writes the manifest, page and script; the checks pass and it
   doesn't publish; the guide and tools reach the model; the member previews the draft,
   which keeps a count through the bridge, publishes it and stops Juno.
+- Unit (`built_apps/actions.rs`, `built_apps/templates.rs`): actions name a collection
+  and its fields and say what is wrong; every template passes its checks, offers agent
+  actions and escapes its name.
+- PostgreSQL (`postgres/built_app_actions_tests.rs`), on the Leave template: every action
+  starts blocked; members see the rules, only the builder or an admin changes them;
+  once allowed the agent files leave as the person, the record names the agent, a retry
+  doesn't repeat it; extra fields, an unallowed action and a bad date are refused; even
+  allowed, approving needs the approver role the person lacks; blocking again closes it;
+  runs and rule changes are audited.
+- Web (`tests/built-apps.test.mjs`): Start from sends the template; Agents can shows each
+  action's mode and the builder changes one; people who only use the app see it
+  read-only.
+- Real Goose (`tests/built_app_actions.mjs`): a member starts Leave from its template,
+  publishes it and allows only filing; a colleague asks Nia in Chat; Nia sees only
+  "file leave", files it as her (recorded with Nia), and approving is refused; the
+  colleague opens Leave and sees the request waiting; audited.
 
 ## Not yet
 
 - The agent seeing what a preview shows or the errors it raises.
+- "Ask first" for app actions (a person confirms in Needs me), company rules from the
+  Guard on app actions, and app events ("request approved") becoming tasks.
 - Agent actions declared in the manifest and run under company rules.
 - Templates beyond the starter, and a Git-backed code store.

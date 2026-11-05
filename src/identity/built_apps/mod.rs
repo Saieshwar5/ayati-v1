@@ -1,10 +1,14 @@
 //! Built apps (Apps AP4–AP9, first part): the HTTP boundary. The store authorizes every
 //! request; the runnable document is served with a sandboxing content policy, so it
 //! never runs with Cuckoo's own origin.
+pub(crate) mod actions;
 pub(crate) mod files;
 pub(crate) mod manifest;
+pub(crate) mod templates;
 use super::*;
-use crate::identity::postgres::{AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange};
+use crate::identity::postgres::{
+    AgentRule, AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange,
+};
 use axum::{
     Json,
     extract::{Path as RoutePath, Query},
@@ -50,6 +54,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/helpers",
             post(helper),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/agent-rules",
+            get(agent_rules).post(agent_rule),
         )
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/download",
@@ -228,5 +236,27 @@ async fn helper(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.built_app_helper(&user, &w, &id, &input).await?,
+    ))
+}
+/// What agents may do in the app, and (builder, admins) allowing or blocking an action.
+async fn agent_rules(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.built_app_agent_rules(&user, &w, &id).await?))
+}
+async fn agent_rule(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<AgentRule>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .built_app_agent_rule(&user, &w, &id, &input)
+            .await?,
     ))
 }

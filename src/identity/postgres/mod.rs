@@ -427,7 +427,9 @@ mod audit_write;
 mod built_apps;
 mod company_apps;
 use audit_write::{audit, audit_with_summary};
-pub(crate) use built_apps::{AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange};
+pub(crate) use built_apps::{
+    AgentRule, AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange,
+};
 pub(crate) use company_apps::{AppDecision, AppRequest, CompanyApp};
 
 #[cfg(test)]

@@ -29,9 +29,10 @@ pub fn observed(name: &str, input: &Value) -> bool {
             name @ ("list_folder" | "search_library" | "read_document" | "suggest_edit"
             | "edit_document" | "save_document" | "lookup" | "set_table_row"),
         ) => crate::library_schema::observed(name, input),
-        Some(name @ ("my_apps" | "app_files" | "read_app_file" | "write_app_file")) => {
-            crate::app_schema::observed(name, input)
-        }
+        Some(
+            name @ ("my_apps" | "app_files" | "read_app_file" | "write_app_file" | "app_actions"
+            | "run_app_action"),
+        ) => crate::app_schema::observed(name, input),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.keys()
                 .all(|key| ["sections", "what_changed", "bindings"].contains(&key.as_str()))

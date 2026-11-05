@@ -31,9 +31,11 @@ pub struct Collection {
 pub struct Manifest {
     pub roles: Vec<String>,
     pub collections: BTreeMap<String, Collection>,
+    /// What agents may be allowed to do in the app (AP10).
+    pub actions: Vec<super::actions::Action>,
 }
 
-fn name(kind: &str, text: &str) -> Result<()> {
+pub(super) fn name(kind: &str, text: &str) -> Result<()> {
     ensure!(
         !text.is_empty()
             && text.len() <= 40
@@ -147,7 +149,12 @@ impl Manifest {
             }
             collections.insert(key.clone(), Collection { fields, access });
         }
-        Ok(Self { roles, collections })
+        let actions = super::actions::parse(&value, &collections)?;
+        Ok(Self {
+            roles,
+            collections,
+            actions,
+        })
     }
 
     /// Everyone who may open the app holds its first role.

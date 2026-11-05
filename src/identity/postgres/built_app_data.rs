@@ -54,7 +54,8 @@ pub(crate) struct RoleChange {
 }
 
 const RECORD: &str = "jsonb_build_object('id',r.id,'data',r.data,'revision',r.revision,'created',r.created,'updated',r.updated,'mine',r.created_by=$5,
-    'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=r.created_by)) AS data";
+    'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=r.created_by),
+    'agent',(SELECT g.name FROM relay_shared_agents g WHERE g.workspace=r.workspace AND g.id=r.by_agent)) AS data";
 
 /// The manifest of a version; the published one passed its checks.
 async fn manifest(tx: &DatabaseTransaction, w: &str, id: &str, version: i32) -> Result<Manifest> {
@@ -63,6 +64,160 @@ async fn manifest(tx: &DatabaseTransaction, w: &str, id: &str, version: i32) -> 
 }
 async fn assigned(tx: &DatabaseTransaction, w: &str, id: &str, user: &str) -> Result<Vec<String>> {
     rows(tx, "SELECT role FROM relay_built_app_roles WHERE workspace=$1 AND app=$2 AND user_id=$3 ORDER BY role", vec![w.into(), id.into(), user.into()]).await?.into_iter().map(|r| Ok(r.try_get("", "role")?)).collect()
+}
+
+/// One data request for `user`, by the published (or preview) manifest and their roles.
+/// `agent` is the agent acting for them, recorded on what it creates or changes.
+pub(super) async fn answer(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    id: &str,
+    input: &DataRequest,
+    agent: Option<&str>,
+) -> Result<Value> {
+    let (found, _) = super::app(tx, user, w, id).await?;
+    let (stage, version) = if input.preview {
+        ensure!(
+            found["manages"] == true,
+            "Only its builder and admins preview a draft"
+        );
+        ("preview", 0)
+    } else {
+        ensure!(found["opens"] == true, "This app isn't published for you");
+        ("live", found["published"].as_i64().unwrap_or(0) as i32)
+    };
+    let manifest = manifest(tx, w, id, version).await?;
+    let roles: Vec<String> = if input.preview {
+        manifest.roles.clone()
+    } else {
+        let mut held = vec![manifest.default_role().to_owned()];
+        for role in assigned(tx, w, id, &user.id).await? {
+            if manifest.roles.contains(&role) && !held.contains(&role) {
+                held.push(role);
+            }
+        }
+        held
+    };
+    if input.op == "me" {
+        let name: String = query(
+            tx,
+            "SELECT COALESCE(display_name,email) AS name FROM relay_users WHERE id=$1",
+            vec![user.id.clone().into()],
+        )
+        .await?
+        .context("Person")?
+        .try_get("", "name")?;
+        return Ok(json!({"id":user.id,"name":name,"roles":roles}));
+    }
+    let action = match input.op.as_str() {
+        "list" | "get" => "read",
+        "create" | "update" | "delete" => input.op.as_str(),
+        _ => anyhow::bail!("Ask for me, list, get, create, update or delete"),
+    };
+    let collection = input.collection.as_str();
+    ensure!(
+        manifest.collections.contains_key(collection),
+        "The app has no collection \"{collection}\""
+    );
+    let any = manifest
+        .allows(&roles, collection, action)
+        .with_context(|| format!("Your role in this app can't {action} {collection}"))?;
+    let values = |extra: Vec<sea_orm::Value>| -> Vec<sea_orm::Value> {
+        let mut v: Vec<sea_orm::Value> = vec![
+            w.into(),
+            id.into(),
+            stage.into(),
+            collection.into(),
+            user.id.clone().into(),
+        ];
+        v.extend(extra);
+        v
+    };
+    // $1 workspace, $2 app, $3 stage, $4 collection, $5 person.
+    let scope = "r.workspace=$1 AND r.app=$2 AND r.stage=$3 AND r.collection=$4";
+    let result = match input.op.as_str() {
+        "list" => {
+            let own = !any || input.mine;
+            let records = json_rows(tx, &format!("SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND (NOT $6 OR r.created_by=$5) ORDER BY r.created DESC,r.id LIMIT 200"), values(vec![own.into()])).await?;
+            json!({"records":records})
+        }
+        "get" => {
+            let record = input.record.clone().context("Say which record")?;
+            let found = json_rows(tx, &format!("SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6 AND ($7 OR r.created_by=$5)"), values(vec![record.into(), any.into()])).await?;
+            found
+                .into_iter()
+                .next()
+                .context("No such record, or not one you can read")?
+        }
+        "create" => {
+            let data = input.data.clone().context("Send the record's fields")?;
+            manifest.record(collection, &data)?;
+            let count: i64 = query(tx, "SELECT count(*) AS n FROM relay_built_app_records r WHERE r.workspace=$1 AND r.app=$2 AND r.stage=$3", vec![w.into(), id.into(), stage.into()]).await?.context("Count")?.try_get("", "n")?;
+            ensure!(
+                count < MAX_RECORDS,
+                "An app keeps up to {MAX_RECORDS} records"
+            );
+            let record = uuid::Uuid::new_v4().to_string();
+            execute(tx, "INSERT INTO relay_built_app_records(workspace,app,stage,collection,id,data,created_by,updated_by,created,updated,by_agent) VALUES($1,$2,$3,$4,$6,$7,$5,$5,$8,$8,$9)", values(vec![record.clone().into(), data.into(), now().into(), agent.map(str::to_owned).into()])).await?;
+            json_rows(
+                tx,
+                &format!(
+                    "SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6"
+                ),
+                values(vec![record.into()]),
+            )
+            .await?
+            .into_iter()
+            .next()
+            .context("Record")?
+        }
+        _ => {
+            let record = input.record.clone().context("Say which record")?;
+            let row = query(tx, &format!("SELECT r.data,r.revision,r.created_by FROM relay_built_app_records r WHERE {scope} AND r.id=$6 FOR UPDATE"), values(vec![record.clone().into()])).await?.context("No such record")?;
+            let owner: String = row.try_get("", "created_by")?;
+            ensure!(
+                any || owner == user.id,
+                "Your role in this app can only {action} your own {collection}"
+            );
+            if input.op == "delete" {
+                execute(
+                    tx,
+                    &format!("DELETE FROM relay_built_app_records r WHERE {scope} AND r.id=$6"),
+                    values(vec![record.clone().into()]),
+                )
+                .await?;
+                json!({"id":record,"deleted":true})
+            } else {
+                let revision: i64 = row.try_get("", "revision")?;
+                if input.revision != Some(revision) {
+                    return Err(Conflict.into());
+                }
+                let mut data: Value = row.try_get("", "data")?;
+                let changes = input.data.clone().context("Send the fields to change")?;
+                let changes = changes
+                    .as_object()
+                    .context("A record is an object of fields")?;
+                for (field, value) in changes {
+                    data[field] = value.clone();
+                }
+                manifest.record(collection, &data)?;
+                execute(tx, &format!("UPDATE relay_built_app_records r SET data=$7,revision=revision+1,updated_by=$5,updated=$8,by_agent=$9 WHERE {scope} AND r.id=$6"), values(vec![record.clone().into(), data.into(), now().into(), agent.map(str::to_owned).into()])).await?;
+                json_rows(
+                    tx,
+                    &format!(
+                        "SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6"
+                    ),
+                    values(vec![record.into()]),
+                )
+                .await?
+                .into_iter()
+                .next()
+                .context("Record")?
+            }
+        }
+    };
+    Ok(result)
 }
 
 impl PgStore {
@@ -77,138 +232,7 @@ impl PgStore {
         input: &DataRequest,
     ) -> Result<Value> {
         let tx = self.workspace_tx(w).await?;
-        let (found, _) = super::app(&tx, user, w, id).await?;
-        let (stage, version) = if input.preview {
-            ensure!(
-                found["manages"] == true,
-                "Only its builder and admins preview a draft"
-            );
-            ("preview", 0)
-        } else {
-            ensure!(found["opens"] == true, "This app isn't published for you");
-            ("live", found["published"].as_i64().unwrap_or(0) as i32)
-        };
-        let manifest = manifest(&tx, w, id, version).await?;
-        let roles: Vec<String> = if input.preview {
-            manifest.roles.clone()
-        } else {
-            let mut held = vec![manifest.default_role().to_owned()];
-            for role in assigned(&tx, w, id, &user.id).await? {
-                if manifest.roles.contains(&role) && !held.contains(&role) {
-                    held.push(role);
-                }
-            }
-            held
-        };
-        if input.op == "me" {
-            let name: String = query(
-                &tx,
-                "SELECT COALESCE(display_name,email) AS name FROM relay_users WHERE id=$1",
-                vec![user.id.clone().into()],
-            )
-            .await?
-            .context("Person")?
-            .try_get("", "name")?;
-            tx.commit().await?;
-            return Ok(json!({"id":user.id,"name":name,"roles":roles}));
-        }
-        let action = match input.op.as_str() {
-            "list" | "get" => "read",
-            "create" | "update" | "delete" => input.op.as_str(),
-            _ => anyhow::bail!("Ask for me, list, get, create, update or delete"),
-        };
-        let collection = input.collection.as_str();
-        ensure!(
-            manifest.collections.contains_key(collection),
-            "The app has no collection \"{collection}\""
-        );
-        let any = manifest
-            .allows(&roles, collection, action)
-            .with_context(|| format!("Your role in this app can't {action} {collection}"))?;
-        let values = |extra: Vec<sea_orm::Value>| -> Vec<sea_orm::Value> {
-            let mut v: Vec<sea_orm::Value> = vec![
-                w.into(),
-                id.into(),
-                stage.into(),
-                collection.into(),
-                user.id.clone().into(),
-            ];
-            v.extend(extra);
-            v
-        };
-        // $1 workspace, $2 app, $3 stage, $4 collection, $5 person.
-        let scope = "r.workspace=$1 AND r.app=$2 AND r.stage=$3 AND r.collection=$4";
-        let result = match input.op.as_str() {
-            "list" => {
-                let own = !any || input.mine;
-                let records = json_rows(&tx, &format!("SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND (NOT $6 OR r.created_by=$5) ORDER BY r.created DESC,r.id LIMIT 200"), values(vec![own.into()])).await?;
-                json!({"records":records})
-            }
-            "get" => {
-                let record = input.record.clone().context("Say which record")?;
-                let found = json_rows(&tx, &format!("SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6 AND ($7 OR r.created_by=$5)"), values(vec![record.into(), any.into()])).await?;
-                found
-                    .into_iter()
-                    .next()
-                    .context("No such record, or not one you can read")?
-            }
-            "create" => {
-                let data = input.data.clone().context("Send the record's fields")?;
-                manifest.record(collection, &data)?;
-                let count: i64 = query(&tx, "SELECT count(*) AS n FROM relay_built_app_records r WHERE r.workspace=$1 AND r.app=$2 AND r.stage=$3", vec![w.into(), id.into(), stage.into()]).await?.context("Count")?.try_get("", "n")?;
-                ensure!(
-                    count < MAX_RECORDS,
-                    "An app keeps up to {MAX_RECORDS} records"
-                );
-                let record = uuid::Uuid::new_v4().to_string();
-                execute(&tx, "INSERT INTO relay_built_app_records(workspace,app,stage,collection,id,data,created_by,updated_by,created,updated) VALUES($1,$2,$3,$4,$6,$7,$5,$5,$8,$8)", values(vec![record.clone().into(), data.into(), now().into()])).await?;
-                json_rows(
-                    &tx,
-                    &format!(
-                        "SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6"
-                    ),
-                    values(vec![record.into()]),
-                )
-                .await?
-                .into_iter()
-                .next()
-                .context("Record")?
-            }
-            _ => {
-                let record = input.record.clone().context("Say which record")?;
-                let row = query(&tx, &format!("SELECT r.data,r.revision,r.created_by FROM relay_built_app_records r WHERE {scope} AND r.id=$6 FOR UPDATE"), values(vec![record.clone().into()])).await?.context("No such record")?;
-                let owner: String = row.try_get("", "created_by")?;
-                ensure!(
-                    any || owner == user.id,
-                    "Your role in this app can only {action} your own {collection}"
-                );
-                if input.op == "delete" {
-                    execute(
-                        &tx,
-                        &format!("DELETE FROM relay_built_app_records r WHERE {scope} AND r.id=$6"),
-                        values(vec![record.clone().into()]),
-                    )
-                    .await?;
-                    json!({"id":record,"deleted":true})
-                } else {
-                    let revision: i64 = row.try_get("", "revision")?;
-                    if input.revision != Some(revision) {
-                        return Err(Conflict.into());
-                    }
-                    let mut data: Value = row.try_get("", "data")?;
-                    let changes = input.data.clone().context("Send the fields to change")?;
-                    let changes = changes
-                        .as_object()
-                        .context("A record is an object of fields")?;
-                    for (field, value) in changes {
-                        data[field] = value.clone();
-                    }
-                    manifest.record(collection, &data)?;
-                    execute(&tx, &format!("UPDATE relay_built_app_records r SET data=$7,revision=revision+1,updated_by=$5,updated=$8 WHERE {scope} AND r.id=$6"), values(vec![record.clone().into(), data.into(), now().into()])).await?;
-                    json_rows(&tx, &format!("SELECT {RECORD} FROM relay_built_app_records r WHERE {scope} AND r.id=$6"), values(vec![record.into()])).await?.into_iter().next().context("Record")?
-                }
-            }
-        };
+        let result = answer(&tx, user, w, id, input, None).await?;
         tx.commit().await?;
         Ok(result)
     }
