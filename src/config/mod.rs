@@ -44,6 +44,17 @@ impl Common {
 pub struct GooseSettings {
     pub binary: PathBuf,
     pub provider: String,
+    /// Model calls go through the controller's gateway (`AYATI_MODEL_GATEWAY`).
+    pub gateway: bool,
+    /// Set once the executor's loopback model proxy is listening.
+    pub proxy: Option<ModelProxy>,
+}
+
+/// Where Goose sends model requests in gateway mode, and the per-slot key it uses.
+#[derive(Clone)]
+pub struct ModelProxy {
+    pub host: String,
+    pub key: String,
 }
 
 impl GooseSettings {
@@ -54,12 +65,27 @@ impl GooseSettings {
         if !matches!(provider.as_str(), "openai" | "fireworks-ai") {
             env.problem("AYATI_GOOSE_PROVIDER must be openai or fireworks-ai");
         }
+        let gateway = env.flag("AYATI_MODEL_GATEWAY");
+        if gateway {
+            // Keys stay on the controller; Goose reaches models only through it.
+            env.refuse(
+                &[
+                    "OPENAI_API_KEY",
+                    "FIREWORKS_API_KEY",
+                    "OPENAI_HOST",
+                    "OPENAI_BASE_PATH",
+                ],
+                "Executors using the model gateway",
+            );
+        }
         Self {
             binary: env
                 .text("AYATI_GOOSE_BIN")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from(".cache/goose/v1.54.0/goose")),
             provider,
+            gateway,
+            proxy: None,
         }
     }
 }

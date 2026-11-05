@@ -51,6 +51,9 @@ pub struct Controller {
     pub library: Library,
     pub archive: super::Archive,
     pub mcp_servers_file: Option<PathBuf>,
+    /// The model gateway's providers (base URL and key file each). Present: executors
+    /// reach models only through the controller and hold no model keys.
+    pub model_providers_file: Option<PathBuf>,
     /// Composio's project API key (a private 0600 file); no file, no Composio.
     pub composio_key_file: Option<PathBuf>,
     /// A loopback fixture for tests; the official API otherwise.
@@ -200,6 +203,7 @@ impl Controller {
             library,
             archive: super::Archive::read(env, hosted),
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
+            model_providers_file: absolute(env, "AYATI_MODEL_PROVIDERS_FILE"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),

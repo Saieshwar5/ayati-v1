@@ -10,6 +10,8 @@ pub(crate) mod cloud;
 pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
+mod model_gateway;
+pub(crate) use model_gateway::MODEL_BODY_LIMIT;
 pub(crate) mod output;
 mod pool;
 mod tls;
@@ -183,6 +185,11 @@ fn routes(state: StateData) -> Router {
         .merge(pool::routes())
         .route("/v1/assignments/{id}/output", post(output::append))
         .route("/v1/assignments/{id}/tools", post(tools::invoke))
+        .route(
+            "/v1/assignments/{id}/model",
+            post(model_gateway::invoke)
+                .layer(axum::extract::DefaultBodyLimit::max(MODEL_BODY_LIMIT)),
+        )
         .route("/v1/executors/register", post(register))
         .route("/v1/executors/register-cloud", post(cloud::register))
         .route("/v1/executors/register-aws", post(register_aws))

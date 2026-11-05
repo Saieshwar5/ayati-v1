@@ -18,6 +18,8 @@ pub struct GooseConfig {
     pub root: PathBuf,
     pub workspace: PathBuf,
     pub provider: String,
+    /// The executor's model proxy in gateway mode.
+    pub proxy: Option<crate::config::ModelProxy>,
     pub model: String,
     pub run_timeout: std::time::Duration,
 }
@@ -33,12 +35,16 @@ impl GooseConfig {
             root: data.join("goose"),
             workspace: data.join("workspace"),
             provider: goose.provider.clone(),
+            proxy: goose.proxy.clone(),
             model: model.into(),
             run_timeout: std::time::Duration::from_secs(180),
         }
     }
 
     pub fn configured(&self) -> bool {
+        if self.proxy.is_some() {
+            return self.binary.is_file();
+        }
         let key = if self.provider == "openai" {
             "OPENAI_API_KEY"
         } else {
@@ -88,22 +94,34 @@ impl GooseConfig {
                 command.env(key, value);
             }
         }
-        let key = match self.provider.as_str() {
-            "fireworks-ai" => "FIREWORKS_API_KEY",
-            "openai" => "OPENAI_API_KEY",
-            _ => anyhow::bail!("This local proof supports fireworks-ai and openai providers only"),
-        };
-        if let Some(value) = std::env::var_os(key) {
-            command.env(key, value);
-        }
-        // Useful for explicit OpenAI-compatible local fixtures; never forwarded to Fireworks.
-        if self.provider == "openai" {
-            for name in ["OPENAI_HOST", "OPENAI_BASE_PATH"] {
-                if let Some(value) = std::env::var_os(name) {
-                    command.env(name, value);
+        // Gateway mode: Goose speaks OpenAI's protocol to this slot's loopback proxy,
+        // which forwards to the controller; no provider key is on this machine.
+        let protocol = if let Some(proxy) = &self.proxy {
+            command
+                .env("OPENAI_HOST", &proxy.host)
+                .env("OPENAI_API_KEY", &proxy.key);
+            "openai"
+        } else {
+            let key = match self.provider.as_str() {
+                "fireworks-ai" => "FIREWORKS_API_KEY",
+                "openai" => "OPENAI_API_KEY",
+                _ => anyhow::bail!(
+                    "This local proof supports fireworks-ai and openai providers only"
+                ),
+            };
+            if let Some(value) = std::env::var_os(key) {
+                command.env(key, value);
+            }
+            // Useful for explicit OpenAI-compatible local fixtures; never forwarded to Fireworks.
+            if self.provider == "openai" {
+                for name in ["OPENAI_HOST", "OPENAI_BASE_PATH"] {
+                    if let Some(value) = std::env::var_os(name) {
+                        command.env(name, value);
+                    }
                 }
             }
-        }
+            self.provider.as_str()
+        };
         let isolated_root = self.root.canonicalize()?;
         // Pinned Goose discovers ancestor AGENTS.md/.goosehints by default.
         // Agents receive context only through the controller.
@@ -111,7 +129,7 @@ impl GooseConfig {
             .env("CONTEXT_FILE_NAMES", "[]")
             .env("HOME", &isolated_root)
             .env("GOOSE_PATH_ROOT", &isolated_root)
-            .env("GOOSE_PROVIDER", &self.provider)
+            .env("GOOSE_PROVIDER", protocol)
             .env("GOOSE_MODEL", &self.model)
             .env("GOOSE_MODE", "approve")
             .env("GOOSE_DISABLE_KEYRING", "1")
@@ -147,6 +165,8 @@ mod tests {
             let goose = crate::config::GooseSettings {
                 binary: directory.path().join("fixture-goose"),
                 provider: "fireworks-ai".into(),
+                gateway: false,
+                proxy: None,
             };
             let config = GooseConfig::new(directory.path(), "fixture", &goose);
             let version = if prepared {

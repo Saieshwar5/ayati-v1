@@ -2,6 +2,7 @@
 mod harness;
 pub mod health;
 pub(crate) mod model;
+mod model_proxy;
 mod output;
 #[cfg(test)]
 mod output_tests;

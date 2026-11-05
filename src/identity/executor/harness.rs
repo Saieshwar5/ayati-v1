@@ -22,6 +22,7 @@ pub(super) struct Harness {
     goose: GooseSettings,
     pub pid: u32,
     events: tokio::sync::broadcast::Sender<crate::runtime::Event>,
+    proxy: Option<super::model_proxy::ModelProxy>,
 }
 impl Harness {
     pub async fn prepare(root: &Path, profile: &Profile, config: &Executor) -> Result<Self> {
@@ -30,13 +31,24 @@ impl Harness {
         std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o700))?;
         // Stop dotenv discovery at this fresh, owned scratch boundary.
         std::fs::write(root.join(".env"), "")?;
+        // Gateway mode: one loopback model proxy per slot, armed per assignment.
+        let proxy = if config.goose.gateway {
+            Some(super::model_proxy::ModelProxy::start().await?)
+        } else {
+            None
+        };
+        let settings = proxy.as_ref().map(|p| p.settings.clone());
         let prepared = GooseSettings {
             binary: config.prepared_goose.clone(),
             provider: profile.provider.clone(),
+            gateway: config.goose.gateway,
+            proxy: settings.clone(),
         };
         let goose = GooseSettings {
             binary: config.goose.binary.clone(),
             provider: profile.provider.clone(),
+            gateway: config.goose.gateway,
+            proxy: settings,
         };
         let mut config = GooseConfig::new(root, &profile.model, &prepared);
         config.agent_id = "prepared-chat".into();
@@ -56,6 +68,7 @@ impl Harness {
             goose,
             pid,
             events,
+            proxy,
         })
     }
     pub async fn ready(&self) -> bool {
@@ -78,6 +91,12 @@ impl Harness {
         mut output: super::output::Output,
     ) -> Result<String> {
         output.trace.mark("controller_roundtrip");
+        let _armed = self.proxy.as_ref().map(|proxy| {
+            proxy.arm(crate::identity::control::broker::Access {
+                client: output.client.clone(),
+                assignment: output.assignment.clone(),
+            })
+        });
         let result = async {
             ensure!(context.version == 1, "Unsupported prepared context version");
             ensure!(
