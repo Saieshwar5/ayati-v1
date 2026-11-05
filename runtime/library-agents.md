@@ -225,6 +225,17 @@ and agent levels as pages; files and tables offer Read and Edit.
   `{action: answered | dismissed}`; audited). A search with only weak meaning matches is
   not counted as unanswered.
 
+### Answers saved from Chat (LB5)
+
+When a person answers a question in a conversation, anyone in it can keep that answer:
+the message's **More actions → Save to Library** opens a dialog with the message as the
+answer (editable), a title (the question) and a folder they may add to. Saving makes a
+Library page from the Markdown (`POST …/library-answers` with `{id, request, folder,
+title, text, message}`); agents given the folder then find and cite it the next time
+the question is asked. The server checks the person is in the message's conversation;
+a retry with the same ids is the same page; saving is audited ("Saved an answer from
+Chat as …").
+
 ## Recorded verification — 2026-11-05 (LB1)
 
 - PostgreSQL (`postgres/library_folder_tests.rs`): items follow their folder's sharing and
@@ -363,6 +374,18 @@ and agent levels as pages; files and tables offer Read and Edit.
 - Real Goose (`tests/library_folders.mjs`): the owner sets a review date in the browser;
   overdue, the policy says so and shows under Due for review; a question nothing answers
   reaches the owner under Unanswered, who starts the answer page.
+
+## Recorded verification — 2026-11-05 (LB5 answers)
+
+- PostgreSQL (`postgres/library_answer_tests.rs`): the agent finds nothing; the owner's
+  answer is saved to Policies from the conversation (someone outside it can't), a retry
+  is the same page audited once, and the next search finds and previews it.
+- Web (`tests/save-answer.test.mjs`): Save to Library from a message's menu lists only
+  folders the person may add to, sends once per click burst, keeps the draft after a
+  failure and retries as the same page, then links to it.
+- Real Goose (`tests/library_answers.mjs`): Iris finds nothing about visitor parking; the
+  owner saves their answer from the message's menu in the browser; asked again, Iris
+  reads the saved page and Cuckoo cites it; audited.
 
 ## Dependency decisions
 

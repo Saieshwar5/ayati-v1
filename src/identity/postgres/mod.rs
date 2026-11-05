@@ -446,6 +446,7 @@ mod messaging_tests;
 pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use library::always::AlwaysRead;
+pub(crate) use library::answers::SaveAnswer;
 pub(crate) use library::edits::Decision;
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
