@@ -3,7 +3,8 @@
 People build small apps for their team inside Cuckoo — a leave request form, a stock
 counter — and publish them on the [Apps page](apps-page.md). From the Apps plan
 (AP4–AP9). Built 2026-11-05: the code store, the checks, versions and a safe runner
-(schema 78), then the app's own data and roles through a message bridge (schema 79).
+(schema 78), the app's own data and roles through a message bridge (schema 79), and
+agents that write the draft for the builder who asks (schema 80).
 Apps can't read or change other Cuckoo data.
 
 ## How an app is kept
@@ -102,6 +103,27 @@ source is that app's own frame, allows eight waiting at once, and relays each on
 `POST …/apps/built/{id}/data`, where the server makes every decision. Answers go back
 by message; failures reject the promise with the server's plain-words reason.
 
+## Building with an agent
+
+- On the app's panel the builder chooses **Build with an agent**, an agent and what to
+  build. Cuckoo records that this agent may work on this app
+  (`relay_built_app_helpers`), then opens the builder's direct chat with the agent with
+  the request in the message box, unsent. The person sends it.
+- In a request **from the app's builder**, the agent gets four ayati_control tools and a
+  short guide to apps (`built_apps::files::BUILDER_GUIDE`: files, manifest, the
+  `cuckoo` bridge, no internet, no keys):
+  - `my_apps` — the apps this person asked it to build;
+  - `app_files` — a draft's files and sizes, its revision and what the checks find;
+  - `read_app_file` — one draft file;
+  - `write_app_file` — one whole file from the draft revision it read; a stale
+    revision returns `changed`, and the result carries the checks.
+- In anyone else's request, the same agent gets `not_allowed` for that app. It never
+  publishes: the builder previews and publishes as with their own changes. Every file it
+  writes is audited ("Juno changed app.js in \"Stock count\""), and asking or stopping an
+  agent is audited too.
+- The panel lists **Agents building it**; the builder can **Stop** each one, which closes
+  the draft to it again.
+
 ## How an app runs
 
 `GET …/apps/built/{id}/run` (or `?preview=true` for the draft) returns the app as one
@@ -135,6 +157,7 @@ All under `/api/identity/workspaces/{w}/apps`:
 | `POST /built/{id}/data` `{preview, op, collection, record, data, revision, mine}` | people allowed; preview for builder, admins | one bridge request: `me`, `list`, `get`, `create`, `update`, `delete` |
 | `GET /built/{id}/roles` | builder, admins | the roles and who holds them |
 | `POST /built/{id}/roles` `{role, people}` | builder, admins | who holds a role (not the first); audited |
+| `POST /built/{id}/helpers` `{agent, helps}` | builder | asks an agent to build the draft, or stops it; audited |
 
 ## In the browser
 
@@ -180,9 +203,21 @@ or download.
   preview shows every role; two members ask for leave and each sees only their own; the
   builder makes a colleague an approver in the Roles dialog; she sees every request and
   approves one, which the member then sees; a member can't reach preview data; audited.
+- PostgreSQL (`postgres/built_app_agents_tests.rs`): before the builder asks, the agent
+  sees no apps; only the builder asks (not an admin); the agent lists, reads and writes
+  the draft from the current revision, a stale write is refused, a key shows in the
+  checks, bad paths fail; in someone else's request it can't reach the app; stopping it
+  closes the draft; writes and asking are audited.
+- Web (`tests/built-apps.test.mjs`): Build with an agent records the agent and opens the
+  direct chat with the request waiting unsent; the panel lists agents and stops one.
+- Real Goose (`tests/built_app_agent.mjs`): a member starts an app and asks Juno from
+  it; the chat opens with the request ready; once sent, Juno (scripted model, real
+  Goose and ayati_control) writes the manifest, page and script; the checks pass and it
+  doesn't publish; the guide and tools reach the model; the member previews the draft,
+  which keeps a count through the bridge, publishes it and stops Juno.
 
 ## Not yet
 
-- A builder agent that writes the code from a description (BA3).
+- The agent seeing what a preview shows or the errors it raises.
 - Agent actions declared in the manifest and run under company rules.
 - Templates beyond the starter, and a Git-backed code store.

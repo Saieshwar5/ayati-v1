@@ -13,7 +13,7 @@ export type CompanySystem = { id: string; kind: 'link'; name: string; descriptio
 /** An app built in Cuckoo (BA1): drafts show only to their builder and admins. */
 export type BuiltApp = { id: string; kind: 'built'; name: string; description: string; audience: 'everyone' | 'selected'; version: number | null; draft_revision: number;
   builder_name: string; is_builder: boolean; can_open: boolean; can_manage: boolean; people?: { id: string; name: string }[] | null;
-  versions?: { version: number; note: string; at: number }[] | null };
+  versions?: { version: number; note: string; at: number }[] | null; helpers?: { id: string; name: string }[] | null };
 export type AppCheck = { check: string; message: string };
 export type AppFiles = { files: { path: string; size: number; content: string }[]; draft_revision: number; checks: AppCheck[] };
 export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; built?: BuiltApp[]; can_manage: boolean; requests_waiting: number };

@@ -274,6 +274,22 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.library_set_row(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "my_apps" => {
+            ensure!(arguments == json!({}), "Invalid apps request");
+            pg.agent_my_apps(job).await
+        }
+        "app_files" => {
+            pg.agent_app_files(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "read_app_file" => {
+            pg.agent_read_app_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "write_app_file" => {
+            pg.agent_write_app_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "report_problem" => {
             pg.report_agent_need(job, &serde_json::from_value(arguments)?)
                 .await

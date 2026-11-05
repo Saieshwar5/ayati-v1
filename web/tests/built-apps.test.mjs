@@ -189,3 +189,43 @@ test('The builder gives an app role to chosen people; the first role is everyone
     return response(view([{ ...leave, version: 1, can_open: true }]));
   } });
 });
+
+test('The builder asks an agent to build the app: the chat opens with the request ready, and the agent can be stopped', async () => {
+  const helpers = [], created = [];
+  await reactFixture(async ({ render, click, change, button, navigation, dom }) => {
+    globalThis.sessionStorage = dom.window.sessionStorage;
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    await click(button('Build with an agent'));
+    assert.equal(button('Open the chat').disabled, true, 'choose an agent first');
+    await change(document.querySelector('[aria-label="Agent"]'), 'nova');
+    await change(document.querySelector('[aria-label="What should it build?"]'), 'A form with start date and days.');
+    await click(button('Open the chat'));
+    assert.deepEqual(helpers[0], { agent: 'nova', helps: true });
+    assert.equal(created[0].agents[0], 'nova');
+    const drafts = [...Array(sessionStorage.length).keys()].map(i => sessionStorage.getItem(sessionStorage.key(i)));
+    assert.deepEqual(drafts, ['Please build my app "Leave requests" (app b1). A form with start date and days.'], 'the request waits in the chat box, unsent');
+    assert.match(navigation.at(-1), new RegExp(`/w/${w}/\\?view=chat&conversation=c1`));
+    delete globalThis.sessionStorage;
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [{ id: 'nova', name: 'Nova' }], role: 'Member' });
+    if (path.endsWith('/helpers')) { helpers.push(JSON.parse(options.body)); return response({ ok: true }); }
+    if (path.endsWith('/chats') && options.body) { created.push(JSON.parse(options.body)); return response({ id: 'c1' }); }
+    if (path.endsWith('/chats')) return response({ chats: [] });
+    return response(view([leave]));
+  } });
+  await reactFixture(async ({ render, click, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    assert.match(document.querySelector('[aria-label="Agents building it"]').textContent, /Nova/);
+    await click(button('Stop Nova'));
+    assert.deepEqual(helpers.at(-1), { agent: 'nova', helps: false });
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/helpers')) { helpers.push(JSON.parse(options.body)); return response({ ok: true }); }
+    return response(view([{ ...leave, helpers: [{ id: 'nova', name: 'Nova' }] }]));
+  } });
+});

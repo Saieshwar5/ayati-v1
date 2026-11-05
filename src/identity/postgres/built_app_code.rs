@@ -32,6 +32,22 @@ pub(super) async fn files(
     rows(tx, "SELECT path,content FROM relay_built_app_files WHERE workspace=$1 AND app=$2 AND version=$3 ORDER BY path", vec![w.into(), id.into(), version.into()]).await?.into_iter().map(|r| Ok((r.try_get("", "path")?, r.try_get("", "content")?))).collect()
 }
 
+/// Writes (or, with no content, deletes) one draft file and moves the draft revision on.
+/// The caller has checked who may write and the revision they read.
+pub(super) async fn write_draft(
+    tx: &DatabaseTransaction,
+    w: &str,
+    id: &str,
+    path: &str,
+    content: Option<&str>,
+) -> Result<i64> {
+    match content {
+        Some(content) => execute(tx, "INSERT INTO relay_built_app_files(workspace,app,version,path,content) VALUES($1,$2,0,$3,$4) ON CONFLICT(workspace,app,version,path) DO UPDATE SET content=EXCLUDED.content", vec![w.into(), id.into(), path.into(), content.into()]).await?,
+        None => execute(tx, "DELETE FROM relay_built_app_files WHERE workspace=$1 AND app=$2 AND version=0 AND path=$3", vec![w.into(), id.into(), path.into()]).await?,
+    };
+    Ok(query(tx, "UPDATE relay_built_apps SET draft_revision=draft_revision+1,updated=$3 WHERE workspace=$1 AND id=$2 RETURNING draft_revision", vec![w.into(), id.into(), now().into()]).await?.context("App unavailable")?.try_get("", "draft_revision")?)
+}
+
 impl PgStore {
     /// A version's file list (0 is the draft), for its builder and admins.
     pub(crate) async fn built_app_files(
@@ -83,11 +99,7 @@ impl PgStore {
         if found["draft_revision"].as_i64() != Some(input.revision) {
             return Err(crate::identity::library::model::Conflict.into());
         }
-        match &input.content {
-            Some(content) => execute(&tx, "INSERT INTO relay_built_app_files(workspace,app,version,path,content) VALUES($1,$2,0,$3,$4) ON CONFLICT(workspace,app,version,path) DO UPDATE SET content=EXCLUDED.content", vec![w.into(), id.into(), input.path.clone().into(), content.clone().into()]).await?,
-            None => execute(&tx, "DELETE FROM relay_built_app_files WHERE workspace=$1 AND app=$2 AND version=0 AND path=$3", vec![w.into(), id.into(), input.path.clone().into()]).await?,
-        };
-        let revision: i64 = query(&tx, "UPDATE relay_built_apps SET draft_revision=draft_revision+1,updated=$3 WHERE workspace=$1 AND id=$2 RETURNING draft_revision", vec![w.into(), id.into(), now().into()]).await?.context("App unavailable")?.try_get("", "draft_revision")?;
+        let revision = write_draft(&tx, w, id, &input.path, input.content.as_deref()).await?;
         tx.commit().await?;
         Ok(json!({"draft_revision":revision}))
     }

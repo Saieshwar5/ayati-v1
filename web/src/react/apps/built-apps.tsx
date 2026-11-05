@@ -5,6 +5,7 @@ import { useMutation, useResource } from '../requests';
 import { appColour, appsRequest, builtPath, type BuiltApp } from './apps-model';
 import { CodeDrawer } from './built-app-code';
 import { RolesDialog } from './built-app-roles';
+import { AgentBuildDialog, AgentHelpers } from './built-app-agent';
 
 export function BuiltIcon() {
   return (
@@ -30,6 +31,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
   const [coding, setCoding] = useState(false);
   const [editing, setEditing] = useState(false);
   const [giving, setGiving] = useState(false);
+  const [asking, setAsking] = useState(false);
   const mutation = useMutation();
   return (
     <aside className="app-panel" aria-label={app.name}>
@@ -81,6 +83,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
               {app.versions?.length ? `${app.versions.length} published so far.` : ''}
             </p>
           </section>
+          <AgentHelpers app={app} changed={changed} />
           <div className="apps-row">
             <Button onClick={() => setCoding(true)}>
               {app.is_builder ? 'Code and publish' : 'Code and versions'}
@@ -88,6 +91,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
             <a className="ui-button" href={runUrl(app.id, true)}>
               Preview draft
             </a>
+            {app.is_builder && <Button onClick={() => setAsking(true)}>Build with an agent</Button>}
             <Button onClick={() => setGiving(true)}>Roles</Button>
             <Button onClick={() => setEditing(true)}>Settings</Button>
             <Button
@@ -107,6 +111,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
       )}
       {mutation.status && <p role="alert">{mutation.status}</p>}
       {coding && <CodeDrawer app={app} close={() => setCoding(false)} changed={changed} />}
+      {asking && <AgentBuildDialog app={app} close={() => setAsking(false)} />}
       {giving && <RolesDialog app={app} close={() => setGiving(false)} />}
       {editing && <BuiltForm app={app} close={() => setEditing(false)} saved={changed} />}
     </aside>
