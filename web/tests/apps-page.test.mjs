@@ -57,7 +57,7 @@ test('A member sees a company app they cannot open, asks once for access and can
     const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
     await render(AppsPage, { href: base });
     assert.deepEqual([...document.querySelectorAll('.app-name')].map(n => n.textContent), ['Order portal', 'Zoho Books']);
-    await click(document.querySelector('.apps-filters [aria-pressed="false"]'));
+    await click(button('Your systems'));
     assert.deepEqual([...document.querySelectorAll('.app-name')].map(n => n.textContent), ['Order portal'], 'Your systems only');
     const panel = document.querySelector('.app-panel');
     assert.equal(panel.querySelector('a[href*="/open"]'), null, 'no address without access');

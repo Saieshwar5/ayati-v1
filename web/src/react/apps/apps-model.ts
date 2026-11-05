@@ -10,13 +10,22 @@ export type WorkspaceApp = { id: string; server: string; name: string; kind: 'se
 export type CompanySystem = { id: string; kind: 'link'; name: string; description: string; audience: 'everyone' | 'selected'; revision: number;
   can_open: boolean; url?: string | null; owner?: string | null; owner_name?: string | null; can_decide: boolean;
   people?: { id: string; name: string }[] | null; requested: boolean };
-export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; can_manage: boolean; requests_waiting: number };
+/** An app built in Cuckoo (BA1): drafts show only to their builder and admins. */
+export type BuiltApp = { id: string; kind: 'built'; name: string; description: string; audience: 'everyone' | 'selected'; version: number | null; draft_revision: number;
+  builder_name: string; is_builder: boolean; can_open: boolean; can_manage: boolean; people?: { id: string; name: string }[] | null;
+  versions?: { version: number; note: string; at: number }[] | null };
+export type AppCheck = { check: string; message: string };
+export type AppFiles = { files: { path: string; size: number; content: string }[]; draft_revision: number; checks: AppCheck[] };
+export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; built?: BuiltApp[]; can_manage: boolean; requests_waiting: number };
 export type AppRequestRow = { id: string; kind: 'access' | 'suggestion'; app?: string | null; app_name?: string | null; name: string; url: string; reason: string; created: number; requester: string };
 const base = () => `/workspaces/${workspaceId}/apps`;
 export const loadApps = () => identityRequest<AppsView>(base());
 export const appsRequest = <T>(path: string, body?: unknown) => identityRequest<T>(`${base()}${path}`, body);
 /** Opening goes through Cuckoo, which checks access before sending the browser on. */
 export const openUrl = (id: string) => `/api/identity${base()}/systems/${encodeURIComponent(id)}/open`;
+export const builtPath = (id: string, path = '') => `/built/${encodeURIComponent(id)}${path}`;
+export const frameUrl = (id: string, preview: boolean) => `/api/identity${base()}${builtPath(id, `/run${preview ? '?preview=true' : ''}`)}`;
+export const downloadUrl = (id: string, version: number) => `/api/identity${base()}${builtPath(id, `/download?version=${version}`)}`;
 
 const COLOURS = ['#4f46e5', '#0284c7', '#d97706', '#059669', '#7c3aed', '#dc4a26', '#2563eb', '#475569'];
 /** A stable colour per app, so a card looks the same everywhere. */

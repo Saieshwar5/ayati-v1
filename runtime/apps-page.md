@@ -4,7 +4,7 @@
 connected, what agents may do with each action and which agents use it. Connections moved
 here from Settings. From the Apps plan (`proj-docs/apps/`, AP1–AP2, draft decision D243).
 Built 2026-11-05. Company systems (link apps), people access and requests were added
-the same day (schema 75); built apps come later.
+the same day (schema 75), and [built apps](built-apps.md) after them (schema 78).
 
 ## What everyone sees
 
@@ -95,5 +95,6 @@ which checks who may open it first; the system keeps its own sign-in.
 ## Not yet
 
 - Self-service MCP servers and API descriptions for company systems (agents using them).
-- Built apps.
+- Built apps reading and writing data, the builder agent and manifest actions (see
+  [built apps](built-apps.md)).
 - A Computers page in Settings (no computers feature exists yet).

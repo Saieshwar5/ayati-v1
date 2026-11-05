@@ -79,11 +79,14 @@ impl PgStore {
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let apps = json_rows(&tx, include_str!("apps.sql"), vec![w.into(), admin.into()]).await?;
         let systems = self.company_apps_view(&tx, user, w, admin).await?;
+        let built = self.built_apps_view(&tx, user, w, admin).await?;
         tx.commit().await?;
         let deciding = self.app_requests(user, w).await?["requests"]
             .as_array()
             .map_or(0, Vec::len);
-        Ok(json!({"apps":apps,"systems":systems,"can_manage":admin,"requests_waiting":deciding}))
+        Ok(
+            json!({"apps":apps,"systems":systems,"built":built,"can_manage":admin,"requests_waiting":deciding}),
+        )
     }
     pub(crate) async fn workspace_connections(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
