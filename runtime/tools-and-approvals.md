@@ -9,9 +9,9 @@ built in M3).
 - **Admins** set the workspace rule for each action of each connected account in
   **Settings → Connections**: Allow, Ask first or Block, plus "Someone other than
   the requester must approve".
-  - A missing rule is the safe default: reads Allow, writes Ask first.
-  - Connectors only declare read and write effects today, so there is no separate
-    "delete is blocked" default.
+  - A missing rule is the safe default from what the action does (schema 65,
+    [company rules](guard-rules.md#what-actions-do)): reading Allow, deleting Block,
+    everything else Ask first.
   - API: `POST /api/identity/workspaces/{w}/control/connector-rules` with
     `{connection, operation, mode, needs_other, revision}`.
 - **An agent's owner (or an admin)** switches connectors on for the agent and may

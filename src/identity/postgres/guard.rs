@@ -1,42 +1,95 @@
 //! The Guard's company rules (core-agent CA1): one condition on one reviewed action,
-//! checked inside the action's own transaction. A rule can only make an action
-//! stricter (ask first or block); it never allows what the action rules block.
+//! or on every action of one meaning, checked inside the action's own transaction.
+//! A rule can only make an action stricter (ask first or block); it never allows
+//! what the action rules block.
 use super::*;
 use crate::identity::control::model::Operation;
-use serde::Deserialize;
 use serde_json::json;
 
+#[cfg(test)]
+#[path = "guard_meaning_tests.rs"]
+mod meaning_tests;
 #[path = "guard_migration.rs"]
 pub(in crate::identity::postgres) mod migration;
+#[path = "guard_store.rs"]
+pub(crate) mod store;
 #[cfg(test)]
 #[path = "guard_tests.rs"]
 mod tests;
 
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct GuardRule {
-    pub id: String,
-    pub operation: String,
-    #[serde(default)]
-    pub connection: Option<String>,
-    pub kind: String,
-    pub field: String,
-    pub comparator: String,
-    pub value: Value,
-    pub effect: String,
-    #[serde(default)]
-    pub note: String,
-    pub enabled: bool,
-    pub revision: i64,
-}
+pub(crate) use store::{ActionMeaning, GuardRule};
 
-const VIEW: &str = "jsonb_build_object('id',g.id,'operation',g.operation,'connection',g.connection,'kind',g.kind,'field',g.field,'comparator',g.comparator,'value',g.value,'effect',g.effect,'note',g.note,'enabled',g.enabled,'revision',g.revision,'updated_ms',g.updated_ms,'updated_by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=g.updated_by))";
 /// States that use up a daily total: waiting approvals reserve their amount.
 const COUNTED: &str = "('pending','executing','completed','uncertain')";
-const MAX_RULES: i64 = 200;
+pub(crate) const MEANINGS: [&str; 5] = ["read", "change", "money", "sends_outside", "delete"];
+const DAYS: [&str; 7] = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+];
+
+/// What a rule for every action of one meaning is called in its read-back.
+pub(crate) fn meaning_label(meaning: &str) -> &'static str {
+    match meaning {
+        "read" => "Any reading action",
+        "money" => "Any money action",
+        "sends_outside" => "Any action that sends outside",
+        "delete" => "Any delete",
+        _ => "Any change",
+    }
+}
+
+fn days_text(days: &[Value]) -> String {
+    let names: Vec<&str> = days
+        .iter()
+        .filter_map(|d| d.as_u64())
+        .filter(|d| (1..=7).contains(d))
+        .map(|d| DAYS[d as usize - 1])
+        .collect();
+    match names.len() {
+        0 => String::new(),
+        1 => names[0].to_owned(),
+        n => format!("{} and {}", names[..n - 1].join(", "), names[n - 1]),
+    }
+}
 
 /// The read-back people see, made by code from the rule itself, never by a model.
 pub(crate) fn summary(rule: &Value, action: &str) -> String {
+    let action = rule["meaning"]
+        .as_str()
+        .map(meaning_label)
+        .unwrap_or(action);
+    let effect = if rule["effect"] == "block" {
+        "block it"
+    } else {
+        "ask first"
+    };
+    if rule["kind"] == "time" {
+        let (from, to) = (
+            rule["value"]["from"].as_str().unwrap_or(""),
+            rule["value"]["to"].as_str().unwrap_or(""),
+        );
+        let when = if from == to {
+            "at any time".to_owned()
+        } else {
+            format!("between {from} and {to}")
+        };
+        let days = days_text(
+            rule["value"]["days"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+        );
+        return if days.is_empty() {
+            format!("{action}: {when}, {effect}.")
+        } else {
+            format!("{action}: on {days}, {when}, {effect}.")
+        };
+    }
     let field = rule["field"].as_str().unwrap_or_default().replace('_', " ");
     let value = match &rule["value"] {
         Value::String(text) => format!("\"{text}\""),
@@ -53,11 +106,6 @@ pub(crate) fn summary(rule: &Value, action: &str) -> String {
         Some("<=") => "is at most",
         Some("!=") => "is not",
         _ => "is",
-    };
-    let effect = if rule["effect"] == "block" {
-        "block it"
-    } else {
-        "ask first"
     };
     if rule["kind"] == "daily_total" {
         let reach = if rule["comparator"] == ">=" {
@@ -91,6 +139,54 @@ fn holds(actual: &Value, comparator: &str, expected: &Value) -> Option<bool> {
     }
 }
 
+/// Whether local time `now` ("HH:MM") on ISO weekday `day` falls in a time rule's window.
+pub(crate) fn in_window(window: &Value, now: &str, day: u64) -> bool {
+    let days = window["days"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    if !days.is_empty() && !days.iter().any(|d| d.as_u64() == Some(day)) {
+        return false;
+    }
+    let (from, to) = (
+        window["from"].as_str().unwrap_or(""),
+        window["to"].as_str().unwrap_or(""),
+    );
+    match from.cmp(to) {
+        std::cmp::Ordering::Equal => true,
+        std::cmp::Ordering::Less => from <= now && now < to,
+        std::cmp::Ordering::Greater => now >= from || now < to,
+    }
+}
+
+/// The start of the workspace's day, its local time and ISO weekday.
+async fn local_now(db: &impl ConnectionTrait, w: &str) -> Result<(i64, String, u64)> {
+    let row = query(db, "SELECT floor(extract(epoch FROM date_trunc('day', clock_timestamp() AT TIME ZONE z) AT TIME ZONE z))::bigint AS start, to_char(clock_timestamp() AT TIME ZONE z,'HH24:MI') AS hm, extract(isodow FROM clock_timestamp() AT TIME ZONE z)::int AS dow FROM (SELECT COALESCE(timezone,'UTC') AS z FROM relay_workspaces WHERE id=$1) t", vec![w.into()]).await?.context("Workspace unavailable")?;
+    Ok((
+        row.try_get("", "start")?,
+        row.try_get("", "hm")?,
+        row.try_get::<i32>("", "dow")? as u64,
+    ))
+}
+
+/// The meaning of one connected action: the admin's review, or Cuckoo's suggestion.
+pub(super) async fn meaning(
+    db: &impl ConnectionTrait,
+    w: &str,
+    connection: &str,
+    operation: &str,
+) -> Result<String> {
+    Ok(query(db, "SELECT relay_action_meaning(c.workspace,c.id,op) AS m FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.id=$2 AND op->>'id'=$3", vec![w.into(), connection.into(), operation.into()]).await?.context("Unsupported operation")?.try_get("", "m")?)
+}
+
+const RULES_FOR: &str = "SELECT to_jsonb(g) AS data FROM relay_guard_rules g WHERE g.workspace=$1 AND g.enabled AND ((g.operation=$2 AND (g.connection IS NULL OR g.connection=$3)) OR g.meaning=$4) ORDER BY g.created_ms,g.id";
+
+/// A rule for every action of one meaning only covers actions that have its field.
+fn applies(rule: &Value, schema: &Value) -> bool {
+    rule["meaning"].is_null()
+        || rule["kind"] == "time"
+        || schema["properties"]
+            .get(rule["field"].as_str().unwrap_or(""))
+            .is_some()
+}
+
 /// The strictest company rule that applies to this exact request, as the decision
 /// record saved on the action. Callers hold the workspace row lock (`workspace_tx`),
 /// so two requests never both fit under the same daily total.
@@ -99,18 +195,46 @@ pub(super) async fn check(
     w: &str,
     connection: &str,
     operation: &Operation,
+    meaning: &str,
     arguments: &Value,
 ) -> Result<Option<Value>> {
-    let rules = json_rows(db, "SELECT to_jsonb(g) AS data FROM relay_guard_rules g WHERE workspace=$1 AND operation=$2 AND enabled AND (connection IS NULL OR connection=$3) ORDER BY created_ms,id", vec![w.into(), operation.id.clone().into(), connection.into()]).await?;
+    let rules = json_rows(
+        db,
+        RULES_FOR,
+        vec![
+            w.into(),
+            operation.id.clone().into(),
+            connection.into(),
+            meaning.into(),
+        ],
+    )
+    .await?;
     let mut strictest: Option<Value> = None;
     let mut matched = 0;
-    for rule in rules {
+    let mut clock = None;
+    for rule in rules.into_iter().filter(|r| applies(r, &operation.schema)) {
+        if clock.is_none() {
+            clock = Some(local_now(db, w).await?);
+        }
+        let (day_start, now, weekday) = clock.clone().unwrap();
         let field = rule["field"].as_str().unwrap();
         let comparator = rule["comparator"].as_str().unwrap();
         let actual = arguments.get(field).cloned().unwrap_or(Value::Null);
-        let (decides, facts) = if rule["kind"] == "daily_total" {
-            let before: f64 = query(db, &format!("SELECT COALESCE(sum((a.arguments->>$4)::numeric),0)::float8 AS total FROM relay_control_actions a WHERE a.workspace=$1 AND a.operation=$2 AND ($3::text IS NULL OR a.connection=$3) AND a.state IN {COUNTED} AND jsonb_typeof(a.arguments->$4)='number' AND a.created >= (SELECT floor(extract(epoch FROM date_trunc('day', clock_timestamp() AT TIME ZONE z) AT TIME ZONE z))::bigint FROM (SELECT COALESCE(timezone,'UTC') AS z FROM relay_workspaces WHERE id=$1) t)"),
-                vec![w.into(), operation.id.clone().into(), rule["connection"].as_str().map(str::to_owned).into(), field.into()]).await?.context("Workspace unavailable")?.try_get("", "total")?;
+        let (decides, facts) = if rule["kind"] == "time" {
+            (
+                Some(in_window(&rule["value"], &now, weekday)),
+                json!({"local_time":now,"day":DAYS[weekday as usize - 1]}),
+            )
+        } else if rule["kind"] == "daily_total" {
+            let (scope, target) = match rule["meaning"].as_str() {
+                Some(m) => ("a.meaning=$2 AND $3::text IS NULL", m.to_owned()),
+                None => (
+                    "a.operation=$2 AND ($3::text IS NULL OR a.connection=$3)",
+                    operation.id.clone(),
+                ),
+            };
+            let before: f64 = query(db, &format!("SELECT COALESCE(sum((a.arguments->>$4)::numeric),0)::float8 AS total FROM relay_control_actions a WHERE a.workspace=$1 AND {scope} AND a.state IN {COUNTED} AND jsonb_typeof(a.arguments->$4)='number' AND a.created >= $5"),
+                vec![w.into(), target.into(), rule["connection"].as_str().map(str::to_owned).into(), field.into(), day_start.into()]).await?.context("Workspace unavailable")?.try_get("", "total")?;
             match actual.as_f64() {
                 Some(amount) => (
                     holds(&json!(before + amount), comparator, &rule["value"]),
@@ -134,10 +258,10 @@ pub(super) async fn check(
             None => "ask",
         };
         matched += 1;
-        let stricter = strictest
+        if strictest
             .as_ref()
-            .is_none_or(|s| s["effect"] == "ask" && effect == "block");
-        if stricter {
+            .is_none_or(|s| s["effect"] == "ask" && effect == "block")
+        {
             strictest = Some(json!({
                 "rule": rule["id"], "revision": rule["revision"], "effect": effect,
                 "summary": summary(&rule, &operation.title), "facts": facts,
@@ -156,11 +280,22 @@ pub(super) async fn summaries(
     db: &impl ConnectionTrait,
     w: &str,
     connection: &str,
-    operation: &str,
-    title: &str,
+    op: &Value,
 ) -> Result<Vec<String>> {
-    let rules = json_rows(db, "SELECT to_jsonb(g) AS data FROM relay_guard_rules g WHERE workspace=$1 AND operation=$2 AND enabled AND (connection IS NULL OR connection=$3) ORDER BY created_ms,id", vec![w.into(), operation.into(), connection.into()]).await?;
-    Ok(rules.iter().map(|r| summary(r, title)).collect())
+    let id = op["operation"].as_str().unwrap_or_default();
+    let meaning = meaning(db, w, connection, id).await?;
+    let rules = json_rows(
+        db,
+        RULES_FOR,
+        vec![w.into(), id.into(), connection.into(), meaning.into()],
+    )
+    .await?;
+    let title = op["title"].as_str().unwrap_or(id);
+    Ok(rules
+        .iter()
+        .filter(|r| applies(r, &op["schema"]))
+        .map(|r| summary(r, title))
+        .collect())
 }
 
 /// The action's mode after the Guard: block wins, then ask, then the agent's rule.
@@ -173,151 +308,29 @@ pub(super) fn stricter(mode: &str, guard: Option<&Value>) -> String {
     .into()
 }
 
-async fn action_title(
-    db: &impl ConnectionTrait,
-    w: &str,
-    operation: &str,
-    connection: Option<&str>,
-) -> Result<Option<(String, Value)>> {
-    let Some(row) = query(db, "SELECT op->>'title' AS title, op->'schema' AS schema FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND op->>'id'=$2 AND ($3::text IS NULL OR c.id=$3) ORDER BY c.enabled DESC,c.id LIMIT 1",
-        vec![w.into(), operation.into(), connection.map(str::to_owned).into()]).await? else { return Ok(None) };
-    Ok(Some((
-        row.try_get("", "title")?,
-        row.try_get("", "schema")?,
-    )))
-}
-
-impl PgStore {
-    /// Company rules, readable by every member; the actions they can apply to.
-    pub(crate) async fn guard_rules(&self, user: &User, w: &str) -> Result<Value> {
-        let tx = self.read_tx(w).await?;
-        let admin = role(&tx, w, &user.id).await? == "Admin";
-        let mut rules = json_rows(&tx, &format!("SELECT {VIEW} AS data FROM relay_guard_rules g WHERE g.workspace=$1 ORDER BY g.enabled DESC,g.created_ms,g.id"), vec![w.into()]).await?;
-        for rule in &mut rules {
-            let title = action_title(
-                &tx,
-                w,
-                rule["operation"].as_str().unwrap(),
-                rule["connection"].as_str(),
-            )
-            .await?
-            .map(|t| t.0)
-            .unwrap_or_else(|| rule["operation"].as_str().unwrap().to_owned());
-            rule["summary"] = json!(summary(rule, &title));
-        }
-        let actions = json_rows(&tx, "SELECT jsonb_build_object('connection',c.id,'account',c.definition->>'name','operation',op->>'id','title',op->>'title','effect',op->>'effect','fields',(SELECT COALESCE(jsonb_agg(jsonb_build_object('name',f.key,'type',f.value->>'type') ORDER BY f.key),'[]'::jsonb) FROM jsonb_each(op->'schema'->'properties') f)) AS data FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.enabled ORDER BY c.definition->>'name',op->>'title'", vec![w.into()]).await?;
-        tx.commit().await?;
-        Ok(json!({"rules":rules,"actions":actions,"can_manage":admin}))
-    }
-    /// Creates or changes one rule. Admins only; the revision guards lost updates.
-    pub(crate) async fn guard_rule_save(
-        &self,
-        user: &User,
-        w: &str,
-        input: &GuardRule,
-    ) -> Result<Value> {
-        crate::identity::worker_control::model::uuid(&input.id)?;
-        ensure!(
-            ["field", "daily_total"].contains(&input.kind.as_str()),
-            "Unsupported rule kind"
+#[cfg(test)]
+mod pure {
+    use super::*;
+    #[test]
+    fn windows_wrap_midnight_and_respect_days() {
+        let night = json!({"from":"21:00","to":"09:00","days":[]});
+        assert!(
+            in_window(&night, "21:00", 3)
+                && in_window(&night, "02:30", 3)
+                && !in_window(&night, "09:00", 3)
+                && !in_window(&night, "12:00", 3)
         );
-        ensure!(
-            ["ask", "block"].contains(&input.effect.as_str()),
-            "A rule can ask first or block"
+        let weekend = json!({"from":"00:00","to":"00:00","days":[6,7]});
+        assert!(in_window(&weekend, "10:00", 6) && !in_window(&weekend, "10:00", 5));
+        let rule = json!({"kind":"time","meaning":"sends_outside","value":{"from":"21:00","to":"09:00","days":[6,7]},"effect":"ask"});
+        assert_eq!(
+            summary(&rule, "x"),
+            "Any action that sends outside: on Saturday and Sunday, between 21:00 and 09:00, ask first."
         );
-        ensure!(
-            [">", ">=", "<", "<=", "=", "!="].contains(&input.comparator.as_str()),
-            "Unsupported comparison"
+        let total = json!({"kind":"daily_total","meaning":"money","field":"amount","comparator":">","value":5000,"effect":"block"});
+        assert_eq!(
+            summary(&total, "x"),
+            "Any money action: if today's total amount would go over 5000, block it."
         );
-        ensure!(input.note.chars().count() <= 280, "The note is too long");
-        let numeric = !["=", "!="].contains(&input.comparator.as_str());
-        ensure!(
-            input.kind == "field" || [">", ">="].contains(&input.comparator.as_str()),
-            "A daily total can be over or reach a limit"
-        );
-        ensure!(
-            input.value.is_number() || input.value.is_string() || input.value.is_boolean(),
-            "Unsupported rule value"
-        );
-        ensure!(
-            input
-                .value
-                .as_str()
-                .is_none_or(|s| s.chars().count() <= 200),
-            "The value is too long"
-        );
-        let tx = self.workspace_tx(w).await?;
-        ensure!(
-            role(&tx, w, &user.id).await? == "Admin",
-            "Only admins can change company rules"
-        );
-        let (title, schema) = action_title(&tx, w, &input.operation, input.connection.as_deref())
-            .await?
-            .context("No connected account offers this action")?;
-        let kind = schema["properties"][&input.field]["type"]
-            .as_str()
-            .context("This action has no such field")?
-            .to_owned();
-        let number = ["integer", "number"].contains(&kind.as_str());
-        if numeric || input.kind == "daily_total" {
-            ensure!(
-                number && input.value.is_number(),
-                "Compare amounts with a number field and a number"
-            );
-        } else {
-            let matches = match kind.as_str() {
-                "string" => input.value.is_string(),
-                "boolean" => input.value.is_boolean(),
-                _ => input.value.is_number(),
-            };
-            ensure!(matches, "The value must match the field's type");
-        }
-        let current: Option<i64> = query(
-            &tx,
-            "SELECT revision FROM relay_guard_rules WHERE workspace=$1 AND id=$2",
-            vec![w.into(), input.id.clone().into()],
-        )
-        .await?
-        .map(|r| r.try_get("", "revision"))
-        .transpose()?;
-        ensure!(
-            current.unwrap_or(0) == input.revision,
-            "This rule changed; reload and try again"
-        );
-        if current.is_none() {
-            let count: i64 = query(
-                &tx,
-                "SELECT count(*) AS n FROM relay_guard_rules WHERE workspace=$1",
-                vec![w.into()],
-            )
-            .await?
-            .unwrap()
-            .try_get("", "n")?;
-            ensure!(
-                count < MAX_RULES,
-                "This workspace reached its company rule limit"
-            );
-        }
-        execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,kind,field,comparator,value,effect,note,enabled,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) ON CONFLICT(workspace,id) DO UPDATE SET operation=EXCLUDED.operation,connection=EXCLUDED.connection,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into()]).await?;
-        let mut rule: Value = query(
-            &tx,
-            &format!(
-                "SELECT {VIEW} AS data FROM relay_guard_rules g WHERE g.workspace=$1 AND g.id=$2"
-            ),
-            vec![w.into(), input.id.clone().into()],
-        )
-        .await?
-        .unwrap()
-        .try_get("", "data")?;
-        rule["summary"] = json!(summary(&rule, &title));
-        let said = format!(
-            "{} company rule: {}",
-            if input.enabled { "Saved" } else { "Turned off" },
-            rule["summary"].as_str().unwrap()
-        );
-        audit_with_summary(&tx, &user.id, Some(w), "guard_rule_saved", &input.id, &said).await?;
-        tx.commit().await?;
-        Ok(rule)
     }
 }

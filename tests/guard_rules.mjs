@@ -47,7 +47,7 @@ test('Company rules written in Settings hold and block an allowed agent action, 
   async function addRule(value, effect) {
     await rules.getByRole('button', { name: 'Add rule', exact: true }).click();
     const dialog = ownerPage.getByRole('dialog', { name: 'Add a company rule' });
-    await dialog.getByLabel('Action').selectOption({ label: 'Company orders · Update order' });
+    await dialog.getByLabel('Applies to').selectOption({ label: 'Company orders · Update order' });
     await dialog.getByLabel('Field').selectOption('address');
     await dialog.getByLabel('Value').fill(value);
     await dialog.getByLabel(effect, { exact: true }).check();

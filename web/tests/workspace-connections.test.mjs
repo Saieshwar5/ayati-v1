@@ -9,7 +9,7 @@ const operation = { id: 'order.update', title: 'Update order', effect: 'write', 
 const server = { id: 'orders', name: 'Orders', account: 'Sample business', operations: [operation] };
 const person = { id: 'member', name: 'Priya', role: 'Member' };
 const connection = { id: 'connection', server: 'orders', enabled: true, revision: 4, definition: server };
-const safety = { connection: 'connection', agents: ['Atlas'], operations: [{ id: 'order.update', title: 'Update order', effect: 'write', mode: 'ask', needs_other: false, revision: 0, default: true }] };
+const safety = { connection: 'connection', agents: ['Atlas'], operations: [{ id: 'order.update', title: 'Update order', effect: 'write', mode: 'ask', needs_other: false, revision: 0, default: true, meaning: 'change', meaning_reviewed: false, meaning_revision: 0 }] };
 const state = extra => ({ servers: [server], systems: [], connections: [], safety: [safety], people: [person], viewer: 'owner', execution_available: true, ...extra });
 const response = data => ({ ok: true, status: 200, json: async () => data });
 
@@ -58,7 +58,8 @@ test('safety rules save once per action, keep a failed choice and ask who else m
     await render(WorkspaceConnections);
     const panel = document.querySelector('[aria-label="Safety for Orders"]');
     assert.match(panel.textContent, /used by Atlas/);
-    assert.match(panel.textContent, /New connectors start safe/);
+    assert.match(panel.textContent, /New actions start safe: reading is allowed, deleting is blocked/);
+    assert.match(panel.textContent, /Changes \(suggested\)/);
     const block = panel.querySelector('input[value=block]');
     await update(() => { block.click(); block.click(); });
     assert.equal(writes.length, 1); await update(() => release());
@@ -73,6 +74,22 @@ test('safety rules save once per action, keep a failed choice and ask who else m
       if (fail) { await new Promise(resolve => { release = resolve; }); return { ok: false, status: 400, json: async () => ({ error: 'Settings changed; reload before saving' }) }; }
       return response({ saved: true });
     }
+    return response(state({ connections: [connection] }));
+  } });
+});
+
+test('admins say what an action does; reading actions only offer Reads', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, change }) => {
+    const { WorkspaceConnections } = await import('../src/react/settings/workspace-connections.tsx');
+    await render(WorkspaceConnections);
+    const select = document.querySelector('[aria-label="Safety for Orders"] .connector-meaning select');
+    assert.deepEqual([...select.options].map(o => o.textContent), ['Changes', 'Money', 'Sends outside', 'Deletes']);
+    await change(select, 'money');
+    assert.deepEqual(writes.at(-1), { path: '/action-meanings', body: { connection: 'connection', operation: 'order.update', meaning: 'money', revision: 0 } });
+    assert.match(document.body.textContent, /Update order: Money\./);
+  }, { url, fetch: async (path, options = {}) => {
+    if (options.body) { writes.push({ path: path.slice(path.lastIndexOf('/')), body: JSON.parse(options.body) }); return response({ saved: true, revision: 1 }); }
     return response(state({ connections: [connection] }));
   } });
 });
