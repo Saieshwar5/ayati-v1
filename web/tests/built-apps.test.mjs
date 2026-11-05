@@ -272,3 +272,42 @@ test('People who only use the app see what agents may do, without changing it', 
     : path.endsWith('/agent-rules') ? response({ can_change: false, from_version: 1, actions: [{ id: 'file_leave', title: 'File a leave request', does: 'create', mode: 'allow' }] })
     : response(view([{ ...leave, version: 1, is_builder: false, can_open: true, can_manage: false, versions: null, people: null }])) });
 });
+
+test('The builder asks an agent to act when something is added, then stops it; users see it read-only', async () => {
+  const sent = [];
+  let watchers = [];
+  await reactFixture(async ({ render, click, change, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    const section = () => document.querySelector('[aria-label="When something is added"]');
+    assert.match(section().textContent, /New requests.*No agent acts on these/);
+    await click(button('Ask an agent'));
+    await change(document.querySelector('dialog[open] [aria-label="Agent"]'), 'nia');
+    await change(document.querySelector('[aria-label="What should it do?"]'), 'Tell me who asked.');
+    await click(button('Save'));
+    assert.deepEqual(sent[0], { collection: 'requests', agent: 'nia', instructions: 'Tell me who asked.' });
+    assert.match(section().textContent, /Nia, for Me: Tell me who asked\./);
+    assert.match(section().querySelector('a').getAttribute('href'), /conversation=c9$/);
+    await click(button('Stop'));
+    assert.deepEqual(sent[1], { collection: 'requests', agent: null, instructions: '' });
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [{ id: 'nia', name: 'Nia' }] });
+    if (path.endsWith('/watchers') && options.body) { const body = JSON.parse(options.body); sent.push(body); watchers = body.agent ? [{ collection: 'requests', agent: 'nia', agent_name: 'Nia', instructions: body.instructions, by: 'Me', chat: 'c9', waiting: 0 }] : []; return response({ ok: true }); }
+    if (path.endsWith('/watchers')) return response({ collections: ['requests'], watchers, can_change: true });
+    if (path.endsWith('/agent-rules')) return response({ actions: [], can_change: true });
+    return response(view([{ ...leave, version: 1, can_open: true }]));
+  } });
+  await reactFixture(async ({ render }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    const section = document.querySelector('[aria-label="When something is added"]');
+    assert.match(section.textContent, /Nia, for Ravi/);
+    assert.equal(section.querySelector('button'), null);
+  }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member')
+    : path.endsWith('/watchers') ? response({ collections: ['requests'], watchers: [{ collection: 'requests', agent: 'nia', agent_name: 'Nia', instructions: 'Tell me.', by: 'Ravi', chat: null, waiting: 0 }], can_change: false })
+    : path.endsWith('/agent-rules') ? response({ actions: [], can_change: false })
+    : response(view([{ ...leave, version: 1, is_builder: false, can_open: true, can_manage: false, versions: null, people: null }])) });
+});

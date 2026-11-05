@@ -266,6 +266,9 @@ pub(crate) use agents::{BuiltAppAgents, Helper};
 #[path = "built_app_actions.rs"]
 mod actions;
 pub(crate) use actions::{AgentRule, BuiltAppActions};
+#[path = "built_app_events.rs"]
+mod events;
+pub(crate) use events::{AppWatch, BuiltAppEvents};
 
 #[cfg(test)]
 #[path = "built_apps_tests.rs"]
