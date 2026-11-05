@@ -157,7 +157,9 @@ impl PgStore {
                 && applied[69].try_get::<String>("", "version")?
                     == "m20261105_000070_library_passages"
                 && applied[70].try_get::<String>("", "version")?
-                    == "m20261105_000071_library_fence",
+                    == "m20261105_000071_library_fence"
+                && applied[71].try_get::<String>("", "version")?
+                    == "m20261105_000072_library_meaning",
             "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())
