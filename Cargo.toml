@@ -45,6 +45,13 @@ object_store = { version = "=0.14.2", default-features = false, features = ["aws
 # Archive files are gzip JSON Lines; flate2 is already in the tree via image.
 flate2 = "1"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
+# Library LB2a (2026-11-05): agents read Word and Excel uploads. calamine (MIT) reads
+# Excel cells with their types and dates; Word text is read from the .docx zip with
+# the same zip and quick-xml versions calamine uses (quick-xml is already in the tree
+# via object_store). Pure Rust, in process, with size limits; nothing is executed.
+calamine = { version = "=0.36.1", default-features = false }
+zip = { version = "=8.6.0", default-features = false, features = ["deflate"] }
+quick-xml = "=0.41.0"
 # Executor AWS task identity (D227 slice 7b): official SDK credentials and SigV4
 # signing. The two read-only ECS calls are signed requests, not the very large
 # ECS SDK crate. One modern HTTPS client, no legacy TLS stack.

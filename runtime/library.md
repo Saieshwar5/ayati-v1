@@ -158,19 +158,48 @@ of "HR": Nova reads it for people who can see it").
 
 - `list_folder({folder?})`: the folders and unfiled documents this agent may use here, or
   one folder's documents.
-- `search_library({query})`: up to 10 documents matching up to eight words (a title match
-  counts three times the text), with a short preview. This is a plain word match over the
-  latest 200 usable documents; meaning-based search, summaries and more file types are LB2.
-- `read_document({id, offset?})`: 6,000 characters at a time. Anything the agent can't use
-  for these people is "not found", without saying whether it exists.
+- `search_library({query, folder?})`: passages, not whole documents (LB2a, below): up to
+  10, at most 3 from one document, each with its document, folder, section, passage
+  number and a short preview with the matching words in bold.
+- `read_document({id, passage?})`: whole passages from that one on, about 6,000
+  characters at a time (`next_passage` continues); the first read lists the document's
+  sections. Anything the agent can't use for these people is "not found", without saying
+  whether it exists.
 
-Each read leaves a receipt (`relay_library_reads`: reply, item, revision, access
-revision). **Before the reply is published**, every read document must still be usable
+Each document shown leaves a receipt (`relay_library_reads`: reply, item, revision,
+access revision, whether it was read and the section read). Search results count too: a
+preview is content. **Before the reply is published**, every document shown must still be usable
 for that audience with unchanged sharing, or the reply is withheld ("Request cancelled
 because access changed"), like Ask. The finished reply ends with **Library documents read
-for this answer**, links Cuckoo makes from its receipts, not the model; Chat opens them
-in the same tab at the cited revision. Cited revisions are kept with page history.
+for this answer**, links Cuckoo makes from its receipts, not the model, naming the section
+read ("Support handbook › Refunds · revision 3"); documents only previewed by search
+aren't cited. Chat opens them in the same tab at the cited revision. Cited revisions are kept with page history.
 Agents given anything in the Library get one instruction line about these tools.
+
+### Passages and full-text search (schema 70, LB2a)
+
+Every page and file is kept cut into **passages** (`relay_library_passages`) of about a
+paragraph or a short section (closing at a line break after 1,200 characters, never over
+2,000; up to 300 per item), each with the heading path it sits under ("Returns ›
+Exceptions"). Pages are read from their headings; file text uses Markdown heading lines;
+PDF page breaks start "Page N" sections.
+
+- Saving a page, restoring a version or an item, and finishing an upload index the item
+  in the same transaction. Items indexed before this, or missed, are caught up 100 at a
+  time (newest first) before an agent searches, and a stale item is indexed when read.
+  Index state lives in `relay_library_indexed`, apart from the items, so indexing is not
+  an access change and doesn't fence earlier answers.
+- Search is PostgreSQL full-text search with English word stems ("refunded" finds
+  "refund"), matching any of the question's words and ranking title above section above
+  text. Only passages of an item's current revision are searched. Meaning-based search
+  (embeddings) and per-document summaries are LB2b.
+- **Word (.docx)** and **Excel (.xlsx)** uploads are recognised by their contents and read
+  in process with size limits (at most 4,000 parts and 96 MiB unpacked, 7 seconds, 64,000
+  characters kept): Word headings (Title, Heading 1–3) become sections, paragraphs and
+  table rows text; each Excel sheet is a section with one line per row labelled by the
+  first row ("Product: Desk · Price: 1250 · Updated: 2025-11-05"), dates as dates, up to
+  2,000 rows per sheet. They download as attachments, never inline. Files uploaded before
+  this keep their earlier readiness; upload them again to make them readable.
 
 Limits: an answer delivered to a conversation stays there if someone joins later; the
 first release lists up to 100 documents per folder and offers up to 50 folders when
@@ -292,7 +321,30 @@ no-store. These are build-size measurements, not startup/latency guarantees.
   editable folders and sends the sharing revision; an open folder lists its own items;
   Library citation links open in the same tab and other relative links stay text.
 
+## Recorded verification — 2026-11-05 (LB2a)
+
+- Unit: passages follow headings and page breaks, cut near 1,200 characters and never
+  past 2,000 without losing text; pages are read from their structure; Word headings,
+  paragraphs, tables and entities and an Excel sheet with numbers and a date become text;
+  other zips and bad bytes are refused; search keeps three passages per document and
+  reads whole passages with an outline.
+- PostgreSQL (`postgres/library_passage_tests.rs`): a colleague's stemmed question finds
+  the handbook's Refunds section (not the HR folder), within a folder too; reading lists
+  sections and returns the section; the answer cites "Support handbook › Refunds" and not
+  a document only previewed; an edit re-indexes and the next read has the new text and
+  revision. Items from before indexing, including an Excel file, are caught up on search
+  without changing the workspace's context fence. A search preview alone fences the reply
+  when sharing changes; a new page is searchable as soon as it is saved.
+- Real Goose (`tests/library_folders.mjs`, last part): a Word file uploaded and filed in
+  the shared folder is found by section and the answer cites "Warranty.docx › Desks".
+
 ## Dependency decisions
+
+- calamine 0.36.1 (MIT), with zip 8.6.0 (MIT, deflate only) and quick-xml 0.41.0 (MIT;
+  already in the tree via object_store): Excel cells with their types for LB2a, and Word
+  text from the .docx zip with the same versions. Pure Rust, in process, nothing
+  executed. Chosen over newer releases that were days old; calamine's chrono feature is
+  off and Excel date serials are converted by Cuckoo.
 
 - Tiptap 3.32.0 and selected extensions (MIT): reused for structured editing,
   checklists, undo and React ownership. No paid collaboration/AI backend is added.
