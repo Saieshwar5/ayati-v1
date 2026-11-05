@@ -48,7 +48,9 @@ pub(super) async fn decision_authority(
         .await?,
         "Handoff operation ceiling changed"
     );
-    let rule=query(db,"SELECT revision FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4 AND mode='ask'",vec![w.into(),a["agent"].as_str().unwrap().into(),a["connection"].as_str().unwrap().into(),a["operation"].as_str().unwrap().into()]).await?.context("Approval authority changed")?;
+    // A company rule (the Guard) can hold an action the agent may otherwise do alone.
+    let held_by_guard = a["guard"]["effect"] == "ask";
+    let rule=query(db,"SELECT revision FROM relay_control_effective_rules WHERE workspace=$1 AND agent=$2 AND connection=$3 AND operation=$4 AND (mode='ask' OR (mode='allow' AND $5))",vec![w.into(),a["agent"].as_str().unwrap().into(),a["connection"].as_str().unwrap().into(),a["operation"].as_str().unwrap().into(),held_by_guard.into()]).await?.context("Approval authority changed")?;
     ensure!(
         rule.try_get::<i64>("", "revision")? == a["rule_revision"].as_i64().unwrap(),
         "Approval authority changed"

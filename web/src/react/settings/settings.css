@@ -158,3 +158,10 @@
 .settings-pause { max-width:760px; margin-top:28px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; border:1px solid var(--border-panel); border-radius:10px; }
 .settings-pause h3 { margin:0 0 4px; font-size:15px; }
 .settings-pause p { margin:0; }
+.company-rules .settings-row strong { font-weight: 600; }
+.company-rule-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.company-rule-form { display: grid; gap: 14px; }
+.company-rule-kind { display: flex; gap: 18px; flex-wrap: wrap; border: 0; padding: 0; margin: 0; }
+.company-rule-kind legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.company-rule-kind label { display: inline-flex; align-items: center; gap: 8px; }
+.company-rule-readback { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--soft); font-weight: 600; }

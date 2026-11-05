@@ -6,6 +6,9 @@ use crate::identity::{
 };
 use serde_json::json;
 
+#[path = "guard.rs"]
+pub(crate) mod guard;
+
 pub(crate) struct Dispatch {
     pub id: String,
     pub token: String,
@@ -37,6 +40,14 @@ impl PgStore {
             )
             .await?
             {
+                let mut op = op;
+                let (connection, id) = (
+                    op["connection"].as_str().unwrap().to_owned(),
+                    op["operation"].as_str().unwrap().to_owned(),
+                );
+                let title = op["title"].as_str().unwrap_or(&id).to_owned();
+                op["company_rules"] =
+                    json!(guard::summaries(&tx, &job.workspace, &connection, &id, &title).await?);
                 visible.push(op);
             }
         }
@@ -136,10 +147,20 @@ impl PgStore {
         } else {
             ("block".into(), job.requester.clone(), 0, false)
         };
+        // Company rules (the Guard) can only make the agent's rule stricter.
+        let guard = guard::check(
+            &tx,
+            &job.workspace,
+            &input.connection,
+            &operation,
+            &input.arguments,
+        )
+        .await?;
+        let mode = guard::stricter(&mode, guard.as_ref());
         let state = if mode == "block" { "denied" } else { "pending" };
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx,"INSERT INTO relay_control_actions(id,workspace,agent,chat,thread,job,requester,request_id,connection,operation,arguments,title,effect,rule_revision,connection_revision,approver,state,created,updated) SELECT $1,$2,$3,$4,m.thread,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,floor(extract(epoch FROM clock_timestamp()))::bigint,floor(extract(epoch FROM clock_timestamp()))::bigint FROM relay_chat_messages m WHERE m.workspace=$2 AND m.id=$5",vec![id.clone().into(),job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),job.reply.clone().into(),job.requester.clone().into(),request_id.into(),input.connection.clone().into(),input.operation.clone().into(),input.arguments.clone().into(),operation.title.clone().into(),operation.effect.clone().into(),revision.into(),connection.try_get::<i64>("","revision")?.into(),approver.into(),state.into()]).await?;
-        execute(&tx,"UPDATE relay_control_actions SET run_cycle=(SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2),requires_approval=$4,needs_other=$5 WHERE workspace=$1 AND id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),id.clone().into(),(mode == "ask").into(),(mode == "ask" && needs_other).into()]).await?;
+        execute(&tx,"UPDATE relay_control_actions SET run_cycle=(SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2),requires_approval=$4,needs_other=$5,guard=$6 WHERE workspace=$1 AND id=$3",vec![job.workspace.clone().into(),job.reply.clone().into(),id.clone().into(),(mode == "ask").into(),(mode == "ask" && needs_other).into(),guard.clone().into()]).await?;
         if mode == "ask" {
             super::approval_delivery::deliver(&tx, &job.workspace, &id).await?;
         }

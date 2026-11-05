@@ -68,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::activity::now::fixing::migration::Supervising),
             Box::new(super::activity::now::steering::migration::Steering),
             Box::new(super::activity::now::better::migration::GettingBetter),
+            Box::new(super::control_actions::guard::migration::Guard),
         ]
     }
 }

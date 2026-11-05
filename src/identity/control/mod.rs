@@ -4,6 +4,7 @@ pub(crate) mod broker;
 pub(crate) mod catalog;
 mod connections;
 pub(crate) mod connections_model;
+mod guard;
 pub(crate) mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
@@ -18,6 +19,7 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
         .merge(approvals::routes())
+        .merge(guard::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
             get(snapshot),

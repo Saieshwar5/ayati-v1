@@ -25,6 +25,12 @@ built in M3).
 - `GET /api/identity/workspaces/{w}/control/available` lists connectors and
   their workspace rules for any member, for create step 4.
 
+## Company rules
+
+On top of these modes, admins can add [company rules](guard-rules.md) (schema 64):
+one condition on an action's fields or today's total that asks first or blocks. They
+only make an action stricter.
+
 ## Revisions and revocation
 
 - An action's revision is the greatest of three values: its switch, its

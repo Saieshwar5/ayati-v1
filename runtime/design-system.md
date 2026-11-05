@@ -221,8 +221,8 @@ Settings follows the simplified design (D232, `designs/settings-simplified/`).
   "‹ Settings".
 - **Members:** Profile, Preferences, Help and This workspace, which ends with Leave
   workspace.
-- **Admins:** add Workspace, People, Connections, Usage, Billing ("Coming later")
-  and Audit log.
+- **Admins:** add Workspace, People, Connections, Company rules, Usage, Billing
+  ("Coming later") and Audit log. Members also see Company rules, read-only.
 - **Roles:** Admin and Member labels. Hide admin pages from members and enforce the
   same boundary on the server.
 - **People:** flat rows with a ⋯ menu. Destructive changes open confirming dialogs.

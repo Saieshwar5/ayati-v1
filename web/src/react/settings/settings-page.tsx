@@ -7,6 +7,7 @@ import { AuditLog } from './audit-log';
 import { SimulationReport } from '../simulation-report';
 import { WorkspaceGeneral } from './workspace-settings';
 import { WorkspaceConnections } from './workspace-connections';
+import { CompanyRules } from './company-rules';
 import { MyAccount, Preferences } from './personal-settings';
 import { ComingLater, ThisWorkspace } from './this-workspace';
 import { adminWorkspace, comingLater, labels, memberWorkspace, personal, requestedSection, sectionUrl, type Section } from './settings-sections';
@@ -43,6 +44,7 @@ export function SettingsPage({ href }: { href: string }) {
         : section === 'workspace' ? <WorkspaceGeneral renamed={name => { const entry = currentWorkspace(); if (entry) entry.name = name; setWorkspaceName(name); }} />
         : section === 'people' ? <PeoplePage />
         : section === 'connections' ? <WorkspaceConnections />
+        : section === 'company-rules' ? <CompanyRules />
         : section === 'audit-log' ? <><AuditLog />{workspaceSession?.simulation && <SimulationReport />}</>
         : <ComingLater section={section} />}
     </div>
