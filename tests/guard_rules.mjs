@@ -106,7 +106,7 @@ test('Company rules written in Settings hold and block an allowed agent action, 
   async function run(ask, steps) {
     app.provider.setControl(ask, { steps });
     const job = await app.send(ask, chat, member, agent.id);
-    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && m.state === 'complete'), 'Agent did not finish', 35000);
+    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && (m.state === 'complete' || m.progress?.state === 'approval')), 'Agent did not finish', 35000);
     return (await snapshot()).actions.filter(a => a.job === job.reply);
   }
   const update = address => ({ tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address } } });
@@ -118,6 +118,27 @@ test('Company rules written in Settings hold and block an allowed agent action, 
   assert.deepEqual(careful.map(a => [a.operation, a.state]).sort(), [['order.read', 'completed'], ['order.update', 'completed']]);
   assert.equal(remote.records.get('one').address, 'Read street');
   app.pass('Real Goose: a change without reading the order first is blocked; after reading it in the same task, it runs');
+  // An agent proposes a rule from the person's words; it isn't in force until an admin
+  // reviews it, tries it on past requests and turns it on.
+  await run('Make a rule: moving an order to Lake street needs my approval', [{ tool: 'propose_rule', arguments: { words: 'Moving an order to Lake street needs my approval', operation: 'order.update', connection, kind: 'field', field: 'address', comparator: '=', value: 'Lake street', effect: 'ask' } }]);
+  const proposedRule = (await app.request(`${app.path}/guard/rules`, app.cookie)).value.rules.find(r => !r.reviewed);
+  assert.equal(proposedRule.summary, 'Update order: if address is "Lake street", ask first.');
+  assert.equal(proposedRule.enabled, false);
+  await ownerPage.goto(rulesUrl);
+  const proposals = ownerPage.getByRole('region', { name: 'Proposed by agents' });
+  await proposals.getByText('Order support proposed it from', { exact: false }).waitFor();
+  await proposals.getByRole('button', { name: 'Review', exact: true }).click();
+  const reviewing = ownerPage.getByRole('dialog', { name: 'Review proposed rule' });
+  await reviewing.getByRole('button', { name: 'Try it on the last 30 days', exact: true }).click();
+  await reviewing.getByText(/matching requests|No matching requests/).waitFor();
+  await ownerPage.screenshot({ path: join(app.data, 'company-rule-review.png') });
+  await reviewing.getByRole('button', { name: 'Turn on', exact: true }).click();
+  await reviewing.waitFor({ state: 'hidden' });
+  const readOne = { tool: 'request_action', arguments: { connection, operation: 'order.read', arguments: { order: 'one' } } };
+  const lake = await run('Read the order and move it to Lake street', [readOne, update('Lake street')]);
+  assert.equal(lake.find(a => a.operation === 'order.update').state, 'pending');
+  assert.equal(remote.records.get('one').address, 'Read street');
+  app.pass('Real Goose proposes a rule from a person\'s words; an admin reviews, tries and turns it on; it then holds the matching change');
   assert.deepEqual(errors, []);
   await app.stop(worker);
 });

@@ -74,6 +74,7 @@ fn rule(kind: &str, comparator: &str, value: Value, effect: &str) -> GuardRule {
         note: String::new(),
         enabled: true,
         revision: 0,
+        trial: false,
     }
 }
 

@@ -31,7 +31,7 @@ export function ApprovalDialog({ id, close }: { id: string; close: () => void })
       <p>{data.conversation_name} · Requested by {data.requester_name}</p>
       {data.state !== 'pending' && <p role="status">{data.decision === 'request_changes' ? 'Changes requested' : states[data.state] ?? data.state}</p>}
       <Deciders data={data} />
-      {data.guard && <GuardNote guard={data.guard} />}
+      {data.guard?.effect && <GuardNote guard={data.guard} />}
       <p className="ui-help">Approval applies once to these exact fields. The first decision counts.</p>
       <ApprovalFields fields={data.arguments} />
       {data.can_decide && <div className="approval-buttons">

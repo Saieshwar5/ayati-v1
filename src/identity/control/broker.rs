@@ -236,6 +236,12 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.propose_schedule(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "propose_rule" => {
+            let Ok(proposal) = serde_json::from_value(arguments) else {
+                return Ok(json!({"state":"invalid","message":"Invalid rule proposal"}));
+            };
+            pg.propose_guard_rule(job, &proposal).await
+        }
         "report_problem" => {
             pg.report_agent_need(job, &serde_json::from_value(arguments)?)
                 .await

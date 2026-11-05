@@ -106,6 +106,7 @@ fn rule(
         note: String::new(),
         enabled: true,
         revision: 0,
+        trial: false,
     }
 }
 

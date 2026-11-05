@@ -65,3 +65,25 @@ impl MigrationTrait for GuardFacts {
         ))
     }
 }
+
+/// Schema 67: rules proposed by agents, reviewed by admins, and trial weeks.
+pub(crate) struct GuardProposals;
+impl MigrationName for GuardProposals {
+    fn name(&self) -> &str {
+        "m20261105_000067_guard_proposals"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardProposals {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_proposals.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Rule proposals require a forward migration".into(),
+        ))
+    }
+}

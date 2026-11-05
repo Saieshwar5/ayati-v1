@@ -14,6 +14,8 @@ mod fact_tests;
 mod meaning_tests;
 #[path = "guard_migration.rs"]
 pub(in crate::identity::postgres) mod migration;
+#[path = "guard_proposals.rs"]
+pub(crate) mod proposals;
 #[path = "guard_store.rs"]
 pub(crate) mod store;
 #[cfg(test)]
@@ -25,7 +27,7 @@ pub(crate) use store::{ActionMeaning, GuardRule};
 /// States that use up a daily total: waiting approvals reserve their amount.
 const COUNTED: &str = "('pending','executing','completed','uncertain')";
 pub(crate) const MEANINGS: [&str; 5] = ["read", "change", "money", "sends_outside", "delete"];
-const DAYS: [&str; 7] = [
+pub(super) const DAYS: [&str; 7] = [
     "Monday",
     "Tuesday",
     "Wednesday",
@@ -140,7 +142,7 @@ pub(crate) fn summary(rule: &Value, action: &str) -> String {
 }
 
 /// `None` when the facts can't decide, for example a missing or wrongly typed field.
-fn holds(actual: &Value, comparator: &str, expected: &Value) -> Option<bool> {
+pub(super) fn holds(actual: &Value, comparator: &str, expected: &Value) -> Option<bool> {
     if let (Some(a), Some(b)) = (actual.as_f64(), expected.as_f64()) {
         return Some(match comparator {
             ">" => a > b,
@@ -177,12 +179,13 @@ pub(crate) fn in_window(window: &Value, now: &str, day: u64) -> bool {
 }
 
 /// The start of the workspace's day, its local time and ISO weekday.
-async fn local_now(db: &impl ConnectionTrait, w: &str) -> Result<(i64, String, u64)> {
-    let row = query(db, "SELECT floor(extract(epoch FROM date_trunc('day', clock_timestamp() AT TIME ZONE z) AT TIME ZONE z))::bigint AS start, to_char(clock_timestamp() AT TIME ZONE z,'HH24:MI') AS hm, extract(isodow FROM clock_timestamp() AT TIME ZONE z)::int AS dow FROM (SELECT COALESCE(timezone,'UTC') AS z FROM relay_workspaces WHERE id=$1) t", vec![w.into()]).await?.context("Workspace unavailable")?;
+async fn local_now(db: &impl ConnectionTrait, w: &str) -> Result<(i64, String, u64, i64)> {
+    let row = query(db, "SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS now_ms, floor(extract(epoch FROM date_trunc('day', clock_timestamp() AT TIME ZONE z) AT TIME ZONE z))::bigint AS start, to_char(clock_timestamp() AT TIME ZONE z,'HH24:MI') AS hm, extract(isodow FROM clock_timestamp() AT TIME ZONE z)::int AS dow FROM (SELECT COALESCE(timezone,'UTC') AS z FROM relay_workspaces WHERE id=$1) t", vec![w.into()]).await?.context("Workspace unavailable")?;
     Ok((
         row.try_get("", "start")?,
         row.try_get("", "hm")?,
         row.try_get::<i32>("", "dow")? as u64,
+        row.try_get("", "now_ms")?,
     ))
 }
 
@@ -292,12 +295,13 @@ pub(super) async fn check(
     .await?;
     let mut strictest: Option<Value> = None;
     let mut matched = 0;
+    let mut trials = vec![];
     let mut clock = None;
     for rule in rules.into_iter().filter(|r| applies(r, &operation.schema)) {
         if clock.is_none() {
             clock = Some(local_now(db, w).await?);
         }
-        let (day_start, now, weekday) = clock.clone().unwrap();
+        let (day_start, now, weekday, now_ms) = clock.clone().unwrap();
         let field = rule["field"].as_str().unwrap();
         let comparator = rule["comparator"].as_str().unwrap();
         // A value from an earlier read in this task, through Cuckoo's own receipt.
@@ -363,6 +367,14 @@ pub(super) async fn check(
             Some(true) => rule["effect"].as_str().unwrap(),
             None => "ask",
         };
+        // On trial: record what the rule would have done, and change nothing.
+        if rule["trial_until_ms"]
+            .as_i64()
+            .is_some_and(|until| until > now_ms)
+        {
+            trials.push(json!({"rule": rule["id"], "effect": effect, "summary": summary(&rule, &operation.title)}));
+            continue;
+        }
         matched += 1;
         if strictest
             .as_ref()
@@ -375,10 +387,14 @@ pub(super) async fn check(
             }));
         }
     }
-    Ok(strictest.map(|mut s| {
+    let mut record = strictest.map(|mut s| {
         s["matched"] = json!(matched);
         s
-    }))
+    });
+    if !trials.is_empty() {
+        record.get_or_insert_with(|| json!({}))["trial"] = json!(trials);
+    }
+    Ok(record)
 }
 
 /// The read-backs of the rules on one action, shown to the agent with its operations.

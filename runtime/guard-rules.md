@@ -1,4 +1,4 @@
-# Company rules: the Guard (schemas 64–66)
+# Company rules: the Guard (schemas 64–67)
 
 Company rules are conditions every agent must follow on top of each action's
 Allow / Ask first / Block ([agent tools and approvals](tools-and-approvals.md)).
@@ -73,6 +73,30 @@ its value from a **reading action the agent completed earlier in the same task**
   the workspace is locked. The reading action must be on the same account and share the
   matched field; the editor offers only such reads.
 
+## Creating rules safely: proposals, replay and trials
+
+Schema 67, core-agent CA2.
+
+- **Agents propose, admins decide.** When a person asks an agent for a rule ("refunds
+  over 2000 need my approval"), the agent calls `propose_rule` with their words and the
+  structured rule. The controller checks it against the actions **that agent uses** and
+  saves it **off and unreviewed** (`reviewed=false`, `proposed_by`, `proposal`). Up to 20
+  wait at a time. It's in the Audit log. An agent can't turn a rule on, edit one or
+  loosen one. Invalid drafts return `{"state":"invalid"}` with the reason.
+- Settings → Company rules shows **Proposed by agents** with the person's words, the
+  code-made read-back and **Review** / **Dismiss**. Reviewing opens the editor; **Turn on**
+  saves it (`reviewed=true`, enabled). Dismiss deletes a proposal nobody turned on
+  (`POST …/guard/rules/{id}/dismiss`), audited with the person's words.
+- **Replay** (`POST …/guard/rules/replay`, admins): what the draft would have done to
+  the last 30 days of requests (up to 5,000, excluding invalidated ones): how many
+  matched, would have been held and blocked, and up to 10 examples. It uses the
+  workspace's days and times, earlier reads in the same task, and the day's totals of
+  what really happened. It saves nothing.
+- **Trial week**: saving with `trial: true` sets `trial_until_ms` a week ahead. Until then
+  the rule only records what it would have done (`guard.trial` on the action, counted as
+  `trial_matches`) and changes nothing; then it enforces. Turning a rule off clears its
+  trial.
+
 ## How a request is checked
 
 `control_propose` runs the Guard inside the action's own transaction, after the
@@ -115,11 +139,12 @@ re-check requests already waiting.
   revision matches. Up to 200 rules per workspace. Every save is in the Audit log in
   plain words.
 
-## Schemas 64–66
+## Schemas 64–67
 
 - `relay_guard_rules`: one row per rule, with database checks for the same kinds,
   comparisons, effects and value types.
 - `relay_control_actions.guard`: the decision record, null when no rule applied.
+- Schema 67: `relay_guard_rules.proposed_by`, `proposal`, `reviewed`, `trial_until_ms`.
 - Schema 66: `relay_guard_rules.source` and the `read_first` kind.
 - Schema 65: `relay_action_meanings`, `relay_guess_meaning`, `relay_action_meaning`,
   `relay_default_mode`, the effective-rules view using it, `relay_control_actions.meaning`,
@@ -127,6 +152,14 @@ re-check requests already waiting.
 
 ## Checks
 
+- PostgreSQL (`postgres/guard_proposal_tests.rs`): a proposal stays off and isn't in
+  force; invalid drafts are refused; members can't dismiss; the admin turns it on and it
+  holds; reviewed rules can't be dismissed; dismissals are audited; a trial records
+  without blocking, counts its matches and then enforces; replay counts holds, blocks and
+  daily totals on past requests, members can't run it and it saves nothing.
+- Real Goose (`tests/guard_rules.mjs`, last part): the agent proposes a rule from the
+  person's words; the admin reviews, replays and turns it on in the browser; it then
+  holds the matching change.
 - PostgreSQL (`postgres/guard_fact_tests.rs`): with no read a person decides; a small
   read total runs, a large one waits with where the fact came from; read-first blocks a
   blind change and a read of another order, and allows after reading the same order;
@@ -161,5 +194,4 @@ re-check requests already waiting.
 
 - Checking a change after it ran (reading the record back).
 - Rules on outgoing messages, data reads and browser steps.
-- Creating a rule from one sentence, replay on past activity and a trial week (CA2).
 - A Rules page outside Settings and rules from managers for their own agents.
