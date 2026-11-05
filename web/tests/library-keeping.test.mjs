@@ -52,3 +52,33 @@ test('people see when an item will be deleted, or that its folder holds it, with
     }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response(info) });
   }
 });
+
+test('creators delete trashed items for good, one by one or by emptying Trash', async () => {
+  const posted = [];
+  let items = [
+    { id: 'a', kind: 'page', title: 'Old minutes', visibility: 'private', revision: 2, manageable: true, trashed: true, agent_count: 0, updated: 1, mime: '', size: 0 },
+    { id: 'b', kind: 'page', title: 'Old draft', visibility: 'private', revision: 2, manageable: true, trashed: true, agent_count: 0, updated: 1, mime: '', size: 0 },
+  ];
+  await reactFixture(async ({ render, click, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { LibraryPage } = await import('../src/react/library/library-page.tsx');
+    await render(LibraryPage, { href: url });
+    await click(button('Trash'));
+    await click(button('Delete Old minutes for good'));
+    assert.deepEqual(posted[0], '/library/a/delete-forever');
+    assert.deepEqual([...document.querySelectorAll('.library-name strong')].map(n => n.textContent), ['Old draft']);
+    await click(button('Empty Trash'));
+    assert.equal(posted[1], '/library-trash/empty');
+    assert.match(document.body.textContent, /Deleted 1 item for good\./);
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (options.body) {
+      const short = path.replace(`/api/identity/workspaces/${workspace}`, '');
+      posted.push(short);
+      if (short.endsWith('/delete-forever')) { items = items.filter(i => i.id !== 'a'); return response({ deleted: 1 }); }
+      if (short.endsWith('/empty')) { const n = items.length; items = []; return response({ deleted: n }); }
+      return response({ ok: true });
+    }
+    return response({ items: path.includes('view=trash') ? items : [], more: false, available: true, storage: 'local' });
+  } });
+});

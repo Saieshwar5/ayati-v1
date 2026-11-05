@@ -13,6 +13,7 @@ pub(super) mod passages;
 pub(super) mod rehearsals;
 mod sharing;
 pub(super) mod tables;
+mod trash;
 pub(super) mod upkeep;
 mod uploads;
 pub(super) mod watching;

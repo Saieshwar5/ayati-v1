@@ -85,6 +85,53 @@ pub(super) async fn purged(db: &impl ConnectionTrait, w: &str, id: &str) -> Resu
     Ok(query(db, "SELECT 1 AS found FROM relay_library_items WHERE workspace=$1 AND id=$2 AND purged IS NOT NULL", vec![w.into(), id.into()]).await?.is_some())
 }
 
+/// What [`purge`] removed: the item's title, whether it was in a folder, and the stored
+/// file to delete once the transaction commits.
+pub(super) struct Purged {
+    pub title: String,
+    pub filed: bool,
+    pub file: Option<String>,
+}
+
+/// Deletes an item for good inside the caller's transaction: everything kept for it
+/// goes, and a trashed tombstone stays so answers that cited it stay hidden. The caller
+/// checks who may and that it isn't held; none when it was already gone.
+pub(super) async fn purge(
+    tx: &DatabaseTransaction,
+    w: &str,
+    id: &str,
+    at: i64,
+) -> Result<Option<Purged>> {
+    let Some(gone) = query(tx, "SELECT title,object_key,folder FROM relay_library_items WHERE workspace=$1 AND id=$2 AND purged IS NULL FOR UPDATE", vec![w.into(), id.into()]).await? else {
+        return Ok(None);
+    };
+    for table in ITEM_TABLES {
+        // Meaning search tables exist only where pgvector is installed.
+        let exists: bool = query(
+            tx,
+            "SELECT to_regclass($1) IS NOT NULL AS present",
+            vec![(*table).into()],
+        )
+        .await?
+        .context("Schema check")?
+        .try_get("", "present")?;
+        if exists {
+            execute(
+                tx,
+                &format!("DELETE FROM {table} WHERE workspace=$1 AND item=$2"),
+                vec![w.into(), id.into()],
+            )
+            .await?;
+        }
+    }
+    execute(tx, "UPDATE relay_library_items SET title='Deleted for good',document=NULL,text='',object_key=NULL,size=0,checksum='',mime='',folder=NULL,visibility='private',trashed=true,purged=$3,access_revision=access_revision+1,revision=revision+1,updated=$3 WHERE workspace=$1 AND id=$2", vec![w.into(), id.into(), at.into()]).await?;
+    Ok(Some(Purged {
+        title: gone.try_get("", "title")?,
+        filed: gone.try_get::<Option<String>>("", "folder")?.is_some(),
+        file: gone.try_get("", "object_key")?,
+    }))
+}
+
 impl PgStore {
     /// The item's legal hold and, for a folder, its keeping rule.
     pub(crate) async fn library_keeping(&self, user: &User, w: &str, id: &str) -> Result<Value> {
@@ -215,55 +262,19 @@ impl PgStore {
         for row in due {
             let (w, id): (String, String) = (row.try_get("", "workspace")?, row.try_get("", "id")?);
             let tx = self.workspace_tx(&w).await?;
-            let Some(gone) = query(&tx, "SELECT title,object_key,folder FROM relay_library_items WHERE workspace=$1 AND id=$2 AND purged IS NULL FOR UPDATE", vec![w.clone().into(), id.clone().into()]).await? else {
-                tx.commit().await?;
-                continue;
-            };
             if held(&tx, &w, &id).await? {
                 tx.commit().await?;
                 continue;
             }
-            let title: String = gone.try_get("", "title")?;
-            if let Some(key) = gone.try_get::<Option<String>>("", "object_key")? {
-                files.push(key);
+            if let Some(gone) = purge(&tx, &w, &id, at).await? {
+                files.extend(gone.file);
+                let said = format!(
+                    "Deleted \"{}\" for good under the keeping rule{}",
+                    gone.title,
+                    if gone.filed { " of its folder" } else { "" }
+                );
+                audit_with_summary(&tx, "system", Some(&w), "library_purged", &id, &said).await?;
             }
-            for table in ITEM_TABLES {
-                // Meaning search tables exist only where pgvector is installed.
-                let exists: bool = query(
-                    &tx,
-                    "SELECT to_regclass($1) IS NOT NULL AS present",
-                    vec![(*table).into()],
-                )
-                .await?
-                .context("Schema check")?
-                .try_get("", "present")?;
-                if exists {
-                    execute(
-                        &tx,
-                        &format!("DELETE FROM {table} WHERE workspace=$1 AND item=$2"),
-                        vec![w.clone().into(), id.clone().into()],
-                    )
-                    .await?;
-                }
-            }
-            execute(&tx, "UPDATE relay_library_items SET title='Deleted under a keeping rule',document=NULL,text='',object_key=NULL,size=0,checksum='',mime='',folder=NULL,visibility='private',trashed=true,purged=$3,access_revision=access_revision+1,revision=revision+1,updated=$3 WHERE workspace=$1 AND id=$2", vec![w.clone().into(), id.clone().into(), at.into()]).await?;
-            let folder: Option<String> = gone.try_get("", "folder")?;
-            audit_with_summary(
-                &tx,
-                "system",
-                Some(&w),
-                "library_purged",
-                &id,
-                &format!(
-                    "Deleted \"{title}\" for good under the keeping rule{}",
-                    if folder.is_some() {
-                        " of its folder"
-                    } else {
-                        ""
-                    }
-                ),
-            )
-            .await?;
             tx.commit().await?;
         }
         Ok(files)

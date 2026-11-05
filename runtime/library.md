@@ -101,9 +101,10 @@ atomic hard link after fsync; S3 uses conditional creation. Downloads verify the
 stored checksum and recheck access after the storage read. Transfer timeouts are
 bounded; the size limit bounds buffered downloads.
 
-Reservations expire, but stored orphan bytes from a failed/cancelled operation are
-retained for reconciliation. Automatic orphan deletion, emptying Trash by hand,
-file replacement/versioning and large multipart transfers remain follow-up work.
+Reservations expire. Stored bytes from an upload that was cancelled or never finished
+are removed by the keeping sweep once no item uses them (each upload session is closed
+as `cleaned`, so its bytes are released once). File replacement/versioning and large
+multipart transfers remain follow-up work.
 Do not enable a bucket lifecycle rule that can expire live Library objects; use
 keeping rules (below) instead.
 
@@ -126,7 +127,7 @@ arbitrary uploaded HTML/SVG rendering are not included.
 - **The sweep**: a controller task (every `CUCKOO_LIBRARY_KEEPING_SECONDS`, default
   600, 5–86,400) deletes items past their folder's rule **for good**, up to 200 per
   round: their text, versions, passages, meaning, summaries, suggestions, grants and
-  stars, then the stored file. A trashed tombstone ("Deleted under a keeping rule",
+  stars, then the stored file. A trashed tombstone ("Deleted for good",
   `purged` set) stays so answers that cited the item stay hidden; it isn't listed, even
   in Trash, and can't be restored. Each deletion is audited by Cuckoo. Two controllers
   may sweep at once; each item is purged once, under a row lock. A file that fails to
@@ -138,6 +139,12 @@ arbitrary uploaded HTML/SVG rendering are not included.
   Everyone who can open it sees the hold and its reason. Holds, lifts and rule changes
   are audited.
 
+- **Deleting from Trash**: an item's creator chooses **Delete for good** on it in Trash,
+  or **Empty Trash** for everything they put there (up to 200 at a time); items on legal
+  hold stay. Both purge exactly as the sweep does and then remove stored files
+  (`POST …/library/{id}/delete-forever`, `POST …/library-trash/empty`); audited
+  ("Deleted … for good from Trash", "Emptied Trash: N items deleted for good").
+
 Checks: PostgreSQL (`postgres/library_keeping_tests.rs`: only admins, only folders;
 the sweep deletes only what is past its time and not held; versions and passages gone;
 not in Trash, not restorable, not found by agents; holds block trashing until lifted;
@@ -146,6 +153,12 @@ a folder hold covers its items; audited), unit (storage delete for local files),
 notes), browser (`tests/library_keeping.mjs`: an admin sets the rule and a hold in the
 browser; with the real sweep, the old ID scan — its stored file too — and visitor log
 are deleted for good while the held contract stays and can't be trashed; audited).
+Trash (`postgres/library_trash_tests.rs`: only trashed items and only by their creator;
+a hold added in Trash keeps the item; deleted items can't be restored; Empty Trash takes
+only the person's own, unheld items; cancelled and abandoned uploads' bytes are released
+once and a waiting upload's are kept), web (`tests/library-keeping.test.mjs`: Delete for
+good and Empty Trash), browser (`tests/library_keeping.mjs`: a receipt deleted for good
+from Trash in the browser has its stored file removed; Empty Trash; audited).
 
 ## Folders, agents answering, search and editing
 

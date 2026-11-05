@@ -42,6 +42,14 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
         .route(
+            "/api/identity/workspaces/{w}/library/{id}/delete-forever",
+            post(delete_forever),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library-trash/empty",
+            post(empty_trash),
+        )
+        .route(
             "/api/identity/workspaces/{w}/library/{id}/watch",
             get(watch).post(watch_set),
         )
@@ -219,6 +227,28 @@ async fn hold(
     Ok(Json(
         app.store.library_hold_set(&user, &w, &id, &input).await?,
     ))
+}
+/// Deletes one trashed item for good, then its stored file (LB7).
+async fn delete_forever(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let files = app.store.library_delete_forever(&user, &w, &id).await?;
+    keeping::remove(&app, files).await;
+    Ok(Json(json!({"deleted":1})))
+}
+/// Deletes everything the person may in their Trash for good, except held items.
+async fn empty_trash(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let (deleted, files) = app.store.library_empty_trash(&user, &w).await?;
+    keeping::remove(&app, files).await;
+    Ok(Json(json!({"deleted":deleted})))
 }
 /// Who watches a folder, and setting or stopping it (LB6).
 async fn watch(
