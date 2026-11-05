@@ -7,3 +7,7 @@
 .approval-detail .control-fields { margin: 4px 0; }
 .approval-buttons { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; }
 .approval-route { display: grid; gap: 12px; }
+.approval-guard { margin: 12px 0; padding: 12px 14px; border-radius: 12px; background: var(--warning-bg); color: var(--text); }
+.approval-guard.block { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.approval-guard strong { display: block; margin-bottom: 4px; }
+.approval-guard p { margin: 0; }

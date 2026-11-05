@@ -7,8 +7,10 @@ one sidebar with two groups.
 | Group | Members | Admins |
 | --- | --- | --- |
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
-| Workspace | This workspace | Workspace, People, Connections, Usage, Billing, Audit log |
+| Workspace | This workspace, Company rules (read-only) | Workspace, People, Connections, Company rules, Usage, Billing, Audit log |
 
+- **Company rules** (everyone reads, admins edit): conditions on agent actions;
+  see [company rules](guard-rules.md).
 - **This workspace** (members):
   - the workspace name, their role, and how many people and agents they can see,
     read from the member directory;

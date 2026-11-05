@@ -39,7 +39,7 @@ const page=()=>document.querySelector('.settings-detail h2')?.textContent;
 
 test('Members see their own pages and This workspace, and never read admin data',async()=>{
   await fixture('Member',async({render,reads,change})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace','Company rules']]]);
     assert.equal(page(),'Profile');
     assert.match(document.querySelector('.settings-heading p').textContent,/Northstar · Member/);
     await render(base+'&scope=workspace&section=people');
@@ -96,7 +96,7 @@ test('A refused leave keeps the dialog open with the reason',async()=>{
 
 test('Admins see the workspace pages; Usage and Billing are marked as coming later',async()=>{
   await fixture('Admin',async({render,click,dom})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Connections','UsageComing later','BillingComing later','Audit log']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Connections','Company rules','UsageComing later','BillingComing later','Audit log']]]);
     await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
     assert.match(dom.window.location.search,/view=settings&section=people/);
     await render(base+'&section=usage');

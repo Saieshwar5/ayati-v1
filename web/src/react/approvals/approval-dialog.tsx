@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { workspaceUrl } from '../../workspace-context';
-import { ApprovalFields } from './fields';
+import { ApprovalFields, GuardNote } from './fields';
 import { decideApproval, either, loadApproval, type Approval, type Decision } from './model';
 import { states } from '../agents/control-model';
 import './approvals.css';
@@ -31,6 +31,7 @@ export function ApprovalDialog({ id, close }: { id: string; close: () => void })
       <p>{data.conversation_name} · Requested by {data.requester_name}</p>
       {data.state !== 'pending' && <p role="status">{data.decision === 'request_changes' ? 'Changes requested' : states[data.state] ?? data.state}</p>}
       <Deciders data={data} />
+      {data.guard && <GuardNote guard={data.guard} />}
       <p className="ui-help">Approval applies once to these exact fields. The first decision counts.</p>
       <ApprovalFields fields={data.arguments} />
       {data.can_decide && <div className="approval-buttons">
