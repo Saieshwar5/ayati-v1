@@ -8,6 +8,7 @@ mod office;
 pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
+pub(crate) mod tables;
 use super::*;
 use axum::{
     Json,
@@ -29,6 +30,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/library-folders",
             post(create_folder),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library-tables",
+            post(save_table).layer(axum::extract::DefaultBodyLimit::max(1_200_000)),
         )
         .route(
             "/api/identity/workspaces/{w}/library-always/{agent}",
@@ -135,6 +140,15 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.library_save(&user, &w, &input).await?))
+}
+async fn save_table(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::SaveTable>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_table_save(&user, &w, &input).await?))
 }
 async fn always(
     State(app): State<Shared>,

@@ -173,10 +173,21 @@ impl PgStore {
         );
         let actions: Vec<Value> = json_rows(&tx, ACTIONS, vec![w.into()]).await?;
         validate(input, &actions)?;
+        let checked = GuardRule {
+            value: super::tables::checked(&tx, w, &input.value).await?,
+            ..input.clone()
+        };
+        let input = &checked;
         let rule = serde_json::to_value(
             json!({"kind":input.kind,"field":input.field,"comparator":input.comparator,"value":input.value,"effect":input.effect,"meaning":input.meaning,"source":input.source}),
         )?;
         let past = json_rows(&tx, &format!("SELECT jsonb_build_object('id',a.id,'job',a.job,'connection',a.connection,'operation',a.operation,'meaning',a.meaning,'arguments',a.arguments,'state',a.state,'title',a.title,'created',a.created,'effect',a.effect,'result',a.result,'day',to_char(to_timestamp(a.created) AT TIME ZONE z,'YYYY-MM-DD'),'hm',to_char(to_timestamp(a.created) AT TIME ZONE z,'HH24:MI'),'dow',extract(isodow FROM to_timestamp(a.created) AT TIME ZONE z)::int) AS data FROM relay_control_actions a, (SELECT COALESCE(timezone,'UTC') AS z FROM relay_workspaces WHERE id=$1) t WHERE a.workspace=$1 AND a.created >= floor(extract(epoch FROM clock_timestamp()))::bigint-{} AND a.state<>'invalidated' ORDER BY a.created,a.created_ms,a.id LIMIT 5000", REPLAY_DAYS * 86400), vec![w.into()]).await?;
+        // A limit from a Library table uses today's table for every past request.
+        let table = if super::tables::is_table(&input.value) {
+            super::tables::document(&tx, w, &input.value).await?
+        } else {
+            None
+        };
         tx.commit().await?;
         let schema_of = |a: &Value| {
             actions
@@ -243,6 +254,11 @@ impl PgStore {
                             &input.value,
                         )
                     }),
+                    _ if super::tables::is_table(&input.value) => holds(
+                        &actual,
+                        &input.comparator,
+                        &super::tables::from(table.as_ref(), &input.value, &a["arguments"]),
+                    ),
                     _ => holds(&actual, &input.comparator, &input.value),
                 };
                 let effect = match decides {

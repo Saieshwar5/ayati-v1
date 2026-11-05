@@ -6,6 +6,7 @@ import { useMutation, useResource } from '../requests';
 import { AskDialog, HistoryDialog, ShareDialog } from './dialogs';
 import { MoveDialog } from './folders';
 import { Suggestions } from './suggestions';
+import { TableView } from './table-view';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -129,7 +130,8 @@ function ReadyItem({
         <div>
           <Button onClick={() => navigate(back)}>‹ {item.folder_title ?? 'Library'}</Button>
           <span>
-            {item.kind === 'page' ? 'Page' : 'File'} · {visibilityName(item.visibility)}
+            {item.kind === 'page' ? 'Page' : item.kind === 'table' ? 'Table' : 'File'} ·{' '}
+            {visibilityName(item.visibility)}
             {item.folder && item.folder_title && (
               <>
                 {' · in '}
@@ -244,7 +246,9 @@ function ReadyItem({
           {item.revision}; editors can inspect saved history.
         </p>
       )}
-      {item.kind === 'page' ? (
+      {item.kind === 'table' ? (
+        <TableView key={item.revision} item={item} saved={reload} />
+      ) : item.kind === 'page' ? (
         <PageEditor
           item={item}
           saving={saving}

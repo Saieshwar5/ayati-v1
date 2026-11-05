@@ -169,3 +169,18 @@
 .library-compare pre { margin: 0; padding: 12px; max-height: 260px; overflow: auto; background: var(--soft); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 12px; line-height: 1.6; }
 .library-suggestion-actions { display: flex; gap: 8px; margin-top: 12px; }
 @media (max-width: 700px) { .library-compare { grid-template-columns: 1fr; } }
+.library-table-view { flex: 1; min-height: 0; overflow: auto; padding: 24px 32px 48px; }
+.library-table-view h1 { font-size: 26px; margin-bottom: 16px; overflow-wrap: anywhere; }
+.library-table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.library-table-tools input { min-height: 38px; padding: 8px 12px; border: 1px solid var(--border-control); border-radius: 8px; background: var(--surface); color: var(--text); min-width: 0; }
+.library-grid-scroll { overflow: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; }
+.library-grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.library-grid th, .library-grid td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.library-grid th { background: var(--soft); font-weight: 600; }
+.library-grid th small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+.library-grid input { width: 100%; min-width: 90px; box-sizing: border-box; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); font: inherit; }
+.library-grid input:focus { border-color: var(--border-control); background: var(--surface); }
+.library-table-actions { margin-top: 14px; }
+.library-table-paste { margin: 14px 0; font-size: 13px; }
+.library-table-paste textarea { display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px; border: 1px solid var(--border-control); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+@media (max-width: 700px) { .library-table-view { padding: 16px; } }

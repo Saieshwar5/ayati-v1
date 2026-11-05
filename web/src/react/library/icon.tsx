@@ -32,6 +32,7 @@ export function LibraryIcon({ name }: { name: string }) {
         </>
       )}
       {name === 'folder' && <path d="M3 6h6l2 2h10v11H3Z" />}
+      {name === 'table' && <path d="M4 5h16v14H4ZM4 10h16M4 15h16M10 5v14" />}
       {name === 'file' && (
         <>
           <path d="M5 3h9l5 5v13H5ZM14 3v6h5" />

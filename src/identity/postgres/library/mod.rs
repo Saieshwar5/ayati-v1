@@ -10,6 +10,7 @@ mod pages;
 pub(super) mod passages;
 pub(super) mod rehearsals;
 mod sharing;
+pub(super) mod tables;
 mod uploads;
 use super::*;
 use crate::identity::library::model::*;

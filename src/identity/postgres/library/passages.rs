@@ -60,7 +60,7 @@ pub(in crate::identity::postgres) async fn index_item(
             &row.try_get::<Option<Value>>("", "document")?
                 .unwrap_or(Value::Null),
         ),
-        "file" => row.try_get("", "text")?,
+        "file" | "table" => row.try_get("", "text")?,
         _ => String::new(),
     };
     let passages: Vec<Value> = split(&text)
