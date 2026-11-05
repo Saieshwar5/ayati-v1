@@ -113,8 +113,8 @@ can prepare an agent excerpt. PDF text extraction is optional and requires Linux
 with limited memory, CPU, output size, pages and elapsed time. If isolation/parser
 setup fails, the file remains stored/downloadable with extraction unavailable.
 PDF excerpts cover at most 50 pages; each question uses limited prepared text.
-Image OCR, audio/video transcription and arbitrary uploaded HTML/SVG rendering
-are not included.
+Images are read by text recognition (LB2c, below). Audio/video transcription and
+arbitrary uploaded HTML/SVG rendering are not included.
 
 ## Folders and agents answering from them (schema 69, LB1)
 
@@ -232,6 +232,26 @@ AYATI_LIBRARY_SUMMARY_MODEL=openai:gpt-5-mini                  # provider:model
 - Search results and `list_folder` include each document's summary when one exists for
   its current revision. The text of every document is sent to the configured provider
   for embedding and summarising, like any model request.
+
+### Text in images and "always read" documents (schema 73, LB2c)
+
+- **Images** (PNG, JPEG, up to 40 megapixels) are read by text recognition: Tesseract
+  (English) in the same sandbox as PDF text, with 1 GiB of memory, 20 CPU seconds and
+  25 seconds at most. The text becomes one "Text in the image" section, marked
+  "partial" (recognition can be wrong); images without readable text stay downloadable.
+  Needs `tesseract-ocr` and `tesseract-ocr-eng` beside `bwrap`, `prlimit` and `pdftotext`.
+- The sandbox's `/lib64` now follows the host (`usr/lib64` on Debian and Ubuntu,
+  `usr/lib` elsewhere). Before, every sandboxed reader, PDF text included, failed on
+  Ubuntu x86-64 and files stayed "unsupported".
+- **Always read**: on an agent's Instructions tab, its owner or an admin chooses up to 5
+  documents it was given, in order (`GET/POST /api/identity/workspaces/{w}/library-always/{agent}`
+  with `{items, expected}`; a save from an older list is refused). People who can talk
+  to the agent see the list; documents they can't open are counted, not named. Changes
+  are in the Audit log ("Nova always reads: Returns policy, Tone guide").
+- Each request includes the chosen documents that are usable for its audience, by
+  section, within 8,000 characters together, in the agent's instructions as evidence.
+  They leave the same receipts as search previews, so a sharing change stops or hides
+  the work, and they are not cited unless the agent also reads them.
 
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the
@@ -403,7 +423,26 @@ no-store. These are build-size measurements, not startup/latency guarantees.
   are deterministic word groups, not a real model: this proves the plumbing, not
   retrieval quality.
 
+## Recorded verification — 2026-11-05 (LB2c)
+
+- Sandbox (`library/extract.rs`, needs bwrap and tesseract): a receipt photo's text and a
+  two-page PDF's text are read; broken image bytes are unsupported.
+- PostgreSQL (`postgres/library_always_tests.rs`): only managers choose, only documents
+  given to the agent, at most five, never from an older list; the Audit log names them;
+  a colleague's request gets the staff policy and not HR; answers don't cite them; the
+  owner's private request gets both and stops when HR is shared differently; a colleague
+  who can open neither sees only the count.
+- Web (`tests/library-always.test.mjs`): add, order, remove, the character budget, one
+  save per click burst with the expected list, the draft kept after a failed save, and
+  a read-only list naming only what the viewer can open.
+- Real Goose (`tests/library_folders.mjs`): a receipt photo uploaded and filed is found
+  by its recognised text; the owner chooses an always-read policy on Iris's Instructions
+  tab in the browser, and the next request carries it uncited and never HR.
+
 ## Dependency decisions
+
+- Tesseract 5.3.4 (Apache-2.0) with English data, run as a local program in the existing
+  sandbox; no Rust crate is added.
 
 - pgvector 0.6.0 (PostgreSQL License), the server extension; no Rust crate is added
   (vectors travel as text and are cast in SQL).
