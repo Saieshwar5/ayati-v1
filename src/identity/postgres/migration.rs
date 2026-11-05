@@ -74,6 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::control_actions::guard::migration::Guard),
             Box::new(super::control_actions::guard::migration::GuardMeanings),
             Box::new(super::control_actions::guard::migration::GuardFacts),
+            Box::new(super::control_actions::guard::migration::GuardProposals),
         ]
     }
 }

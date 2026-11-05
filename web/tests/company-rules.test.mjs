@@ -10,7 +10,7 @@ const response = (data, status = 200) => ({ ok: status < 400, status, json: asyn
 const actions = [{ connection: 'c1', account: 'Shop', operation: 'refund.create', title: 'Refund an order', effect: 'write', meaning: 'money',
   fields: [{ name: 'amount', type: 'number' }, { name: 'order', type: 'string' }, { name: 'reason', type: 'string' }] }];
 const existing = { id: 'r1', operation: 'refund.create', connection: 'c1', meaning: null, kind: 'daily_total', field: 'amount', comparator: '>', value: 10000,
-  effect: 'block', note: 'Finance limit', enabled: true, revision: 3, summary: "Refund an order: if today's total amount would go over 10000, block it.", updated_by_name: 'Anita' };
+  effect: 'block', note: 'Finance limit', enabled: true, revision: 3, reviewed: true, summary: "Refund an order: if today's total amount would go over 10000, block it.", updated_by_name: 'Anita' };
 const field = label => [...document.querySelectorAll('label')].find(node => node.textContent.startsWith(label))?.querySelector('input,select');
 const session = role => response({ user: { id: 'me', email: 'me@test' }, workspaces: [{ id: w, name: 'Mehta', role }] });
 
@@ -32,7 +32,7 @@ test('Admins add a rule with a plain-words read-back, saving once and keeping th
     fail = false;
     await click(button('Save rule'));
     const sent = posts.at(-1);
-    assert.deepEqual({ ...sent, id: undefined }, { id: undefined, operation: 'refund.create', connection: 'c1', meaning: null, kind: 'field', field: 'amount', comparator: '>', value: 2000, effect: 'ask', note: '', enabled: true, revision: 0 });
+    assert.deepEqual({ ...sent, id: undefined }, { id: undefined, operation: 'refund.create', connection: 'c1', meaning: null, kind: 'field', field: 'amount', comparator: '>', value: 2000, effect: 'ask', note: '', enabled: true, revision: 0, trial: false });
     assert.equal(posts[0].id, sent.id, 'a retry keeps the same rule identity');
     assert.ok(!document.querySelector('dialog[open]'), 'closed after saving');
     assert.match(document.body.textContent, /Company rule saved/);
@@ -42,7 +42,7 @@ test('Admins add a rule with a plain-words read-back, saving once and keeping th
     if (path.endsWith('/guard/rules') && options.body) {
       const body = JSON.parse(options.body); posts.push(body);
       if (fail) return response({ error: 'No connected account offers this action' }, 400);
-      const saved = { ...body, revision: 1, summary: 'Refund an order: if amount is over 2000, ask first.' }; rules = [...rules, saved]; return response(saved);
+      const saved = { ...body, revision: 1, reviewed: true, summary: 'Refund an order: if amount is over 2000, ask first.' }; rules = [...rules, saved]; return response(saved);
     }
     if (path.endsWith('/guard/rules')) return response({ rules, actions, can_manage: true });
     return response({});
@@ -151,6 +151,36 @@ test('A rule can use a value Cuckoo read earlier, or require that read first', a
     if (path.endsWith('/session')) return session('Admin');
     if (path.endsWith('/guard/rules') && options.body) { const body = JSON.parse(options.body); posts.push(body); return response({ ...body, summary: 'saved' }); }
     if (path.endsWith('/guard/rules')) return response({ rules: [], actions: withRead, can_manage: true });
+    return response({});
+  } });
+});
+
+test('Admins review an agent proposal, try it on past requests, and turn it on with a trial week', async () => {
+  const posts = [];
+  const proposal = { id: 'p1', operation: 'refund.create', connection: 'c1', meaning: null, source: null, kind: 'field', field: 'amount', comparator: '>', value: 2000, effect: 'ask', note: '',
+    enabled: false, revision: 1, reviewed: false, proposal: 'Refunds over 2000 need my approval', proposed_by_name: 'Nova', summary: 'Refund an order: if amount is over 2000, ask first.' };
+  const replay = { days: 30, examined: 3, would_hold: 2, would_block: 0, summary: proposal.summary, examples: [{ id: 'a1', title: 'Refund an order', created: 1, state: 'completed', effect: 'ask', arguments: { order: 'R2', amount: 2500 }, day: 'Tuesday' }] };
+  await reactFixture(async ({ render, button, click }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
+    await render(SettingsPage, { href: base });
+    const section = document.querySelector('[aria-label="Proposed by agents"]');
+    assert.match(section.textContent, /Nova proposed it from “Refunds over 2000 need my approval”\. Not in force\./);
+    await click(button('Review'));
+    assert.ok(document.querySelector('dialog[open]').textContent.includes('Review proposed rule'));
+    await click(button('Try it on the last 30 days'));
+    assert.match(document.querySelector('.company-rule-replay').textContent, /Of 3 matching requests, it would have held 2 and blocked 0\..*Ask · Refund an order · Tuesday/);
+    assert.equal(posts.filter(p => p.path.endsWith('/replay')).length, 1);
+    await click([...document.querySelectorAll('label')].find(l => l.textContent.startsWith('Start with a trial week')).querySelector('input'));
+    await click(button('Turn on'));
+    const saved = posts.find(p => p.path.endsWith('/guard/rules')).body;
+    assert.deepEqual({ id: saved.id, enabled: saved.enabled, revision: saved.revision, trial: saved.trial }, { id: 'p1', enabled: true, revision: 1, trial: true });
+    await click(button('Dismiss'));
+    assert.ok(posts.some(p => p.path.endsWith('/guard/rules/p1/dismiss')));
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Admin');
+    if (options.body) { posts.push({ path, body: JSON.parse(options.body) }); return response(path.endsWith('/replay') ? replay : path.endsWith('/dismiss') ? { dismissed: true } : { ...proposal, reviewed: true, enabled: true }); }
+    if (path.endsWith('/guard/rules')) return response({ rules: [proposal], actions, can_manage: true });
     return response({});
   } });
 });

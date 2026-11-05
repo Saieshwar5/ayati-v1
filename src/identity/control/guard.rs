@@ -12,6 +12,14 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/control/action-meanings",
             post(meaning),
         )
+        .route(
+            "/api/identity/workspaces/{w}/guard/rules/replay",
+            post(replay),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/guard/rules/{id}/dismiss",
+            post(dismiss),
+        )
 }
 async fn list(
     State(app): State<Shared>,
@@ -40,4 +48,21 @@ async fn meaning(
     Ok(Json(
         app.store.action_meaning_save(&user, &w, &input).await?,
     ))
+}
+async fn replay(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<GuardRule>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.guard_rule_replay(&user, &w, &input).await?))
+}
+async fn dismiss(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.guard_rule_dismiss(&user, &w, &id).await?))
 }

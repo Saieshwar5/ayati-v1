@@ -29,6 +29,9 @@ pub(crate) struct GuardRule {
     pub note: String,
     pub enabled: bool,
     pub revision: i64,
+    /// Turning on with a trial week: it records what it would do, then enforces.
+    #[serde(default)]
+    pub trial: bool,
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -39,13 +42,13 @@ pub(crate) struct ActionMeaning {
     pub revision: i64,
 }
 
-const VIEW: &str = "jsonb_build_object('id',g.id,'operation',g.operation,'connection',g.connection,'meaning',g.meaning,'source',g.source,'kind',g.kind,'field',g.field,'comparator',g.comparator,'value',g.value,'effect',g.effect,'note',g.note,'enabled',g.enabled,'revision',g.revision,'updated_ms',g.updated_ms,'updated_by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=g.updated_by))";
+pub(super) const VIEW: &str = "jsonb_build_object('id',g.id,'operation',g.operation,'connection',g.connection,'meaning',g.meaning,'source',g.source,'kind',g.kind,'field',g.field,'comparator',g.comparator,'value',g.value,'effect',g.effect,'note',g.note,'enabled',g.enabled,'revision',g.revision,'updated_ms',g.updated_ms,'updated_by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=g.updated_by),'proposal',g.proposal,'reviewed',g.reviewed,'proposed_by_name',(SELECT s.name FROM relay_shared_agents s WHERE s.workspace=g.workspace AND s.id=g.proposed_by),'trial_until_ms',g.trial_until_ms,'trial_matches',(SELECT count(*) FROM relay_control_actions a WHERE a.workspace=g.workspace AND g.trial_until_ms IS NOT NULL AND a.guard->'trial' @> jsonb_build_array(jsonb_build_object('rule',g.id))))";
 const MAX_RULES: i64 = 200;
 /// Every connected action with its meaning and fields, for the rule editor.
-const ACTIONS: &str = "SELECT jsonb_build_object('connection',c.id,'account',c.definition->>'name','operation',op->>'id','title',op->>'title','effect',op->>'effect','meaning',relay_action_meaning(c.workspace,c.id,op),'fields',(SELECT COALESCE(jsonb_agg(jsonb_build_object('name',f.key,'type',f.value->>'type') ORDER BY f.key),'[]'::jsonb) FROM jsonb_each(op->'schema'->'properties') f)) AS data FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.enabled ORDER BY c.definition->>'name',op->>'title'";
+pub(super) const ACTIONS: &str = "SELECT jsonb_build_object('connection',c.id,'account',c.definition->>'name','operation',op->>'id','title',op->>'title','effect',op->>'effect','meaning',relay_action_meaning(c.workspace,c.id,op),'fields',(SELECT COALESCE(jsonb_agg(jsonb_build_object('name',f.key,'type',f.value->>'type') ORDER BY f.key),'[]'::jsonb) FROM jsonb_each(op->'schema'->'properties') f)) AS data FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.enabled ORDER BY c.definition->>'name',op->>'title'";
 
 /// The title a rule's read-back uses: the action's title, or its meaning's label.
-fn title_of(rule: &Value, actions: &[Value]) -> String {
+pub(super) fn title_of(rule: &Value, actions: &[Value]) -> String {
     if let Some(meaning) = rule["meaning"].as_str() {
         return meaning_label(meaning).to_owned();
     }
@@ -71,7 +74,7 @@ fn clock(value: Option<&str>) -> bool {
 }
 
 /// Checks a rule's shape against the actions it targets; returns their field type.
-fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
+pub(super) fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
     crate::identity::worker_control::model::uuid(&input.id)?;
     ensure!(
         ["field", "daily_total", "time", "read_first"].contains(&input.kind.as_str()),
@@ -348,8 +351,8 @@ impl PgStore {
                 "This workspace reached its company rule limit"
             );
         }
-        execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,meaning,kind,field,comparator,value,effect,note,enabled,created_by,updated_by,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14) ON CONFLICT(workspace,id) DO UPDATE SET source=EXCLUDED.source,operation=EXCLUDED.operation,connection=EXCLUDED.connection,meaning=EXCLUDED.meaning,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into(), source.into()]).await?;
+        execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,meaning,kind,field,comparator,value,effect,note,enabled,created_by,updated_by,source,trial_until_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14,CASE WHEN $15 THEN (extract(epoch FROM clock_timestamp())*1000)::bigint+604800000 END) ON CONFLICT(workspace,id) DO UPDATE SET source=EXCLUDED.source,reviewed=true,trial_until_ms=CASE WHEN $15 THEN EXCLUDED.trial_until_ms WHEN NOT EXCLUDED.enabled THEN NULL ELSE relay_guard_rules.trial_until_ms END,operation=EXCLUDED.operation,connection=EXCLUDED.connection,meaning=EXCLUDED.meaning,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
+            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into(), source.into(), (input.trial && input.enabled).into()]).await?;
         let mut rule: Value = query(
             &tx,
             &format!(

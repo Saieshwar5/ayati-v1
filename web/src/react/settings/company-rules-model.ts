@@ -10,8 +10,14 @@ export type Effect = 'ask' | 'block';
 export type TimeWindow = { from: string; to: string; days: number[] };
 export type RuleValue = string | number | boolean | TimeWindow;
 export type RuleInput = { id: string; operation: string | null; connection: string | null; meaning: Meaning | null; source?: RuleSource | null; kind: RuleKind; field: string;
-  comparator: Comparator; value: RuleValue; effect: Effect; note: string; enabled: boolean; revision: number };
-export type CompanyRule = RuleInput & { summary: string; updated_by_name?: string | null; updated_ms?: number };
+  comparator: Comparator; value: RuleValue; effect: Effect; note: string; enabled: boolean; revision: number;
+  /** Turning on with a trial week: it records what it would do, then enforces. */
+  trial?: boolean };
+export type CompanyRule = RuleInput & { summary: string; updated_by_name?: string | null; updated_ms?: number;
+  /** Agents' proposals stay off until an admin reviews them (core-agent CA2). */
+  reviewed: boolean; proposal?: string | null; proposed_by_name?: string | null; trial_until_ms?: number | null; trial_matches?: number };
+export type Replay = { days: number; examined: number; would_hold: number; would_block: number; summary: string;
+  examples: { id: string; title: string; created: number; state: string; effect: Effect; arguments: Record<string, unknown>; day: string }[] };
 export type RuleField = { name: string; type: 'string' | 'number' | 'integer' | 'boolean' };
 export type RuleAction = { connection: string; account: string; operation: string; title: string; effect: string; meaning: Meaning; fields: RuleField[] };
 export type RulesView = { rules: CompanyRule[]; actions: RuleAction[]; can_manage: boolean };
@@ -19,6 +25,8 @@ export type RulesView = { rules: CompanyRule[]; actions: RuleAction[]; can_manag
 const path = () => `/workspaces/${workspaceId}/guard/rules`;
 export const loadRules = () => identityRequest<RulesView>(path());
 export const saveRule = (rule: RuleInput) => identityRequest<CompanyRule>(path(), rule);
+export const replayRule = (rule: RuleInput) => identityRequest<Replay>(`${path()}/replay`, rule);
+export const dismissRule = (id: string) => identityRequest<{ dismissed: boolean }>(`${path()}/${id}/dismiss`, {});
 
 export const comparisons: Record<Comparator, string> = { '>': 'is over', '>=': 'is at least', '<': 'is under', '<=': 'is at most', '=': 'is', '!=': 'is not' };
 export const numeric = (field?: RuleField) => field?.type === 'number' || field?.type === 'integer';

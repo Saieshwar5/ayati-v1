@@ -7,7 +7,7 @@ export type ToolOperation = { id: string; title: string; effect: 'read' | 'write
 export type ToolConnection = { id: string; server: string; name?: string | null; account?: string | null; revision: number; on: boolean; operations: ToolOperation[] };
 export type Action = { id: string; connection: string; operation: string; title: string; effect: string; arguments: unknown; state: string; result: unknown; chat: string; thread: string | null; job: string; approver: string; created: number; updated: number; requester_name?: string; conversation_name?: string; decision?: string | null; delivery?: { status: string; reason?: string | null } | null; guard?: Guard | null };
 /** The company rule that held or blocked this exact request, with the facts it used. */
-export type Guard = { rule: string; effect: 'ask' | 'block'; summary: string; known: boolean; matched: number;
+export type Guard = { rule: string; effect?: 'ask' | 'block'; trial?: { rule: string; effect: 'ask' | 'block'; summary: string }[]; summary: string; known: boolean; matched: number;
   facts: { field?: string; value?: unknown; amount?: unknown; today_before?: number; today_after?: number; limit?: unknown;
     local_time?: string; day?: string; read?: string; match?: string; found?: boolean; from?: { operation: string; read_at: number } } };
 export type Controls = { can_manage: boolean; can_manage_connections: boolean; viewer: string; connections: ToolConnection[]; actions: Action[]; execution_available?: boolean };

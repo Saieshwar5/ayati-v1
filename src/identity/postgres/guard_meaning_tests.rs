@@ -81,6 +81,7 @@ fn rule(meaning: &str, kind: &str, comparator: &str, value: Value, effect: &str)
         note: String::new(),
         enabled: true,
         revision: 0,
+        trial: false,
     }
 }
 
