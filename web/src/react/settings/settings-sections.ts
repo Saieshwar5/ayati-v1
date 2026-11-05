@@ -1,4 +1,5 @@
-// Settings pages and the links that open them. One sidebar replaced the two rows of
+// Settings pages and the links that open them. Connections moved to Apps
+// (apps-page plan); `section=connections` links open Apps (navigation.ts). One sidebar replaced the two rows of
 // tabs on 2026-10-30 (D232); links from that layout still open the right page.
 export type Section = 'profile' | 'preferences' | 'help' | 'this-workspace'
   | 'workspace' | 'people' | 'connections' | 'company-rules' | 'usage' | 'billing' | 'audit-log';
@@ -8,7 +9,7 @@ export const labels: Record<Section, string> = {
   workspace: 'Workspace', people: 'People', connections: 'Connections', 'company-rules': 'Company rules', usage: 'Usage', billing: 'Billing', 'audit-log': 'Audit log',
 };
 export const personal: Section[] = ['profile', 'preferences', 'help'];
-export const adminWorkspace: Section[] = ['workspace', 'people', 'connections', 'company-rules', 'usage', 'billing', 'audit-log'];
+export const adminWorkspace: Section[] = ['workspace', 'people', 'company-rules', 'usage', 'billing', 'audit-log'];
 export const memberWorkspace: Section[] = ['this-workspace', 'company-rules'];
 export const comingLater: ReadonlySet<Section> = new Set(['usage', 'billing']);
 

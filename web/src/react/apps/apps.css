@@ -1,0 +1,37 @@
+.apps-page { display: flex; flex-wrap: wrap; min-height: 100%; box-sizing: border-box; }
+.apps-main { flex: 999 1 560px; min-width: 0; padding: 28px 32px 32px; box-sizing: border-box; }
+.apps-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+.apps-header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+.apps-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.apps-search input { width: 260px; max-width: 100%; height: 40px; box-sizing: border-box; padding: 0 14px; border: 0; border-radius: 12px; background: var(--soft); color: var(--text); font: inherit; }
+.apps-needs { margin-top: 18px; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-panel); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.apps-needs[aria-pressed="true"] { border-color: var(--text); }
+.apps-needs span { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
+.apps-grid { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.app-card { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 4px; padding: 18px; box-sizing: border-box; border-radius: 16px; border: 1px solid var(--border-panel); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.app-card:hover { background: var(--soft); }
+.app-card[aria-pressed="true"] { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.app-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.app-icon { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.app-icon svg { width: 22px; height: 22px; }
+.app-icon.big { width: 60px; height: 60px; border-radius: 16px; }
+.app-icon.big svg { width: 30px; height: 30px; }
+.app-status { padding: 3px 8px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 12px; font-weight: 600; }
+.app-name { font-size: 15px; font-weight: 600; }
+.app-line { color: var(--muted); font-size: 13.5px; margin: 0; overflow-wrap: anywhere; }
+.app-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); font-size: 12.5px; min-height: 26px; }
+.app-faces { display: flex; align-items: center; }
+.app-face { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; margin-right: -5px; box-shadow: 0 0 0 2px var(--surface); display: inline-flex; }
+.app-face img { width: 100%; height: 100%; }
+.app-panel { flex: 1 1 320px; max-width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; padding: 28px; border-left: 1px solid var(--border); }
+.app-panel h2 { margin: 0; font-size: 21px; }
+.app-panel h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.app-panel p { margin: 0; font-size: 14px; }
+.app-callout { padding: 12px 14px; border-radius: 12px; background: var(--warning-bg); }
+.app-actions { list-style: none; margin: 0; padding: 0; }
+.app-actions li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.app-actions small { display: block; color: var(--muted); font-size: 12.5px; }
+.app-mode { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--selection); color: var(--muted); }
+.app-mode.allow { background: color-mix(in srgb, var(--success, #26745c) 14%, var(--surface)); color: var(--success, #26745c); }
+.app-mode.ask { background: var(--warning-bg); color: var(--warning); }
+@media (max-width: 760px) { .apps-main { padding: 20px 16px; } .app-panel { border-left: 0; border-top: 1px solid var(--border); padding: 20px 16px; } }

@@ -62,7 +62,17 @@ test('Admin sets safety per action; a member creates an agent with tools and rev
   await ownerPage.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await ownerPage.screenshot({ path: join(app.data, 'connector-safety-dark.png') });
   await ownerPage.evaluate(() => { delete document.documentElement.dataset.theme; });
-  app.pass('Admin uses Settings to approve an account and set each action\'s safety rule');
+  // Apps (apps-page plan): everyone sees the app and what agents may do; members can't manage it.
+  await memberPage.goto(`${app.base}/w/${w}/?view=apps`);
+  const appsPanel = memberPage.getByRole('complementary', { name: 'Orders sample system' });
+  await appsPanel.getByText('Delete order').waitFor();
+  assert.equal(await memberPage.getByRole('button', { name: 'Add app' }).count(), 0);
+  await memberPage.screenshot({ path: join(app.data, 'apps-member-desktop.png') });
+  await memberPage.setViewportSize({ width: 390, height: 844 });
+  await memberPage.screenshot({ path: join(app.data, 'apps-member-mobile.png'), fullPage: true });
+  assert.equal(await memberPage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await memberPage.setViewportSize({ width: 1280, height: 900 });
+  app.pass('Admin uses Apps to approve an account and set each action\'s safety rule');
 
   await memberPage.goto(`${app.base}/w/${w}/?view=agents`);
   // Any member creates an agent in four steps (D233) and switches the connector on.
