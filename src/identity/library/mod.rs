@@ -32,6 +32,15 @@ pub(super) fn routes() -> Router<Shared> {
             post(create_folder),
         )
         .route(
+            "/api/identity/workspaces/{w}/library/{id}/review",
+            get(review).post(review_set),
+        )
+        .route("/api/identity/workspaces/{w}/library-gaps", get(gaps))
+        .route(
+            "/api/identity/workspaces/{w}/library-gaps/{id}",
+            post(gap_close),
+        )
+        .route(
             "/api/identity/workspaces/{w}/library-tables",
             post(save_table).layer(axum::extract::DefaultBodyLimit::max(1_200_000)),
         )
@@ -140,6 +149,44 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.library_save(&user, &w, &input).await?))
+}
+async fn review(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_review(&user, &w, &id).await?))
+}
+async fn review_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Review>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_review_set(&user, &w, &id, &input).await?,
+    ))
+}
+async fn gaps(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_gaps(&user, &w).await?))
+}
+async fn gap_close(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::GapAction>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_gap_close(&user, &w, &id, &input).await?,
+    ))
 }
 async fn save_table(
     State(app): State<Shared>,

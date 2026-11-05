@@ -210,6 +210,21 @@ and agent levels as pages; files and tables offer Read and Edit.
   rule editor, "Compare with: A Library table's number" offers the tables the admin can
   open with their number columns.
 
+### Reviews and unanswered questions (schema 77, LB5/LB7)
+
+- **Review dates**: editors set "Review every 30/90/180/365 days" on an item (or none);
+  past it the item shows "Due for review since …" with **Mark reviewed**, appears in the
+  Library's **Due for review** view and is flagged `review_due` in list, search and read
+  results, so agents say it may be out of date. `GET/POST …/library/{id}/review` with
+  `{every_days, reviewed}`; audited. Kept in `relay_library_reviews`, apart from items.
+- **Unanswered questions**: when an agent's Library search finds nothing at all, the
+  question is kept once per agent and wording (ignoring case) and counted
+  (`relay_library_gaps`). Admins see them, most asked first, under **Unanswered** in the
+  Library, without who asked; **Write the answer** starts a page titled with the question
+  and closes it, or **Dismiss** (`GET …/library-gaps`, `POST …/library-gaps/{id}` with
+  `{action: answered | dismissed}`; audited). A search with only weak meaning matches is
+  not counted as unanswered.
+
 ## Recorded verification — 2026-11-05 (LB1)
 
 - PostgreSQL (`postgres/library_folder_tests.rs`): items follow their folder's sharing and
@@ -334,6 +349,20 @@ and agent levels as pages; files and tables offer Read and Edit.
   filtering; the rule editor's table limit and its read-back.
 - Real Goose (`tests/library_folders.mjs`): the owner builds a price list in the browser;
   Iris looks the desk up and the answer cites "Untitled table › Standing desk".
+
+## Recorded verification — 2026-11-05 (LB5/LB7)
+
+- PostgreSQL (`postgres/library_upkeep_tests.rs`): only editors set reviews, 7–730 days;
+  past the date the policy is listed as due and flagged in search and reads; marking it
+  reviewed clears it and stopping removes it. Two wordings of one question with no result
+  are kept once and counted twice, a question with results isn't kept; admins only see
+  and close them, once, without who asked.
+- Web (`tests/library-upkeep.test.mjs`): the overdue note, Mark reviewed and stopping
+  reviews; read-only review dates; an unanswered question becomes one page per click
+  burst and is closed, or dismissed.
+- Real Goose (`tests/library_folders.mjs`): the owner sets a review date in the browser;
+  overdue, the policy says so and shows under Due for review; a question nothing answers
+  reaches the owner under Unanswered, who starts the answer page.
 
 ## Dependency decisions
 

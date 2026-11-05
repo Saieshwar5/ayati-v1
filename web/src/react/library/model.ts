@@ -33,6 +33,7 @@ export type Item = {
   folder?: string | null;
   folder_title?: string | null;
   item_count?: number;
+  review_due?: boolean;
 };
 export type Listing = { items: Item[]; more: boolean; available: boolean; storage: string };
 export const base = `/workspaces/${workspaceId}/library`;

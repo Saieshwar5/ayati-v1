@@ -252,5 +252,29 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.deepEqual(row.row, { Product: 'Standing desk', Price: 1250 });
   assert.match(lookedReply.content, /\[Untitled table › Standing desk · revision 2\]/);
   app.pass('Real Goose: the owner builds a price list in the browser; Iris looks the desk up exactly, cited by its row');
+
+  // Upkeep (LB5/LB7): a review date, and a question nothing in the Library answers.
+  await ownerPage.goto(`${app.base}/w/${w}/?view=library&item=${returns}`);
+  await ownerPage.getByLabel('Review every').selectOption('90');
+  await ownerPage.getByText('Reviewed every 90 days', { exact: false }).waitFor();
+  app.sql(`UPDATE relay_library_reviews SET reviewed=reviewed-100*86400 WHERE item='${returns}'`);
+  await ownerPage.reload();
+  await ownerPage.getByText('Due for review since', { exact: false }).waitFor();
+  const gapAsk = 'What is the visitor wifi password?';
+  app.provider.setControl(gapAsk, { steps: [{ tool: 'search_library', arguments: { query: 'visitor wifi password' } }], checkpoint: "I couldn't find that in the Library." });
+  const gap = await app.send(gapAsk, chat, member, agent.id);
+  await until(async () => (await app.history(chat, member)).find(m => m.id === gap.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  await ownerPage.goto(`${app.base}/w/${w}/?view=library`);
+  await ownerPage.getByRole('button', { name: 'Unanswered', exact: true }).click();
+  const unanswered = ownerPage.getByRole('region', { name: 'Unanswered questions' });
+  await unanswered.getByText('visitor wifi password', { exact: true }).waitFor();
+  await ownerPage.screenshot({ path: join(app.data, 'library-unanswered.png') });
+  await unanswered.getByRole('button', { name: 'Write the answer', exact: true }).click();
+  await ownerPage.waitForURL(/item=/);
+  await ownerPage.getByRole('button', { name: 'Due for review', exact: true }).waitFor({ state: 'detached' }).catch(() => {});
+  await ownerPage.goto(`${app.base}/w/${w}/?view=library`);
+  await ownerPage.getByRole('button', { name: 'Due for review', exact: true }).click();
+  await ownerPage.getByRole('link', { name: 'Returns policy', exact: true }).waitFor();
+  app.pass('Real Goose: an overdue policy shows as due for review; an unanswered search reaches admins, who start the answer page');
   assert.deepEqual(errors, []);
 });
