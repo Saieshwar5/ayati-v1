@@ -67,7 +67,7 @@ pub(super) fn rank(level: &str) -> u8 {
 
 /// The agent's level on an item for this reply (none when "use for" doesn't fit), and
 /// what the person it works for may do with it.
-async fn standing(
+pub(super) async fn standing(
     tx: &DatabaseTransaction,
     job: &Job,
     item: &str,
@@ -81,7 +81,7 @@ async fn standing(
         )
     }))
 }
-fn unavailable() -> Value {
+pub(super) fn unavailable() -> Value {
     json!({"state":"not_found","message":"No such page among the Library items you can change for the people in this conversation."})
 }
 fn checked(text: &str) -> Result<(Value, String)> {
@@ -93,7 +93,7 @@ fn checked(text: &str) -> Result<(Value, String)> {
     let plain = crate::identity::library::model::document(&document)?;
     Ok((document, plain))
 }
-async fn name_of(tx: &DatabaseTransaction, w: &str, agent: &str) -> Result<String> {
+pub(super) async fn name_of(tx: &DatabaseTransaction, w: &str, agent: &str) -> Result<String> {
     Ok(query(
         tx,
         "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",

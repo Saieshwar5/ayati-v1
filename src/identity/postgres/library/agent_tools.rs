@@ -298,9 +298,10 @@ impl PgStore {
         let (shown, next) = chunk(&passages, input.passage);
         let section = shown[0]["section"].as_str().unwrap_or("").to_owned();
         receipt(&tx, job, &found, true, &section).await?;
+        let fields = super::watching::fields_of(&tx, &job.workspace, &input.id).await?;
         tx.commit().await?;
         Ok(json!({
-            "state":"available","id":input.id,"title":found["title"],"revision":found["revision"],
+            "state":"available","id":input.id,"title":found["title"],"revision":found["revision"],"fields":fields,
             "folder":found["folder"],"review_due":found["review_due"],"passage":input.passage,"passages":shown,
             "next_passage":next,"total_passages":passages.len(),
             "outline":(input.passage == 0).then(|| outline(&passages)),

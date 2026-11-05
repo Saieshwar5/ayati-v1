@@ -5,6 +5,7 @@ import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ShareDialog, useAttempt } from './dialogs';
 import { KeepingControl } from './keeping';
+import { FolderWatch } from './watching';
 import {
   folderUrl,
   itemUrl,
@@ -46,6 +47,7 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
           </p>
         )}
         {item && <KeepingControl item={item} />}
+        {item && <FolderWatch item={item} />}
         {(folder.error || mutation.status) && (
           <p className="library-notice" role="alert">
             {folder.error || mutation.status}

@@ -15,6 +15,7 @@ mod sharing;
 pub(super) mod tables;
 pub(super) mod upkeep;
 mod uploads;
+pub(super) mod watching;
 use super::*;
 use crate::identity::library::model::*;
 pub(super) use agents::source_allowed;

@@ -451,6 +451,7 @@ pub(crate) use library::edits::Decision;
 pub(crate) use library::keeping::{Hold, Keeping};
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
+pub(crate) use library::watching::Watch;
 #[cfg(test)]
 mod agent_profile_tests;
 mod audit_summary_migration;

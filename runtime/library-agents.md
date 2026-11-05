@@ -236,6 +236,33 @@ the question is asked. The server checks the person is in the message's conversa
 a retry with the same ids is the same page; saving is audited ("Saved an answer from
 Chat as …").
 
+### Watched folders, filing and key fields (schema 83, LB6)
+
+- **Watching**: a folder's manager chooses **Watch with an agent** on the folder header:
+  an agent already given the folder and what it should do with each new item
+  (`GET/POST …/library/{folder}/watch` with `{agent, instructions}`, or `{agent: null}`
+  to stop). Cuckoo opens a conversation "<folder> (Library)" between that person and the
+  agent; the header shows who watches, what it does, how many items wait, and a link to
+  the work. Setting and stopping are audited.
+- **Arrivals**: whatever way an item lands in a watched folder — created there, uploaded
+  and filed, or moved in — a database trigger queues it once
+  (`relay_library_arrivals`). The scheduler starts one at a time per folder, as
+  background work in the watcher's conversation and for the watcher, with the
+  instructions and the item's id; the agent then reaches only what that person and its
+  Library access allow. Paused agents or a watcher who can no longer ask the agent mark
+  it not handled, with a reason; stopping skips what still waits.
+- **Agent tools**: `file_document({id, folder})` moves an item into a folder the agent may
+  **save** in, for a person who may add to it (the item then follows that folder's
+  sharing; held items don't move); `set_document_fields({id, fields})` records up to 20
+  key fields (short texts, numbers, true/false) on an item the agent may at least
+  **suggest** changes to, for a person who may edit it. Fields show on the item as **Key
+  fields** with who recorded them, and come back in `read_document`. Both are audited
+  ("Iris filed …", "Iris recorded amount, due on …").
+- **The fence and filing**: filing changes the item's access. If the people in the
+  conversation may still use the item where it now is, the reply's read receipt moves to
+  the new access revision, so the answer is published; otherwise the answer is held back
+  as for any access change.
+
 ## Recorded verification — 2026-11-05 (LB1)
 
 - PostgreSQL (`postgres/library_folder_tests.rs`): items follow their folder's sharing and
@@ -386,6 +413,21 @@ Chat as …").
 - Real Goose (`tests/library_answers.mjs`): Iris finds nothing about visitor parking; the
   owner saves their answer from the message's menu in the browser; asked again, Iris
   reads the saved page and Cuckoo cites it; audited.
+
+## Recorded verification — 2026-11-05 (LB6)
+
+- PostgreSQL (`postgres/library_watching_tests.rs`): only the folder's manager sets a
+  watcher, and only an agent given the folder; an invoice saved into Inbox is queued
+  once and starts work for the watcher in its conversation; the next arrival waits its
+  turn; the agent records fields (too-long values refused) and files the invoice (not
+  into HR, not with "suggest"), and its own filing keeps its read valid; a moved-in item
+  counts; stopping skips what waits; audited.
+- Web (`tests/library-watching.test.mjs`): only agents given the folder are offered;
+  setting and stopping; read-only watcher note; key fields with who recorded them.
+- Real Goose (`tests/library_watched_folders.mjs`): the owner sets Iris watching Inbox in
+  the browser; an uploaded invoice becomes Iris's work; it records supplier, amount and
+  due date, opens a "Pay Acme invoice 42?" task and files it under Invoices; the invoice
+  shows its key fields, the reply is in Chat, and filing and fields are audited.
 
 ## Dependency decisions
 
