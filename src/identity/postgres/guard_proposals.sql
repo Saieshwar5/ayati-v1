@@ -11,3 +11,5 @@ ALTER TABLE relay_guard_rules
 CREATE INDEX relay_guard_rules_proposed ON relay_guard_rules(workspace) WHERE NOT reviewed;
 -- Trial matches live in the decision record: guard->'trial' lists rule ids.
 CREATE INDEX relay_control_actions_guard_trial ON relay_control_actions USING gin((guard->'trial')) WHERE guard ? 'trial';
+-- Requests in the same second keep their order for replay's running day totals.
+ALTER TABLE relay_control_actions ADD COLUMN created_ms BIGINT NOT NULL DEFAULT (extract(epoch FROM clock_timestamp())*1000)::bigint;

@@ -144,7 +144,8 @@ re-check requests already waiting.
 - `relay_guard_rules`: one row per rule, with database checks for the same kinds,
   comparisons, effects and value types.
 - `relay_control_actions.guard`: the decision record, null when no rule applied.
-- Schema 67: `relay_guard_rules.proposed_by`, `proposal`, `reviewed`, `trial_until_ms`.
+- Schema 67: `relay_guard_rules.proposed_by`, `proposal`, `reviewed`, `trial_until_ms`;
+  `relay_control_actions.created_ms`, so replay keeps the order of requests within a second.
 - Schema 66: `relay_guard_rules.source` and the `read_first` kind.
 - Schema 65: `relay_action_meanings`, `relay_guess_meaning`, `relay_action_meaning`,
   `relay_default_mode`, the effective-rules view using it, `relay_control_actions.meaning`,
