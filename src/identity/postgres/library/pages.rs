@@ -54,6 +54,7 @@ impl PgStore {
             }
             execute(&tx,"UPDATE relay_library_items SET title=$3,document=$4,text=$5,revision=revision+1,updated=$6 WHERE workspace=$1 AND id=$2",vec![w.into(),input.id.clone().into(),input.title.trim().into(),input.document.clone().into(),text.clone().into(),now().into()]).await?;
         }
+        super::passages::index_item(&tx, w, &input.id).await?;
         let result = json!({"id":input.id,"revision":input.revision+1});
         execute(&tx,"INSERT INTO relay_library_versions(workspace,item,revision,author,title,document,text,created) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",vec![w.into(),input.id.clone().into(),(input.revision+1).into(),user.id.clone().into(),input.title.trim().into(),input.document.clone().into(),text.into(),now().into()]).await?;
         prune_versions(&tx, w, &input.id).await?;

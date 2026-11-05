@@ -5,7 +5,7 @@ use crate::identity::control::broker::invoke;
 use crate::identity::library::model::*;
 use serde_json::json;
 
-fn page(title: &str, text: &str, folder: Option<&str>) -> SavePage {
+pub(super) fn page(title: &str, text: &str, folder: Option<&str>) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),
         request: uuid::Uuid::new_v4().to_string(),
@@ -15,7 +15,7 @@ fn page(title: &str, text: &str, folder: Option<&str>) -> SavePage {
         folder: folder.map(str::to_owned),
     }
 }
-async fn folder(db: &PgStore, user: &User, w: &str, title: &str) -> String {
+pub(super) async fn folder(db: &PgStore, user: &User, w: &str, title: &str) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     db.library_folder_create(
         user,
@@ -30,7 +30,7 @@ async fn folder(db: &PgStore, user: &User, w: &str, title: &str) -> String {
     .unwrap();
     id
 }
-fn share(
+pub(super) fn share(
     revision: i64,
     visibility: &str,
     people: Vec<(&User, &str)>,
@@ -50,7 +50,7 @@ fn share(
         agents,
     }
 }
-fn grant(agent: &str, use_for: &str) -> AgentGrant {
+pub(super) fn grant(agent: &str, use_for: &str) -> AgentGrant {
     AgentGrant {
         agent: agent.into(),
         level: "read".into(),
@@ -201,17 +201,17 @@ async fn items_in_a_folder_follow_its_sharing() {
     assert_eq!(audit, 3);
 }
 
-struct Setup {
-    db: PgStore,
-    owner: User,
-    member: User,
-    w: String,
-    agent: String,
-    returns: String,
-    salaries: String,
-    hr: String,
+pub(super) struct Setup {
+    pub(super) db: PgStore,
+    pub(super) owner: User,
+    pub(super) member: User,
+    pub(super) w: String,
+    pub(super) agent: String,
+    pub(super) returns: String,
+    pub(super) salaries: String,
+    pub(super) hr: String,
 }
-async fn setup() -> Setup {
+pub(super) async fn setup() -> Setup {
     let db = fixture().await;
     let owner = user(&db, "use-owner").await;
     let member = user(&db, "use-member").await;
@@ -258,7 +258,7 @@ async fn setup() -> Setup {
         hr,
     }
 }
-async fn ask(
+pub(super) async fn ask(
     s: &Setup,
     person: &User,
     chat: &str,
@@ -283,7 +283,7 @@ async fn use_for_decides_whose_questions_a_document_answers() {
         .unwrap();
     assert_eq!(found["results"][0]["title"], "Returns policy");
     assert!(
-        found["results"][0]["excerpt"]
+        found["results"][0]["preview"]
             .as_str()
             .unwrap()
             .contains("30 days")
@@ -309,7 +309,7 @@ async fn use_for_decides_whose_questions_a_document_answers() {
         .await
         .unwrap();
     assert!(
-        read["text"]
+        read["passages"][0]["text"]
             .as_str()
             .unwrap()
             .contains("refund window is 30 days")

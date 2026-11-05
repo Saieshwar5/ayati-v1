@@ -10,12 +10,16 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/polling.mjs';
+import { wordFile } from './fixtures/office_files.mjs';
+import { createHash } from 'node:crypto';
+import { mkdtemp } from 'node:fs/promises';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 const doc = text => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
 
 test('A folder shared with an agent for all staff answers a colleague, with real Goose', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
-  const app = await workerFixture(t, { mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15 });
+  const storage = await mkdtemp(join(root, '.tmp/library-files-'));
+  const app = await workerFixture(t, { mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15, apiEnv: { CUCKOO_LIBRARY_LOCAL_ROOT: storage } });
   const w = app.path.split('/').at(-1);
   const member = await app.login(1);
   const who = async cookie => (await app.request('/api/identity/session', cookie)).value.user;
@@ -95,5 +99,30 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   await until(async () => (await app.history(shared, app.cookie)).find(m => m.id === group.reply && m.state === 'complete'), 'Agent did not finish', 45000);
   assert.equal(app.sql(`SELECT count(*) FROM relay_library_reads WHERE reply='${group.reply}'`), '0');
   app.pass('Real Goose: a document for people who can see it is not used where a colleague without access will read the answer');
+
+  // A Word file, uploaded and filed in the shared folder, is searched by section.
+  const docx = wordFile([['Chairs', 'Office chairs carry a two-year warranty.'], ['Desks', 'Standing desks carry a five-year warranty on the frame.']]);
+  const upload = randomUUID();
+  await app.request(`${app.path}/library-uploads`, app.cookie, { id: upload, request: randomUUID(), title: 'Warranty.docx', size: docx.length, checksum: createHash('sha256').update(docx).digest('hex') });
+  const stored = await fetch(`${app.base}${app.path}/library-uploads/${upload}/bytes`, { method: 'POST', body: docx,
+    headers: { Cookie: app.cookie, Origin: app.base, 'X-Ayati-Request': 'identity', 'Content-Type': 'application/octet-stream' } });
+  assert.equal(stored.status, 200, await stored.clone().text());
+  const file = await stored.json();
+  assert.equal(file.mime, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  assert.equal(file.readiness, 'ready');
+  await app.request(`${app.path}/library/${upload}/move`, app.cookie, { request: randomUUID(), revision: file.access_revision, folder: policies });
+  const warrantyAsk = 'How long is the warranty on standing desks?';
+  app.provider.setControl(warrantyAsk, { steps: [
+    { tool: 'search_library', arguments: { query: 'standing desk warranty' } },
+    { tool: 'read_document', arguments: { id: upload, passage: 1 } },
+  ], checkpoint: 'Five years on the frame.' });
+  const warranty = await app.send(warrantyAsk, chat, member, agent.id);
+  const cited = await until(async () => (await app.history(chat, member)).find(m => m.id === warranty.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  assert.match(cited.content, new RegExp(`\\[Warranty\\.docx › Desks · revision 1\\]\\(/w/${w}/\\?view=library&item=${upload}&source_revision=1\\)`));
+  assert.equal(app.sql(`SELECT section FROM relay_library_reads WHERE reply='${warranty.reply}' AND cited`), 'Desks');
+  await memberPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${chat}`);
+  await memberPage.getByRole('link', { name: 'Warranty.docx › Desks · revision 1', exact: true }).waitFor();
+  await memberPage.screenshot({ path: join(app.data, 'library-section-citation.png') });
+  app.pass('Real Goose: an uploaded Word file is read by section and the answer cites "Warranty.docx › Desks"');
   assert.deepEqual(errors, []);
 });

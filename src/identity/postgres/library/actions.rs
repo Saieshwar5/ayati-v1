@@ -94,6 +94,9 @@ impl PgStore {
             )
             .await?;
         }
+        if ["restore", "restore_version"].contains(&input.action.as_str()) {
+            super::passages::index_item(&tx, w, id).await?;
+        }
         super::pages::prune_versions(&tx, w, id).await?;
         let result = json!({"ok":true});
         remember(&tx, user, w, &input.request, payload, &result).await?;

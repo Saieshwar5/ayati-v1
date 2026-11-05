@@ -8,6 +8,8 @@ pub fn mime(bytes: &[u8]) -> &'static str {
         "image/jpeg"
     } else if bytes.starts_with(b"%PDF-") {
         "application/pdf"
+    } else if bytes.starts_with(b"PK\x03\x04") {
+        super::office::kind(bytes).unwrap_or("application/octet-stream")
     } else if std::str::from_utf8(bytes).is_ok_and(|s| {
         !s.chars()
             .any(|c| c.is_control() && !['\n', '\r', '\t'].contains(&c))
@@ -31,6 +33,9 @@ pub async fn text(bytes: &Bytes, mime: &str) -> (String, &'static str) {
                 "ready"
             },
         );
+    }
+    if mime == super::office::DOCX || mime == super::office::XLSX {
+        return office(bytes.clone(), mime).await;
     }
     if mime != "application/pdf" {
         return (String::new(), "unsupported");
@@ -121,5 +126,28 @@ pub async fn text(bytes: &Bytes, mime: &str) -> (String, &'static str) {
     match result {
         Ok(text) => (text, "partial"),
         Err(_) => (String::new(), "unsupported"),
+    }
+}
+
+/// Word and Excel text, off the async threads and within a time limit.
+async fn office(bytes: Bytes, mime: &str) -> (String, &'static str) {
+    let word = mime == super::office::DOCX;
+    let work = tokio::task::spawn_blocking(move || {
+        if word {
+            super::office::docx_text(&bytes)
+        } else {
+            super::office::xlsx_text(&bytes)
+        }
+    });
+    match tokio::time::timeout(std::time::Duration::from_secs(7), work).await {
+        Ok(Ok(Ok(text))) if !text.trim().is_empty() => {
+            let limit = super::office::MAX_TEXT;
+            let partial = text.chars().count() > limit;
+            (
+                text.chars().take(limit).collect(),
+                if partial { "partial" } else { "ready" },
+            )
+        }
+        _ => (String::new(), "unsupported"),
     }
 }

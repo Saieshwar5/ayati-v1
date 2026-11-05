@@ -2,6 +2,8 @@ pub(in crate::identity) mod context;
 mod extract;
 mod files;
 pub(crate) mod model;
+mod office;
+pub(crate) mod passages;
 mod storage;
 use super::*;
 use axum::{

@@ -3,6 +3,8 @@ use crate::identity::library::model::*;
 use serde_json::json;
 #[path = "library_folder_tests.rs"]
 mod folders;
+#[path = "library_passage_tests.rs"]
+mod passages;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),

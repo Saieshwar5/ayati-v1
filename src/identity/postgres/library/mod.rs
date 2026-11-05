@@ -3,6 +3,7 @@ pub(super) mod agent_tools;
 mod agents;
 pub(super) mod folders;
 mod pages;
+pub(super) mod passages;
 pub(super) mod rehearsals;
 mod sharing;
 mod uploads;
