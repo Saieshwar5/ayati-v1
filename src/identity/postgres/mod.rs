@@ -448,6 +448,7 @@ pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::answers::SaveAnswer;
 pub(crate) use library::edits::Decision;
+pub(crate) use library::keeping::{Hold, Keeping};
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
 #[cfg(test)]

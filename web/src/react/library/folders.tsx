@@ -4,6 +4,7 @@ import { identityRequest, workspaceId } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ShareDialog, useAttempt } from './dialogs';
+import { KeepingControl } from './keeping';
 import {
   folderUrl,
   itemUrl,
@@ -44,6 +45,7 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
             . Pages and files here follow the folder's sharing.
           </p>
         )}
+        {item && <KeepingControl item={item} />}
         {(folder.error || mutation.status) && (
           <p className="library-notice" role="alert">
             {folder.error || mutation.status}

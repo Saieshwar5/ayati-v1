@@ -75,6 +75,7 @@ for migrations, API and workers in a release.
 | `AYATI_EXECUTOR_SLOTS` | Prepared Goose sessions per executor, 1–16, default 2 |
 | `CUCKOO_LIBRARY_S3_BUCKET`, `AWS_REGION` | Optional private bucket; ambient cloud credentials or scoped runtime secrets |
 | `CUCKOO_LIBRARY_S3_ENDPOINT` | Optional HTTPS S3-compatible endpoint |
+| `CUCKOO_LIBRARY_KEEPING_SECONDS` | How often Library keeping rules delete what is past its time (default 600) |
 
 Public mode requires PostgreSQL and pooled executors. A non-default bind address
 requires the public HTTPS origin. The gateway never derives its origin or cookie

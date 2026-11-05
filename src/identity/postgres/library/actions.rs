@@ -72,6 +72,17 @@ impl PgStore {
                     current["manageable"] == true,
                     "Only the creator can trash or restore an item"
                 );
+                if input.action == "trash" {
+                    ensure!(
+                        !super::keeping::held(&tx, w, id).await?,
+                        "This is on legal hold; an admin must lift the hold before it can be trashed"
+                    );
+                } else {
+                    ensure!(
+                        !super::keeping::purged(&tx, w, id).await?,
+                        "This was deleted for good under a keeping rule and can't be restored"
+                    );
+                }
                 if input.action == "trash" && current["kind"] == "folder" {
                     ensure!(
                         query(&tx,"SELECT id FROM relay_library_items WHERE workspace=$1 AND folder=$2 AND NOT trashed LIMIT 1",vec![w.into(),id.into()]).await?.is_none(),

@@ -192,3 +192,6 @@
 .library-gaps li > div { flex: 1 1 240px; min-width: 0; }
 .library-gaps strong { display: block; overflow-wrap: anywhere; }
 .library-gaps small { color: var(--muted); font-size: 12px; }
+.library-keeping { display: grid; gap: 8px; margin: 8px 0; }
+.library-keeping p { margin: 0; }
+.library-keep-select { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
