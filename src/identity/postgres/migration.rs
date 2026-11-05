@@ -70,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::activity::now::better::migration::GettingBetter),
             Box::new(super::control_actions::guard::migration::Guard),
             Box::new(super::control_actions::guard::migration::GuardMeanings),
+            Box::new(super::control_actions::guard::migration::GuardFacts),
         ]
     }
 }

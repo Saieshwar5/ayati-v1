@@ -43,3 +43,25 @@ impl MigrationTrait for GuardMeanings {
         ))
     }
 }
+
+/// Schema 66: rules that use a value from an earlier read, and "read first" rules.
+pub(crate) struct GuardFacts;
+impl MigrationName for GuardFacts {
+    fn name(&self) -> &str {
+        "m20261105_000066_guard_facts"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardFacts {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_facts.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Guard facts require a forward migration".into(),
+        ))
+    }
+}

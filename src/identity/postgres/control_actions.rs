@@ -148,6 +148,7 @@ impl PgStore {
         let guard = guard::check(
             &tx,
             &job.workspace,
+            &job.reply,
             &input.connection,
             &operation,
             &meaning,

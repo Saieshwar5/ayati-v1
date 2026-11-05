@@ -68,6 +68,7 @@ fn rule(meaning: &str, kind: &str, comparator: &str, value: Value, effect: &str)
         operation: None,
         connection: None,
         meaning: Some(meaning.into()),
+        source: None,
         kind: kind.into(),
         field: if kind == "time" {
             String::new()

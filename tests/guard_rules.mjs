@@ -101,6 +101,23 @@ test('Company rules written in Settings hold and block an allowed agent action, 
   await review.getByRole('button', { name: 'Approve this action', exact: true }).click();
   await until(async () => remote.records.get('one').address === 'Check with Ravi', 'Approved write missing');
   app.pass('The approval names the rule and its facts; the agent\'s manager approves the exact write once');
+  // Read before you change: Cuckoo's own receipt of the read, in the same task.
+  await app.request(`${app.path}/guard/rules`, app.cookie, { id: randomUUID(), operation: 'order.update', connection, kind: 'read_first', field: '', comparator: '=', value: true, effect: 'block', note: '', enabled: true, revision: 0, source: { operation: 'order.read', match: 'order' } });
+  async function run(ask, steps) {
+    app.provider.setControl(ask, { steps });
+    const job = await app.send(ask, chat, member, agent.id);
+    await until(async () => (await app.history(chat, member)).find(m => m.id === job.reply && m.state === 'complete'), 'Agent did not finish', 35000);
+    return (await snapshot()).actions.filter(a => a.job === job.reply);
+  }
+  const update = address => ({ tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address } } });
+  const [blindly] = await run('Change the address without looking', [update('Unread street')]);
+  assert.equal(blindly.state, 'denied');
+  assert.equal(blindly.guard.facts.found, false);
+  assert.equal(remote.records.get('one').address, 'Check with Ravi');
+  const careful = await run('Read the order, then change the address', [{ tool: 'request_action', arguments: { connection, operation: 'order.read', arguments: { order: 'one' } } }, update('Read street')]);
+  assert.deepEqual(careful.map(a => [a.operation, a.state]).sort(), [['order.read', 'completed'], ['order.update', 'completed']]);
+  assert.equal(remote.records.get('one').address, 'Read street');
+  app.pass('Real Goose: a change without reading the order first is blocked; after reading it in the same task, it runs');
   assert.deepEqual(errors, []);
   await app.stop(worker);
 });

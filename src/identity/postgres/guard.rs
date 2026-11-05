@@ -7,6 +7,9 @@ use crate::identity::control::model::Operation;
 use serde_json::json;
 
 #[cfg(test)]
+#[path = "guard_fact_tests.rs"]
+mod fact_tests;
+#[cfg(test)]
 #[path = "guard_meaning_tests.rs"]
 mod meaning_tests;
 #[path = "guard_migration.rs"]
@@ -90,7 +93,24 @@ pub(crate) fn summary(rule: &Value, action: &str) -> String {
             format!("{action}: on {days}, {when}, {effect}.")
         };
     }
-    let field = rule["field"].as_str().unwrap_or_default().replace('_', " ");
+    let read = rule["source"]["title"].as_str().unwrap_or_else(|| {
+        rule["source"]["operation"]
+            .as_str()
+            .unwrap_or("a reading action")
+    });
+    let matched = rule["source"]["match"]
+        .as_str()
+        .unwrap_or_default()
+        .replace('_', " ");
+    if rule["kind"] == "read_first" {
+        return format!(
+            "{action}: unless {read} for the same {matched} ran first in this task, {effect}."
+        );
+    }
+    let mut field = rule["field"].as_str().unwrap_or_default().replace('_', " ");
+    if !rule["source"].is_null() {
+        field = format!("{field} from {read}");
+    }
     let value = match &rule["value"] {
         Value::String(text) => format!("\"{text}\""),
         Value::Number(n) => n
@@ -176,12 +196,72 @@ pub(super) async fn meaning(
     Ok(query(db, "SELECT relay_action_meaning(c.workspace,c.id,op) AS m FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op WHERE c.workspace=$1 AND c.id=$2 AND op->>'id'=$3", vec![w.into(), connection.into(), operation.into()]).await?.context("Unsupported operation")?.try_get("", "m")?)
 }
 
+/// The latest completed read of `source.operation` on this account in this task whose
+/// `source.match` field equals the request's. Agents can't supply this value.
+async fn read_receipt(
+    db: &impl ConnectionTrait,
+    w: &str,
+    job: &str,
+    connection: &str,
+    source: &serde_json::Map<String, Value>,
+    arguments: &Value,
+) -> Result<Option<(Value, i64)>> {
+    let key = source
+        .get("match")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let Some(wanted) = arguments.get(key).filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    let row = query(db, "SELECT result,updated FROM relay_control_actions WHERE workspace=$1 AND job=$2 AND connection=$3 AND operation=$4 AND effect='read' AND state='completed' AND arguments->$5=$6 ORDER BY updated DESC,id DESC LIMIT 1",
+        vec![w.into(), job.into(), connection.into(), source.get("operation").and_then(Value::as_str).unwrap_or_default().into(), key.into(), wanted.clone().into()]).await?;
+    Ok(match row {
+        Some(row) => Some((
+            row.try_get::<Option<Value>>("", "result")?
+                .unwrap_or(Value::Null),
+            row.try_get("", "updated")?,
+        )),
+        None => None,
+    })
+}
+
+/// A dotted path in a read's result: its structured content, the result itself, or JSON
+/// text in its first content item. Numbers written as text count as numbers.
+pub(crate) fn fact_at(result: &Value, path: &str) -> Value {
+    let text = result["content"][0]["text"]
+        .as_str()
+        .and_then(|t| serde_json::from_str::<Value>(t).ok());
+    for root in [
+        &result["structuredContent"],
+        result,
+        text.as_ref().unwrap_or(&Value::Null),
+    ] {
+        let mut value = root;
+        for part in path.split('.') {
+            value = &value[part];
+        }
+        match value {
+            Value::Null => continue,
+            Value::String(s) => {
+                return s
+                    .trim()
+                    .parse::<f64>()
+                    .map(|n| json!(n))
+                    .unwrap_or_else(|_| value.clone());
+            }
+            other => return other.clone(),
+        }
+    }
+    Value::Null
+}
+
 const RULES_FOR: &str = "SELECT to_jsonb(g) AS data FROM relay_guard_rules g WHERE g.workspace=$1 AND g.enabled AND ((g.operation=$2 AND (g.connection IS NULL OR g.connection=$3)) OR g.meaning=$4) ORDER BY g.created_ms,g.id";
 
 /// A rule for every action of one meaning only covers actions that have its field.
 fn applies(rule: &Value, schema: &Value) -> bool {
     rule["meaning"].is_null()
         || rule["kind"] == "time"
+        || !rule["source"].is_null()
         || schema["properties"]
             .get(rule["field"].as_str().unwrap_or(""))
             .is_some()
@@ -193,6 +273,7 @@ fn applies(rule: &Value, schema: &Value) -> bool {
 pub(super) async fn check(
     db: &impl ConnectionTrait,
     w: &str,
+    job: &str,
     connection: &str,
     operation: &Operation,
     meaning: &str,
@@ -219,8 +300,25 @@ pub(super) async fn check(
         let (day_start, now, weekday) = clock.clone().unwrap();
         let field = rule["field"].as_str().unwrap();
         let comparator = rule["comparator"].as_str().unwrap();
-        let actual = arguments.get(field).cloned().unwrap_or(Value::Null);
-        let (decides, facts) = if rule["kind"] == "time" {
+        // A value from an earlier read in this task, through Cuckoo's own receipt.
+        let read = match rule["source"].as_object() {
+            Some(source) => read_receipt(db, w, job, connection, source, arguments).await?,
+            None => None,
+        };
+        let actual = match (&rule["source"], &read) {
+            (Value::Null, _) => arguments.get(field).cloned().unwrap_or(Value::Null),
+            (_, Some((result, _))) => fact_at(result, field),
+            _ => Value::Null,
+        };
+        let from = read
+            .as_ref()
+            .map(|(_, at)| json!({"operation":rule["source"]["operation"],"read_at":at}));
+        let (decides, facts) = if rule["kind"] == "read_first" {
+            (
+                Some(read.is_none()),
+                json!({"read":rule["source"]["operation"],"match":rule["source"]["match"],"found":read.is_some()}),
+            )
+        } else if rule["kind"] == "time" {
             (
                 Some(in_window(&rule["value"], &now, weekday)),
                 json!({"local_time":now,"day":DAYS[weekday as usize - 1]}),
@@ -250,6 +348,14 @@ pub(super) async fn check(
                 holds(&actual, comparator, &rule["value"]),
                 json!({"field":field,"value":actual}),
             )
+        };
+        let facts = match from {
+            Some(from) => {
+                let mut facts = facts;
+                facts["from"] = from;
+                facts
+            }
+            None => facts,
         };
         // Unsure means hold: facts that can't decide ask a person, even for a block rule.
         let effect = match decides {
@@ -311,6 +417,24 @@ pub(super) fn stricter(mode: &str, guard: Option<&Value>) -> String {
 #[cfg(test)]
 mod pure {
     use super::*;
+    #[test]
+    fn facts_come_from_structured_content_or_json_text() {
+        let structured = json!({"structuredContent":{"order":{"total":"2450.50"}}});
+        assert_eq!(fact_at(&structured, "order.total"), json!(2450.5));
+        let text = json!({"content":[{"type":"text","text":"{\"total\":90}"}]});
+        assert_eq!(fact_at(&text, "total"), json!(90));
+        assert_eq!(fact_at(&text, "missing"), Value::Null);
+        let rule = json!({"kind":"read_first","source":{"operation":"order.read","match":"order","title":"Find an order"},"effect":"block"});
+        assert_eq!(
+            summary(&rule, "Update an order"),
+            "Update an order: unless Find an order for the same order ran first in this task, block it."
+        );
+        let looked = json!({"kind":"field","field":"total","comparator":">","value":2000,"source":{"operation":"order.read","match":"order","title":"Find an order"},"effect":"ask"});
+        assert_eq!(
+            summary(&looked, "Refund an order"),
+            "Refund an order: if total from Find an order is over 2000, ask first."
+        );
+    }
     #[test]
     fn windows_wrap_midnight_and_respect_days() {
         let night = json!({"from":"21:00","to":"09:00","days":[]});
