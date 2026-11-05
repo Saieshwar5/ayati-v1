@@ -113,6 +113,19 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
             }
         }
     }
+    // An answer built from Library documents leaves history once one of them is shared
+    // differently or trashed (schema 69 receipts; this replaces the workspace fence).
+    if query(
+        db,
+        "SELECT to_regclass('relay_library_reads') IS NOT NULL AS present",
+        vec![],
+    )
+    .await?
+    .context("Missing source schema check")?
+    .try_get::<bool>("", "present")?
+    {
+        clauses.push_str(" AND NOT EXISTS(SELECT 1 FROM relay_library_reads lr JOIN relay_library_items li ON li.workspace=lr.workspace AND li.id=lr.item WHERE lr.workspace=m.workspace AND lr.reply=m.id AND (li.access_revision<>lr.access_revision OR li.trashed))");
+    }
     if super::communications::access::exists(db).await? {
         clauses.push_str(" AND relay_communication_current(m.workspace,m.chat)");
     }

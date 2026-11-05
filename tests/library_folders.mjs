@@ -122,6 +122,9 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.equal(app.sql(`SELECT section FROM relay_library_reads WHERE reply='${warranty.reply}' AND cited`), 'Desks');
   await memberPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${chat}`);
   await memberPage.getByRole('link', { name: 'Warranty.docx › Desks · revision 1', exact: true }).waitFor();
+  // Filing another document is not an access change: the earlier answer stays readable.
+  await memberPage.getByText('The refund window is 30 days from delivery.', { exact: true }).waitFor();
+  assert.equal(await memberPage.getByText('Response unavailable because source access changed.').count(), 0);
   await memberPage.screenshot({ path: join(app.data, 'library-section-citation.png') });
   app.pass('Real Goose: an uploaded Word file is read by section and the answer cites "Warranty.docx › Desks"');
   assert.deepEqual(errors, []);

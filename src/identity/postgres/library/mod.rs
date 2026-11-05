@@ -1,6 +1,7 @@
 mod actions;
 pub(super) mod agent_tools;
 mod agents;
+pub(super) mod fence;
 pub(super) mod folders;
 mod pages;
 pub(super) mod passages;

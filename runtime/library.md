@@ -201,6 +201,14 @@ PDF page breaks start "Page N" sections.
   2,000 rows per sheet. They download as attachments, never inline. Files uploaded before
   this keep their earlier readiness; upload them again to make them readable.
 
+**Fencing (schema 71).** Library edits and sharing changes no longer raise the
+workspace-wide context epoch, which used to hide every earlier agent answer in the
+workspace and stop running work whenever anyone saved a page. Instead an answer that
+read or was shown a document is hidden in Chat ("Response unavailable because source
+access changed"), left out of agents' conversation history and stopped while running
+only when that document's sharing changes or it goes to Trash. Content edits never fence;
+citations keep naming the revision read.
+
 Limits: an answer delivered to a conversation stays there if someone joins later; the
 first release lists up to 100 documents per folder and offers up to 50 folders when
 moving; uploads land unfiled and are moved afterwards.
@@ -337,6 +345,17 @@ no-store. These are build-size measurements, not startup/latency guarantees.
   when sharing changes; a new page is searchable as soon as it is saved.
 - Real Goose (`tests/library_folders.mjs`, last part): a Word file uploaded and filed in
   the shared folder is found by section and the answer cites "Warranty.docx › Desks".
+
+## Recorded verification — 2026-11-05 (schema 71 fence)
+
+- PostgreSQL (`postgres/library_fence_tests.rs`): editing a policy and re-sharing an
+  unrelated folder change no context epoch and keep both a Library-based and a plain
+  answer in Chat and in agents' history; re-sharing the policy's folder hides only the
+  answer that read it, in Chat and in history. A running agent keeps working through an
+  edit and is stopped when the document it read goes to Trash. The full PostgreSQL suite
+  (368) passes, including every earlier revocation test.
+- Real Goose (`tests/library_folders.mjs`): the first answer is still readable after a
+  Word file is uploaded and moved into the folder.
 
 ## Dependency decisions
 
