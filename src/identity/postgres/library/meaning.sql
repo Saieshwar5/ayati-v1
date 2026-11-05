@@ -10,6 +10,8 @@ CREATE TABLE relay_library_summaries (
 DO $$
 BEGIN
  IF EXISTS(SELECT 1 FROM pg_available_extensions WHERE name='vector') THEN
+  -- CREATE EXTENSION IF NOT EXISTS races when two schemas migrate at once.
+  PERFORM pg_advisory_xact_lock(hashtext('relay_library_vector_extension'));
   CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;
   EXECUTE format('CREATE TABLE relay_library_embeddings (
    workspace TEXT NOT NULL, item TEXT NOT NULL, position INTEGER NOT NULL,
