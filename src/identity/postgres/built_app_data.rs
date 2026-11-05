@@ -161,7 +161,15 @@ pub(super) async fn answer(
             let record = uuid::Uuid::new_v4().to_string();
             execute(tx, "INSERT INTO relay_built_app_records(workspace,app,stage,collection,id,data,created_by,updated_by,created,updated,by_agent) VALUES($1,$2,$3,$4,$6,$7,$5,$5,$8,$8,$9)", values(vec![record.clone().into(), data.into(), now().into(), agent.map(str::to_owned).into()])).await?;
             if stage == "live" {
-                super::events::queue(tx, w, id, collection, &record, agent).await?;
+                let added = super::events::Happened {
+                    app: id,
+                    collection,
+                    record: &record,
+                    kind: "added",
+                    revision: 1,
+                    changes: None,
+                };
+                super::events::queue(tx, w, added, agent).await?;
             }
             json_rows(
                 tx,
@@ -206,6 +214,17 @@ pub(super) async fn answer(
                 }
                 manifest.record(collection, &data)?;
                 execute(tx, &format!("UPDATE relay_built_app_records r SET data=$7,revision=revision+1,updated_by=$5,updated=$8,by_agent=$9 WHERE {scope} AND r.id=$6"), values(vec![record.clone().into(), data.into(), now().into(), agent.map(str::to_owned).into()])).await?;
+                if stage == "live" {
+                    let changed = super::events::Happened {
+                        app: id,
+                        collection,
+                        record: &record,
+                        kind: "changed",
+                        revision: revision + 1,
+                        changes: Some(Value::Object(changes.clone())),
+                    };
+                    super::events::queue(tx, w, changed, agent).await?;
+                }
                 json_rows(
                     tx,
                     &format!(

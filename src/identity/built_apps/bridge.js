@@ -31,4 +31,8 @@
     remove: (collection, id) => ask('delete', { collection, record: id }),
   };
   Object.defineProperty(window, 'cuckoo', { value: Object.freeze(cuckoo) });
+  // Errors the app doesn't handle reach its builder (and their agent) in a preview.
+  const report = (message) => window.parent.postMessage({ cuckoo: 1, op: 'error', message: String(message || 'Unknown error').slice(0, 500) }, '*');
+  window.addEventListener('error', (event) => report(event.message));
+  window.addEventListener('unhandledrejection', (event) => report(event.reason && event.reason.message ? event.reason.message : event.reason));
 })();

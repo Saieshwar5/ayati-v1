@@ -8,6 +8,7 @@ import { writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
+import { until } from './fixtures/polling.mjs';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 
@@ -89,6 +90,18 @@ test('Built apps publish after their checks and run walled off for the people ch
   assert.equal(await minaPage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   app.pass('Mina opens it: the app runs with no network, no access to Cuckoo\'s page or cookie, and no code for her; 390 px');
 
+  // A draft that throws in its preview: the builder (and their agent) see the error.
+  const draft = (await app.request(`${app.path}/apps/built/${built.id}/files?version=0`, ravi)).value;
+  await app.request(`${app.path}/apps/built/${built.id}/files`, ravi, { path: 'app.js', content: "throw new Error('Leave form broke');", revision: draft.draft_revision });
+  await raviPage.goto(`${app.base}/w/${w}/?view=apps&run=${built.id}&preview=1`);
+  await until(async () => (await app.request(`${app.path}/apps/built/${built.id}/files?version=0`, ravi)).value.preview_errors.length === 1, 'The preview error was not kept', 15000);
+  await raviPage.goto(`${app.base}/w/${w}/?view=apps`);
+  await raviPage.getByRole('button', { name: 'Code and publish', exact: true }).click();
+  await raviPage.getByRole('region', { name: 'Preview errors' }).getByText(/Leave form broke/).waitFor();
+  await raviPage.screenshot({ path: join(app.data, 'built-app-preview-error.png') });
+  await raviPage.keyboard.press('Escape');
+  app.pass('A draft that throws in its preview shows the error to its builder under "In the last preview"');
+
   const adminPage = await pageFor(app.cookie);
   await adminPage.goto(`${app.base}/w/${w}/?view=apps`);
   await adminPage.getByRole('button', { name: 'Code and versions', exact: true }).click();
@@ -104,6 +117,6 @@ test('Built apps publish after their checks and run walled off for the people ch
   assert.match(audit, /Published "Leave requests" version 1/);
   assert.match(audit, /Opened "Leave requests"/);
   assert.match(audit, /Took "Leave requests" offline/);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(errors.filter(e => e !== 'Leave form broke'), [], 'only the preview error raised on purpose');
   app.pass('An admin takes it offline from its versions; Mina can no longer open it; publishing and opening are audited; dark mode');
 });

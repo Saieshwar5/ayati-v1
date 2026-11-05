@@ -48,7 +48,59 @@ pub(super) async fn write_draft(
     Ok(query(tx, "UPDATE relay_built_apps SET draft_revision=draft_revision+1,updated=$3 WHERE workspace=$1 AND id=$2 RETURNING draft_revision", vec![w.into(), id.into(), now().into()]).await?.context("App unavailable")?.try_get("", "draft_revision")?)
 }
 
+/// Errors the app raised while its builder or an admin previewed this draft revision.
+pub(super) async fn preview_errors(
+    tx: &DatabaseTransaction,
+    w: &str,
+    id: &str,
+    revision: i64,
+) -> Result<Vec<Value>> {
+    let present: bool = query(
+        tx,
+        "SELECT to_regclass('relay_built_app_preview_errors') IS NOT NULL AS present",
+        vec![],
+    )
+    .await?
+    .context("Schema check")?
+    .try_get("", "present")?;
+    if !present {
+        return Ok(vec![]);
+    }
+    json_rows(tx, "SELECT jsonb_build_object('message',message,'at',at) AS data FROM relay_built_app_preview_errors WHERE workspace=$1 AND app=$2 AND draft_revision=$3 ORDER BY id DESC LIMIT 20", vec![w.into(), id.into(), revision.into()]).await
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PreviewError {
+    pub message: String,
+}
+
 impl PgStore {
+    /// Keeps an error the draft raised in its preview, for the builder and their agent.
+    /// The newest 20 per app are kept.
+    pub(crate) async fn built_app_preview_error(
+        &self,
+        user: &User,
+        w: &str,
+        id: &str,
+        input: &PreviewError,
+    ) -> Result<Value> {
+        let message: String = input.message.trim().chars().take(500).collect();
+        ensure!(!message.is_empty(), "Say what went wrong");
+        let tx = self.workspace_tx(w).await?;
+        let (found, _) = app(&tx, user, w, id).await?;
+        ensure!(
+            found["manages"] == true,
+            "Only its builder and admins preview a draft"
+        );
+        let revision = found["draft_revision"].as_i64().unwrap_or(0);
+        if query(&tx, "SELECT 1 AS found FROM relay_built_app_preview_errors WHERE workspace=$1 AND app=$2 AND draft_revision=$3 AND message=$4", vec![w.into(), id.into(), revision.into(), message.clone().into()]).await?.is_none() {
+            execute(&tx, "INSERT INTO relay_built_app_preview_errors(workspace,app,draft_revision,message,at,reported_by) VALUES($1,$2,$3,$4,$5,$6)", vec![w.into(), id.into(), revision.into(), message.into(), now().into(), user.id.clone().into()]).await?;
+            execute(&tx, "DELETE FROM relay_built_app_preview_errors WHERE workspace=$1 AND app=$2 AND id NOT IN (SELECT id FROM relay_built_app_preview_errors WHERE workspace=$1 AND app=$2 ORDER BY id DESC LIMIT 20)", vec![w.into(), id.into()]).await?;
+        }
+        tx.commit().await?;
+        Ok(json!({"ok":true}))
+    }
     /// A version's file list (0 is the draft), for its builder and admins.
     pub(crate) async fn built_app_files(
         &self,
@@ -68,9 +120,11 @@ impl PgStore {
             .into_iter()
             .map(|(path, content)| json!({"path":path,"size":content.len(),"content":content}))
             .collect();
+        let errors =
+            preview_errors(&tx, w, id, found["draft_revision"].as_i64().unwrap_or(0)).await?;
         tx.commit().await?;
         Ok(
-            json!({"files":list,"draft_revision":found["draft_revision"],"checks":if version == 0 { json!(built_apps::checks(&list.iter().map(|f| (f["path"].as_str().unwrap_or("").to_owned(), f["content"].as_str().unwrap_or("").to_owned())).collect::<Vec<_>>())) } else { json!([]) }}),
+            json!({"files":list,"draft_revision":found["draft_revision"],"preview_errors":if version == 0 { errors } else { vec![] },"checks":if version == 0 { json!(built_apps::checks(&list.iter().map(|f| (f["path"].as_str().unwrap_or("").to_owned(), f["content"].as_str().unwrap_or("").to_owned())).collect::<Vec<_>>())) } else { json!([]) }}),
         )
     }
 

@@ -15,7 +15,8 @@ export type BuiltApp = { id: string; kind: 'built'; name: string; description: s
   builder_name: string; is_builder: boolean; can_open: boolean; can_manage: boolean; people?: { id: string; name: string }[] | null;
   versions?: { version: number; note: string; at: number }[] | null; helpers?: { id: string; name: string }[] | null };
 export type AppCheck = { check: string; message: string };
-export type AppFiles = { files: { path: string; size: number; content: string }[]; draft_revision: number; checks: AppCheck[] };
+export type AppFiles = { files: { path: string; size: number; content: string }[]; draft_revision: number; checks: AppCheck[];
+  preview_errors?: { message: string; at: number }[] };
 export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; built?: BuiltApp[]; can_manage: boolean; requests_waiting: number };
 export type AppRequestRow = { id: string; kind: 'access' | 'suggestion'; app?: string | null; app_name?: string | null; name: string; url: string; reason: string; created: number; requester: string };
 const base = () => `/workspaces/${workspaceId}/apps`;

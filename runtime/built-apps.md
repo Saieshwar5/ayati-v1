@@ -153,12 +153,16 @@ Every template passes its checks as it is, so it can be published at once.
 
 ## App events
 
-- On a published app's panel, **When something is added** lists its collections. The
+- On a published app's panel, **When something happens** lists each collection twice:
+  **New** and **Changed** records. The
   builder or an admin chooses **Ask an agent** for one: an agent and what it should do
   with each new record (`GET/POST …/apps/built/{id}/watchers` with `{collection, agent,
   instructions}`, or `agent: null` to stop). Cuckoo opens a conversation "<app> (app)"
   between that person and the agent; starting it also checks they may work with the
   agent. Setting and stopping are audited.
+- A **changed** watcher (`kind: "changed"`, schema 86) is queued for every change to a
+  live record, by revision, with only the fields that changed and who changed them
+  ("Changed in the app "Leave" (requests), changed by Ravi: status: approved").
 - Each record added to that collection in the **live** app is queued once
   (`relay_built_app_events`); preview records aren't, and neither are records the
   watching agent added itself, so it can't loop. The scheduler starts one at a time per
@@ -167,6 +171,15 @@ Every template passes its checks as it is, so it can be published at once.
   agent acts **as the watcher**: in the app it can do only what they could and what
   Agents can allows. Paused agents, an app taken offline or a removed record mark it not
   handled, with a reason; stopping skips what waits.
+
+## Preview errors
+
+The bridge reports errors the app doesn't handle (`error`, `unhandledrejection`) to the
+Apps page. From a **draft preview** only, the runner sends up to five per load to
+`POST …/apps/built/{id}/preview-errors`; Cuckoo keeps each message once per draft
+revision (the newest 20 per app). The code drawer shows them as **In the last preview**,
+and the builder agent gets them as `preview_errors` from `app_files`, so it can fix
+them. A new draft revision starts clean.
 
 ## Building with an agent
 
@@ -226,7 +239,8 @@ All under `/api/identity/workspaces/{w}/apps`:
 | `GET /built/{id}/agent-rules` | anyone who can see it | each manifest action and whether agents may run it |
 | `POST /built/{id}/agent-rules` `{action, mode}` | builder, admins | allow or block one action for agents; audited |
 | `GET /built/{id}/watchers` | anyone who can see it | each collection and the agent acting on new records |
-| `POST /built/{id}/watchers` `{collection, agent, instructions}` | builder, admins | ask an agent to act on new records, or stop it; audited |
+| `POST /built/{id}/watchers` `{collection, kind, agent, instructions}` | builder, admins | ask an agent to act on new (`added`) or `changed` records, or stop it; audited |
+| `POST /built/{id}/preview-errors` `{message}` | builder, admins | keep an error the draft raised in its preview |
 
 ## In the browser
 
@@ -316,11 +330,18 @@ or download.
 - Real Goose (`tests/built_app_ask_first.mjs`): asked in Chat, Nia is handed Cuckoo's
   question and asks Mina; nothing is filed until Mina answers yes in the browser; then
   the same request files it; audited.
+- PostgreSQL (`built_app_events_tests.rs`, changes): an unknown kind is refused; adding
+  isn't a change; deciding a request starts work with only what changed and who
+  changed it. (`built_apps_tests.rs`, preview errors): only those who preview report;
+  kept once per draft revision; a new revision starts clean.
+- Web: New and Changed rows with per-kind buttons; preview errors are relayed only from a
+  draft preview, five per load.
+- Browser (`tests/built_apps.mjs`): a draft that throws in its preview shows the error
+  under "In the last preview" in the code drawer.
 
 ## Not yet
 
 - The agent seeing what a preview shows or the errors it raises.
-- Company rules from the Guard on app actions; events for changed records ("request
-  approved").
+- Company rules from the Guard on app actions.
 - Agent actions declared in the manifest and run under company rules.
 - Templates beyond the starter, and a Git-backed code store.

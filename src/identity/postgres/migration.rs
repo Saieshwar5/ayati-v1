@@ -93,6 +93,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::watching::LibraryWatching),
             Box::new(super::built_apps::BuiltAppEvents),
             Box::new(super::built_apps::BuiltAppAsking),
+            Box::new(super::built_apps::BuiltAppChanges),
         ]
     }
 }

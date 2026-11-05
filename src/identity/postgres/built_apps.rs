@@ -256,7 +256,7 @@ impl PgStore {
 
 #[path = "built_app_code.rs"]
 mod code;
-pub(crate) use code::{AppFile, AppRelease};
+pub(crate) use code::{AppFile, AppRelease, PreviewError};
 #[path = "built_app_data.rs"]
 mod data;
 pub(crate) use data::{BuiltAppData, DataRequest, RoleChange};
@@ -268,7 +268,7 @@ mod actions;
 pub(crate) use actions::{AgentRule, BuiltAppActions};
 #[path = "built_app_events.rs"]
 mod events;
-pub(crate) use events::{AppWatch, BuiltAppEvents};
+pub(crate) use events::{AppWatch, BuiltAppChanges, BuiltAppEvents};
 #[path = "built_app_asking.rs"]
 mod asking;
 pub(crate) use asking::BuiltAppAsking;

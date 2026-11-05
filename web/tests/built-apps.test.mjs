@@ -281,21 +281,21 @@ test('The builder asks an agent to act when something is added, then stops it; u
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
     await render(AppsPage, { href: base });
-    const section = () => document.querySelector('[aria-label="When something is added"]');
-    assert.match(section().textContent, /New requests.*No agent acts on these/);
-    await click(button('Ask an agent'));
+    const section = () => document.querySelector('[aria-label="When something happens"]');
+    assert.match(section().textContent, /New requests.*No agent acts on these.*Changed requests.*No agent acts on these/);
+    await click(button('Ask an agent: new requests'));
     await change(document.querySelector('dialog[open] [aria-label="Agent"]'), 'nia');
     await change(document.querySelector('[aria-label="What should it do?"]'), 'Tell me who asked.');
     await click(button('Save'));
-    assert.deepEqual(sent[0], { collection: 'requests', agent: 'nia', instructions: 'Tell me who asked.' });
+    assert.deepEqual(sent[0], { collection: 'requests', kind: 'added', agent: 'nia', instructions: 'Tell me who asked.' });
     assert.match(section().textContent, /Nia, for Me: Tell me who asked\./);
     assert.match(section().querySelector('a').getAttribute('href'), /conversation=c9$/);
     await click(button('Stop'));
-    assert.deepEqual(sent[1], { collection: 'requests', agent: null, instructions: '' });
+    assert.deepEqual(sent[1], { collection: 'requests', kind: 'added', agent: null, instructions: '' });
   }, { url: base, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return session('Member');
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [{ id: 'nia', name: 'Nia' }] });
-    if (path.endsWith('/watchers') && options.body) { const body = JSON.parse(options.body); sent.push(body); watchers = body.agent ? [{ collection: 'requests', agent: 'nia', agent_name: 'Nia', instructions: body.instructions, by: 'Me', chat: 'c9', waiting: 0 }] : []; return response({ ok: true }); }
+    if (path.endsWith('/watchers') && options.body) { const body = JSON.parse(options.body); sent.push(body); watchers = body.agent ? [{ collection: 'requests', kind: 'added', agent: 'nia', agent_name: 'Nia', instructions: body.instructions, by: 'Me', chat: 'c9', waiting: 0 }] : []; return response({ ok: true }); }
     if (path.endsWith('/watchers')) return response({ collections: ['requests'], watchers, can_change: true });
     if (path.endsWith('/agent-rules')) return response({ actions: [], can_change: true });
     return response(view([{ ...leave, version: 1, can_open: true }]));
@@ -304,11 +304,32 @@ test('The builder asks an agent to act when something is added, then stops it; u
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
     await render(AppsPage, { href: base });
-    const section = document.querySelector('[aria-label="When something is added"]');
+    const section = document.querySelector('[aria-label="When something happens"]');
     assert.match(section.textContent, /Nia, for Ravi/);
     assert.equal(section.querySelector('button'), null);
   }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member')
-    : path.endsWith('/watchers') ? response({ collections: ['requests'], watchers: [{ collection: 'requests', agent: 'nia', agent_name: 'Nia', instructions: 'Tell me.', by: 'Ravi', chat: null, waiting: 0 }], can_change: false })
+    : path.endsWith('/watchers') ? response({ collections: ['requests'], watchers: [{ collection: 'requests', kind: 'added', agent: 'nia', agent_name: 'Nia', instructions: 'Tell me.', by: 'Ravi', chat: null, waiting: 0 }], can_change: false })
     : path.endsWith('/agent-rules') ? response({ actions: [], can_change: false })
     : response(view([{ ...leave, version: 1, is_builder: false, can_open: true, can_manage: false, versions: null, people: null }])) });
+});
+
+test('Errors an app raises are kept only from a draft preview, a few per load', async () => {
+  for (const preview of [true, false]) {
+    const reported = [];
+    await reactFixture(async ({ render, update }) => {
+      const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+      const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+      await render(AppsPage, { href: `${base}&run=b1${preview ? '&preview=1' : ''}` });
+      const frame = document.querySelector('iframe');
+      frame.contentWindow.postMessage = () => {};
+      for (let i = 0; i < 7; i++) {
+        await update(() => window.dispatchEvent(new window.MessageEvent('message', { data: { cuckoo: 1, op: 'error', message: `Broke ${i}` }, source: frame.contentWindow })));
+      }
+      assert.deepEqual(reported, preview ? ['Broke 0', 'Broke 1', 'Broke 2', 'Broke 3', 'Broke 4'] : []);
+    }, { url: `${base}&run=b1`, fetch: async (path, options = {}) => {
+      if (path.endsWith('/session')) return session('Member');
+      if (path.endsWith('/preview-errors')) { reported.push(JSON.parse(options.body).message); return response({ ok: true }); }
+      return response(view([{ ...leave, version: 1, can_open: true }]));
+    } });
+  }
 });

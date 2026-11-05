@@ -4,6 +4,8 @@ import { appsRequest, builtPath } from './apps-model';
 
 /** Requests an app may have waiting at once; more are refused, not queued. */
 const MAX_WAITING = 8;
+/** Preview errors sent per load, at most. */
+const MAX_REPORTED = 5;
 type Message = {
   cuckoo?: unknown;
   id?: unknown;
@@ -13,6 +15,7 @@ type Message = {
   data?: unknown;
   revision?: unknown;
   mine?: unknown;
+  message?: unknown;
 };
 
 /** Relays a running app's bridge messages (BA2) to Cuckoo's server and answers them.
@@ -26,10 +29,19 @@ export function useAppBridge(
   useEffect(() => {
     let alive = true;
     let waiting = 0;
+    let reported = 0;
     const listener = (event: MessageEvent<Message>) => {
       const source = frame.current?.contentWindow;
       const message = event.data;
       if (!source || event.source !== source || !message || message.cuckoo !== 1) return;
+      // Errors are only kept from a draft preview, for its builder; at most a few per load.
+      if (message.op === 'error') {
+        if (preview && reported < MAX_REPORTED && typeof message.message === 'string') {
+          reported++;
+          void appsRequest(builtPath(id, '/preview-errors'), { message: message.message }).catch(() => {});
+        }
+        return;
+      }
       if (typeof message.id !== 'number' || typeof message.op !== 'string') return;
       const reply = (body: { ok: boolean; result?: unknown; error?: string }) => {
         if (alive) source.postMessage({ cuckoo: 1, id: message.id, ...body }, '*');
