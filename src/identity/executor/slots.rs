@@ -37,7 +37,7 @@ pub(super) struct Slot {
     pub pid: Option<u32>,
 }
 pub(super) enum Done {
-    Prepared(usize, i64, Result<Harness>),
+    Prepared(usize, i64, Result<Box<Harness>>),
     Finished(usize, i64),
 }
 pub(super) struct Control {
@@ -91,7 +91,7 @@ impl Slot {
         let stop = stop.clone();
         let root = root.join(&self.id).join(generation.to_string());
         jobs.spawn(async move {
-            let result=tokio::select! {_=stop.cancelled()=>Err(anyhow::anyhow!("Executor draining")),result=Harness::prepare(&root,&profile,&config)=>result};
+            let result=tokio::select! {_=stop.cancelled()=>Err(anyhow::anyhow!("Executor draining")),result=Harness::prepare(&root,&profile,&config)=>result.map(Box::new)};
             if result.is_err() {execution::cleanup(&root).await;tokio::time::sleep(std::time::Duration::from_millis(300)).await;}
             Done::Prepared(index,generation,result)
         });

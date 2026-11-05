@@ -32,6 +32,7 @@ async fn history_excludes_library_derived_answers_and_generated_source_titles() 
         revision: 0,
         title: "LIBRARY_PRIVATE_TITLE".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"LIBRARY_PRIVATE_CONTENT"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut share = ShareItem {
@@ -39,7 +40,7 @@ async fn history_excludes_library_derived_answers_and_generated_source_titles() 
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![a.clone()],
+        agents: vec![a.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &share)
         .await

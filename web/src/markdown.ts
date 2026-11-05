@@ -13,6 +13,10 @@ const parser = new Marked({ gfm: true, breaks: true, renderer: {
     if (/^mention:(user|agent):[a-zA-Z0-9_-]+$/.test(href)) return `<span class="message-mention">${text}</span>`;
     // A run Cuckoo posted from a schedule: opens it in Activity, same tab.
     if (/^run:[0-9a-f-]{36}$/.test(href)) return `<a href="${escape(workspaceUrl(`/?view=activity&tab=history&run=${href.slice(4)}`))}">${text}</a>`;
+    // A Library citation Cuckoo adds: opens the item (at the cited revision) in this
+    // workspace, same tab. Access is checked when it opens.
+    const cited = href.match(/^\/w\/[0-9a-f-]{36}\/\?view=library&item=([0-9a-f-]{36})(?:&source_revision=([0-9]{1,9}))?$/);
+    if (cited) return `<a href="${escape(workspaceUrl(`/?view=library&item=${cited[1]}${cited[2] ? `&source_revision=${cited[2]}` : ''}`))}">${text}</a>`;
     if (!/^(https?:|mailto:)/i.test(href)) return text;
     return `<a href="${escape(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   },

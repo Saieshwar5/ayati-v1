@@ -41,10 +41,14 @@ impl PgStore {
                 .is_none(),
                 "Item ID already exists"
             );
-            execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),input.document.clone().into(),text.clone().into(),now().into()]).await?;
+            if let Some(folder) = &input.folder {
+                super::folders::open_folder(&tx, user, w, folder).await?;
+            }
+            execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated,folder) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7,$8)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),input.document.clone().into(),text.clone().into(),now().into(),input.folder.clone().into()]).await?;
         } else {
+            ensure!(input.folder.is_none(), "Move a page to change its folder");
             let current = item(&tx, user, w, &input.id, false).await?;
-            ensure!(current["kind"] == "page", "This item is a file");
+            ensure!(current["kind"] == "page", "This item is not a page");
             if current["revision"].as_i64() != Some(input.revision) {
                 return Err(Conflict.into());
             }
@@ -88,6 +92,12 @@ impl PgStore {
 }
 
 pub(super) async fn prune_versions(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
-    execute(db,"DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT 50) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision)",vec![w.into(),id.into()]).await?;
+    // Versions cited by Ask sources or agent reads (schema 69) stay verifiable.
+    let reads = if super::agent_tools::reads_exist(db).await? {
+        " AND NOT EXISTS(SELECT 1 FROM relay_library_reads r WHERE r.workspace=v.workspace AND r.item=v.item AND r.revision=v.revision)"
+    } else {
+        ""
+    };
+    execute(db,&format!("DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT 50) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision){reads}"),vec![w.into(),id.into()]).await?;
     Ok(())
 }

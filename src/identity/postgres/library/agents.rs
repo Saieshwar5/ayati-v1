@@ -14,7 +14,8 @@ pub(in crate::identity::postgres) async fn source_allowed(
         let id:String=row.try_get("","item")?;
         let Ok(current)=item(db,&user,&job.workspace,&id,false).await else { return Ok(false); };
         if current["access_revision"].as_i64()!=Some(row.try_get("","access_revision")?) { return Ok(false); }
-        if query(db,"SELECT agent FROM relay_library_agents WHERE workspace=$1 AND item=$2 AND agent=$3",vec![job.workspace.clone().into(),id.into(),job.agent.clone().into()]).await?.is_none() { return Ok(false); }
+        let root = current["folder"].as_str().unwrap_or(&id).to_owned();
+        if query(db,"SELECT agent FROM relay_library_agents WHERE workspace=$1 AND item=$2 AND agent=$3",vec![job.workspace.clone().into(),root.into(),job.agent.clone().into()]).await?.is_none() { return Ok(false); }
         // Source-bearing jobs must remain visible to exactly their requester.
         if query(db,"SELECT id FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2 AND c.visibility='private' AND EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3) AND NOT EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id!=$3)",vec![job.workspace.clone().into(),job.chat.clone().into(),job.requester.clone().into()]).await?.is_none() { return Ok(false); }
     }
@@ -57,7 +58,12 @@ impl PgStore {
                 .is_some_and(|s| !s.trim().is_empty()),
             "Add some content before asking an agent"
         );
-        ensure!(query(&tx,"SELECT agent FROM relay_library_agents WHERE workspace=$1 AND item=$2 AND agent=$3",vec![w.into(),id.into(),input.agent.clone().into()]).await?.is_some(),"This agent has not been given access to the item");
+        ensure!(
+            current["kind"] != "folder",
+            "Ask about a page or file in this folder"
+        );
+        let root = current["folder"].as_str().unwrap_or(id).to_owned();
+        ensure!(query(&tx,"SELECT agent FROM relay_library_agents WHERE workspace=$1 AND item=$2 AND agent=$3",vec![w.into(),root.into(),input.agent.clone().into()]).await?.is_some(),"This agent has not been given access to the item");
         let agent =
             super::super::agent_profiles::managed_access(&tx, &user.id, w, &input.agent, false)
                 .await?;

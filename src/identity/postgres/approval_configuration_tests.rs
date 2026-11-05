@@ -13,6 +13,7 @@ async fn library_source_details_never_publish_to_new_channel_members_even_with_a
         revision: 0,
         title: "Private policy".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"PRIVATE_LIBRARY_POLICY"}]}]}),
+        folder: None,
     };
     s.db.library_save(&s.owner, &s.w, &page).await.unwrap();
     s.db.library_share(
@@ -24,7 +25,7 @@ async fn library_source_details_never_publish_to_new_channel_members_even_with_a
             revision: 1,
             visibility: "private".into(),
             people: vec![],
-            agents: vec![s.agent.clone()],
+            agents: vec![s.agent.clone().into()],
         },
     )
     .await

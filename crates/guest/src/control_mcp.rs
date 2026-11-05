@@ -25,6 +25,9 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some("update_goal") => crate::task_schema::goal(input),
         Some("write_review") => crate::task_schema::review(input),
         Some("propose_rule") => crate::rule_schema::proposal(input),
+        Some(name @ ("list_folder" | "search_library" | "read_document")) => {
+            crate::library_schema::observed(name, input)
+        }
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.keys()
                 .all(|key| ["sections", "what_changed", "bindings"].contains(&key.as_str()))
@@ -110,7 +113,7 @@ impl ServerHandler for ControlTools {
             json!({"name":"close_task","description":"Close one of your tasks when its outcome is reached (done), cannot be reached (failed) or is no longer wanted (cancelled). Say what happened in result.","inputSchema":{"type":"object","properties":{"task":{"type":"string","maxLength":64},"outcome":{"type":"string","enum":["done","failed","cancelled"]},"result":{"type":"string","maxLength":1000}},"required":["task","outcome"],"additionalProperties":false}}),
             json!({"name":"operations","description":"List this task's currently assigned business operations, input fields and permission modes.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),
             json!({"name":"request_action","description":"Request one supported operation with exact fields. Cuckoo validates current task authority, records it, executes allowed work or creates an exact approval request. Inspect the returned state. Repeating identical fields in the same task returns the original receipt and never retries an uncertain write.","inputSchema":{"type":"object","properties":{"connection":{"type":"string"},"operation":{"type":"string"},"arguments":{"type":"object"}},"required":["connection","operation","arguments"],"additionalProperties":false}})
-        ].into_iter().map(|v|serde_json::from_value(v).unwrap()).collect(),..Default::default()})
+        ].into_iter().chain(crate::library_schema::tools()).map(|v|serde_json::from_value(v).unwrap()).collect(),..Default::default()})
     }
     async fn call_tool(
         &self,

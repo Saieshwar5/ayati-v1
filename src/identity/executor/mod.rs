@@ -126,7 +126,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
                         match result {
                             Ok(harness) if !drained => {
                                 slots[index].pid = Some(harness.pid);
-                                slots[index].state = State::Ready(Box::new(harness));
+                                slots[index].state = State::Ready(harness);
                             },
                             Ok(harness) => {
                                 harness.close().await;

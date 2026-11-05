@@ -369,6 +369,7 @@ async fn library_source_revisions_guard_request_summaries_and_focused_reads() {
         revision: 0,
         title: "Private policy".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"PRIVATE_POLICY_AMOUNT"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut sharing = ShareItem {
@@ -376,7 +377,7 @@ async fn library_source_revisions_guard_request_summaries_and_focused_reads() {
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![initial.agent.clone()],
+        agents: vec![initial.agent.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &sharing)
         .await

@@ -76,6 +76,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::control_actions::guard::migration::GuardFacts),
             Box::new(super::control_actions::guard::migration::GuardProposals),
             Box::new(super::worker_control::model_usage::ModelUsage),
+            Box::new(super::library::folders::LibraryFolders),
         ]
     }
 }

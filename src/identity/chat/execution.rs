@@ -126,6 +126,13 @@ pub(crate) async fn prepare_traced(
             instructions.push_str(&format!("\n- {name}: {description}"));
         }
     }
+    if control_tools
+        && db
+            .library_agent_has_items(&job.workspace, &job.agent)
+            .await?
+    {
+        instructions.push_str("\nYou were given company documents in the Library. When a question may be answered by a policy, procedure, price list or guide, use search_library or list_folder, then read_document, and answer from what you read; say which document it comes from. Cuckoo shows only documents that suit the people in this conversation and lists the ones you read under your answer. If nothing fits, say so instead of guessing.");
+    }
     if let Some(said) = db.front_desk_said(job).await? {
         instructions.push_str(&format!("\nYou already told the person, before starting: \"{said}\". Don't repeat it; your first message now is a milestone or the result."));
     }

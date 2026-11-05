@@ -22,6 +22,7 @@ pub(super) async fn source(
         revision: 0,
         title: "PRIVATE_DELIVERY_GUIDE".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"PRIVATE_SOURCE_FACT: deliveries use the reviewed route."}]}]}),
+        folder: None,
     };
     db.library_save(owner, w, &page).await.unwrap();
     let sharing = ShareItem {
@@ -166,7 +167,7 @@ async fn rehearsal_sources_and_agent_wide_notes_remain_personal_and_revocation_b
     assert!(!claim.finish("WITHDRAWN_SOURCE_OUTPUT").await);
     sharing.request = uuid::Uuid::new_v4().to_string();
     sharing.revision = 3;
-    sharing.agents = vec![agent.clone()];
+    sharing.agents = vec![agent.clone().into()];
     db.library_share(&owner, &w, &reference.id, &sharing)
         .await
         .unwrap();
