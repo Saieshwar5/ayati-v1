@@ -10,3 +10,5 @@
 .connection-access-row > .ui-button { justify-self: start; }
 @media (max-width: 900px) { .workspace-connection-row { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 480px) { .connection-row-actions { width: 100%; } .connection-row-actions button { flex: 1 1 auto; } }
+.connector-meaning { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.connector-meaning select { width: auto; min-width: 140px; }

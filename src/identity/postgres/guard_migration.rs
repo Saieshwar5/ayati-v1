@@ -20,3 +20,26 @@ impl MigrationTrait for Guard {
         ))
     }
 }
+
+/// Schema 65: action meanings, safe defaults from them, rules for every action of a
+/// meaning and time-of-day rules.
+pub(crate) struct GuardMeanings;
+impl MigrationName for GuardMeanings {
+    fn name(&self) -> &str {
+        "m20261105_000065_guard_meanings"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardMeanings {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_meanings.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Action meanings require a forward migration".into(),
+        ))
+    }
+}

@@ -62,8 +62,9 @@ fn refund(connection: &str, order: &str, amount: Value) -> ActionRequest {
 fn rule(kind: &str, comparator: &str, value: Value, effect: &str) -> GuardRule {
     GuardRule {
         id: uuid::Uuid::new_v4().to_string(),
-        operation: "refund.create".into(),
+        operation: Some("refund.create".into()),
         connection: None,
+        meaning: None,
         kind: kind.into(),
         field: "amount".into(),
         comparator: comparator.into(),

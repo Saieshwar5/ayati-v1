@@ -7,9 +7,9 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 const w = '11111111-1111-4111-8111-111111111111';
 const base = `http://localhost/w/${w}/?view=settings&section=company-rules`;
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
-const actions = [{ connection: 'c1', account: 'Shop', operation: 'refund.create', title: 'Refund an order', effect: 'write',
+const actions = [{ connection: 'c1', account: 'Shop', operation: 'refund.create', title: 'Refund an order', effect: 'write', meaning: 'money',
   fields: [{ name: 'amount', type: 'number' }, { name: 'order', type: 'string' }, { name: 'reason', type: 'string' }] }];
-const existing = { id: 'r1', operation: 'refund.create', connection: 'c1', kind: 'daily_total', field: 'amount', comparator: '>', value: 10000,
+const existing = { id: 'r1', operation: 'refund.create', connection: 'c1', meaning: null, kind: 'daily_total', field: 'amount', comparator: '>', value: 10000,
   effect: 'block', note: 'Finance limit', enabled: true, revision: 3, summary: "Refund an order: if today's total amount would go over 10000, block it.", updated_by_name: 'Anita' };
 const field = label => [...document.querySelectorAll('label')].find(node => node.textContent.startsWith(label))?.querySelector('input,select');
 const session = role => response({ user: { id: 'me', email: 'me@test' }, workspaces: [{ id: w, name: 'Mehta', role }] });
@@ -32,7 +32,7 @@ test('Admins add a rule with a plain-words read-back, saving once and keeping th
     fail = false;
     await click(button('Save rule'));
     const sent = posts.at(-1);
-    assert.deepEqual({ ...sent, id: undefined }, { id: undefined, operation: 'refund.create', connection: 'c1', kind: 'field', field: 'amount', comparator: '>', value: 2000, effect: 'ask', note: '', enabled: true, revision: 0 });
+    assert.deepEqual({ ...sent, id: undefined }, { id: undefined, operation: 'refund.create', connection: 'c1', meaning: null, kind: 'field', field: 'amount', comparator: '>', value: 2000, effect: 'ask', note: '', enabled: true, revision: 0 });
     assert.equal(posts[0].id, sent.id, 'a retry keeps the same rule identity');
     assert.ok(!document.querySelector('dialog[open]'), 'closed after saving');
     assert.match(document.body.textContent, /Company rule saved/);
@@ -97,4 +97,30 @@ test('An approval held by a company rule says which rule and the facts it used',
     const note = document.querySelector('.approval-guard');
     assert.match(note.textContent, /Held by a company rule.*if amount is over 2000, ask first\..*This request's amount: 2500\./);
   }, { url: `http://localhost/w/${w}/`, fetch: async path => path.endsWith('/session') ? session('Admin') : response(held) });
+});
+
+test('One rule can cover every money action, and time rules read back their window and days', async () => {
+  const posts = [];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
+    await render(SettingsPage, { href: base });
+    await click(button('Add rule'));
+    await change(field('Applies to'), 'meaning:money');
+    await click([...document.querySelectorAll('label')].find(l => l.textContent === "Today's total").querySelector('input'));
+    await change(field('Value'), '5000');
+    assert.equal(document.querySelector('.company-rule-readback').textContent, "Any money action: if today's total amount would go over 5000, ask first.");
+    await click([...document.querySelectorAll('label')].find(l => l.textContent === 'Time of day').querySelector('input'));
+    for (const day of ['Sun', 'Sat']) await click([...document.querySelectorAll('label')].find(l => l.textContent === day).querySelector('input'));
+    assert.equal(document.querySelector('.company-rule-readback').textContent, 'Any money action: on Saturday and Sunday, between 21:00 and 09:00, ask first.');
+    await click(button('Save rule'));
+    const sent = posts[0];
+    assert.deepEqual({ operation: sent.operation, connection: sent.connection, meaning: sent.meaning, kind: sent.kind, field: sent.field, comparator: sent.comparator, value: sent.value },
+      { operation: null, connection: null, meaning: 'money', kind: 'time', field: '', comparator: '=', value: { from: '21:00', to: '09:00', days: [6, 7] } });
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Admin');
+    if (path.endsWith('/guard/rules') && options.body) { const body = JSON.parse(options.body); posts.push(body); return response({ ...body, summary: 'saved' }); }
+    if (path.endsWith('/guard/rules')) return response({ rules: [], actions, can_manage: true });
+    return response({});
+  } });
 });
