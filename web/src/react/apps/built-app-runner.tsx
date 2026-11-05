@@ -1,14 +1,18 @@
+import { useRef } from 'react';
 import { workspaceUrl } from '../../workspace-context';
 import { Button } from '../ui';
 import { useResource } from '../requests';
 import { frameUrl, loadApps } from './apps-model';
+import { useAppBridge } from './built-app-bridge';
 
 /** Runs a built app (BA1). The frame loads the app's document from Cuckoo, which
  * serves it with a sandboxing content policy: without allow-same-origin it gets a unique
  * origin, so it cannot read Cuckoo's cookies, storage or page, and every network request
- * it makes is blocked. */
+ * it makes is blocked. It reaches its data only through the bridge, by message. */
 export function AppRunner({ id, preview }: { id: string; preview: boolean }) {
   const apps = useResource(loadApps);
+  const frame = useRef<HTMLIFrameElement>(null);
+  useAppBridge(frame, id, preview);
   const app = apps.data?.built?.find((built) => built.id === id);
   const runs = app && (preview ? app.can_manage : app.can_open && app.version);
   return (
@@ -38,6 +42,7 @@ export function AppRunner({ id, preview }: { id: string; preview: boolean }) {
       )}
       {app && runs && (
         <iframe
+          ref={frame}
           title={app.name}
           className="apps-runner-frame"
           sandbox="allow-scripts allow-forms"

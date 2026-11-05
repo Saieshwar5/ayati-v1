@@ -86,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::tables::LibraryTables),
             Box::new(super::library::upkeep::LibraryUpkeep),
             Box::new(super::built_apps::BuiltApps),
+            Box::new(super::built_apps::BuiltAppData),
         ]
     }
 }

@@ -236,6 +236,9 @@ impl PgStore {
 #[path = "built_app_code.rs"]
 mod code;
 pub(crate) use code::{AppFile, AppRelease};
+#[path = "built_app_data.rs"]
+mod data;
+pub(crate) use data::{BuiltAppData, DataRequest, RoleChange};
 
 #[cfg(test)]
 #[path = "built_apps_tests.rs"]

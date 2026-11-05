@@ -17,7 +17,7 @@ pub fn starter(name: &str, description: &str) -> Vec<(String, String)> {
         ("cuckoo-app.json".into(), serde_json::to_string_pretty(&manifest).unwrap_or_default()),
         ("index.html".into(), format!("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n<link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n<main>\n<h1>{}</h1>\n<p>{}</p>\n</main>\n<script src=\"app.js\"></script>\n</body>\n</html>\n", escape(name), escape(name), escape(description))),
         ("style.css".into(), "body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #1f2328; background: #fff; }\n@media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #17181b; } }\nh1 { font-size: 24px; }\n".into()),
-        ("app.js".into(), "// Your app's code. It runs inside Cuckoo, with no network access of its own.\ndocument.querySelector('main').insertAdjacentHTML('beforeend', '<p>Ready.</p>');\n".into()),
+        ("app.js".into(), "// Your app's code. It runs inside Cuckoo, with no network access of its own.\n// Keep records with cuckoo.list, cuckoo.create, cuckoo.update and cuckoo.remove;\n// cuckoo-app.json says which collections exist and which roles may use them.\ndocument.querySelector('main').insertAdjacentHTML('beforeend', '<p>Ready.</p>');\n".into()),
         ("README.md".into(), format!("# {name}\n\n{description}\n")),
     ]
 }
@@ -55,20 +55,10 @@ pub fn checks(files: &[(String, String)]) -> Vec<Value> {
             .find(|(p, _)| p == name)
             .map(|(_, c)| c.as_str())
     };
-    match get("cuckoo-app.json").map(serde_json::from_str::<Value>) {
+    match get("cuckoo-app.json").map(super::manifest::Manifest::parse) {
         None => fail("manifest", "cuckoo-app.json is missing".into()),
-        Some(Err(_)) => fail("manifest", "cuckoo-app.json is not valid JSON".into()),
-        Some(Ok(manifest)) => {
-            if manifest["name"].as_str().is_none_or(str::is_empty) {
-                fail("manifest", "cuckoo-app.json needs a name".into());
-            }
-            if !manifest["roles"]
-                .as_array()
-                .is_some_and(|r| !r.is_empty() && r.iter().all(Value::is_string))
-            {
-                fail("manifest", "cuckoo-app.json lists at least one role".into());
-            }
-        }
+        Some(Err(error)) => fail("manifest", error.to_string()),
+        Some(Ok(_)) => {}
     }
     if get("index.html").is_none() {
         fail("screens", "index.html is missing".into());
@@ -183,9 +173,11 @@ pub fn runnable(files: &[(String, String)]) -> Result<String> {
         }
     }
     let policy = "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'\">";
+    // The bridge comes first, so the app's own scripts find `cuckoo` ready.
+    let head = format!("{policy}<script>\n{}\n</script>", include_str!("bridge.js"));
     Ok(match html.find("<head>") {
-        Some(at) => format!("{}{policy}{}", &html[..at + 6], &html[at + 6..]),
-        None => format!("{policy}{html}"),
+        Some(at) => format!("{}{head}{}", &html[..at + 6], &html[at + 6..]),
+        None => format!("{head}{html}"),
     })
 }
 
@@ -201,6 +193,13 @@ mod tests {
         );
         let doc = super::runnable(&files).unwrap();
         assert!(doc.contains("default-src 'none'"));
+        let bridge = doc
+            .find("defineProperty(window, 'cuckoo'")
+            .expect("the bridge is injected");
+        assert!(
+            bridge < doc.find("document.querySelector('main')").unwrap(),
+            "before the app's own code"
+        );
         assert!(doc.contains("<style>") && doc.contains("document.querySelector('main')"));
         assert!(!doc.contains("src=\"app.js\""));
         assert!(super::path("web/app.js").is_ok());
