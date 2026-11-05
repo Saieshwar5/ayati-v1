@@ -61,7 +61,7 @@ the controller's `.env`; containers set `AYATI_DOTENV=0` and read no file.
 Executors refuse database URLs, WorkOS keys, connector catalogs and Library
 storage settings, and the Goose command uses an explicit environment allowlist. The
 bootstrap/executor/slot credentials stay in the Rust supervisor. Goose receives
-the configured model key; per-run model brokerage is still future work.
+the configured model key; with `AYATI_MODEL_GATEWAY=1` executors hold no key and reach models through the controller's [model gateway](model-gateway.md).
 [Managed prompt isolation](managed-context-boundary.md) disables automatic host
 hint discovery and uses a private child home in both prepared and controlled paths.
 

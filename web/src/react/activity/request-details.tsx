@@ -68,6 +68,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
         </>}
         <dt>When</dt><dd>{dayLabel(data.created_ms)} {clock(data.created_ms)}{data.finished_ms ? ` · ${Math.max(1, Math.round((data.finished_ms - data.created_ms) / 1000))} s` : ''}</dd>
       </dl>
+      {data.model_usage && data.model_usage.calls > 0 && <p className="activity-task-line">Model use: {data.model_usage.models} · {data.model_usage.calls} {data.model_usage.calls === 1 ? 'call' : 'calls'} · {data.model_usage.input_tokens.toLocaleString()} tokens in, {data.model_usage.output_tokens.toLocaleString()} out</p>}
       {data.task && <p className="activity-task-line">Part of task <a href={taskUrl(data.task.id)}>{data.task.title}</a> · {taskLabels[data.task.status]}</p>}
       {!data.in_conversation && <p className="ui-help">You are not in this conversation. As a manager or admin you can read this request; your view is recorded in the audit log.</p>}
       <h3>What {data.agent_name} did</h3>

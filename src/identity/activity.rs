@@ -348,5 +348,8 @@ async fn request(
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.activity_request(&user, &w, &reply).await?))
+    let mut value = app.store.activity_request(&user, &w, &reply).await?;
+    // Tokens through the model gateway (core-agent CA3); none without the gateway.
+    value["model_usage"] = app.store.job_model_usage(&w, &reply).await?;
+    Ok(Json(value))
 }

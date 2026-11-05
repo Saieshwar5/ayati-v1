@@ -131,6 +131,27 @@ impl Client {
             task: self.task.clone(),
         })
     }
+    /// A streamed POST (model gateway): the caller reads the body as it arrives.
+    pub(crate) async fn post_stream(
+        &self,
+        path: &str,
+        body: &impl Serialize,
+        seconds: u64,
+    ) -> Result<reqwest::Response> {
+        let response = self
+            .task(self.stream.post(format!("{}{path}", self.url)))
+            .bearer_auth(&self.token)
+            .json(body)
+            .timeout(Duration::from_secs(seconds))
+            .send()
+            .await
+            .map_err(Unavailable::from_send)?;
+        ensure!(
+            response.status() != reqwest::StatusCode::FORBIDDEN,
+            "Controller denied the model request"
+        );
+        Ok(response)
+    }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: &impl Serialize) -> Result<T> {
         self.post_timeout(path, body, 2).await
     }

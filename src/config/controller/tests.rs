@@ -135,6 +135,26 @@ fn executors_refuse_controller_secrets_and_need_worker_control() {
         assert!(error.contains(secret), "{error}");
     }
     assert!(Executor::read(&mut Reader::from_pairs(&[("AYATI_MODEL", "fixture")])).is_err());
+    // Model gateway: keys stay on the controller, so an executor refuses them.
+    let gateway: Vec<_> = base
+        .iter()
+        .copied()
+        .chain([("AYATI_MODEL_GATEWAY", "1")])
+        .collect();
+    assert!(
+        Executor::read(&mut Reader::from_pairs(&gateway))
+            .unwrap()
+            .goose
+            .gateway
+    );
+    for key in ["OPENAI_API_KEY", "FIREWORKS_API_KEY", "OPENAI_HOST"] {
+        let pairs: Vec<_> = gateway.iter().copied().chain([(key, "x")]).collect();
+        let error = Executor::read(&mut Reader::from_pairs(&pairs))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains(key), "{error}");
+    }
 }
 
 #[test]

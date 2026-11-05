@@ -78,6 +78,8 @@ async fn rehearsal_exact_start_and_fenced_completion_never_create_business_work_
         &crate::config::GooseSettings {
             binary: root.path().join("goose"),
             provider: "openai".into(),
+            gateway: false,
+            proxy: None,
         },
     )
     .unwrap();
