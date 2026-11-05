@@ -1,7 +1,6 @@
 //! The Apps page shows connected services, what agents may do and who uses them;
 //! only admins see account names.
 use super::tests::{join, user, workspace};
-use super::*;
 use serde_json::json;
 
 #[tokio::test]

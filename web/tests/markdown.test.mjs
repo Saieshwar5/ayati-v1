@@ -18,5 +18,11 @@ test('agent markdown renders headings, lists, tables and literal code through a 
   main.innerHTML=messageHtml('[View run](run:22222222-2222-4222-8222-222222222222) [Odd](run:../../admin)');
   assert.equal(main.querySelectorAll('a').length,1);assert.match(main.querySelector('a').getAttribute('href'),/view=activity&tab=history&run=22222222-2222-4222-8222-222222222222$/);
   assert.equal(main.querySelector('a').target,'');
+  // A Library citation opens the item at its cited revision, same tab; other relative links stay text.
+  const item='33333333-3333-4333-8333-333333333333';
+  main.innerHTML=messageHtml(`- [Returns policy · revision 2](/w/44444444-4444-4444-8444-444444444444/?view=library&item=${item}&source_revision=2)\n- [Odd](/w/x/?view=library&item=${item}) [Other](/admin)`);
+  assert.equal(main.querySelectorAll('a').length,1);assert.equal(main.querySelector('a').textContent,'Returns policy · revision 2');
+  assert.match(main.querySelector('a').getAttribute('href'),new RegExp(`view=library&item=${item}&source_revision=2$`));
+  assert.equal(main.querySelector('a').target,'');
  } finally {globalThis.document=previous;dom.window.close();}
 });

@@ -4,6 +4,7 @@ import { currentWorkspace } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AskDialog, HistoryDialog, ShareDialog } from './dialogs';
+import { MoveDialog } from './folders';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -11,6 +12,7 @@ import {
   dateLabel,
   downloadUrl,
   draftKey,
+  folderUrl,
   itemUrl,
   request,
   visibilityName,
@@ -116,16 +118,23 @@ function ReadyItem({
 }) {
   const id = item.id;
   const mutation = useMutation();
-  const [dialog, setDialog] = useState<'share' | 'ask' | 'history'>();
+  const [dialog, setDialog] = useState<'share' | 'ask' | 'history' | 'move'>();
+  const back = item.folder ? folderUrl(item.folder) : itemUrl();
   const saving = usePageSave(item, acknowledged, item.kind === 'page');
   const stale = item.kind === 'page' && item.revision !== saving.revision;
   return (
     <section className="library-detail">
       <header className="library-detail-header">
         <div>
-          <Button onClick={() => navigate(itemUrl())}>‹ Library</Button>
+          <Button onClick={() => navigate(back)}>‹ {item.folder_title ?? 'Library'}</Button>
           <span>
             {item.kind === 'page' ? 'Page' : 'File'} · {visibilityName(item.visibility)}
+            {item.folder && item.folder_title && (
+              <>
+                {' · in '}
+                <a href={folderUrl(item.folder)}>{item.folder_title}</a>
+              </>
+            )}
           </span>
         </div>
         <div>
@@ -179,7 +188,17 @@ function ReadyItem({
             )}
           {item.manageable && (
             <>
-              <Button onClick={() => setDialog('share')}>Share</Button>
+              {item.folder ? (
+                <Button
+                  title={`Sharing follows the folder ${item.folder_title ?? ''}`}
+                  onClick={() => navigate(folderUrl(item.folder!))}
+                >
+                  Folder sharing
+                </Button>
+              ) : (
+                <Button onClick={() => setDialog('share')}>Share</Button>
+              )}
+              <Button onClick={() => setDialog('move')}>Move</Button>
               <Button
                 disabled={mutation.busy}
                 onClick={() =>
@@ -196,7 +215,7 @@ function ReadyItem({
                       action: 'trash',
                     });
                     changed();
-                    navigate(itemUrl());
+                    navigate(back);
                   })
                 }
               >
@@ -237,6 +256,9 @@ function ReadyItem({
         <ShareDialog item={item} close={() => setDialog(undefined)} changed={refresh} />
       )}
       {dialog === 'ask' && <AskDialog item={item} close={() => setDialog(undefined)} />}
+      {dialog === 'move' && item.manageable && (
+        <MoveDialog item={item} close={() => setDialog(undefined)} changed={refresh} />
+      )}
       {dialog === 'history' && item.editable && (
         <HistoryDialog item={item} close={() => setDialog(undefined)} changed={reload} />
       )}

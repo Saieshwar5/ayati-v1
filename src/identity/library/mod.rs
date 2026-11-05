@@ -21,7 +21,15 @@ pub(super) fn routes() -> Router<Shared> {
                 .post(save)
                 .layer(axum::extract::DefaultBodyLimit::max(300 * 1024)),
         )
+        .route(
+            "/api/identity/workspaces/{w}/library-folders",
+            post(create_folder),
+        )
         .route("/api/identity/workspaces/{w}/library/{id}", get(detail))
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/move",
+            post(move_item),
+        )
         .route(
             "/api/identity/workspaces/{w}/library/{id}/share",
             post(share),
@@ -63,6 +71,8 @@ struct Browse {
     #[serde(default)]
     q: String,
     #[serde(default)]
+    folder: String,
+    #[serde(default)]
     offset: i64,
 }
 async fn list(
@@ -84,6 +94,7 @@ async fn list(
                 &input.view
             },
             &input.q,
+            &input.folder,
             input.offset,
         )
         .await?;
@@ -107,6 +118,26 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.library_save(&user, &w, &input).await?))
+}
+async fn create_folder(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<CreateFolder>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_folder_create(&user, &w, &input).await?,
+    ))
+}
+async fn move_item(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<MoveItem>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_move(&user, &w, &id, &input).await?))
 }
 async fn share(
     State(app): State<Shared>,

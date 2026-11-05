@@ -116,6 +116,66 @@ PDF excerpts cover at most 50 pages; each question uses limited prepared text.
 Image OCR, audio/video transcription and arbitrary uploaded HTML/SVG rendering
 are not included.
 
+## Folders and agents answering from them (schema 69, LB1)
+
+Built 2026-11-05 from the Library plan (slice LB1, draft decision D242).
+
+**Folders.** One level: a folder holds pages and files, not other folders. Anyone can
+create one (`POST /api/identity/workspaces/{w}/library-folders` with `{id, request,
+title}`); it is private to its creator until shared. Everything in a folder follows the
+folder's sharing: people (Only me, Selected people, Workspace; Can view or Can edit) and
+agents. An item's own steward keeps access to it. Library → All shows one level, folders
+first with their item count; `?folder=` lists one folder's items; other views and
+searches show items wherever they are filed, with the folder's sharing and name.
+
+- People who can edit a folder can create pages in it (`folder` on the first save) and
+  file their own items into it. **Move** (`POST …/library/{id}/move` with `{request,
+  revision: access_revision, folder | null}`) is for the item's creator. Moving in clears
+  the item's own sharing; moving out makes it private again. Both are audited in plain
+  words and fence work that used the item.
+- An item in a folder can't be shared on its own ("share the folder or move the item
+  out"). Sharing a folder raises the access revision of every item in it, so source
+  receipts see the change.
+- A folder goes to Trash only when empty. An item restored from a folder that is in
+  Trash comes back unfiled and private.
+
+**Agent access per folder or item**, set by whoever manages its sharing, separately for
+each agent (`relay_library_agents.level`, `use_for`):
+
+| Use for | The agent may use it when… |
+| --- | --- |
+| **People who can see it** (default) | everyone who will read the answer can open it: the asker, everyone in the conversation (every member for a public channel) and a schedule's posting conversation |
+| **All staff** | any colleague asks, without them opening the document |
+
+Customer answers ("Customers") wait for customer mode; replies that go outside the
+workspace through the communication gateway can use neither. The only level offered is
+**Read**: Suggest, Edit with approval, Edit and Save here are reserved for agent editing
+(LB3) and refused until then. The server applies all of this (`relay_library_agent_use`),
+never the agent. Sharing changes are audited with each agent's audience ("Changed sharing
+of "HR": Nova reads it for people who can see it").
+
+**Agent tools** (ayati_control, pooled executors):
+
+- `list_folder({folder?})`: the folders and unfiled documents this agent may use here, or
+  one folder's documents.
+- `search_library({query})`: up to 10 documents matching up to eight words (a title match
+  counts three times the text), with a short preview. This is a plain word match over the
+  latest 200 usable documents; meaning-based search, summaries and more file types are LB2.
+- `read_document({id, offset?})`: 6,000 characters at a time. Anything the agent can't use
+  for these people is "not found", without saying whether it exists.
+
+Each read leaves a receipt (`relay_library_reads`: reply, item, revision, access
+revision). **Before the reply is published**, every read document must still be usable
+for that audience with unchanged sharing, or the reply is withheld ("Request cancelled
+because access changed"), like Ask. The finished reply ends with **Library documents read
+for this answer**, links Cuckoo makes from its receipts, not the model; Chat opens them
+in the same tab at the cited revision. Cited revisions are kept with page history.
+Agents given anything in the Library get one instruction line about these tools.
+
+Limits: an answer delivered to a conversation stays there if someone joins later; the
+first release lists up to 100 documents per folder and offers up to 50 folders when
+moving; uploads land unfiled and are moved afterwards.
+
 ## Agents and source continuity
 
 Share grants agent reading separately from people access. The current picker uses
@@ -141,8 +201,8 @@ temporary files require the same controlled retention/reconciliation as other
 orphan data before wider deployment. Delivered private answers remain Chat records.
 
 Reading adds no business tools, private runtime files, browser capability or
-operation grants. Automatic document edits and source-backed shared-channel
-questions are not enabled. Local simulation replies are scripted; they demonstrate
+operation grants. Automatic document edits are not enabled; agents answer from Library
+documents in shared conversations only through the tools above and their audience rules. Local simulation replies are scripted; they demonstrate
 the request/permission/citation path, not real model understanding.
 
 ## Upgrade and verification
@@ -209,6 +269,28 @@ The editor feature is about 129 KiB gzip on demand; PDF preview is about 125 KiB
 plus a 365 KiB worker gzip on demand. Hashed worker modules use the same private
 immutable cache policy as other hashed static code. Protected documents remain
 no-store. These are build-size measurements, not startup/latency guarantees.
+
+## Recorded verification — 2026-11-05 (LB1)
+
+- PostgreSQL (`postgres/library_folder_tests.rs`): items follow their folder's sharing and
+  its access revision; items in folders can't be shared apart; only folder editors add
+  to a folder; move in and out clears sharing; a non-empty folder can't go to Trash and a
+  restored item comes back unfiled and private; moves are audited. A colleague without
+  access gets the all-staff policy from `search_library`/`read_document` and a cited
+  answer, while the HR folder is invisible to them; the owner may use HR privately but
+  not in a conversation with the colleague; changing HR's sharing after a read withholds
+  the reply. Editing levels, customer and unknown audiences are refused; Ask follows the
+  folder's agents. The existing Library, source and upgrade tests pass.
+- Real Goose (`tests/library_folders.mjs`): an admin creates a folder in the browser,
+  shares it with an agent for all staff and sees it in the folder header; a colleague's
+  question is answered with a "Library documents read" citation that opens the page;
+  an HR document is never read for them or where they will read the answer. Screenshots
+  at desktop, 390 px (no horizontal overflow) and dark.
+- Web (`tests/library-folders.test.mjs`, `library.test.mjs`, `markdown.test.mjs`): folder
+  sharing with Can edit and the safest audience by default; one folder per click burst
+  with the same identity on retry and the name kept after a failure; Move offers only
+  editable folders and sends the sharing revision; an open folder lists its own items;
+  Library citation links open in the same tab and other relative links stay text.
 
 ## Dependency decisions
 

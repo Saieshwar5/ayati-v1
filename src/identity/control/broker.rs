@@ -242,6 +242,18 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             };
             pg.propose_guard_rule(job, &proposal).await
         }
+        "list_folder" => {
+            pg.library_list_folder(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "search_library" => {
+            pg.library_search(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "read_document" => {
+            pg.library_read_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "report_problem" => {
             pg.report_agent_need(job, &serde_json::from_value(arguments)?)
                 .await

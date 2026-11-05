@@ -14,6 +14,7 @@ async fn completed_library_bodies_are_revoked_in_reader_history_focus_and_replay
         revision: 0,
         title: "Private source".into(),
         document: serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Private reference"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut sharing = ShareItem {
@@ -21,7 +22,7 @@ async fn completed_library_bodies_are_revoked_in_reader_history_focus_and_replay
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![initial.agent.clone()],
+        agents: vec![initial.agent.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &sharing)
         .await

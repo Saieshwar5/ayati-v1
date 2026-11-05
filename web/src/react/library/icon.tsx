@@ -31,6 +31,7 @@ export function LibraryIcon({ name }: { name: string }) {
           <path d="M5 3h9l5 5v13H5ZM14 3v6h5M8 12h8m-8 4h8" />
         </>
       )}
+      {name === 'folder' && <path d="M3 6h6l2 2h10v11H3Z" />}
       {name === 'file' && (
         <>
           <path d="M5 3h9l5 5v13H5ZM14 3v6h5" />

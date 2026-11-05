@@ -72,7 +72,17 @@ impl PgStore {
                     current["manageable"] == true,
                     "Only the creator can trash or restore an item"
                 );
+                if input.action == "trash" && current["kind"] == "folder" {
+                    ensure!(
+                        query(&tx,"SELECT id FROM relay_library_items WHERE workspace=$1 AND folder=$2 AND NOT trashed LIMIT 1",vec![w.into(),id.into()]).await?.is_none(),
+                        "Move or trash this folder's items first"
+                    );
+                }
                 execute(&tx,"UPDATE relay_library_items SET trashed=$3,access_revision=access_revision+1,revision=revision+1,updated=$4 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),(input.action=="trash").into(),now().into()]).await?;
+                // An item restored from a folder that is in Trash comes back unfiled and private.
+                if input.action == "restore" {
+                    execute(&tx,"UPDATE relay_library_items i SET folder=NULL,visibility='private' FROM relay_library_items f WHERE i.workspace=$1 AND i.id=$2 AND f.workspace=i.workspace AND f.id=i.folder AND f.trashed",vec![w.into(),id.into()]).await?;
+                }
                 execute(&tx,"INSERT INTO relay_library_versions SELECT workspace,id,revision,$3,title,document,text,$4 FROM relay_library_items WHERE workspace=$1 AND id=$2 AND kind='page'",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?;
             }
             audit(

@@ -1,4 +1,17 @@
 use super::*;
+
+/// Agents read until agent editing exists (LB3); customer answers need customer mode.
+fn validate_agent_grant(grant: &AgentGrant) -> Result<()> {
+    ensure!(
+        grant.level == "read",
+        "Agents can read Library items for now; editing levels come with agent editing"
+    );
+    ensure!(
+        ["viewers", "staff"].contains(&grant.use_for.as_str()),
+        "Choose whose questions this may answer: people who can see it, or all staff"
+    );
+    Ok(())
+}
 impl PgStore {
     pub async fn library_share(
         &self,
@@ -23,6 +36,10 @@ impl PgStore {
             current["manageable"] == true,
             "Only the creator can manage sharing"
         );
+        ensure!(
+            current["folder"].is_null(),
+            "This item follows its folder's sharing; share the folder or move the item out"
+        );
         let payload = json!({"share":id,"input":input});
         if let Some(result) = retry(&tx, user, w, &input.request, &payload).await? {
             tx.commit().await?;
@@ -39,8 +56,10 @@ impl PgStore {
             );
             role(&tx, w, &p.user).await?;
         }
-        for agent in &input.agents {
-            super::super::agent_profiles::managed_access(&tx, &user.id, w, agent, false).await?;
+        for grant in &input.agents {
+            validate_agent_grant(grant)?;
+            super::super::agent_profiles::managed_access(&tx, &user.id, w, &grant.agent, false)
+                .await?;
         }
         execute(
             &tx,
@@ -68,20 +87,63 @@ impl PgStore {
             .await?;
         }
         let mut agents = std::collections::HashSet::new();
-        for agent in &input.agents {
-            if agents.insert(agent) {
-                execute(
-                    &tx,
-                    "INSERT INTO relay_library_agents VALUES($1,$2,$3)",
-                    vec![w.into(), id.into(), agent.clone().into()],
-                )
-                .await?;
-            }
+        for grant in &input.agents {
+            ensure!(agents.insert(&grant.agent), "Each agent can be listed once");
+            execute(
+                &tx,
+                "INSERT INTO relay_library_agents(workspace,item,agent,level,use_for) VALUES($1,$2,$3,$4,$5)",
+                vec![
+                    w.into(),
+                    id.into(),
+                    grant.agent.clone().into(),
+                    grant.level.clone().into(),
+                    grant.use_for.clone().into(),
+                ],
+            )
+            .await?;
         }
         execute(&tx,"UPDATE relay_library_items SET visibility=$3,access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.visibility.clone().into()]).await?;
+        // Items in a folder follow it: their source receipts must see the change too.
+        execute(&tx,"UPDATE relay_library_items SET access_revision=access_revision+1 WHERE workspace=$1 AND folder=$2",vec![w.into(),id.into()]).await?;
         let result = json!({"ok":true});
         remember(&tx, user, w, &input.request, payload, &result).await?;
-        audit(&tx, &user.id, Some(w), "library_access_changed", id).await?;
+        let mut said = vec![];
+        for grant in &input.agents {
+            let name: String = query(
+                &tx,
+                "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+                vec![w.into(), grant.agent.clone().into()],
+            )
+            .await?
+            .map(|r| r.try_get("", "name"))
+            .transpose()?
+            .unwrap_or_default();
+            said.push(format!(
+                "{name} reads it for {}",
+                if grant.use_for == "staff" {
+                    "all staff"
+                } else {
+                    "people who can see it"
+                }
+            ));
+        }
+        audit_with_summary(
+            &tx,
+            &user.id,
+            Some(w),
+            "library_access_changed",
+            id,
+            &format!(
+                "Changed sharing of \"{}\"{}",
+                current["title"].as_str().unwrap_or("Library item"),
+                if said.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", said.join("; "))
+                }
+            ),
+        )
+        .await?;
         super::super::task_revocation::inaccessible(&tx, w).await?;
         tx.commit().await?;
         Ok(result)
