@@ -15,6 +15,10 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route("/api/identity/workspaces/{w}/models", get(list))
         .route("/api/identity/workspaces/{w}/usage", get(usage))
+        .route(
+            "/api/identity/workspaces/{w}/model-budgets",
+            get(budgets).post(save_budget),
+        )
 }
 
 /// The models people may choose, without providers or our costs; empty without a
@@ -92,4 +96,23 @@ async fn usage(
         item["name"] = json!(name);
     }
     Ok(Json(report))
+}
+
+/// Monthly model budgets with this month's use (MG3); admins change them.
+async fn budgets(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.model_budgets(&user, &w).await?))
+}
+async fn save_budget(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::model_budgets::BudgetInput>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.save_model_budget(&user, &w, &input).await?))
 }

@@ -121,6 +121,20 @@ pub(super) async fn invoke(
         .map(str::to_owned)
         .or_else(|| state.app.config.worker_providers.first().cloned())
         .unwrap_or_else(|| "openai".into());
+    // A used-up monthly budget stops every model call, whatever started the work (MG3).
+    if let Some(reason) = pg(&state)
+        .model_budget_reached(
+            &input.assignment.scope.workspace,
+            &input.assignment.scope.agent,
+        )
+        .await?
+    {
+        return Ok((
+            StatusCode::PAYMENT_REQUIRED,
+            Json(json!({"error":{"message":reason,"type":"budget_reached"}})),
+        )
+            .into_response());
+    }
     let mut body = input.body;
     if !body.is_object() {
         return Err(anyhow::anyhow!("Invalid model request").into());

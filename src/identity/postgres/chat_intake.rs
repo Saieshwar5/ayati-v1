@@ -251,6 +251,10 @@ impl PgStore {
                 super::settings::workspace::agent_model_allowed(tx, workspace, agent).await?,
                 "This agent's model is no longer allowed in this workspace. Ask its owner to choose another model."
             );
+            if let Some(reason) = super::model_budgets::budget_reached(tx, workspace, agent).await?
+            {
+                anyhow::bail!(reason);
+            }
             ensure!(query(tx,"SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",vec![workspace.into(),chat.into(),agent.clone().into()]).await?.is_some(),"Agent is not in this conversation");
         }
         // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.

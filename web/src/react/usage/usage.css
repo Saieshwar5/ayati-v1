@@ -19,3 +19,21 @@
   .usage-totals { grid-template-columns: 1fr 1fr; gap: 10px; }
   .usage-totals strong { font-size: 18px; }
 }
+/* Monthly budgets (MG3). */
+.usage-budgets { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+.usage-budgets h3 { margin: 0; font-size: 16px; }
+.usage-budget-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.usage-budget-list li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-panel); border-radius: 10px; }
+.usage-budget { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.usage-budget-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.usage-budget-head span, .usage-budget small { color: var(--muted); font-size: 12px; }
+.usage-budget meter { width: 100%; height: 8px; }
+.usage-budget-warning small { color: var(--warning); }
+.usage-budget-reached small { color: var(--danger); font-weight: 600; }
+.usage-budget-remove { display: grid; gap: 4px; justify-items: end; }
+.usage-budget-form .ui-fieldset { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .8fr) auto; gap: 10px; align-items: end; border: 0; padding: 0; margin: 0; }
+.usage-budget-form select, .usage-budget-form input { width: 100%; padding: 9px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
+@media (max-width: 760px) {
+  .usage-budget-form .ui-fieldset { grid-template-columns: 1fr; }
+  .usage-budget-list li { flex-direction: column; align-items: stretch; }
+}

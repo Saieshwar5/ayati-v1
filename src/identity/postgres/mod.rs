@@ -113,6 +113,9 @@ mod message_reply_migration;
 #[cfg(test)]
 mod message_reply_tests;
 #[cfg(test)]
+mod model_budget_tests;
+pub(crate) mod model_budgets;
+#[cfg(test)]
 mod model_catalog_tests;
 #[cfg(test)]
 mod model_usage_report_tests;

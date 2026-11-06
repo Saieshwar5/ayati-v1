@@ -96,6 +96,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::built_apps::BuiltAppChanges),
             Box::new(super::worker_control::model_usage::ModelRoutes),
             Box::new(super::worker_control::model_usage::ModelCosts),
+            Box::new(super::model_budgets::ModelBudgets),
         ]
     }
 }

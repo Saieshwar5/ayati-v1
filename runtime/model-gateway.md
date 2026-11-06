@@ -41,7 +41,8 @@ Goose ──OpenAI protocol──▶ slot's loopback proxy ──worker control�
 5. The answer streams back as it arrives. When it ends, the controller reads the token
    counts from the JSON answer or the last usage chunk and saves a row in
    `relay_model_usage` (workspace, assignment, agent, request, provider, model, tokens).
-6. Provider errors pass through with their status; an unreachable provider is 502.
+6. Provider errors pass through with their status; an unreachable provider is 502. A
+   used-up [monthly budget](model-budgets.md) answers 402 before any provider is called.
 
 ## Where it shows
 
