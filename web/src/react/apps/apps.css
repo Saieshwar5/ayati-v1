@@ -50,3 +50,27 @@
 .apps-requests li { padding: 14px 0; border-top: 1px solid var(--border); display: grid; gap: 8px; }
 .apps-requests p { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .apps-main { padding: 20px 16px; } .app-panel { border-left: 0; border-top: 1px solid var(--border); padding: 20px 16px; } }
+.built-code { display: grid; grid-template-columns: minmax(140px, 200px) 1fr; gap: 14px; min-height: 0; }
+.built-files ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.built-files button { width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; overflow-wrap: anywhere; }
+.built-files button:hover { background: var(--soft); }
+.built-files button[aria-current="true"] { background: var(--selection); font-weight: 600; }
+.built-new { display: grid; gap: 6px; margin-top: 12px; }
+.built-new input { height: 34px; padding: 0 10px; border: 1px solid var(--border-panel); border-radius: 8px; background: var(--surface); color: var(--text); font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.built-editor { display: grid; gap: 10px; min-width: 0; }
+.built-editor textarea { width: 100%; min-height: 320px; max-height: 55vh; box-sizing: border-box; padding: 12px; border: 1px solid var(--border-panel); border-radius: 10px; background: var(--soft); color: var(--text); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; tab-size: 2; white-space: pre; overflow-wrap: normal; overflow: auto; }
+.built-checks, .built-publish, .built-versions { margin-top: 22px; display: grid; gap: 8px; }
+.built-checks h3, .built-publish h3, .built-versions h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.built-checks p, .built-publish p { margin: 0; }
+.built-checks ul, .built-versions ul { list-style: none; margin: 0; padding: 0; }
+.built-check-failed { padding: 8px 12px; border-radius: 10px; background: var(--warning-bg); margin-bottom: 6px; overflow-wrap: anywhere; }
+.built-check-failed strong { text-transform: capitalize; margin-right: 6px; }
+.built-versions li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+.built-versions small { display: block; color: var(--muted); font-size: 12.5px; }
+.apps-runner { display: flex; flex-direction: column; height: 100%; min-height: 0; box-sizing: border-box; }
+.apps-runner-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.apps-runner-bar h1 { margin: 0; font-size: 17px; }
+.apps-runner-bar a { color: var(--text); text-decoration: none; font-size: 14px; }
+.apps-runner-error { padding: 20px; display: grid; gap: 10px; justify-items: start; }
+.apps-runner-frame { flex: 1; width: 100%; min-height: 360px; border: 0; background: #fff; }
+@media (max-width: 760px) { .built-code { grid-template-columns: 1fr; } }

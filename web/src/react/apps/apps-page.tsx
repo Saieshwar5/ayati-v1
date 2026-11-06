@@ -6,22 +6,29 @@ import { modes } from '../agents/control-model';
 import { meanings } from '../settings/workspace-connections-model';
 import { WorkspaceConnections } from '../settings/workspace-connections';
 import { workspaceUrl } from '../../workspace-context';
-import { appColour, loadApps, type CompanySystem, type WorkspaceApp } from './apps-model';
+import { appColour, loadApps, type BuiltApp, type CompanySystem, type WorkspaceApp } from './apps-model';
 import { LinkIcon, RequestDialog, RequestsDrawer, SystemForm, SystemPanel } from './company-apps';
+import { BuiltForm, BuiltIcon, BuiltPanel } from './built-apps';
+import { AppRunner } from './built-app-runner';
 import './apps.css';
 
 function Plug() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0ZM12 17v4" /></svg>;
 }
 
-type Filter = 'all' | 'systems' | 'services';
-type Card = { key: string; system?: CompanySystem; service?: WorkspaceApp };
+type Filter = 'all' | 'built' | 'systems' | 'services';
+type Card = { key: string; built?: BuiltApp; system?: CompanySystem; service?: WorkspaceApp };
 
 /** Apps (apps-page plan, AP1–AP3): the company's own systems, which open through
  * Cuckoo for the people allowed, and every connected service with what agents may do.
  * Everyone reads it and opens or requests apps; admins add and manage them. */
 export function AppsPage({ href }: { href: string }) {
   const url = new URL(href);
+  const running = url.searchParams.get('run');
+  return running ? <AppRunner id={running} preview={url.searchParams.get('preview') === '1'} /> : <AppsList url={url} />;
+}
+
+function AppsList({ url }: { url: URL }) {
   const resource = useResource(loadApps);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -30,6 +37,7 @@ export function AppsPage({ href }: { href: string }) {
   const [managing, setManaging] = useState(url.searchParams.get('manage') === '1' || url.searchParams.get('section') === 'connections');
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CompanySystem | 'new'>();
+  const [building, setBuilding] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const data = resource.data;
@@ -37,12 +45,13 @@ export function AppsPage({ href }: { href: string }) {
   const needs = data?.apps.filter(app => app.status === 'reconnect').length ?? 0;
   const matches = (name: string) => !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
   const cards: Card[] = [
-    ...(filter === 'services' || needsOnly ? [] : (data?.systems ?? []).filter(s => matches(s.name)).map(system => ({ key: `system:${system.id}`, system }))),
-    ...(filter === 'systems' ? [] : (data?.apps ?? []).filter(app => !needsOnly || app.status === 'reconnect').filter(app => matches(app.name)).map(service => ({ key: `service:${service.id}`, service }))),
+    ...(['all', 'built'].includes(filter) && !needsOnly ? (data?.built ?? []).filter(b => matches(b.name)).map(built => ({ key: `built:${built.id}`, built })) : []),
+    ...(!['all', 'systems'].includes(filter) || needsOnly ? [] : (data?.systems ?? []).filter(s => matches(s.name)).map(system => ({ key: `system:${system.id}`, system }))),
+    ...(!['all', 'services'].includes(filter) ? [] : (data?.apps ?? []).filter(app => !needsOnly || app.status === 'reconnect').filter(app => matches(app.name)).map(service => ({ key: `service:${service.id}`, service }))),
   ];
   const current = cards.find(card => card.key === selected) ?? cards[0];
   const close = () => { setManaging(false); refresh(); };
-  const total = (data?.apps.length ?? 0) + (data?.systems.length ?? 0);
+  const total = (data?.apps.length ?? 0) + (data?.systems.length ?? 0) + (data?.built?.length ?? 0);
   return <main className="apps-page" aria-label="Apps">
     <div className="apps-main">
       <header className="apps-header"><h1>Apps</h1>
@@ -51,11 +60,12 @@ export function AppsPage({ href }: { href: string }) {
             <input type="search" placeholder="Search apps" value={query} onChange={event => setQuery(event.target.value)} /></label>
           {!!data?.requests_waiting && <Button onClick={() => setDeciding(true)}>{data.requests_waiting} request{data.requests_waiting === 1 ? '' : 's'}</Button>}
           {data && !data.can_manage && <Button onClick={() => setSuggesting(true)}>Suggest an app</Button>}
+          {data && <Button onClick={() => setBuilding(true)}>Build an app</Button>}
           {data?.can_manage && <Button primary onClick={() => setAdding(true)}>Add app</Button>}
         </div></header>
       <div className="apps-filters" role="group" aria-label="Show">
-        {(['all', 'systems', 'services'] as Filter[]).map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
-          {{ all: 'All', systems: 'Your systems', services: 'Services' }[option]}</button>)}
+        {(['all', 'built', 'systems', 'services'] as Filter[]).map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
+          {{ all: 'All', built: 'Built here', systems: 'Your systems', services: 'Services' }[option]}</button>)}
         {needs > 0 && <button type="button" className="apps-needs" aria-pressed={needsOnly} onClick={() => setNeedsOnly(on => !on)}><span aria-hidden="true" />{needs} need{needs === 1 ? 's' : ''} you</button>}
       </div>
       {resource.error && <><p role="alert">{resource.error}</p><Button onClick={refresh}>Retry</Button></>}
@@ -64,7 +74,13 @@ export function AppsPage({ href }: { href: string }) {
       {data && total > 0 && !cards.length && <p className="ui-empty">No apps match.</p>}
       <ul className="apps-grid">{cards.map(card => <li key={card.key}>
         <button type="button" className="app-card" aria-pressed={current?.key === card.key} onClick={() => setSelected(card.key)}>
-          {card.system ? <>
+          {card.built ? <>
+            <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.built.id) }}><BuiltIcon /></span>
+              {!card.built.version && <span className="app-status quiet">{card.built.versions?.length ? 'Offline' : 'Draft'}</span>}</span>
+            <span className="app-name">{card.built.name}</span>
+            <span className="app-line">{card.built.description || `Built by ${card.built.builder_name}`}</span>
+            <span className="app-foot"><span>{card.built.audience === 'everyone' ? 'Everyone' : 'Chosen people'}</span><span>Built here</span></span>
+          </> : card.system ? <>
             <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.system.id) }}><LinkIcon /></span>
               {!card.system.can_open && <span className="app-status quiet">{card.system.requested ? 'Requested' : 'No access'}</span>}</span>
             <span className="app-name">{card.system.name}</span>
@@ -80,6 +96,7 @@ export function AppsPage({ href }: { href: string }) {
           </>}
         </button></li>)}</ul>
     </div>
+    {current?.built && <BuiltPanel app={current.built} changed={refresh} />}
     {current?.system && <SystemPanel app={current.system} canManage={Boolean(data?.can_manage)} changed={refresh} edit={() => setEditing(current.system)} />}
     {current?.service && <AppPanel app={current.service} canManage={Boolean(data?.can_manage)} manage={() => setManaging(true)} />}
     {adding && <Dialog title="Add app" close={() => setAdding(false)}>
@@ -88,6 +105,7 @@ export function AppsPage({ href }: { href: string }) {
         <button type="button" onClick={() => { setAdding(false); setManaging(true); }}><strong>Connect a service</strong><span>Gmail, Zoho Books and others, for agents to use under your rules.</span></button>
       </div></Dialog>}
     {editing && <SystemForm app={editing === 'new' ? undefined : editing} close={() => setEditing(undefined)} saved={refresh} />}
+    {building && <BuiltForm close={() => setBuilding(false)} saved={id => { setFilter('built'); setSelected(`built:${id}`); refresh(); }} />}
     {suggesting && <RequestDialog close={() => setSuggesting(false)} sent={refresh} />}
     {deciding && <RequestsDrawer close={() => setDeciding(false)} changed={refresh} />}
     {managing && data?.can_manage && <Dialog drawer title="Add and manage apps" close={close}><WorkspaceConnections /></Dialog>}
