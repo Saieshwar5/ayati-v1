@@ -44,6 +44,10 @@ fn init_logging(logging: &config::Logging) {
 
 async fn run(command: &str) -> Result<()> {
     match command {
+        "admin" => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            ayati::identity::operator::cli::run(&args).await
+        }
         "workspace-db" => {
             ayati::identity::postgres::cli::run(
                 &config::migration_database_url()?,

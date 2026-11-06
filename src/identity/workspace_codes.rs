@@ -54,11 +54,30 @@ pub(super) async fn issue(
     Json(input): Json<Issue>,
 ) -> ApiResult<Json<Value>> {
     let user = admin(&app, &headers).await?;
-    Ok(Json(
-        app.store
-            .issue_workspace_code(&user, &input.note, input.days)
-            .await?,
-    ))
+    let issued = app
+        .store
+        .issue_workspace_code(&user, &input.note, input.days)
+        .await?;
+    // The same history as Cuckoo Control's other changes.
+    let by = super::postgres::operator::Operator {
+        user,
+        via: super::postgres::operator::Via::Web,
+    };
+    let note = input.note.trim();
+    app.store
+        .operator_record(
+            &by,
+            "codes",
+            "code_issued",
+            note,
+            &format!(
+                "issued an invite code for {note}, valid {} days",
+                input.days
+            ),
+            &format!("Invite code for {note}"),
+        )
+        .await?;
+    Ok(Json(issued))
 }
 
 pub(super) async fn list(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
@@ -73,5 +92,19 @@ pub(super) async fn revoke(
 ) -> ApiResult<Json<Value>> {
     let user = admin(&app, &headers).await?;
     app.store.revoke_workspace_code(&user, &id).await?;
+    let by = super::postgres::operator::Operator {
+        user,
+        via: super::postgres::operator::Via::Web,
+    };
+    app.store
+        .operator_record(
+            &by,
+            "codes",
+            "code_revoked",
+            &id,
+            "revoked an unused invite code",
+            "Revoked in Cuckoo Control",
+        )
+        .await?;
     Ok(Json(json!({"revoked": true})))
 }

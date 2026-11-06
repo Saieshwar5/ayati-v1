@@ -172,6 +172,9 @@ struct Switch {
     enabled: bool,
     #[serde(default)]
     note: String,
+    /// Cuckoo Control's change-log reason; the note when absent.
+    #[serde(default)]
+    reason: String,
 }
 /// Switches one provider off for every workspace, or back on.
 async fn switch(
@@ -180,10 +183,47 @@ async fn switch(
     Json(input): Json<Switch>,
 ) -> ApiResult<Json<Value>> {
     let user = platform(&app, &headers).await?;
+    let why = if input.reason.trim().is_empty() {
+        input.note.trim()
+    } else {
+        input.reason.trim()
+    };
+    let why = crate::identity::postgres::operator::reason(if why.is_empty() {
+        "Turned back on"
+    } else {
+        why
+    })?;
     app.store
         .connector_provider_set(&user, &input.provider, input.enabled, &input.note)
         .await?;
-    Ok(Json(json!({"saved":true})))
+    let by = crate::identity::postgres::operator::Operator {
+        user,
+        via: crate::identity::postgres::operator::Via::Web,
+    };
+    let state = if input.enabled {
+        "back on"
+    } else {
+        "off for every workspace"
+    };
+    app.store
+        .operator_record(
+            &by,
+            "providers",
+            "connector_provider_set",
+            &input.provider,
+            &format!("turned connected-app provider {} {state}", input.provider),
+            &why,
+        )
+        .await?;
+    let mut value = app.store.connector_providers().await?;
+    value["configured"] = json!(
+        super::providers()
+            .iter()
+            .map(|p| p.name())
+            .collect::<Vec<_>>()
+    );
+    value["saved"] = json!(true);
+    Ok(Json(value))
 }
 
 async fn platform(app: &App, headers: &HeaderMap) -> ApiResult<User> {

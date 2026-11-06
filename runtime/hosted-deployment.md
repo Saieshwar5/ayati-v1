@@ -68,6 +68,8 @@ for migrations, API and workers in a release.
 | `AYATI_WORKER_CONTROL_LISTEN`, `…_TLS_CERT`, `…_TLS_KEY` | API only: private listen address and TLS files for an `https://` URL |
 | `AYATI_WORKER_CONTROL_CA` | Executors only: the private certificate authority they trust |
 | `AYATI_PLATFORM_ADMINS` | API only: comma-separated verified emails that issue workspace invite codes and may create workspaces without one ([workspace access](workspace-access.md)) |
+| `AYATI_SECRETS_KEY_FILE` | API only: owned 0600 file of 64 hex characters that seals model provider keys added in [Cuckoo Control](cuckoo-control.md) |
+| `AYATI_CONTROL_ENVIRONMENT` | API only: the name in Cuckoo Control's environment band, such as `production` or `staging` |
 | `AYATI_EXECUTOR_IDENTITY` | Executors: `bootstrap` (key file) or `aws` (proven ECS task identity, [worker control](worker-control.md#executors-on-aws-proven-task-identity)) |
 | `WORKOS_CLIENT_ID`, `WORKOS_API_KEY` | API only; configure the exact public `/auth/callback` URL in WorkOS |
 | `AYATI_WORKER_PROVIDERS` | API declaration of executor providers, `openai` and/or `fireworks-ai`, comma separated |
@@ -150,6 +152,7 @@ GRANT USAGE ON SCHEMA public TO relay_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
 REVOKE UPDATE, DELETE ON public.relay_audit FROM relay_app;
+REVOKE UPDATE, DELETE ON public.relay_operator_log FROM relay_app;
 REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
 ```
 

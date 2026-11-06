@@ -45,7 +45,7 @@ pub(crate) async fn ensure_running(db: &impl ConnectionTrait, w: &str) -> Result
 }
 
 /// Tells every open tab in the workspace, through the existing change stream.
-async fn announce(tx: &DatabaseTransaction, w: &str) -> Result<()> {
+pub(crate) async fn announce(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     let cursor: i64 = query(
         tx,
         "INSERT INTO relay_sync_clocks(workspace,cursor) VALUES($1,1)

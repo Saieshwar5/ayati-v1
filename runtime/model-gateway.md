@@ -58,9 +58,15 @@ out" (`model_usage` on `GET …/activity/requests/{reply}`).
 - Without the gateway, existing journeys (for example `tests/agent_tasks.mjs`) run as
   before.
 
+## Routes, backups, prices and limits (schema 87)
+
+[Cuckoo Control](cuckoo-control.md) adds routes keyed by the requested model (a main
+and an optional backup provider, a split and a timeout), an emergency switch per
+provider, a priced model catalog, workspace spending caps, a platform daily ceiling
+and suspension. Providers can also be added in the console with sealed keys. Every
+attempt, including failures, is saved with its latency and cost.
+
 ## Not yet
 
-- Choosing a model per agent beyond the assignment's provider/model profile, and
-  fallbacks between providers.
 - Non-OpenAI protocols (Anthropic, Gemini) as adapters.
-- Prices and cost per task, budgets and the embedding and classification slots.
+- Library embedding and summary calls follow neither routes nor switches.

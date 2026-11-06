@@ -164,6 +164,7 @@ Resources:
               GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
               GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
               REVOKE UPDATE, DELETE ON public.relay_audit FROM relay_app;
+              REVOKE UPDATE, DELETE ON public.relay_operator_log FROM relay_app;
               REVOKE INSERT, UPDATE, DELETE ON public.seaql_migrations FROM relay_app;
               SQL
               echo 'Runtime role granted.'
