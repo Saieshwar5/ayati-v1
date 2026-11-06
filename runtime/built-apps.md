@@ -6,7 +6,7 @@ counter — and publish them on the [Apps page](apps-page.md). From the Apps pla
 (schema 78), the app's own data and roles through a message bridge (schema 79), and
 agents that write the draft for the builder who asks (schema 80), and agents acting in
 apps for a person, under per-action rules, with Leave, Expenses and Stock templates
-(schema 81).
+(schema 81), and app events that start agent work (schema 84).
 Apps can't read or change other Cuckoo data.
 
 ## How an app is kept
@@ -144,6 +144,23 @@ Every template passes its checks as it is, so it can be published at once.
   the agent that made or last changed them (`by_agent`, shown as `agent`). Creates and
   updates are audited: "Nia did \"File a leave request\" in \"Leave\" for Mina".
 
+## App events
+
+- On a published app's panel, **When something is added** lists its collections. The
+  builder or an admin chooses **Ask an agent** for one: an agent and what it should do
+  with each new record (`GET/POST …/apps/built/{id}/watchers` with `{collection, agent,
+  instructions}`, or `agent: null` to stop). Cuckoo opens a conversation "<app> (app)"
+  between that person and the agent; starting it also checks they may work with the
+  agent. Setting and stopping are audited.
+- Each record added to that collection in the **live** app is queued once
+  (`relay_built_app_events`); preview records aren't, and neither are records the
+  watching agent added itself, so it can't loop. The scheduler starts one at a time per
+  collection, as background work for the watcher in their conversation, with the
+  record's fields, who added it (and through which agent) and the instructions. The
+  agent acts **as the watcher**: in the app it can do only what they could and what
+  Agents can allows. Paused agents, an app taken offline or a removed record mark it not
+  handled, with a reason; stopping skips what waits.
+
 ## Building with an agent
 
 - On the app's panel the builder chooses **Build with an agent**, an agent and what to
@@ -201,6 +218,8 @@ All under `/api/identity/workspaces/{w}/apps`:
 | `POST /built/{id}/helpers` `{agent, helps}` | builder | asks an agent to build the draft, or stops it; audited |
 | `GET /built/{id}/agent-rules` | anyone who can see it | each manifest action and whether agents may run it |
 | `POST /built/{id}/agent-rules` `{action, mode}` | builder, admins | allow or block one action for agents; audited |
+| `GET /built/{id}/watchers` | anyone who can see it | each collection and the agent acting on new records |
+| `POST /built/{id}/watchers` `{collection, agent, instructions}` | builder, admins | ask an agent to act on new records, or stop it; audited |
 
 ## In the browser
 
@@ -274,11 +293,21 @@ or download.
   publishes it and allows only filing; a colleague asks Nia in Chat; Nia sees only
   "file leave", files it as her (recorded with Nia), and approving is refused; the
   colleague opens Leave and sees the request waiting; audited.
+- PostgreSQL (`postgres/built_app_events_tests.rs`): only after publishing, only its
+  builder or an admin, only declared collections; a colleague's live request is queued
+  once and starts work for the watcher in their conversation, with who added it and its
+  fields; a preview record and the agent's own record start nothing; the next waits its
+  turn; the agent acts with the watcher's roles; stopping skips what waits; audited.
+- Web (`tests/built-apps.test.mjs`): asking an agent and stopping it from the panel, the
+  conversation link for the watcher only, read-only for people who use the app.
+- Real Goose (`tests/built_app_events.mjs`): the builder asks Nia from the panel in the
+  browser; a colleague asks for leave in the running app; Nia, working for the builder,
+  replies in their conversation and opens a task to decide; audited.
 
 ## Not yet
 
 - The agent seeing what a preview shows or the errors it raises.
 - "Ask first" for app actions (a person confirms in Needs me), company rules from the
-  Guard on app actions, and app events ("request approved") becoming tasks.
+  Guard on app actions; events for changed records ("request approved").
 - Agent actions declared in the manifest and run under company rules.
 - Templates beyond the starter, and a Git-backed code store.

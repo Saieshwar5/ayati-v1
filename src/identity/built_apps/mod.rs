@@ -7,7 +7,7 @@ pub(crate) mod manifest;
 pub(crate) mod templates;
 use super::*;
 use crate::identity::postgres::{
-    AgentRule, AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange,
+    AgentRule, AppFile, AppRelease, AppWatch, DataRequest, Helper, NewApp, RoleChange,
 };
 use axum::{
     Json,
@@ -58,6 +58,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/agent-rules",
             get(agent_rules).post(agent_rule),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/watchers",
+            get(watchers).post(watch_set),
         )
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/download",
@@ -257,6 +261,28 @@ async fn agent_rule(
     Ok(Json(
         app.store
             .built_app_agent_rule(&user, &w, &id, &input)
+            .await?,
+    ))
+}
+/// Who acts on new records in each collection, and (builder, admins) changing it.
+async fn watchers(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.built_app_watchers(&user, &w, &id).await?))
+}
+async fn watch_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<AppWatch>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .built_app_watch_set(&user, &w, &id, &input)
             .await?,
     ))
 }

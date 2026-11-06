@@ -160,6 +160,9 @@ pub(super) async fn answer(
             );
             let record = uuid::Uuid::new_v4().to_string();
             execute(tx, "INSERT INTO relay_built_app_records(workspace,app,stage,collection,id,data,created_by,updated_by,created,updated,by_agent) VALUES($1,$2,$3,$4,$6,$7,$5,$5,$8,$8,$9)", values(vec![record.clone().into(), data.into(), now().into(), agent.map(str::to_owned).into()])).await?;
+            if stage == "live" {
+                super::events::queue(tx, w, id, collection, &record, agent).await?;
+            }
             json_rows(
                 tx,
                 &format!(

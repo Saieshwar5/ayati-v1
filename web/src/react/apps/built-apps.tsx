@@ -7,6 +7,7 @@ import { CodeDrawer } from './built-app-code';
 import { RolesDialog } from './built-app-roles';
 import { AgentBuildDialog, AgentHelpers } from './built-app-agent';
 import { AgentRules } from './built-app-rules';
+import { AppEvents } from './built-app-events';
 
 export function BuiltIcon() {
   return (
@@ -70,6 +71,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
         </p>
       </section>
       <AgentRules app={app} />
+      {app.version && <AppEvents app={app} />}
       <section aria-label="How it runs">
         <h3>How it runs</h3>
         <p>
