@@ -127,3 +127,65 @@ test('Someone else sees a published app to open, without its code or versions', 
   }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member')
     : response(view([{ ...leave, version: 1, builder_name: 'Ravi', is_builder: false, can_open: true, can_manage: false, people: null, versions: null }])) });
 });
+
+test('The runner answers bridge messages from its own frame only, relaying them to the server', async () => {
+  const relayed = [];
+  await reactFixture(async ({ render, update }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: `${base}&run=b1` });
+    const frame = document.querySelector('iframe');
+    const answers = [];
+    frame.contentWindow.postMessage = message => answers.push(message);
+    const send = (data, source = frame.contentWindow) => update(() => window.dispatchEvent(new window.MessageEvent('message', { data, source })));
+    await send({ cuckoo: 1, id: 1, op: 'create', collection: 'requests', data: { days: 2 } });
+    await send({ cuckoo: 1, id: 2, op: 'list', collection: 'requests', mine: true });
+    await send({ cuckoo: 1, id: 3, op: 'delete', collection: 'requests', record: 'r1' });
+    await send({ cuckoo: 1, id: 4, op: 'list', collection: 'requests' }, window);
+    await send({ id: 5, op: 'list' });
+    assert.deepEqual(relayed, [
+      { preview: false, op: 'create', collection: 'requests', data: { days: 2 }, mine: false },
+      { preview: false, op: 'list', collection: 'requests', mine: true },
+      { preview: false, op: 'delete', collection: 'requests', record: 'r1', mine: false },
+    ], 'messages from elsewhere, or without the bridge marker, are ignored');
+    assert.deepEqual(answers, [
+      { cuckoo: 1, id: 1, ok: true, result: { id: 'r1', data: { days: 2 } } },
+      { cuckoo: 1, id: 2, ok: true, result: { records: [] } },
+      { cuckoo: 1, id: 3, ok: false, error: "Your role in this app can't delete requests" },
+    ]);
+  }, { url: `${base}&run=b1`, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/apps/built/b1/data')) {
+      const body = JSON.parse(options.body); relayed.push(body);
+      return body.op === 'delete' ? response({ error: "Your role in this app can't delete requests" }, 400)
+        : response(body.op === 'create' ? { id: 'r1', data: body.data } : { records: [] });
+    }
+    return response(view([{ ...leave, version: 1, is_builder: false, can_open: true, can_manage: false }]));
+  } });
+});
+
+test('The builder gives an app role to chosen people; the first role is everyone\'s', async () => {
+  const saved = [];
+  await reactFixture(async ({ render, click, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    await click(button('Roles'));
+    const dialog = document.querySelector('dialog[open]');
+    assert.match(dialog.textContent, /Everyone who can open it holds "user"/);
+    assert.deepEqual([...dialog.querySelectorAll('legend')].map(l => l.textContent), ['approver']);
+    assert.equal(button('Save approver').disabled, true, 'nothing changed yet');
+    const mina = [...dialog.querySelectorAll('label')].find(l => l.textContent === 'Mina').querySelector('input');
+    assert.equal(mina.checked, true, 'shows who holds it');
+    await click([...dialog.querySelectorAll('label')].find(l => l.textContent === 'Zoe').querySelector('input'));
+    await click(button('Save approver'));
+    assert.deepEqual(saved, [{ role: 'approver', people: ['mina', 'zoe'] }]);
+    assert.match(dialog.textContent, /Saved who holds "approver"\./);
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/chat-directory')) return response({ users: [{ id: 'mina', name: 'Mina' }, { id: 'zoe', name: 'Zoe' }] });
+    if (path.endsWith('/roles') && options.body) { saved.push(JSON.parse(options.body)); return response({ ok: true }); }
+    if (path.endsWith('/roles')) return response({ roles: ['user', 'approver'], held: [{ role: 'approver', id: 'mina', name: 'Mina' }, ...saved.length ? [{ role: 'approver', id: 'zoe', name: 'Zoe' }] : []], from_version: 1 });
+    return response(view([{ ...leave, version: 1, can_open: true }]));
+  } });
+});

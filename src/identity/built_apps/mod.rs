@@ -2,8 +2,9 @@
 //! request; the runnable document is served with a sandboxing content policy, so it
 //! never runs with Cuckoo's own origin.
 pub(crate) mod files;
+pub(crate) mod manifest;
 use super::*;
-use crate::identity::postgres::{AppFile, AppRelease, NewApp};
+use crate::identity::postgres::{AppFile, AppRelease, DataRequest, NewApp, RoleChange};
 use axum::{
     Json,
     extract::{Path as RoutePath, Query},
@@ -38,6 +39,14 @@ pub(super) fn routes() -> Router<Shared> {
             post(remove),
         )
         .route("/api/identity/workspaces/{w}/apps/built/{id}/run", get(run))
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/data",
+            post(data).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/roles",
+            get(roles).post(roles_set),
+        )
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/download",
             get(download),
@@ -170,4 +179,38 @@ async fn download(
     h.insert(header::CACHE_CONTROL, "private, no-store".parse()?);
     h.insert("x-content-type-options", "nosniff".parse()?);
     Ok(response)
+}
+
+/// One request a running app made through the bridge, relayed by the Apps page.
+async fn data(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<DataRequest>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.built_app_data(&user, &w, &id, &input).await?,
+    ))
+}
+async fn roles(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.built_app_roles(&user, &w, &id).await?))
+}
+async fn roles_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<RoleChange>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .built_app_roles_set(&user, &w, &id, &input)
+            .await?,
+    ))
 }

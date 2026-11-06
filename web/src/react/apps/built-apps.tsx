@@ -4,6 +4,7 @@ import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { appColour, appsRequest, builtPath, type BuiltApp } from './apps-model';
 import { CodeDrawer } from './built-app-code';
+import { RolesDialog } from './built-app-roles';
 
 export function BuiltIcon() {
   return (
@@ -28,6 +29,7 @@ export const runUrl = (id: string, preview = false) =>
 export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => void }) {
   const [coding, setCoding] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [giving, setGiving] = useState(false);
   const mutation = useMutation();
   return (
     <aside className="app-panel" aria-label={app.name}>
@@ -86,6 +88,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
             <a className="ui-button" href={runUrl(app.id, true)}>
               Preview draft
             </a>
+            <Button onClick={() => setGiving(true)}>Roles</Button>
             <Button onClick={() => setEditing(true)}>Settings</Button>
             <Button
               disabled={mutation.busy}
@@ -104,6 +107,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
       )}
       {mutation.status && <p role="alert">{mutation.status}</p>}
       {coding && <CodeDrawer app={app} close={() => setCoding(false)} changed={changed} />}
+      {giving && <RolesDialog app={app} close={() => setGiving(false)} />}
       {editing && <BuiltForm app={app} close={() => setEditing(false)} saved={changed} />}
     </aside>
   );

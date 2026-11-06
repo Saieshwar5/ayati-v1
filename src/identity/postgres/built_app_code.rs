@@ -23,7 +23,7 @@ pub(crate) struct AppRelease {
     pub revision: i64,
 }
 
-async fn files(
+pub(super) async fn files(
     tx: &DatabaseTransaction,
     w: &str,
     id: &str,
