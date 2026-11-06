@@ -78,6 +78,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::worker_control::model_usage::ModelUsage),
             Box::new(super::library::folders::LibraryFolders),
             Box::new(super::library::passages::LibraryPassages),
+            Box::new(super::library::fence::LibraryFence),
         ]
     }
 }

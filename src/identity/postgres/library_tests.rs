@@ -1,6 +1,8 @@
 use super::{tests::*, *};
 use crate::identity::library::model::*;
 use serde_json::json;
+#[path = "library_fence_tests.rs"]
+mod fence;
 #[path = "library_folder_tests.rs"]
 mod folders;
 #[path = "library_passage_tests.rs"]
