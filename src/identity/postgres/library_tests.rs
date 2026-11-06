@@ -21,6 +21,8 @@ mod passages;
 mod tables;
 #[path = "library_upkeep_tests.rs"]
 mod upkeep;
+#[path = "library_watching_tests.rs"]
+mod watching;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),

@@ -7,13 +7,13 @@ export function controllerToolsOnly(request) {
   // extensions must never enter a shared managed-agent session.
   assert.deepEqual((request.tools ?? []).map(tool => tool.function?.name).sort(), [
     'ayati_control__app_actions', 'ayati_control__app_files', 'ayati_control__ask_question', 'ayati_control__attach_to_task', 'ayati_control__close_task',
-    'ayati_control__continue_privately', 'ayati_control__create_task', 'ayati_control__edit_document', 'ayati_control__follow_up', 'ayati_control__handoff_targets',
+    'ayati_control__continue_privately', 'ayati_control__create_task', 'ayati_control__edit_document', 'ayati_control__file_document', 'ayati_control__follow_up', 'ayati_control__handoff_targets',
     'ayati_control__home_panel_update_context', 'ayati_control__list_folder', 'ayati_control__load_skill', 'ayati_control__lookup', 'ayati_control__my_apps', 'ayati_control__my_goals', 'ayati_control__open_tasks',
     'ayati_control__operations', 'ayati_control__personal_panels', 'ayati_control__propose_rule', 'ayati_control__propose_schedule',
     'ayati_control__read_app_file', 'ayati_control__read_conversation_history', 'ayati_control__read_document', 'ayati_control__refresh_home_panel', 'ayati_control__report_problem', 'ayati_control__request_action',
     'ayati_control__request_handoff', 'ayati_control__run_app_action', 'ayati_control__save_document', 'ayati_control__save_home_panel',
     'ayati_control__save_working_context',
-    'ayati_control__search_conversation_history', 'ayati_control__search_library', 'ayati_control__send_update', 'ayati_control__set_table_row', 'ayati_control__suggest_edit', 'ayati_control__update_goal', 'ayati_control__write_app_file', 'ayati_control__write_review',
+    'ayati_control__search_conversation_history', 'ayati_control__search_library', 'ayati_control__send_update', 'ayati_control__set_document_fields', 'ayati_control__set_table_row', 'ayati_control__suggest_edit', 'ayati_control__update_goal', 'ayati_control__write_app_file', 'ayati_control__write_review',
   ]);
 }
 

@@ -41,6 +41,14 @@ pub(super) fn routes() -> Router<Shared> {
             get(keeping).post(keeping_set),
         )
         .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/watch",
+            get(watch).post(watch_set),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/fields",
+            get(fields),
+        )
         .route("/api/identity/workspaces/{w}/library-gaps", get(gaps))
         .route(
             "/api/identity/workspaces/{w}/library-answers",
@@ -211,6 +219,35 @@ async fn hold(
     Ok(Json(
         app.store.library_hold_set(&user, &w, &id, &input).await?,
     ))
+}
+/// Who watches a folder, and setting or stopping it (LB6).
+async fn watch(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_watch(&user, &w, &id).await?))
+}
+async fn watch_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Watch>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_watch_set(&user, &w, &id, &input).await?,
+    ))
+}
+/// Key fields agents recorded on an item.
+async fn fields(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_fields(&user, &w, &id).await?))
 }
 /// Saves an answer from Chat as a Library page (LB5).
 async fn save_answer(

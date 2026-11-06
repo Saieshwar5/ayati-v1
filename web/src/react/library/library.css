@@ -192,6 +192,13 @@
 .library-gaps li > div { flex: 1 1 240px; min-width: 0; }
 .library-gaps strong { display: block; overflow-wrap: anywhere; }
 .library-gaps small { color: var(--muted); font-size: 12px; }
-.library-keeping { display: grid; gap: 8px; margin: 8px 0; }
+.library-keeping { display: grid; gap: 8px; margin: 0; padding: 4px 24px 8px; font-size: 13px; }
+.library-folder-header .library-keeping, .library-folder-header .library-watch { padding: 0; }
 .library-keeping p { margin: 0; }
 .library-keep-select { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.library-watch { display: grid; gap: 8px; margin: 8px 0; }
+.library-watch p { margin: 0; }
+.library-fields { margin: 8px 24px 12px; padding: 12px 14px; border: 1px solid var(--border-panel); border-radius: 12px; }
+.library-fields dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 0 0 6px; }
+.library-fields dt { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+.library-fields dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }

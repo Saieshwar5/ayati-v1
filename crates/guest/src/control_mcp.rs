@@ -26,8 +26,16 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some("write_review") => crate::task_schema::review(input),
         Some("propose_rule") => crate::rule_schema::proposal(input),
         Some(
-            name @ ("list_folder" | "search_library" | "read_document" | "suggest_edit"
-            | "edit_document" | "save_document" | "lookup" | "set_table_row"),
+            name @ ("list_folder"
+            | "search_library"
+            | "read_document"
+            | "suggest_edit"
+            | "edit_document"
+            | "save_document"
+            | "lookup"
+            | "set_table_row"
+            | "file_document"
+            | "set_document_fields"),
         ) => crate::library_schema::observed(name, input),
         Some(
             name @ ("my_apps" | "app_files" | "read_app_file" | "write_app_file" | "app_actions"
