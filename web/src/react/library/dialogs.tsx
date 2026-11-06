@@ -8,7 +8,15 @@ import {
 import { navigate } from '../../navigation';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
-import { request, itemUrl, dateLabel, useForName, type AgentGrant, type Item } from './model';
+import {
+  request,
+  itemUrl,
+  dateLabel,
+  levelName,
+  useForName,
+  type AgentGrant,
+  type Item,
+} from './model';
 type Directory = {
   users: { id: string; name: string }[];
   agents: { id: string; name: string; audience?: string; can_talk?: boolean; settings?: { paused: boolean } }[];
@@ -48,11 +56,14 @@ export function ShareDialog({
   const [people, setPeople] = useState<Record<string, string>>(
     Object.fromEntries(item.people.map((p) => [p.user, p.access])),
   );
-  // Agent id → whose questions it may answer from this item.
-  const [agents, setAgents] = useState<Record<string, AgentGrant['use_for']>>(
-    Object.fromEntries(item.agents.map((g) => [g.agent, g.use_for])),
+  // Agent id → what it may do and whose questions it may answer from this item.
+  const [agents, setAgents] = useState<Record<string, Omit<AgentGrant, 'agent'>>>(
+    Object.fromEntries(item.agents.map((g) => [g.agent, { level: g.level, use_for: g.use_for }])),
   );
   const folder = item.kind === 'folder';
+  // Owner decision: agents suggest edits by default; files can only be read.
+  const levels: AgentGrant['level'][] =
+    item.kind === 'file' ? ['read'] : folder ? ['read', 'suggest', 'edit', 'save'] : ['read', 'suggest', 'edit'];
   return (
     <Dialog
       title="People and agents"
@@ -82,11 +93,7 @@ export function ShareDialog({
                             user,
                             access,
                           })),
-                    agents: Object.entries(agents).map(([agent, use_for]) => ({
-                      agent,
-                      level: 'read',
-                      use_for,
-                    })),
+                    agents: Object.entries(agents).map(([agent, grant]) => ({ agent, ...grant })),
                   }),
                 );
                 changed();
@@ -150,7 +157,8 @@ export function ShareDialog({
         <h3>Agent access</h3>
         <p>
           Selected agents may read {folder ? 'what is in this folder' : 'this item'} to answer
-          questions. They cannot change it or perform business actions.
+          questions. Suggested edits wait for someone who can edit; edits are saved as versions
+          you can restore. Agents never change who has access.
         </p>
         {directory.data?.agents.map((agent) => (
           <div className="library-agent-grant" key={agent.id}>
@@ -161,25 +169,56 @@ export function ShareDialog({
                 onChange={(event) =>
                   setAgents((old) => {
                     const next = { ...old };
-                    if (event.target.checked) next[agent.id] = 'viewers';
+                    if (event.target.checked)
+                      next[agent.id] = {
+                        level: item.kind === 'file' ? 'read' : 'suggest',
+                        use_for: 'viewers',
+                      };
                     else delete next[agent.id];
                     return next;
                   })
                 }
               />
               {agent.name}
-              <small>Read</small>
+              <small>{agent.id in agents ? levelName(agents[agent.id].level) : 'No access'}</small>
             </label>
+            {agent.id in agents && levels.length > 1 && (
+              <label className="library-use-for">
+                Can
+                <select
+                  aria-label={`What ${agent.name} can do`}
+                  value={agents[agent.id].level}
+                  onChange={(event) =>
+                    setAgents((old) => ({
+                      ...old,
+                      [agent.id]: {
+                        ...old[agent.id],
+                        level: event.target.value as AgentGrant['level'],
+                      },
+                    }))
+                  }
+                >
+                  {levels.map((level) => (
+                    <option key={level} value={level}>
+                      {levelName(level)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {agent.id in agents && (
               <label className="library-use-for">
                 Use for
                 <select
                   aria-label={`Use for, ${agent.name}`}
-                  value={agents[agent.id]}
+                  value={agents[agent.id].use_for}
                   onChange={(event) =>
                     setAgents((old) => ({
                       ...old,
-                      [agent.id]: event.target.value as AgentGrant['use_for'],
+                      [agent.id]: {
+                        ...old[agent.id],
+                        use_for: event.target.value as AgentGrant['use_for'],
+                      },
                     }))
                   }
                 >
@@ -306,6 +345,7 @@ export function HistoryDialog({
           revision: number;
           title: string;
           author: string;
+          agent?: string | null;
           created: number;
         }[];
       }>(`/${item.id}/versions`),
@@ -346,7 +386,8 @@ export function HistoryDialog({
               Revision {version.revision} · {version.title}
             </strong>
             <small>
-              {version.author} · {dateLabel(version.created)}
+              {version.author}
+              {version.agent ? ` · by ${version.agent}` : ''} · {dateLabel(version.created)}
             </small>
           </div>
           <Button

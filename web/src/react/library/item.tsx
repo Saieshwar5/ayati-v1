@@ -5,6 +5,7 @@ import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AskDialog, HistoryDialog, ShareDialog } from './dialogs';
 import { MoveDialog } from './folders';
+import { Suggestions } from './suggestions';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -236,6 +237,7 @@ function ReadyItem({
           <Button onClick={reload}>Load saved version</Button>
         </p>
       )}
+      {item.kind === 'page' && <Suggestions id={id} revision={item.revision} changed={reload} />}
       {sourceRevision && Number(sourceRevision) !== item.revision && (
         <p className="library-notice">
           The agent used revision {sourceRevision}. You are viewing the current revision{' '}

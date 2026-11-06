@@ -5,6 +5,7 @@ pub(in crate::identity) mod indexer;
 pub(crate) mod model;
 pub(crate) mod models;
 mod office;
+pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
 use super::*;
@@ -32,6 +33,14 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/library-always/{agent}",
             get(always).post(always_save),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/suggestions",
+            get(suggestions),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/suggestions/{suggestion}",
+            post(decide),
         )
         .route("/api/identity/workspaces/{w}/library/{id}", get(detail))
         .route(
@@ -145,6 +154,27 @@ async fn always_save(
     Ok(Json(
         app.store
             .library_always_save(&user, &w, &agent, &input)
+            .await?,
+    ))
+}
+async fn suggestions(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_suggestions(&user, &w, &id).await?))
+}
+async fn decide(
+    State(app): State<Shared>,
+    RoutePath((w, id, suggestion)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Decision>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .library_decide_suggestion(&user, &w, &id, &suggestion, &input)
             .await?,
     ))
 }

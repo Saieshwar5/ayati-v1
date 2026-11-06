@@ -3,6 +3,8 @@ use crate::identity::library::model::*;
 use serde_json::json;
 #[path = "library_always_tests.rs"]
 mod always;
+#[path = "library_edit_tests.rs"]
+mod edits;
 #[path = "library_fence_tests.rs"]
 mod fence;
 #[path = "library_folder_tests.rs"]

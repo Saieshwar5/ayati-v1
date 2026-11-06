@@ -32,7 +32,7 @@ test('a folder is shared with an agent to answer all staff, and people can edit 
     assert.deepEqual([...useFor.options].map(o => o.textContent), ['People who can see it', 'All staff']);
     await change(useFor, 'staff');
     await click(button('Save changes'));
-    assert.deepEqual(payload.agents, [{ agent: 'nova', level: 'read', use_for: 'staff' }]);
+    assert.deepEqual(payload.agents, [{ agent: 'nova', level: 'suggest', use_for: 'staff' }]);
     assert.deepEqual(payload.people, [{ user: 'ravi', access: 'edit' }]);
     assert.equal(payload.revision, 2);
   }, { url, fetch: async (path, options = {}) => directory(path) ?? (assert.ok(path.endsWith('/library/sales/share')), payload = JSON.parse(options.body), response({ ok: true })) });

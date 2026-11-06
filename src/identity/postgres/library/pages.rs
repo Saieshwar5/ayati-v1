@@ -69,7 +69,22 @@ impl PgStore {
             item(&tx, user, w, id, false).await?["editable"] == true,
             "History requires edit access"
         );
-        let versions=json_rows(&tx,"SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email)) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50",vec![w.into(),id.into()]).await?;
+        // Before schema 74 versions had no agent.
+        let agent = if super::agent_tools::reads_exist(&tx).await?
+            && query(
+                &tx,
+                "SELECT to_regclass('relay_library_suggestions') IS NOT NULL AS present",
+                vec![],
+            )
+            .await?
+            .context("Schema check")?
+            .try_get::<bool>("", "present")?
+        {
+            ",'agent',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=v.workspace AND a.id=v.agent)"
+        } else {
+            ""
+        };
+        let versions=json_rows(&tx,&format!("SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email){agent}) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50"),vec![w.into(),id.into()]).await?;
         tx.commit().await?;
         Ok(json!({"versions":versions}))
     }

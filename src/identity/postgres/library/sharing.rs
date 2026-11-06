@@ -1,10 +1,15 @@
 use super::*;
 
-/// Agents read until agent editing exists (LB3); customer answers need customer mode.
-fn validate_agent_grant(grant: &AgentGrant) -> Result<()> {
+/// Read, suggest, edit or save here (LB3); "edit with approval" is reserved, and
+/// customer answers need customer mode.
+fn validate_agent_grant(grant: &AgentGrant, folder: bool) -> Result<()> {
     ensure!(
-        grant.level == "read",
-        "Agents can read Library items for now; editing levels come with agent editing"
+        ["read", "suggest", "edit", "save"].contains(&grant.level.as_str()),
+        "Choose read, suggest edits, edit or save here"
+    );
+    ensure!(
+        grant.level != "save" || folder,
+        "Saving new documents is set on a folder"
     );
     ensure!(
         ["viewers", "staff"].contains(&grant.use_for.as_str()),
@@ -57,7 +62,7 @@ impl PgStore {
             role(&tx, w, &p.user).await?;
         }
         for grant in &input.agents {
-            validate_agent_grant(grant)?;
+            validate_agent_grant(grant, current["kind"] == "folder")?;
             super::super::agent_profiles::managed_access(&tx, &user.id, w, &grant.agent, false)
                 .await?;
         }
