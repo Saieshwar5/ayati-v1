@@ -6,6 +6,7 @@ pub(super) mod answers;
 pub(super) mod edits;
 pub(super) mod fence;
 pub(super) mod folders;
+pub(super) mod keeping;
 pub(super) mod meaning;
 mod pages;
 pub(super) mod passages;
@@ -132,7 +133,7 @@ impl PgStore {
         // every item wherever it is filed.
         let due = upkeep::DUE;
         let sql = format!(
-            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {ACCESS} AND i.trashed=($3='trash') AND ($3!='all' OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3='all' AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
+            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {ACCESS} AND i.trashed=($3='trash') AND (to_jsonb(i)->>'purged') IS NULL AND ($3!='all' OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3='all' AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
         );
         let mut items = json_rows(
             &tx,

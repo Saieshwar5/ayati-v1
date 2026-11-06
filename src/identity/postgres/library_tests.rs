@@ -11,6 +11,8 @@ mod edits;
 mod fence;
 #[path = "library_folder_tests.rs"]
 mod folders;
+#[path = "library_keeping_tests.rs"]
+mod keeping;
 #[path = "library_meaning_tests.rs"]
 mod meaning;
 #[path = "library_passage_tests.rs"]

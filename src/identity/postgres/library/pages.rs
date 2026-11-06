@@ -108,6 +108,10 @@ impl PgStore {
 }
 
 pub(super) async fn prune_versions(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
+    // Everything on legal hold keeps every version (LB7).
+    if super::keeping::held(db, w, id).await? {
+        return Ok(());
+    }
     // Versions cited by Ask sources or agent reads (schema 69) stay verifiable.
     let reads = if super::agent_tools::reads_exist(db).await? {
         " AND NOT EXISTS(SELECT 1 FROM relay_library_reads r WHERE r.workspace=v.workspace AND r.item=v.item AND r.revision=v.revision)"

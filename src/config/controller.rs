@@ -112,6 +112,8 @@ pub struct Library {
     pub local_root: Option<PathBuf>,
     pub s3_bucket: Option<String>,
     pub s3_endpoint: Option<String>,
+    /// How often keeping rules delete what is past its time (LB7).
+    pub keeping_seconds: u64,
 }
 
 /// The ECS cluster, release and task role cloud executors must prove.
@@ -280,6 +282,7 @@ impl Library {
             local_root: env.text("CUCKOO_LIBRARY_LOCAL_ROOT").map(PathBuf::from),
             s3_bucket: env.text("CUCKOO_LIBRARY_S3_BUCKET"),
             s3_endpoint: env.text("CUCKOO_LIBRARY_S3_ENDPOINT"),
+            keeping_seconds: env.number("CUCKOO_LIBRARY_KEEPING_SECONDS", 600, 5..=86_400),
         };
         if library.local_root.is_some() && library.s3_bucket.is_some() {
             env.problem("Configure only one Library storage backend");

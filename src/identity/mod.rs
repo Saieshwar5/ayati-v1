@@ -221,6 +221,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     metrics::start(app.clone());
     data_cleanup::start(app.clone());
     library::indexer::start(app.clone());
+    library::keeping::start(app.clone());
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {

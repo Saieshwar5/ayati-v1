@@ -2,6 +2,7 @@ pub(in crate::identity) mod context;
 mod extract;
 mod files;
 pub(in crate::identity) mod indexer;
+pub(in crate::identity) mod keeping;
 pub(crate) mod model;
 pub(crate) mod models;
 mod office;
@@ -35,6 +36,11 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/library/{id}/review",
             get(review).post(review_set),
         )
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/keeping",
+            get(keeping).post(keeping_set),
+        )
+        .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
         .route("/api/identity/workspaces/{w}/library-gaps", get(gaps))
         .route(
             "/api/identity/workspaces/{w}/library-answers",
@@ -171,6 +177,39 @@ async fn review_set(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.library_review_set(&user, &w, &id, &input).await?,
+    ))
+}
+/// An item's legal hold and a folder's keeping rule (LB7).
+async fn keeping(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_keeping(&user, &w, &id).await?))
+}
+async fn keeping_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Keeping>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .library_keeping_set(&user, &w, &id, &input)
+            .await?,
+    ))
+}
+async fn hold(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Hold>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_hold_set(&user, &w, &id, &input).await?,
     ))
 }
 /// Saves an answer from Chat as a Library page (LB5).

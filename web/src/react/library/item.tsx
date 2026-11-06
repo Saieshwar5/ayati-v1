@@ -8,6 +8,7 @@ import { MoveDialog } from './folders';
 import { Suggestions } from './suggestions';
 import { TableView } from './table-view';
 import { ReviewControl } from './upkeep';
+import { KeepingControl } from './keeping';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -242,6 +243,7 @@ function ReadyItem({
       )}
       {item.kind === 'page' && <Suggestions id={id} revision={item.revision} changed={reload} />}
       <ReviewControl key={`review:${item.revision}`} item={item} />
+      <KeepingControl key={`keeping:${item.revision}`} item={item} />
       {sourceRevision && Number(sourceRevision) !== item.revision && (
         <p className="library-notice">
           The agent used revision {sourceRevision}. You are viewing the current revision{' '}
