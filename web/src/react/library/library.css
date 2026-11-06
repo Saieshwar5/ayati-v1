@@ -184,3 +184,11 @@
 .library-table-paste { margin: 14px 0; font-size: 13px; }
 .library-table-paste textarea { display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px; border: 1px solid var(--border-control); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
 @media (max-width: 700px) { .library-table-view { padding: 16px; } }
+.library-review { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 24px; font-size: 12px; color: var(--muted); }
+.library-review.overdue { color: var(--text); }
+.library-review select { min-height: 32px; padding: 4px 8px; border: 1px solid var(--border-control); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; }
+.library-gaps ul { list-style: none; margin: 16px 0 0; padding: 0; }
+.library-gaps li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid var(--border); }
+.library-gaps li > div { flex: 1 1 240px; min-width: 0; }
+.library-gaps strong { display: block; overflow-wrap: anywhere; }
+.library-gaps small { color: var(--muted); font-size: 12px; }

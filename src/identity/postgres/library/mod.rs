@@ -11,6 +11,7 @@ pub(super) mod passages;
 pub(super) mod rehearsals;
 mod sharing;
 pub(super) mod tables;
+pub(super) mod upkeep;
 mod uploads;
 use super::*;
 use crate::identity::library::model::*;
@@ -112,7 +113,7 @@ impl PgStore {
         offset: i64,
     ) -> Result<Value> {
         ensure!(
-            ["all", "private", "shared", "starred", "trash"].contains(&view)
+            ["all", "private", "shared", "starred", "trash", "review"].contains(&view)
                 && search.len() <= 180
                 && folder.len() <= 64
                 && (0..=10000).contains(&offset),
@@ -128,8 +129,9 @@ impl PgStore {
         }
         // Browsing All shows one level (folders first); other views and searches show
         // every item wherever it is filed.
+        let due = upkeep::DUE;
         let sql = format!(
-            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {ACCESS} AND i.trashed=($3='trash') AND ($3!='all' OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3='all' AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
+            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {ACCESS} AND i.trashed=($3='trash') AND ($3!='all' OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3='all' AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
         );
         let mut items = json_rows(
             &tx,

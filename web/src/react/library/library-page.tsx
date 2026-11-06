@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
-import { identityRequest, workspaceId } from '../../workspace-context';
+import { currentWorkspace, identityRequest, workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { LibraryItem } from './item';
 import { FolderHeader, NewFolderDialog } from './folders';
+import { UnansweredQuestions } from './upkeep';
 import {
   emptyDocument,
   folderUrl,
@@ -24,6 +25,7 @@ const views = [
   { id: 'private', label: 'Private' },
   { id: 'shared', label: 'Shared' },
   { id: 'starred', label: 'Starred' },
+  { id: 'review', label: 'Due for review' },
   { id: 'trash', label: 'Trash' },
 ];
 export function LibraryPage({ href }: { href: string }) {
@@ -49,7 +51,9 @@ export function LibraryPage({ href }: { href: string }) {
   const load = useCallback(
     () =>
       workspaceId
-        ? request<Listing>(
+        ? view === 'gaps'
+          ? Promise.resolve<Listing>({ available: true, items: [], more: false, storage: 'local' })
+          : request<Listing>(
             `?view=${view}&q=${encodeURIComponent(query)}&folder=${encodeURIComponent(
               view === 'all' ? (folder ?? '') : '',
             )}&offset=${offset}`,
@@ -174,7 +178,7 @@ export function LibraryPage({ href }: { href: string }) {
             <aside className="library-sidebar">
               <span className="library-eyebrow">Browse</span>
               <nav aria-label="Library views">
-                {views.map((option) => (
+                {[...views, ...(currentWorkspace()?.role === 'Admin' ? [{ id: 'gaps', label: 'Unanswered' }] : [])].map((option) => (
                   <Button
                     key={option.id}
                     aria-current={view === option.id ? 'page' : undefined}
@@ -204,18 +208,21 @@ export function LibraryPage({ href }: { href: string }) {
               ) : (
                 <header>
                   <div>
-                    <h2>{views.find((v) => v.id === view)?.label}</h2>
+                    <h2>{view === 'gaps' ? 'Unanswered questions' : views.find((v) => v.id === view)?.label}</h2>
                     <p>
                       {query
                         ? `Results for “${query}”`
                         : view === 'trash'
                           ? 'Restore items when you need them again.'
+                          : view === 'review'
+                            ? 'Documents past their review date. Agents say they may be out of date.'
                           : 'Create something new, or pick up where you left off.'}
                     </p>
                   </div>
                   <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
                 </header>
               )}
+              {view === 'gaps' && <UnansweredQuestions />}
               {(listing.error || mutation.status) && (
                 <p className="library-notice" role="alert">
                   {listing.error || mutation.status}
@@ -231,7 +238,7 @@ export function LibraryPage({ href }: { href: string }) {
                   </p>
                 </div>
               )}
-              {listing.data?.available && listing.data.items.length === 0 && (
+              {listing.data?.available && listing.data.items.length === 0 && view !== 'gaps' && (
                 <div className="library-empty">
                   <span aria-hidden="true">▤</span>
                   <h2>

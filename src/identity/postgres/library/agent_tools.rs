@@ -36,7 +36,7 @@ pub(crate) struct ReadDocument {
 /// Items `i` whose folder (or self) `s` this agent ($2) was given and may use for this
 /// reply ($3). The grant join keeps the per-item audience check to granted items.
 const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
-const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for,'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision))";
+const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for,'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision),'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=i.workspace AND rv.item=i.id AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp()))))";
 /// Passages matching any of the question's words ($4), best first, among documents
 /// granted to this agent (optionally in one folder, $5); the audience check runs once
 /// per matching document.
@@ -50,7 +50,8 @@ const MATCHES: &str = "WITH q AS (SELECT replace(plainto_tsquery('english',$4)::
  usable AS (SELECT item FROM (SELECT DISTINCT item FROM hits) d WHERE relay_library_agent_use($1,d.item,$2,$3) IS NOT NULL)
  SELECT jsonb_build_object('id',h.item,'title',h.title,'folder',h.folder,'section',h.section,'passage',h.position,'revision',h.revision,'access_revision',h.access_revision,
   'preview',ts_headline('english',h.text,h.q,'MaxWords=45,MinWords=20,StartSel=**,StopSel=**'),
-  'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=$1 AND m.item=h.item AND m.revision=h.revision)) AS data
+  'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=$1 AND m.item=h.item AND m.revision=h.revision),
+  'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=$1 AND rv.item=h.item AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp())))) AS data
  FROM hits h WHERE h.item IN (SELECT item FROM usable) ORDER BY h.rank DESC,h.item,h.position LIMIT 60";
 
 fn link(w: &str, id: &str) -> String {
@@ -237,6 +238,9 @@ impl PgStore {
             None => vec![],
         };
         let results = best(fuse(words, near));
+        if results.is_empty() {
+            super::upkeep::record_gap(&tx, job, query_text).await?;
+        }
         // What the agent was shown fences its reply, even if it never reads it.
         for result in &results {
             receipt(&tx, job, result, false, "").await?;
@@ -297,7 +301,7 @@ impl PgStore {
         tx.commit().await?;
         Ok(json!({
             "state":"available","id":input.id,"title":found["title"],"revision":found["revision"],
-            "folder":found["folder"],"passage":input.passage,"passages":shown,
+            "folder":found["folder"],"review_due":found["review_due"],"passage":input.passage,"passages":shown,
             "next_passage":next,"total_passages":passages.len(),
             "outline":(input.passage == 0).then(|| outline(&passages)),
             "link":link(&job.workspace,&input.id),
