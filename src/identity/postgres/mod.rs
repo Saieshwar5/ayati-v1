@@ -112,6 +112,8 @@ mod message_actions;
 mod message_reply_migration;
 #[cfg(test)]
 mod message_reply_tests;
+#[cfg(test)]
+mod model_catalog_tests;
 mod pool_metrics;
 #[cfg(test)]
 mod pool_metrics_tests;
@@ -288,6 +290,8 @@ pub struct PgStore {
     pub(crate) handoff_wait_seconds: i64,
     /// Library embedding and summary models (LB2b), when configured.
     pub(crate) library_models: Option<crate::identity::library::models::Configured>,
+    /// The model catalog (MG1), when configured: agents then choose catalog models.
+    pub(crate) model_catalog: Option<crate::identity::models::catalog::Files>,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -301,6 +305,7 @@ impl PgStore {
             assignment_seconds: 180,
             handoff_wait_seconds: 604_800,
             library_models: None,
+            model_catalog: None,
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -310,6 +315,7 @@ impl PgStore {
         store.assignment_seconds = config.pool.run_seconds;
         store.handoff_wait_seconds = config.handoff_wait_seconds;
         store.library_models = crate::identity::library::models::Configured::from(config);
+        store.model_catalog = crate::identity::models::catalog::Files::from(config);
         store.verify_schema().await?;
         Ok(store)
     }
@@ -336,6 +342,7 @@ impl PgStore {
             assignment_seconds: 180,
             handoff_wait_seconds: 604_800,
             library_models: None,
+            model_catalog: None,
         })
     }
 
@@ -452,6 +459,7 @@ pub(crate) use library::keeping::{Hold, Keeping};
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
 pub(crate) use library::watching::Watch;
+pub(crate) use worker_control::model_usage::ModelCall;
 #[cfg(test)]
 mod agent_profile_tests;
 mod audit_summary_migration;

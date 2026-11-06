@@ -69,7 +69,7 @@ hint discovery and uses a private child home in both prepared and controlled pat
 | --- | --- | --- |
 | `AYATI_EXECUTOR_SLOTS` | 2; 1–16 | Each executor |
 | `AYATI_PREPARED_GOOSE_BIN` | `.cache/goose/v1.54.0-ayati.1/goose` | Executor; preparation variant only |
-| `AYATI_GOOSE_PROVIDER`, `AYATI_MODEL` | One immutable provider/model profile per executor | Executor |
+| `AYATI_GOOSE_PROVIDER`, `AYATI_MODEL` | One immutable provider/model profile per executor; `AYATI_MODEL=*` with the gateway serves every [catalog model](model-catalog.md) | Executor |
 | `AYATI_EXECUTOR_CAPACITY` | 2; 1–1024 | Controller, global active pool limit |
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
 | `AYATI_EXECUTOR_MODEL_LIMIT` | Pool capacity; 1–1024 | Controller, provider/model pair |

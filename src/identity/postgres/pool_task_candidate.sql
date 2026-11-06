@@ -4,7 +4,7 @@
 -- waits for suggestions, is never offered.
 SELECT t.id,t.workspace FROM relay_executor_tasks t
 LEFT JOIN workspace_load w ON w.workspace=t.workspace
-WHERE t.state='queued' AND t.model=$1 AND COALESCE(t.provider,$2)=$2
+WHERE t.state='queued' AND ($2='gateway' OR (t.model=$1 AND COALESCE(t.provider,$2)=$2))
 AND (t.purpose<>'sample' OR EXISTS(SELECT 1 FROM relay_agent_rehearsals r
  WHERE r.workspace=t.workspace AND r.id=t.id AND r.state='queued'))
 AND (t.purpose<>'setup_suggestion' OR EXISTS(SELECT 1 FROM relay_control_drafts d

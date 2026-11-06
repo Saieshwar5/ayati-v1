@@ -5,11 +5,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import { join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { fixtureProvider } from './fixtures/goose_provider.mjs';
 
 const root = resolve(import.meta.dirname, '..');
+const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 
 test('agents reach the model only through the controller, which holds the key and counts tokens', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
   const secret = 'provider-key-only-the-controller-reads';
@@ -35,4 +39,59 @@ test('agents reach the model only through the controller, which holds the key an
   assert.equal(app.processes().some(p => p.logs.includes(secret)), false, 'the key never appears in logs');
   await app.stop(executor);
   app.pass('Real Goose replies through the executor proxy and the controller gateway; the executor never holds the key; tokens are recorded per request');
+});
+
+// MG1: people choose Cuckoo's catalog models; the controller picks the provider. Here the
+// first route's provider is down, so the call moves to the next route before any answer
+// reaches the agent; the executor serves any catalog model ("*").
+test('a catalog model is served by its next route when the first provider is down', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
+  const secret = 'provider-key-only-the-controller-reads';
+  const provider = await fixtureProvider({ key: secret });
+  let downCalls = 0;
+  const down = createServer((request, response) => { downCalls += 1; request.resume(); response.writeHead(503).end('{"error":"overloaded"}'); }).listen(0, '127.0.0.1');
+  await once(down, 'listening');
+  t.after(() => down.close());
+  const directory = await mkdtemp(join(root, '.tmp/model-catalog-'));
+  const keyFile = join(directory, 'openai.key'), providers = join(directory, 'providers.json'), catalog = join(directory, 'catalog.json');
+  await writeFile(keyFile, secret + '\n', { mode: 0o600 });
+  await writeFile(providers, JSON.stringify([
+    { provider: 'down', base_url: `http://127.0.0.1:${down.address().port}/v1`, key_file: keyFile },
+    { provider: 'fixture-host', base_url: `${provider.url}/v1`, key_file: keyFile },
+  ]), { mode: 0o600 });
+  await writeFile(catalog, JSON.stringify({ models: [{ id: 'fixture', name: 'Fixture Large', tags: ['fast'], price: { input: 1, output: 2 },
+    routes: [{ provider: 'down', model: 'down-fixture', priority: 1 }, { provider: 'fixture-host', model: 'fixture', priority: 2 }] }] }));
+  const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15, provider, agentProvider: '',
+    apiEnv: { AYATI_MODEL_PROVIDERS_FILE: providers, AYATI_MODEL_CATALOG_FILE: catalog } });
+  const offered = (await app.request(`${app.path}/models`, app.cookie)).value;
+  assert.equal(offered.catalog_on, true);
+  assert.deepEqual(offered.models.map(m => m.name), ['Fixture Large']);
+  assert.equal(JSON.stringify(offered).includes('fixture-host'), false, 'people never see providers or routes');
+  // The agent's Environment tab shows the catalog model by name, with no provider.
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const [name, value] = app.cookie.split('=');
+  await context.addCookies([{ name, value, url: app.base, httpOnly: true, sameSite: 'Lax' }]);
+  const page = await context.newPage();
+  await page.goto(`${app.base}/w/${app.path.split('/').at(-1)}/?view=agents`);
+  await page.getByRole('tab', { name: 'Environment', exact: true }).click();
+  const picker = page.getByRole('group', { name: 'Model' });
+  await picker.getByText('Fixture Large', { exact: true }).waitFor();
+  assert.equal(await picker.getByRole('radio', { name: /Fixture Large/ }).isChecked(), true);
+  assert.equal((await page.locator('[role=tabpanel]').textContent()).includes('fixture-host'), false);
+  await page.screenshot({ path: join(app.data, 'model-catalog-picker.png') });
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+  await page.screenshot({ path: join(app.data, 'model-catalog-picker-dark.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await page.screenshot({ path: join(app.data, 'model-catalog-picker-mobile.png') });
+  const executor = await app.startExecutor({ AYATI_MODEL_GATEWAY: '1', AYATI_MODEL: '*', OPENAI_API_KEY: undefined, OPENAI_HOST: undefined, AYATI_EXECUTOR_SLOTS: '1' });
+  const job = await app.send('Say hello through the catalog');
+  await app.done(job);
+  assert.ok(downCalls >= 1, 'the first route was tried');
+  assert.ok(provider.requests.length >= 1 && provider.requests.every(r => r.model === 'fixture'), "the second route's model name is sent");
+  const row = app.sql("SELECT provider || ':' || model || ':' || provider_model || ':' || attempts FROM relay_model_usage WHERE agent IS NOT NULL ORDER BY id LIMIT 1");
+  assert.equal(row, 'fixture-host:fixture:fixture:2', 'usage records who served it after how many tries');
+  await app.stop(executor);
+  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider and tries');
 });

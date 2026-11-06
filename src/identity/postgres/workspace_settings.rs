@@ -49,8 +49,9 @@ impl WorkspaceSettingsInput {
         );
         ensure!(self.models.len() <= 20, "Allow at most 20 models");
         for (index, choice) in self.models.iter().enumerate() {
+            // An empty provider is a catalog model (MG1).
             ensure!(
-                PROVIDERS.contains(&choice.provider.as_str()),
+                choice.provider.is_empty() || PROVIDERS.contains(&choice.provider.as_str()),
                 "Unsupported model provider"
             );
             ensure!(
@@ -157,6 +158,16 @@ impl PgStore {
         input: &WorkspaceSettingsInput,
     ) -> Result<Value> {
         input.validate()?;
+        if let Some(files) = &self.model_catalog {
+            let catalog = files.load()?;
+            for choice in &input.models {
+                ensure!(
+                    choice.provider.is_empty(),
+                    "Choose models from Cuckoo's catalog"
+                );
+                catalog.choosable(&choice.model)?;
+            }
+        }
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         let before = settings_row(&tx, w).await?;

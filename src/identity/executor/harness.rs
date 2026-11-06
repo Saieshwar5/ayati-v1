@@ -38,19 +38,26 @@ impl Harness {
             None
         };
         let settings = proxy.as_ref().map(|p| p.settings.clone());
+        // Serving any catalog model, Goose speaks OpenAI's API to the slot's proxy
+        // under a placeholder model; the controller picks the real one per call.
+        let (goose_provider, goose_model) = if profile.serves_any() {
+            ("openai".to_owned(), "cuckoo".to_owned())
+        } else {
+            (profile.provider.clone(), profile.model.clone())
+        };
         let prepared = GooseSettings {
             binary: config.prepared_goose.clone(),
-            provider: profile.provider.clone(),
+            provider: goose_provider.clone(),
             gateway: config.goose.gateway,
             proxy: settings.clone(),
         };
         let goose = GooseSettings {
             binary: config.goose.binary.clone(),
-            provider: profile.provider.clone(),
+            provider: goose_provider,
             gateway: config.goose.gateway,
             proxy: settings,
         };
-        let mut config = GooseConfig::new(root, &profile.model, &prepared);
+        let mut config = GooseConfig::new(root, &goose_model, &prepared);
         config.agent_id = "prepared-chat".into();
         ensure!(
             config.configured(),
@@ -100,12 +107,13 @@ impl Harness {
         let result = async {
             ensure!(context.version == 1, "Unsupported prepared context version");
             ensure!(
-                context.model == self.profile.model
-                    && context
-                        .provider
-                        .as_deref()
-                        .unwrap_or(&self.profile.provider)
-                        == self.profile.provider,
+                self.profile.serves_any()
+                    || context.model == self.profile.model
+                        && context
+                            .provider
+                            .as_deref()
+                            .unwrap_or(&self.profile.provider)
+                            == self.profile.provider,
                 "Prepared harness profile no longer matches the assignment"
             );
             ensure!(

@@ -122,6 +122,7 @@
 .settings-models li span { display:grid; min-width:0; overflow-wrap:anywhere; }
 .settings-models li small { color:var(--muted); font-size:12px; }
 .settings-model-add { display:grid; grid-template-columns:150px minmax(0,1fr) auto; gap:8px; }
+.settings-model-add-catalog { grid-template-columns:minmax(0,1fr) auto; }
 .settings-danger { max-width:760px; margin-top:28px; padding:6px 18px; border:1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius:10px; }
 .settings-danger-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; flex-wrap:wrap; }
 .settings-danger-row + .settings-danger-row { border-top:1px solid var(--border); }

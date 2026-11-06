@@ -21,6 +21,12 @@ struct Provider {
     provider: String,
     base_url: String,
     key_file: std::path::PathBuf,
+    /// The API the provider speaks; only OpenAI's chat completions for now.
+    #[serde(default = "openai")]
+    protocol: String,
+}
+fn openai() -> String {
+    "openai".into()
 }
 
 /// The configured providers; read on each request so keys can be rotated in place.
@@ -32,6 +38,10 @@ pub(crate) fn provider(file: &std::path::Path, name: &str) -> Result<(String, St
         .into_iter()
         .find(|p| p.provider == name)
         .with_context(|| format!("No model provider {name} is configured"))?;
+    ensure!(
+        found.protocol == "openai",
+        "Model provider {name} speaks an API Cuckoo can't use yet"
+    );
     let url = reqwest::Url::parse(&found.base_url).context("Invalid model provider URL")?;
     ensure!(
         url.scheme() == "https" || (url.scheme() == "http" && url.host_str() == Some("127.0.0.1")),
@@ -109,37 +119,76 @@ pub(super) async fn invoke(
         .map(str::to_owned)
         .or_else(|| state.app.config.worker_providers.first().cloned())
         .unwrap_or_else(|| "openai".into());
-    let (base, key) = provider(&file, &name)?;
     let mut body = input.body;
     if !body.is_object() {
         return Err(anyhow::anyhow!("Invalid model request").into());
     }
-    body["model"] = json!(model);
     if body["stream"] == true {
         body["stream_options"] = json!({"include_usage": true});
     }
+    // A catalog model goes to its routes in order; any other model to the assignment's
+    // provider, as before the catalog (MG1).
+    let catalog = crate::identity::models::catalog::Files::from(&state.app.config);
+    let routes: Vec<(String, String)> = match catalog
+        .map(|files| files.load())
+        .transpose()?
+        .as_ref()
+        .and_then(|c| c.find(&model))
+    {
+        Some(entry) => {
+            crate::identity::models::router::order(entry, crate::identity::models::router::roll())
+                .into_iter()
+                .map(|r| (r.provider, r.model))
+                .collect()
+        }
+        None => vec![(name, model.clone())],
+    };
     let job = match &record.work {
         super::super::postgres::worker_control::Work::Reply(assignment) => {
             Some(assignment.job.reply.clone())
         }
         super::super::postgres::worker_control::Work::Task(_) => None,
     };
-    let response = match upstream_client()
-        .post(format!("{base}/chat/completions"))
-        .bearer_auth(&key)
-        .json(&body)
-        .timeout(std::time::Duration::from_secs(600))
-        .send()
-        .await
-    {
-        Ok(response) => response,
-        Err(_) => {
-            return Ok((
-                StatusCode::BAD_GATEWAY,
-                Json(json!({"error":{"message":"The model provider could not be reached"}})),
-            )
-                .into_response());
+    let mut tried = 0;
+    let mut chosen = None;
+    for (index, (name, provider_model)) in routes.iter().enumerate() {
+        tried += 1;
+        let last = index + 1 == routes.len();
+        let (base, key) = provider(&file, name)?;
+        body["model"] = json!(provider_model);
+        match upstream_client()
+            .post(format!("{base}/chat/completions"))
+            .bearer_auth(&key)
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(600))
+            .send()
+            .await
+        {
+            // Another route is tried only before any of the answer has been sent on.
+            Ok(response)
+                if !last
+                    && crate::identity::models::router::retryable(response.status().as_u16()) =>
+            {
+                crate::identity::models::router::failed(name);
+            }
+            Ok(response) => {
+                if response.status().is_success() {
+                    crate::identity::models::router::succeeded(name);
+                } else if crate::identity::models::router::retryable(response.status().as_u16()) {
+                    crate::identity::models::router::failed(name);
+                }
+                chosen = Some((response, name.clone(), provider_model.clone()));
+                break;
+            }
+            Err(_) => crate::identity::models::router::failed(name),
         }
+    }
+    let Some((response, name, provider_model)) = chosen else {
+        return Ok((
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error":{"message":"The model provider could not be reached"}})),
+        )
+            .into_response());
     };
     let status = response.status();
     let kind = response.headers().get(header::CONTENT_TYPE).cloned();
@@ -164,16 +213,18 @@ pub(super) async fn invoke(
         if status.is_success() {
             let (input_tokens, output_tokens) = usage(&tail).unwrap_or((0, 0));
             let _ = store
-                .record_model_usage(
-                    &scope.workspace,
-                    &scope.assignment,
-                    &scope.agent,
-                    job.as_deref(),
-                    &name,
-                    &model,
+                .record_model_usage(&crate::identity::postgres::ModelCall {
+                    workspace: &scope.workspace,
+                    assignment: &scope.assignment,
+                    agent: &scope.agent,
+                    job: job.as_deref(),
+                    provider: &name,
+                    model: &model,
+                    provider_model: &provider_model,
+                    attempts: tried,
                     input_tokens,
                     output_tokens,
-                )
+                })
                 .await;
         }
     });

@@ -7,8 +7,25 @@ pub(crate) struct Profile {
     pub provider: String,
     pub model: String,
 }
+/// The provider a gateway executor serving any catalog model reports.
+pub(crate) const ANY_PROVIDER: &str = "gateway";
 impl Profile {
+    /// The profile of a gateway executor that serves any catalog model (MG1): the
+    /// controller chooses the model and provider for every call.
+    pub fn any() -> Self {
+        Self {
+            provider: ANY_PROVIDER.into(),
+            model: "*".into(),
+        }
+    }
+    pub fn serves_any(&self) -> bool {
+        self.provider == ANY_PROVIDER
+    }
     pub fn validate(&self) -> Result<()> {
+        if self.serves_any() {
+            ensure!(self.model == "*", "Invalid executor profile");
+            return Ok(());
+        }
         ensure!(
             ["openai", "fireworks-ai"].contains(&self.provider.as_str())
                 && !self.model.is_empty()

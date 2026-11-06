@@ -26,21 +26,53 @@ impl MigrationTrait for ModelUsage {
     }
 }
 
+/// One model call: who made it, which catalog model (or plain model) it was for, and
+/// the provider route that served it.
+pub(crate) struct ModelCall<'a> {
+    pub workspace: &'a str,
+    pub assignment: &'a str,
+    pub agent: &'a str,
+    pub job: Option<&'a str>,
+    pub provider: &'a str,
+    /// The catalog model people chose, or the plain model outside the catalog.
+    pub model: &'a str,
+    /// The provider's own name for it.
+    pub provider_model: &'a str,
+    /// Routes tried, counting the one that answered.
+    pub attempts: usize,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+}
+
+/// Schema 87: which provider route served each call, and how many were tried.
+pub(crate) struct ModelRoutes;
+impl MigrationName for ModelRoutes {
+    fn name(&self) -> &str {
+        "m20261106_000087_model_routes"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ModelRoutes {
+    async fn up(&self, m: &SchemaManager) -> std::result::Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(
+                "ALTER TABLE relay_model_usage ADD COLUMN provider_model TEXT CHECK(char_length(provider_model)<=200);
+                 ALTER TABLE relay_model_usage ADD COLUMN attempts SMALLINT NOT NULL DEFAULT 1 CHECK(attempts BETWEEN 1 AND 9);",
+            )
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Model routes require a forward migration".into(),
+        ))
+    }
+}
+
 impl PgStore {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) async fn record_model_usage(
-        &self,
-        w: &str,
-        assignment: &str,
-        agent: &str,
-        job: Option<&str>,
-        provider: &str,
-        model: &str,
-        input_tokens: i64,
-        output_tokens: i64,
-    ) -> Result<()> {
-        execute(&self.db, "INSERT INTO relay_model_usage(workspace,assignment,agent,job,provider,model,input_tokens,output_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-            vec![w.into(), assignment.into(), agent.into(), job.map(str::to_owned).into(), provider.into(), model.into(), Ord::max(input_tokens, 0).into(), Ord::max(output_tokens, 0).into()]).await?;
+    pub(crate) async fn record_model_usage(&self, call: &ModelCall<'_>) -> Result<()> {
+        execute(&self.db, "INSERT INTO relay_model_usage(workspace,assignment,agent,job,provider,model,input_tokens,output_tokens,provider_model,attempts) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+            vec![call.workspace.into(), call.assignment.into(), call.agent.into(), call.job.map(str::to_owned).into(), call.provider.into(), call.model.into(), Ord::max(call.input_tokens, 0).into(), Ord::max(call.output_tokens, 0).into(), call.provider_model.into(), i16::try_from(call.attempts.min(9)).unwrap_or(1).into()]).await?;
         Ok(())
     }
     /// Model use for one request; callers have already checked the person may see it.
