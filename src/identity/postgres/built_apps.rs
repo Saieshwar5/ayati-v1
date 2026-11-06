@@ -74,10 +74,24 @@ impl PgStore {
         if !present {
             return Ok(vec![]);
         }
+        let helpers = query(
+            tx,
+            "SELECT to_regclass('relay_built_app_helpers') IS NOT NULL AS present",
+            vec![],
+        )
+        .await?
+        .context("Schema check")?
+        .try_get::<bool>("", "present")?;
+        let helpers = if helpers {
+            "(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',g.id,'name',g.name) ORDER BY g.name),'[]'::jsonb) FROM relay_built_app_helpers h JOIN relay_shared_agents g ON g.workspace=h.workspace AND g.id=h.agent WHERE h.workspace=a.workspace AND h.app=a.id)"
+        } else {
+            "'[]'::jsonb"
+        };
         json_rows(tx, &format!("SELECT jsonb_build_object('id',a.id,'kind','built','name',a.name,'description',a.description,'audience',a.audience,'version',a.published,'draft_revision',a.draft_revision,
             'builder_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.builder),'is_builder',a.builder=$2,'can_open',{OPENS},'can_manage',a.builder=$2 OR $3,
             'people',CASE WHEN a.builder=$2 OR $3 THEN (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email))),'[]'::jsonb) FROM relay_built_app_people p JOIN relay_users u ON u.id=p.user_id WHERE p.workspace=a.workspace AND p.app=a.id) END,
-            'versions',CASE WHEN a.builder=$2 OR $3 THEN (SELECT COALESCE(jsonb_agg(jsonb_build_object('version',v.version,'note',v.note,'at',v.published_at) ORDER BY v.version DESC),'[]'::jsonb) FROM relay_built_app_versions v WHERE v.workspace=a.workspace AND v.app=a.id) END) AS data
+            'versions',CASE WHEN a.builder=$2 OR $3 THEN (SELECT COALESCE(jsonb_agg(jsonb_build_object('version',v.version,'note',v.note,'at',v.published_at) ORDER BY v.version DESC),'[]'::jsonb) FROM relay_built_app_versions v WHERE v.workspace=a.workspace AND v.app=a.id) END,
+            'helpers',CASE WHEN a.builder=$2 OR $3 THEN {helpers} END) AS data
             FROM relay_built_apps a WHERE a.workspace=$1 AND NOT a.removed AND (a.published IS NOT NULL OR a.builder=$2 OR $3) ORDER BY a.name,a.id"), vec![w.into(), user.id.clone().into(), admin.into()]).await
     }
 
@@ -239,6 +253,9 @@ pub(crate) use code::{AppFile, AppRelease};
 #[path = "built_app_data.rs"]
 mod data;
 pub(crate) use data::{BuiltAppData, DataRequest, RoleChange};
+#[path = "built_app_agents.rs"]
+mod agents;
+pub(crate) use agents::{BuiltAppAgents, Helper};
 
 #[cfg(test)]
 #[path = "built_apps_tests.rs"]

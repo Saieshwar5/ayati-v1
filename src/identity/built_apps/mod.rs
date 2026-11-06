@@ -4,7 +4,7 @@
 pub(crate) mod files;
 pub(crate) mod manifest;
 use super::*;
-use crate::identity::postgres::{AppFile, AppRelease, DataRequest, NewApp, RoleChange};
+use crate::identity::postgres::{AppFile, AppRelease, DataRequest, Helper, NewApp, RoleChange};
 use axum::{
     Json,
     extract::{Path as RoutePath, Query},
@@ -46,6 +46,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/roles",
             get(roles).post(roles_set),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/helpers",
+            post(helper),
         )
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/download",
@@ -212,5 +216,17 @@ async fn roles_set(
         app.store
             .built_app_roles_set(&user, &w, &id, &input)
             .await?,
+    ))
+}
+/// The builder asks an agent to work on the app's draft, or stops it.
+async fn helper(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Helper>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.built_app_helper(&user, &w, &id, &input).await?,
     ))
 }
