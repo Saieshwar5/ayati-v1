@@ -11,7 +11,9 @@ pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
 mod model_gateway;
-pub(crate) use model_gateway::MODEL_BODY_LIMIT;
+pub(crate) use model_gateway::{
+    MODEL_BODY_LIMIT, provider as model_provider, upstream_client as model_client,
+};
 pub(crate) mod output;
 mod pool;
 mod tls;

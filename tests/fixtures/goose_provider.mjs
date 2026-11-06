@@ -20,6 +20,26 @@ export function contextCommand(text) {
     .trim().split('\n').at(-1)?.replace(/^user:\s*/, '');
 }
 
+// Deterministic "meaning" for the embeddings fixture: a few word groups share a
+// direction, other words hash to their own, so "send something back" lands near
+// "refund" without a real model.
+const concepts = [
+  ['return', 'returns', 'returned', 'refund', 'refunds', 'refunded', 'back', 'send'],
+  ['warranty', 'warranties', 'guarantee', 'guaranteed'],
+  ['salary', 'salaries', 'pay', 'wage', 'wages', 'band'],
+];
+export function fixtureEmbedding(text) {
+  const vector = new Array(1536).fill(0);
+  for (const word of String(text).toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+    const group = concepts.findIndex(words => words.includes(word));
+    let slot = group >= 0 ? group : 0;
+    if (group < 0) { for (const c of word) slot = (slot * 31 + c.charCodeAt(0)) % 1500; slot += 36; }
+    vector[slot] += group >= 0 ? 3 : 1;
+  }
+  const length = Math.hypot(...vector) || 1;
+  return vector.map(n => n / length);
+}
+
 // A local model fixture, not live inference. The real pinned Goose process
 // performs the tool loop, MCP calls, ACP permission requests and persistence.
 export async function fixtureProvider({ resumableHold = false, key, heartbeat = false } = {}) {
@@ -53,6 +73,12 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     timings.push({index,phase:'request_headers',time_us:headersUs});
     timings.push({index,phase:'request_body',time_us:bodyUs});
     timings.push({index,phase:'request',time_ms:Date.now(),time_us:unixMicros()});
+    if (request.url.endsWith('/embeddings')) {
+      response.setHeader('Content-Type', 'application/json');
+      const data = input.input.map((text, index) => ({ object: 'embedding', index, embedding: fixtureEmbedding(text) }));
+      response.end(JSON.stringify({ object: 'list', data, model: input.model, usage: { prompt_tokens: input.input.length * 8, total_tokens: input.input.length * 8 } }));
+      return;
+    }
     const script=streamScript;
     const messages = input.messages ?? [];
     const lastUser = messages.findLastIndex((message) => message.role === 'user');
@@ -79,6 +105,10 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     if (response.destroyed) return;
     let tool;
     let text = replies.get(prompt) ?? 'GOOSE_FIXTURE_OK 🦀';
+    if (textContent.startsWith('Library document summary request\nTitle: ')) {
+      const title = textContent.split('\n')[1].slice(7);
+      text = `FIXTURE_SUMMARY ${title}: what it covers, for colleagues.`;
+    }
     const savedMatch = textContent.match(/Saved task continuation[^\n]*:\n(\{[^\n]+\})/);
     const savedTask = savedMatch ? JSON.parse(savedMatch[1]) : undefined;
     const originalLine = savedTask ? contextCommand(textContent.split('Saved task continuation')[0]) : prompt;

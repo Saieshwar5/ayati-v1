@@ -1,7 +1,9 @@
 pub(in crate::identity) mod context;
 mod extract;
 mod files;
+pub(in crate::identity) mod indexer;
 pub(crate) mod model;
+pub(crate) mod models;
 mod office;
 pub(crate) mod passages;
 mod storage;

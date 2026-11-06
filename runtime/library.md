@@ -201,6 +201,38 @@ PDF page breaks start "Page N" sections.
   2,000 rows per sheet. They download as attachments, never inline. Files uploaded before
   this keep their earlier readiness; upload them again to make them readable.
 
+### Meaning search and summaries (schema 72, LB2b)
+
+Optional, configured on the controller with the model gateway's providers file:
+
+```sh
+AYATI_MODEL_PROVIDERS_FILE=/private/model-providers.json
+AYATI_LIBRARY_EMBEDDING_MODEL=openai:text-embedding-3-small   # provider:model
+AYATI_LIBRARY_SUMMARY_MODEL=openai:gpt-5-mini                  # provider:model
+```
+
+- **Embeddings** need the pgvector extension (tested with 0.6.0 on PostgreSQL 16). The
+  migration installs it into `public` when the server offers it and creates
+  `relay_library_embeddings`; Cuckoo names its type and operator in full, so any schema
+  can use it. Without pgvector, or without an embedding model, word search works alone.
+  The model must return 1,536 numbers per text.
+- The **indexer** is a controller task: every few seconds it embeds up to 64 waiting
+  passages of one workspace (title and section included) and writes up to 4 one-line
+  summaries (`relay_library_summaries`, under 300 characters, made from the first 6,000
+  characters). Only current revisions are embedded or summarised; re-cutting a document's
+  passages drops their embeddings and summaries follow the new revision. Saving never
+  waits. Tokens are recorded in model usage (`assignment` "library", per workspace).
+  Executors are never involved and never see keys.
+- **Search** asks the embedding model for the question's meaning before taking the
+  workspace lock, then merges word and meaning matches by rank (reciprocal rank fusion);
+  meaning matches farther than cosine distance 0.75 are dropped. Matching is an exact
+  scan of the agent's usable documents in that workspace, bounded by the 1,000-item
+  limit; no approximate index. If the model is down, word search answers alone and the
+  result says `by_meaning: false`. Every meaning match passes the same audience rules.
+- Search results and `list_folder` include each document's summary when one exists for
+  its current revision. The text of every document is sent to the configured provider
+  for embedding and summarising, like any model request.
+
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the
 workspace and stop running work whenever anyone saved a page. Instead an answer that
@@ -357,7 +389,24 @@ no-store. These are build-size measurements, not startup/latency guarantees.
 - Real Goose (`tests/library_folders.mjs`): the first answer is still readable after a
   Word file is uploaded and moved into the folder.
 
+## Recorded verification — 2026-11-05 (LB2b)
+
+- PostgreSQL (`postgres/library_meaning_tests.rs`, pgvector 0.6.0) with a loopback
+  provider: the indexer embeds every passage and summarises both documents; "can I send
+  something back?" finds the Returns policy by meaning although it shares no word with
+  it, with its summary, and never the HR folder; without the model the same question
+  finds nothing; usage is recorded; an edit drops old embeddings and the summary
+  follows the new revision. Config: provider:model parsing and the providers-file rule.
+- Real Goose (`tests/library_folders.mjs`): the controller indexes through the providers
+  file; the agent's search for "Can I send something back?" returns the policy by
+  meaning with its summary, and indexing usage is recorded. The fixture's embeddings
+  are deterministic word groups, not a real model: this proves the plumbing, not
+  retrieval quality.
+
 ## Dependency decisions
+
+- pgvector 0.6.0 (PostgreSQL License), the server extension; no Rust crate is added
+  (vectors travel as text and are cast in SQL).
 
 - calamine 0.36.1 (MIT), with zip 8.6.0 (MIT, deflate only) and quick-xml 0.41.0 (MIT;
   already in the tree via object_store): Excel cells with their types for LB2a, and Word

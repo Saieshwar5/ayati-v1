@@ -5,6 +5,8 @@ use serde_json::json;
 mod fence;
 #[path = "library_folder_tests.rs"]
 mod folders;
+#[path = "library_meaning_tests.rs"]
+mod meaning;
 #[path = "library_passage_tests.rs"]
 mod passages;
 fn page(title: &str) -> SavePage {

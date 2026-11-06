@@ -286,6 +286,8 @@ pub struct PgStore {
     pub(crate) pooled: bool,
     pub(crate) assignment_seconds: u64,
     pub(crate) handoff_wait_seconds: i64,
+    /// Library embedding and summary models (LB2b), when configured.
+    pub(crate) library_models: Option<crate::identity::library::models::Configured>,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -298,6 +300,7 @@ impl PgStore {
             pooled: false,
             assignment_seconds: 180,
             handoff_wait_seconds: 604_800,
+            library_models: None,
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -306,6 +309,7 @@ impl PgStore {
         store.pooled = config.execution == crate::config::Execution::Pooled;
         store.assignment_seconds = config.pool.run_seconds;
         store.handoff_wait_seconds = config.handoff_wait_seconds;
+        store.library_models = crate::identity::library::models::Configured::from(config);
         store.verify_schema().await?;
         Ok(store)
     }
@@ -331,6 +335,7 @@ impl PgStore {
             pooled: false,
             assignment_seconds: 180,
             handoff_wait_seconds: 604_800,
+            library_models: None,
         })
     }
 
@@ -418,52 +423,8 @@ async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Res
     ensure!(role == "Admin", "Only admins can manage workspace access");
     Ok(role)
 }
-async fn audit(
-    db: &impl ConnectionTrait,
-    actor: &str,
-    workspace: Option<&str>,
-    action: &str,
-    target: &str,
-) -> Result<()> {
-    // No summary column here: upgrade tests write audit entries at schemas before 44.
-    execute(
-        db,
-        "INSERT INTO relay_audit(actor,workspace,action,target,at) VALUES($1,$2,$3,$4,$5)",
-        vec![
-            actor.into(),
-            workspace.into(),
-            action.into(),
-            target.into(),
-            now().into(),
-        ],
-    )
-    .await?;
-    Ok(())
-}
-/// `summary` is the readable sentence shown in the Audit log and Activity.
-async fn audit_with_summary(
-    db: &impl ConnectionTrait,
-    actor: &str,
-    workspace: Option<&str>,
-    action: &str,
-    target: &str,
-    summary: &str,
-) -> Result<()> {
-    execute(
-        db,
-        "INSERT INTO relay_audit(actor,workspace,action,target,at,summary) VALUES($1,$2,$3,$4,$5,$6)",
-        vec![
-            actor.into(),
-            workspace.into(),
-            action.into(),
-            target.into(),
-            now().into(),
-            summary.into(),
-        ],
-    )
-    .await?;
-    Ok(())
-}
+mod audit_write;
+use audit_write::{audit, audit_with_summary};
 
 #[cfg(test)]
 pub(in crate::identity) mod tests;

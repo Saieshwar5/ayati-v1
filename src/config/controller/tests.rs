@@ -285,3 +285,39 @@ fn archives_are_single_private_and_optional() {
         .is_err()
     );
 }
+
+#[test]
+fn library_models_are_provider_and_model_from_the_providers_file() {
+    let config = controller(&[
+        ("AYATI_MODEL_PROVIDERS_FILE", "/private/providers.json"),
+        (
+            "AYATI_LIBRARY_EMBEDDING_MODEL",
+            "openai:text-embedding-3-small",
+        ),
+        (
+            "AYATI_LIBRARY_SUMMARY_MODEL",
+            "fireworks:accounts/fireworks/models/glm",
+        ),
+    ])
+    .unwrap();
+    assert_eq!(
+        config.library_embedding_model,
+        Some(("openai".into(), "text-embedding-3-small".into()))
+    );
+    assert_eq!(
+        config.library_summary_model,
+        Some(("fireworks".into(), "accounts/fireworks/models/glm".into()))
+    );
+    assert!(controller(&[]).unwrap().library_embedding_model.is_none());
+    let Err(error) = controller(&[("AYATI_LIBRARY_EMBEDDING_MODEL", "text-embedding-3-small")])
+    else {
+        panic!("a model without a provider must be refused")
+    };
+    let error = error.to_string();
+    assert!(error.contains("must be provider:model"));
+    let Err(error) = controller(&[("AYATI_LIBRARY_SUMMARY_MODEL", "openai:mini")]) else {
+        panic!("Library models need the providers file")
+    };
+    let error = error.to_string();
+    assert!(error.contains("need AYATI_MODEL_PROVIDERS_FILE"));
+}

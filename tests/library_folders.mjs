@@ -19,7 +19,12 @@ const doc = text => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ t
 
 test('A folder shared with an agent for all staff answers a colleague, with real Goose', { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 180000 }, async t => {
   const storage = await mkdtemp(join(root, '.tmp/library-files-'));
-  const app = await workerFixture(t, { mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15, apiEnv: { CUCKOO_LIBRARY_LOCAL_ROOT: storage } });
+  // Library models (LB2b) come from the providers file; it is filled in once the
+  // fixture provider is listening, and read again on every call.
+  const providers = join(storage, 'providers.json'), key = join(storage, 'model-key');
+  await writeFile(providers, '[]', { mode: 0o600 }); await writeFile(key, 'fixture-key', { mode: 0o600 });
+  const app = await workerFixture(t, { mode: 'pooled', control: true, runSeconds: 90, leaseSeconds: 15, apiEnv: { CUCKOO_LIBRARY_LOCAL_ROOT: storage, AYATI_MODEL_PROVIDERS_FILE: providers, AYATI_LIBRARY_EMBEDDING_MODEL: 'openai:fixture-embedding', AYATI_LIBRARY_SUMMARY_MODEL: 'openai:fixture-summary' } });
+  await writeFile(providers, JSON.stringify([{ provider: 'openai', base_url: `${app.provider.url}/v1`, key_file: key }]), { mode: 0o600 });
   const w = app.path.split('/').at(-1);
   const member = await app.login(1);
   const who = async cookie => (await app.request('/api/identity/session', cookie)).value.user;
@@ -127,5 +132,19 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.equal(await memberPage.getByText('Response unavailable because source access changed.').count(), 0);
   await memberPage.screenshot({ path: join(app.data, 'library-section-citation.png') });
   app.pass('Real Goose: an uploaded Word file is read by section and the answer cites "Warranty.docx › Desks"');
+
+  // Meaning search: the question shares no word with the policy.
+  await until(async () => Number(app.sql(`SELECT count(*) FROM relay_library_embeddings e JOIN relay_library_summaries s ON s.workspace=e.workspace AND s.item=e.item WHERE e.item='${returns}'`)) > 0, 'Library indexer did not embed and summarise the policy', 30000);
+  const meaningAsk = 'Can I send something back?';
+  app.provider.setControl(meaningAsk, { steps: [{ tool: 'search_library', arguments: { query: meaningAsk } }] });
+  const meant = await app.send(meaningAsk, chat, member, agent.id);
+  const found = await until(async () => (await app.history(chat, member)).find(m => m.id === meant.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  const result = JSON.parse(JSON.parse(found.content.replace(/^CONTROL_RESULT /, '').split('\n\nLibrary documents')[0])[0]);
+  assert.equal(result.by_meaning, true);
+  assert.equal(result.results[0].title, 'Returns policy');
+  assert.equal(result.results[0].summary, 'FIXTURE_SUMMARY Returns policy: what it covers, for colleagues.');
+  assert.ok(!result.results.some(r => r.title === 'Salaries'));
+  assert.ok(Number(app.sql(`SELECT count(*) FROM relay_model_usage WHERE assignment='library'`)) > 0, 'indexing usage is recorded');
+  app.pass('Real Goose: "Can I send something back?" finds the returns policy by meaning, with its summary; usage is recorded');
   assert.deepEqual(errors, []);
 });
