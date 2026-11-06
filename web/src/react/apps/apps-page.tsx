@@ -6,52 +6,90 @@ import { modes } from '../agents/control-model';
 import { meanings } from '../settings/workspace-connections-model';
 import { WorkspaceConnections } from '../settings/workspace-connections';
 import { workspaceUrl } from '../../workspace-context';
-import { appColour, loadApps, type WorkspaceApp } from './apps-model';
+import { appColour, loadApps, type CompanySystem, type WorkspaceApp } from './apps-model';
+import { LinkIcon, RequestDialog, RequestsDrawer, SystemForm, SystemPanel } from './company-apps';
 import './apps.css';
 
 function Plug() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0ZM12 17v4" /></svg>;
 }
 
-/** Apps (apps-page plan, AP1): every service the company connected, what agents may do
- * with each action and who uses it. Everyone reads it; admins add and manage apps. */
+type Filter = 'all' | 'systems' | 'services';
+type Card = { key: string; system?: CompanySystem; service?: WorkspaceApp };
+
+/** Apps (apps-page plan, AP1–AP3): the company's own systems, which open through
+ * Cuckoo for the people allowed, and every connected service with what agents may do.
+ * Everyone reads it and opens or requests apps; admins add and manage them. */
 export function AppsPage({ href }: { href: string }) {
   const url = new URL(href);
   const resource = useResource(loadApps);
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
   const [needsOnly, setNeedsOnly] = useState(false);
   const [selected, setSelected] = useState<string>();
   const [managing, setManaging] = useState(url.searchParams.get('manage') === '1' || url.searchParams.get('section') === 'connections');
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<CompanySystem | 'new'>();
+  const [suggesting, setSuggesting] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const data = resource.data;
+  const refresh = () => void resource.refresh().catch(() => {});
   const needs = data?.apps.filter(app => app.status === 'reconnect').length ?? 0;
-  const apps = (data?.apps ?? []).filter(app => !needsOnly || app.status === 'reconnect')
-    .filter(app => !query.trim() || app.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const current = apps.find(app => app.id === selected) ?? apps[0];
-  const close = () => { setManaging(false); void resource.refresh().catch(() => {}); };
+  const matches = (name: string) => !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
+  const cards: Card[] = [
+    ...(filter === 'services' || needsOnly ? [] : (data?.systems ?? []).filter(s => matches(s.name)).map(system => ({ key: `system:${system.id}`, system }))),
+    ...(filter === 'systems' ? [] : (data?.apps ?? []).filter(app => !needsOnly || app.status === 'reconnect').filter(app => matches(app.name)).map(service => ({ key: `service:${service.id}`, service }))),
+  ];
+  const current = cards.find(card => card.key === selected) ?? cards[0];
+  const close = () => { setManaging(false); refresh(); };
+  const total = (data?.apps.length ?? 0) + (data?.systems.length ?? 0);
   return <main className="apps-page" aria-label="Apps">
     <div className="apps-main">
       <header className="apps-header"><h1>Apps</h1>
         <div className="apps-tools">
           <label className="apps-search"><span className="visually-hidden">Search apps</span>
             <input type="search" placeholder="Search apps" value={query} onChange={event => setQuery(event.target.value)} /></label>
-          {data?.can_manage && <Button primary onClick={() => setManaging(true)}>Add app</Button>}
+          {!!data?.requests_waiting && <Button onClick={() => setDeciding(true)}>{data.requests_waiting} request{data.requests_waiting === 1 ? '' : 's'}</Button>}
+          {data && !data.can_manage && <Button onClick={() => setSuggesting(true)}>Suggest an app</Button>}
+          {data?.can_manage && <Button primary onClick={() => setAdding(true)}>Add app</Button>}
         </div></header>
-      {needs > 0 && <button type="button" className="apps-needs" aria-pressed={needsOnly} onClick={() => setNeedsOnly(on => !on)}><span aria-hidden="true" />{needs} need{needs === 1 ? 's' : ''} you</button>}
-      {resource.error && <><p role="alert">{resource.error}</p><Button onClick={() => void resource.refresh().catch(() => {})}>Retry</Button></>}
+      <div className="apps-filters" role="group" aria-label="Show">
+        {(['all', 'systems', 'services'] as Filter[]).map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
+          {{ all: 'All', systems: 'Your systems', services: 'Services' }[option]}</button>)}
+        {needs > 0 && <button type="button" className="apps-needs" aria-pressed={needsOnly} onClick={() => setNeedsOnly(on => !on)}><span aria-hidden="true" />{needs} need{needs === 1 ? 's' : ''} you</button>}
+      </div>
+      {resource.error && <><p role="alert">{resource.error}</p><Button onClick={refresh}>Retry</Button></>}
       {!data && !resource.error && <p role="status">Loading apps…</p>}
-      {data && !data.apps.length && <p className="ui-empty">{data.can_manage ? 'No apps yet. Add a service such as Gmail so agents can use it under your rules.' : 'No apps yet. Ask an admin to add the services your company uses.'}</p>}
-      {data && data.apps.length > 0 && !apps.length && <p className="ui-empty">No apps match.</p>}
-      <ul className="apps-grid">{apps.map(app => <li key={app.id}>
-        <button type="button" className="app-card" aria-pressed={current?.id === app.id} onClick={() => setSelected(app.id)}>
-          <span className="app-card-top"><span className="app-icon" style={{ background: appColour(app.server) }}><Plug /></span>
-            {app.status === 'reconnect' && <span className="app-status">Reconnect</span>}</span>
-          <span className="app-name">{app.name}</span>
-          <span className="app-line">{app.account ?? 'Connected service'}</span>
-          <span className="app-foot"><span className="app-faces">{app.agents.slice(0, 4).map(agent => <AgentFace key={agent.id} agent={agent} className="app-face" />)}
-            {!app.agents.length && 'No agents yet'}</span><span>Service</span></span>
+      {data && !total && <p className="ui-empty">{data.can_manage ? "No apps yet. Add your company's own systems, or a service such as Gmail so agents can use it under your rules." : 'No apps yet. Suggest the apps your team uses.'}</p>}
+      {data && total > 0 && !cards.length && <p className="ui-empty">No apps match.</p>}
+      <ul className="apps-grid">{cards.map(card => <li key={card.key}>
+        <button type="button" className="app-card" aria-pressed={current?.key === card.key} onClick={() => setSelected(card.key)}>
+          {card.system ? <>
+            <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.system.id) }}><LinkIcon /></span>
+              {!card.system.can_open && <span className="app-status quiet">{card.system.requested ? 'Requested' : 'No access'}</span>}</span>
+            <span className="app-name">{card.system.name}</span>
+            <span className="app-line">{card.system.description || 'Your system'}</span>
+            <span className="app-foot"><span>{card.system.audience === 'everyone' ? 'Everyone' : 'Chosen people'}</span><span>Link</span></span>
+          </> : card.service && <>
+            <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.service.server) }}><Plug /></span>
+              {card.service.status === 'reconnect' && <span className="app-status">Reconnect</span>}</span>
+            <span className="app-name">{card.service.name}</span>
+            <span className="app-line">{card.service.account ?? 'Connected service'}</span>
+            <span className="app-foot"><span className="app-faces">{card.service.agents.slice(0, 4).map(agent => <AgentFace key={agent.id} agent={agent} className="app-face" />)}
+              {!card.service.agents.length && 'No agents yet'}</span><span>Service</span></span>
+          </>}
         </button></li>)}</ul>
     </div>
-    {current && <AppPanel app={current} canManage={Boolean(data?.can_manage)} manage={() => setManaging(true)} />}
+    {current?.system && <SystemPanel app={current.system} canManage={Boolean(data?.can_manage)} changed={refresh} edit={() => setEditing(current.system)} />}
+    {current?.service && <AppPanel app={current.service} canManage={Boolean(data?.can_manage)} manage={() => setManaging(true)} />}
+    {adding && <Dialog title="Add app" close={() => setAdding(false)}>
+      <div className="apps-choices">
+        <button type="button" onClick={() => { setAdding(false); setEditing('new'); }}><strong>Add your company's app</strong><span>A link to a system you already run, opened through Cuckoo for the people you choose.</span></button>
+        <button type="button" onClick={() => { setAdding(false); setManaging(true); }}><strong>Connect a service</strong><span>Gmail, Zoho Books and others, for agents to use under your rules.</span></button>
+      </div></Dialog>}
+    {editing && <SystemForm app={editing === 'new' ? undefined : editing} close={() => setEditing(undefined)} saved={refresh} />}
+    {suggesting && <RequestDialog close={() => setSuggesting(false)} sent={refresh} />}
+    {deciding && <RequestsDrawer close={() => setDeciding(false)} changed={refresh} />}
     {managing && data?.can_manage && <Dialog drawer title="Add and manage apps" close={close}><WorkspaceConnections /></Dialog>}
   </main>;
 }

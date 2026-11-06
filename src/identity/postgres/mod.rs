@@ -424,7 +424,9 @@ async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Res
     Ok(role)
 }
 mod audit_write;
+mod company_apps;
 use audit_write::{audit, audit_with_summary};
+pub(crate) use company_apps::{AppDecision, AppRequest, CompanyApp};
 
 #[cfg(test)]
 pub(in crate::identity) mod tests;
