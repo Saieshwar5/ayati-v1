@@ -3,7 +3,7 @@ import { useMutation, useResource } from '../requests';
 import { appsRequest, builtPath, type BuiltApp } from './apps-model';
 
 type Rules = {
-  actions: { id: string; title: string; does: string; mode: 'allow' | 'block' }[];
+  actions: { id: string; title: string; does: string; mode: 'allow' | 'ask' | 'block' }[];
   can_change: boolean;
 };
 
@@ -38,11 +38,12 @@ export function AgentRules({ app }: { app: BuiltApp }) {
                 onChange={(e) => set(action.id, e.target.value)}
               >
                 <option value="allow">Allow</option>
+                <option value="ask">Ask first</option>
                 <option value="block">Block</option>
               </select>
             ) : (
               <span className={`app-mode ${action.mode}`}>
-                {action.mode === 'allow' ? 'Allow' : 'Block'}
+                {{ allow: 'Allow', ask: 'Ask first', block: 'Block' }[action.mode]}
               </span>
             )}
           </li>
