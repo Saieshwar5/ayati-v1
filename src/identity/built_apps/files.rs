@@ -25,7 +25,7 @@ pub fn starter(name: &str, description: &str) -> Vec<(String, String)> {
     ]
 }
 
-fn escape(text: &str) -> String {
+pub(super) fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")

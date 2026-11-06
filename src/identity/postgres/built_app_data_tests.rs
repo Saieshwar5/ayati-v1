@@ -50,6 +50,7 @@ async fn app_data_follows_the_manifest_and_the_roles_people_hold() {
         description: String::new(),
         audience: "everyone".into(),
         people: vec![],
+        template: String::new(),
     };
     db.built_app_create(&ravi, &w, &app).await.unwrap();
     let file = AppFile {

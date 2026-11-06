@@ -1,0 +1,15 @@
+{
+  "name": "Stock",
+  "description": "Count what is on the shelves.",
+  "roles": ["user"],
+  "collections": {
+    "counts": {
+      "fields": { "item": "text", "quantity": "number", "location": "text" },
+      "access": { "user": ["create", "read", "update"] }
+    }
+  },
+  "actions": [
+    { "id": "count_stock", "title": "Record a stock count", "collection": "counts", "does": "create", "fields": ["item", "quantity", "location"] },
+    { "id": "stock_levels", "title": "See stock counts", "collection": "counts", "does": "read" }
+  ]
+}

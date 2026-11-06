@@ -26,6 +26,7 @@ async fn an_agent_writes_the_draft_only_for_the_builder_who_asked() {
         description: "Count the shelves".into(),
         audience: "everyone".into(),
         people: vec![],
+        template: String::new(),
     };
     db.built_app_create(&ravi, &w, &app).await.unwrap();
     let ask = |person: crate::identity::User, text: &'static str| {

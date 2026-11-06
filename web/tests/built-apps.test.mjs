@@ -229,3 +229,46 @@ test('The builder asks an agent to build the app: the chat opens with the reques
     return response(view([{ ...leave, helpers: [{ id: 'nova', name: 'Nova' }] }]));
   } });
 });
+
+test('An app starts from a template, and its builder decides what agents may do in it', async () => {
+  const created = [], rules = [];
+  await reactFixture(async ({ render, click, change, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    // Members see what agents may do; the builder changes it.
+    const section = () => document.querySelector('[aria-label="Agents can"]');
+    assert.match(section().textContent, /File a leave request.*Approve or decline a leave request/);
+    const decide = section().querySelector('[aria-label="Agents: Approve or decline a leave request"]');
+    assert.equal(decide.value, 'block');
+    await change(section().querySelector('[aria-label="Agents: File a leave request"]'), 'allow');
+    assert.deepEqual(rules, [{ action: 'file_leave', mode: 'allow' }]);
+    await click(button('Build an app'));
+    await change(document.querySelector('[aria-label="Start from"]'), 'leave');
+    await change(document.querySelector('[aria-label="Name"]'), 'Leave');
+    await click(button('Start building'));
+    assert.equal(created[0].template, 'leave');
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Member');
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
+    if (path.endsWith('/apps/built')) { created.push(JSON.parse(options.body)); return response({ id: created[0].id }); }
+    if (path.endsWith('/agent-rules') && options.body) { rules.push(JSON.parse(options.body)); return response({ ok: true }); }
+    if (path.endsWith('/agent-rules')) return response({ can_change: true, from_version: 1, actions: [
+      { id: 'file_leave', title: 'File a leave request', does: 'create', mode: rules.length ? 'allow' : 'block' },
+      { id: 'decide_leave', title: 'Approve or decline a leave request', does: 'update', mode: 'block' }] });
+    return response(view([{ ...leave, version: 1, can_open: true }]));
+  } });
+});
+
+test('People who only use the app see what agents may do, without changing it', async () => {
+  await reactFixture(async ({ render }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
+    await render(AppsPage, { href: base });
+    const section = document.querySelector('[aria-label="Agents can"]');
+    assert.match(section.textContent, /File a leave request.*Allow/);
+    assert.equal(section.querySelector('select'), null);
+  }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member')
+    : path.endsWith('/agent-rules') ? response({ can_change: false, from_version: 1, actions: [{ id: 'file_leave', title: 'File a leave request', does: 'create', mode: 'allow' }] })
+    : response(view([{ ...leave, version: 1, is_builder: false, can_open: true, can_manage: false, versions: null, people: null }])) });
+});

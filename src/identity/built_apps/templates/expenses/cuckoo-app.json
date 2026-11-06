@@ -1,0 +1,16 @@
+{
+  "name": "Expenses",
+  "description": "Claim what you spent; approvers decide.",
+  "roles": ["user", "approver"],
+  "collections": {
+    "claims": {
+      "fields": { "spent_on": "date", "amount": "number", "what": "text", "status": "text" },
+      "access": { "user": ["create", "read_own"], "approver": ["read", "update"] }
+    }
+  },
+  "actions": [
+    { "id": "file_expense", "title": "File an expense claim", "collection": "claims", "does": "create", "fields": ["spent_on", "amount", "what"] },
+    { "id": "my_expenses", "title": "See expense claims", "collection": "claims", "does": "read" },
+    { "id": "decide_expense", "title": "Approve or decline an expense claim", "collection": "claims", "does": "update", "fields": ["status"] }
+  ]
+}

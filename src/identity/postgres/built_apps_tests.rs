@@ -10,6 +10,7 @@ fn new(id: &str, audience: &str, people: Vec<String>) -> NewApp {
         description: "Ask for time off".into(),
         audience: audience.into(),
         people,
+        template: String::new(),
     }
 }
 fn write(path: &str, content: Option<&str>, revision: i64) -> AppFile {

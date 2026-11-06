@@ -6,6 +6,7 @@ import { appColour, appsRequest, builtPath, type BuiltApp } from './apps-model';
 import { CodeDrawer } from './built-app-code';
 import { RolesDialog } from './built-app-roles';
 import { AgentBuildDialog, AgentHelpers } from './built-app-agent';
+import { AgentRules } from './built-app-rules';
 
 export function BuiltIcon() {
   return (
@@ -68,6 +69,7 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
               : 'Chosen people'}
         </p>
       </section>
+      <AgentRules app={app} />
       <section aria-label="How it runs">
         <h3>How it runs</h3>
         <p>
@@ -119,6 +121,12 @@ export function BuiltPanel({ app, changed }: { app: BuiltApp; changed: () => voi
 }
 
 type Person = { id: string; name: string };
+const templates = [
+  ['blank', 'A blank page'],
+  ['leave', 'Leave requests: ask for time off, approvers decide'],
+  ['expenses', 'Expenses: claim what you spent, approvers decide'],
+  ['stock', 'Stock: count what is on the shelves'],
+];
 /** Start an app from the starter files, or change its name and who can use it. */
 export function BuiltForm({
   app,
@@ -139,6 +147,7 @@ export function BuiltForm({
   const [name, setName] = useState(app?.name ?? ''),
     [description, setDescription] = useState(app?.description ?? '');
   const [audience, setAudience] = useState(app?.audience ?? 'everyone');
+  const [template, setTemplate] = useState('blank');
   const [chosen, setChosen] = useState<string[]>(app?.people?.map((p) => p.id) ?? []);
   const save = () =>
     void mutation.run(async () => {
@@ -148,6 +157,7 @@ export function BuiltForm({
         description,
         audience,
         people: audience === 'selected' ? chosen : [],
+        ...(app ? {} : { template }),
       };
       await appsRequest(app ? builtPath(app.id) : '/built', body);
       saved(id.current);
@@ -176,6 +186,22 @@ export function BuiltForm({
           A small app for your team, such as a leave request form. It starts from a ready page you
           change, and nobody else sees it until you publish it.
         </p>
+      )}
+      {!app && (
+        <label className="ui-field">
+          Start from
+          <select
+            aria-label="Start from"
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+          >
+            {templates.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       <label className="ui-field">
         Name
