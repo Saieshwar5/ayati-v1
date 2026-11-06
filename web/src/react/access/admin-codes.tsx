@@ -17,7 +17,10 @@ export function AdminCodes({ back }: { back: () => void }) {
   return <div className="access-column wide">
     <div className="access-heading">
       <div><h1>Cuckoo admin</h1><p className="access-lead">Workspace invite codes. Only platform administrators see this page.</p></div>
-      <button type="button" className="access-button quiet" onClick={back}>Back to workspaces</button>
+      <div className="access-actions">
+        <a className="access-button" href="/control">Open Cuckoo Control</a>
+        <button type="button" className="access-button quiet" onClick={back}>Back to workspaces</button>
+      </div>
     </div>
     <form className="access-box access-issue" onSubmit={event => { event.preventDefault(); void mutation.run(async () => {
       const result = await accessRequest<{ code: string; note: string }>('/admin/workspace-codes', { note, days: validDays });
