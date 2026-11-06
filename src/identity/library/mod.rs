@@ -37,6 +37,10 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route("/api/identity/workspaces/{w}/library-gaps", get(gaps))
         .route(
+            "/api/identity/workspaces/{w}/library-answers",
+            post(save_answer).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)),
+        )
+        .route(
             "/api/identity/workspaces/{w}/library-gaps/{id}",
             post(gap_close),
         )
@@ -167,6 +171,18 @@ async fn review_set(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.library_review_set(&user, &w, &id, &input).await?,
+    ))
+}
+/// Saves an answer from Chat as a Library page (LB5).
+async fn save_answer(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::SaveAnswer>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.library_save_answer(&user, &w, &input).await?,
     ))
 }
 async fn gaps(

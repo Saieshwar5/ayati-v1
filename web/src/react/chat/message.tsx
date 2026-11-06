@@ -18,6 +18,7 @@ import { useShowProfile } from './profile-card';
 import { useState } from 'react';
 import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions } from './message-actions';
 import { RequestDetails } from '../activity/request-details';
+import { SaveAnswer } from './save-answer';
 export function ChatMessage({ message, directory, replies, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
   const openResult = useResults();
   const source = useResultSource();
@@ -35,6 +36,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [inspecting, setInspecting] = useState(false);
+  const [keeping, setKeeping] = useState(false);
   const reactions = useReactions(message);
   const cancel = useCancelReply(message);
   const deleted = message.state === 'deleted';
@@ -61,9 +63,10 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       {own && <div className="chat-message-meta">{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
     {replies ? <button type="button" className="chat-thread-link chat-thread-count" aria-label={`${replies} ${replies === 1 ? 'reply' : 'replies'}`} title="Open thread" onClick={openThread}>{`${replies} ${replies === 1 ? 'reply' : 'replies'}`}</button> : null}
-    {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)}
+    {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)}
       details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}
+    {keeping && <SaveAnswer message={message} close={() => setKeeping(false)} />}
     {inspecting && <RequestDetails reply={message.update_of ?? message.id} close={() => setInspecting(false)} />}
   </article>;
 }
