@@ -35,7 +35,8 @@ Goose ──OpenAI protocol──▶ slot's loopback proxy ──worker control�
    with the assignment's capability (same check as tools and output: credential,
    assignment scope and session). Requests up to 8 MiB.
 4. The controller uses the **assignment's model** (from its prepared context), whatever
-   Goose asked for, and its provider (or the first worker provider). For streamed
+   Goose asked for, and its provider (or the first worker provider). A model in the
+   [model catalog](model-catalog.md) goes to its routes instead, with fallback. For streamed
    answers it asks for usage in the last chunk.
 5. The answer streams back as it arrives. When it ends, the controller reads the token
    counts from the JSON answer or the last usage chunk and saves a row in
@@ -60,7 +61,8 @@ out" (`model_usage` on `GET …/activity/requests/{reply}`).
 
 ## Not yet
 
-- Choosing a model per agent beyond the assignment's provider/model profile, and
-  fallbacks between providers.
-- Non-OpenAI protocols (Anthropic, Gemini) as adapters.
+- Non-OpenAI protocols (Anthropic, Gemini) as adapters (planned via LiteLLM, MG5).
 - Prices and cost per task, budgets and the embedding and classification slots.
+
+Choosing catalog models per agent, and falling back between providers, are in the
+[model catalog](model-catalog.md) (MG1).

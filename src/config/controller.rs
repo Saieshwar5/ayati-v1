@@ -54,6 +54,8 @@ pub struct Controller {
     /// The model gateway's providers (base URL and key file each). Present: executors
     /// reach models only through the controller and hold no model keys.
     pub model_providers_file: Option<PathBuf>,
+    /// The models people choose and the routes that serve them (MG1).
+    pub model_catalog_file: Option<PathBuf>,
     /// Library meaning search (LB2b): "provider:model" for passage embeddings and for
     /// one-line document summaries, both from the model providers file.
     pub library_embedding_model: Option<(String, String)>,
@@ -210,6 +212,7 @@ impl Controller {
             archive: super::Archive::read(env, hosted),
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
             model_providers_file: absolute(env, "AYATI_MODEL_PROVIDERS_FILE"),
+            model_catalog_file: absolute(env, "AYATI_MODEL_CATALOG_FILE"),
             library_embedding_model: provider_model(env, "AYATI_LIBRARY_EMBEDDING_MODEL"),
             library_summary_model: provider_model(env, "AYATI_LIBRARY_SUMMARY_MODEL"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
@@ -232,6 +235,9 @@ impl Controller {
         };
         if config.drain_seconds >= config.shutdown_seconds {
             env.problem("AYATI_DRAIN_SECONDS must be smaller than AYATI_SHUTDOWN_SECONDS");
+        }
+        if config.model_catalog_file.is_some() && config.model_providers_file.is_none() {
+            env.problem("The model catalog needs AYATI_MODEL_PROVIDERS_FILE");
         }
         if (config.library_embedding_model.is_some() || config.library_summary_model.is_some())
             && config.model_providers_file.is_none()

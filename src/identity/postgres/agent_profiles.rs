@@ -107,7 +107,7 @@ impl PgStore {
                 super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
             }
             if a["model"] != input.model || a["settings"]["provider"] != input.settings.provider {
-                allowed_model(&tx, w, input).await?;
+                allowed_model(self.model_catalog.as_ref(), &tx, w, input).await?;
             }
             narrowed = a["audience"] != input.audience;
             before = Some(a.clone());
@@ -117,7 +117,7 @@ impl PgStore {
             // Everyone may create agents (D231).
             let settings = serde_json::to_value(&input.settings)?;
             ensure!(input.revision == 0, "Agent missing");
-            allowed_model(&tx, w, input).await?;
+            allowed_model(self.model_catalog.as_ref(), &tx, w, input).await?;
             let audience = column(&tx).await?;
             execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
@@ -244,7 +244,20 @@ fn merged_guidance(requested: &Settings, saved: &Value) -> Result<Value> {
 }
 
 /// Agents may only switch to a model the admin allows (D233 slice 5).
-async fn allowed_model(tx: &DatabaseTransaction, w: &str, input: &SaveAgent) -> Result<()> {
+async fn allowed_model(
+    catalog: Option<&crate::identity::models::catalog::Files>,
+    tx: &DatabaseTransaction,
+    w: &str,
+    input: &SaveAgent,
+) -> Result<()> {
+    // With a catalog, agents choose Cuckoo's models; providers are ours to pick.
+    if let Some(files) = catalog {
+        ensure!(
+            input.settings.provider.is_empty(),
+            "Choose a model; Cuckoo picks who serves it"
+        );
+        files.load()?.choosable(&input.model)?;
+    }
     ensure!(
         super::settings::workspace::model_allowed(tx, w, &input.settings.provider, &input.model)
             .await?,
