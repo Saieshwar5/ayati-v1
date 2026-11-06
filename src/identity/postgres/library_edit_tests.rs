@@ -97,8 +97,17 @@ async fn suggestions_wait_for_someone_who_can_edit_the_page() {
         .await
         .unwrap();
     assert_eq!(waiting["suggestions"].as_array().unwrap().len(), 2);
-    assert_eq!(waiting["suggestions"][0]["agent"], "Pool agent");
-    assert_eq!(waiting["suggestions"][0]["note"], "Ravi asked");
+    // Suggestions made in the same second may list in either order.
+    let mine = waiting["suggestions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["id"] == first["suggestion"])
+        .unwrap();
+    assert_eq!(
+        (mine["agent"].as_str(), mine["note"].as_str()),
+        (Some("Pool agent"), Some("Ravi asked"))
+    );
     assert_eq!(
         db.library_get(&s.owner, &s.w, &s.returns).await.unwrap()["revision"],
         1,

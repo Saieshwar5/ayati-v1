@@ -8,7 +8,10 @@ export type Comparator = '>' | '>=' | '<' | '<=' | '=' | '!=';
 export type Effect = 'ask' | 'block';
 /** A time rule's window, local to the workspace; days 1 (Monday) to 7 (Sunday), none for every day. */
 export type TimeWindow = { from: string; to: string; days: number[] };
-export type RuleValue = string | number | boolean | TimeWindow;
+/** A limit from a Library table row (LB4): the row whose key is the request's `match`. */
+export type TableLimit = { table: string; match: string; column: string; title?: string };
+export type TableChoice = { id: string; title: string; columns: string[] };
+export type RuleValue = string | number | boolean | TimeWindow | TableLimit;
 export type RuleInput = { id: string; operation: string | null; connection: string | null; meaning: Meaning | null; source?: RuleSource | null; kind: RuleKind; field: string;
   comparator: Comparator; value: RuleValue; effect: Effect; note: string; enabled: boolean; revision: number;
   /** Turning on with a trial week: it records what it would do, then enforces. */
@@ -20,7 +23,7 @@ export type Replay = { days: number; examined: number; would_hold: number; would
   examples: { id: string; title: string; created: number; state: string; effect: Effect; arguments: Record<string, unknown>; day: string }[] };
 export type RuleField = { name: string; type: 'string' | 'number' | 'integer' | 'boolean' };
 export type RuleAction = { connection: string; account: string; operation: string; title: string; effect: string; meaning: Meaning; fields: RuleField[] };
-export type RulesView = { rules: CompanyRule[]; actions: RuleAction[]; can_manage: boolean };
+export type RulesView = { rules: CompanyRule[]; actions: RuleAction[]; can_manage: boolean; tables?: TableChoice[] };
 
 const path = () => `/workspaces/${workspaceId}/guard/rules`;
 export const loadRules = () => identityRequest<RulesView>(path());
@@ -33,7 +36,9 @@ export const numeric = (field?: RuleField) => field?.type === 'number' || field?
 export const kindLabels: Record<Meaning, string> = { read: 'Any reading action', change: 'Any change', money: 'Any money action', sends_outside: 'Any action that sends outside', delete: 'Any delete' };
 export const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+export const isTableLimit = (value: RuleValue): value is TableLimit => typeof value === 'object' && 'table' in value;
 function shown(value: RuleValue): string {
+  if (isTableLimit(value)) return `${value.column} in ${value.title ?? 'a table'} for its ${value.match.replaceAll('_', ' ')}`;
   return typeof value === 'string' ? `"${value}"` : String(value);
 }
 const list = (names: string[]) => names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;

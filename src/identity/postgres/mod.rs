@@ -443,6 +443,7 @@ pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::edits::Decision;
+pub(crate) use library::tables::SaveTable;
 #[cfg(test)]
 mod agent_profile_tests;
 mod audit_summary_migration;

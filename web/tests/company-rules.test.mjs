@@ -184,3 +184,29 @@ test('Admins review an agent proposal, try it on past requests, and turn it on w
     return response({});
   } });
 });
+
+test('A rule takes its limit from a Library table: the number in the row the request names', async () => {
+  const posts = [];
+  const discount = [{ connection: 'c1', account: 'Shop', operation: 'discount.apply', title: 'Apply a discount', effect: 'write', meaning: 'money',
+    fields: [{ name: 'discount', type: 'number' }, { name: 'product', type: 'string' }] }];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
+    await render(SettingsPage, { href: base });
+    await click(button('Add rule'));
+    await change(field('Compare with'), 'table');
+    assert.equal(field('Value'), undefined, 'no fixed value');
+    assert.equal(field('Column').value, 'Max discount');
+    assert.equal(field('Row named by').value, 'product');
+    assert.equal(document.querySelector('.company-rule-readback').textContent, 'Apply a discount: if discount is over Max discount in Price list for its product, ask first.');
+    await change(field('Comparison'), '=');
+    assert.equal(field('Compare with'), undefined, 'equality compares with a fixed value');
+    await change(field('Comparison'), '>');
+    await click(button('Save rule'));
+    assert.deepEqual(posts[0].value, { table: 't1', title: 'Price list', column: 'Max discount', match: 'product' });
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return session('Admin');
+    if (options.body) { posts.push(JSON.parse(options.body)); return response({ ...JSON.parse(options.body), summary: 'saved', reviewed: true }); }
+    return response({ rules: [], actions: discount, can_manage: true, tables: [{ id: 't1', title: 'Price list', columns: ['Max discount', 'Price'] }, { id: 't2', title: 'Names', columns: [] }] });
+  } });
+});

@@ -183,6 +183,33 @@ Limits: an answer delivered to a conversation stays there if someone joins later
 first release lists up to 100 documents per folder and offers up to 50 folders when
 moving; uploads land unfiled and are moved afterwards.
 
+### Tables (schema 76, LB4)
+
+A **table** is a Library item with a key column (text) and up to 19 more, text or
+number, and up to 5,000 rows (1 MiB). It has the same sharing, folders, versions, search
+and agent levels as pages; files and tables offer Read and Edit.
+
+- People create one with **＋ New table** (a key and a number column, in the open folder),
+  rename columns, add columns and rows, change cells, filter, and replace it from pasted
+  CSV or spreadsheet rows (a column is numbers when every value is). **Save table**
+  sends the whole table from the revision read (`POST /api/identity/workspaces/{w}/library-tables`
+  with `{id, request, revision, title, table, folder?}`); a newer table is not
+  overwritten, and the draft stays after a failure. Keys must differ, ignoring case.
+- Rows are indexed as passages ("Product: Standing desk · Price: 1250"), so search finds
+  them.
+- Agents: `lookup({table, key})` returns the exact row (keys match trimmed and ignoring
+  case) and is cited by the row ("Price list › Standing desk · revision 2"); no row says
+  so rather than guessing. With **Edit**, for a person who may edit,
+  `set_table_row({table, revision, key, values})` changes or adds one row as a new
+  version marked with the agent; wrong types are refused.
+- **Company rules can take their limit from a table**: "Apply a discount: if discount is
+  over Max discount in Price list for its product, ask first." The value is `{table,
+  match, column}`: the row whose key is the request's `match` field, and its number in
+  `column` (a number column). No such row or number means a person decides. The decision
+  record names the table, row and limit; the 30-day replay uses today's table. In the
+  rule editor, "Compare with: A Library table's number" offers the tables the admin can
+  open with their number columns.
+
 ## Recorded verification — 2026-11-05 (LB1)
 
 - PostgreSQL (`postgres/library_folder_tests.rs`): items follow their folder's sharing and
@@ -288,6 +315,25 @@ moving; uploads land unfiled and are moved afterwards.
   accepts it on the page and History shows Iris; Iris edits the policy and saves a quote
   in Policies, both audited.
 
+
+## Recorded verification — 2026-11-05 (LB4)
+
+- Unit: tables are checked (columns, types, one value per column, unique keys ignoring
+  case), looked up by key and changed one row at a time.
+- PostgreSQL (`postgres/library_table_tests.rs`): number columns refuse text; a
+  colleague's agent looks the desk up exactly and finds no row for a lamp; rows are
+  searchable; reading level can't change rows; the answer cites the row; with Edit a
+  stale revision and wrong type are refused and a row changes as a version marked with
+  the agent; restoring is the undo; members can't save the table and stale saves are
+  refused. A rule over "Max discount in Price list for its product" refuses a text
+  column or a missing request field, reads back in plain words, lets a 5% discount run,
+  holds 15% with the table, row and limit in the decision, holds a product with no
+  number, and its replay reads the table.
+- Web: pasted rows become columns; editing, one save per click burst from the revision
+  read, the draft kept after a failure and the same request on retry; read-only
+  filtering; the rule editor's table limit and its read-back.
+- Real Goose (`tests/library_folders.mjs`): the owner builds a price list in the browser;
+  Iris looks the desk up and the answer cites "Untitled table › Standing desk".
 
 ## Dependency decisions
 

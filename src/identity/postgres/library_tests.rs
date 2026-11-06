@@ -13,6 +13,8 @@ mod folders;
 mod meaning;
 #[path = "library_passage_tests.rs"]
 mod passages;
+#[path = "library_table_tests.rs"]
+mod tables;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),

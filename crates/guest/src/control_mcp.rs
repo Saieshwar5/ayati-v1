@@ -27,7 +27,7 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some("propose_rule") => crate::rule_schema::proposal(input),
         Some(
             name @ ("list_folder" | "search_library" | "read_document" | "suggest_edit"
-            | "edit_document" | "save_document"),
+            | "edit_document" | "save_document" | "lookup" | "set_table_row"),
         ) => crate::library_schema::observed(name, input),
         Some("refresh_home_panel") => input.as_object().is_some_and(|v| {
             v.keys()

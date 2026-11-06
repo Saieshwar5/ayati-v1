@@ -63,7 +63,13 @@ export function ShareDialog({
   const folder = item.kind === 'folder';
   // Owner decision: agents suggest edits by default; files can only be read.
   const levels: AgentGrant['level'][] =
-    item.kind === 'file' ? ['read'] : folder ? ['read', 'suggest', 'edit', 'save'] : ['read', 'suggest', 'edit'];
+    item.kind === 'file'
+      ? ['read']
+      : item.kind === 'table'
+        ? ['read', 'edit']
+        : folder
+          ? ['read', 'suggest', 'edit', 'save']
+          : ['read', 'suggest', 'edit'];
   return (
     <Dialog
       title="People and agents"
@@ -171,7 +177,7 @@ export function ShareDialog({
                     const next = { ...old };
                     if (event.target.checked)
                       next[agent.id] = {
-                        level: item.kind === 'file' ? 'read' : 'suggest',
+                        level: item.kind === 'file' || item.kind === 'table' ? 'read' : 'suggest',
                         use_for: 'viewers',
                       };
                     else delete next[agent.id];

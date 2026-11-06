@@ -60,7 +60,7 @@ impl PgStore {
             } else if input.action == "restore_version" {
                 ensure!(
                     current["editable"] == true
-                        && current["kind"] == "page"
+                        && ["page", "table"].contains(&current["kind"].as_str().unwrap_or(""))
                         && current["trashed"] == false,
                     "Only page editors can restore versions"
                 );
@@ -83,7 +83,7 @@ impl PgStore {
                 if input.action == "restore" {
                     execute(&tx,"UPDATE relay_library_items i SET folder=NULL,visibility='private' FROM relay_library_items f WHERE i.workspace=$1 AND i.id=$2 AND f.workspace=i.workspace AND f.id=i.folder AND f.trashed",vec![w.into(),id.into()]).await?;
                 }
-                execute(&tx,"INSERT INTO relay_library_versions SELECT workspace,id,revision,$3,title,document,text,$4 FROM relay_library_items WHERE workspace=$1 AND id=$2 AND kind='page'",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?;
+                execute(&tx,"INSERT INTO relay_library_versions SELECT workspace,id,revision,$3,title,document,text,$4 FROM relay_library_items WHERE workspace=$1 AND id=$2 AND kind IN ('page','table')",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?;
             }
             audit(
                 &tx,

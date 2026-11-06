@@ -11,7 +11,7 @@ export const levelName = (value: string) =>
   value;
 export type Item = {
   id: string;
-  kind: 'page' | 'file' | 'folder';
+  kind: 'page' | 'file' | 'folder' | 'table';
   title: string;
   visibility: 'private' | 'selected' | 'workspace';
   revision: number;

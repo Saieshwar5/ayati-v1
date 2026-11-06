@@ -162,6 +162,24 @@ pub(super) fn validate(input: &GuardRule, actions: &[Value]) -> Result<()> {
         );
         return Ok(());
     }
+    if super::tables::is_table(&input.value) {
+        let fields: Vec<&Value> = targets
+            .iter()
+            .filter_map(|a| a["fields"].as_array())
+            .flatten()
+            .collect();
+        ensure!(
+            fields.iter().any(|f| f["name"] == input.field.as_str()
+                && ["integer", "number"].contains(&f["type"].as_str().unwrap_or(""))),
+            "Compare a table's number with a number field"
+        );
+        return super::tables::validate_shape(
+            &input.value,
+            &input.kind,
+            &input.comparator,
+            &fields,
+        );
+    }
     ensure!(
         input.value.is_number() || input.value.is_string() || input.value.is_boolean(),
         "Unsupported rule value"
@@ -296,8 +314,14 @@ impl PgStore {
         for rule in &mut rules {
             rule["summary"] = json!(summary(rule, &title_of(rule, &actions)));
         }
+        // Library tables this admin can open, for limits taken from a table (LB4).
+        let tables = if admin {
+            super::tables::choices(&tx, w, &user.id).await?
+        } else {
+            vec![]
+        };
         tx.commit().await?;
-        Ok(json!({"rules":rules,"actions":actions,"can_manage":admin}))
+        Ok(json!({"rules":rules,"actions":actions,"can_manage":admin,"tables":tables}))
     }
     /// Creates or changes one rule. Admins only; the revision guards lost updates.
     pub(crate) async fn guard_rule_save(
@@ -313,6 +337,7 @@ impl PgStore {
         );
         let actions = json_rows(&tx, ACTIONS, vec![w.into()]).await?;
         validate(input, &actions)?;
+        let value = super::tables::checked(&tx, w, &input.value).await?;
         // The read's title goes with the source, so the read-back can name it.
         let source = input.source.clone().map(|mut source| {
             let read = source["operation"].as_str().unwrap_or_default().to_owned();
@@ -352,7 +377,7 @@ impl PgStore {
             );
         }
         execute(&tx, "INSERT INTO relay_guard_rules(workspace,id,operation,connection,meaning,kind,field,comparator,value,effect,note,enabled,created_by,updated_by,source,trial_until_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14,CASE WHEN $15 THEN (extract(epoch FROM clock_timestamp())*1000)::bigint+604800000 END) ON CONFLICT(workspace,id) DO UPDATE SET source=EXCLUDED.source,reviewed=true,trial_until_ms=CASE WHEN $15 THEN EXCLUDED.trial_until_ms WHEN NOT EXCLUDED.enabled THEN NULL ELSE relay_guard_rules.trial_until_ms END,operation=EXCLUDED.operation,connection=EXCLUDED.connection,meaning=EXCLUDED.meaning,kind=EXCLUDED.kind,field=EXCLUDED.field,comparator=EXCLUDED.comparator,value=EXCLUDED.value,effect=EXCLUDED.effect,note=EXCLUDED.note,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,revision=relay_guard_rules.revision+1,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
-            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), input.value.clone().into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into(), source.into(), (input.trial && input.enabled).into()]).await?;
+            vec![w.into(), input.id.clone().into(), input.operation.clone().into(), input.connection.clone().into(), input.meaning.clone().into(), input.kind.clone().into(), input.field.clone().into(), input.comparator.clone().into(), value.into(), input.effect.clone().into(), input.note.clone().into(), input.enabled.into(), user.id.clone().into(), source.into(), (input.trial && input.enabled).into()]).await?;
         let mut rule: Value = query(
             &tx,
             &format!(

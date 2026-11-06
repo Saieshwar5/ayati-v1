@@ -230,5 +230,27 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   const audit = (await app.request(`${app.path}/activity?kind=all`, app.cookie)).value.activity.map(e => e.sentence).join('\n');
   assert.match(audit, /Iris saved "Quote for Acme" in "Policies"/);
   app.pass('Real Goose: Iris edits the policy as a new version and saves a quote in Policies; both are audited');
+
+  // Tables (LB4): the owner builds a price list in the browser; Iris looks a row up.
+  await ownerPage.goto(`${app.base}/w/${w}/?view=library&folder=${policies}`);
+  await ownerPage.getByRole('button', { name: '＋ New table', exact: true }).click();
+  await ownerPage.waitForURL(/item=/);
+  const priceList = new URL(ownerPage.url()).searchParams.get('item');
+  await ownerPage.getByLabel('Column 1 name').fill('Product');
+  await ownerPage.getByLabel('Column 2 name').fill('Price');
+  await ownerPage.getByRole('button', { name: 'Add row', exact: true }).click();
+  await ownerPage.getByLabel('Product, row 1').fill('Standing desk');
+  await ownerPage.getByLabel('Price, row 1').fill('1250');
+  await ownerPage.getByRole('button', { name: 'Save table', exact: true }).click();
+  await ownerPage.getByText('Revision 2 · 1 row', { exact: false }).waitFor();
+  await ownerPage.screenshot({ path: join(app.data, 'library-table.png') });
+  const lookAsk = 'Price of a standing desk?';
+  app.provider.setControl(lookAsk, { steps: [{ tool: 'lookup', arguments: { table: priceList, key: 'standing desk' } }] });
+  const looked = await app.send(lookAsk, ownerChat, app.cookie, agent.id);
+  const lookedReply = await until(async () => (await app.history(ownerChat, app.cookie)).find(m => m.id === looked.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  const row = JSON.parse(JSON.parse(lookedReply.content.replace(/^CONTROL_RESULT /, '').split('\n\nLibrary documents')[0])[0]);
+  assert.deepEqual(row.row, { Product: 'Standing desk', Price: 1250 });
+  assert.match(lookedReply.content, /\[Untitled table › Standing desk · revision 2\]/);
+  app.pass('Real Goose: the owner builds a price list in the browser; Iris looks the desk up exactly, cited by its row');
   assert.deepEqual(errors, []);
 });

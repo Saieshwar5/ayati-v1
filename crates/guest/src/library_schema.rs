@@ -10,6 +10,8 @@ pub(crate) fn tools() -> Vec<Value> {
         json!({"name":"suggest_edit","description":"Suggest a change to a Library page you were allowed to suggest edits to: the page's whole new text (Markdown headings and lists) and a short note why. A person who can edit the page accepts or rejects it; nothing changes until then.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"text":{"type":"string","maxLength":60000},"note":{"type":"string","maxLength":500}},"required":["id","text"],"additionalProperties":false}}),
         json!({"name":"edit_document","description":"Change a Library page you were allowed to edit, for a person who may edit it: the page's whole new text (Markdown headings and lists) and the revision you read. It is saved as a new version anyone who can edit can restore from; if the page changed since you read it, read it again.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"revision":{"type":"integer","minimum":1},"text":{"type":"string","maxLength":60000},"note":{"type":"string","maxLength":500}},"required":["id","revision","text"],"additionalProperties":false}}),
         json!({"name":"save_document","description":"Save a new Library page (a quote, report or summary) in a folder you may save in, for a person who may add to it: a title and the text (Markdown headings and lists). Returns its link.","inputSchema":{"type":"object","properties":{"folder":{"type":"string","maxLength":64},"title":{"type":"string","maxLength":180},"text":{"type":"string","maxLength":60000}},"required":["folder","title","text"],"additionalProperties":false}}),
+        json!({"name":"lookup","description":"Look up one row of a Library table (a price list, product catalogue, supplier list) by its key, the value in its first column, matched exactly ignoring case. Use it for numbers and limits instead of searching text. Cuckoo cites the table under your answer.","inputSchema":{"type":"object","properties":{"table":{"type":"string","maxLength":64},"key":{"type":"string","maxLength":500}},"required":["table","key"],"additionalProperties":false}}),
+        json!({"name":"set_table_row","description":"Change or add one row of a Library table you were allowed to edit, for a person who may edit it: its key, the values by column name, and the table revision you looked up. Saved as a new version that can be restored.","inputSchema":{"type":"object","properties":{"table":{"type":"string","maxLength":64},"revision":{"type":"integer","minimum":1},"key":{"type":"string","maxLength":500},"values":{"type":"object"}},"required":["table","revision","key","values"],"additionalProperties":false}}),
     ]
 }
 
@@ -62,6 +64,28 @@ pub(crate) fn observed(name: &str, input: &Value) -> bool {
                 && v.get("text")
                     .and_then(Value::as_str)
                     .is_some_and(|s| s.len() <= 240_000)
+        }
+        "lookup" => {
+            v.keys().all(|k| k == "table" || k == "key")
+                && v.get("table")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.len() <= 64)
+                && v.get("key")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.len() <= 2000)
+        }
+        "set_table_row" => {
+            v.keys()
+                .all(|k| ["table", "revision", "key", "values"].contains(&k.as_str()))
+                && v.get("table")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.len() <= 64)
+                && v.get("revision").is_some_and(Value::is_u64)
+                && v.get("key")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.len() <= 2000)
+                && v.get("values")
+                    .is_some_and(|x| x.as_object().is_some_and(|o| o.len() <= 20))
         }
         _ => false,
     }
@@ -116,6 +140,19 @@ mod tests {
         assert!(!super::observed(
             "save_document",
             &json!({"folder":"f","title":"Quote"})
+        ));
+        assert!(super::observed(
+            "lookup",
+            &json!({"table":"t","key":"Standing desk"})
+        ));
+        assert!(!super::observed("lookup", &json!({"table":"t"})));
+        assert!(super::observed(
+            "set_table_row",
+            &json!({"table":"t","revision":2,"key":"Chair","values":{"Price":320}})
+        ));
+        assert!(!super::observed(
+            "set_table_row",
+            &json!({"table":"t","key":"Chair","values":{}})
         ));
     }
 }

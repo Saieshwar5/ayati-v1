@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
-import { comparisons, dayNames, dismissRule, kindLabels, loadRules, numeric, readBack, saveRule, type CompanyRule, type Comparator, type Effect, type RuleAction, type RuleField, type RuleInput, type RuleKind, type RuleSource, type TimeWindow } from './company-rules-model';
+import { comparisons, dayNames, dismissRule, kindLabels, loadRules, numeric, readBack, saveRule, type CompanyRule, type Comparator, type Effect, type RuleAction, type RuleField, type RuleInput, type RuleKind, type RuleSource, type TimeWindow, isTableLimit, type TableChoice, type TableLimit } from './company-rules-model';
 import type { Meaning } from './workspace-connections-model';
 import { ReadSource } from './company-rule-source';
 import { ReplayPanel } from './company-rule-replay';
+import { TableLimitPicker } from './company-rule-table';
 
 /** Settings → Company rules (core-agent CA1): conditions every agent must follow on
  * top of each action's Allow / Ask first / Block. Everyone reads them; admins edit. */
@@ -49,7 +50,7 @@ export function CompanyRules() {
         <Button disabled={toggle.busy} onClick={() => flip(rule)}>{rule.enabled ? 'Turn off' : 'Turn on'}</Button></span>}
     </li>)}</ul>}
     <p className="ui-status" role="status">{toggle.status}</p>
-    {editing && data && <RuleDialog key={editing === 'new' ? 'new' : editing.id} actions={data.actions} rule={editing === 'new' ? undefined : editing}
+    {editing && data && <RuleDialog key={editing === 'new' ? 'new' : editing.id} actions={data.actions} tables={data.tables} rule={editing === 'new' ? undefined : editing}
       close={() => setEditing(undefined)} saved={async () => { setEditing(undefined); await resource.refresh(); toggle.setStatus('Company rule saved.'); }} />}
   </section>;
 }
@@ -68,7 +69,7 @@ function targets(actions: RuleAction[]): Target[] {
   return [...one, ...kinds];
 }
 
-function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; rule?: CompanyRule; close: () => void; saved: () => Promise<void> }) {
+function RuleDialog({ actions, tables = [], rule, close, saved }: { actions: RuleAction[]; tables?: TableChoice[]; rule?: CompanyRule; close: () => void; saved: () => Promise<void> }) {
   const options = targets(actions);
   const initial = options.find(t => rule?.meaning ? t.meaning === rule.meaning : t.operation === rule?.operation && (!rule?.connection || t.connection === rule.connection)) ?? options[0];
   const [targetKey, setTargetKey] = useState(initial.key);
@@ -85,7 +86,10 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
   const allowed: Comparator[] = kind === 'daily_total' ? ['>', '>='] : numeric(field) ? ['>', '>=', '<', '<=', '=', '!='] : ['=', '!='];
   const [chosen, setComparator] = useState<Comparator>(rule?.comparator ?? '>');
   const comparator = allowed.includes(chosen) ? chosen : allowed[0];
-  const [text, setText] = useState(rule === undefined || rule.kind === 'time' ? '' : String(rule.value));
+  const [text, setText] = useState(rule === undefined || rule.kind === 'time' || isTableLimit(rule.value) ? '' : String(rule.value));
+  const [limitDraft, setLimit] = useState<TableLimit | null>(rule && isTableLimit(rule.value) ? rule.value : null);
+  // A table limit compares one number field over or under the table's number.
+  const limit = kind === 'field' && numeric(field) && ['>', '>=', '<', '<='].includes(chosen) ? limitDraft : null;
   const saved_window = rule?.kind === 'time' ? rule.value as TimeWindow : { from: '21:00', to: '09:00', days: [] };
   const [window, setWindow] = useState<TimeWindow>(saved_window);
   const [effect, setEffect] = useState<Effect>(rule?.effect ?? 'ask');
@@ -100,7 +104,7 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
   const sourceValue = !['=', '!='].includes(sourceComparator) || kind === 'daily_total' ? (text.trim() === '' ? NaN : Number(text)) : (text.trim() !== '' && Number.isFinite(Number(text)) ? Number(text) : text);
   const value = !field ? '' : numeric(field) ? (text.trim() === '' ? NaN : Number(text)) : field.type === 'boolean' ? text === 'true' : text;
   const ready = kind === 'time' ? /^\d\d:\d\d$/.test(window.from) && /^\d\d:\d\d$/.test(window.to)
-    : Boolean(field) && (typeof value !== 'number' || Number.isFinite(value)) && (field?.type !== 'string' || text.trim() !== '');
+    : limit ? Boolean(field) : Boolean(field) && (typeof value !== 'number' || Number.isFinite(value)) && (field?.type !== 'string' || text.trim() !== '');
   const base = { id, operation: target.operation, connection: target.connection, meaning: target.meaning, effect, note: note.trim(), enabled: reviewing ? true : rule?.enabled ?? true, revision: rule?.revision ?? 0, trial: trialWeek };
   const readTitle = reads.find(r => r.operation === source?.operation)?.title ?? '';
   const input: RuleInput | undefined = kind === 'read_first'
@@ -109,7 +113,7 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
       ? { ...base, kind, field: source.path, comparator: sourceComparator, value: sourceValue, source: { operation: source.operation, match: source.match, path: source.path } } : undefined)
     : !ready ? undefined : kind === 'time'
     ? { ...base, kind, field: '', comparator: '=', value: { ...window, days: [...window.days].sort() } }
-    : { ...base, kind, field: field!.name, comparator, value };
+    : { ...base, kind, field: field!.name, comparator, value: limit ?? value };
   const toggleDay = (day: number) => setWindow(old => ({ ...old, days: old.days.includes(day) ? old.days.filter(d => d !== day) : [...old.days, day] }));
   const submit = () => input && void mutation.run(async () => { await saveRule(input); await saved(); });
   return <Dialog title={reviewing ? 'Review proposed rule' : rule ? 'Edit company rule' : 'Add a company rule'} close={close} busy={mutation.busy} status={mutation.status}
@@ -147,7 +151,8 @@ function RuleDialog({ actions, rule, close, saved }: { actions: RuleAction[]; ru
             {allowed.map(c => <option key={c} value={c}>{kind === 'daily_total' ? (c === '>=' ? 'would reach' : 'would go over') : comparisons[c]}</option>)}</select></label>
           {field.type === 'boolean'
             ? <label>Value<select value={text === 'true' ? 'true' : 'false'} onChange={event => setText(event.target.value)}><option value="true">Yes</option><option value="false">No</option></select></label>
-            : <label>Value<input type={numeric(field) ? 'number' : 'text'} value={text} onChange={event => setText(event.target.value)} /></label>}
+            : !limit && <label>Value<input type={numeric(field) ? 'number' : 'text'} value={text} onChange={event => setText(event.target.value)} /></label>}
+          {kind === 'field' && numeric(field) && ['>', '>=', '<', '<='].includes(comparator) && <TableLimitPicker tables={tables} fields={target.fields} limit={limit} change={setLimit} />}
         </>}
       </>}
       <fieldset className="company-rule-kind"><legend>Then</legend>

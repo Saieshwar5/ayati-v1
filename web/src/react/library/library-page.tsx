@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
-import { workspaceId } from '../../workspace-context';
+import { identityRequest, workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { LibraryItem } from './item';
@@ -82,6 +82,23 @@ export function LibraryPage({ href }: { href: string }) {
       changed();
       navigate(itemUrl(item.id));
     });
+  // A new table starts with a key column and a number column, in the open folder.
+  const tableAttempt = useRef<{ id: string; request: string; folder?: string }>(undefined);
+  const createTable = () =>
+    void mutation.run(async () => {
+      if (tableAttempt.current?.folder !== (folder ?? undefined))
+        tableAttempt.current = { id: crypto.randomUUID(), request: crypto.randomUUID(), folder: folder ?? undefined };
+      const attempt = tableAttempt.current!;
+      await identityRequest(`/workspaces/${workspaceId}/library-tables`, {
+        ...attempt,
+        revision: 0,
+        title: 'Untitled table',
+        table: { type: 'table', columns: [{ name: 'Name', type: 'text' }, { name: 'Value', type: 'number' }], rows: [] },
+      });
+      tableAttempt.current = undefined;
+      changed();
+      navigate(itemUrl(attempt.id));
+    });
   const filesEnabled = !!listing.data && listing.data.storage !== 'unconfigured';
   return (
     <div
@@ -145,6 +162,9 @@ export function LibraryPage({ href }: { href: string }) {
                   ＋ New folder
                 </Button>
               )}
+              <Button disabled={!listing.data?.available || mutation.busy} onClick={createTable}>
+                ＋ New table
+              </Button>
               <Button primary disabled={!listing.data?.available || mutation.busy} onClick={create}>
                 ＋ New page
               </Button>
@@ -267,6 +287,8 @@ export function LibraryPage({ href }: { href: string }) {
                               ? `Folder · ${item.item_count ?? 0} item${item.item_count === 1 ? '' : 's'}`
                               : item.kind === 'page'
                                 ? 'Page'
+                                : item.kind === 'table'
+                                  ? 'Table'
                                 : `${item.mime.split('/').at(-1)} · ${bytesLabel(item.size)}`}
                             {item.folder_title &&
                               item.folder !== folder &&

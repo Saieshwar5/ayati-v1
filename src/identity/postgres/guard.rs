@@ -18,6 +18,8 @@ pub(in crate::identity::postgres) mod migration;
 pub(crate) mod proposals;
 #[path = "guard_store.rs"]
 pub(crate) mod store;
+#[path = "guard_tables.rs"]
+mod tables;
 #[cfg(test)]
 #[path = "guard_tests.rs"]
 mod tests;
@@ -114,6 +116,7 @@ pub(crate) fn summary(rule: &Value, action: &str) -> String {
         field = format!("{field} from {read}");
     }
     let value = match &rule["value"] {
+        limit if tables::is_table(limit) => tables::words(limit),
         Value::String(text) => format!("\"{text}\""),
         Value::Number(n) => n
             .as_f64()
@@ -348,10 +351,13 @@ pub(super) async fn check(
                 ),
             }
         } else {
-            (
-                holds(&actual, comparator, &rule["value"]),
-                json!({"field":field,"value":actual}),
-            )
+            // A limit from a Library table row, or the rule's own value.
+            let (limit, from_table) = tables::limit(db, w, &rule["value"], arguments).await?;
+            let mut facts = json!({"field":field,"value":actual});
+            if let Some(table) = from_table {
+                facts["limit"] = table;
+            }
+            (holds(&actual, comparator, &limit), facts)
         };
         let facts = match from {
             Some(from) => {

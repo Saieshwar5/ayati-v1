@@ -73,6 +73,12 @@ its value from a **reading action the agent completed earlier in the same task**
   the workspace is locked. The reading action must be on the same account and share the
   matched field; the editor offers only such reads.
 
+## Limits from a Library table
+
+A rule's value can be a Library table's number instead of a fixed one (schema 76): the
+row whose key is one of the request's fields, and a number column. See
+[Library and agents](library-agents.md#tables-schema-76-lb4).
+
 ## Creating rules safely: proposals, replay and trials
 
 Schema 67, core-agent CA2.

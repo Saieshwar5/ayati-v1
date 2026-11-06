@@ -266,6 +266,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.library_save_document(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "lookup" => {
+            pg.library_lookup(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "set_table_row" => {
+            pg.library_set_row(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "report_problem" => {
             pg.report_agent_need(job, &serde_json::from_value(arguments)?)
                 .await
