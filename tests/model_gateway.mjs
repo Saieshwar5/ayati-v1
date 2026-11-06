@@ -59,7 +59,7 @@ test('a catalog model is served by its next route when the first provider is dow
     { provider: 'fixture-host', base_url: `${provider.url}/v1`, key_file: keyFile },
   ]), { mode: 0o600 });
   await writeFile(catalog, JSON.stringify({ models: [{ id: 'fixture', name: 'Fixture Large', tags: ['fast'], price: { input: 1, output: 2 },
-    routes: [{ provider: 'down', model: 'down-fixture', priority: 1 }, { provider: 'fixture-host', model: 'fixture', priority: 2 }] }] }));
+    routes: [{ provider: 'down', model: 'down-fixture', priority: 1 }, { provider: 'fixture-host', model: 'fixture', priority: 2, cost: { input: 0.5, output: 1 } }] }] }));
   const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15, provider, agentProvider: '',
     apiEnv: { AYATI_MODEL_PROVIDERS_FILE: providers, AYATI_MODEL_CATALOG_FILE: catalog } });
   const offered = (await app.request(`${app.path}/models`, app.cookie)).value;
@@ -92,6 +92,21 @@ test('a catalog model is served by its next route when the first provider is dow
   assert.ok(provider.requests.length >= 1 && provider.requests.every(r => r.model === 'fixture'), "the second route's model name is sent");
   const row = app.sql("SELECT provider || ':' || model || ':' || provider_model || ':' || attempts FROM relay_model_usage WHERE agent IS NOT NULL ORDER BY id LIMIT 1");
   assert.equal(row, 'fixture-host:fixture:fixture:2', 'usage records who served it after how many tries');
+  // MG2: the charge is tokens × the catalog price; the cost is at the route's cost.
+  const [input, output, charge, cost, person] = app.sql("SELECT input_tokens || ':' || output_tokens || ':' || charge_micro || ':' || cost_micro || ':' || person FROM relay_model_usage WHERE agent IS NOT NULL ORDER BY id LIMIT 1").split(':');
+  assert.ok(Number(input) > 0, 'tokens were counted');
+  assert.equal(Number(charge), Number(input) * 1 + Number(output) * 2);
+  assert.equal(Number(cost), Math.round(Number(input) * 0.5 + Number(output) * 1));
+  const me = (await app.request('/api/identity/session', app.cookie)).value.user;
+  assert.equal(person, me.id, 'the call is counted for the person who asked');
+  const usage = (await app.request(`${app.path}/usage?days=7`, app.cookie)).value;
+  assert.ok(usage.totals.charge_usd > 0 && usage.by_model[0].name === 'Fixture Large');
+  assert.equal(JSON.stringify(usage).includes('cost'), false, 'our cost never reaches people');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+  await page.goto(`${app.base}/w/${app.path.split('/').at(-1)}/?view=settings&section=usage`);
+  await page.getByRole('region', { name: 'Workspace usage' }).getByText('Fixture Large', { exact: true }).waitFor();
+  await page.screenshot({ path: join(app.data, 'model-usage.png'), fullPage: true });
   await app.stop(executor);
-  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider and tries');
+  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider, tries, charge, cost and person, and Settings shows the charges');
 });
