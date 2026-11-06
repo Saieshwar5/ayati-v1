@@ -41,15 +41,20 @@ impl PgStore {
                 .is_none(),
                 "Item ID already exists"
             );
-            execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),input.document.clone().into(),text.clone().into(),now().into()]).await?;
+            if let Some(folder) = &input.folder {
+                super::folders::open_folder(&tx, user, w, folder).await?;
+            }
+            execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated,folder) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7,$8)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),input.document.clone().into(),text.clone().into(),now().into(),input.folder.clone().into()]).await?;
         } else {
+            ensure!(input.folder.is_none(), "Move a page to change its folder");
             let current = item(&tx, user, w, &input.id, false).await?;
-            ensure!(current["kind"] == "page", "This item is a file");
+            ensure!(current["kind"] == "page", "This item is not a page");
             if current["revision"].as_i64() != Some(input.revision) {
                 return Err(Conflict.into());
             }
             execute(&tx,"UPDATE relay_library_items SET title=$3,document=$4,text=$5,revision=revision+1,updated=$6 WHERE workspace=$1 AND id=$2",vec![w.into(),input.id.clone().into(),input.title.trim().into(),input.document.clone().into(),text.clone().into(),now().into()]).await?;
         }
+        super::passages::index_item(&tx, w, &input.id).await?;
         let result = json!({"id":input.id,"revision":input.revision+1});
         execute(&tx,"INSERT INTO relay_library_versions(workspace,item,revision,author,title,document,text,created) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",vec![w.into(),input.id.clone().into(),(input.revision+1).into(),user.id.clone().into(),input.title.trim().into(),input.document.clone().into(),text.into(),now().into()]).await?;
         prune_versions(&tx, w, &input.id).await?;
@@ -64,7 +69,22 @@ impl PgStore {
             item(&tx, user, w, id, false).await?["editable"] == true,
             "History requires edit access"
         );
-        let versions=json_rows(&tx,"SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email)) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50",vec![w.into(),id.into()]).await?;
+        // Before schema 74 versions had no agent.
+        let agent = if super::agent_tools::reads_exist(&tx).await?
+            && query(
+                &tx,
+                "SELECT to_regclass('relay_library_suggestions') IS NOT NULL AS present",
+                vec![],
+            )
+            .await?
+            .context("Schema check")?
+            .try_get::<bool>("", "present")?
+        {
+            ",'agent',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=v.workspace AND a.id=v.agent)"
+        } else {
+            ""
+        };
+        let versions=json_rows(&tx,&format!("SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email){agent}) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50"),vec![w.into(),id.into()]).await?;
         tx.commit().await?;
         Ok(json!({"versions":versions}))
     }
@@ -88,6 +108,16 @@ impl PgStore {
 }
 
 pub(super) async fn prune_versions(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
-    execute(db,"DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT 50) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision)",vec![w.into(),id.into()]).await?;
+    // Everything on legal hold keeps every version (LB7).
+    if super::keeping::held(db, w, id).await? {
+        return Ok(());
+    }
+    // Versions cited by Ask sources or agent reads (schema 69) stay verifiable.
+    let reads = if super::agent_tools::reads_exist(db).await? {
+        " AND NOT EXISTS(SELECT 1 FROM relay_library_reads r WHERE r.workspace=v.workspace AND r.item=v.item AND r.revision=v.revision)"
+    } else {
+        ""
+    };
+    execute(db,&format!("DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT 50) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision){reads}"),vec![w.into(),id.into()]).await?;
     Ok(())
 }

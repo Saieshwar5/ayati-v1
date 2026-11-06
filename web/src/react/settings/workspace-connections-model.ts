@@ -10,7 +10,11 @@ export type ConnectResult = { saved?: boolean; redirect_url?: string; provider_r
 export type SystemApproval = { server: string; approved: boolean; revision: number };
 export type Person = { id: string; name: string; role: string };
 /** The admin's rule for each action of one connected account, and the agents using it. */
-export type Safety = { connection: string; agents: string[]; operations: { id: string; title: string; effect: 'read' | 'write'; mode: Mode; needs_other: boolean; revision: number; default: boolean }[] };
+export type Safety = { connection: string; agents: string[]; operations: { id: string; title: string; effect: 'read' | 'write'; mode: Mode; needs_other: boolean; revision: number; default: boolean;
+  /** What the action does (schema 65): suggested by Cuckoo until an admin reviews it. */
+  meaning: Meaning; meaning_reviewed: boolean; meaning_revision: number }[] };
+export type Meaning = 'read' | 'change' | 'money' | 'sends_outside' | 'delete';
+export const meanings: Record<Meaning, string> = { read: 'Reads', change: 'Changes', money: 'Money', sends_outside: 'Sends outside', delete: 'Deletes' };
 export type WorkspaceConnectionsData = {
   servers: Server[]; systems: SystemApproval[]; connections: Connection[]; safety: Safety[];
   people: Person[]; viewer: string; execution_available: boolean; catalog_error?: string;
@@ -20,3 +24,4 @@ export const loadConnections = () => identityRequest<WorkspaceConnectionsData>(`
 export const approveSystem = (input: SystemApproval) => identityRequest(`${root}/systems`, input);
 export const connectAccount = (input: { id: string; server: string; enabled: boolean; revision: number }) => identityRequest<ConnectResult>(`${root}/connections`, input);
 export const saveConnectorRule = (input: { connection: string; operation: string; mode: Mode; needs_other: boolean; revision: number }) => identityRequest(`${root}/connector-rules`, input);
+export const saveMeaning = (input: { connection: string; operation: string; meaning: Meaning; revision: number }) => identityRequest<{ saved: boolean; revision: number }>(`${root}/action-meanings`, input);

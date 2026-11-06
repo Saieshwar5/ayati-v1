@@ -109,6 +109,7 @@ async fn attention_filters_library_sources_before_pagination_and_rejects_stale_a
         revision: 0,
         title: "PRIVATE_LIBRARY_SOURCE".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Private reference"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &source).await.unwrap();
     let mut sharing = ShareItem {
@@ -116,7 +117,7 @@ async fn attention_filters_library_sources_before_pagination_and_rejects_stale_a
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![initial.agent.clone()],
+        agents: vec![initial.agent.clone().into()],
     };
     db.library_share(&owner, &w, &source.id, &sharing)
         .await

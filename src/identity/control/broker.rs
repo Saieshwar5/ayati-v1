@@ -236,6 +236,76 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.propose_schedule(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "propose_rule" => {
+            let Ok(proposal) = serde_json::from_value(arguments) else {
+                return Ok(json!({"state":"invalid","message":"Invalid rule proposal"}));
+            };
+            pg.propose_guard_rule(job, &proposal).await
+        }
+        "list_folder" => {
+            pg.library_list_folder(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "search_library" => {
+            pg.library_search(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "read_document" => {
+            pg.library_read_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "suggest_edit" => {
+            pg.library_suggest_edit(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "edit_document" => {
+            pg.library_edit_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "save_document" => {
+            pg.library_save_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "file_document" => {
+            pg.library_file_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "set_document_fields" => {
+            pg.library_set_fields(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "lookup" => {
+            pg.library_lookup(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "set_table_row" => {
+            pg.library_set_row(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "my_apps" => {
+            ensure!(arguments == json!({}), "Invalid apps request");
+            pg.agent_my_apps(job).await
+        }
+        "app_files" => {
+            pg.agent_app_files(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "read_app_file" => {
+            pg.agent_read_app_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "app_actions" => {
+            ensure!(arguments == json!({}), "Invalid app actions request");
+            pg.agent_app_actions(job).await
+        }
+        "run_app_action" => {
+            pg.agent_run_app_action(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "write_app_file" => {
+            pg.agent_write_app_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "report_problem" => {
             pg.report_agent_need(job, &serde_json::from_value(arguments)?)
                 .await

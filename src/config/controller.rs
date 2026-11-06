@@ -51,6 +51,13 @@ pub struct Controller {
     pub library: Library,
     pub archive: super::Archive,
     pub mcp_servers_file: Option<PathBuf>,
+    /// The model gateway's providers (base URL and key file each). Present: executors
+    /// reach models only through the controller and hold no model keys.
+    pub model_providers_file: Option<PathBuf>,
+    /// Library meaning search (LB2b): "provider:model" for passage embeddings and for
+    /// one-line document summaries, both from the model providers file.
+    pub library_embedding_model: Option<(String, String)>,
+    pub library_summary_model: Option<(String, String)>,
     /// Composio's project API key (a private 0600 file); no file, no Composio.
     pub composio_key_file: Option<PathBuf>,
     /// A loopback fixture for tests; the official API otherwise.
@@ -105,6 +112,8 @@ pub struct Library {
     pub local_root: Option<PathBuf>,
     pub s3_bucket: Option<String>,
     pub s3_endpoint: Option<String>,
+    /// How often keeping rules delete what is past its time (LB7).
+    pub keeping_seconds: u64,
 }
 
 /// The ECS cluster, release and task role cloud executors must prove.
@@ -200,6 +209,9 @@ impl Controller {
             library,
             archive: super::Archive::read(env, hosted),
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
+            model_providers_file: absolute(env, "AYATI_MODEL_PROVIDERS_FILE"),
+            library_embedding_model: provider_model(env, "AYATI_LIBRARY_EMBEDDING_MODEL"),
+            library_summary_model: provider_model(env, "AYATI_LIBRARY_SUMMARY_MODEL"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),
@@ -220,6 +232,11 @@ impl Controller {
         };
         if config.drain_seconds >= config.shutdown_seconds {
             env.problem("AYATI_DRAIN_SECONDS must be smaller than AYATI_SHUTDOWN_SECONDS");
+        }
+        if (config.library_embedding_model.is_some() || config.library_summary_model.is_some())
+            && config.model_providers_file.is_none()
+        {
+            env.problem("Library models need AYATI_MODEL_PROVIDERS_FILE");
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         // Model keys belong on executors (.env.executor locally).
@@ -265,6 +282,7 @@ impl Library {
             local_root: env.text("CUCKOO_LIBRARY_LOCAL_ROOT").map(PathBuf::from),
             s3_bucket: env.text("CUCKOO_LIBRARY_S3_BUCKET"),
             s3_endpoint: env.text("CUCKOO_LIBRARY_S3_ENDPOINT"),
+            keeping_seconds: env.number("CUCKOO_LIBRARY_KEEPING_SECONDS", 600, 5..=86_400),
         };
         if library.local_root.is_some() && library.s3_bucket.is_some() {
             env.problem("Configure only one Library storage backend");
@@ -297,6 +315,19 @@ impl CloudWorkers {
 }
 
 /// `gmail=ac_1,googlecalendar=ac_2`: which Composio auth config each toolkit uses.
+/// "provider:model", such as "openai:text-embedding-3-small".
+fn provider_model(env: &mut Reader, name: &str) -> Option<(String, String)> {
+    let value = env.text(name)?;
+    match value.split_once(':') {
+        Some((provider, model)) if !provider.is_empty() && !model.is_empty() => {
+            Some((provider.to_owned(), model.to_owned()))
+        }
+        _ => {
+            env.problem(format!("{name} must be provider:model"));
+            None
+        }
+    }
+}
 fn composio_auth_configs(env: &mut Reader) -> std::collections::BTreeMap<String, String> {
     let mut configs = std::collections::BTreeMap::new();
     for pair in env

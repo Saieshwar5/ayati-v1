@@ -31,6 +31,10 @@ export function LibraryIcon({ name }: { name: string }) {
           <path d="M5 3h9l5 5v13H5ZM14 3v6h5M8 12h8m-8 4h8" />
         </>
       )}
+      {name === 'folder' && <path d="M3 6h6l2 2h10v11H3Z" />}
+      {name === 'review' && <path d="M12 7v5l3 2M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z" />}
+      {name === 'gaps' && <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.5M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z" />}
+      {name === 'table' && <path d="M4 5h16v14H4ZM4 10h16M4 15h16M10 5v14" />}
       {name === 'file' && (
         <>
           <path d="M5 3h9l5 5v13H5ZM14 3v6h5" />

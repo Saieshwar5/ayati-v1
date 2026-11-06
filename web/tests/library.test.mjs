@@ -21,7 +21,7 @@ test('Library sharing lets a User select existing people and separates agent rea
     await update(() => { button('Save changes').click(); button('Save changes').click(); });
     assert.equal(payload.visibility, 'selected');
     assert.deepEqual(payload.people, [{ user: 'reader', access: 'view' }]);
-    assert.deepEqual(payload.agents, ['support']);
+    assert.deepEqual(payload.agents, [{ agent: 'support', level: 'suggest', use_for: 'viewers' }]);
     await update(() => resolveWrite(response({ error: 'Access changed' }, 403)));
     assert.match(document.querySelector('[role=status]').textContent, /Access changed/);
     assert.equal(document.querySelector('[aria-label="Access for Reader"]').value, 'view');

@@ -35,7 +35,7 @@ impl PgStore {
             anyhow::anyhow!("Run workspace-db migrate before starting Cuckoo PostgreSQL")
         })?;
         ensure!(
-            applied.len() == 64
+            applied.len() == 86
                 && applied[0].try_get::<String>("", "version")?
                     == "m20261020_000001_workspace_foundation"
                 && applied[1].try_get::<String>("", "version")?
@@ -145,7 +145,47 @@ impl PgStore {
                 && applied[61].try_get::<String>("", "version")? == "m20261102_000062_steering"
                 && applied[62].try_get::<String>("", "version")?
                     == "m20261102_000063_getting_better"
-                && applied[63].try_get::<String>("", "version")? == "m20261105_000064_guard",
+                && applied[63].try_get::<String>("", "version")? == "m20261105_000064_guard"
+                && applied[64].try_get::<String>("", "version")?
+                    == "m20261105_000065_guard_meanings"
+                && applied[65].try_get::<String>("", "version")? == "m20261105_000066_guard_facts"
+                && applied[66].try_get::<String>("", "version")?
+                    == "m20261105_000067_guard_proposals"
+                && applied[67].try_get::<String>("", "version")? == "m20261105_000068_model_usage"
+                && applied[68].try_get::<String>("", "version")?
+                    == "m20261105_000069_library_folders"
+                && applied[69].try_get::<String>("", "version")?
+                    == "m20261105_000070_library_passages"
+                && applied[70].try_get::<String>("", "version")?
+                    == "m20261105_000071_library_fence"
+                && applied[71].try_get::<String>("", "version")?
+                    == "m20261105_000072_library_meaning"
+                && applied[72].try_get::<String>("", "version")?
+                    == "m20261105_000073_library_always"
+                && applied[73].try_get::<String>("", "version")?
+                    == "m20261105_000074_library_edits"
+                && applied[74].try_get::<String>("", "version")? == "m20261105_000075_company_apps"
+                && applied[75].try_get::<String>("", "version")?
+                    == "m20261105_000076_library_tables"
+                && applied[76].try_get::<String>("", "version")?
+                    == "m20261105_000077_library_upkeep"
+                && applied[77].try_get::<String>("", "version")? == "m20261105_000078_built_apps"
+                && applied[78].try_get::<String>("", "version")?
+                    == "m20261105_000079_built_app_data"
+                && applied[79].try_get::<String>("", "version")?
+                    == "m20261105_000080_built_app_agents"
+                && applied[80].try_get::<String>("", "version")?
+                    == "m20261105_000081_built_app_actions"
+                && applied[81].try_get::<String>("", "version")?
+                    == "m20261105_000082_library_keeping"
+                && applied[82].try_get::<String>("", "version")?
+                    == "m20261105_000083_library_watching"
+                && applied[83].try_get::<String>("", "version")?
+                    == "m20261105_000084_built_app_events"
+                && applied[84].try_get::<String>("", "version")?
+                    == "m20261105_000085_built_app_asking"
+                && applied[85].try_get::<String>("", "version")?
+                    == "m20261105_000086_built_app_changes",
             "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())

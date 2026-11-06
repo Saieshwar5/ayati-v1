@@ -20,3 +20,70 @@ impl MigrationTrait for Guard {
         ))
     }
 }
+
+/// Schema 65: action meanings, safe defaults from them, rules for every action of a
+/// meaning and time-of-day rules.
+pub(crate) struct GuardMeanings;
+impl MigrationName for GuardMeanings {
+    fn name(&self) -> &str {
+        "m20261105_000065_guard_meanings"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardMeanings {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_meanings.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Action meanings require a forward migration".into(),
+        ))
+    }
+}
+
+/// Schema 66: rules that use a value from an earlier read, and "read first" rules.
+pub(crate) struct GuardFacts;
+impl MigrationName for GuardFacts {
+    fn name(&self) -> &str {
+        "m20261105_000066_guard_facts"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardFacts {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_facts.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Guard facts require a forward migration".into(),
+        ))
+    }
+}
+
+/// Schema 67: rules proposed by agents, reviewed by admins, and trial weeks.
+pub(crate) struct GuardProposals;
+impl MigrationName for GuardProposals {
+    fn name(&self) -> &str {
+        "m20261105_000067_guard_proposals"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for GuardProposals {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("guard_proposals.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Rule proposals require a forward migration".into(),
+        ))
+    }
+}

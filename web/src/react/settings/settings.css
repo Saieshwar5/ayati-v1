@@ -165,3 +165,12 @@
 .company-rule-kind legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
 .company-rule-kind label { display: inline-flex; align-items: center; gap: 8px; }
 .company-rule-readback { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--soft); font-weight: 600; }
+.company-rule-times { display: flex; gap: 12px; flex-wrap: wrap; }
+.company-rule-times label { flex: 1 1 140px; }
+.company-rule-proposals h3 { margin: 18px 0 4px; font-size: 15px; }
+.company-rule-replay { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); }
+.company-rule-replay p, .company-rule-replay ul { margin: 0; }
+.company-rule-replay ul { padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+.company-rule-form > label:not(.ui-check), .company-rule-times label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
+.company-rule-form > label:not(.ui-check) small { font-weight: 400; color: var(--muted); }
+.company-rule-form > label:not(.ui-check) select, .company-rule-form > label:not(.ui-check) input, .company-rule-times input { width: 100%; box-sizing: border-box; font-weight: 400; }

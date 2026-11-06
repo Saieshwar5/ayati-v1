@@ -408,6 +408,7 @@ async fn control_revoked_library_source_cannot_authorize_a_business_action() {
             revision: 0,
             title: "Approved instructions".into(),
             document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Approved order instructions"}]}]}),
+            folder: None,
         },
     )
     .await
@@ -417,7 +418,7 @@ async fn control_revoked_library_source_cannot_authorize_a_business_action() {
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![job.agent.clone()],
+        agents: vec![job.agent.clone().into()],
     };
     db.library_share(&owner, &w, &item, &grant).await.unwrap();
     let current = db.library_get(&owner, &w, &item).await.unwrap();

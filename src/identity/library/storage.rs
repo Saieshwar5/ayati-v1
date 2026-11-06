@@ -174,6 +174,20 @@ impl Storage {
             }
         }
     }
+    /// Removes a stored file for good (LB7 keeping rules); a missing file is already gone.
+    pub async fn delete(&self, key: &str) -> Result<()> {
+        match self {
+            Self::Disabled => Ok(()),
+            Self::Local(_) => match tokio::fs::remove_file(self.path(key)?).await {
+                Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+                _ => Ok(()),
+            },
+            Self::S3(store) => match store.delete(&ObjectPath::from(key)).await {
+                Err(object_store::Error::NotFound { .. }) | Ok(()) => Ok(()),
+                Err(_) => anyhow::bail!("Stored file could not be deleted; try again shortly"),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +205,9 @@ mod tests {
                 .is_err()
         );
         assert_eq!(storage.get(&key).await.unwrap(), bytes);
+        storage.delete(&key).await.unwrap();
+        assert!(storage.get(&key).await.is_err());
+        storage.delete(&key).await.unwrap();
     }
     #[tokio::test]
     async fn local_objects_publish_atomically_and_cannot_be_overwritten() {

@@ -62,6 +62,7 @@ async fn library_revocation_hides_questions_answers_and_replayed_references() {
         revision: 0,
         title: "Private reference".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Private business reference"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut sharing = ShareItem {
@@ -69,7 +70,7 @@ async fn library_revocation_hides_questions_answers_and_replayed_references() {
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![initial.agent.clone()],
+        agents: vec![initial.agent.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &sharing)
         .await

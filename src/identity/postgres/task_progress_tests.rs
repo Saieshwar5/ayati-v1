@@ -247,6 +247,7 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
         revision: 0,
         title: "Private source".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"PROGRESS_SOURCE_SECRET"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut share = ShareItem {
@@ -254,7 +255,7 @@ async fn task_progress_preserves_private_agent_and_library_source_boundaries() {
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![job.agent.clone()],
+        agents: vec![job.agent.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &share)
         .await

@@ -8,7 +8,15 @@ import {
 import { navigate } from '../../navigation';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
-import { request, itemUrl, dateLabel, type Item } from './model';
+import {
+  request,
+  itemUrl,
+  dateLabel,
+  levelName,
+  useForName,
+  type AgentGrant,
+  type Item,
+} from './model';
 type Directory = {
   users: { id: string; name: string }[];
   agents: { id: string; name: string; audience?: string; can_talk?: boolean; settings?: { paused: boolean } }[];
@@ -23,7 +31,7 @@ async function loadDirectory(): Promise<Directory> {
     agents: agents.agents.filter((a) => a.audience !== 'only_me' && a.can_talk !== false && !a.settings?.paused),
   };
 }
-function useAttempt() {
+export function useAttempt() {
   const attempt = useRef<{ payload: string; request: string }>(undefined);
   return (payload: unknown) => {
     const key = JSON.stringify(payload);
@@ -48,7 +56,20 @@ export function ShareDialog({
   const [people, setPeople] = useState<Record<string, string>>(
     Object.fromEntries(item.people.map((p) => [p.user, p.access])),
   );
-  const [agents, setAgents] = useState(item.agents);
+  // Agent id → what it may do and whose questions it may answer from this item.
+  const [agents, setAgents] = useState<Record<string, Omit<AgentGrant, 'agent'>>>(
+    Object.fromEntries(item.agents.map((g) => [g.agent, { level: g.level, use_for: g.use_for }])),
+  );
+  const folder = item.kind === 'folder';
+  // Owner decision: agents suggest edits by default; files can only be read.
+  const levels: AgentGrant['level'][] =
+    item.kind === 'file'
+      ? ['read']
+      : item.kind === 'table'
+        ? ['read', 'edit']
+        : folder
+          ? ['read', 'suggest', 'edit', 'save']
+          : ['read', 'suggest', 'edit'];
   return (
     <Dialog
       title="People and agents"
@@ -74,8 +95,11 @@ export function ShareDialog({
                     people:
                       visibility === 'private'
                         ? []
-                        : Object.entries(people).map(([user, access]) => ({ user, access })),
-                    agents,
+                        : Object.entries(people).map(([user, access]) => ({
+                            user,
+                            access,
+                          })),
+                    agents: Object.entries(agents).map(([agent, grant]) => ({ agent, ...grant })),
                   }),
                 );
                 changed();
@@ -88,7 +112,12 @@ export function ShareDialog({
         </>
       }
     >
-      <p>Choose who can open this item. Sharing does not invite anyone into the workspace.</p>
+      <p>
+        {folder
+          ? 'Everything in this folder follows these settings.'
+          : 'Choose who can open this item.'}{' '}
+        Sharing does not invite anyone into the workspace.
+      </p>
       <label className="library-field">
         People access
         <select
@@ -124,7 +153,7 @@ export function ShareDialog({
                     {visibility === 'workspace' ? 'Workspace view' : 'No access'}
                   </option>
                   <option value="view">Can view</option>
-                  {item.kind === 'page' && <option value="edit">Can edit</option>}
+                  {item.kind !== 'file' && <option value="edit">Can edit</option>}
                 </select>
               </label>
             ))}
@@ -133,29 +162,85 @@ export function ShareDialog({
       <section className="library-agent-grants">
         <h3>Agent access</h3>
         <p>
-          Selected agents may read this item when an authorized person asks. They cannot change it
-          or perform business actions.
+          Selected agents may read {folder ? 'what is in this folder' : 'this item'} to answer
+          questions. Suggested edits wait for someone who can edit; edits are saved as versions
+          you can restore. Agents never change who has access.
         </p>
         {directory.data?.agents.map((agent) => (
-          <label className="library-checkbox" key={agent.id}>
-            <input
-              type="checkbox"
-              checked={agents.includes(agent.id)}
-              onChange={(event) =>
-                setAgents((old) =>
-                  event.target.checked ? [...old, agent.id] : old.filter((id) => id !== agent.id),
-                )
-              }
-            />
-            {agent.name}
-            <small>Read</small>
-          </label>
+          <div className="library-agent-grant" key={agent.id}>
+            <label className="library-checkbox">
+              <input
+                type="checkbox"
+                checked={agent.id in agents}
+                onChange={(event) =>
+                  setAgents((old) => {
+                    const next = { ...old };
+                    if (event.target.checked)
+                      next[agent.id] = {
+                        level: item.kind === 'file' || item.kind === 'table' ? 'read' : 'suggest',
+                        use_for: 'viewers',
+                      };
+                    else delete next[agent.id];
+                    return next;
+                  })
+                }
+              />
+              {agent.name}
+              <small>{agent.id in agents ? levelName(agents[agent.id].level) : 'No access'}</small>
+            </label>
+            {agent.id in agents && levels.length > 1 && (
+              <label className="library-use-for">
+                Can
+                <select
+                  aria-label={`What ${agent.name} can do`}
+                  value={agents[agent.id].level}
+                  onChange={(event) =>
+                    setAgents((old) => ({
+                      ...old,
+                      [agent.id]: {
+                        ...old[agent.id],
+                        level: event.target.value as AgentGrant['level'],
+                      },
+                    }))
+                  }
+                >
+                  {levels.map((level) => (
+                    <option key={level} value={level}>
+                      {levelName(level)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {agent.id in agents && (
+              <label className="library-use-for">
+                Use for
+                <select
+                  aria-label={`Use for, ${agent.name}`}
+                  value={agents[agent.id].use_for}
+                  onChange={(event) =>
+                    setAgents((old) => ({
+                      ...old,
+                      [agent.id]: {
+                        ...old[agent.id],
+                        use_for: event.target.value as AgentGrant['use_for'],
+                      },
+                    }))
+                  }
+                >
+                  <option value="viewers">{useForName('viewers')}</option>
+                  <option value="staff">{useForName('staff')}</option>
+                </select>
+              </label>
+            )}
+          </div>
         ))}
         {directory.data?.agents.length === 0 && (
           <p>No available workspace agents. Create or request access to one in Agents.</p>
         )}
         <small>
-          Only me can still include selected agents. The person asking must also have access.
+          People who can see it: the agent uses it only when everyone who will read the answer can
+          open it. All staff: any colleague's question can use it, without opening the document.
         </small>
       </section>
       <section className="library-link">
@@ -183,7 +268,8 @@ export function AskDialog({ item, close }: { item: Item; close: () => void }) {
     withRequest = useAttempt();
   const [agent, setAgent] = useState(''),
     [question, setQuestion] = useState('');
-  const eligible = directory.data?.agents.filter((a) => item.agents.includes(a.id)) ?? [];
+  const eligible =
+    directory.data?.agents.filter((a) => item.agents.some((g) => g.agent === a.id)) ?? [];
   return (
     <Dialog
       title="Ask an agent"
@@ -260,15 +346,25 @@ export function HistoryDialog({
 }) {
   const load = useCallback(
     () =>
-      request<{ versions: { revision: number; title: string; author: string; created: number }[] }>(
-        `/${item.id}/versions`,
-      ),
+      request<{
+        versions: {
+          revision: number;
+          title: string;
+          author: string;
+          agent?: string | null;
+          created: number;
+        }[];
+      }>(`/${item.id}/versions`),
     [item.id],
   );
   const history = useResource(load),
     mutation = useMutation(),
     withRequest = useAttempt();
-  const [preview, setPreview] = useState<{ title: string; revision: number; document: unknown }>();
+  const [preview, setPreview] = useState<{
+    title: string;
+    revision: number;
+    document: unknown;
+  }>();
   return (
     <Dialog
       title="Version history"
@@ -296,7 +392,8 @@ export function HistoryDialog({
               Revision {version.revision} · {version.title}
             </strong>
             <small>
-              {version.author} · {dateLabel(version.created)}
+              {version.author}
+              {version.agent ? ` · by ${version.agent}` : ''} · {dateLabel(version.created)}
             </small>
           </div>
           <Button

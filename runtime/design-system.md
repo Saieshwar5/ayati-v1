@@ -8,8 +8,8 @@ Feature specifications still govern permissions, persistence and execution.
 
 ## Shared workspace shell
 
-- Keep the quiet global navigation rail visible across Home, Chat, Agents,
-  Library and Settings. It sits on the light grey outer canvas, without its own
+- Keep the quiet global navigation rail visible across Home, Chat, Activity, Agents,
+  Library, Apps and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
@@ -221,7 +221,7 @@ Settings follows the simplified design (D232, `designs/settings-simplified/`).
   "‹ Settings".
 - **Members:** Profile, Preferences, Help and This workspace, which ends with Leave
   workspace.
-- **Admins:** add Workspace, People, Connections, Company rules, Usage, Billing
+- **Admins:** add Workspace, People, Company rules, Usage, Billing
   ("Coming later") and Audit log. Members also see Company rules, read-only.
 - **Roles:** Admin and Member labels. Hide admin pages from members and enforce the
   same boundary on the server.

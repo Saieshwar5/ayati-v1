@@ -52,8 +52,13 @@ Durable scoped epochs fence snapshots, summaries, tool access, history reuse and
 publication after source/access changes. Conversation-scoped note changes fence
 that agent/conversation; agent-wide notes/profile changes fence the agent; channel
 membership/visibility changes fence the conversation. Workspace membership and
-connector/Library authority changes conservatively fence workspace context. This
+connector authority changes conservatively fence workspace context. This
 can discard more summaries than strictly necessary; it never expands access.
+Library changes no longer do (schema 71): every way Library content reaches an agent
+has its own receipt (Ask sources, agent reads and search previews, rehearsal samples,
+Home panels) checked against the item's access revision, so a page edit keeps earlier
+answers and running work, and a sharing change, move or trash fences only the work and
+history entries that used that item ([Library and agents](library-agents.md)).
 Revoking then regranting access does not make an old context version current again.
 Independent Home snapshots and question records retain their existing precise
 connector/Library source checks, plus content-specific note/profile/message fences.

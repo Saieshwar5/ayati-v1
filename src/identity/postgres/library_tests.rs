@@ -1,6 +1,30 @@
 use super::{tests::*, *};
 use crate::identity::library::model::*;
 use serde_json::json;
+#[path = "library_always_tests.rs"]
+mod always;
+#[path = "library_answer_tests.rs"]
+mod answers;
+#[path = "library_edit_tests.rs"]
+mod edits;
+#[path = "library_fence_tests.rs"]
+mod fence;
+#[path = "library_folder_tests.rs"]
+mod folders;
+#[path = "library_keeping_tests.rs"]
+mod keeping;
+#[path = "library_meaning_tests.rs"]
+mod meaning;
+#[path = "library_passage_tests.rs"]
+mod passages;
+#[path = "library_table_tests.rs"]
+mod tables;
+#[path = "library_trash_tests.rs"]
+mod trash;
+#[path = "library_upkeep_tests.rs"]
+mod upkeep;
+#[path = "library_watching_tests.rs"]
+mod watching;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),
@@ -8,6 +32,7 @@ fn page(title: &str) -> SavePage {
         revision: 0,
         title: title.into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Approved support instructions: offer a replacement after checking the purchase."}]}]}),
+        folder: None,
     }
 }
 fn share(revision: i64, visibility: &str, people: Vec<(&User, &str)>) -> ShareItem {
@@ -40,7 +65,7 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
     db.library_save(&writer, &w, &input).await.unwrap();
     assert!(db.library_get(&owner, &w, id).await.is_err());
     assert!(
-        db.library_list(&owner, &w, "all", "", 0).await.unwrap()["items"]
+        db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"]
             .as_array()
             .unwrap()
             .is_empty()
@@ -251,7 +276,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
         "UPDATE relay_library_items SET size=$3 WHERE workspace=$1 AND id=$2",
         vec![
             w.clone().into(),
-            db.library_list(&owner, &w, "all", "", 0).await.unwrap()["items"][0]["id"]
+            db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"][0]["id"]
                 .as_str()
                 .unwrap()
                 .into(),
@@ -310,7 +335,7 @@ async fn library_sources_are_private_revision_bound_and_fence_claimed_replies_af
     let page = page("Support policy");
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut sharing = share(1, "private", vec![]);
-    sharing.agents = vec![aid.clone()];
+    sharing.agents = vec![aid.clone().into()];
     db.library_share(&owner, &w, &page.id, &sharing)
         .await
         .unwrap();

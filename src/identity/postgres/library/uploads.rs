@@ -71,6 +71,7 @@ impl PgStore {
         let upload=query(&tx,"SELECT to_jsonb(u) AS data FROM relay_library_uploads u WHERE workspace=$1 AND id=$2 AND actor=$3 AND state IN ('pending','stored') AND expires>$4",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?.ok_or(Denied)?.try_get::<Value>("","data")?;
         if upload["state"] == "pending" {
             execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,text,object_key,mime,size,checksum,readiness,created,updated) VALUES($1,$2,'file',$3,$4,$4,$5,$6,$7,$8,$9,$10,$11,$11)",vec![w.into(),id.into(),upload["title"].as_str().unwrap().into(),user.id.clone().into(),text.into(),upload["object_key"].as_str().unwrap().into(),mime.into(),upload["size"].as_i64().unwrap().into(),upload["checksum"].as_str().unwrap().into(),readiness.into(),now().into()]).await?;
+            super::passages::index_item(&tx, w, id).await?;
             execute(
                 &tx,
                 "UPDATE relay_library_uploads SET state='stored' WHERE workspace=$1 AND id=$2",

@@ -44,9 +44,11 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
 }
 
 /** Appears on hover or focus: quick reactions, reply in thread and More. */
-export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove, details }: {
+export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove, details, keep }: {
   message: Message; own: boolean; reactions: ReturnType<typeof useReactions>; cancel: ReturnType<typeof useCancelReply>;
   reply?: () => void; openThread?: () => void; edit: () => void; remove: () => void;
+  /** Save the message as a Library page (LB5). */
+  keep?: () => void;
   /** Agent replies: open what the agent did, step by step (Activity, D235). */
   details?: () => void;
 }) {
@@ -78,6 +80,7 @@ export function MessageToolbar({ message, own, reactions, cancel, reply, openThr
         {own && <button type="button" role="menuitem" onClick={() => { setMore(false); edit(); }}>Edit message</button>}
         {details && <button type="button" role="menuitem" onClick={() => { setMore(false); details(); }}>See what it did</button>}
         <button type="button" role="menuitem" onClick={() => void copy()}>Copy link</button>
+        {keep && deliverable && message.content.trim() && <button type="button" role="menuitem" onClick={() => { setMore(false); keep(); }}>Save to Library</button>}
         {own && <button type="button" role="menuitem" className="danger" onClick={() => { setMore(false); remove(); }}>Delete message</button>}
         {cancel.available && <button type="button" role="menuitem" className="danger" disabled={cancel.busy} onClick={() => { setMore(false); cancel.cancel(); }}>Cancel request</button>}
       </span>}

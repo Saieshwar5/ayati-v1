@@ -1,8 +1,17 @@
 import { identityRequest, storageScope, workspaceId, workspaceUrl } from '../../workspace-context';
 export type Document = Record<string, unknown>;
+/** What one agent may do with a folder or item, and whose questions it may answer. */
+export type AgentGrant = {
+  agent: string;
+  level: 'read' | 'suggest' | 'edit' | 'save';
+  use_for: 'viewers' | 'staff';
+};
+export const levelName = (value: string) =>
+  ({ read: 'Read', suggest: 'Suggest edits', edit: 'Edit', save: 'Edit and save here' })[value] ??
+  value;
 export type Item = {
   id: string;
-  kind: 'page' | 'file';
+  kind: 'page' | 'file' | 'folder' | 'table';
   title: string;
   visibility: 'private' | 'selected' | 'workspace';
   revision: number;
@@ -17,9 +26,14 @@ export type Item = {
   starred: boolean;
   trashed: boolean;
   people: { user: string; access: string; name?: string }[];
-  agents: string[];
+  agents: AgentGrant[];
   steward?: string | null;
   agent_count?: number;
+  /** The folder this item is filed in; its sharing comes from there. */
+  folder?: string | null;
+  folder_title?: string | null;
+  item_count?: number;
+  review_due?: boolean;
 };
 export type Listing = { items: Item[]; more: boolean; available: boolean; storage: string };
 export const base = `/workspaces/${workspaceId}/library`;
@@ -28,6 +42,10 @@ export const request = <T>(path = '', body?: unknown, signal?: AbortSignal) =>
 export const emptyDocument: Document = { type: 'doc', content: [{ type: 'paragraph' }] };
 export const itemUrl = (id?: string) =>
   workspaceUrl(`/?view=library${id ? `&item=${encodeURIComponent(id)}` : ''}`);
+export const folderUrl = (id: string) =>
+  workspaceUrl(`/?view=library&folder=${encodeURIComponent(id)}`);
+export const useForName = (value: string) =>
+  ({ viewers: 'People who can see it', staff: 'All staff' })[value] ?? value;
 export const downloadUrl = (id: string, inline = false) =>
   `/api/identity${base}/${id}/download${inline ? '?inline=true' : ''}`;
 export const draftKey = (id: string) => storageScope(`cuckoo.library.draft.${id}`);

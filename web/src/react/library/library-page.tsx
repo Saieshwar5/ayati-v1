@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
-import { workspaceId } from '../../workspace-context';
+import { currentWorkspace, identityRequest, workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { LibraryItem } from './item';
+import { FolderHeader, NewFolderDialog } from './folders';
+import { UnansweredQuestions } from './upkeep';
 import {
   emptyDocument,
+  folderUrl,
   itemUrl,
   request,
   bytesLabel,
@@ -22,19 +25,22 @@ const views = [
   { id: 'private', label: 'Private' },
   { id: 'shared', label: 'Shared' },
   { id: 'starred', label: 'Starred' },
+  { id: 'review', label: 'Due for review' },
   { id: 'trash', label: 'Trash' },
 ];
 export function LibraryPage({ href }: { href: string }) {
   const selected = new URL(href).searchParams.get('item');
+  const folder = new URL(href).searchParams.get('folder');
   const [view, setView] = useState('all'),
     [search, setSearch] = useState(''),
     [query, setQuery] = useState(''),
-    [offset, setOffset] = useState(0);
+    [offset, setOffset] = useState(0),
+    [naming, setNaming] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const upload = useUploads(),
     picker = useRef<HTMLInputElement>(null),
     mutation = useMutation();
-  const creating = useRef<{ id: string; request: string }>(undefined);
+  const creating = useRef<{ id: string; request: string; folder?: string }>(undefined);
   useEffect(() => {
     const timer = setTimeout(() => {
       setQuery(search.trim());
@@ -45,20 +51,31 @@ export function LibraryPage({ href }: { href: string }) {
   const load = useCallback(
     () =>
       workspaceId
-        ? request<Listing>(`?view=${view}&q=${encodeURIComponent(query)}&offset=${offset}`)
+        ? view === 'gaps'
+          ? Promise.resolve<Listing>({ available: true, items: [], more: false, storage: 'local' })
+          : request<Listing>(
+            `?view=${view}&q=${encodeURIComponent(query)}&folder=${encodeURIComponent(
+              view === 'all' ? (folder ?? '') : '',
+            )}&offset=${offset}`,
+          )
         : Promise.resolve<Listing>({
             available: false,
             items: [],
             more: false,
             storage: 'unconfigured',
           }),
-    [view, query, offset, refreshKey, upload.version],
+    [view, query, folder, offset, refreshKey, upload.version],
   );
   const listing = useResource(load);
   const changed = () => setRefreshKey((n) => n + 1);
   const create = () =>
     void mutation.run(async () => {
-      creating.current ??= { id: crypto.randomUUID(), request: crypto.randomUUID() };
+      if (creating.current?.folder !== (folder ?? undefined))
+        creating.current = {
+          id: crypto.randomUUID(),
+          request: crypto.randomUUID(),
+          folder: folder ?? undefined,
+        };
       const item = await request<Item>('', {
         ...creating.current,
         title: 'Untitled page',
@@ -68,6 +85,23 @@ export function LibraryPage({ href }: { href: string }) {
       creating.current = undefined;
       changed();
       navigate(itemUrl(item.id));
+    });
+  // A new table starts with a key column and a number column, in the open folder.
+  const tableAttempt = useRef<{ id: string; request: string; folder?: string }>(undefined);
+  const createTable = () =>
+    void mutation.run(async () => {
+      if (tableAttempt.current?.folder !== (folder ?? undefined))
+        tableAttempt.current = { id: crypto.randomUUID(), request: crypto.randomUUID(), folder: folder ?? undefined };
+      const attempt = tableAttempt.current!;
+      await identityRequest(`/workspaces/${workspaceId}/library-tables`, {
+        ...attempt,
+        revision: 0,
+        title: 'Untitled table',
+        table: { type: 'table', columns: [{ name: 'Name', type: 'text' }, { name: 'Value', type: 'number' }], rows: [] },
+      });
+      tableAttempt.current = undefined;
+      changed();
+      navigate(itemUrl(attempt.id));
     });
   const filesEnabled = !!listing.data && listing.data.storage !== 'unconfigured';
   return (
@@ -127,6 +161,14 @@ export function LibraryPage({ href }: { href: string }) {
               >
                 ↑ Upload
               </Button>
+              {!folder && (
+                <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
+                  ＋ New folder
+                </Button>
+              )}
+              <Button disabled={!listing.data?.available || mutation.busy} onClick={createTable}>
+                ＋ New table
+              </Button>
               <Button primary disabled={!listing.data?.available || mutation.busy} onClick={create}>
                 ＋ New page
               </Button>
@@ -136,13 +178,14 @@ export function LibraryPage({ href }: { href: string }) {
             <aside className="library-sidebar">
               <span className="library-eyebrow">Browse</span>
               <nav aria-label="Library views">
-                {views.map((option) => (
+                {[...views, ...(currentWorkspace()?.role === 'Admin' ? [{ id: 'gaps', label: 'Unanswered' }] : [])].map((option) => (
                   <Button
                     key={option.id}
                     aria-current={view === option.id ? 'page' : undefined}
                     onClick={() => {
                       setView(option.id);
                       setOffset(0);
+                      if (folder) navigate(itemUrl());
                     }}
                   >
                     <span>
@@ -160,19 +203,50 @@ export function LibraryPage({ href }: { href: string }) {
               {listing.data?.storage === 'local' && <small>Local development file storage</small>}
             </aside>
             <main className="library-list">
-              <header>
-                <div>
-                  <h2>{views.find((v) => v.id === view)?.label}</h2>
-                  <p>
-                    {query
-                      ? `Results for “${query}”`
-                      : view === 'trash'
-                        ? 'Restore items when you need them again.'
-                        : 'Create something new, or pick up where you left off.'}
-                  </p>
-                </div>
-                <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
-              </header>
+              {folder && view === 'all' && !query ? (
+                <FolderHeader key={folder} id={folder} changed={changed} />
+              ) : (
+                <header>
+                  <div>
+                    <h2>{view === 'gaps' ? 'Unanswered questions' : views.find((v) => v.id === view)?.label}</h2>
+                    <p>
+                      {query
+                        ? `Results for “${query}”`
+                        : view === 'trash'
+                          ? 'Restore items when you need them again.'
+                          : view === 'review'
+                            ? 'Documents past their review date. Agents say they may be out of date.'
+                          : 'Create something new, or pick up where you left off.'}
+                    </p>
+                  </div>
+                  <div className="apps-row">
+                    {view === 'trash' && listing.data?.items.some((i) => i.manageable) && (
+                      <Button
+                        disabled={mutation.busy}
+                        onClick={() =>
+                          void mutation.run(async () => {
+                            if (
+                              !confirm(
+                                'Delete everything you put in Trash for good? Items on legal hold stay. This cannot be undone.',
+                              )
+                            )
+                              return;
+                            const done = await request<{ deleted: number }>('-trash/empty', {});
+                            mutation.setStatus(
+                              `Deleted ${done.deleted} item${done.deleted === 1 ? '' : 's'} for good.`,
+                            );
+                            changed();
+                          })
+                        }
+                      >
+                        Empty Trash
+                      </Button>
+                    )}
+                    <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
+                  </div>
+                </header>
+              )}
+              {view === 'gaps' && <UnansweredQuestions />}
               {(listing.error || mutation.status) && (
                 <p className="library-notice" role="alert">
                   {listing.error || mutation.status}
@@ -188,22 +262,26 @@ export function LibraryPage({ href }: { href: string }) {
                   </p>
                 </div>
               )}
-              {listing.data?.available && listing.data.items.length === 0 && (
+              {listing.data?.available && listing.data.items.length === 0 && view !== 'gaps' && (
                 <div className="library-empty">
                   <span aria-hidden="true">▤</span>
                   <h2>
                     {query
                       ? 'No matching items'
                       : view === 'all'
-                        ? 'Make room for your next idea'
+                        ? folder
+                          ? 'This folder is empty'
+                          : 'Make room for your next idea'
                         : 'Nothing here yet'}
                   </h2>
                   <p>
                     {query
                       ? 'Try a different title or phrase.'
-                      : 'Write a plan, keep a useful reference, and choose who can use it.'}
+                      : folder
+                        ? 'New pages you create here follow the folder’s sharing. Move existing items in from their page.'
+                        : 'Write a plan, keep a useful reference, and choose who can use it.'}
                   </p>
-                  {view === 'all' && !query && (
+                  {view === 'all' && !query && !folder && (
                     <Button primary disabled={mutation.busy} onClick={create}>
                       Create your first page
                     </Button>
@@ -229,12 +307,23 @@ export function LibraryPage({ href }: { href: string }) {
                           {view === 'trash' ? (
                             <strong>{item.title}</strong>
                           ) : (
-                            <a href={itemUrl(item.id)}>{item.title}</a>
+                            <a
+                              href={item.kind === 'folder' ? folderUrl(item.id) : itemUrl(item.id)}
+                            >
+                              {item.title}
+                            </a>
                           )}
                           <small>
-                            {item.kind === 'page'
-                              ? 'Page'
-                              : `${item.mime.split('/').at(-1)} · ${bytesLabel(item.size)}`}
+                            {item.kind === 'folder'
+                              ? `Folder · ${item.item_count ?? 0} item${item.item_count === 1 ? '' : 's'}`
+                              : item.kind === 'page'
+                                ? 'Page'
+                                : item.kind === 'table'
+                                  ? 'Table'
+                                : `${item.mime.split('/').at(-1)} · ${bytesLabel(item.size)}`}
+                            {item.folder_title &&
+                              item.folder !== folder &&
+                              ` · in ${item.folder_title}`}
                           </small>
                         </div>
                       </div>
@@ -243,7 +332,7 @@ export function LibraryPage({ href }: { href: string }) {
                         {item.agent_count
                           ? `${item.agent_count} agent${item.agent_count === 1 ? '' : 's'}`
                           : 'No agents'}
-                        {item.agent_count ? (
+                        {item.agent_count && item.kind !== 'folder' ? (
                           <small className="library-agent-readiness">
                             {item.readiness === 'ready'
                               ? 'Text ready'
@@ -257,21 +346,37 @@ export function LibraryPage({ href }: { href: string }) {
                       <span role="cell">
                         {view === 'trash' ? (
                           item.manageable && (
-                            <Button
-                              disabled={mutation.busy}
-                              onClick={() =>
-                                void mutation.run(async () => {
-                                  await request(`/${item.id}/action`, {
-                                    request: crypto.randomUUID(),
-                                    revision: item.revision,
-                                    action: 'restore',
-                                  });
-                                  changed();
-                                })
-                              }
-                            >
-                              Restore
-                            </Button>
+                            <span className="apps-row">
+                              <Button
+                                disabled={mutation.busy}
+                                onClick={() =>
+                                  void mutation.run(async () => {
+                                    await request(`/${item.id}/action`, {
+                                      request: crypto.randomUUID(),
+                                      revision: item.revision,
+                                      action: 'restore',
+                                    });
+                                    changed();
+                                  })
+                                }
+                              >
+                                Restore
+                              </Button>
+                              <Button
+                                disabled={mutation.busy}
+                                aria-label={`Delete ${item.title} for good`}
+                                onClick={() =>
+                                  void mutation.run(async () => {
+                                    if (!confirm(`Delete ${item.title} for good? This cannot be undone.`))
+                                      return;
+                                    await request(`/${item.id}/delete-forever`, {});
+                                    changed();
+                                  })
+                                }
+                              >
+                                Delete for good
+                              </Button>
+                            </span>
                           )
                         ) : (
                           <Button
@@ -321,6 +426,7 @@ export function LibraryPage({ href }: { href: string }) {
               )}
             </main>
           </div>
+          {naming && <NewFolderDialog close={() => setNaming(false)} />}
         </>
       )}
     </div>

@@ -4,6 +4,7 @@ import { Button } from '../ui';
 import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Settings } from './model';
 import { Knowledge } from './knowledge';
+import { AlwaysRead } from '../library/always-read';
 import { PromptPreview } from './create/instructions-step';
 
 type Draft = Pick<Settings, 'instructions' | 'memory' | 'history'>;
@@ -46,6 +47,7 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
         <h3>What {agent.name} knows</h3>
         {agent.editable && <label className="ui-check"><input type="checkbox" checked={draft.memory} onChange={event => edit({ memory: event.target.checked })} />Use approved notes in its answers</label>}
         <Knowledge agent={agent} />
+        <AlwaysRead agent={agent} />
       </section>
       <details className="agent-advanced"><summary>Advanced</summary>
         <label className="ui-field">Channel history<select disabled={!agent.editable} value={draft.history} onChange={event => edit({ history: event.target.value })}>

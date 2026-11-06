@@ -62,7 +62,7 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('.home'));
       const rail = document.querySelector('.workspace-rail');
-      assert.equal(rail.querySelector('[title=Apps]'), null);
+      assert.ok(rail.querySelector('[title=Apps]'), 'Apps sits in the rail (apps-page plan)');
       for (const [label, selector] of [['Chat', '.workspace-chat'], ['Settings', '.settings-page'], ['Home', '.home']]) {
         await click(rail.querySelector(`[title=${label}]`));
         assert.equal(document.querySelector('.workspace-rail'), rail);
@@ -90,7 +90,9 @@ test('navigation interception leaves workspace switches, downloads and other des
     const current = new URL(dom.window.location.href);
     // Links to removed local screens land on Home instead of a dead view.
     assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'home');
-    assert.equal(workspacePage(new URL('?view=apps', current)), 'home');
+    assert.equal(workspacePage(new URL('?view=apps', current)), 'apps');
+    // Connections moved from Settings to Apps; old links open Apps.
+    assert.equal(workspacePage(new URL('?view=settings&section=connections', current)), 'apps');
     assert.equal(workspacePage(new URL('?view=users', current)), 'settings');
     assert.ok(localDestination('?view=apps', current));
     for (const path of ['/w/22222222-2222-4222-8222-222222222222/', '/auth/login', '/api/identity/session', 'https://example.com/']) assert.equal(localDestination(path, current), undefined);

@@ -2,6 +2,7 @@
 mod harness;
 pub mod health;
 pub(crate) mod model;
+mod model_proxy;
 mod output;
 #[cfg(test)]
 mod output_tests;
@@ -125,7 +126,7 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
                         match result {
                             Ok(harness) if !drained => {
                                 slots[index].pid = Some(harness.pid);
-                                slots[index].state = State::Ready(Box::new(harness));
+                                slots[index].state = State::Ready(harness);
                             },
                             Ok(harness) => {
                                 harness.close().await;

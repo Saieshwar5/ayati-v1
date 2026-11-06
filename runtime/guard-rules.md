@@ -1,4 +1,4 @@
-# Company rules: the Guard, first part (schema 64)
+# Company rules: the Guard (schemas 64–67)
 
 Company rules are conditions every agent must follow on top of each action's
 Allow / Ask first / Block ([agent tools and approvals](tools-and-approvals.md)).
@@ -20,6 +20,88 @@ block wins over ask, and an action the agent's rule blocks stays blocked.
 The read-back is made by code from the saved rule (`guard::summary`), never by a
 model. The editor shows the same words before saving
 (`web/src/react/settings/company-rules-model.ts`).
+
+## What actions do
+
+Every reviewed action has a meaning (schema 65): **read**, **change**, **money**,
+**sends outside** or **delete**. The provider-facing effect (read/write) stays as it
+was; the meaning is Cuckoo's own review.
+
+- Cuckoo suggests one from the action's id, tool and title (`relay_guess_meaning`):
+  refunds, payments, invoices and transfers are money; send, email, message, reply and
+  post are sends outside; delete, remove and archive are deletes; other writes are
+  changes. Settings → Connections shows it as "(suggested)" until an admin reviews it.
+- Admins confirm or correct it per action (`POST /api/identity/workspaces/{w}/control/action-meanings`
+  with `{connection, operation, meaning, revision}`). Reading actions are always read;
+  writing actions can't be read. Waiting approvals for that action ask again, and the
+  change is in the Audit log ("Reviewed Update an order as money action").
+- **Safe defaults** follow the meaning when an admin set no rule (`relay_default_mode`):
+  reading Allow, deleting **Block**, everything else Ask first. Before schema 65 deletes
+  asked first.
+- Each request remembers its meaning (`relay_control_actions.meaning`).
+
+## Rules for every action of a kind, and time rules
+
+- A rule can name **one action** (and optionally one account) or **every action of one
+  meaning**: "Any money action: if today's total amount would go over 5000, block it."
+  A kind-wide rule covers only actions that have its field; a kind-wide daily total adds
+  up every request of that meaning today, across apps.
+- **Time of day**: `kind: "time"` with `value: {"from":"21:00","to":"09:00","days":[6,7]}`
+  (days 1 = Monday … 7 = Sunday; none for every day; equal times mean all day; windows
+  may wrap midnight). It uses the workspace's time zone, and records the local time and
+  day as its facts: "Any action that sends outside: on Saturday and Sunday, between 21:00
+  and 09:00, ask first."
+
+## Facts the agent didn't send, and "read first"
+
+Many actions carry only an ID: a refund names the order, not its total. A rule can take
+its value from a **reading action the agent completed earlier in the same task**
+(schema 66), using Cuckoo's own receipt of that read, not anything the agent supplies:
+
+- `source: {"operation":"order.read","match":"order","path":"total"}` uses the latest
+  completed `order.read` on the same account in this task whose `order` equals the
+  request's `order`, and reads `total` from its result: the provider's structured
+  content, the result itself, or JSON text in its first content item (dotted paths;
+  numbers written as text count). "Refund an order: if total from Find an order is over
+  2000, ask first."
+- No such read, or no such value: **a person decides**. The decision record says where
+  the fact came from (`facts.from`: the read and when).
+- `kind: "read_first"` needs that read first: "Update an order: unless Find an order for
+  the same order ran first in this task, block it." Its facts say whether the read was
+  found.
+- The Guard never calls an app while deciding, so no request waits on another app while
+  the workspace is locked. The reading action must be on the same account and share the
+  matched field; the editor offers only such reads.
+
+## Limits from a Library table
+
+A rule's value can be a Library table's number instead of a fixed one (schema 76): the
+row whose key is one of the request's fields, and a number column. See
+[Library and agents](library-agents.md#tables-schema-76-lb4).
+
+## Creating rules safely: proposals, replay and trials
+
+Schema 67, core-agent CA2.
+
+- **Agents propose, admins decide.** When a person asks an agent for a rule ("refunds
+  over 2000 need my approval"), the agent calls `propose_rule` with their words and the
+  structured rule. The controller checks it against the actions **that agent uses** and
+  saves it **off and unreviewed** (`reviewed=false`, `proposed_by`, `proposal`). Up to 20
+  wait at a time. It's in the Audit log. An agent can't turn a rule on, edit one or
+  loosen one. Invalid drafts return `{"state":"invalid"}` with the reason.
+- Settings → Company rules shows **Proposed by agents** with the person's words, the
+  code-made read-back and **Review** / **Dismiss**. Reviewing opens the editor; **Turn on**
+  saves it (`reviewed=true`, enabled). Dismiss deletes a proposal nobody turned on
+  (`POST …/guard/rules/{id}/dismiss`), audited with the person's words.
+- **Replay** (`POST …/guard/rules/replay`, admins): what the draft would have done to
+  the last 30 days of requests (up to 5,000, excluding invalidated ones): how many
+  matched, would have been held and blocked, and up to 10 examples. It uses the
+  workspace's days and times, earlier reads in the same task, and the day's totals of
+  what really happened. It saves nothing.
+- **Trial week**: saving with `trial: true` sets `trial_until_ms` a week ahead. Until then
+  the rule only records what it would have done (`guard.trial` on the action, counted as
+  `trial_matches`) and changes nothing; then it enforces. Turning a rule off clears its
+  trial.
 
 ## How a request is checked
 
@@ -63,14 +145,40 @@ re-check requests already waiting.
   revision matches. Up to 200 rules per workspace. Every save is in the Audit log in
   plain words.
 
-## Schema 64
+## Schemas 64–67
 
 - `relay_guard_rules`: one row per rule, with database checks for the same kinds,
   comparisons, effects and value types.
 - `relay_control_actions.guard`: the decision record, null when no rule applied.
+- Schema 67: `relay_guard_rules.proposed_by`, `proposal`, `reviewed`, `trial_until_ms`;
+  `relay_control_actions.created_ms`, so replay keeps the order of requests within a second.
+- Schema 66: `relay_guard_rules.source` and the `read_first` kind.
+- Schema 65: `relay_action_meanings`, `relay_guess_meaning`, `relay_action_meaning`,
+  `relay_default_mode`, the effective-rules view using it, `relay_control_actions.meaning`,
+  and `relay_guard_rules.meaning` with time rules (constraints renamed and widened).
 
 ## Checks
 
+- PostgreSQL (`postgres/guard_proposal_tests.rs`): a proposal stays off and isn't in
+  force; invalid drafts are refused; members can't dismiss; the admin turns it on and it
+  holds; reviewed rules can't be dismissed; dismissals are audited; a trial records
+  without blocking, counts its matches and then enforces; replay counts holds, blocks and
+  daily totals on past requests, members can't run it and it saves nothing.
+- Real Goose (`tests/guard_rules.mjs`, last part): the agent proposes a rule from the
+  person's words; the admin reviews, replays and turns it on in the browser; it then
+  holds the matching change.
+- PostgreSQL (`postgres/guard_fact_tests.rs`): with no read a person decides; a small
+  read total runs, a large one waits with where the fact came from; read-first blocks a
+  blind change and a read of another order, and allows after reading the same order;
+  sources that aren't a read on the same account, don't share the field, or mismatch
+  their path are refused.
+- Real Goose (`tests/guard_rules.mjs`, last part): a change without reading the order
+  first is blocked; reading it and changing it in one task runs.
+- PostgreSQL (`postgres/guard_meaning_tests.rs`): meanings are suggested, a delete is
+  blocked by default, admins review meanings (members can't, reading stays reading,
+  stale revisions are refused, audited); one money rule covers refunds and payments and
+  their day's total adds up across both; a time rule holds a request in its window in the
+  workspace's time zone, not on another day, and bad windows are refused.
 - PostgreSQL (`postgres/guard_tests.rs`): a field rule holds a large refund and
   records its facts in the approval and can be approved although the account allows the action; block wins over ask with two matches; a missing
   amount asks a person; rules never loosen an agent's Ask first; ten parallel refunds
@@ -91,8 +199,6 @@ re-check requests already waiting.
 
 ## Not yet (next CA slices)
 
-- Looked-up facts ("the order's total in Shopify" when the request carries only an
-  order ID) and action meanings beyond read and write (money, sends outside, delete).
+- Checking a change after it ran (reading the record back).
 - Rules on outgoing messages, data reads and browser steps.
-- Creating a rule from one sentence, replay on past activity and a trial week (CA2).
 - A Rules page outside Settings and rules from managers for their own agents.

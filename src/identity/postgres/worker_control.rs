@@ -1,6 +1,8 @@
 //! Durable local executor registration and assignment capabilities, stored only as hashes.
 use super::*;
 use crate::identity::worker_control::model::{Registration, Scope};
+#[path = "model_usage.rs"]
+pub(crate) mod model_usage;
 pub(super) const CLOCK: &str = "floor(extract(epoch FROM clock_timestamp()))::bigint";
 
 #[derive(Debug)]

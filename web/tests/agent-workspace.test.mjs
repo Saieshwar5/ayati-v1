@@ -3,6 +3,8 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { reactFixture } from './react-fixture.mjs';
+// The Instructions tab also lists the documents an agent always reads (Library LB2c).
+const noAlways = { items: [], given: [], hidden: 0, chosen: 0, editable: false, most: 5, budget: 8000 };
 const workspace = '11111111-1111-4111-8111-111111111111';
 const session = { user: { id: 'owner', email: 'owner@example.test' }, simulation: true, workspaces: [{ id: workspace, name: 'Store', role: 'Admin' }] };
 const settings = { provider: '', instructions: '', escalation: 'When delivery details are unclear', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
@@ -44,6 +46,7 @@ test('selected team workspace keeps selection while searching and does not creat
     assert.equal(document.activeElement, button('Tools'));
     assert.equal(button('Tools').getAttribute('aria-selected'), 'true');
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') writes.push(path);
     return response(read(path));
   } });
@@ -67,6 +70,7 @@ test('Stop on the Overview guards duplicate submissions, retains a failure and r
     assert.equal(button('Stop request'), undefined);
     assert.ok(writes.every(path => path.endsWith('/chats/channel/messages/reply/cancel')));
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') { writes.push(path); return new Promise(resolve => { complete = resolve; }); }
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
     return response(path.endsWith('/session') ? session : stopped ? empty : { requests: [request], next_before: null });
@@ -84,6 +88,7 @@ test('switching selected agent during Open in Chat cannot create or navigate a s
     assert.equal(writes.length, 0); assert.equal(navigation.length, 0);
     assert.equal(document.querySelector('.agent-identity-title h2').textContent, 'Tara');
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') writes.push(path);
     if (path.endsWith('/chats')) return new Promise(resolve => { chats = resolve; });
     return response(read(path));

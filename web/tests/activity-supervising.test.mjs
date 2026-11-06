@@ -37,7 +37,7 @@ test('Now groups what needs fixing by cause with one fix each, and Coming up pau
     const section = document.querySelector('[aria-label="Needs fixing"]');
     assert.match(section.textContent, /Needs fixing · 2/);
     assert.match(section.textContent, /Shopify needs reconnecting · 3 agents stopped/);
-    assert.match([...section.querySelectorAll('a')].find(a => a.textContent === 'Ask an admin to reconnect').href, /view=settings&section=connections/);
+    assert.match([...section.querySelectorAll('a')].find(a => a.textContent === 'Ask an admin to reconnect').href, /view=apps&manage=1/);
     const nova = document.querySelector('article[aria-label="Nova"]');
     assert.match(nova.textContent, /Needs fixing/);
     await click(button("See what's needed"));

@@ -22,6 +22,7 @@ async fn source_revocation_redacts_saved_drafts_from_history_and_cursor_replay()
         revision: 0,
         title: "Private source".into(),
         document: serde_json::json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Private source evidence"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut share = ShareItem {
@@ -29,7 +30,7 @@ async fn source_revocation_redacts_saved_drafts_from_history_and_cursor_replay()
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![a.clone()],
+        agents: vec![a.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &share)
         .await

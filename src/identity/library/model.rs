@@ -33,6 +33,9 @@ pub struct SavePage {
     pub revision: i64,
     pub title: String,
     pub document: Value,
+    /// Only when creating: the folder to create the page in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -47,7 +50,52 @@ pub struct ShareItem {
     pub revision: i64,
     pub visibility: String,
     pub people: Vec<PersonGrant>,
-    pub agents: Vec<String>,
+    pub agents: Vec<AgentGrant>,
+}
+/// What one agent may do with a folder or item, and whose questions it may answer.
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct AgentGrant {
+    pub agent: String,
+    #[serde(default = "read_level")]
+    pub level: String,
+    #[serde(default = "viewers")]
+    pub use_for: String,
+}
+impl From<String> for AgentGrant {
+    fn from(agent: String) -> Self {
+        Self {
+            agent,
+            level: read_level(),
+            use_for: viewers(),
+        }
+    }
+}
+impl From<&str> for AgentGrant {
+    fn from(agent: &str) -> Self {
+        agent.to_owned().into()
+    }
+}
+fn read_level() -> String {
+    "read".into()
+}
+fn viewers() -> String {
+    "viewers".into()
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreateFolder {
+    pub id: String,
+    pub request: String,
+    pub title: String,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MoveItem {
+    pub request: String,
+    pub revision: i64,
+    /// The folder to move into, or none to take the item out of its folder.
+    pub folder: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

@@ -1,0 +1,16 @@
+{
+  "name": "Leave requests",
+  "description": "Ask for time off; approvers decide.",
+  "roles": ["user", "approver"],
+  "collections": {
+    "requests": {
+      "fields": { "start": "date", "days": "number", "reason": "text", "status": "text" },
+      "access": { "user": ["create", "read_own"], "approver": ["read", "update"] }
+    }
+  },
+  "actions": [
+    { "id": "file_leave", "title": "File a leave request", "collection": "requests", "does": "create", "fields": ["start", "days", "reason"] },
+    { "id": "my_leave", "title": "See leave requests", "collection": "requests", "does": "read" },
+    { "id": "decide_leave", "title": "Approve or decline a leave request", "collection": "requests", "does": "update", "fields": ["status"] }
+  ]
+}

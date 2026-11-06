@@ -7,7 +7,9 @@ one sidebar with two groups.
 | Group | Members | Admins |
 | --- | --- | --- |
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
-| Workspace | This workspace, Company rules (read-only) | Workspace, People, Connections, Company rules, Usage, Billing, Audit log |
+| Workspace | This workspace, Company rules (read-only) | Workspace, People, Company rules, Usage, Billing, Audit log |
+
+Connections moved to the [Apps page](apps-page.md); `section=connections` links open it.
 
 - **Company rules** (everyone reads, admins edit): conditions on agent actions;
   see [company rules](guard-rules.md).

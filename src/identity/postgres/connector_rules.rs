@@ -4,11 +4,6 @@
 use super::*;
 use crate::identity::control::connections_model::ConnectorRule;
 
-/// New connectors start safe: reading is allowed, changes ask first.
-pub(super) fn default_mode(effect: &str) -> &'static str {
-    if effect == "read" { "allow" } else { "ask" }
-}
-
 pub(super) fn label(mode: &str) -> &'static str {
     match mode {
         "allow" => "Allow",
@@ -24,11 +19,9 @@ pub(super) async fn workspace_mode(
     connection: &str,
     operation: &str,
 ) -> Result<String> {
-    let row = query(db,"SELECT op->>'effect' AS effect,w.mode FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op LEFT JOIN relay_connector_rules w ON w.workspace=c.workspace AND w.connection=c.id AND w.operation=op->>'id' WHERE c.workspace=$1 AND c.id=$2 AND op->>'id'=$3",vec![w.into(),connection.into(),operation.into()]).await?.context("Unsupported operation")?;
-    Ok(match row.try_get::<Option<String>>("", "mode")? {
-        Some(mode) => mode,
-        None => default_mode(&row.try_get::<String>("", "effect")?).to_string(),
-    })
+    // No admin rule: the safe default from the action's meaning (schema 65).
+    let row = query(db,"SELECT COALESCE(w.mode,relay_default_mode(c.workspace,c.id,op)) AS mode FROM relay_control_connections c CROSS JOIN LATERAL jsonb_array_elements(c.definition->'operations') op LEFT JOIN relay_connector_rules w ON w.workspace=c.workspace AND w.connection=c.id AND w.operation=op->>'id' WHERE c.workspace=$1 AND c.id=$2 AND op->>'id'=$3",vec![w.into(),connection.into(),operation.into()]).await?.context("Unsupported operation")?;
+    Ok(row.try_get("", "mode")?)
 }
 
 impl PgStore {

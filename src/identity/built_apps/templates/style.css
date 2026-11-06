@@ -1,0 +1,15 @@
+body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; color: #1f2328; background: #fff; }
+@media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #17181b; } input { background: #222; color: inherit; } }
+main { max-width: 720px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 24px 0 8px; }
+.about, .who { color: #6b7280; margin: 0 0 12px; }
+.add { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.add label { display: grid; gap: 4px; font-size: 13px; }
+input { font: inherit; padding: 6px 8px; border: 1px solid #c8ccd2; border-radius: 8px; }
+button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid #c8ccd2; background: #f3f4f6; cursor: pointer; }
+.add button { background: #1f2328; color: #fff; border-color: #1f2328; }
+.records { list-style: none; padding: 0; margin: 0; }
+.records li { padding: 10px 0; border-top: 1px solid #e5e7eb; }
+.state { font-weight: 600; }
+.status { min-height: 1.2em; color: #6b7280; }

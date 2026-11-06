@@ -19,6 +19,7 @@ async fn home_library_provenance_guards_active_drafts_tools_and_review_after_rev
         revision: 0,
         title: "Panel source".into(),
         document: json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"PRIVATE_SOURCE_AMOUNT"}]}]}),
+        folder: None,
     };
     db.library_save(&owner, &w, &page).await.unwrap();
     let mut sharing = ShareItem {
@@ -26,7 +27,7 @@ async fn home_library_provenance_guards_active_drafts_tools_and_review_after_rev
         revision: 1,
         visibility: "private".into(),
         people: vec![],
-        agents: vec![initial.agent.clone()],
+        agents: vec![initial.agent.clone().into()],
     };
     db.library_share(&owner, &w, &page.id, &sharing)
         .await
@@ -86,7 +87,7 @@ async fn home_library_provenance_guards_active_drafts_tools_and_review_after_rev
     );
     sharing.request = uuid::Uuid::new_v4().to_string();
     sharing.revision = 3;
-    sharing.agents.push(initial.agent.clone());
+    sharing.agents.push(initial.agent.clone().into());
     db.library_share(&owner, &w, &page.id, &sharing)
         .await
         .unwrap();
