@@ -69,6 +69,32 @@ test('Keeping rules delete old items and their files for good; a legal hold keep
   const audit = (await app.request(`${app.path}/activity?kind=all`, app.cookie)).value.activity.map(e => e.sentence).join('\n');
   assert.match(audit, /Deleted "asha-id\.txt" for good under the keeping rule of its folder/);
   assert.match(audit, /Put "Signed contract" on legal hold: Supplier dispute/);
-  assert.deepEqual(errors, []);
   app.pass('The sweep deletes the old scan (its stored file too) and visitor log for good; the held contract stays and cannot be trashed; audited');
+
+  // Emptying Trash by hand (LB7b): a receipt file and a draft page, deleted for good.
+  page.on('dialog', d => void d.accept());
+  const receipt = randomUUID(), draft = randomUUID();
+  const receiptBytes = Buffer.from('Taxi receipt 12.50');
+  await app.request(`${app.path}/library-uploads`, app.cookie, { id: receipt, request: randomUUID(), title: 'old-receipt.txt', size: receiptBytes.length, checksum: createHash('sha256').update(receiptBytes).digest('hex') });
+  const sent = await fetch(`${app.base}${app.path}/library-uploads/${receipt}/bytes`, { method: 'POST', body: receiptBytes, headers: { Cookie: app.cookie, Origin: app.base, 'X-Ayati-Request': 'identity', 'Content-Type': 'application/octet-stream' } });
+  const receiptItem = await sent.json();
+  await app.request(`${app.path}/library`, app.cookie, { id: draft, request: randomUUID(), revision: 0, title: 'Old draft', document: doc('Never sent.') });
+  await app.request(`${app.path}/library/${receipt}/action`, app.cookie, { request: randomUUID(), revision: receiptItem.revision, action: 'trash' });
+  await app.request(`${app.path}/library/${draft}/action`, app.cookie, { request: randomUUID(), revision: 1, action: 'trash' });
+  const receiptFile = join(storage, 'library', w, receipt);
+  assert.ok(await exists(receiptFile));
+  await page.goto(`${app.base}/w/${w}/?view=library`);
+  await page.getByRole('button', { name: 'Trash', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete old-receipt.txt for good', exact: true }).click();
+  await until(async () => !(await exists(receiptFile)), 'The trashed file was not removed from storage', 15000);
+  await page.screenshot({ path: join(app.data, 'library-trash.png') });
+  await page.getByRole('button', { name: 'Empty Trash', exact: true }).click();
+  await page.getByText('Deleted 1 item for good.', { exact: true }).waitFor();
+  const emptied = (await app.request(`${app.path}/library?view=trash&q=&offset=0`, app.cookie)).value.items.map(i => i.id);
+  assert.ok(!emptied.includes(receipt) && !emptied.includes(draft));
+  const trashAudit = (await app.request(`${app.path}/activity?kind=all`, app.cookie)).value.activity.map(e => e.sentence).join('\n');
+  assert.match(trashAudit, /Deleted "old-receipt\.txt" for good from Trash/);
+  assert.match(trashAudit, /Emptied Trash: 1 item deleted for good/);
+  assert.deepEqual(errors, []);
+  app.pass('From Trash in the browser, a receipt is deleted for good (its stored file too) and Empty Trash deletes the rest; audited');
 });

@@ -19,6 +19,8 @@ mod meaning;
 mod passages;
 #[path = "library_table_tests.rs"]
 mod tables;
+#[path = "library_trash_tests.rs"]
+mod trash;
 #[path = "library_upkeep_tests.rs"]
 mod upkeep;
 #[path = "library_watching_tests.rs"]

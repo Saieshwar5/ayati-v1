@@ -219,7 +219,31 @@ export function LibraryPage({ href }: { href: string }) {
                           : 'Create something new, or pick up where you left off.'}
                     </p>
                   </div>
-                  <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
+                  <div className="apps-row">
+                    {view === 'trash' && listing.data?.items.some((i) => i.manageable) && (
+                      <Button
+                        disabled={mutation.busy}
+                        onClick={() =>
+                          void mutation.run(async () => {
+                            if (
+                              !confirm(
+                                'Delete everything you put in Trash for good? Items on legal hold stay. This cannot be undone.',
+                              )
+                            )
+                              return;
+                            const done = await request<{ deleted: number }>('-trash/empty', {});
+                            mutation.setStatus(
+                              `Deleted ${done.deleted} item${done.deleted === 1 ? '' : 's'} for good.`,
+                            );
+                            changed();
+                          })
+                        }
+                      >
+                        Empty Trash
+                      </Button>
+                    )}
+                    <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
+                  </div>
                 </header>
               )}
               {view === 'gaps' && <UnansweredQuestions />}
@@ -322,21 +346,37 @@ export function LibraryPage({ href }: { href: string }) {
                       <span role="cell">
                         {view === 'trash' ? (
                           item.manageable && (
-                            <Button
-                              disabled={mutation.busy}
-                              onClick={() =>
-                                void mutation.run(async () => {
-                                  await request(`/${item.id}/action`, {
-                                    request: crypto.randomUUID(),
-                                    revision: item.revision,
-                                    action: 'restore',
-                                  });
-                                  changed();
-                                })
-                              }
-                            >
-                              Restore
-                            </Button>
+                            <span className="apps-row">
+                              <Button
+                                disabled={mutation.busy}
+                                onClick={() =>
+                                  void mutation.run(async () => {
+                                    await request(`/${item.id}/action`, {
+                                      request: crypto.randomUUID(),
+                                      revision: item.revision,
+                                      action: 'restore',
+                                    });
+                                    changed();
+                                  })
+                                }
+                              >
+                                Restore
+                              </Button>
+                              <Button
+                                disabled={mutation.busy}
+                                aria-label={`Delete ${item.title} for good`}
+                                onClick={() =>
+                                  void mutation.run(async () => {
+                                    if (!confirm(`Delete ${item.title} for good? This cannot be undone.`))
+                                      return;
+                                    await request(`/${item.id}/delete-forever`, {});
+                                    changed();
+                                  })
+                                }
+                              >
+                                Delete for good
+                              </Button>
+                            </span>
                           )
                         ) : (
                           <Button
