@@ -168,11 +168,29 @@ pub(super) async fn invoke(
     };
     let mut tried = 0;
     let mut chosen = None;
+    let failures = pg(&state).clone();
+    let workspace = input.assignment.scope.workspace.clone();
+    // Kept for the operator view (MG4); a failure to record never blocks the call.
+    let failed = |provider: &str, status: u16| {
+        crate::identity::models::router::failed(provider);
+        let (store, w, model, provider) = (
+            failures.clone(),
+            workspace.clone(),
+            model.clone(),
+            provider.to_owned(),
+        );
+        async move {
+            let _ = store
+                .record_model_failure(&w, &provider, &model, status)
+                .await;
+        }
+    };
     for (index, (name, provider_model, cost)) in routes.iter().enumerate() {
         tried += 1;
         let last = index + 1 == routes.len();
         let (base, key) = provider(&file, name)?;
         body["model"] = json!(provider_model);
+        let sent = std::time::Instant::now();
         match upstream_client()
             .post(format!("{base}/chat/completions"))
             .bearer_auth(&key)
@@ -186,21 +204,33 @@ pub(super) async fn invoke(
                 if !last
                     && crate::identity::models::router::retryable(response.status().as_u16()) =>
             {
-                crate::identity::models::router::failed(name);
+                failed(name, response.status().as_u16()).await;
             }
             Ok(response) => {
+                let status = response.status().as_u16();
                 if response.status().is_success() {
                     crate::identity::models::router::succeeded(name);
-                } else if crate::identity::models::router::retryable(response.status().as_u16()) {
-                    crate::identity::models::router::failed(name);
+                } else if crate::identity::models::router::retryable(status) {
+                    failed(name, status).await;
+                } else {
+                    // The request itself was refused: counted, but the provider isn't rested.
+                    let _ = pg(&state)
+                        .record_model_failure(&workspace, name, &model, status)
+                        .await;
                 }
-                chosen = Some((response, name.clone(), provider_model.clone(), cost.clone()));
+                chosen = Some((
+                    response,
+                    name.clone(),
+                    provider_model.clone(),
+                    cost.clone(),
+                    sent,
+                ));
                 break;
             }
-            Err(_) => crate::identity::models::router::failed(name),
+            Err(_) => failed(name, 0).await,
         }
     }
-    let Some((response, name, provider_model, cost)) = chosen else {
+    let Some((response, name, provider_model, cost, sent)) = chosen else {
         return Ok((
             StatusCode::BAD_GATEWAY,
             Json(json!({"error":{"message":"The model provider could not be reached"}})),
@@ -244,6 +274,7 @@ pub(super) async fn invoke(
                     person: Some(&person),
                     charge_micro: micro_dollars(input_tokens, output_tokens, &price),
                     cost_micro: micro_dollars(input_tokens, output_tokens, &cost),
+                    latency_ms: i64::try_from(sent.elapsed().as_millis()).ok(),
                 })
                 .await;
         }

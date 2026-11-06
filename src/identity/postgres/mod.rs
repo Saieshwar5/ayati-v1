@@ -117,6 +117,9 @@ mod model_budget_tests;
 pub(crate) mod model_budgets;
 #[cfg(test)]
 mod model_catalog_tests;
+pub(crate) mod model_operations;
+#[cfg(test)]
+mod model_operations_tests;
 #[cfg(test)]
 mod model_usage_report_tests;
 pub(crate) mod model_usage_reports;

@@ -19,6 +19,7 @@ async fn spend(db: &super::PgStore, w: &str, agent: &str, micro: i64) {
         person: None,
         charge_micro: micro,
         cost_micro: 0,
+        latency_ms: None,
     })
     .await
     .unwrap();

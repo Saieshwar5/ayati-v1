@@ -9,6 +9,7 @@ import { WorkspaceList } from './access/workspace-list';
 import { EnterCode } from './access/enter-code';
 import { CreateWorkspace } from './access/create-workspace';
 import { AdminCodes } from './access/admin-codes';
+import { ModelOperations } from './access/model-operations';
 
 type Screen = { kind: 'home' } | { kind: 'code' } | { kind: 'create'; code?: string; expires?: number } | { kind: 'admin' };
 const lastKey = (user: string) => `relay.last-workspace.${user}`;
@@ -85,7 +86,7 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
   const admin = Boolean(session.platform_admin);
   const workspaces = session.workspaces ?? [], invitations = session.invitations ?? [];
   const home = () => { setScreen({ kind: 'home' }); setNotice(''); };
-  if (screen.kind === 'admin' && admin) return shell(<AdminCodes back={home} />);
+  if (screen.kind === 'admin' && admin) return shell(<><AdminCodes back={home} /><div className="access-column wide"><ModelOperations /></div></>);
   if (screen.kind === 'create' && (screen.code || admin)) return shell(<CreateWorkspace code={screen.code} expires={screen.expires} back={home} />);
   const empty = !workspaces.length && !invitations.length;
   if (screen.kind === 'code' || (empty && !admin)) return shell(<EnterCode email={user.email} empty={empty}

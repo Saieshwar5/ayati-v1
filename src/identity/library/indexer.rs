@@ -63,6 +63,7 @@ pub(crate) async fn round(
                                 person: None,
                                 charge_micro: 0,
                                 cost_micro: 0,
+                                latency_ms: None,
                                 input_tokens: tokens,
                                 output_tokens: 0,
                             })
@@ -119,6 +120,7 @@ pub(crate) async fn round(
                             person: None,
                             charge_micro: 0,
                             cost_micro: 0,
+                            latency_ms: None,
                             input_tokens: input,
                             output_tokens: output,
                         })

@@ -37,6 +37,20 @@ fn resting(provider: &str, now: Instant) -> bool {
         .is_some_and(|until| until > now)
 }
 
+/// Providers resting now on this controller, with seconds left.
+pub fn resting_now() -> Vec<(String, u64)> {
+    let now = Instant::now();
+    RESTING
+        .lock()
+        .ok()
+        .and_then(|r| r.clone())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(_, until)| *until > now)
+        .map(|(provider, until)| (provider, (until - now).as_secs().max(1)))
+        .collect()
+}
+
 /// The order to try a model's routes in, for one call. `roll` is a random number,
 /// passed in so tests can fix it.
 pub fn order(model: &Model, roll: u64) -> Vec<Route> {

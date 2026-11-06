@@ -15,6 +15,7 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route("/api/identity/workspaces/{w}/models", get(list))
         .route("/api/identity/workspaces/{w}/usage", get(usage))
+        .route("/api/identity/admin/models", get(operations))
         .route(
             "/api/identity/workspaces/{w}/model-budgets",
             get(budgets).post(save_budget),
@@ -115,4 +116,54 @@ async fn save_budget(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.save_model_budget(&user, &w, &input).await?))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OperationsQuery {
+    #[serde(default)]
+    hours: Option<i64>,
+}
+
+/// The operator view (MG4), for Cuckoo's platform administrators only: traffic,
+/// failures, speed, our costs and margin across every workspace, the catalog's
+/// routes, and which providers are resting on this controller.
+async fn operations(
+    State(app): State<Shared>,
+    Query(input): Query<OperationsQuery>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    if !super::workspace_codes::platform_admin(&app, &user) {
+        return Err(Error(
+            anyhow::anyhow!("Only Cuckoo administrators see model operations"),
+            axum::http::StatusCode::FORBIDDEN,
+        ));
+    }
+    let hours = input.hours.unwrap_or(24);
+    if !(1..=24 * 31).contains(&hours) {
+        return Err(anyhow::anyhow!("Choose 1 hour to 31 days").into());
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+    let mut report = app.store.model_operations(now - hours * 3_600_000).await?;
+    report["hours"] = json!(hours);
+    report["resting"] = json!(
+        router::resting_now()
+            .into_iter()
+            .map(|(provider, seconds)| json!({"provider": provider, "seconds": seconds}))
+            .collect::<Vec<_>>()
+    );
+    report["catalog"] = match app.store.model_catalog.as_ref().map(catalog::Files::load) {
+        None => json!({"on": false, "models": []}),
+        Some(Err(error)) => json!({"on": true, "error": format!("{error:#}"), "models": []}),
+        Some(Ok(catalog)) => json!({"on": true, "models": catalog.models.iter().map(|m| json!({
+            "id": m.id, "name": m.name, "status": m.status, "price": m.price,
+            "routes": m.routes.iter().map(|r| json!({"provider": r.provider, "model": r.model, "priority": r.priority,
+                "weight": r.weight, "cost": r.cost,
+                "margin": {"input": m.price.input - r.cost.input, "output": m.price.output - r.cost.output}})).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>()}),
+    };
+    Ok(Json(report))
 }

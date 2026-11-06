@@ -61,7 +61,7 @@ test('a catalog model is served by its next route when the first provider is dow
   await writeFile(catalog, JSON.stringify({ models: [{ id: 'fixture', name: 'Fixture Large', tags: ['fast'], price: { input: 1, output: 2 },
     routes: [{ provider: 'down', model: 'down-fixture', priority: 1 }, { provider: 'fixture-host', model: 'fixture', priority: 2, cost: { input: 0.5, output: 1 } }] }] }));
   const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15, provider, agentProvider: '',
-    apiEnv: { AYATI_MODEL_PROVIDERS_FILE: providers, AYATI_MODEL_CATALOG_FILE: catalog } });
+    apiEnv: { AYATI_MODEL_PROVIDERS_FILE: providers, AYATI_MODEL_CATALOG_FILE: catalog, AYATI_PLATFORM_ADMINS: 'employee0@company.example.test' } });
   const offered = (await app.request(`${app.path}/models`, app.cookie)).value;
   assert.equal(offered.catalog_on, true);
   assert.deepEqual(offered.models.map(m => m.name), ['Fixture Large']);
@@ -127,5 +127,21 @@ test('a catalog model is served by its next route when the first provider is dow
   await page.getByRole('region', { name: 'Monthly budgets' }).getByText(/Used up/).waitFor();
   await page.screenshot({ path: join(app.data, 'model-budget-reached.png'), fullPage: true });
   await app.stop(again);
-  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider, tries, charge, cost and person, and Settings shows the charges; a used-up budget stops calls at the gateway and refuses new requests');
+
+  // MG4: the operator sees the down provider's 503, the route that served the call,
+  // its speed and margin; nobody else may.
+  assert.equal(app.sql("SELECT provider || ':' || status FROM relay_model_failures ORDER BY id LIMIT 1"), 'down:503');
+  assert.ok(Number(app.sql('SELECT min(latency_ms) FROM relay_model_usage WHERE latency_ms IS NOT NULL')) >= 0);
+  const operations = (await app.request('/api/identity/admin/models?hours=24', app.cookie)).value;
+  assert.equal(operations.providers[0].key, 'fixture-host');
+  assert.ok(operations.providers[0].margin_usd > 0, 'priced above cost');
+  assert.ok(operations.failures.some(f => f.provider === 'down' && f.status === 503));
+  assert.equal(operations.catalog.models[0].routes[1].margin.input, 0.5);
+  const other = await app.login(1);
+  await app.request('/api/identity/admin/models', other, undefined, 403);
+  await page.goto(`${app.base}/?view=account&admin=1`);
+  const ops = page.getByRole('region', { name: 'Models and providers' });
+  await ops.getByRole('cell', { name: 'Unreachable' }).or(ops.getByRole('cell', { name: '503' })).first().waitFor();
+  await page.screenshot({ path: join(app.data, 'model-operations.png'), fullPage: true });
+  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider, tries, charge, cost and person, and Settings shows the charges; a used-up budget stops calls at the gateway and refuses new requests; operators see failures, speed and margin');
 });
