@@ -108,5 +108,24 @@ test('a catalog model is served by its next route when the first provider is dow
   await page.getByRole('region', { name: 'Workspace usage' }).getByText('Fixture Large', { exact: true }).waitFor();
   await page.screenshot({ path: join(app.data, 'model-usage.png'), fullPage: true });
   await app.stop(executor);
-  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider, tries, charge, cost and person, and Settings shows the charges');
+
+  // MG3: a used-up budget stops model calls at the gateway, even for work queued
+  // before it ran out, and refuses new requests with the reason.
+  const w = app.path.split('/').at(-1);
+  await app.request(`${app.path}/model-budgets`, app.cookie, { agent: '', monthly_usd: 0.01, warn_percent: 80 });
+  const queued = await app.send('Queued before the budget ran out');
+  app.sql(`INSERT INTO relay_model_usage(workspace,assignment,agent,provider,model,input_tokens,output_tokens,charge_micro) VALUES('${w}','fixture','${app.profile.id}','fixture-host','fixture',0,0,10000)`);
+  const asked = provider.requests.length;
+  const again = await app.startExecutor({ AYATI_MODEL_GATEWAY: '1', AYATI_MODEL: '*', OPENAI_API_KEY: undefined, OPENAI_HOST: undefined, AYATI_EXECUTOR_SLOTS: '1' });
+  await app.done(queued, 'failed');
+  assert.equal(provider.requests.length, asked, 'no call reached a provider after the budget ran out');
+  const refused = await app.request(`${app.path}/chats/${app.conversation}/messages`, app.cookie, { id: crypto.randomUUID(), content: 'Refused', agent: app.profile.id }, 400);
+  assert.match(refused.value.error, /This workspace has used its monthly model budget/);
+  const listed = (await app.request(`${app.path}/model-budgets`, app.cookie)).value.budgets[0];
+  assert.equal(listed.state, 'reached');
+  await page.goto(`${app.base}/w/${w}/?view=settings&section=usage`);
+  await page.getByRole('region', { name: 'Monthly budgets' }).getByText(/Used up/).waitFor();
+  await page.screenshot({ path: join(app.data, 'model-budget-reached.png'), fullPage: true });
+  await app.stop(again);
+  app.pass('A catalog model moves to its next route when the first provider is down; the executor serves any catalog model; usage records the provider, tries, charge, cost and person, and Settings shows the charges; a used-up budget stops calls at the gateway and refuses new requests');
 });

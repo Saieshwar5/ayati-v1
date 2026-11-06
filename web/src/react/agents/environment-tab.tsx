@@ -4,6 +4,7 @@ import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Directory } from './model';
 import { CatalogModelPicker } from './catalog-model-picker';
 import { UsageReportView } from '../usage/usage-report';
+import { AgentBudgets } from '../usage/budgets';
 
 const later = [
   { title: 'Computer', text: 'A computer it can use for files and programs.' },
@@ -25,7 +26,7 @@ export function EnvironmentTab({ agent, directory, saved }: { agent: Agent; dire
         : directory.catalog?.catalog_on ? <CatalogModelPicker agent={agent} directory={directory} catalog={directory.catalog} saved={saved} />
           : <ProviderModelForm agent={agent} directory={directory} saved={saved} />}
     </section>
-    {agent.editable && <section aria-label="Usage"><UsageReportView key={agent.id} agent={agent.id} title="Usage" /></section>}
+    {agent.editable && <section aria-label="Usage"><UsageReportView key={agent.id} agent={agent.id} title="Usage" /><AgentBudgets key={`budgets-${agent.id}`} agent={agent.id} /></section>}
     <section aria-label="Coming later"><h3>Coming later</h3>
       <div className="agent-later-cards">{later.map(card => <article key={card.title} className="agent-later-card">
         <h4>{card.title}</h4><p>{card.text}</p><span>Coming later</span>

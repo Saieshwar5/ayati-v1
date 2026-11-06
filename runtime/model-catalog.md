@@ -104,6 +104,6 @@ integration check that records the tested version and its limits.
 ## Next
 
 - MG2 (built): price and cost per call, and usage by agent, model, person and day ([model usage](model-usage.md)).
-- MG3: budgets and limits per workspace and agent.
+- MG3 (built): [monthly budgets](model-budgets.md) per workspace and agent.
 - MG4: an operator view of provider health, errors, speed and margin.
 - MG5: an optional LiteLLM route for APIs that don't speak OpenAI's format.
