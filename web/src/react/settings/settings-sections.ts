@@ -10,8 +10,9 @@ export const labels: Record<Section, string> = {
 };
 export const personal: Section[] = ['profile', 'preferences', 'help'];
 export const adminWorkspace: Section[] = ['workspace', 'people', 'company-rules', 'usage', 'billing', 'audit-log'];
-export const memberWorkspace: Section[] = ['this-workspace', 'company-rules'];
-export const comingLater: ReadonlySet<Section> = new Set(['usage', 'billing']);
+// Members see the model use made for them on Usage (MG2); admins see the workspace's.
+export const memberWorkspace: Section[] = ['this-workspace', 'company-rules', 'usage'];
+export const comingLater: ReadonlySet<Section> = new Set(['billing']);
 
 const oldSections: Record<string, Section> = {
   'my-account': 'profile', appearance: 'preferences', 'help-&-feedback': 'help',

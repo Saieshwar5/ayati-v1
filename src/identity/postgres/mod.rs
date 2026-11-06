@@ -114,6 +114,9 @@ mod message_reply_migration;
 mod message_reply_tests;
 #[cfg(test)]
 mod model_catalog_tests;
+#[cfg(test)]
+mod model_usage_report_tests;
+pub(crate) mod model_usage_reports;
 mod pool_metrics;
 #[cfg(test)]
 mod pool_metrics_tests;
@@ -459,7 +462,9 @@ pub(crate) use library::keeping::{Hold, Keeping};
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
 pub(crate) use library::watching::Watch;
-pub(crate) use worker_control::model_usage::ModelCall;
+pub(crate) use worker_control::model_usage::{
+    ModelCall, micro_dollars as model_usage_micro_dollars,
+};
 #[cfg(test)]
 mod agent_profile_tests;
 mod audit_summary_migration;

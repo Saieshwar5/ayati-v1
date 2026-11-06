@@ -4,11 +4,17 @@
 pub(crate) mod catalog;
 pub(crate) mod router;
 use super::*;
-use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
+use axum::{
+    Json,
+    extract::{Path as RoutePath, Query},
+    http::HeaderMap,
+};
 use serde_json::{Value, json};
 
 pub(super) fn routes() -> Router<Shared> {
-    Router::new().route("/api/identity/workspaces/{w}/models", get(list))
+    Router::new()
+        .route("/api/identity/workspaces/{w}/models", get(list))
+        .route("/api/identity/workspaces/{w}/usage", get(usage))
 }
 
 /// The models people may choose, without providers or our costs; empty without a
@@ -50,4 +56,40 @@ async fn list(
     let user = identity(&app, &headers).await?;
     workspaces::membership(&app, &user, &w).await?;
     Ok(Json(offered(&app)?))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UsageQuery {
+    #[serde(default)]
+    agent: Option<String>,
+    #[serde(default)]
+    days: Option<i64>,
+}
+
+/// Model use over the last days (MG2): the whole workspace for admins, one agent for
+/// its owner, otherwise the use made for the person asking. Catalog models carry
+/// their names; our provider costs are never included.
+async fn usage(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    Query(input): Query<UsageQuery>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let scope = crate::identity::postgres::model_usage_reports::UsageScope {
+        agent: input.agent.as_deref().filter(|a| !a.is_empty()),
+        days: input.days.unwrap_or(30),
+    };
+    let mut report = app.store.model_usage_report(&user, &w, &scope).await?;
+    let catalog = app.store.model_catalog.as_ref().and_then(|f| f.load().ok());
+    for item in report["by_model"].as_array_mut().into_iter().flatten() {
+        let key = item["key"].as_str().unwrap_or_default().to_owned();
+        let name = catalog
+            .as_ref()
+            .and_then(|c| c.find(&key))
+            .map_or(key, |m| m.name.clone());
+        item["name"] = json!(name);
+    }
+    Ok(Json(report))
 }

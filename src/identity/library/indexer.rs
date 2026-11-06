@@ -60,6 +60,9 @@ pub(crate) async fn round(
                                 model: settings.model,
                                 provider_model: settings.model,
                                 attempts: 1,
+                                person: None,
+                                charge_micro: 0,
+                                cost_micro: 0,
                                 input_tokens: tokens,
                                 output_tokens: 0,
                             })
@@ -113,6 +116,9 @@ pub(crate) async fn round(
                             model: settings.model,
                             provider_model: settings.model,
                             attempts: 1,
+                            person: None,
+                            charge_micro: 0,
+                            cost_micro: 0,
                             input_tokens: input,
                             output_tokens: output,
                         })

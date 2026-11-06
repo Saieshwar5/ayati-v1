@@ -24,7 +24,7 @@ export type Details = ActivityItem & { message: string | null; reply: string; st
   /** What the person added while it ran (Phase 4), and whether the agent saw it. */
   added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[];
   /** Tokens through the model gateway (core-agent CA3); zero calls without it. */
-  model_usage?: { calls: number; input_tokens: number; output_tokens: number; models: string | null } };
+  model_usage?: { calls: number; input_tokens: number; output_tokens: number; charge_usd?: number; models: string | null } };
 export const steerRequest = (reply: string, text: string) => identityRequest(`${root}/requests/${encodeURIComponent(reply)}/steer`, { text });
 export const steerTask = (task: string, text: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/steer`, { text });
 export type Totals = {

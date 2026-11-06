@@ -2,6 +2,8 @@
 //! assignment capability; the controller picks the assignment's model, adds the
 //! provider key it alone holds, streams the answer back and records token use.
 use super::*;
+use crate::identity::models::catalog::Price;
+use crate::identity::postgres::model_usage_micro_dollars as micro_dollars;
 use axum::{body::Bytes, response::IntoResponse};
 use futures_util::StreamExt;
 use serde::Deserialize;
@@ -128,30 +130,31 @@ pub(super) async fn invoke(
     }
     // A catalog model goes to its routes in order; any other model to the assignment's
     // provider, as before the catalog (MG1).
-    let catalog = crate::identity::models::catalog::Files::from(&state.app.config);
-    let routes: Vec<(String, String)> = match catalog
+    let catalog = crate::identity::models::catalog::Files::from(&state.app.config)
         .map(|files| files.load())
-        .transpose()?
-        .as_ref()
-        .and_then(|c| c.find(&model))
-    {
+        .transpose()?;
+    let entry = catalog.as_ref().and_then(|c| c.find(&model));
+    // What people are charged for this model, and each route's cost to us (MG2).
+    let price = entry.map(|e| e.price.clone()).unwrap_or_default();
+    let routes: Vec<(String, String, Price)> = match entry {
         Some(entry) => {
             crate::identity::models::router::order(entry, crate::identity::models::router::roll())
                 .into_iter()
-                .map(|r| (r.provider, r.model))
+                .map(|r| (r.provider, r.model, r.cost))
                 .collect()
         }
-        None => vec![(name, model.clone())],
+        None => vec![(name, model.clone(), Price::default())],
     };
-    let job = match &record.work {
-        super::super::postgres::worker_control::Work::Reply(assignment) => {
-            Some(assignment.job.reply.clone())
-        }
-        super::super::postgres::worker_control::Work::Task(_) => None,
+    let (job, person) = match &record.work {
+        super::super::postgres::worker_control::Work::Reply(assignment) => (
+            Some(assignment.job.reply.clone()),
+            assignment.job.requester.clone(),
+        ),
+        super::super::postgres::worker_control::Work::Task(task) => (None, task.actor.clone()),
     };
     let mut tried = 0;
     let mut chosen = None;
-    for (index, (name, provider_model)) in routes.iter().enumerate() {
+    for (index, (name, provider_model, cost)) in routes.iter().enumerate() {
         tried += 1;
         let last = index + 1 == routes.len();
         let (base, key) = provider(&file, name)?;
@@ -177,13 +180,13 @@ pub(super) async fn invoke(
                 } else if crate::identity::models::router::retryable(response.status().as_u16()) {
                     crate::identity::models::router::failed(name);
                 }
-                chosen = Some((response, name.clone(), provider_model.clone()));
+                chosen = Some((response, name.clone(), provider_model.clone(), cost.clone()));
                 break;
             }
             Err(_) => crate::identity::models::router::failed(name),
         }
     }
-    let Some((response, name, provider_model)) = chosen else {
+    let Some((response, name, provider_model, cost)) = chosen else {
         return Ok((
             StatusCode::BAD_GATEWAY,
             Json(json!({"error":{"message":"The model provider could not be reached"}})),
@@ -224,6 +227,9 @@ pub(super) async fn invoke(
                     attempts: tried,
                     input_tokens,
                     output_tokens,
+                    person: Some(&person),
+                    charge_micro: micro_dollars(input_tokens, output_tokens, &price),
+                    cost_micro: micro_dollars(input_tokens, output_tokens, &cost),
                 })
                 .await;
         }

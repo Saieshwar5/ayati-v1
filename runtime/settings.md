@@ -7,7 +7,7 @@ one sidebar with two groups.
 | Group | Members | Admins |
 | --- | --- | --- |
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
-| Workspace | This workspace, Company rules (read-only) | Workspace, People, Company rules, Usage, Billing, Audit log |
+| Workspace | This workspace, Company rules (read-only), Usage (their own) | Workspace, People, Company rules, Usage, Billing, Audit log |
 
 Connections moved to the [Apps page](apps-page.md); `section=connections` links open it.
 
@@ -28,7 +28,8 @@ Connections moved to the [Apps page](apps-page.md); `section=connections` links 
   - the only admin can't be made a member or removed, and admins can't remove
     themselves here;
   - removal opens the hand-over dialog described below.
-- **Usage and Billing:** "Coming later" placeholders.
+- **Usage:** model use and charges by agent, model, person and day ([model usage](model-usage.md)); members see their own.
+- **Billing:** a "Coming later" placeholder.
 - **Audit log:** formerly Activity. Rows read "time · who · what they did" as
   sentences with names, with filters All, People, Connections, Approvals and Admin
   views (admin views are highlighted), 50 at a time with **Show older**. In
