@@ -178,3 +178,72 @@ async fn built_apps_publish_after_checks_and_open_only_for_chosen_people() {
     );
     assert!(db.built_app_run(&admin, &w, &id, true).await.is_err());
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn preview_errors_are_kept_for_the_draft_revision_that_raised_them() {
+    let db = fixture().await;
+    let ravi = user(&db, "preview-ravi").await;
+    let mina = user(&db, "preview-mina").await;
+    let w = workspace(&db, &ravi).await;
+    join(&db, &ravi, &w, &mina, "Member").await;
+    let id = uuid::Uuid::new_v4().to_string();
+    db.built_app_create(&ravi, &w, &new(&id, "everyone", vec![]))
+        .await
+        .unwrap();
+    let error = |message: &str| super::PreviewError {
+        message: message.into(),
+    };
+    assert!(
+        db.built_app_preview_error(&mina, &w, &id, &error("x"))
+            .await
+            .is_err(),
+        "only those who preview"
+    );
+    assert!(
+        db.built_app_preview_error(&ravi, &w, &id, &error("  "))
+            .await
+            .is_err()
+    );
+    db.built_app_preview_error(
+        &ravi,
+        &w,
+        &id,
+        &error("TypeError: cuckoo.lst is not a function"),
+    )
+    .await
+    .unwrap();
+    db.built_app_preview_error(
+        &ravi,
+        &w,
+        &id,
+        &error("TypeError: cuckoo.lst is not a function"),
+    )
+    .await
+    .unwrap();
+    let draft = db.built_app_files(&ravi, &w, &id, 0).await.unwrap();
+    assert_eq!(
+        draft["preview_errors"].as_array().unwrap().len(),
+        1,
+        "kept once"
+    );
+    assert_eq!(
+        draft["preview_errors"][0]["message"],
+        "TypeError: cuckoo.lst is not a function"
+    );
+    // A new draft revision starts clean.
+    db.built_app_write(
+        &ravi,
+        &w,
+        &id,
+        &write("app.js", Some("cuckoo.list('x');"), 1),
+    )
+    .await
+    .unwrap();
+    assert!(
+        db.built_app_files(&ravi, &w, &id, 0).await.unwrap()["preview_errors"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}

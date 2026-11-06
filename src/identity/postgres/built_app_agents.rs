@@ -142,12 +142,21 @@ impl PgStore {
             return Ok(not_yours());
         };
         let draft = files(&tx, &job.workspace, &input.app, 0).await?;
+        let errors = super::code::preview_errors(
+            &tx,
+            &job.workspace,
+            &input.app,
+            app["draft_revision"].as_i64().unwrap_or(0),
+        )
+        .await?;
         tx.commit().await?;
         let list: Vec<Value> = draft
             .iter()
             .map(|(path, content)| json!({"path":path,"size":content.len()}))
             .collect();
-        Ok(json!({"app":app,"files":list,"checks":built_apps::checks(&draft)}))
+        Ok(
+            json!({"app":app,"files":list,"checks":built_apps::checks(&draft),"preview_errors":errors}),
+        )
     }
 
     /// Agent tool `read_app_file`: one draft file.

@@ -7,7 +7,7 @@ pub(crate) mod manifest;
 pub(crate) mod templates;
 use super::*;
 use crate::identity::postgres::{
-    AgentRule, AppFile, AppRelease, AppWatch, DataRequest, Helper, NewApp, RoleChange,
+    AgentRule, AppFile, AppRelease, AppWatch, DataRequest, Helper, NewApp, PreviewError, RoleChange,
 };
 use axum::{
     Json,
@@ -62,6 +62,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/watchers",
             get(watchers).post(watch_set),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/apps/built/{id}/preview-errors",
+            post(preview_error),
         )
         .route(
             "/api/identity/workspaces/{w}/apps/built/{id}/download",
@@ -283,6 +287,20 @@ async fn watch_set(
     Ok(Json(
         app.store
             .built_app_watch_set(&user, &w, &id, &input)
+            .await?,
+    ))
+}
+/// An error the draft raised while its builder previewed it, relayed by the runner.
+async fn preview_error(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<PreviewError>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .built_app_preview_error(&user, &w, &id, &input)
             .await?,
     ))
 }

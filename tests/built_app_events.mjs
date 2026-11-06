@@ -30,8 +30,8 @@ test('A leave request added in the app starts work for the builder\'s agent, wit
 
   const raviPage = await pageFor(ravi);
   await raviPage.goto(`${app.base}/w/${w}/?view=apps`);
-  const section = raviPage.getByRole('region', { name: 'When something is added' });
-  await section.getByRole('button', { name: 'Ask an agent', exact: true }).click();
+  const section = raviPage.getByRole('region', { name: 'When something happens' });
+  await section.getByRole('button', { name: 'Ask an agent: new requests', exact: true }).click();
   const dialog = raviPage.getByRole('dialog', { name: 'When new requests are added' });
   await dialog.getByLabel('Agent').selectOption(agent.id);
   await dialog.getByLabel('What should it do?').fill('Tell me who asked and for how long, and open a task for me to decide.');

@@ -8,6 +8,7 @@ type Watchers = {
   collections: string[];
   watchers: {
     collection: string;
+    kind: 'added' | 'changed';
     agent: string;
     agent_name: string;
     instructions: string;
@@ -24,60 +25,71 @@ export function AppEvents({ app }: { app: BuiltApp }) {
   const load = useCallback(() => appsRequest<Watchers>(builtPath(app.id, '/watchers')), [app.id]);
   const watchers = useResource(load);
   const mutation = useMutation();
-  const [editing, setEditing] = useState<string>();
+  const [editing, setEditing] = useState<{ collection: string; kind: 'added' | 'changed' }>();
   const data = watchers.data;
   if (!data?.collections?.length || (!data.can_change && !data.watchers.length)) return null;
   return (
-    <section aria-label="When something is added">
-      <h3>When something is added</h3>
+    <section aria-label="When something happens">
+      <h3>When something happens</h3>
       <ul className="app-actions">
-        {data.collections.map((collection) => {
-          const watcher = data.watchers.find((x) => x.collection === collection);
-          return (
-            <li key={collection}>
-              <span>
-                New {collection.replaceAll('_', ' ')}
-                <small>
-                  {watcher
-                    ? `${watcher.agent_name}, for ${watcher.by}: ${watcher.instructions}${watcher.waiting ? ` · ${watcher.waiting} waiting` : ''}`
-                    : 'No agent acts on these.'}
-                  {watcher?.chat && (
-                    <>
-                      {' '}
-                      <a href={workspaceUrl(`/?view=chat&conversation=${watcher.chat}`)}>
-                        See the work
-                      </a>
-                    </>
-                  )}
-                </small>
-              </span>
-              {data.can_change && (
-                <span className="apps-row">
-                  <Button onClick={() => setEditing(collection)}>
-                    {watcher ? 'Change' : 'Ask an agent'}
-                  </Button>
-                  {watcher && (
-                    <Button
-                      disabled={mutation.busy}
-                      onClick={() =>
-                        void mutation.run(async () => {
-                          await appsRequest(builtPath(app.id, '/watchers'), {
-                            collection,
-                            agent: null,
-                            instructions: '',
-                          });
-                          await watchers.refresh();
-                        })
-                      }
-                    >
-                      Stop
-                    </Button>
-                  )}
+        {data.collections
+          .flatMap((collection) =>
+            (['added', 'changed'] as const).map((kind) => ({ collection, kind })),
+          )
+          .map(({ collection, kind }) => {
+            const watcher = data.watchers.find(
+              (x) => x.collection === collection && (x.kind ?? 'added') === kind,
+            );
+            if (!data.can_change && !watcher) return null;
+            return (
+              <li key={`${collection}:${kind}`}>
+                <span>
+                  {kind === 'added' ? 'New' : 'Changed'} {collection.replaceAll('_', ' ')}
+                  <small>
+                    {watcher
+                      ? `${watcher.agent_name}, for ${watcher.by}: ${watcher.instructions}${watcher.waiting ? ` · ${watcher.waiting} waiting` : ''}`
+                      : 'No agent acts on these.'}
+                    {watcher?.chat && (
+                      <>
+                        {' '}
+                        <a href={workspaceUrl(`/?view=chat&conversation=${watcher.chat}`)}>
+                          See the work
+                        </a>
+                      </>
+                    )}
+                  </small>
                 </span>
-              )}
-            </li>
-          );
-        })}
+                {data.can_change && (
+                  <span className="apps-row">
+                    <Button
+                      aria-label={`${watcher ? 'Change' : 'Ask an agent'}: ${kind === 'added' ? 'new' : 'changed'} ${collection.replaceAll('_', ' ')}`}
+                      onClick={() => setEditing({ collection, kind })}
+                    >
+                      {watcher ? 'Change' : 'Ask an agent'}
+                    </Button>
+                    {watcher && (
+                      <Button
+                        disabled={mutation.busy}
+                        onClick={() =>
+                          void mutation.run(async () => {
+                            await appsRequest(builtPath(app.id, '/watchers'), {
+                              collection,
+                              kind,
+                              agent: null,
+                              instructions: '',
+                            });
+                            await watchers.refresh();
+                          })
+                        }
+                      >
+                        Stop
+                      </Button>
+                    )}
+                  </span>
+                )}
+              </li>
+            );
+          })}
       </ul>
       {(mutation.status || watchers.error) && (
         <p role="alert">{mutation.status || watchers.error}</p>
@@ -85,8 +97,11 @@ export function AppEvents({ app }: { app: BuiltApp }) {
       {editing && (
         <WatchDialog
           app={app}
-          collection={editing}
-          current={data.watchers.find((x) => x.collection === editing)}
+          collection={editing.collection}
+          kind={editing.kind}
+          current={data.watchers.find(
+            (x) => x.collection === editing.collection && (x.kind ?? 'added') === editing.kind,
+          )}
           close={() => setEditing(undefined)}
           saved={() => void watchers.refresh().catch(() => {})}
         />
@@ -98,12 +113,14 @@ export function AppEvents({ app }: { app: BuiltApp }) {
 function WatchDialog({
   app,
   collection,
+  kind,
   current,
   close,
   saved,
 }: {
   app: BuiltApp;
   collection: string;
+  kind: 'added' | 'changed';
   current?: Watchers['watchers'][number];
   close: () => void;
   saved: () => void;
@@ -122,7 +139,7 @@ function WatchDialog({
   const label = collection.replaceAll('_', ' ');
   return (
     <Dialog
-      title={`When new ${label} are added`}
+      title={kind === 'added' ? `When new ${label} are added` : `When ${label} are changed`}
       close={close}
       busy={mutation.busy}
       status={mutation.status || agents.error}
@@ -138,6 +155,7 @@ function WatchDialog({
               void mutation.run(async () => {
                 await appsRequest(builtPath(app.id, '/watchers'), {
                   collection,
+                  kind,
                   agent,
                   instructions,
                 });

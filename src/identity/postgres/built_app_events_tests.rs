@@ -60,6 +60,7 @@ async fn new_leave_requests_start_work_for_the_approver_who_asked() {
     .unwrap();
     let watch = |agent: Option<&str>, collection: &str| AppWatch {
         collection: collection.into(),
+        kind: "added".into(),
         agent: agent.map(str::to_owned),
         instructions: "Tell me who asked and for how long, and open a task for me to decide."
             .into(),
@@ -252,4 +253,108 @@ async fn new_leave_requests_start_work_for_the_approver_who_asked() {
         said.contains("Stopped agents acting on new requests in \"Leave\""),
         "{said}"
     );
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_changed_request_starts_work_with_what_changed() {
+    let mut db = fixture().await;
+    db.pooled = true;
+    let owner = user(&db, "changes-owner").await;
+    let mina = user(&db, "changes-mina").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &mina, "Member").await;
+    let (_, agent) = executor_slot_tests::agent(&db, &owner, &w).await;
+    let id = uuid::Uuid::new_v4().to_string();
+    db.built_app_create(
+        &owner,
+        &w,
+        &NewApp {
+            id: id.clone(),
+            name: "Leave".into(),
+            description: String::new(),
+            audience: "everyone".into(),
+            people: vec![],
+            template: "leave".into(),
+        },
+    )
+    .await
+    .unwrap();
+    db.built_app_publish(
+        &owner,
+        &w,
+        &id,
+        &AppRelease {
+            note: String::new(),
+            revision: 1,
+        },
+    )
+    .await
+    .unwrap();
+    db.built_app_roles_set(
+        &owner,
+        &w,
+        &id,
+        &RoleChange {
+            role: "approver".into(),
+            people: vec![owner.id.clone()],
+        },
+    )
+    .await
+    .unwrap();
+    let changed = AppWatch {
+        collection: "requests".into(),
+        kind: "changed".into(),
+        agent: Some(agent.clone()),
+        instructions: "When a request is decided, record it in payroll.".into(),
+    };
+    let bad = AppWatch {
+        kind: "deleted".into(),
+        ..AppWatch {
+            collection: "requests".into(),
+            kind: String::new(),
+            agent: Some(agent.clone()),
+            instructions: "x".into(),
+        }
+    };
+    assert!(db.built_app_watch_set(&owner, &w, &id, &bad).await.is_err());
+    db.built_app_watch_set(&owner, &w, &id, &changed)
+        .await
+        .unwrap();
+    // Adding isn't watched; deciding it is, with only what changed.
+    let asked = db
+        .built_app_data(
+            &mina,
+            &w,
+            &id,
+            &create(
+                json!({"start":"2026-11-10","days":2,"status":"waiting"}),
+                false,
+            ),
+        )
+        .await
+        .unwrap();
+    let record = asked["id"].as_str().unwrap().to_owned();
+    assert_eq!(db.dispatch_app_events().await.unwrap(), 0);
+    let decide = DataRequest {
+        preview: false,
+        op: "update".into(),
+        collection: "requests".into(),
+        record: Some(record.clone()),
+        data: Some(json!({"status":"approved"})),
+        revision: Some(1),
+        mine: false,
+    };
+    db.built_app_data(&owner, &w, &id, &decide).await.unwrap();
+    assert_eq!(db.dispatch_app_events().await.unwrap(), 1);
+    let job = claim(&db, &record).await;
+    assert!(job.prompt.contains("Changed in the app"), "{}", job.prompt);
+    assert!(
+        job.prompt.contains("changed by changes-owner") && job.prompt.contains("status: approved"),
+        "{}",
+        job.prompt
+    );
+    assert!(!job.prompt.contains("days: 2"), "only what changed");
+    let listed = db.built_app_watchers(&owner, &w, &id).await.unwrap();
+    assert_eq!(listed["watchers"][0]["kind"], "changed");
 }

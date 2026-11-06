@@ -195,6 +195,19 @@ export function CodeDrawer({
           )}
         </div>
       )}
+      {files.data &&
+        (files.data.preview_errors?.length ? (
+          <section className="built-checks" aria-label="Preview errors">
+            <h3>In the last preview</h3>
+            <ul>
+              {files.data.preview_errors.map((error, i) => (
+                <li key={i} className="built-check-failed">
+                  {error.message}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null)}
       {files.data && (
         <section className="built-checks" aria-label="Checks">
           <h3>Checks</h3>
