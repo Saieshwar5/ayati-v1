@@ -59,5 +59,5 @@ are named, and catalog models carry their catalog names. Library calls show as
 ## Next
 
 - MG3 (built): [monthly budgets](model-budgets.md) per workspace and agent.
-- MG4: the operator view, with costs, margin and provider health.
+- MG4 (built): the [operator view](model-operations.md), with costs, margin and provider health.
 - Billing: invoices from these charges, once pricing (markup or credits) is decided.

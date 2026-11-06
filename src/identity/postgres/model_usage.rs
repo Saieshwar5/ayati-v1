@@ -48,6 +48,8 @@ pub(crate) struct ModelCall<'a> {
     pub charge_micro: i64,
     /// What the provider charges us for it, at the route's cost.
     pub cost_micro: i64,
+    /// From sending the call to the end of the answer.
+    pub latency_ms: Option<i64>,
 }
 
 /// Millionths of a dollar for these tokens at a price in dollars per million tokens:
@@ -119,9 +121,9 @@ impl MigrationTrait for ModelCosts {
 
 impl PgStore {
     pub(crate) async fn record_model_usage(&self, call: &ModelCall<'_>) -> Result<()> {
-        execute(&self.db, "INSERT INTO relay_model_usage(workspace,assignment,agent,job,provider,model,input_tokens,output_tokens,provider_model,attempts,person,charge_micro,cost_micro) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+        execute(&self.db, "INSERT INTO relay_model_usage(workspace,assignment,agent,job,provider,model,input_tokens,output_tokens,provider_model,attempts,person,charge_micro,cost_micro,latency_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
             vec![call.workspace.into(), call.assignment.into(), call.agent.into(), call.job.map(str::to_owned).into(), call.provider.into(), call.model.into(), Ord::max(call.input_tokens, 0).into(), Ord::max(call.output_tokens, 0).into(), call.provider_model.into(), i16::try_from(call.attempts.min(9)).unwrap_or(1).into(),
-                call.person.map(str::to_owned).into(), Ord::max(call.charge_micro, 0).into(), Ord::max(call.cost_micro, 0).into()]).await?;
+                call.person.map(str::to_owned).into(), Ord::max(call.charge_micro, 0).into(), Ord::max(call.cost_micro, 0).into(), call.latency_ms.map(|ms| i32::try_from(ms.max(0)).unwrap_or(i32::MAX)).into()]).await?;
         Ok(())
     }
     /// Model use for one request; callers have already checked the person may see it.

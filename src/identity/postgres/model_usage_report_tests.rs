@@ -20,6 +20,7 @@ fn call<'a>(w: &'a str, agent: &'a str, person: Option<&'a str>, charge: i64) ->
         person,
         charge_micro: charge,
         cost_micro: charge / 2,
+        latency_ms: None,
     }
 }
 
