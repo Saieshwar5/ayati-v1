@@ -12,7 +12,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/polling.mjs';
 import { wordFile } from './fixtures/office_files.mjs';
 import { createHash } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 const root = resolve(import.meta.dirname, '..');
 const { chromium } = createRequire(join(root, 'web/package.json'))('playwright');
 const doc = text => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
@@ -146,5 +146,47 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.ok(!result.results.some(r => r.title === 'Salaries'));
   assert.ok(Number(app.sql(`SELECT count(*) FROM relay_model_usage WHERE assignment='library'`)) > 0, 'indexing usage is recorded');
   app.pass('Real Goose: "Can I send something back?" finds the returns policy by meaning, with its summary; usage is recorded');
+
+  // Text in an image (LB2c): a photographed receipt is read by text recognition.
+  const receipt = await readFile(join(root, 'tests/fixtures/library/receipt.png'));
+  const image = randomUUID();
+  await app.request(`${app.path}/library-uploads`, app.cookie, { id: image, request: randomUUID(), title: 'Desk receipt.png', size: receipt.length, checksum: createHash('sha256').update(receipt).digest('hex') });
+  const sent = await fetch(`${app.base}${app.path}/library-uploads/${image}/bytes`, { method: 'POST', body: receipt,
+    headers: { Cookie: app.cookie, Origin: app.base, 'X-Ayati-Request': 'identity', 'Content-Type': 'application/octet-stream' } });
+  assert.equal(sent.status, 200, await sent.clone().text());
+  const picture = await sent.json();
+  assert.equal(picture.readiness, 'partial');
+  await app.request(`${app.path}/library/${image}/move`, app.cookie, { request: randomUUID(), revision: picture.access_revision, folder: policies });
+  const receiptAsk = 'What did the standing desk cost?';
+  app.provider.setControl(receiptAsk, { steps: [{ tool: 'search_library', arguments: { query: 'standing desk receipt' } }] });
+  const priced = await app.send(receiptAsk, chat, member, agent.id);
+  const pricedReply = await until(async () => (await app.history(chat, member)).find(m => m.id === priced.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  const pricedResult = JSON.parse(JSON.parse(pricedReply.content.replace(/^CONTROL_RESULT /, '').split('\n\nLibrary documents')[0])[0]);
+  const hit = pricedResult.results.find(r => r.title === 'Desk receipt.png');
+  assert.ok(hit, JSON.stringify(pricedResult));
+  assert.equal(hit.section, 'Text in the image');
+  assert.match(hit.preview, /1250/);
+  app.pass('Real Goose: text in an uploaded receipt photo is recognised and found by search');
+
+  // Always read (LB2c): the owner picks the policy on the agent's Instructions tab.
+  await ownerPage.goto(`${app.base}/w/${w}/?view=agents&selected=${agent.id}`);
+  await ownerPage.getByRole('tab', { name: 'Instructions', exact: true }).click();
+  const always = ownerPage.getByRole('region', { name: 'Documents Iris always reads' });
+  await always.getByLabel('Add a document').selectOption({ label: 'Policies › Returns policy' });
+  await always.getByRole('button', { name: 'Add', exact: true }).click();
+  await always.getByRole('button', { name: 'Save documents', exact: true }).click();
+  await always.getByText('Saved.', { exact: true }).waitFor();
+  await always.scrollIntoViewIfNeeded();
+  await ownerPage.screenshot({ path: join(app.data, 'library-always-read.png') });
+  const before = app.provider.requests.length;
+  const plainAsk = 'Hello Iris';
+  app.provider.setControl(plainAsk, { steps: [], checkpoint: 'Hello!' });
+  const hello = await app.send(plainAsk, chat, member, agent.id);
+  const greeted = await until(async () => (await app.history(chat, member)).find(m => m.id === hello.reply && m.state === 'complete'), 'Agent did not finish', 45000);
+  assert.equal(greeted.content, 'Hello!', 'always-read documents are not cited');
+  const prompts = app.provider.requests.slice(before).map(r => JSON.stringify(r.messages ?? []));
+  assert.ok(prompts.some(p => p.includes('Company documents you always have') && p.includes('## Returns policy') && p.includes('refund window is 30 days')), 'the model received the policy');
+  assert.ok(!prompts.some(p => p.includes('40k')), 'HR stays out of a colleague\'s request');
+  app.pass('Real Goose: the owner chooses an always-read policy on the Instructions tab; the next request carries it, uncited, and never HR');
   assert.deepEqual(errors, []);
 });

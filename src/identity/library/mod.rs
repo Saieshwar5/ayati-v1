@@ -29,6 +29,10 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/library-folders",
             post(create_folder),
         )
+        .route(
+            "/api/identity/workspaces/{w}/library-always/{agent}",
+            get(always).post(always_save),
+        )
         .route("/api/identity/workspaces/{w}/library/{id}", get(detail))
         .route(
             "/api/identity/workspaces/{w}/library/{id}/move",
@@ -122,6 +126,27 @@ async fn save(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(app.store.library_save(&user, &w, &input).await?))
+}
+async fn always(
+    State(app): State<Shared>,
+    RoutePath((w, agent)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_always(&user, &w, &agent).await?))
+}
+async fn always_save(
+    State(app): State<Shared>,
+    RoutePath((w, agent)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::AlwaysRead>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .library_always_save(&user, &w, &agent, &input)
+            .await?,
+    ))
 }
 async fn create_folder(
     State(app): State<Shared>,

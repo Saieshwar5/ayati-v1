@@ -439,6 +439,7 @@ mod company_tests;
 mod messaging_tests;
 pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
+pub(crate) use library::always::AlwaysRead;
 #[cfg(test)]
 mod agent_profile_tests;
 mod audit_summary_migration;

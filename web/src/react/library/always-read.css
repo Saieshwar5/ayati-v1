@@ -1,0 +1,12 @@
+.library-always { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.library-always h4 { margin: 0 0 6px; font-size: 14px; }
+.library-always ol { margin: 12px 0; padding-left: 20px; display: grid; gap: 8px; }
+.library-always li > span:first-child { display: inline-flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.library-always li { font-size: 13px; }
+.library-always li small { color: var(--muted); font-size: 11px; }
+.library-always li { display: list-item; }
+.library-always-actions { display: inline-flex; gap: 6px; margin-left: 12px; vertical-align: top; }
+.library-always-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.library-always-add select { min-height: 38px; min-width: 0; max-width: 100%; flex: 1 1 220px; padding: 8px 10px; border: 1px solid var(--border-control); border-radius: 8px; color: var(--text); background: var(--surface); }
+.library-always-add > p, .library-always-add > .agent-save-row { flex-basis: 100%; margin: 0; }
+.library-over { color: var(--danger, #b42318); }

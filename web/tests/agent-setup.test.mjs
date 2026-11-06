@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { reactFixture } from './react-fixture.mjs';
+// The Instructions tab also lists the documents an agent always reads (Library LB2c).
+const noAlways = { items: [], given: [], hidden: 0, chosen: 0, editable: false, most: 5, budget: 8000 };
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 const workspace = '11111111-1111-4111-8111-111111111111';
 const settings = { provider: '', instructions: '', escalation: '', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
@@ -16,7 +18,8 @@ test('read-only viewers read the instructions but cannot save them', async () =>
     assert.equal(document.querySelector('textarea'), null);
     assert.equal(document.querySelector('select').disabled, true);
     assert.equal(button('Save changes'), undefined); assert.equal(button('Add approved note'), undefined); assert.equal(writes.length, 0);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options = {}) => { if (options.body) writes.push(options.body); return { ok: true, json: async () => ({ notes: [] }) }; } });
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways }; if (options.body) writes.push(options.body); return { ok: true, json: async () => ({ notes: [] }) }; } });
 });
 
 test('instructions save once with the revision the draft started from and keep a failed draft', async () => {
@@ -38,6 +41,7 @@ test('instructions save once with the revision the draft started from and keep a
     assert.equal(writes.length, 2); assert.equal(writes[1].settings.instructions, 'New words'); assert.equal(saved, 1);
     assert.equal(writes[1].people, undefined); assert.equal(writes[1].managers, undefined);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (path.endsWith('/knowledge')) return { ok: true, json: async () => ({ notes: [] }) };
     const body = JSON.parse(options.body); writes.push(body);
     return fail ? { ok: false, json: async () => ({ error: 'Agent changed; reload before saving' }) } : { ok: true, json: async () => ({ ...body, revision: body.revision + 1 }) };
@@ -51,5 +55,6 @@ test('forgetting knowledge uses its exact scope and revision', async () => {
     const { Knowledge } = await import('../src/react/agents/knowledge.tsx');
     await render(Knowledge, { agent }); await click(button('Forget'));
     assert.deepEqual(writes, [{ ...note, forgotten: true }]);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (_, options = {}) => { if (options.body) writes.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ notes: writes.length ? [] : [note] }) }; } });
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways }; if (options.body) writes.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ notes: writes.length ? [] : [note] }) }; } });
 });
