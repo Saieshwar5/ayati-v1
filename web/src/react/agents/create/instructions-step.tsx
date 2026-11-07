@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button, Dialog } from '../../ui';
 import { errorMessage } from '../../requests';
 import { previewPrompt } from '../model';
 import { starters, untouched } from './starters';
 
 /** Create step 2: one instructions box with starters, the locked Cuckoo rules and
- * "See everything it receives" (design 2-create-instructions). */
-export function InstructionsStep({ name, title, text, rules, change }: {
-  name: string; title: string; text: string; rules: string; change: (text: string, title?: string) => void;
+ * "See everything it receives" (design 2-create-instructions). `children` (the
+ * Skills row) sits under the instructions box (designs/chat-and-account 7). */
+export function InstructionsStep({ name, title, text, rules, change, children }: {
+  name: string; title: string; text: string; rules: string; change: (text: string, title?: string) => void; children?: ReactNode;
 }) {
   const [note, setNote] = useState('');
   const [previewing, setPreviewing] = useState(false);
@@ -29,6 +30,7 @@ export function InstructionsStep({ name, title, text, rules, change }: {
         <textarea rows={14} maxLength={24000} value={text} placeholder={`What ${display} does, how it talks, what it must never do and when to ask a person.`}
           onChange={event => change(event.target.value)} />
       </label>
+      {children}
     </div>
     <aside className="agent-create-side">
       <section className="agent-rules" aria-label="Cuckoo rules">

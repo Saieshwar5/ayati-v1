@@ -139,3 +139,37 @@ test('step 4 switches chosen connectors on and saves only the stricter choices',
     return response(path.endsWith('/agent-profiles') ? { ...body, revision: 1 } : { saved: true });
   } });
 });
+
+test('step 2 adds skills from the panel under the instructions box; they are attached after create', async () => {
+  const writes = [];
+  const skill = { id: 's1', name: 'refund-check', description: 'Checks refund rules before promising one.', shared: true, owner_id: 'kavya', owner_name: 'Kavya Nair',
+    version: 2, license: null, has_scripts: false, updated_ms: 1, files: 1, agents: [] };
+  await reactFixture(async ({ render, button, click, change }) => {
+    await open(render);
+    await change(field('Name'), 'Iris'); await click(button('Continue'));
+    await change(field('Instructions'), 'Be kind.');
+    assert.equal(document.querySelectorAll('.agent-create-main .agent-create-skills').length, 1, 'Skills sit under the instructions box');
+    await click(button('＋ Add skills'));
+    const panel = () => document.querySelector('dialog');
+    assert.match(panel().textContent, /0 added to Iris/);
+    await click(button('Add refund-check'));
+    assert.match(panel().textContent, /1 added to Iris/);
+    assert.equal(writes.length, 0, 'nothing is saved before the agent exists');
+    await click(button('Done'));
+    assert.equal(document.querySelectorAll('dialog').length, 0);
+    assert.equal(document.activeElement?.textContent, '＋ Add skills', 'focus returns to the trigger');
+    assert.match(document.querySelector('.agent-create-skills').textContent, /refund-check/);
+    await click(button('Continue')); await click(button('Continue'));
+    await click(button('Create agent'));
+    assert.ok(writes[0].path.endsWith('/agent-profiles'));
+    assert.match(writes.at(-1).path, /\/agent-profiles\/[^/]+\/skills$/);
+    assert.deepEqual(writes.at(-1).body, { skill: 's1', on: true });
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
+    if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
+    if (path.endsWith('/skills') && !options.body) return response({ workspace: [skill], mine: [], others: [], admin: false });
+    const body = JSON.parse(options.body); writes.push({ path, body });
+    return response(path.endsWith('/agent-profiles') ? { ...body, revision: 1 } : { skills: [skill], editable: true });
+  } });
+});

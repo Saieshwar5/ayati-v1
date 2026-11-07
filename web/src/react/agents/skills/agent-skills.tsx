@@ -18,7 +18,7 @@ export function AgentSkills({ agent }: { agent: Agent }) {
   const skills = data?.skills ?? [];
   return <section className="agent-skills" aria-label="Skills it can use">
     <header className="agent-section-heading"><h3>Skills it can use</h3>
-      {editable && <Button onClick={() => setAdding(true)}>＋ Add skill</Button>}</header>
+      {editable && <Button onClick={() => setAdding(true)}>＋ Add skills</Button>}</header>
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">Loading skills…</p>}
     {data && !skills.length && <p className="ui-help">No skills yet. Skills are how-to steps {agent.name} loads only when a request needs them.</p>}
@@ -27,7 +27,7 @@ export function AgentSkills({ agent }: { agent: Agent }) {
       <SkillMenu name={skill.name} editable={editable} view={() => setViewing(skill)} remove={() => remove(skill)} />
     </li>)}</ul>
     <p className="ui-status" role="status">{mutation.status}</p>
-    {adding && <SkillPicker owner={agent.owner_id ?? ''} chosen={skills.map(s => s.id)} close={() => setAdding(false)}
+    {adding && <SkillPicker agent={agent.name} owner={agent.owner_id ?? ''} chosen={skills.map(s => s.id)} close={() => setAdding(false)}
       choose={async skill => { setData(await assignSkill(agent.id, skill.id, true)); }} />}
     {viewing && <SkillView id={viewing.id} close={() => setViewing(undefined)} />}
   </section>;

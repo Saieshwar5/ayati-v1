@@ -30,6 +30,8 @@
 .ui-dialog::backdrop { background: #1c223540; }
 .ui-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .ui-dialog-header h2 { font-size: 17px; margin: 0; overflow-wrap: anywhere; }
+.ui-dialog-header:has(> .ui-dialog-back) { gap: 10px; }
+.ui-dialog-back + h2 { flex: 1; }
 .ui-dialog-body { min-height: 0; overflow: auto; padding: 20px; overscroll-behavior: contain; }
 .ui-dialog-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .ui-dialog-footer .ui-status { flex: 1 0 100%; }
