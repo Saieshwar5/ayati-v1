@@ -156,6 +156,22 @@ pub(crate) async fn enqueue_if_busy(
     let mut instructions =
         crate::identity::agents::config::instructions(&name, &role, Some(&settings));
     instructions.push_str("\nYou are answering at the front desk while your work continues elsewhere: reply in one to three short sentences, in your own words, the way a colleague would. No tools or lookups are available here. If you can answer completely from what is in front of you, answer now. Otherwise say briefly what you will do, and since you are busy, say so naturally and that you will get to it after. Never claim work is done, never invent facts, and never promise an exact time unless the note below gives one. Reply with JSON only: {\"reply\": \"...\", \"answer_now\": true or false}.");
+    let mut others = Vec::new();
+    for agent in input.asked()?.iter().filter(|agent| **agent != job.agent) {
+        let row = query(
+            tx,
+            "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
+            vec![job.workspace.clone().into(), agent.clone().into()],
+        )
+        .await?;
+        others.push(match row {
+            Some(row) => row.try_get("", "name")?,
+            None => "another agent".to_string(),
+        });
+    }
+    instructions.push_str(&crate::identity::chat::asked_together::instructions(
+        &others,
+    ));
     let recent = super::conversation_context::recent(
         tx,
         super::conversation_context::RecentScope {

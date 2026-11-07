@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ParticipantFace, ParticipantName } from './conversation-face';
 import { Button } from '../ui';
-import { decodeMentions, editMentions, encodeMentions, type Mention } from './mentions';
+import { decodeMentions, editMentions, encodeMentions, maxAgents, type Mention } from './mentions';
 import { EmojiPicker } from './emoji-picker';
 import { MentionStatus } from './presence-view';
 import './composer.css';
@@ -26,6 +26,10 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
   const choices = query && !dismissed && !voice && !mentions.some(m => start >= m.start && start < m.end)
     ? candidates.filter(m => m.name.toLocaleLowerCase().includes(query[1].toLocaleLowerCase())).slice(0,8) : [];
   const selected = Math.min(active, Math.max(0, choices.length-1));
+  // A message asks up to `maxAgents` agents; each one mentioned is asked.
+  const asked = new Set(mentions.filter(m => m.kind === 'agent').map(m => m.id));
+  const blocked = (item: Mention) => item.kind === 'agent' && !asked.has(item.id) && asked.size >= maxAgents;
+  const agentNote = (item: Mention) => asked.has(item.id) ? 'Already asked' : blocked(item) ? `Up to ${maxAgents} agents per message` : asked.size ? 'Also asks this agent' : 'Asks this agent to work';
   const recording = Boolean(voice), wasRecording = useRef(false);
   useLayoutEffect(() => {
     const node = input.current; if (!node) return;
@@ -50,6 +54,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     observer.observe(node); return () => observer.disconnect();
   }, []);
   const choose = (mention: Mention) => {
+    if (blocked(mention)) return;
     const name = mention.name.replace(/[\]\n]/g, ' '), inserted = `@${name} `;
     const next = text.slice(0,start)+inserted+text.slice(caret);
     const base = decodeMentions(editMentions(value,next));
@@ -72,8 +77,8 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
       else if (event.key === 'Enter' && (event.target as HTMLElement).tagName !== 'BUTTON') { event.preventDefault(); submit(); }
     })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
-      {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
-        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? 'Asks this agent to work' : item.title || 'Person'}</small>
+      {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} aria-disabled={blocked(item) || undefined} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
+        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? agentNote(item) : item.title || 'Person'}</small>
         {item.kind === 'user' && <MentionStatus id={item.id} />}
       </button>)}
     </div>}

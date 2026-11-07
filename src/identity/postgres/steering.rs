@@ -173,6 +173,7 @@ impl PgStore {
                 text.join("\n")
             ),
             agent: Some(job.agent.clone()),
+            agents: vec![],
             thread: None,
             attachments: vec![],
         };

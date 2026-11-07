@@ -11,6 +11,7 @@ fn message(content: &str) -> NewMessage {
         id: uuid::Uuid::new_v4().to_string(),
         content: content.into(),
         agent: None,
+        agents: vec![],
         thread: None,
         attachments: vec![],
     }

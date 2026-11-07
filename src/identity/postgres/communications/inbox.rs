@@ -88,6 +88,7 @@ impl PgStore {
                     id: uuid::Uuid::new_v4().to_string(),
                     content: input.text.clone(),
                     agent: Some(agent.into()),
+                    agents: vec![],
                     thread: None,
                     attachments: vec![],
                 };
@@ -195,5 +196,9 @@ pub(in crate::identity::postgres) async fn context(
     if !super::access::exists(tx).await? {
         return Ok(Value::Null);
     }
-    Ok(json_rows(tx,"SELECT jsonb_build_object('transport',i.transport,'endpoint',i.endpoint,'event',i.event,'simulated',COALESCE(e.simulated,FALSE)) AS data FROM relay_communication_inbox i LEFT JOIN relay_communication_endpoints e ON e.workspace=i.workspace AND e.id=i.endpoint WHERE i.workspace=$1 AND i.reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.into_iter().next().unwrap_or(Value::Null))
+    // A chat message that asked several agents records its first job; the
+    // others find the same arrival through their shared request message.
+    Ok(json_rows(tx,"SELECT jsonb_build_object('transport',i.transport,'endpoint',i.endpoint,'event',i.event,'simulated',COALESCE(e.simulated,FALSE)) AS data FROM relay_communication_inbox i LEFT JOIN relay_communication_endpoints e ON e.workspace=i.workspace AND e.id=i.endpoint
+        WHERE i.workspace=$1 AND (i.reply=$2 OR i.message=(SELECT j.request_message FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply=$2))
+        ORDER BY i.reply IS NOT DISTINCT FROM $2 DESC LIMIT 1",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.into_iter().next().unwrap_or(Value::Null))
 }

@@ -69,6 +69,15 @@ Rules:
 - The private request does not read the channel's messages. A question that
   depends on earlier channel messages may need restating.
 
+## Several agents asked at once
+
+A message may ask up to three agents (schema 99,
+[chat experience](chat-experience.md#several-agents-in-one-message-schema-99)). Each
+answers in the room separately, with its own brief, and is told which others were asked
+so it answers only its part. Each reads the room as it was when asked, without the other
+agents' replies to that message. Moving to a private conversation is per agent: one
+agent calling `continue_privately` moves the question for that agent only.
+
 ## Threads
 
 A request in a thread reads that thread first (up to 50 messages), then the

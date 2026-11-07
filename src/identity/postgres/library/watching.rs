@@ -274,6 +274,7 @@ impl PgStore {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: watcher["agent"].as_str().map(str::to_owned),
+            agents: vec![],
             thread: None,
             attachments: vec![],
             content: format!(

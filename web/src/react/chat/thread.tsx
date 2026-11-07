@@ -1,7 +1,7 @@
 import { PendingMessages } from './pending-messages';
 import { enqueue } from './outbox';
 import { ChatComposer } from './attachments';
-import { requestAgent, type Mention } from './mentions';
+import { requestAgents, type Mention } from './mentions';
 import type { Attachment } from './model';
 import { useEffect, useRef, useState } from 'react';
 import { storageScope } from '../../workspace-context';
@@ -21,7 +21,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
   const [text, setText] = useState(() => { try { return sessionStorage.getItem(key) ?? ''; } catch { return ''; } });
   const [files, setFiles] = useState<Attachment[]>([]);
   const mutation = useMutation();
-  const attempt = useRef<{ id: string; content: string; thread: string; agent?: string; attachments: string[] }>(undefined);
+  const attempt = useRef<{ id: string; content: string; thread: string; agents?: string[]; attachments: string[] }>(undefined);
   const update = (value: string) => { setText(value); try { sessionStorage.setItem(key, value); } catch { /* Optional draft. */ } };
   /** Resolves true once the reply is in the outbox; a voice recording joins the draft's files. */
   const send = async (voice?: Attachment) => {
@@ -29,11 +29,12 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
     await mutation.run(async () => {
       const attachments = (voice ? [...files, voice] : files).map(f => f.id);
       if (archived || !text.trim() && !attachments.length) return;
-      let target = requestAgent(text);
-      // In an agent's thread a reply asks that agent, unless the text names another.
-      if (!target && root.kind === 'agent' && history.agents.includes(root.author)) target = root.author;
+      let agents = requestAgents(text);
+      // In an agent's thread a reply asks that agent, unless the text names others.
+      if (!agents.length && root.kind === 'agent' && history.agents.includes(root.author)) agents = [root.author];
+      const asked = agents.length ? agents : undefined;
       const content = text || filesOnlyContent;
-      if (!attempt.current || attempt.current.content !== content || attempt.current.agent !== (target || undefined) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, thread: root.id, agent: target || undefined, attachments };
+      if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, thread: root.id, agents: asked, attachments };
       await enqueue(chat, attempt.current);
       update(''); setFiles([]); attempt.current = undefined; sent = true;
     });
@@ -42,7 +43,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
   const agents = directory.agents.filter(agent => history.agents.includes(agent.id));
   return <Dialog title={archived ? 'Archived thread' : 'Thread'} drawer busy={mutation.busy} status={mutation.status} close={close}>
     <div className="chat-thread-root"><ChatMessage message={root} directory={directory} /></div>
-    <div ref={transcript} role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} /></div>
+    <div ref={transcript} role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
     {archived && <p className="chat-archive-banner">This archived channel is closed to new thread replies. Your draft is kept.</p>}
     <ChatComposer chat={chat} files={files} setFiles={setFiles} value={text} change={update} send={send} disabled={mutation.busy || Boolean(archived)}
       sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…"

@@ -134,6 +134,7 @@ pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
         id: uuid::Uuid::new_v4().to_string(),
         content: text.into(),
         agent: agent.map(str::to_owned),
+        agents: vec![],
     }
 }
 

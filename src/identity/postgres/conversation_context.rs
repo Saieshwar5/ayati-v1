@@ -31,6 +31,9 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
             AND (NOT $4 OR m.sequence>(SELECT joined_sequence FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$5))
             AND m.state IN ('sent','complete') AND m.sequence<$7
             AND (m.id=$8 OR (TRUE{exclusions}))
+            -- Agents asked by the same message answer from the same evidence,
+            -- whichever of them finishes first (schema 99).
+            AND NOT EXISTS(SELECT 1 FROM relay_chat_jobs s WHERE s.workspace=m.workspace AND s.reply=m.id AND s.request_message=$8)
             ORDER BY m.sequence DESC LIMIT $6)
             -- The message the request quotes, even when it is older than the window.
             UNION SELECT * FROM relay_chat_messages m

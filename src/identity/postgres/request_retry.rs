@@ -69,10 +69,18 @@ impl PgStore {
             "This request had files. Ask again in the conversation and attach them"
         );
         let chat: String = row.try_get("", "chat")?;
+        let agent: String = row.try_get("", "agent")?;
+        // A message that asked several agents is retried for this agent only:
+        // the others' mentions become plain names, which ask nobody.
+        let content = crate::identity::chat::mentions::plain(
+            &row.try_get::<String>("", "content")?,
+            |kind, id| kind != "agent" || id == agent,
+        );
         let message = NewMessage {
             id: retry_message_id(w, reply, &user.id),
-            content: row.try_get("", "content")?,
-            agent: Some(row.try_get("", "agent")?),
+            content,
+            agent: Some(agent.clone()),
+            agents: vec![],
             thread: row.try_get("", "thread")?,
             reply_to: Some(reply.to_string()),
             attachments: vec![],
@@ -84,8 +92,8 @@ impl PgStore {
             // nothing new, so return the request it started the first time.
             None => query(
                 &self.read_tx(w).await?,
-                "SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND request_message=$2",
-                vec![w.into(), message.id.clone().into()],
+                "SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND request_message=$2 AND payload->>'agent'=$3",
+                vec![w.into(), message.id.clone().into(), agent.into()],
             )
             .await?
             .context("The agent did not take the request")?

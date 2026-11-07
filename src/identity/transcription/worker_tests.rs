@@ -86,6 +86,7 @@ async fn a_round_transcribes_stored_audio_once_and_refuses_long_recordings() {
             id: uuid::Uuid::new_v4().to_string(),
             content: "Shared files".into(),
             agent: None,
+            agents: vec![],
             thread: None,
             attachments: vec![object.id.clone()],
         };

@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { useState, createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
-import { decodeMentions, editMentions, requestAgent } from '../src/react/chat/mentions.ts';
+import { decodeMentions, editMentions, requestAgents } from '../src/react/chat/mentions.ts';
+const requestAgent=source=>requestAgents(source)[0];
 
 test('mention edits preserve stable identities only while their visible names remain intact', () => {
  const source='Hello [@Sam](mention:user:u1), ask [@Sam](mention:agent:a1)';
@@ -13,8 +14,43 @@ test('mention edits preserve stable identities only while their visible names re
  assert.equal(requestAgent(editMentions(source,'Hello @Sam, ask @Someone')),undefined);
  const moved=editMentions(source,'Well, Hello @Sam, ask @Sam');
  assert.deepEqual(decodeMentions(moved).mentions.map(m=>m.id),['u1','a1']);
- assert.throws(()=>requestAgent(source+' [@Other](mention:agent:a2)'),/one agent/);
  assert.equal(requestAgent('email@example.com and @Sam'),undefined);
+});
+
+test('a message asks every agent it mentions, up to three, and a direct message only its own agent', () => {
+ const two='[@Atlas](mention:agent:a1) and [@Nova](mention:agent:n1), stock? [@Atlas](mention:agent:a1)';
+ assert.deepEqual(requestAgents(two),['a1','n1'],'once each, in the order mentioned');
+ const three=two+' [@Orion](mention:agent:o1)';
+ assert.deepEqual(requestAgents(three),['a1','n1','o1']);
+ assert.throws(()=>requestAgents(three+' [@Vega](mention:agent:v1)'),/Ask at most 3 agents in one message/);
+ assert.deepEqual(requestAgents('No agent here [@Sam](mention:user:u1)'),[]);
+ assert.deepEqual(requestAgents('Hello','d1'),['d1']);
+ assert.deepEqual(requestAgents('Hello [@Dee](mention:agent:d1)','d1'),['d1']);
+ assert.throws(()=>requestAgents(two,'d1'),/A direct message asks only its own agent/);
+});
+
+test('the picker offers more agents until three are asked, then says why it offers no more', async()=>{
+ await reactFixture(async({render,change,click})=>{
+  const { Composer }=await import('../src/react/chat/composer.tsx');
+  const agents=['Atlas','Nova','Orion','Vega'].map(name=>({id:name.toLowerCase(),name,kind:'agent'}));
+  function Harness(){const [value,set]=useState('');return createElement(Composer,{value,change:set,send:()=>{},candidates:agents});}
+  await render(Harness);const input=document.querySelector('textarea');
+  const options=()=>[...document.querySelectorAll('[role=option]')].map(o=>[o.querySelector('.chat-name-text').textContent,o.querySelector('small').textContent,o.getAttribute('aria-disabled')]);
+  await change(input,'@At');assert.deepEqual(options(),[['Atlas','Asks this agent to work',null]]);
+  await click(document.querySelector('[role=option]'));
+  for(const name of ['Nova','Orion']){
+   await change(input,`${input.value}@${name.slice(0,2)}`);
+   assert.deepEqual(options(),[[name,'Also asks this agent',null]]);
+   await click(document.querySelector('[role=option]'));
+  }
+  assert.equal(input.value,'@Atlas @Nova @Orion ');
+  await change(input,`${input.value}@Ve`);
+  assert.deepEqual(options(),[['Vega','Up to 3 agents per message','true']]);
+  await click(document.querySelector('[role=option]'));
+  assert.equal(input.value,'@Atlas @Nova @Orion @Ve','a fourth agent is not added');
+  await change(input,'@Atlas @Nova @Orion @At');
+  assert.deepEqual(options(),[['Atlas','Already asked',null]]);
+ });
 });
 
 test('inline suggestions select identities with keyboard, preserve newlines, and never submit during composition', async()=>{

@@ -90,6 +90,23 @@ impl PgStore {
         tx.commit().await?;
         Ok((identity, request))
     }
+
+    /// The names of the other agents this job's message asked, in the order
+    /// asked; each answers in its own reply (schema 99).
+    pub(crate) async fn asked_with(&self, job: &Job) -> Result<Vec<String>> {
+        let tx = self.read_tx(&job.workspace).await?;
+        let others = rows(&tx,
+            "SELECT COALESCE(a.name,'another agent') AS name FROM relay_chat_jobs j
+             JOIN relay_chat_jobs o ON o.workspace=j.workspace AND o.request_message=j.request_message AND o.reply<>j.reply
+             LEFT JOIN relay_shared_agents a ON a.workspace=o.workspace AND a.id=o.payload->>'agent'
+             WHERE j.workspace=$1 AND j.reply=$2 ORDER BY o.sequence",
+            vec![job.workspace.clone().into(), job.reply.clone().into()]).await?;
+        tx.commit().await?;
+        others
+            .iter()
+            .map(|row| row.try_get("", "name").map_err(Into::into))
+            .collect()
+    }
 }
 
 async fn identity_in(tx: &DatabaseTransaction, job: &Job) -> Result<Value> {

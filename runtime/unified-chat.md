@@ -31,8 +31,10 @@ conversation access and grants through the existing membership system.
 
 Messages have optional thread roots validated inside their own conversation. Channel
 agent requests publish in the main channel timeline unless the request explicitly
-belongs to a thread. Ordinary messages do not run agents; select an inline @mention
-to request an agent. Shared agent DMs reply in the main timeline.
+belongs to a thread. Ordinary messages do not run agents; select inline @mentions
+to request up to three agents in one message, each replying separately
+([several agents](chat-experience.md#several-agents-in-one-message-schema-99)).
+Shared agent DMs reply in the main timeline.
 Thread context contains only the root and replies; direct-message context stays in
 that DM. These shared executions have no private agent memory or business tools.
 Typed @names alone do not dispatch work. Existing requester grants, membership checks,
@@ -91,7 +93,8 @@ revocation and import. Live-provider agent behavior remains separately testable;
 passing storage test does not claim a new model-provider integration run.
 
 The chat surface uses compact headers and a shared expanding React composer. Typing
-@ opens inline suggestions; selecting an agent records its identity for dispatch.
+@ opens inline suggestions; selecting an agent records its identity for dispatch, and
+up to three agents may be selected in one message.
 Unselected plain @text does not dispatch work. The separate recipient selector is removed.
 Shared-chat scope information lives in Details, a 360 px panel beside the conversation
 inside the workspace frame (D245; a sheet on phones), shared with profiles. It shows the
