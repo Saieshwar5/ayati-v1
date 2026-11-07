@@ -6,8 +6,9 @@ use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// A report older than this means the supervisor or its controller link is stuck.
-const STALE_SECONDS: u64 = 15;
+/// A report older than this means the supervisor or its controller link is stuck:
+/// three missed heartbeats (`reporting::HEARTBEAT`) and five seconds' slack.
+const STALE_SECONDS: u64 = 3 * super::reporting::HEARTBEAT.as_secs() + 5;
 
 #[derive(Serialize, Deserialize)]
 struct Status {

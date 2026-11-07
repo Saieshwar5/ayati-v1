@@ -235,8 +235,9 @@ CPU.
   requested) or `database unavailable` (three-second probe deadline).
 - `ayati api-health` probes internal loopback readiness without trusting proxy headers.
 - `ayati executor-health` passes when the local executor's last capacity report
-  to its controller was accepted within 15 seconds, it is not draining and at
-  least one slot is ready or running. It reads a status file in the executor's
+  to its controller was accepted within 35 seconds (three missed 10-second
+  heartbeats and some slack), it is not draining and at least one slot is ready
+  or running. It reads a status file in the executor's
   data directory and makes no network request.
 
 Only the two read-only health GETs bypass the public Host check; they expose no

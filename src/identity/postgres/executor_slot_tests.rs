@@ -66,6 +66,7 @@ pub(super) async fn setup() -> (
 pub(super) async fn report(db: &PgStore, e: &Registration, slots: Vec<SlotReport>) -> Result<()> {
     db.report_executor(&e.executor, &e.incarnation, &Capacity { slots })
         .await
+        .map(|_| ())
 }
 fn limits() -> PoolLimits {
     PoolLimits {
