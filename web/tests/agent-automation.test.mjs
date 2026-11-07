@@ -46,8 +46,8 @@ test('ambiguous or missing local times and unsupported intervals cannot reach th
  const writes=[];
  await reactFixture(async({render,button,change,click})=>{
   const {CreateSchedule}=await setup();await render(CreateSchedule,{agent:'agent',data:directory,clock:{...clock,timezone:'America/New_York'},close:()=>{},saved:async()=>{}});
-  await fill(change);await change(field('First run'),'2026-11-01T01:30');await click(button('Review schedule'));assert.match(document.body.textContent,/missing or repeated/);assert.equal(button('Create schedule'),undefined);
-  await change(field('First run'),'2026-11-02T09:00');await change(field('Repeat'),'interval');await change(field('Every'),'0');await click(button('Review schedule'));assert.match(document.body.textContent,/at most 365/);assert.deepEqual(writes,[]);
+  await fill(change);await change(field('First run'),'2036-11-02T01:30');await click(button('Review schedule'));assert.match(document.body.textContent,/missing or repeated/);assert.equal(button('Create schedule'),undefined);
+  await change(field('First run'),'2036-11-03T09:00');await change(field('Repeat'),'interval');await change(field('Every'),'0');await click(button('Review schedule'));assert.match(document.body.textContent,/at most 365/);assert.deepEqual(writes,[]);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST')writes.push(path);return base(path);}});
 });
 
