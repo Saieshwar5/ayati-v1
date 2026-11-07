@@ -99,6 +99,50 @@ exact schema it was built for. Logs are saved under
 after a failure keeps the same data. If a snapshot fails, `down` stops before
 deleting anything and says so.
 
+## The fast cycle: park, wake, ship
+
+Between working sessions, **park** instead of `down`, then **wake** the next
+day. Ship each commit with one command:
+
+```sh
+deploy/aws/env.sh wake            # from parked: NAT on, Aurora resumed, services started, smoke
+deploy/aws/env.sh ship            # image, deploy, smoke (refuses uncommitted changes)
+deploy/aws/env.sh smoke           # readiness, counts, running image, new ERROR/WARN lines
+deploy/aws/env.sh park            # logs saved; services, load balancer and NAT removed
+deploy/aws/env.sh db-capacity     # Aurora capacity; 0 means paused
+deploy/aws/env.sh reset --yes     # test data only: empty database and files, same environment
+```
+
+| State | What exists | Cost |
+| --- | --- | --- |
+| Down | Permanent layer and kept data | about $2/month |
+| Parked | Plus the VPC without NAT, roles, Aurora at 0 ACU (paused after 5 idle minutes) | storage only, a few dollars a month |
+| Awake | Plus NAT, load balancer, controllers and executors | about $0.5–1/hour |
+
+- **Wake runs `up` on the parked environment:**
+  - the database is reused, not restored;
+  - raising Aurora's minimum capacity resumes it before setup connects;
+  - setup retries once, because migrations connect with a 10-second timeout.
+- **`ship` deploys by schema:**
+  - **Rolling update:** used when the running commit has the same newest
+    migration and the same `services.yaml` as the new one.
+  - **Full deploy (stop, migrate, start):** used otherwise.
+  - Force either with `--rolling` or `--full`; `--dirty` allows uncommitted
+    changes.
+- **Smoke fails** on a failed readiness check, on wrong counts, when an old image
+  is still running, or on an ERROR or panic logged since the deploy started. It
+  saves `smoke.txt` with the window's logs.
+- **`verify-clean` while parked** lists the parked stacks as intentional and
+  still reports any NAT, load balancer or ECS cluster left behind.
+- **`down` works from parked too:** it snapshots, deletes everything and clears
+  the parked state.
+- **Parked means asleep:** schedules, agent wake-ups and events do not run.
+- **`reset --yes` starts the data over:**
+  - it stops the services, drops and recreates the database, empties the files
+    bucket, migrates and starts again (a few minutes);
+  - it refuses environment names containing `prod`, and refuses while parked;
+  - sign-ins at WorkOS stay, so people simply sign in to an empty Cuckoo.
+
 ## Known limits (first windows)
 
 - One NAT gateway and one Aurora writer: no zone failover until Step 8.
@@ -107,4 +151,6 @@ deleting anything and says so.
   (`sslmode=require`); add the RDS CA bundle to the image to verify it.
 - First window must confirm: ECS task-role session names equal task IDs
   (executor identity), and CloudWatch extracts the EMF pool metrics.
-- No automatic teardown: an environment runs until `down`.
+- No automatic teardown: an environment runs until `park` or `down`.
+- RDS Proxy (D222) would keep Aurora awake while parked; park must remove it when
+  it arrives.

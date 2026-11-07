@@ -44,8 +44,6 @@ RUN python3 -m venv /opt/ayati/bridge \
        -r /tmp/bridge-requirements.lock
 
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS runtime
-# Pass the commit or image tag: --build-arg AYATI_RELEASE=$(git rev-parse --short HEAD)
-ARG AYATI_RELEASE=unknown
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libstdc++6 bubblewrap poppler-utils util-linux python3 \
     && rm -rf /var/lib/apt/lists/* \
@@ -61,6 +59,10 @@ COPY --from=prepared-goose /build/.cache/goose/v1.54.0-ayati.1/ ./prepared-goose
 COPY --from=bridge /opt/ayati/bridge ./bridge/
 COPY integrations/aws_bridge/ ./integrations/aws_bridge/
 COPY --chmod=755 deploy/container-entrypoint.sh ./entrypoint.sh
+# Pass the commit or image tag: --build-arg AYATI_RELEASE=$(git rev-parse --short HEAD)
+# Declared after every RUN: a new value then changes only this metadata, so a new
+# commit reuses the cached system packages instead of reinstalling and pushing them.
+ARG AYATI_RELEASE=unknown
 ENV PYTHONPATH=/opt/ayati/integrations PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     AYATI_DATA_DIR=/var/lib/ayati AYATI_GOOSE_BIN=/opt/ayati/goose \
     AYATI_PREPARED_GOOSE_BIN=/opt/ayati/prepared-goose/goose \

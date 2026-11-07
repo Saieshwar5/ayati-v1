@@ -45,6 +45,11 @@ Parameters:
     Type: String
     Default: ''
     Description: Comma-separated verified emails allowed to issue workspace invite codes.
+  # Fargate sizes; the defaults fit one test workspace (a few people, about five agents).
+  ControllerCpu: {Type: String, Default: '256', AllowedValues: ['256', '512', '1024']}
+  ControllerMemory: {Type: String, Default: '512', AllowedValues: ['512', '1024', '2048']}
+  ExecutorCpu: {Type: String, Default: '512', AllowedValues: ['512', '1024', '2048']}
+  ExecutorMemory: {Type: String, Default: '1024', AllowedValues: ['1024', '2048', '4096']}
   ExecutorSlots:
     Type: Number
     Default: 2
@@ -191,8 +196,8 @@ Resources:
       Family: {Fn::Sub: '${Environment}-executor'}
       RequiresCompatibilities: [FARGATE]
       NetworkMode: awsvpc
-      Cpu: '1024'
-      Memory: '2048'
+      Cpu: {Ref: ExecutorCpu}
+      Memory: {Ref: ExecutorMemory}
       RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
       ExecutionRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorExecution'}}
       TaskRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ExecutorTask'}}
@@ -263,8 +268,8 @@ Resources:
       Family: {Fn::Sub: '${Environment}-controller'}
       RequiresCompatibilities: [FARGATE]
       NetworkMode: awsvpc
-      Cpu: '512'
-      Memory: '1024'
+      Cpu: {Ref: ControllerCpu}
+      Memory: {Ref: ControllerMemory}
       RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
       ExecutionRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ControllerExecution'}}
       TaskRoleArn: {Fn::ImportValue: {Fn::Sub: '${Environment}-ControllerTask'}}

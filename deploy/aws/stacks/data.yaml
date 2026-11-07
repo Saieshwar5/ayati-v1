@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Temporary Ayati database: Aurora PostgreSQL Serverless v2, deleted with each
-  window. env.sh down snapshots it first and env.sh up restores the latest
-  snapshot, so data carries over; the files bucket and passwords live in the
-  keep stack.
+  Temporary Ayati database: Aurora PostgreSQL Serverless v2. env.sh park keeps it
+  paused at 0 ACU; env.sh down snapshots it and deletes it, and env.sh up restores
+  the latest snapshot, so data carries over; the files bucket and passwords live
+  in the keep stack.
 Parameters:
   ExpectedAccountId:
     Type: String
@@ -17,12 +17,21 @@ Parameters:
     AllowedPattern: '18\.[0-9]+'
     Description: Orderable Aurora PostgreSQL 18 version for db.serverless in Mumbai.
   MinCapacity:
+    Type: String
+    AllowedValues: ['0', '0.5', '1', '2']
+    Default: '0.5'
+    Description: >-
+      Aurora capacity units when idle. '0' (parked) lets Aurora pause after
+      AutoPauseSeconds without connections; only storage is billed then.
+  AutoPauseSeconds:
     Type: Number
-    Default: 0.5
-    Description: Aurora capacity units when idle.
+    Default: 300
+    MinValue: 300
+    MaxValue: 86400
   MaxCapacity:
     Type: Number
-    Default: 4
+    Default: 2
+    Description: Caps cost while migrating or under load; 2 suits one test workspace.
   SnapshotIdentifier:
     Type: String
     Default: ''
@@ -38,6 +47,7 @@ Rules:
         AssertDescription: Ayati runs in Mumbai (ap-south-1).
 Conditions:
   Restore: {Fn::Not: [{Fn::Equals: [{Ref: SnapshotIdentifier}, '']}]}
+  CanPause: {Fn::Equals: [{Ref: MinCapacity}, '0']}
 Resources:
   SubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -81,6 +91,7 @@ Resources:
       ServerlessV2ScalingConfiguration:
         MinCapacity: {Ref: MinCapacity}
         MaxCapacity: {Ref: MaxCapacity}
+        SecondsUntilAutoPause: {Fn::If: [CanPause, {Ref: AutoPauseSeconds}, {Ref: 'AWS::NoValue'}]}
   # One writer; a reader in a second zone arrives with the Step 8 failover drills.
   Writer:
     Type: AWS::RDS::DBInstance
