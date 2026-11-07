@@ -102,6 +102,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::message_search::MessageSearch),
             Box::new(super::invitation_delivery::InvitationDelivery),
             Box::new(super::unread::UnreadFromJoining),
+            Box::new(super::transcripts::Transcripts),
         ]
     }
 }

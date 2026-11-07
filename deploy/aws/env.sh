@@ -150,6 +150,8 @@ mirror_psql() {
 
 services() {  # services <controllers> <executors>
     : "${AYATI_WORKOS_CLIENT_ID:?}" "${AYATI_MODEL:?}"
+    # Optional voice-note transcription needs its provider's address too.
+    [ -z "${AYATI_TRANSCRIPTION_MODEL:-}" ] || : "${AYATI_TRANSCRIPTION_BASE_URL:?needed with AYATI_TRANSCRIPTION_MODEL}"
     local uri
     uri=$(cat "$state/image" 2>/dev/null) || { echo "Run env.sh image first" >&2; exit 1; }
     deploy_stack "$(stack services)" services.yaml Environment="$AYATI_ENV" ImageUri="$uri" \
@@ -159,6 +161,7 @@ services() {  # services <controllers> <executors>
         ControllerCpu="${AYATI_CONTROLLER_CPU:-256}" ControllerMemory="${AYATI_CONTROLLER_MEMORY:-512}" \
         ExecutorCpu="${AYATI_EXECUTOR_CPU:-512}" ExecutorMemory="${AYATI_EXECUTOR_MEMORY:-1024}" \
         PlatformAdmins="${AYATI_PLATFORM_ADMINS:-}" \
+        TranscriptionModel="${AYATI_TRANSCRIPTION_MODEL:-}" TranscriptionBaseUrl="${AYATI_TRANSCRIPTION_BASE_URL:-}" \
         WorkosSecretArn="$(secret_arn workos-api-key)" ModelSecretArn="$(secret_arn model-api-key)" \
         WorkerServerSecretArn="$(secret_arn worker-control-server)" \
         WorkerCaSecretArn="$(secret_arn worker-control-ca)"

@@ -321,3 +321,51 @@ fn library_models_are_provider_and_model_from_the_providers_file() {
     let error = error.to_string();
     assert!(error.contains("need AYATI_MODEL_PROVIDERS_FILE"));
 }
+
+#[test]
+fn transcription_is_a_provider_and_model_from_the_providers_file() {
+    let providers = ("AYATI_MODEL_PROVIDERS_FILE", "/private/providers.json");
+    let config = controller(&[
+        providers,
+        (
+            "AYATI_TRANSCRIPTION_MODEL",
+            "fireworks-audio:whisper-v3-turbo",
+        ),
+    ])
+    .unwrap();
+    assert_eq!(
+        config.transcription_model,
+        Some(("fireworks-audio".into(), "whisper-v3-turbo".into()))
+    );
+    assert!(controller(&[]).unwrap().transcription_model.is_none());
+    let Err(error) = controller(&[providers, ("AYATI_TRANSCRIPTION_MODEL", "whisper-v3")]) else {
+        panic!("a model without a provider must be refused")
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("AYATI_TRANSCRIPTION_MODEL must be provider:model")
+    );
+    let Err(error) = controller(&[("AYATI_TRANSCRIPTION_MODEL", "fireworks-audio:whisper-v3")])
+    else {
+        panic!("transcription needs the providers file")
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("AYATI_TRANSCRIPTION_MODEL needs AYATI_MODEL_PROVIDERS_FILE")
+    );
+    // The key belongs in the providers file's key file, never the environment.
+    let Err(error) = controller(&[
+        providers,
+        ("AYATI_TRANSCRIPTION_MODEL", "fireworks-audio:whisper-v3"),
+        ("FIREWORKS_API_KEY", "fixture-key"),
+    ]) else {
+        panic!("the controller must refuse a model key")
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("must not receive FIREWORKS_API_KEY")
+    );
+}

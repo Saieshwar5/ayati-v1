@@ -51,6 +51,8 @@ Resources:
                   - {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}
                   - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, Workos]}}]}
                   - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, WorkerServer]}}]}
+                  # Voice-note transcription: written to a key file only when it is on.
+                  - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, Model]}}]}
   ExecutorExecution:
     Type: AWS::IAM::Role
     Properties:

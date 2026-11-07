@@ -69,6 +69,7 @@ impl PgStore {
         .map(|r| r.try_get::<String>("", "agent"))
         .collect::<std::result::Result<Vec<_>, _>>()?;
         super::reply_views::hydrate(tx, user, w, &mut messages).await?;
+        super::transcripts::for_people(tx, w, &mut messages).await?;
         Ok(
             json!({"messages":messages,"agents":agents,"next_before":if has_more {cursor}else{None}}),
         )
