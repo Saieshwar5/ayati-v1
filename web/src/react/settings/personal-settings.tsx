@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { chatRequest } from '../chat/model';
 import { useMutation, useResource } from '../requests';
 import { setNotifyDefaults } from '../chat/notifications';
-import { workspaceSession } from '../../workspace-context';
+import { currentWorkspace, workspaceSession } from '../../workspace-context';
 import { MyProfile } from './my-profile';
 
-export function MyAccount() {
-  const user = workspaceSession?.user;
-  if (!user) return null;
-  return <section className="settings-account"><h2>Profile</h2><p>How colleagues see you in this workspace.</p>
+/** The one place to edit your name, photo, job title and About (D245). */
+export function ProfileSettings() {
+  if (!workspaceSession?.user) return null;
+  return <section className="settings-profile"><h2>Profile</h2>
+    <p>How colleagues and agents see you in {currentWorkspace()?.name || 'this workspace'}. The only place to change these.</p>
     <MyProfile />
-    <div className="settings-readonly"><span>Email address</span><strong>{user.email}</strong><p>Used to sign in to your account.</p></div>
   </section>;
 }
 

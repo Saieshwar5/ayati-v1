@@ -84,6 +84,25 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
   }, { url: `http://localhost${base}?view=home`, fetch: async path => response(dataFor(path)) });
 });
 
+test('old My account links and the account menu open Settings → Profile', async () => {
+  await reactFixture(async ({ dom, render, click, update }) => {
+    const setup = await prepare(dom);
+    const profile = () => document.querySelector('.settings-detail h2')?.textContent === 'Profile';
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update, profile);
+      assert.equal(document.querySelector('.workspace-nav[aria-current=page]').textContent, 'Settings');
+      assert.equal(document.title, 'Settings · Cuckoo');
+      await click(document.querySelector('.workspace-rail [title=Home]'));
+      await until(update, () => document.querySelector('.home'));
+      const settings = [...document.querySelectorAll('#workspace-profile a')].find(link => link.textContent === 'Settings');
+      await click(settings);
+      await until(update, profile);
+      assert.equal(dom.window.location.search, '?view=settings&section=profile');
+    } finally { await setup.cleanup(); }
+  }, { url: `http://localhost${base}?view=account`, fetch: async path => response(dataFor(path)) });
+});
+
 test('navigation interception leaves workspace switches, downloads and other destinations native', async () => {
   await reactFixture(async ({ dom }) => {
     const { localDestination, workspacePage } = await import('../src/navigation.ts');
@@ -94,6 +113,7 @@ test('navigation interception leaves workspace switches, downloads and other des
     // Connections moved from Settings to Apps; old links open Apps.
     assert.equal(workspacePage(new URL('?view=settings&section=connections', current)), 'apps');
     assert.equal(workspacePage(new URL('?view=users', current)), 'settings');
+    assert.equal(workspacePage(new URL('?view=account', current)), 'settings', 'My account was removed (D245)');
     assert.ok(localDestination('?view=apps', current));
     for (const path of ['/w/22222222-2222-4222-8222-222222222222/', '/auth/login', '/api/identity/session', 'https://example.com/']) assert.equal(localDestination(path, current), undefined);
   }, { url: `http://localhost${base}?view=home` });

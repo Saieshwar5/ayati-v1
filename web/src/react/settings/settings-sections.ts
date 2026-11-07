@@ -18,7 +18,7 @@ const oldSections: Record<string, Section> = {
   'my-account': 'profile', appearance: 'preferences', 'help-&-feedback': 'help',
   general: 'workspace', access: 'people', activity: 'audit-log', teams: 'workspace',
 };
-const oldViews: Record<string, Section> = { people: 'people', users: 'people', company: 'workspace', feedback: 'help' };
+const oldViews: Record<string, Section> = { people: 'people', users: 'people', company: 'workspace', feedback: 'help', account: 'profile' };
 
 /** The page a URL asks for, or undefined when it names none (phones then show the list). */
 export function requestedSection(url: URL): Section | undefined {
