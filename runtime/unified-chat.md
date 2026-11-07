@@ -69,7 +69,11 @@ passing storage test does not claim a new model-provider integration run.
 The chat surface uses compact headers and a shared expanding React composer. Typing
 @ opens inline suggestions; selecting an agent records its identity for dispatch.
 Unselected plain @text does not dispatch work. The separate recipient selector is removed.
-Shared-chat scope information lives in Details. The always-visible Create panel
+Shared-chat scope information lives in Details, a 360 px panel beside the conversation
+inside the workspace frame (D245; a sheet on phones), shared with profiles. It shows the
+name once with notifications, Pin and Archive; About; one searchable list of people and
+agents where managers add or remove them; and, for admins, one-Save channel settings.
+A direct message's Details is the other person's profile. The always-visible Create panel
 shortcut above private-agent composers is removed; Home's creation flow and
 explicit creation-mode links remain available.
 

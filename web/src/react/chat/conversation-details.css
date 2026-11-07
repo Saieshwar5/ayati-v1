@@ -1,0 +1,112 @@
+/* D245: Details and profiles in one panel beside the conversation, inside the workspace frame. */
+.workspace-chat { position: relative; }
+.chat-side-panel { display: flex; flex-direction: column; flex: 0 0 360px; width: 360px; min-width: 0; min-height: 0; background: var(--surface); border-left: 1px solid var(--border-structure); }
+.chat-side-panel-header { display: flex; align-items: center; gap: 8px; height: var(--chat-header-height, 64px); min-height: var(--chat-header-height, 64px); padding: 0 14px 0 20px; flex-shrink: 0; }
+.chat-side-panel-header h2 { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-side-panel-header h2:focus { outline: none; }
+.chat-side-panel-header h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.chat-side-panel-header .ui-icon { width: 34px; min-height: 34px; padding: 4px; border-color: transparent; background: var(--soft); font-size: 18px; }
+.chat-side-panel-header .chat-side-panel-back { background: transparent; font-size: 22px; }
+.chat-side-panel-mark { display: inline-flex; flex: none; margin-right: 8px; color: var(--muted); font-weight: 400; }
+.chat-side-panel-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 20px 24px; }
+
+/* Quiet actions under the name: notifications, Pin, Archive. */
+.chat-details-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.chat-details-actions .chat-details-action, .chat-notify-labelled .chat-notify-button { min-height: 32px; padding: 5px 10px; gap: 6px; border-color: transparent; background: var(--soft); font-size: 12.5px; }
+.chat-details-actions .chat-details-action:hover { background: var(--selection); }
+.chat-details-actions .chat-details-action[aria-pressed=true], .chat-details-actions .chat-details-action[aria-expanded=true], .chat-notify-labelled .chat-notify-button[aria-expanded=true] { background: var(--selection); }
+.chat-notify-labelled .chat-notify-menu { top: 38px; right: auto; left: 0; width: min(280px, calc(100vw - 48px)); }
+
+/* Sections: About, People and agents, Channel settings. */
+.chat-details-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.chat-details-section:last-child { border-bottom: 0; }
+.chat-details-section h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; }
+.chat-details-section-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.chat-details-section-header h3 { margin: 0; }
+.chat-details-section-header small { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.chat-details-description { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+.chat-details-section > .chat-help { margin: 8px 0 0; font-size: 12px; }
+.chat-details-facts { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12.5px; }
+.chat-details-facts li { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.chat-details-facts li > :first-child { display: inline-flex; justify-content: center; flex: 0 0 14px; }
+.chat-details-search { width: 100%; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: var(--soft); color: var(--text); font: inherit; font-size: 13px; }
+.chat-details-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chat-details-add .ui-button { min-height: 32px; padding: 5px 12px; gap: 6px; font-size: 12.5px; }
+.chat-details-add .ui-button[aria-expanded=true] { background: var(--selection); }
+
+/* Flat member rows with faces, the AI tag and a ⋯ menu. */
+.chat-details-members { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; }
+.chat-details-member { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px; border-radius: 10px; }
+.chat-details-member:hover, .chat-details-member:focus-within { background: var(--soft); }
+.chat-details-who { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.chat-details-who { cursor: pointer; border-radius: 8px; }
+.chat-details-who .chat-avatar { width: 36px; height: 36px; flex: 0 0 36px; font-size: 12.5px; }
+.chat-details-who > span:last-child { display: grid; gap: 2px; min-width: 0; font-size: 13.5px; }
+.chat-details-who small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.chat-details-member .ui-badge { flex: none; padding: 2px 7px; font-size: 11px; }
+.chat-details-member > .ui-button { min-height: 30px; padding: 4px 12px; font-size: 12.5px; }
+.chat-details-menu { position: relative; display: inline-flex; flex: none; }
+.chat-details-menu > .ui-icon { width: 32px; min-height: 32px; padding: 2px; border-color: transparent; background: transparent; color: var(--muted); font-size: 18px; }
+.chat-details-menu > .ui-icon:hover, .chat-details-menu > .ui-icon[aria-expanded=true] { background: var(--selection); color: var(--text); }
+.chat-details-menu .chat-message-menu { top: 36px; right: 0; min-width: 210px; }
+.chat-details-adding { display: grid; gap: 8px; margin-top: 10px; }
+.chat-details-adding .chat-details-members { margin: 0; }
+.chat-details-done { justify-self: start; }
+
+/* Archive review in place, near the top (screen 6). Archive channel is the only red button. */
+.chat-archive-review { display: grid; gap: 10px; margin-top: 16px; padding: 16px; border: 1px solid var(--border-panel); border-radius: 14px; font-size: 13px; line-height: 1.5; }
+.chat-archive-review h3 { margin: 0; font-size: 14.5px; font-weight: 600; overflow-wrap: anywhere; }
+.chat-archive-review h3:focus { outline: none; }
+.chat-archive-review h3:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.chat-archive-review p { margin: 0; }
+.chat-archive-review .chat-error { padding: 0; }
+.chat-archive-running { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; }
+.chat-archive-running strong { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.chat-archive-running p { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.chat-archive-running .chat-archive-check { min-height: 28px; padding: 3px 10px; border-color: transparent; background: var(--soft); font-size: 12px; }
+.chat-archive-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ui-button.primary.chat-archive-confirm { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+
+/* Channel settings: one form, one Save. */
+.chat-details-form { gap: 16px; }
+.chat-details-choice { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.chat-details-choice legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
+.chat-details-choice > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-details-choice label { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 14px; border: 1px solid var(--border-control); border-radius: 9px; font-size: 13px; cursor: pointer; }
+.chat-details-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.chat-details-choice label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chat-details-choice label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.chat-details-save { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.chat-details-save small { color: var(--muted); font-size: 12px; }
+.chat-details-form .chat-error { padding: 0; margin: 0; }
+.chat-details-note { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; }
+/* Profiles in the panel: the same scale as Details. Presence and status join the identity later. */
+.chat-side-panel .profile-card { gap: 14px; padding-top: 16px; }
+.chat-side-panel-body > .profile-card { padding-top: 4px; }
+.chat-side-panel .profile-card-identity p, .chat-side-panel .profile-card-line > div { font-size: 13.5px; line-height: 1.5; }
+
+/* Who is in the channel, in its header. */
+.chat-header-faces { display: inline-flex; align-items: center; flex: none; padding: 2px; border: 0; border-radius: 16px; background: none; cursor: pointer; }
+.chat-header-faces .chat-avatar { width: 26px; height: 26px; flex: 0 0 26px; font-size: 10px; box-shadow: 0 0 0 2px var(--surface); }
+.chat-header-faces .chat-avatar + .chat-avatar { margin-left: -6px; }
+.chat-header-faces:hover .chat-avatar { box-shadow: 0 0 0 2px var(--soft); }
+.chat-details-toggle[aria-expanded=true] { background: var(--selection); }
+
+/* Narrower windows: the panel lies over the conversation. Phones: it covers it like a sheet. */
+@media (max-width: 1100px) and (min-width: 601px) {
+  .chat-side-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; box-shadow: -8px 0 24px var(--shadow-deep); }
+}
+@media (max-width: 600px) {
+  .chat-side-panel { position: absolute; inset: 0; z-index: 4; width: auto; border-left: 0; }
+  .chat-side-panel-header { padding: 0 8px 0 16px; }
+  .chat-side-panel-body { padding: 2px 16px 20px; }
+  .chat-header-faces { display: none; }
+}
+@media (pointer: coarse) {
+  .chat-details-menu > .ui-icon, .chat-side-panel-header .ui-icon { width: 44px; min-height: 44px; }
+  .chat-details-actions .chat-details-action, .chat-notify-labelled .chat-notify-button, .chat-details-add .ui-button, .chat-details-member > .ui-button { min-height: 44px; }
+}
+@media (forced-colors: active) {
+  .chat-side-panel { border-left: 1px solid CanvasText; }
+  .chat-details-choice label:has(input:checked), .chat-details-action[aria-pressed=true], .chat-details-action[aria-expanded=true], .chat-details-toggle[aria-expanded=true] { outline: 2px solid Highlight; }
+}
