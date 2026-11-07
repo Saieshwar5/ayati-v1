@@ -49,6 +49,18 @@ test('file viewer requests full bytes only through explicit image opening and of
     assert.match(document.querySelector('a[download]').getAttribute('href'),/version=exacthash/);
   });
 });
+test('file viewer plays audio from its exact version instead of asking for a text preview', async () => {
+  const calls = []; const file={id:'voice',name:'voice-message.ogg',mime:'audio/ogg',size:2048,checksum:'voicehash'};
+  await reactFixture(async ({ render }) => {
+    const { FileViewer } = await import('../src/react/results/file-viewer.tsx');
+    await render(FileViewer,{id:file.id,name:file.name,source:source(async path=>{calls.push(path);return file;}),close:()=>{}});
+    assert.ok(calls.length > 0 && calls.every(path=>path.includes('metadata=true')));
+    const player = document.querySelector('audio[controls]');
+    assert.equal(player?.getAttribute('aria-label'),'voice-message.ogg');
+    assert.match(player?.getAttribute('src') ?? '',/inline=true&version=voicehash/);
+    assert.doesNotMatch(document.body.textContent,/Preview unavailable/);
+  });
+});
 test('preview bounds Unicode and structural long responses without summarizing or loading a model', async () => {
   const { responsePreview } = await import('../src/react/results/model.ts');
   const text='你好🦀'.repeat(500); const preview=responsePreview(text);

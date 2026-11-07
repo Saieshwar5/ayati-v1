@@ -72,19 +72,29 @@ async fn call(
     cookie: &str,
     body: Vec<u8>,
 ) -> (u16, axum::http::HeaderMap, Vec<u8>) {
+    let json = [("content-type", "application/json")];
+    call_with(app, method, path, cookie, &json, body).await
+}
+async fn call_with(
+    app: &Arc<App>,
+    method: &str,
+    path: &str,
+    cookie: &str,
+    headers: &[(&str, &str)],
+    body: Vec<u8>,
+) -> (u16, axum::http::HeaderMap, Vec<u8>) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", "workspace.example.test")
+        .header("origin", ORIGIN)
+        .header("x-ayati-request", "identity")
+        .header("cookie", cookie);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
     let response = identity::router(app.clone())
-        .oneshot(
-            Request::builder()
-                .method(method)
-                .uri(path)
-                .header("host", "workspace.example.test")
-                .header("origin", ORIGIN)
-                .header("x-ayati-request", "identity")
-                .header("cookie", cookie)
-                .header("content-type", "application/json")
-                .body(Body::from(body))
-                .unwrap(),
-        )
+        .oneshot(request.body(Body::from(body)).unwrap())
         .await
         .unwrap();
     let status = response.status().as_u16();
@@ -333,6 +343,42 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
     let (status, _, saved) = call(&second, "GET", &download, cookie, vec![]).await;
     assert_eq!(status, 200);
     assert_eq!(saved, bytes);
+    // A Firefox voice note (Ogg/Opus) plays inline and seeks by byte range.
+    let mut voice = b"OggS\0\x02".to_vec();
+    voice.extend_from_slice(&[0; 20]);
+    voice.extend_from_slice(b"\x01\x13OpusHead\x01\x01\x38\x01\x80\xbb\0\0\0\0\0");
+    let ogg = [("content-type", "audio/ogg; codecs=opus")];
+    let (status, _, object) = call_with(
+        &second,
+        "POST",
+        &format!("/api/identity/workspaces/{w}/chats/{c}/objects?name=voice-message.ogg"),
+        cookie,
+        &ogg,
+        voice.clone(),
+    )
+    .await;
+    assert_eq!(status, 200);
+    let object = serde_json::from_slice::<Value>(&object).unwrap();
+    assert_eq!(object["mime"], "audio/ogg");
+    let play = format!(
+        "/api/identity/workspaces/{w}/objects/{}?inline=true",
+        object["id"].as_str().unwrap()
+    );
+    let range = [("range", "bytes=0-3")];
+    let (status, headers, part) = call_with(&second, "GET", &play, cookie, &range, vec![]).await;
+    assert_eq!(status, 206);
+    assert_eq!(part, b"OggS");
+    assert_eq!(headers["content-type"], "audio/ogg");
+    assert_eq!(
+        headers["content-range"],
+        format!("bytes 0-3/{}", voice.len()).as_str()
+    );
+    assert!(
+        headers["content-disposition"]
+            .to_str()
+            .unwrap()
+            .starts_with("inline;")
+    );
     assert_ne!(
         call(
             &second,

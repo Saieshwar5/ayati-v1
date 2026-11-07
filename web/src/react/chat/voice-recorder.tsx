@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
+// Ask for a format other browsers can play; Safari may only offer MP4.
+const recordingTypes = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'];
+const recordingExtension = (mime: string) => mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
 export function VoiceRecorder({ disabled, attach, pending }: { disabled: boolean; attach: (file: File) => Promise<void>; pending: (value: boolean) => void }) {
   const [state, setState] = useState<'idle'|'requesting'|'recording'|'uploading'|'preview'>('idle');
   const [seconds, setSeconds] = useState(0);
@@ -32,15 +35,16 @@ export function VoiceRecorder({ disabled, attach, pending }: { disabled: boolean
       const media = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!alive.current || cancelled.current || version !== generation.current) { media.getTracks().forEach(track => track.stop()); return; }
       stream.current = media;
-      const instance = new MediaRecorder(media), chunks: Blob[] = []; let size = 0;
+      const type = recordingTypes.find(candidate => MediaRecorder.isTypeSupported?.(candidate));
+      const instance = new MediaRecorder(media, type ? { mimeType: type } : undefined), chunks: Blob[] = []; let size = 0;
       recorder.current = instance;
       instance.ondataavailable = event => { chunks.push(event.data); size += event.data.size; if (size > 9 * 1024 * 1024 && instance.state === 'recording') instance.stop(); };
       instance.onerror = () => { if (alive.current && version === generation.current) { cancel(); setError('Recording failed. Please try again.'); } };
       instance.onstop = () => {
         media.getTracks().forEach(track => track.stop());
         if (!alive.current || cancelled.current || version !== generation.current) return;
-        const mime = instance.mimeType || 'audio/webm';
-        const file = new File(chunks, `voice-message.${mime.includes('mp4') ? 'm4a' : 'webm'}`, { type: mime });
+        const mime = instance.mimeType || type || 'audio/webm';
+        const file = new File(chunks, `voice-message.${recordingExtension(mime)}`, { type: mime });
         setPreview({ file, url: URL.createObjectURL(file) });
         void accept(file, version);
       };
