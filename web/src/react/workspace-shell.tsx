@@ -4,7 +4,7 @@ import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 import { PauseBanner } from './activity/agents-pause';
 
-export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'apps' | 'settings' | 'account';
+export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'apps' | 'settings';
 function Icon({ name }: { name: WorkspacePage }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     {name === 'home' && <><path d="m3 10 9-7 9 7v10H3Z" /><path d="M9 20v-7h6v7" /></>}

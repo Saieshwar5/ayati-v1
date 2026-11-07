@@ -1,5 +1,10 @@
 use super::*;
 
+#[path = "chat_activity.rs"]
+pub(super) mod activity;
+#[cfg(test)]
+#[path = "chat_activity_tests.rs"]
+mod activity_tests;
 #[path = "front_desk.rs"]
 pub(crate) mod front_desk;
 #[cfg(test)]
@@ -358,6 +363,6 @@ pub(super) async fn chats_in(
 ) -> Result<Value> {
     let owner = role(tx, workspace, &user.id).await? == "Admin";
     let hidden = super::work_rooms::hidden(tx).await?;
-    let chats=json_rows(tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC"),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
+    let chats=json_rows(tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'activity',x.activity,'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id)) AS data FROM relay_chats c CROSS JOIN LATERAL (SELECT {activity} AS activity) x WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY x.activity DESC,c.sequence DESC",activity=activity::ACTIVITY),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
     Ok(json!({"chats":chats}))
 }

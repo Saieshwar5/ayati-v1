@@ -116,6 +116,9 @@ test('Links from the old tabbed Settings open the new pages',async()=>{
     ]){ await render(base+link); assert.equal(page() ?? document.querySelector('.settings-detail h1')?.textContent,expected,link); }
     await render(base.replace('view=settings','view=people')); assert.equal(page(),'People');
     await render(base.replace('view=settings','view=users')); assert.equal(page(),'People');
+    // The My account page was removed (D245); its links open Settings → Profile.
+    await render(base.replace('view=settings','view=account')); assert.equal(page(),'Profile');
+    assert.equal(document.querySelector('.settings-group button[aria-current=page]').textContent,'Profile');
     await render(base+'#theme'); assert.equal(page(),'Preferences');
     assert.ok(reads.some(path=>path.endsWith('/people')));
   });
@@ -128,6 +131,19 @@ test('Phones show the list first and a page with a way back',async()=>{
     assert.equal(document.querySelector('.settings-react').dataset.showing,'page');
     await click(document.querySelector('.settings-back'));
     assert.equal(dom.window.location.search,'?view=settings');
+  });
+});
+
+test('Profile is the one place to edit you, in the order of the design, with the sign-in email read-only',async()=>{
+  await fixture('Member',async()=>{
+    assert.equal(document.querySelector('.settings-profile > p').textContent,'How colleagues and agents see you in Northstar. The only place to change these.');
+    const form=document.querySelector('form.my-profile');
+    assert.deepEqual([...form.querySelectorAll('label.ui-field')].map(label=>label.firstChild.textContent),
+      ['Your name','Job title shown next to your name','About 0–200 characters','Sign-in email cannot be changed here']);
+    assert.deepEqual([...form.querySelectorAll('button')].map(node=>node.textContent),['Change photo','Save profile']);
+    const email=form.querySelector('input[type=email]');
+    assert.deepEqual([email.readOnly,email.value],[true,'person@test']);
+    assert.equal(document.querySelectorAll('input[name=display_name]').length,1,'one name editor');
   });
 });
 
