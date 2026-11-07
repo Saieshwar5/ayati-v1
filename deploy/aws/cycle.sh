@@ -187,7 +187,7 @@ reset() {
     trap still_running ERR
     logs || true
     say "Stopping the services (no connections may stay open)"
-    services 0 0
+    stop_services
     # The grants container connects to the postgres database as the owner; migrate
     # runs first on the old database and changes nothing.
     say "Dropping and recreating the database"

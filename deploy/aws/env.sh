@@ -164,6 +164,30 @@ services() {  # services <controllers> <executors>
         WorkerCaSecretArn="$(secret_arn worker-control-ca)"
 }
 
+# The services' current tasks. ECS reports a service at zero while its old tasks
+# still drain (AYATI_DRAIN_SECONDS, then the stop timeout), and those tasks still
+# hold database connections, so callers list them first and wait for them.
+service_tasks() {
+    local service
+    for service in controller executor; do
+        deploy_aws ecs list-tasks --cluster "$AYATI_ENV" --service-name "$service" \
+            --query 'taskArns' --output text 2>/dev/null | tr '\t' '\n' | grep '^arn:' || true
+    done
+}
+wait_stopped() {  # wait_stopped "<task ARNs, one per line>"
+    [ -n "$1" ] || return 0
+    say "Waiting for $(wc -l <<<"$1") old task(s) to stop"
+    # shellcheck disable=SC2046  # one ARN per word
+    deploy_aws ecs wait tasks-stopped --cluster "$AYATI_ENV" --tasks $(tr '\n' ' ' <<<"$1")
+}
+# Scales both services to zero and returns once their old tasks have stopped.
+stop_services() {
+    local tasks
+    tasks=$(service_tasks)
+    services 0 0
+    wait_stopped "$tasks"
+}
+
 # Runs migrations as the owner, then grants the runtime role; fails on any non-zero exit.
 # An optional ECS overrides document replaces a container's command (reset uses it).
 setup() {
@@ -246,7 +270,7 @@ up() {
     deploy_stack "$(stack data)" data.yaml Environment="$AYATI_ENV" SnapshotIdentifier="$snapshot" \
         MinCapacity=0.5
     deploy_stack "$(stack roles)" roles.yaml Environment="$AYATI_ENV" --capabilities CAPABILITY_NAMED_IAM
-    services 0 0
+    stop_services
     mark_deploy_start
     # Migrations connect with a 10 s timeout; a resuming Aurora can take longer once.
     setup || { echo "Setup failed; retrying once in case the database was resuming." >&2; setup; }
@@ -262,7 +286,7 @@ up() {
 deploy() {
     require_session
     trap still_running ERR
-    services 0 0
+    stop_services
     mark_deploy_start
     setup
     services "${AYATI_CONTROLLERS:-1}" "${AYATI_EXECUTORS:-1}"
@@ -314,9 +338,11 @@ keep_database() {
     deploy_aws rds describe-db-clusters --db-cluster-identifier "$cluster" >/dev/null 2>&1 \
         || { echo "No database to keep."; return 0; }
     say "Stopping services before the snapshot"
+    local tasks
+    tasks=$(service_tasks)
     deploy_aws ecs update-service --cluster "$AYATI_ENV" --service controller --desired-count 0 >/dev/null 2>&1 || true
     deploy_aws ecs update-service --cluster "$AYATI_ENV" --service executor --desired-count 0 >/dev/null 2>&1 || true
-    deploy_aws ecs wait services-stable --cluster "$AYATI_ENV" --services controller executor 2>/dev/null || true
+    wait_stopped "$tasks" || true
     name="$snapshot_prefix$(date -u +%Y%m%d-%H%M)"
     say "Snapshot $name"
     deploy_aws rds create-db-cluster-snapshot --db-cluster-identifier "$cluster" \
