@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
+import { workspaceUrl } from '../../workspace-context';
+import { AgentFace } from '../faces';
 import { chatRequest, type Conversation } from './model';
-import type { Lifecycle } from './organization-model';
+import { alertText } from './notifications';
+import type { Lifecycle, Unfinished } from './organization-model';
 import { subscribeChanges } from './live';
 
 /** Archive or restore review, shown in place inside Details (D245 screen 6). */
@@ -36,6 +39,10 @@ export function ArchiveReview({ chat, close, changed }: { chat: Conversation; cl
     {state && <div className="chat-archive-running">
       <strong>{running ? `Still running · ${running}` : 'Nothing is still running'}</strong>
       <Button className="chat-archive-check" disabled={mutation.busy} onClick={() => { mutation.setStatus(''); void resource.refresh().catch(() => {}); }}>Check again</Button>
+      {Boolean(state.unfinished?.length) && <ul className="chat-archive-items" aria-label={`Unfinished requests in #${chat.name}`}>
+        {state.unfinished!.map(item => <UnfinishedRow key={item.request} item={item} />)}
+        {Boolean(state.more) && <li className="chat-archive-more">+{state.more} more</li>}
+      </ul>}
       {running > 0 && <p>{running === 1 ? 'One visible request has' : `${running} visible requests have`} not finished. {archived
         ? 'Restore does not change them.'
         : 'Accepted work can finish; its questions, approvals and Stop stay available. Stop it from its message if it should not.'}</p>}
@@ -49,4 +56,23 @@ export function ArchiveReview({ chat, close, changed }: { chat: Conversation; cl
       <Button disabled={mutation.busy} onClick={close}>Cancel</Button>
     </div>
   </section>;
+}
+
+const stateLabels: Record<Unfinished['state'], string> = {
+  queued: 'starting', running: 'working', waiting: 'waiting', approval: 'waiting for approval', question: 'waiting for an answer',
+};
+
+/** One unfinished request: what was asked, the agent, its state and Open in Activity. */
+function UnfinishedRow({ item }: { item: Unfinished }) {
+  const agent = item.agent_name ?? 'Agent';
+  const asked = item.summary ? alertText(item.summary) || 'A request' : 'A request';
+  const waiting = item.state === 'waiting' || item.state === 'approval' || item.state === 'question';
+  return <li className="chat-archive-item">
+    <AgentFace agent={{ id: item.agent, name: agent, avatar: item.agent_avatar }} />
+    <span>
+      <span className="chat-archive-asked">{asked}</span>
+      <small>{agent} · <span className={waiting ? 'chat-archive-waiting' : 'chat-archive-working'}>{stateLabels[item.state] ?? item.state}</span></small>
+    </span>
+    <a href={workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(item.request)}`)} aria-label={`Open “${asked}” in Activity`}>Open</a>
+  </li>;
 }

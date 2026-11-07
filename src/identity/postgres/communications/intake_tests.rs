@@ -223,9 +223,14 @@ async fn communications_separate_people_threads_transports_and_deny_chat_audienc
         .is_err()
     );
     assert!(
-        db.channel_settings(&owner, &w, &first.chat, "public", false, None)
-            .await
-            .is_err()
+        db.channel_settings(
+            &owner,
+            &w,
+            &first.chat,
+            &settings_input("public", false, None)
+        )
+        .await
+        .is_err()
     );
     assert!(
         db.chat_send(

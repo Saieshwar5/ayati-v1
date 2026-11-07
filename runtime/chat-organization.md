@@ -57,10 +57,23 @@ A channel creator or workspace admin with current source access can archive or
 restore a non-direct channel, matching the existing membership-management rule.
 The review opens in place near the top of Details (no second dialog) and shows the
 current visible unfinished-request count, explaining that already accepted work may
-continue; the archived banner's Restore opens the same review. Channel settings and agent grants remain separate. Archive uses a revision and
+continue; the archived banner's Restore opens the same review. People who may archive
+also see the first 20 unfinished requests (asking message, agent, state, start) with
+Open in Activity and a count of the rest. Channel settings and agent grants remain separate. Archive uses a revision and
 an exact request receipt, records actor/time and writes an audit event. Repeated
 acknowledgment cannot repeat the lifecycle change; a stale opposing request cannot
 reverse a later decision.
+
+The same managers (creator or workspace admin) edit a channel's name (1–100
+characters), description (up to 300) and who can post; only admins change public/private,
+because that changes who can read its history. Details marks the creator and admins
+in it as Manager and shows "Created by" with the time from the `channel_created`
+audit entry (channels created before it was recorded show no time). Anyone in a
+channel or group can Leave it (audited; waiting work they can no longer reach stops).
+A private one refuses its last manager among its members; every admin manages a
+public one, and leaving it only removes the person from its people list, because
+public channels stay listed, readable and counted as unread for everyone. Hiding
+one per person would need a stored preference (not built).
 
 Archive retains history, files, visibility, memberships, receipts and existing
 work. It is not deletion or agent pause. New ordinary root/thread messages,
@@ -120,8 +133,12 @@ provider, new scheduling/delegation adapter or universal cloud acceptance is imp
   metadata resolves before that transaction.
 - `GET/POST .../chats/{chat}/lifecycle` reads the current state or explicitly saves
   `{request, revision, archived}`. Reads return `archived`, `revision`, `manageable`
-  and the currently visible `active_requests` count. Conversation listings add
-  `archived`, `archive_revision` and `can_archive`.
+  and the currently visible `active_requests` count, plus `unfinished` (at most 20)
+  and `more` for people who may archive. Conversation listings add `archived`,
+  `archive_revision` and `can_archive`; channels also carry `creator`, `created_at`
+  (Unix seconds or null) and `managers`. `POST .../chats/{chat}/settings` takes
+  `{name?, description?, visibility, announcements}`; `POST .../chats/{chat}/leave`
+  takes no body.
 - Apply `m20261026_000024_chat_organization` with the existing administrator
   migration procedure and reapply runtime data/sequence grants. It adds the
   membership-scoped preference table, channel lifecycle fields and insert guard.
