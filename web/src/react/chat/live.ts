@@ -9,6 +9,12 @@ export const liveStatus = () => status;
 export function subscribeStatus(fn: () => void) { statusSubscribers.add(fn); return () => { statusSubscribers.delete(fn); }; }
 export function subscribeChanges(fn: (change: Change) => void) { subscribers.add(fn); return () => { subscribers.delete(fn); }; }
 const setStatus = (value: string) => { status = value; statusSubscribers.forEach(fn => fn()); };
+// An idle stream sends no batches, only an `alive` event after 15 s without one
+// (src/identity/chat/sync.rs). Reconnect once two of them are missed, not sooner.
+const SILENT_STREAM_LIMIT_MS = 45_000;
+// A new stream sends its first batch at once, so a connect that stays silent
+// this long has hung and is retried sooner.
+const CONNECT_LIMIT_MS = 15_000;
 const delivered = new Map<string, Set<string>>(), seen = new Map<string, Set<string>>();
 let receiptBusy = false;
 function saveReceipts() {
@@ -71,6 +77,8 @@ export function startLive() {
       try { sessionStorage.setItem(storageScope('relay.sync-cursor'), cursor); } catch { /* Reconnect within this page still replays. */ }
       failures = 0; setStatus('Connected');
     });
+    // A sign of life only: no change to publish and no status to show.
+    stream.addEventListener('alive', () => { lastEvent = Date.now(); });
     const reconnect = () => {
       if (stopped) return;
       stream?.close(); setStatus('Reconnecting… Messages remain on this device until confirmed.');
@@ -96,7 +104,7 @@ export function startLive() {
   };
   void detect();
   const timer = window.setInterval(() => {
-    if (receiptsEnabled && ['Connected', 'Connecting…'].includes(status) && window.navigator.onLine && Date.now() - lastEvent > 10_000) { stream?.close(); clearTimeout(retry); setStatus('Reconnecting…'); connect(); }
+    if (receiptsEnabled && ['Connected', 'Connecting…'].includes(status) && window.navigator.onLine && Date.now() - lastEvent > (status === 'Connecting…' ? CONNECT_LIMIT_MS : SILENT_STREAM_LIMIT_MS)) { stream?.close(); clearTimeout(retry); setStatus('Reconnecting…'); connect(); }
     if (receiptsEnabled) void flushReceipts(); void flushOutbox().catch(() => setStatus('Local message storage unavailable. Keep your draft.')); }, 1000);
   const online = () => { stream?.close(); clearTimeout(retry); if (receiptsEnabled) connect(); else void detect(); void flushOutbox().catch(() => {}); };
   const offline = () => { stream?.close(); clearTimeout(retry); setStatus('Offline · messages are kept on this device until confirmed.'); };

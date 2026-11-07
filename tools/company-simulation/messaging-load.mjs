@@ -13,7 +13,7 @@ const readers=c.employees.map(async e=>{
  const response=await fetch(`${c.base}${c.w}/message-events`,{headers:{Cookie:sessions.get(e.number)},signal:abort.signal});assert.ok(response.ok);
  let buffer='';
  for await(const chunk of response.body){buffer+=Buffer.from(chunk).toString();let end;
-  while((end=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);const data=frame.split('\n').find(line=>line.startsWith('data: '));if(!data)continue;
+  while((end=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);const lines=frame.split('\n'),data=lines.find(line=>line.startsWith('data: '));if(!data||!lines.includes('event: changes'))continue;
    const payload=JSON.parse(data.slice(6));ready.add(e.number);
    for(const event of payload.events??[])if(event.chat===chat&&event.message&&!observed[e.number].has(event.message.id)){observed[e.number].set(event.message.id,event.message);if(sent.has(event.message.id))latencies.push(performance.now()-sent.get(event.message.id));}
   }

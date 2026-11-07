@@ -55,8 +55,10 @@ function open(person) {
       let end;
       while ((end = buffer.indexOf('\n\n')) >= 0) {
         const frame = buffer.slice(0, end); buffer = buffer.slice(end + 2);
-        const data = frame.split('\n').find(line => line.startsWith('data: '));
-        if (!data) continue; // keep-alive comment
+        const lines = frame.split('\n');
+        const data = lines.find(line => line.startsWith('data: '));
+        // Only `changes` frames are batches; `alive` keep-alives are not counted.
+        if (!data || !lines.includes('event: changes')) continue;
         const page = JSON.parse(data.slice(6));
         connection.ready = true;
         connection.batches++;
