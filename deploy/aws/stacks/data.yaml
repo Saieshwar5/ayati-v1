@@ -30,7 +30,8 @@ Parameters:
     MaxValue: 86400
   MaxCapacity:
     Type: Number
-    Default: 4
+    Default: 2
+    Description: Caps cost while migrating or under load; 2 suits one test workspace.
   SnapshotIdentifier:
     Type: String
     Default: ''
