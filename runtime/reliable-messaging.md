@@ -85,6 +85,17 @@ local storage and retried. If that storage fails they remain in memory and can b
 on reload, conservatively leaving receipts unconfirmed. Unread badges include unseen
 thread replies without marking them read when their parent is viewed.
 
+Unread counts only conversations Chat lists as active: archived channels and a
+schedule's work room never count. Counting starts when you could first see the
+conversation: for a public channel, when you joined the workspace; for a private
+conversation, the later of that and when you were added (schema 94 records both join
+times; people who stay when a channel's members change keep theirs). Members who
+existed before schema 94 start at the upgrade. Message times are whole seconds, so a
+message from the second you joined counts. The browser reads counts again 500 ms after
+a change that can affect them (a message change from someone else, an access change or
+a reset), one read at a time; receipts and reactions on your own messages, agent pauses
+and panel access do not trigger a read.
+
 ## Verification
 
 Run after starting the isolated server:

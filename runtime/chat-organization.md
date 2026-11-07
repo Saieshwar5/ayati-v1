@@ -10,7 +10,8 @@ Pins belong to one user in one workspace. Conversation IDs identify channels and
 person/managed-agent direct messages (`{"kind":"chat"}`). Pinning never creates a conversation or starts a
 request. A pinned entry appears once, in Pinned, with its unread state. Archived
 channels leave active Pinned/Channels and remain reachable in an explicit Archived
-section. Their saved personal pin preference can return on restoration.
+section, without an unread count (see [reliable messaging](reliable-messaging.md)).
+Their saved personal pin preference can return on restoration.
 
 Ordered pins persist in PostgreSQL with a revision and exact last-request receipt.
 Use a small technical bound of 30 pins, reject duplicates and unknown target kinds,

@@ -168,15 +168,4 @@ impl PgStore {
         tx.commit().await?;
         Ok(json!({"receipts":receipts}))
     }
-    pub async fn unread(&self, user: &User, w: &str) -> Result<Value> {
-        let tx = self.read_tx(w).await?;
-        role(&tx, w, &user.id).await?;
-        let sql = format!(
-            "SELECT jsonb_build_object('chat',m.chat,'count',count(*),'mentions',count(*) FILTER (WHERE {for_me})) AS data FROM relay_chat_messages m JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat WHERE m.workspace=$1 AND m.author<>$2 AND m.state IN ('sent','complete') AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) AND NOT EXISTS(SELECT 1 FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.user_id=$2 AND r.seen_at IS NOT NULL) GROUP BY m.chat",
-            for_me = super::chat_notifications::FOR_ME
-        );
-        let items = json_rows(&tx, &sql, vec![w.into(), user.id.clone().into()]).await?;
-        tx.commit().await?;
-        Ok(json!({"unread":items}))
-    }
 }
