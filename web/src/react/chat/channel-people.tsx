@@ -68,7 +68,7 @@ export function ChannelPeople({ chat, directory, changed, message, viewProfile }
       busy={mutation.busy} add={who => add(adding, who)} done={stopAdding} /> : <>
       {shown.length > 0 && <ul className="chat-details-members" aria-label={`People and agents in #${chat.name}`}>
         {shown.map(member => <MemberRow key={`${member.kind}:${member.who.id}`} member={member} chat={chat} me={me} manages={manages}
-          manager={member.kind === 'user' && (member.who.role === 'Admin' || (member.who.id === me && manages))}
+          manager={member.kind === 'user' && Boolean(chat.managers?.includes(member.who.id))}
           busy={mutation.busy} message={message} viewProfile={viewProfile} remove={() => remove(member)} />)}
       </ul>}
       {!everyone.length && <p className="chat-help">Nobody has joined #{chat.name} yet.</p>}

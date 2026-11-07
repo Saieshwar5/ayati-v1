@@ -8,6 +8,7 @@ pub(super) use catalog::{agents, validate_agent};
 pub(super) use files::stored as stored_object;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+pub(crate) use work::ChannelSettings;
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(work::routes())
@@ -26,6 +27,10 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/chats/{chat}/agents",
             post(channel_agents),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/chats/{chat}/leave",
+            post(leave),
         )
         .route(
             "/api/identity/workspaces/{w}/feedback",
@@ -133,6 +138,16 @@ async fn channel_agents(
     app.store
         .channel_agents(&user, &w, &chat, &input.agents)
         .await?;
+    Ok(Json(json!({"ok":true})))
+}
+/// The caller leaves a channel they are in; the request carries no body.
+async fn leave(
+    State(app): State<Shared>,
+    RoutePath((w, chat)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.channel_leave(&user, &w, &chat).await?;
     Ok(Json(json!({"ok":true})))
 }
 #[derive(Deserialize)]

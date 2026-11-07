@@ -1,9 +1,10 @@
-use super::tests::{chat, fixture, join, user, workspace};
+use super::query;
+use super::tests::{chat, fixture, join, settings_input, user, workspace};
 use crate::identity::{
-    chat::model::NewMessage,
-    collaboration::{Feedback, Object},
+    chat::model::{NewChat, NewMessage},
+    collaboration::{ChannelSettings, Feedback, Object},
 };
-use serde_json::json;
+use serde_json::{Value, json};
 fn message(content: &str) -> NewMessage {
     NewMessage {
         reply_to: None,
@@ -78,9 +79,7 @@ async fn company_media_feedback_and_membership_boundaries() {
         &owner,
         &w,
         &c,
-        "public",
-        true,
-        Some("Company announcements"),
+        &settings_input("public", true, Some("Company announcements")),
     )
     .await
     .unwrap();
@@ -166,4 +165,280 @@ async fn queue_bounds_and_history_pages_retain_all_records() {
     let counts = db.company_counts(&owner, &w).await.unwrap();
     assert_eq!(counts["pending"], 64);
     assert_eq!(counts["messages"], json!(225 + 128));
+}
+
+/// The conversation as `person`'s chat list shows it, if they can see it.
+async fn listed(db: &super::PgStore, person: &super::User, w: &str, chat: &str) -> Option<Value> {
+    let list = db.chats(person, w).await.unwrap();
+    list["chats"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == chat)
+        .cloned()
+}
+async fn job_state(db: &super::PgStore, reply: &str) -> String {
+    query(
+        &db.db,
+        "SELECT state FROM relay_chat_jobs WHERE reply=$1",
+        vec![reply.into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "state")
+    .unwrap()
+}
+async fn audited(db: &super::PgStore, w: &str, action: &str) -> i64 {
+    query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_audit WHERE workspace=$1 AND action=$2",
+        vec![w.into(), action.into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn channel_managers_edit_name_description_and_posting_but_only_admins_change_visibility() {
+    let db = fixture().await;
+    let admin = user(&db, "settings-admin").await;
+    let creator = user(&db, "settings-creator").await;
+    let member = user(&db, "settings-member").await;
+    let w = workspace(&db, &admin).await;
+    join(&db, &admin, &w, &creator, "Member").await;
+    join(&db, &admin, &w, &member, "Member").await;
+    let c = chat(
+        &db,
+        &creator,
+        &w,
+        vec![member.id.clone(), admin.id.clone()],
+        vec![],
+    )
+    .await;
+    let edit = |visibility: &str, description: Option<&str>| ChannelSettings {
+        name: Some("  dispatch  ".into()),
+        description: description.map(str::to_owned),
+        visibility: visibility.into(),
+        announcements: true,
+    };
+    // The creator, a Member, changes the name, description and who can post.
+    db.channel_settings(
+        &creator,
+        &w,
+        &c,
+        &edit("private", Some(" Slots and invoices ")),
+    )
+    .await
+    .unwrap();
+    let saved = listed(&db, &member, &w, &c).await.unwrap();
+    assert_eq!(
+        (
+            saved["name"].as_str(),
+            saved["description"].as_str(),
+            saved["announcements"].as_bool()
+        ),
+        (Some("dispatch"), Some("Slots and invoices"), Some(true))
+    );
+    // Leaving the description out keeps it.
+    db.channel_settings(&creator, &w, &c, &settings_input("private", false, None))
+        .await
+        .unwrap();
+    assert_eq!(
+        listed(&db, &member, &w, &c).await.unwrap()["description"],
+        "Slots and invoices"
+    );
+    // Who can find it changes who can read its history: admins only.
+    let refused = db
+        .channel_settings(&creator, &w, &c, &edit("public", None))
+        .await
+        .unwrap_err();
+    assert!(
+        refused.to_string().contains("Only workspace admins"),
+        "{refused}"
+    );
+    assert!(
+        db.channel_settings(&member, &w, &c, &edit("private", Some("Mine now")))
+            .await
+            .is_err()
+    );
+    let outsider = user(&db, "settings-outsider").await;
+    join(&db, &admin, &w, &outsider, "Member").await;
+    assert!(
+        db.channel_settings(&outsider, &w, &c, &edit("private", None))
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        listed(&db, &member, &w, &c).await.unwrap()["visibility"],
+        "private"
+    );
+    db.channel_settings(&admin, &w, &c, &edit("public", Some("Open to all")))
+        .await
+        .unwrap();
+    assert_eq!(
+        listed(&db, &outsider, &w, &c).await.unwrap()["description"],
+        "Open to all"
+    );
+    // Lengths follow the rules for creating a channel.
+    assert!(
+        db.channel_settings(&admin, &w, &c, &edit("public", Some(&"x".repeat(301))))
+            .await
+            .is_err()
+    );
+    assert!(
+        db.channel_settings(&admin, &w, &c, &settings_input("public", false, Some(" ")))
+            .await
+            .is_err()
+    );
+    assert!(
+        db.channel_settings(&admin, &w, &c, &settings_input("hidden", false, None))
+            .await
+            .is_err()
+    );
+    let dm = direct(&db, &member, &w, &creator).await;
+    assert!(
+        db.channel_settings(&member, &w, &dm, &settings_input("private", false, None))
+            .await
+            .is_err()
+    );
+    assert_eq!(audited(&db, &w, "channel_settings_updated").await, 3);
+}
+
+async fn direct(db: &super::PgStore, from: &super::User, w: &str, to: &super::User) -> String {
+    let input = NewChat {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "Direct".into(),
+        users: vec![to.id.clone()],
+        agents: vec![],
+        kind: "direct".into(),
+        description: String::new(),
+    };
+    db.chat_create(from, w, &input).await.unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn leaving_a_channel_ends_access_unread_and_waiting_agent_work() {
+    let (db, owner, w, connection, initial) = super::control_tests::setup("ask").await;
+    db.chat_finish(&initial, "No operation needed", "complete")
+        .await
+        .unwrap();
+    let member = user(&db, "leaving-member").await;
+    join(&db, &owner, &w, &member, "Member").await;
+    db.channel_members(
+        &owner,
+        &w,
+        &initial.chat,
+        &[owner.id.clone(), member.id.clone()],
+    )
+    .await
+    .unwrap();
+    let mut ask = message("Update an order");
+    ask.agent = Some(initial.agent.clone());
+    db.chat_send(&member, &w, &initial.chat, &ask)
+        .await
+        .unwrap();
+    let job = db.claim_job().await.unwrap().unwrap();
+    db.control_propose(&job, &super::control_tests::request(&connection, "left"))
+        .await
+        .unwrap();
+    db.chat_finish(&job, "Waiting for approval", "complete")
+        .await
+        .unwrap();
+    assert_eq!(job_state(&db, &job.reply).await, "waiting");
+    db.chat_send(&owner, &w, &initial.chat, &message("Anyone free?"))
+        .await
+        .unwrap();
+    let unread = db.unread(&member, &w).await.unwrap();
+    assert!(
+        unread["unread"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|u| u["chat"] == initial.chat)
+    );
+
+    db.channel_leave(&member, &w, &initial.chat).await.unwrap();
+    assert!(listed(&db, &member, &w, &initial.chat).await.is_none());
+    assert!(
+        db.unread(&member, &w).await.unwrap()["unread"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(db.chat_messages(&member, &w, &initial.chat).await.is_err());
+    assert!(
+        db.chat_send(&member, &w, &initial.chat, &message("Still here?"))
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        job_state(&db, &job.reply).await,
+        "finished",
+        "waiting work stops"
+    );
+    assert!(!db.chat_job_allowed(&job).await);
+    assert_eq!(
+        listed(&db, &owner, &w, &initial.chat).await.unwrap()["users"],
+        json!([owner.id])
+    );
+    // Once gone, the private channel is not theirs to leave again.
+    assert!(db.channel_leave(&member, &w, &initial.chat).await.is_err());
+    assert_eq!(audited(&db, &w, "channel_left").await, 1);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_last_person_who_can_manage_a_private_channel_cannot_leave_it() {
+    let db = fixture().await;
+    let admin = user(&db, "last-admin").await;
+    let creator = user(&db, "last-creator").await;
+    let member = user(&db, "last-member").await;
+    let w = workspace(&db, &admin).await;
+    join(&db, &admin, &w, &creator, "Member").await;
+    join(&db, &admin, &w, &member, "Member").await;
+    let private = chat(&db, &creator, &w, vec![member.id.clone()], vec![]).await;
+    let refused = db.channel_leave(&creator, &w, &private).await.unwrap_err();
+    assert!(
+        refused.to_string().contains("Add a workspace admin"),
+        "{refused}"
+    );
+    assert!(
+        listed(&db, &creator, &w, &private).await.is_some(),
+        "nothing changed"
+    );
+    // People who do not manage it may always leave.
+    db.channel_leave(&member, &w, &private).await.unwrap();
+    // With an admin in it, the creator may go; the admin is then the last manager.
+    db.channel_members(
+        &creator,
+        &w,
+        &private,
+        &[creator.id.clone(), admin.id.clone()],
+    )
+    .await
+    .unwrap();
+    db.channel_leave(&creator, &w, &private).await.unwrap();
+    assert!(db.channel_leave(&admin, &w, &private).await.is_err());
+    // Every admin manages a public channel, so anyone may leave it. It stays
+    // listed and readable like every public channel; leaving again changes nothing.
+    let public = chat(&db, &admin, &w, vec![member.id.clone()], vec![]).await;
+    db.channel_settings(&admin, &w, &public, &settings_input("public", false, None))
+        .await
+        .unwrap();
+    db.channel_leave(&admin, &w, &public).await.unwrap();
+    db.channel_leave(&admin, &w, &public).await.unwrap();
+    let after = listed(&db, &admin, &w, &public).await.unwrap();
+    assert_eq!(
+        (after["users"].clone(), after["can_archive"].clone()),
+        (json!([member.id]), json!(true))
+    );
+    let dm = direct(&db, &member, &w, &creator).await;
+    assert!(db.channel_leave(&member, &w, &dm).await.is_err());
+    assert_eq!(audited(&db, &w, "channel_left").await, 3);
 }
