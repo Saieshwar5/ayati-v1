@@ -25,8 +25,11 @@ export function Tabs({ sections }: { sections: { title: string; content: ReactNo
     <section key={title} role="tabpanel" id={`${id}-panel-${index}`} aria-labelledby={`${id}-${index}`} hidden={selected !== index} tabIndex={0}>{content}</section>)}</>;
 }
 
-export function Dialog({ title, drawer = false, busy = false, status = '', close, children, footer, initialFocus }: {
-  title: string; drawer?: boolean; busy?: boolean; status?: string; close: () => void; children: ReactNode; footer?: ReactNode; initialFocus?: RefObject<HTMLElement | null>;
+/** A native modal dialog or drawer. `back` adds a back arrow before the title, for a
+ * second step inside the same panel. */
+export function Dialog({ title, drawer = false, busy = false, status = '', close, back, children, footer, initialFocus }: {
+  title: string; drawer?: boolean; busy?: boolean; status?: string; close: () => void; back?: () => void;
+  children: ReactNode; footer?: ReactNode; initialFocus?: RefObject<HTMLElement | null>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -40,7 +43,9 @@ export function Dialog({ title, drawer = false, busy = false, status = '', close
   }, [initialFocus]);
   return createPortal(<dialog ref={dialog} className={`ui-dialog${drawer ? ' ui-drawer' : ''}`} aria-labelledby={id} aria-busy={busy}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) latest.current(); }}>
-    <header className="ui-dialog-header"><h2 id={id}>{title}</h2><Button className="ui-icon" aria-label="Close" disabled={busy} onClick={close}>×</Button></header>
+    <header className="ui-dialog-header">
+      {back && <Button className="ui-icon ui-dialog-back" aria-label="Back" disabled={busy} onClick={back}>‹</Button>}
+      <h2 id={id}>{title}</h2><Button className="ui-icon" aria-label="Close" disabled={busy} onClick={close}>×</Button></header>
     <div className="ui-dialog-body"><fieldset className="ui-fieldset" disabled={busy}>{children}</fieldset></div>
     <footer className="ui-dialog-footer"><p className="ui-status" role="status">{status}</p>{footer}</footer>
   </dialog>, document.body);
