@@ -34,8 +34,9 @@ Main product contracts:
 - [Durable approval waits](runtime/durable-approval-waits.md) and
   [questions and forms](runtime/agent-questions.md).
 - [Agents workspace](runtime/agents-team-workspace.md),
-  [saved reading](runtime/result-reading.md) and
-  [chat organization](runtime/chat-organization.md).
+  [saved reading](runtime/result-reading.md),
+  [chat organization](runtime/chat-organization.md) and
+  [message search](runtime/message-search.md).
 - [Home attention](runtime/workspace-attention.md),
   [general Home panels](runtime/general-home-panels.md) and
   [panel maintenance](runtime/home-panel-maintenance.md).

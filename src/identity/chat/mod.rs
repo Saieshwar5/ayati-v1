@@ -5,6 +5,7 @@ pub(crate) mod model;
 mod notifications;
 mod organization;
 pub(crate) mod organization_model;
+mod search;
 mod stream_limit;
 pub(crate) use stream_limit::open_now as open_streams;
 mod sync;
@@ -17,6 +18,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
+        .merge(search::routes())
         .merge(task_progress::routes())
         .merge(organization::routes())
         .merge(message_actions::routes())
