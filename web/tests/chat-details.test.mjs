@@ -17,8 +17,9 @@ const agents = [
   { id: 'nova', name: 'Nova', role: 'Research', audience: 'everyone', avatar: 'robot-05', manager: 'Meera Iyer' },
   { id: 'solo', name: 'Solo', role: 'Private helper', audience: 'only_me', avatar: 'robot-07', manager: 'Meera Iyer' },
 ];
-const orders = { id: 'orders', name: 'orders', kind: 'channel', visibility: 'public', description: 'Orders from confirmation to delivery.', users: ['priya', 'meera', 'ravi'], agents: ['atlas'], can_archive: true, announcements: false };
-const general = { id: 'general', name: 'general', kind: 'channel', visibility: 'private', description: '', users: ['priya', 'meera'], agents: [], can_archive: true };
+const created = 1773316800; // 12 March 2026
+const orders = { id: 'orders', name: 'orders', kind: 'channel', visibility: 'public', description: 'Orders from confirmation to delivery.', users: ['priya', 'meera', 'ravi'], agents: ['atlas'], can_archive: true, announcements: false, creator: 'priya', created_at: created, managers: ['priya'] };
+const general = { id: 'general', name: 'general', kind: 'channel', visibility: 'private', description: '', users: ['priya', 'meera'], agents: [], can_archive: true, creator: 'priya', created_at: null, managers: ['priya'] };
 const direct = { id: 'dm-meera', name: 'dm', kind: 'direct', users: ['priya', 'meera'], agents: [], description: '' };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const held = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -93,6 +94,7 @@ test('members are listed once with faces and AI tags; managers see add, remove a
     assert.match(priya.textContent, /Manager/);
     assert.match(panel().textContent, /Orders from confirmation to delivery\./);
     assert.match(panel().textContent, /Public · everyone in Lotus Interiors can find it/);
+    assert.match(panel().textContent, /Created by Priya Shah · \D*12\D*2026/);
     assert.match(panel().textContent, /3 people · 1 agent/);
     assert.equal(Boolean(inPanel('Add people')) && Boolean(inPanel('Add agent')) && Boolean(inPanel('Archive')), true);
     assert.equal([...panel().querySelectorAll('button')].filter(node => /^Sav/.test(node.textContent)).length, 1, 'one Save');
@@ -172,7 +174,7 @@ test('channel settings save together once; a failed save keeps the values and sh
     await change(panel().querySelector('.chat-details-form select'), 'admins');
     assert.match(panel().textContent, /3 unsaved changes/);
     await update(() => { save().click(); save().click(); });
-    assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders-team', visibility: 'private', announcements: true } }]);
+    assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders-team', description: 'Orders from confirmation to delivery.', visibility: 'private', announcements: true } }]);
     await update(() => pending.resolve(response({ error: 'Settings could not be saved' }, 503)));
     assert.match(panel().querySelector('[role=alert]').textContent, /Settings could not be saved/);
     assert.equal(name.value, 'orders-team');
@@ -264,5 +266,105 @@ test('a late reply for the previous conversation never replaces the open one', a
   }, { url: `${base}&conversation=orders`, fetch: api({
     get: path => path === '/chats/orders/lifecycle' ? late.promise
       : path === '/chats/general/lifecycle' ? response({ archived: false, revision: 1, active_requests: 0, manageable: true }) : undefined,
+  }) });
+});
+
+test('a creator who is not an admin edits the name, description and who can post, and sees who can find it as plain text', async () => {
+  const writes = []; let current = { ...orders, creator: 'meera', managers: ['priya', 'meera'] };
+  await reactFixture(async ({ render, button, click, change, update }) => {
+    await open(render, 'orders');
+    await click(button('Details'));
+    const badges = [...panel().querySelectorAll('.chat-details-member')].filter(row => row.querySelector('.ui-badge')).map(row => row.querySelector('.chat-name-text').textContent);
+    assert.deepEqual(badges, ['Meera Iyer (you)', 'Priya Shah'], 'the creator and admins are marked Manager');
+    assert.match(panel().textContent, /Created by Meera Iyer/);
+    assert.equal(panel().querySelectorAll('input[type=radio]').length, 0, 'no visibility choice');
+    assert.match(panel().querySelector('.chat-details-fixed').textContent, /Who can find it#PublicOnly workspace admins can change this/);
+    const description = panel().querySelector('.chat-details-form textarea');
+    assert.equal(description.value, 'Orders from confirmation to delivery.');
+    await change(description, '  Slots, dispatch and invoices.  ');
+    await change(panel().querySelector('.chat-details-form select'), 'admins');
+    assert.match(panel().textContent, /You are not a workspace admin, so you could not post either/);
+    assert.match(panel().textContent, /2 unsaved changes/);
+    await click(inPanel('Save changes'));
+    assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders', description: 'Slots, dispatch and invoices.', visibility: 'public', announcements: true } }]);
+    assert.match(panel().querySelector('.chat-details-description').textContent, /Slots, dispatch and invoices\./);
+    assert.match(panel().textContent, /Saved\./);
+  }, { url: `${base}&conversation=orders`, fetch: api({ user: 'meera', role: 'Member', chats: () => [current, general, direct],
+    post: (path, body) => { writes.push({ path, body }); current = { ...current, ...body }; return response({ ok: true }); } }) });
+});
+
+test('Leave asks in place, sends once, keeps the question after a failure, and a public channel stays listed', async () => {
+  const writes = []; let pending, current = orders;
+  await reactFixture(async ({ render, button, click, update, dom }) => {
+    await open(render, 'orders');
+    await click(button('Details'));
+    await click(inPanel('Leave #orders'));
+    assert.equal(writes.length, 0, 'opening the question writes nothing');
+    assert.equal(document.activeElement.textContent, 'Leave #orders?', 'focus moves to the question');
+    assert.match(panel().textContent, /#orders is public, so it stays in your list and you can still read it/);
+    await escape(dom, update);
+    assert.equal(Boolean(panel()), true, 'Escape closes only the question');
+    assert.equal(document.activeElement === inPanel('Leave #orders'), true, 'focus returns to Leave');
+    await click(inPanel('Leave #orders'));
+    const confirm = inPanel('Leave channel');
+    await update(() => { confirm.click(); confirm.click(); });
+    assert.deepEqual(writes, [{ path: '/chats/orders/leave', body: {} }]);
+    await update(() => pending.resolve(response({ error: 'Leaving is unavailable' }, 503)));
+    assert.match(panel().querySelector('[role=alert]').textContent, /Leaving is unavailable/);
+    assert.equal(Boolean(inPanel('Leave channel')), true, 'a failed leave keeps the question open');
+    current = { ...orders, users: ['priya', 'meera'] };
+    await click(inPanel('Leave channel'));
+    await update(() => pending.resolve(response({ ok: true })));
+    assert.equal(writes.length, 2);
+    assert.equal(panel().getAttribute('aria-label'), 'orders details', 'Details stays open');
+    assert.deepEqual(memberNames(), ['Atlas', 'Meera Iyer', 'Priya Shah']);
+    assert.equal(Boolean(inPanel('Leave #orders')), false, 'only people in it can leave');
+    assert.equal(new URL(dom.window.location.href).searchParams.get('conversation'), 'orders');
+  }, { url: `${base}&conversation=orders`, fetch: api({ user: 'ravi', role: 'Member', chats: () => [{ ...current, can_archive: false }],
+    post: (path, body) => { writes.push({ path, body }); pending = held(); return pending.promise; } }) });
+});
+
+test('leaving a private channel returns to the list; its last manager is told to add an admin first', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, button, click, dom }) => {
+    await open(render, 'general');
+    await click(button('Details'));
+    await click(inPanel('Leave #general'));
+    assert.match(panel().textContent, /You stop seeing #general, its history and files/);
+    await click(inPanel('Leave channel'));
+    assert.deepEqual(writes, [{ path: '/chats/general/leave', body: {} }]);
+    assert.equal(Boolean(panel()), false, 'the panel closes');
+    assert.equal(new URL(dom.window.location.href).searchParams.get('conversation'), null, 'back to the conversation list');
+  }, { url: `${base}&conversation=general`, fetch: api({ user: 'meera', role: 'Member', chats: () => [{ ...general, can_archive: false }, direct],
+    post: (path, body) => { writes.push({ path, body }); return response({ ok: true }); } }) });
+  await reactFixture(async ({ render, button, click }) => {
+    await open(render, 'general');
+    await click(button('Details'));
+    await click(inPanel('Leave #general'));
+    assert.match(panel().textContent, /Nobody else in #general could manage it\. Add a workspace admin to it before you leave\./);
+    assert.equal(inPanel('Leave channel').disabled, true);
+  }, { url: `${base}&conversation=general`, fetch: api() });
+});
+
+test('the archive review lists each unfinished request with its agent, state and Open, and counts the rest', async () => {
+  const unfinished = [
+    { request: 'r1', agent: 'atlas', agent_name: 'Atlas', agent_avatar: 'robot-03', summary: '[@Atlas](mention:agent:atlas) Menon delivery slot', state: 'running', started_ms: 1 },
+    { request: 'r2', agent: 'nova', agent_name: 'Nova', agent_avatar: null, summary: 'Reply to Mrs Rao', state: 'approval', started_ms: 2 },
+  ];
+  await reactFixture(async ({ render, button, click }) => {
+    await open(render, 'orders');
+    await click(button('Details'));
+    await click(inPanel('Archive'));
+    const rows = [...panel().querySelectorAll('.chat-archive-item')];
+    assert.deepEqual(rows.map(row => row.querySelector('.chat-archive-asked').textContent), ['@Atlas Menon delivery slot', 'Reply to Mrs Rao']);
+    assert.deepEqual(rows.map(row => row.querySelector('small').textContent), ['Atlas · working', 'Nova · waiting for approval']);
+    const link = rows[1].querySelector('a');
+    assert.equal(link.textContent, 'Open');
+    assert.equal(link.getAttribute('aria-label'), 'Open “Reply to Mrs Rao” in Activity');
+    assert.equal(link.getAttribute('href'), `/w/${w}/?view=activity&tab=history&run=r2`);
+    assert.match(panel().querySelector('.chat-archive-more').textContent, /\+3 more/);
+    assert.match(panel().textContent, /Still running · 5/);
+  }, { url: `${base}&conversation=orders`, fetch: api({
+    get: path => path === '/chats/orders/lifecycle' ? response({ archived: false, revision: 4, active_requests: 5, manageable: true, unfinished, more: 3 }) : undefined,
   }) });
 });

@@ -95,15 +95,50 @@ impl PgStore {
                 .await?;
             }
         }
-        let mut active = 0;
-        for row in rows(&tx,"SELECT j.payload FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.payload->>'chat'=$2 AND j.state<>'finished'",vec![w.into(),chat.into()]).await? {
-            let mut job:Job=serde_json::from_value(row.try_get("","payload")?)?;
-            job.requester=user.id.clone();
-            if super::source_access::allowed(&tx,&job).await? { active+=1; }
+        // Everyone with access sees how many visible requests are unfinished;
+        // people who may archive also see the first ones, to open or stop them.
+        let (mut active, mut unfinished) = (0, vec![]);
+        let sql = UNFINISHED.replace("/*SOURCE*/", include_str!("activity_source.sql"));
+        for row in rows(&tx, &sql, vec![w.into(), chat.into()]).await? {
+            let mut job: Job = serde_json::from_value(row.try_get("", "payload")?)?;
+            job.requester = user.id.clone();
+            if !super::source_access::allowed(&tx, &job).await? {
+                continue;
+            }
+            active += 1;
+            if manageable && unfinished.len() < SHOWN_UNFINISHED {
+                unfinished.push(json!({
+                    "request": job.reply, "agent": job.agent,
+                    "agent_name": row.try_get::<Option<String>>("", "agent_name")?,
+                    "agent_avatar": row.try_get::<Option<String>>("", "agent_avatar")?,
+                    "summary": row.try_get::<Option<String>>("", "summary")?,
+                    "state": row.try_get::<String>("", "state")?,
+                    "started_ms": row.try_get::<Option<i64>>("", "started_ms")?,
+                }));
+            }
         }
         tx.commit().await?;
-        Ok(
-            json!({"archived":archived,"revision":revision,"manageable":manageable,"active_requests":active}),
-        )
+        let mut result = json!({"archived":archived,"revision":revision,"manageable":manageable,"active_requests":active});
+        if manageable {
+            result["more"] = json!(active - unfinished.len());
+            result["unfinished"] = json!(unfinished);
+        }
+        Ok(result)
     }
 }
+
+/// How many unfinished requests the archive review lists; it counts the rest.
+const SHOWN_UNFINISHED: usize = 20;
+/// A channel's unfinished requests, oldest first: the asking message (as in
+/// Activity), the agent, what a waiting request waits for and when it started.
+const UNFINISHED: &str = "SELECT j.payload,COALESCE(j.started_ms,j.created_ms) AS started_ms,
+  ag.name AS agent_name,ag.settings->>'avatar' AS agent_avatar,
+  (SELECT left(s.content,200) FROM (/*SOURCE*/) s) AS summary,
+  CASE WHEN j.state<>'waiting' THEN j.state
+   WHEN EXISTS(SELECT 1 FROM relay_control_actions x WHERE x.workspace=j.workspace AND x.job=j.reply AND x.state='pending' AND x.requires_approval) THEN 'approval'
+   WHEN EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply AND q.state='pending') THEN 'question'
+   ELSE 'waiting' END AS state
+ FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply
+ LEFT JOIN relay_shared_agents ag ON ag.workspace=j.workspace AND ag.id=j.payload->>'agent'
+ WHERE j.workspace=$1 AND j.payload->>'chat'=$2 AND j.state<>'finished'
+ ORDER BY j.sequence";

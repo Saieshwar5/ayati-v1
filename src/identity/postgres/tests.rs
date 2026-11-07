@@ -113,6 +113,19 @@ pub(super) async fn chat(
     .await
     .unwrap()
 }
+/// Channel settings as Details saves them; no description keeps the current one.
+pub(super) fn settings_input(
+    visibility: &str,
+    announcements: bool,
+    name: Option<&str>,
+) -> crate::identity::collaboration::ChannelSettings {
+    crate::identity::collaboration::ChannelSettings {
+        name: name.map(str::to_owned),
+        description: None,
+        visibility: visibility.into(),
+        announcements,
+    }
+}
 pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
     NewMessage {
         reply_to: None,

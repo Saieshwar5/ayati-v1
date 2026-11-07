@@ -66,6 +66,30 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 .chat-archive-running .chat-archive-check { min-height: 28px; padding: 3px 10px; border-color: transparent; background: var(--soft); font-size: 12px; }
 .chat-archive-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ui-button.primary.chat-archive-confirm { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+/* The unfinished requests, each with Open in Activity; a count for the rest. */
+.chat-archive-items { grid-column: 1 / -1; display: grid; gap: 4px; margin: 4px 0; padding: 0; list-style: none; }
+.chat-archive-item { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.chat-archive-item .chat-avatar { width: 28px; height: 28px; flex: 0 0 28px; }
+.chat-archive-item > span { display: grid; flex: 1; min-width: 0; }
+.chat-archive-asked { overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.chat-archive-item small { color: var(--muted); font-size: 12px; }
+.chat-archive-working { color: var(--receipt-seen); }
+.chat-archive-waiting { color: var(--warning); }
+.chat-archive-item a { flex: none; padding: 6px 4px; color: var(--receipt-seen); font-size: 12.5px; font-weight: 500; text-decoration: none; }
+.chat-archive-item a:hover { text-decoration: underline; }
+.chat-archive-item a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.chat-archive-more { color: var(--muted); font-size: 12px; }
+
+/* Leave #channel: the last row, for everyone in it, confirmed in place. */
+.chat-details-leave-button { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 0; border: 0; background: none; color: var(--danger); font: inherit; font-size: 13.5px; cursor: pointer; }
+.chat-details-leave-button:hover { text-decoration: underline; }
+.chat-details-leave-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.chat-leave-review { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--border-panel); border-radius: 14px; font-size: 13px; line-height: 1.5; }
+.chat-leave-review h3 { margin: 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.chat-leave-review h3:focus { outline: none; }
+.chat-leave-review h3:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.chat-leave-review p { margin: 0; overflow-wrap: anywhere; }
+.chat-leave-review .chat-error { padding: 0; }
 
 /* Channel settings: one form, one Save. */
 .chat-details-form { gap: 16px; }
@@ -79,6 +103,11 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 .chat-details-save { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .chat-details-save small { color: var(--muted); font-size: 12px; }
 .chat-details-form .chat-error { padding: 0; margin: 0; }
+.chat-details-form .ui-field textarea { min-height: 76px; }
+/* Who can find it, as plain text for managers who are not admins. */
+.chat-details-fixed { display: grid; gap: 6px; font-size: 13px; }
+.chat-details-fixed > span { font-weight: 500; }
+.chat-details-fixed > p:not(.ui-help) { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); }
 .chat-details-note { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; }
 /* Profiles in the panel: the same scale as Details. Presence and status join the identity later. */
 .chat-side-panel .profile-card { gap: 14px; padding-top: 16px; }
@@ -104,7 +133,8 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 }
 @media (pointer: coarse) {
   .chat-details-menu > .ui-icon, .chat-side-panel-header .ui-icon { width: 44px; min-height: 44px; }
-  .chat-details-actions .chat-details-action, .chat-notify-labelled .chat-notify-button, .chat-details-add .ui-button, .chat-details-member > .ui-button { min-height: 44px; }
+  .chat-details-actions .chat-details-action, .chat-notify-labelled .chat-notify-button, .chat-details-add .ui-button, .chat-details-member > .ui-button, .chat-details-leave-button { min-height: 44px; }
+  .chat-archive-item a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
 }
 @media (forced-colors: active) {
   .chat-side-panel { border-left: 1px solid CanvasText; }

@@ -1,6 +1,7 @@
 import { useId, useRef } from 'react';
 import { currentWorkspace } from '../../workspace-context';
 import { Button } from '../ui';
+import { ChannelLeave } from './channel-leave';
 import { ArchiveReview } from './channel-lifecycle';
 import { ChannelPeople } from './channel-people';
 import { ChannelSettings } from './channel-settings';
@@ -20,6 +21,8 @@ type Pins = { preferences?: Preferences; busy: boolean; toggle: (pin: Pin) => vo
 type Shared = {
   directory: Directory; chats: Conversation[]; pins: Pins; changed: () => Promise<void>;
   message: (target: ProfileTarget & { name: string }) => void;
+  /** After leaving a channel you can no longer read: back to the conversation list. */
+  left: () => void;
 };
 
 /** The one side panel in Chat. Details follows the open conversation; a profile stays until closed. */
@@ -44,7 +47,7 @@ export function ChatPanel({ view, setView, chat, level, levelChanged, ...shared 
   </SidePanel>;
 }
 
-function ConversationDetails({ chat, directory, chats, level, levelChanged, pins, review, setReview, changed, message, viewProfile }: Shared & {
+function ConversationDetails({ chat, directory, chats, level, levelChanged, pins, review, setReview, changed, message, left, viewProfile }: Shared & {
   chat: Conversation; level?: Level; levelChanged: (level: Level) => void;
   review: boolean; setReview: (open: boolean) => void; viewProfile: (target: ProfileTarget) => void;
 }) {
@@ -75,17 +78,30 @@ function ConversationDetails({ chat, directory, chats, level, levelChanged, pins
     <section className="chat-details-section" aria-labelledby={about}>
       <h3 id={about}>About</h3>
       <p className={chat.description ? 'chat-details-description' : 'chat-help'}>{chat.description || 'No description yet.'}</p>
-      {/* Who created the channel and when appear here once the conversation list includes them. */}
       <ul className="chat-details-facts">
         <li>{chat.visibility === 'public' ? <span aria-hidden="true">#</span> : <LockIcon size={13} />}
           {chat.visibility === 'public' ? `Public · everyone in ${workspace} can find it` : 'Private · only people added can find it'}</li>
         {chat.announcements && <li><span aria-hidden="true">!</span>Only admins can post</li>}
+        {chat.creator && <li><PersonIcon />{createdBy(chat, directory)}</li>}
         {chat.archived && <li><ArchiveIcon />Archived · history and files stay readable</li>}
       </ul>
     </section>
     <ChannelPeople chat={chat} directory={directory} changed={changed} message={message} viewProfile={viewProfile} />
-    {directory.role === 'Admin' && <ChannelSettings chat={chat} changed={changed} />}
+    {/* The creator and admins manage the channel; only admins change who can find it. */}
+    {chat.can_archive && <ChannelSettings chat={chat} admin={directory.role === 'Admin'} changed={changed} />}
+    <ChannelLeave chat={chat} changed={changed} left={left} />
   </>;
+}
+
+/** "Created by Priya Shah · 12 March 2026"; older channels have no recorded time. */
+function createdBy(chat: Conversation, directory: Directory): string {
+  const who = directory.users.find(user => user.id === chat.creator)?.name ?? 'a former member';
+  const when = chat.created_at ? new Date(chat.created_at * 1000).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  return `Created by ${who}${when ? ` · ${when}` : ''}`;
+}
+
+function PersonIcon() {
+  return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>;
 }
 
 function ArchiveIcon() {

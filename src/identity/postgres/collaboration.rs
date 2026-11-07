@@ -1,4 +1,5 @@
 use super::*;
+use crate::identity::collaboration::ChannelSettings;
 impl PgStore {
     pub async fn check_chat(&self, user: &User, w: &str, chat: &str) -> Result<()> {
         super::chat::access(&self.db, user, w, chat).await
@@ -213,28 +214,35 @@ impl PgStore {
         tx.commit().await?;
         Ok(())
     }
-    pub async fn channel_settings(
+    /// Saves a channel's settings. Its managers (creator or workspace admin)
+    /// change the name, description and who can post; only admins change who
+    /// can find it, because that changes who can read its history and files.
+    pub(crate) async fn channel_settings(
         &self,
         user: &User,
         w: &str,
         chat: &str,
-        visibility: &str,
-        announcements: bool,
-        name: Option<&str>,
+        input: &ChannelSettings,
     ) -> Result<()> {
-        ensure!(
-            ["private", "public"].contains(&visibility),
-            "Invalid channel visibility"
-        );
-        ensure!(
-            name.is_none_or(|v| !v.trim().is_empty() && v.len() <= 100),
-            "Use a channel name of 1–100 characters"
-        );
+        input.validate()?;
         let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
-        super::chat::access(&tx, user, w, chat).await?;
-        super::communications::access::ordinary_chat(&tx, w, chat).await?;
-        ensure!(execute(&tx,"UPDATE relay_chats SET visibility=$3,announcements=$4,name=coalesce($5,name) WHERE workspace=$1 AND id=$2 AND kind<>'direct'",vec![w.into(),chat.into(),visibility.into(),announcements.into(),name.into()]).await?==1,"Direct messages cannot become public channels");
+        let admin = managed_channel(&tx, user, w, chat).await?;
+        let current: String = query(
+            &tx,
+            "SELECT visibility FROM relay_chats WHERE workspace=$1 AND id=$2",
+            vec![w.into(), chat.into()],
+        )
+        .await?
+        .context("Conversation missing")?
+        .try_get("", "visibility")?;
+        ensure!(
+            admin || current == input.visibility,
+            "Only workspace admins can change who can find a channel"
+        );
+        let (visibility, announcements) = (&input.visibility, input.announcements);
+        let name = input.name.as_deref().map(str::trim);
+        let description = input.description.as_deref().map(str::trim);
+        execute(&tx,"UPDATE relay_chats SET visibility=$3,announcements=$4,name=coalesce($5,name),description=coalesce($6,description) WHERE workspace=$1 AND id=$2 AND kind<>'direct'",vec![w.into(),chat.into(),visibility.clone().into(),announcements.into(),name.into(),description.into()]).await?;
         super::task_revocation::inaccessible(&tx, w).await?;
         audit(
             &tx,
@@ -244,6 +252,57 @@ impl PgStore {
             &format!("{chat}/{visibility}/{announcements}/{name:?}"),
         )
         .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+    /// The caller leaves a channel or group they are in. Every workspace admin
+    /// can manage a public channel, so only a private one needs someone who can
+    /// manage it to remain: its creator or an admin who is still a member. A
+    /// public channel stays readable to everyone in the workspace, so leaving it
+    /// takes the person off its people list. Leaving again changes nothing.
+    pub async fn channel_leave(&self, user: &User, w: &str, chat: &str) -> Result<()> {
+        let tx = self.workspace_tx(w).await?;
+        super::chat::access(&tx, user, w, chat).await?;
+        super::communications::access::ordinary_chat(&tx, w, chat).await?;
+        let row = query(
+            &tx,
+            "SELECT kind,visibility,creator,name FROM relay_chats WHERE workspace=$1 AND id=$2",
+            vec![w.into(), chat.into()],
+        )
+        .await?
+        .context("Conversation missing")?;
+        ensure!(
+            row.try_get::<String>("", "kind")? != "direct",
+            "Direct messages cannot be left"
+        );
+        let left = execute(
+            &tx,
+            "DELETE FROM relay_chat_people WHERE workspace=$1 AND chat=$2 AND user_id=$3",
+            vec![w.into(), chat.into(), user.id.clone().into()],
+        )
+        .await?;
+        if left == 0 {
+            tx.commit().await?;
+            return Ok(());
+        }
+        let creator: String = row.try_get("", "creator")?;
+        let manages = creator == user.id || role(&tx, w, &user.id).await? == "Admin";
+        if manages && row.try_get::<String>("", "visibility")? != "public" {
+            let remaining = query(
+                &tx,
+                "SELECT 1 AS n FROM relay_chat_people p JOIN relay_members m ON m.workspace=p.workspace AND m.user_id=p.user_id WHERE p.workspace=$1 AND p.chat=$2 AND (m.role='Admin' OR p.user_id=$3) LIMIT 1",
+                vec![w.into(), chat.into(), creator.into()],
+            )
+            .await?;
+            ensure!(
+                remaining.is_some(),
+                "Nobody else in #{} could manage it. Add a workspace admin to it before you leave.",
+                row.try_get::<String>("", "name")?
+            );
+        }
+        audit(&tx, &user.id, Some(w), "channel_left", chat).await?;
+        // Saved and waiting work the person can no longer reach stops now.
+        super::task_revocation::inaccessible(&tx, w).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -269,8 +328,15 @@ impl PgStore {
     }
 }
 
-/// Channel membership is managed by its creator or a workspace owner.
-async fn managed_channel(tx: &DatabaseTransaction, user: &User, w: &str, chat: &str) -> Result<()> {
+/// A channel is managed by its creator or a workspace admin with access to it
+/// (D231): they change its members, agents and settings. Returns whether the
+/// caller is an admin, who alone may change who can find it.
+async fn managed_channel(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    chat: &str,
+) -> Result<bool> {
     super::chat::access(tx, user, w, chat).await?;
     super::communications::access::ordinary_chat(tx, w, chat).await?;
     let own_role = role(tx, w, &user.id).await?;
@@ -283,11 +349,11 @@ async fn managed_channel(tx: &DatabaseTransaction, user: &User, w: &str, chat: &
     .context("Conversation missing")?;
     ensure!(
         row.try_get::<String>("", "kind")? != "direct",
-        "Direct-message membership is fixed"
+        "Direct messages have no channel members or settings"
     );
     ensure!(
         own_role == "Admin" || row.try_get::<String>("", "creator")? == user.id,
-        "Only a channel creator or manager may change members"
+        "Only the channel creator or a workspace admin can change this channel"
     );
-    Ok(())
+    Ok(own_role == "Admin")
 }

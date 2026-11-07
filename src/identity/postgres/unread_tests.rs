@@ -1,6 +1,6 @@
 //! Unread counts: only active conversations, and only from when a person joined.
 use super::super::{
-    tests::{chat, fixture, join, message, user, workspace},
+    tests::{chat, fixture, join, message, settings_input, user, workspace},
     *,
 };
 use crate::identity::chat::organization_model::Lifecycle;
@@ -96,7 +96,7 @@ async fn a_new_member_counts_only_messages_after_joining() {
     let w = workspace(&db, &owner).await;
     join(&db, &owner, &w, &early, "Member").await;
     let c = chat(&db, &owner, &w, vec![early.id.clone()], vec![]).await;
-    db.channel_settings(&owner, &w, &c, "public", false, None)
+    db.channel_settings(&owner, &w, &c, &settings_input("public", false, None))
         .await
         .unwrap();
     for text in ["First old message", "Second old message"] {
