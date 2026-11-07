@@ -8,6 +8,8 @@ export type TranscriptStatus = 'pending' | 'ready' | 'failed' | 'not_enabled';
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string;
   transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null };
 export type Message = {
+  /** Unread for the viewer when this history page was read. */
+  unread?: boolean;
   source_scope?: string | null;
   handoff?: import('./handoffs').Handoff;
   coordination?: import('./handoffs').Coordination;
