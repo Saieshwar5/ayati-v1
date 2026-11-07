@@ -43,7 +43,9 @@ Main product contracts:
 - [Workspace Library](runtime/library.md),
   [shared schedules](runtime/shared-agent-schedules.md) and
   [shared events](runtime/shared-agent-events.md).
-- [Versioned conversation context](runtime/versioned-conversation-context.md).
+- [Versioned conversation context](runtime/versioned-conversation-context.md) and
+  [chat files for agents](runtime/chat-files.md): files people send are read once and
+  used only where the message that shared them may be read.
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:
   workspaces and suspension, provider keys and the emergency switch, the model catalog
   live, spend and margin, platform settings and one change log.

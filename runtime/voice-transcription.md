@@ -61,7 +61,8 @@ any model request. The audio, transcripts and keys are never logged.
 
 ## What agents see
 
-The conversation evidence lists each message's attachments as `{name, mime, size}`.
+The conversation evidence lists each message's attachments as `{file_id, name, mime, size}`;
+other files add how far they could be read ([chat files](chat-files.md), schema 100).
 Audio adds `transcript_status`, `duration_seconds` when known, and `transcript` (up to
 8,000 characters, with `transcript_truncated`). A message that only shares files
 reaches the agent with empty content instead of the "Shared files" placeholder the web
@@ -109,6 +110,8 @@ is kept in `relay_object_transcripts.duration_ms`. Workspace budgets don't apply
 
 - A live call to Fireworks: their documentation page was unreachable, so the address
   and model stay configurable. It is checked in the next cloud window.
-- Searching older history (`search_conversation_history`) doesn't show attachments.
+- Searching older history (`search_conversation_history`) doesn't show attachments; the
+  file tools (`list_conversation_files`, `read_conversation_file`) list and read them
+  ([chat files](chat-files.md)).
 - Keys sealed in Cuckoo Control, the provider switch and budgets don't apply to
   transcription, as for the Library's models.

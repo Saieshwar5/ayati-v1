@@ -27,6 +27,7 @@ SUITES = {
     'communications': ['tests/native_communications.mjs'],
     'chat': ['tests/chat_collaboration.mjs', 'tests/chat_organization.mjs'],
     'workspace': ['tests/trusted_sender_context.mjs', 'tests/conversation_history.mjs',
+                  'tests/chat_files.mjs',
                   'tests/session_work_continuity.mjs', 'tests/versioned_context.mjs',
                   'tests/managed_context_isolation.mjs', 'tests/context_preview.mjs',
                   'tests/knowledge_audience.mjs', 'tests/agent_questions.mjs',

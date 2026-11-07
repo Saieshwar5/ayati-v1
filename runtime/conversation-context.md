@@ -12,6 +12,10 @@ Newly queued messages store an attributed JSON transcript: stable message and
 author IDs, human/agent kind, sequence, timestamp, thread, content and display name.
 Since schema 95, a message's attachments are listed by name, type and size, with the
 transcript or its status for audio ([voice transcription](voice-transcription.md)).
+Since schema 100 they carry their file ID and how far each could be read, and the
+request's files bring their text in `request_files`; older files are listed and read
+with `list_conversation_files` and `read_conversation_file` under the same scope as
+the history tools ([chat files](chat-files.md)).
 The explicit request message ID identifies which message the task answers. A
 display name is a profile value observed when assembling context; it is neither a historical
 identity guarantee nor an authorization claim. Distinct people may share a name.

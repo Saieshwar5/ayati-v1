@@ -118,7 +118,8 @@ PDF excerpts cover at most 50 pages; each question uses limited prepared text.
 Images are read by text recognition (LB2c, below). Library audio and video aren't
 transcribed, and arbitrary uploaded HTML/SVG rendering is not included. Voice notes
 and other audio attached in Chat are transcribed for agents when configured
-([voice transcription](voice-transcription.md)).
+([voice transcription](voice-transcription.md)); other Chat files are read for agents
+with these same readers ([chat files](chat-files.md)).
 
 ## Keeping rules and legal holds (schema 82, LB7)
 
