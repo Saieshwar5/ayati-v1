@@ -110,6 +110,7 @@ deploy/aws/env.sh ship            # image, deploy, smoke (refuses uncommitted ch
 deploy/aws/env.sh smoke           # readiness, counts, running image, new ERROR/WARN lines
 deploy/aws/env.sh park            # logs saved; services, load balancer and NAT removed
 deploy/aws/env.sh db-capacity     # Aurora capacity; 0 means paused
+deploy/aws/env.sh reset --yes     # test data only: empty database and files, same environment
 ```
 
 | State | What exists | Cost |
@@ -136,6 +137,11 @@ deploy/aws/env.sh db-capacity     # Aurora capacity; 0 means paused
 - **`down` works from parked too:** it snapshots, deletes everything and clears
   the parked state.
 - **Parked means asleep:** schedules, agent wake-ups and events do not run.
+- **`reset --yes` starts the data over:**
+  - it stops the services, drops and recreates the database, empties the files
+    bucket, migrates and starts again (a few minutes);
+  - it refuses environment names containing `prod`, and refuses while parked;
+  - sign-ins at WorkOS stay, so people simply sign in to an empty Cuckoo.
 
 ## Known limits (first windows)
 

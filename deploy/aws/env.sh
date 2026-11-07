@@ -17,7 +17,8 @@
 #   env.sh forget [--yes]       delete everything kept (next window starts empty)
 #   env.sh verify-clean         list anything temporary that still exists
 # The fast cycle (cycle.sh): park | wake | ship [--full|--rolling] [--dirty] |
-#   smoke | db-capacity. Park between sessions instead of down; wake reuses the database.
+#   smoke | db-capacity | reset --yes. Park between sessions instead of down; wake
+#   reuses the database; reset empties a test environment's data in place.
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
@@ -164,8 +165,9 @@ services() {  # services <controllers> <executors>
 }
 
 # Runs migrations as the owner, then grants the runtime role; fails on any non-zero exit.
+# An optional ECS overrides document replaces a container's command (reset uses it).
 setup() {
-    local cluster task subnets group codes
+    local cluster task subnets group codes overrides=${1:-}
     cluster=$AYATI_ENV
     subnets=$(output "$(stack network)" AppSubnets)
     group=$(output "$(stack network)" ControllerGroup)
@@ -173,7 +175,7 @@ setup() {
     task=$(deploy_aws ecs run-task --cluster "$cluster" --launch-type FARGATE \
         --task-definition "$(output "$(stack services)" SetupTaskDefinition)" \
         --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$group],assignPublicIp=DISABLED}" \
-        --query 'tasks[0].taskArn' --output text) || task=''
+        ${overrides:+--overrides "$overrides"} --query 'tasks[0].taskArn' --output text) || task=''
     # Each step is checked here: callers may run setup where set -e does not apply.
     case "$task" in arn:*) ;; *) echo "Setup task did not start" >&2; return 1 ;; esac
     deploy_aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task" || { echo "Setup task wait failed" >&2; return 1; }
@@ -452,5 +454,6 @@ case "$command" in
     ship) ship "$@" ;;
     smoke) smoke ;;
     db-capacity) db_capacity ;;
-    *) sed -n '2,21p' "$0"; exit 2 ;;
+    reset) reset "$@" ;;
+    *) sed -n '2,22p' "$0"; exit 2 ;;
 esac

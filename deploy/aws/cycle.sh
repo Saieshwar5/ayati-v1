@@ -8,6 +8,8 @@
 #   ship   image, then a rolling deploy when the schema is unchanged (a stop,
 #          migrate and start otherwise), then smoke
 #   smoke  readiness, service counts, the running image and new log errors
+#   reset  delete every workspace, person, agent, message and file in a test
+#          environment, keeping the environment itself (sign-ins at WorkOS stay)
 
 
 # Called at the start of anything that starts new tasks; smoke reads logs from here.
@@ -169,4 +171,37 @@ db_capacity() {
         --dimensions Name=DBClusterIdentifier,Value="$AYATI_ENV-core" --statistics Minimum Maximum --period 300 \
         --start-time "$(date -u -d '-15 minutes' +%FT%TZ)" --end-time "$(date -u +%FT%TZ)" \
         --query 'sort_by(Datapoints,&Timestamp)[].[Timestamp,Minimum,Maximum]' --output text
+}
+
+# Test environments only: starts the data over without recreating the environment.
+reset() {
+    if [ "${1:-}" != --yes ]; then
+        echo "env.sh reset --yes deletes every workspace, person, agent, message and file in" >&2
+        echo "$AYATI_ENV and migrates an empty database. Sign-ins at WorkOS stay." >&2
+        exit 2
+    fi
+    case "$AYATI_ENV" in *prod*) echo "Refusing to reset $AYATI_ENV: production data is never reset." >&2; exit 2 ;; esac
+    require_session
+    [ ! -f "$parked_file" ] || { echo "The environment is parked. Run env.sh wake first." >&2; exit 1; }
+    data_exists || { echo "There is no database to reset." >&2; exit 1; }
+    trap still_running ERR
+    logs || true
+    say "Stopping the services (no connections may stay open)"
+    services 0 0
+    # The grants container connects to the postgres database as the owner; migrate
+    # runs first on the old database and changes nothing.
+    say "Dropping and recreating the database"
+    setup "$(jq -cn '{containerOverrides: [{name: "grants",
+        environment: [{name: "PGDATABASE", value: "postgres"}],
+        command: ["psql -v ON_ERROR_STOP=1 -c \"DROP DATABASE ayati WITH (FORCE)\" -c \"CREATE DATABASE ayati\" && echo Database recreated."]}]}')"
+    say "Emptying the files bucket"
+    empty_bucket "$(output "$(stack keep)" BucketName)"
+    mark_deploy_start
+    setup
+    services "${AYATI_CONTROLLERS:-1}" "${AYATI_EXECUTORS:-1}"
+    wait_stable
+    record_deployed
+    trap - ERR
+    smoke
+    echo "Reset: an empty database at $(newest_migration "$(cat "$state/deployed-commit")"). Sign in again to start."
 }
