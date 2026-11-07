@@ -231,6 +231,9 @@ mod library_http_tests;
 #[cfg(test)]
 mod library_tests;
 mod login_flows;
+pub(crate) mod message_search;
+#[cfg(test)]
+mod message_search_tests;
 mod messaging;
 pub mod migration;
 #[cfg(test)]

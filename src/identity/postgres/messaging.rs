@@ -34,6 +34,9 @@ impl PgStore {
         )
         .await?;
         listener.listen("relay_message_changes").await?;
+        // Anything announced while the listener was away: every stream checks now.
+        crate::identity::live_metrics::listener(true);
+        let _ = self.changes.send("*".into());
         loop {
             let notification = listener.recv().await?;
             let _ = self.changes.send(notification.payload().to_owned());
@@ -50,7 +53,7 @@ impl PgStore {
             tx.commit().await?;
             return Ok(json!({"cursor":high,"reset":true,"events":[]}));
         };
-        let events=rows(&tx,"SELECT cursor,chat,message,kind,to_jsonb(e)->>'audience' AS audience FROM relay_sync_events e WHERE workspace=$1 AND cursor>$2 ORDER BY cursor LIMIT 100",vec![w.into(),after.into()]).await?;
+        let events=rows(&tx,"SELECT cursor,chat,message,kind,to_jsonb(e)->>'audience' AS audience,(to_jsonb(e)->>'created_ms')::bigint AS created_ms FROM relay_sync_events e WHERE workspace=$1 AND cursor>$2 ORDER BY cursor LIMIT 100",vec![w.into(),after.into()]).await?;
         let mut output = vec![];
         let mut cursor = after;
         let mut ids = std::collections::BTreeSet::new();
@@ -58,8 +61,13 @@ impl PgStore {
         let mut sample_access_changed = false;
         let mut panel_access_changed = false;
         let mut agents_changed = false;
+        // When the oldest change in this page was saved, for delivery timing.
+        let mut saved_ms: Option<i64> = None;
         for row in events {
             cursor = row.try_get("", "cursor")?;
+            if saved_ms.is_none() {
+                saved_ms = row.try_get::<Option<i64>>("", "created_ms")?;
+            }
             if row.try_get::<String>("", "kind")? == "access" {
                 access_changed = true;
             } else if row.try_get::<String>("", "kind")? == "agents" {
@@ -107,7 +115,11 @@ impl PgStore {
             }
         }
         tx.commit().await?;
-        Ok(json!({"cursor":cursor,"more":cursor<high,"events":output}))
+        let mut page = json!({"cursor":cursor,"more":cursor<high,"events":output});
+        if !page["events"].as_array().is_some_and(Vec::is_empty) {
+            page["saved_ms"] = json!(saved_ms);
+        }
+        Ok(page)
     }
     pub async fn acknowledge(
         &self,

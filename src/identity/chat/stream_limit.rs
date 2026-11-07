@@ -10,6 +10,14 @@ struct Counts {
     workspaces: HashMap<String, usize>,
 }
 static COUNTS: OnceLock<Mutex<Counts>> = OnceLock::new();
+
+/// Live connections open on this server now.
+pub(crate) fn open_now() -> usize {
+    COUNTS
+        .get_or_init(Default::default)
+        .lock()
+        .map_or(0, |counts| counts.total)
+}
 pub(super) struct Permit {
     workspace: String,
     user: String,

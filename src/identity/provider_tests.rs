@@ -266,3 +266,48 @@ async fn profile_updates_require_current_session_and_cannot_target_another_user(
     );
     server.abort();
 }
+
+#[tokio::test]
+async fn reads_trust_a_live_session_for_a_minute_and_changes_always_ask() {
+    let (provider, mock, server) = mock_provider().await;
+    let user = "user_test";
+    let now = std::time::Instant::now();
+    let check =
+        |at| provider.identity_valid_at(user, "session_test", "owner@example.com", true, at);
+    let change =
+        |at| provider.identity_valid_at(user, "session_test", "owner@example.com", false, at);
+    assert!(check(now).await.unwrap());
+    assert_eq!(
+        mock.calls.load(Ordering::SeqCst),
+        2,
+        "one session and one profile read"
+    );
+    // Many requests and live batches within the minute ask WorkOS nothing more.
+    for seconds in [1, 10, 59] {
+        assert!(check(now + Duration::from_secs(seconds)).await.unwrap());
+    }
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 2);
+    // A change always asks WorkOS, and sees a revocation at once.
+    mock.active.store(false, Ordering::SeqCst);
+    assert!(!change(now + Duration::from_secs(20)).await.unwrap());
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 4);
+    // The refusal is not trusted, and it forgot the earlier answer.
+    mock.active.store(true, Ordering::SeqCst);
+    assert!(check(now + Duration::from_secs(21)).await.unwrap());
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 6);
+    // After the minute, a revocation in WorkOS is seen by reads too.
+    let now = now + Duration::from_secs(21);
+    mock.active.store(false, Ordering::SeqCst);
+    assert!(!check(now + Duration::from_secs(61)).await.unwrap());
+    assert!(!check(now + Duration::from_secs(62)).await.unwrap());
+    assert_eq!(
+        mock.calls.load(Ordering::SeqCst),
+        10,
+        "a refusal is asked again every time"
+    );
+    // Errors are never trusted either.
+    mock.active.store(true, Ordering::SeqCst);
+    mock.available.store(false, Ordering::SeqCst);
+    assert!(check(now + Duration::from_secs(63)).await.is_err());
+    server.abort();
+}

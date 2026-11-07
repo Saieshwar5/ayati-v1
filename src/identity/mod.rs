@@ -22,6 +22,7 @@ mod hosting;
 mod interactions;
 mod invite_links;
 mod library;
+mod live_metrics;
 mod login_state;
 mod member_profiles;
 mod metrics;
@@ -152,6 +153,18 @@ fn set_cookie(app: &App, name: &str, value: &str, age: u32) -> axum::http::Heade
         .parse()
         .unwrap()
 }
+tokio::task_local! {
+    /// Set by the request guard for GET and HEAD: reading may trust WorkOS's
+    /// last answer about the session (`provider/recent.rs`); anything that
+    /// changes state asks WorkOS live.
+    static READING: bool;
+}
+
+/// [`identity`] for a read made outside a request's task (live streams).
+async fn identity_for_read(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User> {
+    READING.scope(true, identity(app, headers)).await
+}
+
 async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User> {
     let token = cookie(headers, SESSION).ok_or_else(Error::unauthorized)?;
     let (user, provider, sid) = app
@@ -168,7 +181,12 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
     }
     if !app
         .provider
-        .identity_valid(&provider, &sid, &user.email)
+        .identity_valid_checked(
+            &provider,
+            &sid,
+            &user.email,
+            READING.try_with(|reading| *reading).unwrap_or(false),
+        )
         .await
         .map_err(Error::unavailable)?
     {
@@ -364,7 +382,11 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let built_app_frame = path.starts_with("/api/identity/workspaces/")
         && path.contains("/apps/built/")
         && path.ends_with("/run");
-    let mut response = next.run(request).await;
+    let reading = matches!(
+        *request.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD
+    );
+    let mut response = READING.scope(reading, next.run(request)).await;
     let response_status = response.status();
     let h = response.headers_mut();
     h.insert("x-relay-request-id", request_id.parse().unwrap());

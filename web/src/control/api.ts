@@ -43,7 +43,11 @@ export type Overview = {
   traffic_start_ms: number; traffic: { provider: string; buckets: number[] }[];
   busiest: { id: string; name: string; running: number; queued: number; calls_5m: number; charge_today: number }[];
   alerts: Alert[];
+  /** This server's live messaging over the last ten minutes. */
+  messaging?: Messaging;
 };
+export type Timing = { count: number; p50_ms: number | null; p95_ms: number | null; max_ms: number | null };
+export type Messaging = { open_streams: number; streams_opened: number; listening: boolean; listener_connects: number; delivery: Timing; sending: Timing; window_seconds: number };
 
 export type WorkspaceStatus = 'active' | 'paused' | 'closing' | 'suspended' | 'closed';
 export type WorkspaceRow = {

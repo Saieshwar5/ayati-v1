@@ -126,6 +126,8 @@ The session snapshot then included an `adopted` hint (removed with installation
 adoption on 2026-10-29), removing the context request for layout migration. Both live
 WorkOS checks run concurrently on every protected request. This introduces no
 authentication-result cache or relaxation of membership/resource authorization.
+(Later, reads began accepting a WorkOS answer up to 60 seconds old; changes still ask
+live. See [identity and workspaces](identity-workspaces.md).)
 Only successful `/assets/<name>-<eight-character-hash>.js` and `.css` responses
 receive private immutable caching. HTML, API responses and App documents retain
 `no-store`. Changed builds use different asset URLs. Startup shows an accessible

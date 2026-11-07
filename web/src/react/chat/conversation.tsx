@@ -20,6 +20,7 @@ import { chatRequest, conversationName, directPartner, type Conversation, type D
 import { ConversationFace, ParticipantName } from './conversation-face';
 import { useShowProfile } from './profile-card';
 import { NotifyMenu } from './notify-controls';
+import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
 
 export function ConversationPane({ chat, directory, back, focus, changed = async () => {}, level, levelChanged = () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void>; level?: Level; levelChanged?: (level: Level) => void }) {
@@ -36,6 +37,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const [history, setHistory] = useState<History>();
   const [error, setError] = useState('');
   const [details, setDetails] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [lifecycle, setLifecycle] = useState(false);
   const [thread, setThread] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -159,6 +161,9 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
           <p className="chat-connection" role="status">{connection}</p>
         </div>
       </div>
+      <Button className="ui-icon chat-search-button" aria-label={`Search in ${title}`} title="Search this conversation" onClick={() => setSearching(true)}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+      </Button>
       <NotifyMenu chat={chat} level={level} changed={levelChanged} />
       <Button onClick={() => setDetails(true)}>Details</Button>
     </header>
@@ -182,6 +187,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
+    {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
     {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /><ChannelAgents chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
     {lifecycle && <ChannelLifecycle chat={chat} close={() => setLifecycle(false)} changed={changed} />}
   </section></ManagedResults></ApprovalViewer>;

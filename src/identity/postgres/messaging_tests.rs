@@ -197,3 +197,65 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
         request.id
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_listener_wakes_every_stream_when_it_connects_and_relays_each_change() {
+    let db = fixture().await;
+    let owner = user(&db, "listen-owner").await;
+    let w = workspace(&db, &owner).await;
+    let mut wake = db.changes.subscribe();
+    let listening = tokio::spawn({
+        let db = db.clone();
+        async move { db.listen_changes().await }
+    });
+    let first = tokio::time::timeout(std::time::Duration::from_secs(10), wake.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first, "*", "connecting wakes every stream");
+    // A committed message announces its workspace; the stream needs nothing else.
+    let c = chat(&db, &owner, &w, vec![], vec![]).await;
+    db.chat_send(&owner, &w, &c, &message("hello", None))
+        .await
+        .unwrap();
+    let relayed = loop {
+        let got = tokio::time::timeout(std::time::Duration::from_secs(10), wake.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if got == w {
+            break got;
+        }
+    };
+    assert_eq!(relayed, w);
+    listening.abort();
+}
+
+/// Live streams re-check only every 30 seconds, so every database function
+/// that writes a change record must also wake the listener's channel.
+/// (`agent_pause.rs` writes one from Rust and notifies alongside it.)
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn every_change_record_trigger_wakes_live_streams() {
+    let db = fixture().await;
+    let functions = rows(
+        &db.db,
+        "SELECT p.proname, p.prosrc ~ 'pg_notify\\(\\s*''relay_message_changes''' AS wakes
+           FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname=current_schema() AND p.prosrc ~* 'insert\\s+into\\s+relay_sync_events'",
+        vec![],
+    )
+    .await
+    .unwrap();
+    assert!(functions.len() >= 5, "the change record triggers are found");
+    let silent: Vec<String> = functions
+        .iter()
+        .filter(|row| !row.try_get::<bool>("", "wakes").unwrap())
+        .map(|row| row.try_get("", "proname").unwrap())
+        .collect();
+    assert!(
+        silent.is_empty(),
+        "these write change records without waking streams: {silent:?}"
+    );
+}

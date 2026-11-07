@@ -5,13 +5,16 @@ import { workspaceSession } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
 import { existingDirect, useDirectConversation, type DirectTarget } from './direct-conversation';
 import { conversationName, type Conversation, type Directory } from './model';
+import { MessageResults, searchable } from './message-search';
 import './search-conversations.css';
 
-export function SearchConversations({ directory, chats, close, opened }: {
+export function SearchConversations({ directory, chats, close, opened, openMessage }: {
   directory: Directory;
   chats: Conversation[];
   close: () => void;
   opened: (id: string) => void;
+  /** Opens a message found by message search in its conversation. */
+  openMessage: (chat: string, message: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
@@ -30,7 +33,9 @@ export function SearchConversations({ directory, chats, close, opened }: {
     ...(category === 'All' || category === 'Agents' ? agents : []),
   ].filter(target => matches(`${target.name} ${target.email ?? ''}`));
   const showChannels = category === 'All' || category === 'Channels';
-  const count = targets.length + (showChannels ? channels.length : 0);
+  const onlyMessages = category === 'Messages';
+  const showMessages = onlyMessages || (category === 'All' && searchable(query));
+  const count = onlyMessages ? 0 : targets.length + (showChannels ? channels.length : 0);
 
   const move = (event: KeyboardEvent) => {
     if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
@@ -43,23 +48,23 @@ export function SearchConversations({ directory, chats, close, opened }: {
     else buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
   };
 
-  return <Dialog title="Search conversations" busy={direct.busy} status={direct.status}
+  return <Dialog title="Search" busy={direct.busy} status={direct.status}
     close={close} initialFocus={input}>
     <div className="chat-search" onKeyDown={move}>
-      <label className="ui-field">Channels, people and agents
+      <label className="ui-field">Conversations, people, agents and messages
         <input ref={input} type="search" value={query} onChange={event => setQuery(event.target.value)}
-          placeholder="Search conversations…" />
+          placeholder="Search…" />
       </label>
       <div className="chat-search-filters" role="group" aria-label="Search category">
-        {['All', 'Channels', 'People', 'Agents'].map(value =>
+        {['All', 'Channels', 'People', 'Agents', 'Messages'].map(value =>
           <Button key={value} aria-pressed={category === value} onClick={() => setCategory(value)}>
             {value}
           </Button>)}
       </div>
-      <p className="ui-help" role="status">
+      {!onlyMessages && <p className="ui-help" role="status">
         {count ? `${count} ${count === 1 ? 'result' : 'results'}` : 'No matching conversations, people or agents.'}
-      </p>
-      <ul className="chat-search-results" ref={results}>
+      </p>}
+      {!onlyMessages && <ul className="chat-search-results" ref={results}>
         {showChannels && channels.map(chat => <li key={`chat:${chat.id}`}>
           <button type="button" className="chat-contact" onClick={() => opened(chat.id)}
             aria-label={`Open channel ${chat.name}`}>
@@ -80,7 +85,9 @@ export function SearchConversations({ directory, chats, close, opened }: {
             </button>
           </li>;
         })}
-      </ul>
+      </ul>}
+      {showMessages && <><h3 className="chat-search-heading">Messages</h3>
+        <MessageResults query={query} chats={chats} directory={directory} open={openMessage} /></>}
     </div>
   </Dialog>;
 }

@@ -5,7 +5,9 @@ pub(crate) mod model;
 mod notifications;
 mod organization;
 pub(crate) mod organization_model;
+mod search;
 mod stream_limit;
+pub(crate) use stream_limit::open_now as open_streams;
 mod sync;
 mod task_progress;
 use super::*;
@@ -16,6 +18,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(sync::routes())
+        .merge(search::routes())
         .merge(task_progress::routes())
         .merge(organization::routes())
         .merge(message_actions::routes())
@@ -178,6 +181,7 @@ async fn send(
     headers: axum::http::HeaderMap,
     Json(input): Json<model::NewMessage>,
 ) -> ApiResult<Json<Value>> {
+    let started = std::time::Instant::now();
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
     app.store.check_chat(&user, &workspace, &chat).await?;
@@ -192,9 +196,13 @@ async fn send(
     {
         app.runtimes.chat_wake.notify_one();
     }
-    Ok(Json(
-        json!({"ok":true,"message":app.store.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
-    ))
+    let accepted = app
+        .store
+        .accepted_message(&user, &workspace, &chat, &input.id)
+        .await
+        .ok();
+    super::live_metrics::sent(started.elapsed());
+    Ok(Json(json!({"ok":true,"message":accepted})))
 }
 
 async fn background(

@@ -66,6 +66,7 @@ export function WorkspaceChat({ href }: { href: string }) {
   }, []);
   useEffect(() => { setShowList(!selected); setChooser(undefined); setSearch(false); }, [selected]);
   const open = (id: string) => { setChooser(undefined); setSearch(false); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`)); void refresh.current(); };
+  const openMessage = (id: string, message: string) => { setSearch(false); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}&message=${encodeURIComponent(message)}`)); };
   const direct = useDirectConversation(chats, open);
   const current = chats.find(chat => chat.id === selected);
   const contact = (chat: Conversation) => {
@@ -96,7 +97,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     if ((event.target as Element).closest('a.chat-contact')) setShowList(false);
   }}>
     <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1>
-      <Button className="ui-icon chat-search-button" aria-label="Search conversations" title="Search channels, people and agents" disabled={!directory} onClick={() => setSearch(true)}>
+      <Button className="ui-icon chat-search-button" aria-label="Search" title="Search conversations, people and messages" disabled={!directory} onClick={() => setSearch(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       </Button>
     </header>
@@ -119,7 +120,7 @@ export function WorkspaceChat({ href }: { href: string }) {
       {current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} changed={() => refresh.current()} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} />
         : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button><div><span className="chat-welcome-mark">↗</span><h2>{selected ? 'Opening conversation' : 'A place to work together'}</h2><p>{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : 'Message a person, talk to an agent, or bring your team together in a channel.'}</p>{!selected && <Button primary disabled={!directory} onClick={() => setChooser('direct')}>New message</Button>}</div></div>}
     </div>
-    {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} />}
+    {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
     {profile && directory && <ProfileCard target={profile} directory={directory} chats={chats} close={() => setProfile(undefined)} message={messageTarget} />}

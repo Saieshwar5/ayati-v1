@@ -99,6 +99,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::model_budgets::ModelBudgets),
             Box::new(super::model_operations::ModelOperations),
             Box::new(super::operator::OperatorConsole),
+            Box::new(super::message_search::MessageSearch),
         ]
     }
 }

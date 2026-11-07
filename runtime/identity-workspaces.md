@@ -30,8 +30,15 @@ cookie. Only verified email identities are admitted. Internal users are keyed by
 provider user ID, never automatically merged by email.
 
 The browser receives an opaque HttpOnly SameSite=Lax cookie. Only its hash is saved
-in PostgreSQL. Local sessions last one hour; provider sessions are checked on each
-protected request and revoked on logout. Provider access/refresh tokens are not
+in PostgreSQL. Local sessions last one hour and are checked in PostgreSQL on each
+protected request, with membership. Provider (WorkOS) sessions are checked live for
+every change (any request other than GET or HEAD); reads and live message batches
+accept a positive WorkOS answer up to 60 seconds old for the same user, session and
+email, held in the server's memory. A negative answer or an error is never kept, and
+sign-out takes effect at once because the local session is deleted. So a session
+revoked at WorkOS itself, outside Cuckoo, can still read for up to a minute but cannot
+change anything. Before this, two WorkOS calls were made on every request, including
+each live message batch. Provider sessions are revoked on logout. Provider access/refresh tokens are not
 persisted. Provider failures deny access; existing cookies are not automatically
 deleted on transient failure. The client can retry by reloading or sign in again.
 

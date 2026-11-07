@@ -38,7 +38,7 @@ Problem reports are the exception: people write them for the Cuckoo team.
 
 | Screen | Shows | Changes |
 | --- | --- | --- |
-| Overview | Active workspaces, calls per minute, failed calls and fallbacks, executor slots, charged and cost today; last-hour traffic per provider; alerts; busiest workspaces | — |
+| Overview | Active workspaces, calls per minute, failed calls and fallbacks, executor slots, charged and cost today; live messaging on this server; last-hour traffic per provider; alerts; busiest workspaces | — |
 | Spend | Charged, cost and margin this month with forecasts; per day; by model; by workspace against its budget, with its biggest agent | — |
 | Problem reports | Reports from Settings → Help | — |
 | Workspaces | Owner, people, agents, 7-day calls, charged against budget, failure rate, status. Detail: counts, models, Library size, operator history | Suspend, lift suspension |
@@ -101,7 +101,25 @@ Worked out on each overview read: a provider switched off; a provider resting on
 this controller; a provider failing at least 5% of at least 20 calls in 15 minutes;
 a workspace past its budget's warning share (marked "action" at 100%); provider
 cost at 80% of the daily ceiling; work waiting over 120 seconds for an executor;
-problem reports in the last day; unused invite codes expiring within a week.
+problem reports in the last day; unused invite codes expiring within a week; this
+server not hearing message changes; live messages slow to arrive (p95 over one second
+across at least 20 deliveries).
+
+## Live messaging
+
+For the server answering the overview, over the last 10 minutes (in memory, reset on
+restart, at most 20,000 samples each):
+
+- **Open connections**: live message streams now, and how many opened since start.
+- **Delivery**: from a change being saved in PostgreSQL to the batch carrying it
+  being handed to a connection, 95th percentile and median. Only live batches count;
+  a reconnecting tab's catch-up is not a delivery delay.
+- **Sending**: how long the send-message request takes on the server.
+- **Listener**: whether this server is listening for PostgreSQL change notifications,
+  and how many times it has connected. When it is off, messages still arrive within
+  30 seconds through the re-check, and an alert is raised.
+
+With several controller servers, each shows its own numbers.
 
 ## Settings
 
@@ -146,6 +164,9 @@ shell history and process lists. `--json` prints the full answer for scripts.
   without a key file uses the console key and one with a key file keeps it; the
   switch drops a provider's routes with the operator's note; a suspended workspace
   is refused.
+- Live messaging: summaries (`src/identity/live_metrics.rs`); the listener waking
+  every stream when it connects (`src/identity/postgres/messaging_tests.rs`); the
+  stream's wake and send rules (`src/identity/chat/sync.rs`).
 - Web (`web/tests/control.test.mjs`): non-operators see why; the environment band and
   status strip; the switch dialog shows what serves each catalog model next, needs a
   reason and sends once; a failed save keeps the reason; Routing shows the catalog
