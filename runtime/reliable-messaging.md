@@ -162,7 +162,7 @@ The change journal is retained indefinitely in this increment, honoring the requ
 not to delete simulation records. Production needs measured retention/compaction and a
 snapshot-expiry contract before large history volumes. Unread aggregation and receipt
 fan-out need larger multi-organization load measurements. The live transcript is bounded
-to 400 recent updates plus explicitly loaded older history; very old thread navigation
+to 400 recent updates plus older history loaded by scrolling up; very old thread navigation
 still relies on history loading.
 
 No service worker/offline application shell is installed: an already open application

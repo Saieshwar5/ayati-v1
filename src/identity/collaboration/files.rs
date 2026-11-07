@@ -64,7 +64,13 @@ pub(super) async fn upload(
         std::fs::File::open(&root)?.sync_all()?;
     }
     // Retain orphan bytes on uncertain DB failure; reconciliation must not destroy evidence.
-    app.store.save_object(&user, &w, &chat, &object).await?;
+    let transcribe = app.config.transcription_model.is_some();
+    app.store
+        .save_object(&user, &w, &chat, &object, transcribe)
+        .await?;
+    if transcribe && object.mime.starts_with("audio/") {
+        crate::identity::transcription::wake();
+    }
     Ok(Json(json!(object)))
 }
 pub(super) async fn download(
@@ -88,24 +94,7 @@ pub(super) async fn download(
     } else {
         None
     };
-    let bytes = if hosting::hosted(&app) {
-        shared_storage(&app)?;
-        tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            app.library.get(&format!("chat/{w}/{id}")),
-        )
-        .await
-        .context("File download timed out")??
-    } else {
-        tokio::fs::read(app.runtimes.object_root(&w).join(&id))
-            .await
-            .context("Stored object unavailable")?
-            .into()
-    };
-    check(
-        bytes.len() as i64 == object.size && checksum(&bytes) == object.checksum,
-        "Stored object failed its integrity check",
-    )?;
+    let bytes = stored(&app, &w, &object).await?;
     let data = if let Some(permit) = permit {
         crate::media::thumbnail(bytes.to_vec(), permit)
             .await?
@@ -122,6 +111,29 @@ pub(super) async fn download(
         &input,
         &headers,
     )?)
+}
+/// A chat file's bytes from private S3 (hosted) or the local object root,
+/// checked against the size and checksum saved at upload.
+pub(crate) async fn stored(app: &App, w: &str, object: &Object) -> ApiResult<Bytes> {
+    let bytes = if hosting::hosted(app) {
+        shared_storage(app)?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            app.library.get(&format!("chat/{w}/{}", object.id)),
+        )
+        .await
+        .context("File download timed out")??
+    } else {
+        tokio::fs::read(app.runtimes.object_root(w).join(&object.id))
+            .await
+            .context("Stored object unavailable")?
+            .into()
+    };
+    check(
+        bytes.len() as i64 == object.size && checksum(&bytes) == object.checksum,
+        "Stored object failed its integrity check",
+    )?;
+    Ok(bytes)
 }
 /// Only sniffed passive formats render inline; other bytes are downloads.
 /// WebM and MP4 can also hold video, so they count as audio only when the

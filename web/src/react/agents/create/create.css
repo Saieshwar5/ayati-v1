@@ -8,7 +8,7 @@
 .agent-create-steps li span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--selection); font-size: 12px; font-weight: 600; }
 .agent-create-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
 .agent-create-steps li[aria-current="step"] span { background: var(--accent); color: var(--on-accent); }
-.agent-create-steps li.done span { background: #2f7d4f; color: #fff; }
+.agent-create-steps li.done span { background: var(--success); color: var(--surface); }
 .agent-create-body { flex: 1; min-height: 0; overflow: auto; padding: 24px 32px; border: 0; margin: 0; }
 .agent-create-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 32px 22px; border-top: 1px solid var(--border); }
 .agent-create-footer .ui-help { margin: 0; color: var(--muted); font-size: 13px; }
@@ -61,4 +61,7 @@
   .agent-create-face { width: 72px; height: 72px; border-radius: 18px; }
   .agent-create-footer .ui-status { margin-left: 0; }
 }
-.agent-create-skills { margin-top:18px; } .agent-create-skills h3 { font-size:14px; margin:0 0 8px; } .agent-create-skills h3 small { margin-left:8px; color:var(--muted); font-weight:400; }
+/* Skills, under the instructions box in step 2 (designs/chat-and-account 7). */
+.agent-create-skills { margin-top: 4px; }
+.agent-create-skills h3 { font-size: 14px; margin: 0 0 10px; }
+.agent-create-skills h3 small { margin-left: 8px; color: var(--muted); font-weight: 400; }

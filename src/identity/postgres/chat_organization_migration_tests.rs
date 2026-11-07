@@ -86,7 +86,7 @@ async fn object_save_rechecks_archive_after_upload_and_pin_reads_do_not_grant_ac
     .await
     .unwrap();
     assert!(
-        db.save_object(&owner, &w, &job.chat, &object)
+        db.save_object(&owner, &w, &job.chat, &object, false)
             .await
             .is_err()
     );

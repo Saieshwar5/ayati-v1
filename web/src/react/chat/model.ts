@@ -4,9 +4,18 @@ export type Participant = { id: string; name: string; email?: string; role?: str
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
   /** Channels only: who created it, when (Unix seconds; unknown for older channels) and which members manage it. */
-  creator?: string; created_at?: number | null; managers?: string[] };
-export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
+  creator?: string; created_at?: number | null; managers?: string[];
+  /** Seconds of the newest activity, as the server ordered the list (chat_activity.rs). */
+  activity?: number };
+/** Audio adds its transcript (schema 95); `not_enabled` where the deployment doesn't transcribe. */
+export type TranscriptStatus = 'pending' | 'ready' | 'failed' | 'not_enabled';
+export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string;
+  transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null };
 export type Message = {
+  /** Unread for the viewer when this history page was read. */
+  unread?: boolean;
+  /** Seconds when a message became sent or finished after it was created (an agent's late reply). */
+  activity_at?: number | null;
   source_scope?: string | null;
   handoff?: import('./handoffs').Handoff;
   coordination?: import('./handoffs').Coordination;

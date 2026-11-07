@@ -15,9 +15,11 @@ server API contracts, authentication, and workspace boundaries.
   threads, creation dialogs, saved task-progress drawers and trusted approval references.
 - `web/src/react/chat/composer.tsx`: shared React composer across channel, DM and thread
   views.
-- `web/src/react/account-menu.tsx`: native account popover and workspace switching.
-- `web/src/react/account.tsx`: hosted sign-in entry, workspace chooser/creation,
-  invitation acceptance and account view.
+- `web/src/react/account-menu.tsx`: native account popover: you, workspace switching,
+  Settings and sign-out (D245).
+- `web/src/react/account.tsx`: hosted sign-in entry, first display name, workspace
+  chooser/creation and invitation acceptance. In a workspace, `?view=account` opens
+  Settings → Profile.
 - `web/src/react/home-panels/`: lazy personal workspace snapshots, exact draft review,
   source-safe detail readers, explicit agent requests and synchronized personal placement.
   Personal maintenance has explicit review/setup, guarded manual refresh, pause,

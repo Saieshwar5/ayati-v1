@@ -1,8 +1,8 @@
 # Authenticated workspace client
 
 `ayati identity` serves the web client behind `/w/<workspace-id>/`. Sign-in and
-workspace selection open this client. The account menu holds workspace
-switching, email, appearance and sign-out. Switching workspaces performs a full document
+workspace selection open this client. The account menu holds your name, photo and
+email, workspace switching, Settings and sign-out. Switching workspaces performs a full document
 navigation. Drafts, uploads, controller tokens, receipts and Home layouts are
 scoped by user and workspace.
 

@@ -143,6 +143,27 @@ deploy/aws/env.sh reset --yes     # test data only: empty database and files, sa
   - it refuses environment names containing `prod`, and refuses while parked;
   - sign-ins at WorkOS stay, so people simply sign in to an empty Cuckoo.
 
+## Voice transcription (optional)
+
+Controllers can transcribe voice notes ([voice transcription](../../runtime/voice-transcription.md)).
+Set both in `.env.cloud`, then run `up` (or `wake` when parked). The first time, it must
+be `up`: it updates `roles.yaml` before the services, and `deploy` and `ship` don't.
+
+```sh
+AYATI_TRANSCRIPTION_MODEL=fireworks-audio:whisper-v3-turbo
+AYATI_TRANSCRIPTION_BASE_URL=https://audio-prod.us-virginia-1.direct.fireworks.ai/v1
+```
+
+- The controller's `prepare` container writes the `ayati/model-api-key` secret to a key
+  file and a providers file naming that provider; the controller gets
+  `AYATI_MODEL_PROVIDERS_FILE` (an empty list when this is off) and
+  `AYATI_TRANSCRIPTION_MODEL`. The key never enters its environment.
+- The provider must accept that same key. Fireworks' audio host is expected to take
+  the Fireworks key (`AYATI_MODEL_PROVIDER=fireworks-ai`); the first window confirms it.
+  Executors are unchanged.
+- The controller's execution role may read that secret (`roles.yaml`); the task gets it
+  only when transcription is on. Recordings are sent to the provider.
+
 ## Known limits (first windows)
 
 - One NAT gateway and one Aurora writer: no zone failover until Step 8.

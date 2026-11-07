@@ -1,32 +1,91 @@
-import { useState } from 'react';
+// The account menu at the foot of the rail (designs/chat-and-account screen 9, D245):
+// only you, your workspaces, Settings and Sign out. Profile and theme live in Settings.
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { currentWorkspace, workspaceSession, workspaceId, workspaceUrl, identityRequest } from '../workspace-context';
+import { initials, tileColor } from './access/model';
+import { chatRequest, type Directory } from './chat/model';
+import { PersonFace } from './faces';
 import { useMutation } from './requests';
+
+type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out';
+function MenuIcon({ name }: { name: IconName }) {
+  return <svg className="account-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    {name === 'check' && <path d="m5 12.5 4.5 4.5L19 7.5" />}
+    {name === 'workspaces' && <><path d="M4 21V4h10v17M14 9h6v12M2 21h20" /><path d="M7.5 8h3M7.5 12h3M7.5 16h3M17 13v.01M17 17v.01" /></>}
+    {name === 'settings' && <><path d="M3 6h18M3 12h18M3 18h18" /><circle cx="8" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="9" cy="18" r="2" /></>}
+    {name === 'sign-out' && <><path d="M14 4H5v16h9" /><path d="M10 12h11m-4-4 4 4-4 4" /></>}
+  </svg>;
+}
+
+/** The session has your name and email; your photo comes from the workspace directory.
+ * It is read when the shell opens and again each time the menu opens, so a photo changed
+ * in Settings → Profile shows without a reload. Older reads are discarded. */
+function useMyPhoto(userId: string | undefined, reads: number) {
+  const [photo, setPhoto] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const abort = new AbortController();
+    chatRequest<Directory>('/chat-directory', undefined, abort.signal).then(directory => {
+      if (!abort.signal.aborted) setPhoto(directory.users?.find(person => person.id === userId)?.photo ?? null);
+    }).catch(() => { /* Initials stay when the directory is unavailable. */ });
+    return () => abort.abort();
+  }, [userId, reads]);
+  return photo;
+}
 
 export function AccountMenu() {
   const workspace = currentWorkspace();
+  const user = workspaceSession?.user ?? undefined;
   const [open, setOpen] = useState(false);
+  const [reads, setReads] = useState(0);
+  const photo = useMyPhoto(user?.id, reads);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLElement>(null);
   const mutation = useMutation();
-  if (!workspaceId || !workspace) return null;
-  const email = workspaceSession?.user?.email ?? '';
-  const name = workspaceSession?.user?.display_name || email;
-  const initials = name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toUpperCase() || 'W';
-  return <><button type="button" title="Your account" className="workspace-menu-trigger workspace-profile-trigger" aria-label="Your account"
-    aria-controls="workspace-profile" aria-expanded={open} popoverTarget="workspace-profile"><span className="workspace-profile-avatar" aria-hidden="true">{initials}</span></button>
-    {createPortal(<div id="workspace-profile" className="workspace-menu workspace-profile" popover="auto" aria-label="Your account"
-      onToggle={event => setOpen((event.nativeEvent as ToggleEvent).newState === 'open')}>
-      <h2>{name}</h2><p className="workspace-menu-email">{email}</p><p className="workspace-menu-role">{workspace.name} · {workspace.role}</p><hr />
-      {workspaceSession?.simulation && <a className="workspace-menu-action" href="/index.html?view=simulation">Simulation · switch employee</a>}
-      <h2>Workspaces</h2><nav className="workspace-menu-list" aria-label="Choose workspace">{workspaceSession?.workspaces?.map(entry =>
-        <a key={entry.id} className="workspace-menu-action" href={`/w/${entry.id}/`} aria-current={entry.id === workspaceId ? 'true' : undefined}>
-          {entry.name}{entry.id === workspaceId && <small>Current</small>}</a>)}</nav>
-      <a className="workspace-menu-action" href="/?view=account&choose=1">Your workspaces</a><hr />
-      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=profile')}>Edit profile</a>
-      <a className="workspace-menu-action" href={workspaceUrl('/?view=account')}>My account</a>
-      <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=preferences')}>Appearance</a><hr />
-      <button type="button" className="workspace-menu-action" disabled={mutation.busy} onClick={() => void mutation.run(async () => {
-        try { await identityRequest('/logout', {}); location.assign('/?view=account'); }
-        catch { throw new Error('Sign-out failed. Please try again.'); }
-      })}>Sign out</button><p className="workspace-menu-status" role="status">{mutation.status}</p>
-    </div>, document.body)}</>;
+  if (!workspaceId || !workspace || !user) return null;
+  const email = user.email;
+  const name = user.display_name || email;
+  const me = { id: user.id, name, photo };
+  const toggled = (state: string) => {
+    setOpen(state === 'open');
+    if (state === 'open') setReads(count => count + 1);
+  };
+  // The browser closes the popover on Escape too; closing here also returns focus to your photo.
+  const close = () => { menu.current?.hidePopover?.(); trigger.current?.focus(); };
+  const signOut = () => void mutation.run(async () => {
+    try { await identityRequest('/logout', {}); location.assign('/?view=account'); }
+    catch { throw new Error('Sign-out failed. Please try again.'); }
+  });
+  return <>
+    <button ref={trigger} type="button" title="Your account" className="workspace-menu-trigger workspace-profile-trigger" aria-label="Your account"
+      aria-controls="workspace-profile" aria-expanded={open} popoverTarget="workspace-profile">
+      <PersonFace person={me} className="workspace-profile-avatar" />
+    </button>
+    {createPortal(<section ref={menu} id="workspace-profile" className="workspace-menu workspace-profile" popover="auto" aria-label="Your account"
+      onToggle={event => toggled((event.nativeEvent as ToggleEvent).newState)}
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); close(); } }}>
+      <div className="account-menu-identity">
+        <PersonFace person={me} className="account-menu-face" />
+        <p><strong>{name}</strong>{' '}<span>{email}</span></p>
+      </div>
+      {/* Status (designs/chat-and-account screen 3) will be its own row here, between you and your workspaces. */}
+      <nav className="account-menu-group" aria-labelledby="account-menu-workspaces">
+        <h2 id="account-menu-workspaces">Workspaces</h2>
+        <ul className="workspace-menu-list">{workspaceSession?.workspaces?.map(entry => <li key={entry.id}>
+          <a className="workspace-menu-action account-menu-workspace" href={`/w/${entry.id}/`} aria-current={entry.id === workspaceId ? 'true' : undefined}>
+            <span className="account-menu-tile" style={{ background: tileColor(entry.id) }} aria-hidden="true">{initials(entry.name)}</span>
+            <span className="account-menu-text"><strong>{entry.name}</strong>{' '}<small>{entry.role}</small></span>
+            {entry.id === workspaceId && <MenuIcon name="check" />}
+          </a></li>)}</ul>
+        <a className="workspace-menu-action" href="/?view=account&choose=1"><MenuIcon name="workspaces" />All workspaces…</a>
+      </nav>
+      <div className="account-menu-group">
+        {workspaceSession?.simulation && <a className="workspace-menu-action" href="/index.html?view=simulation">Simulation · switch employee</a>}
+        <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=profile')}><MenuIcon name="settings" />Settings</a>
+        <button type="button" className="workspace-menu-action" disabled={mutation.busy} onClick={signOut}><MenuIcon name="sign-out" />Sign out</button>
+        <p className="workspace-menu-status" role="status">{mutation.status}</p>
+      </div>
+    </section>, document.body)}
+  </>;
 }

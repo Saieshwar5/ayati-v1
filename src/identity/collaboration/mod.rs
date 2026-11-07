@@ -5,6 +5,7 @@ mod work;
 use super::*;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
 pub(super) use catalog::{agents, validate_agent};
+pub(super) use files::stored as stored_object;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 pub(crate) use work::ChannelSettings;

@@ -26,6 +26,31 @@ retain the same exact intended change for an explicit retry. Compare revisions
 and reuse a request identity only for exactly the same payload. A stale write
 cannot overwrite a newer order; no blind retry or inference occurs on reads.
 
+## Conversation order (schema 96)
+
+Pinned keeps pin-time order. Channels, Direct messages and Archived channels are
+listed newest activity first. A conversation's activity is the newest of its last
+sent message or finished reply (thread replies included), when a reply finished
+after it was created, when the conversation was created and when you were added to
+it. An agent's progress notes, edits, reactions, receipts and failed, cancelled or
+queued replies are not activity. Being added moves a conversation up for you only.
+
+`relay_chat_messages.activity_at` records when a message became sent or finished
+later than it was created; a trigger sets it, so every path that finishes a reply
+is covered. `relay_chats.created_ms` and `relay_chat_people.added_ms` hold the other
+two times. All three are added without a table rewrite: existing conversations and
+memberships start at 0, so the upgrade leaves today's order to their messages.
+Member changes keep the added time of people who stay.
+
+Live message payloads carry `at` and `activity_at`, so the client moves a
+conversation up as messages arrive without reading the list again. A message for a
+conversation the list does not have (a new direct message, a channel you were added
+to) reads the list once per conversation. While the mouse moves over the list (until
+it has rested for 1.5 s) or keyboard focus is in it, rows hold still and catch up
+afterwards; touch never holds. Apply `m20261107_000096_chat_activity` with the
+administrator migration procedure before starting this version; startup never
+applies migrations.
+
 ## Shared channel lifecycle
 
 A channel creator or workspace admin with current source access can archive or

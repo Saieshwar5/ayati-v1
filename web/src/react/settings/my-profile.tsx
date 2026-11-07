@@ -54,17 +54,18 @@ export function MyProfile() {
         <PersonFace person={{ id: user.id, name: draft.name || user.email, photo: saved.photo }} className="my-profile-face" />
         <div>
           <div className="my-profile-photo-actions">
-            <Button onClick={() => photo.current?.click()}>{saved.photo ? 'Change photo' : 'Upload photo'}</Button>
+            <Button onClick={() => photo.current?.click()}>Change photo</Button>
             {saved.photo && <Button onClick={() => void removePhoto()}>Remove</Button>}
           </div>
-          <p className="ui-help">PNG, JPEG or WebP, up to 2 MB. A square photo works best.</p>
+          <p className="ui-help">PNG, JPEG or WebP, up to 2 MB</p>
           <input ref={photo} hidden type="file" accept="image/png,image/jpeg,image/webp" aria-label="Choose a profile photo"
             onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
         </div>
       </div>
-      <label className="ui-field">Display name<input name="display_name" required maxLength={80} autoComplete="name" value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label>
-      <label className="ui-field"><span>Job title <small>Shown next to your name</small></span><input name="title" maxLength={80} placeholder="e.g. Design lead" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} /></label>
-      <label className="ui-field"><span>About <small>{draft.about.length} / 200</small></span><textarea name="about" rows={3} maxLength={200} placeholder="What you work on and what people can ask you about." value={draft.about} onChange={event => setDraft({ ...draft, about: event.target.value })} /></label>
+      <label className="ui-field">Your name<input name="display_name" required maxLength={80} autoComplete="name" value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label>
+      <label className="ui-field"><span>Job title <small>shown next to your name</small></span><input name="title" maxLength={80} placeholder="e.g. Design lead" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} /></label>
+      <label className="ui-field"><span>About <small>0–200 characters</small></span><textarea name="about" rows={3} maxLength={200} placeholder="What you work on and what people can ask you about." value={draft.about} onChange={event => setDraft({ ...draft, about: event.target.value })} /></label>
+      <label className="ui-field"><span>Sign-in email <small>cannot be changed here</small></span><input type="email" readOnly value={user.email} /></label>
       <Button primary type="submit" disabled={!draft.name.trim() || !changed}>{mutation.busy ? 'Saving…' : 'Save profile'}</Button>
     </fieldset>
     <p className="ui-help" role="status">{mutation.status}</p>

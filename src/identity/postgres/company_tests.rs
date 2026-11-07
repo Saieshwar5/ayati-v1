@@ -33,7 +33,7 @@ async fn company_media_feedback_and_membership_boundaries() {
         size: 10,
         checksum: "abc".into(),
     };
-    db.save_object(&owner, &w, &c, &obj).await.unwrap();
+    db.save_object(&owner, &w, &c, &obj, false).await.unwrap();
     assert!(db.object(&member, &w, &obj.id).await.is_err());
     let mut m = message("Invoice attached");
     m.attachments.push(obj.id.clone());

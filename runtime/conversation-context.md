@@ -10,6 +10,8 @@ content. An authenticated task, not a name in a prompt, determines the principal
 
 Newly queued messages store an attributed JSON transcript: stable message and
 author IDs, human/agent kind, sequence, timestamp, thread, content and display name.
+Since schema 95, a message's attachments are listed by name, type and size, with the
+transcript or its status for audio ([voice transcription](voice-transcription.md)).
 The explicit request message ID identifies which message the task answers. A
 display name is a profile value observed when assembling context; it is neither a historical
 identity guarantee nor an authorization claim. Distinct people may share a name.

@@ -8,7 +8,7 @@ import { SimulationReport } from '../simulation-report';
 import { WorkspaceGeneral } from './workspace-settings';
 import { WorkspaceConnections } from './workspace-connections';
 import { CompanyRules } from './company-rules';
-import { MyAccount, Preferences } from './personal-settings';
+import { ProfileSettings, Preferences } from './personal-settings';
 import { ComingLater, ThisWorkspace } from './this-workspace';
 import { adminWorkspace, comingLater, labels, memberWorkspace, personal, requestedSection, sectionUrl, type Section } from './settings-sections';
 import './settings.css';
@@ -38,7 +38,7 @@ export function SettingsPage({ href }: { href: string }) {
     </nav>
     <div className="settings-detail" key={section}>
       <button type="button" className="settings-back" onClick={() => go()}>‹ Settings</button>
-      {section === 'profile' ? <MyAccount />
+      {section === 'profile' ? <ProfileSettings />
         : section === 'preferences' ? <Preferences />
         : section === 'help' ? <HelpPage />
         : section === 'this-workspace' ? <ThisWorkspace />

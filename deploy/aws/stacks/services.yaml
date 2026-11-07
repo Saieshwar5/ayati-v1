@@ -45,6 +45,10 @@ Parameters:
     Type: String
     Default: ''
     Description: Comma-separated verified emails allowed to issue workspace invite codes.
+  # Optional voice-note transcription by the controller (runtime/voice-transcription.md):
+  # provider:model and that provider's OpenAI-compatible base URL, using ModelSecretArn.
+  TranscriptionModel: {Type: String, Default: '', AllowedPattern: '([a-z0-9-]+:[A-Za-z0-9./_-]+)?'}
+  TranscriptionBaseUrl: {Type: String, Default: '', AllowedPattern: '(https://[A-Za-z0-9./_-]+)?'}
   # Fargate sizes; the defaults fit one test workspace (a few people, about five agents).
   ControllerCpu: {Type: String, Default: '256', AllowedValues: ['256', '512', '1024']}
   ControllerMemory: {Type: String, Default: '512', AllowedValues: ['512', '1024', '2048']}
@@ -70,6 +74,7 @@ Parameters:
     AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/worker-control-ca-.+'
 Conditions:
   Openai: {Fn::Equals: [{Ref: ModelProvider}, openai]}
+  Transcription: {Fn::Not: [{Fn::Equals: [{Ref: TranscriptionModel}, '']}]}
 Rules:
   DeploymentTarget:
     Assertions:
@@ -287,10 +292,14 @@ Resources:
               printf '%s\n' "$WORKER_KEY" > /run/ayati/worker-key;
               printf '%s\n' "$WORKER_CERT" > /run/ayati/server.pem;
               printf '%s\n' "$WORKER_SERVER_KEY" > /run/ayati/server.key;
+              if [ -n "$MODEL_KEY" ]; then printf '%s\n' "$MODEL_KEY" > /run/ayati/model-key; fi;
+              if [ -n "$TRANSCRIPTION_PROVIDER" ]; then printf '[{"provider":"%s","base_url":"%s","key_file":"/run/ayati/model-key"}]\n' "$TRANSCRIPTION_PROVIDER" "$TRANSCRIPTION_BASE_URL"; else echo '[]'; fi > /run/ayati/model-providers.json;
               chown 10001:10001 /run/ayati/* /var/lib/ayati /tmp;
               chmod 700 /var/lib/ayati /tmp
           Environment:
             - {Name: DB_HOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
+            - Fn::If: [Transcription, {Name: TRANSCRIPTION_PROVIDER, Value: {Fn::Select: [0, {Fn::Split: [':', {Ref: TranscriptionModel}]}]}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Transcription, {Name: TRANSCRIPTION_BASE_URL, Value: {Ref: TranscriptionBaseUrl}}, {Ref: 'AWS::NoValue'}]
           Secrets:
             - Name: RUNTIME_PASSWORD
               ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}}]}
@@ -300,6 +309,7 @@ Resources:
               ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:certificate::'}
             - Name: WORKER_SERVER_KEY
               ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:private_key::'}
+            - Fn::If: [Transcription, {Name: MODEL_KEY, ValueFrom: {Ref: ModelSecretArn}}, {Ref: 'AWS::NoValue'}]
           MountPoints:
             - {SourceVolume: private, ContainerPath: /run/ayati}
             - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
@@ -344,6 +354,9 @@ Resources:
             - {Name: AYATI_ARCHIVE_S3_BUCKET, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-BucketName'}}}
             - {Name: AWS_REGION, Value: {Ref: 'AWS::Region'}}
             - {Name: AYATI_PLATFORM_ADMINS, Value: {Ref: PlatformAdmins}}
+            # The key stays in its file: the controller refuses model keys in its environment.
+            - {Name: AYATI_MODEL_PROVIDERS_FILE, Value: /run/ayati/model-providers.json}
+            - Fn::If: [Transcription, {Name: AYATI_TRANSCRIPTION_MODEL, Value: {Ref: TranscriptionModel}}, {Ref: 'AWS::NoValue'}]
           Secrets:
             - Name: WORKOS_API_KEY
               ValueFrom: {Ref: WorkosSecretArn}

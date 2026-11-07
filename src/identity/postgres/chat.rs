@@ -1,5 +1,10 @@
 use super::*;
 
+#[path = "chat_activity.rs"]
+pub(super) mod activity;
+#[cfg(test)]
+#[path = "chat_activity_tests.rs"]
+mod activity_tests;
 #[path = "front_desk.rs"]
 pub(crate) mod front_desk;
 #[cfg(test)]
@@ -365,12 +370,14 @@ pub(super) async fn chats_in(
     let hidden = super::work_rooms::hidden(tx).await?;
     // Channels also say who created them, when (from the channel_created audit
     // entry; channels made before it was recorded have no time) and which
-    // members manage them: the creator and workspace admins.
-    let chats=json_rows(tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id))
+    // members manage them: the creator and workspace admins. The list is ordered
+    // by newest activity (chat_activity.rs).
+    let chats=json_rows(tx,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'kind',c.kind,'description',c.description,'visibility',c.visibility,'announcements',c.announcements,'archived',c.archived,'archive_revision',c.archive_revision,'can_archive',(c.kind<>'direct' AND (c.creator=$2 OR $3)),'activity',x.activity,'users',(SELECT coalesce(jsonb_agg(p2.user_id),'[]'::jsonb) FROM relay_chat_people p2 WHERE p2.workspace=c.workspace AND p2.chat=c.id),'agents',(SELECT coalesce(jsonb_agg(a.agent),'[]'::jsonb) FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id))
         || CASE WHEN c.kind='direct' THEN '{{}}'::jsonb ELSE jsonb_build_object('creator',c.creator,'created_at',made.at,
            'managers',(SELECT coalesce(jsonb_agg(p3.user_id),'[]'::jsonb) FROM relay_chat_people p3 JOIN relay_members m3 ON m3.workspace=p3.workspace AND m3.user_id=p3.user_id WHERE p3.workspace=c.workspace AND p3.chat=c.id AND (m3.role='Admin' OR p3.user_id=c.creator))) END AS data
         FROM relay_chats c
+        CROSS JOIN LATERAL (SELECT {activity} AS activity) x
         LEFT JOIN (SELECT target,min(at) AS at FROM relay_audit WHERE workspace=$1 AND action='channel_created' GROUP BY target) made ON made.target=c.id
-        WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY c.sequence DESC"),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
+        WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY x.activity DESC,c.sequence DESC",activity=activity::ACTIVITY),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
     Ok(json!({"chats":chats}))
 }
