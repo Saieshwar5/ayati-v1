@@ -8,6 +8,7 @@
   --on-accent: #ffffff; --focus: #52525b; --danger: #a42f35;
   --warning: #945b10; --warning-bg: #fff3e2;
   --success: #26745c; --working: #6257cf;
+  --alert-badge: #a42f35; --on-alert-badge: #ffffff;
   --shadow: #17212b05; --shadow-deep: #17212b12; --radius: 16px;
   --workspace-shadow-color: rgb(23 33 43 / 10%);
   --workspace-shadow: 0 8px 24px var(--workspace-shadow-color);
@@ -23,6 +24,7 @@
   --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf;
   --warning: #efbc77; --warning-bg: #423222;
   --success: #85c9a7; --working: #afa5ff;
+  --alert-badge: #d13c43; --on-alert-badge: #ffffff;
   --shadow: #00000044; --shadow-deep: #00000070;
   --workspace-shadow-color: rgb(0 0 0 / 32%);
 }
@@ -36,6 +38,7 @@
     --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf;
     --warning: #efbc77; --warning-bg: #423222;
     --success: #85c9a7; --working: #afa5ff;
+    --alert-badge: #d13c43; --on-alert-badge: #ffffff;
     --shadow: #00000044; --shadow-deep: #00000070;
     --workspace-shadow-color: rgb(0 0 0 / 32%);
   }
@@ -47,7 +50,7 @@ a { color: var(--accent); }
 .workspace-shell { display: flex; height: 100dvh; padding: 12px; gap: 16px; background: var(--canvas); }
 .workspace-rail { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 8px 10px; gap: 12px; background: transparent; overflow-y: auto; }
 .workspace-rail nav { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.workspace-nav { color: var(--muted); min-height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: .6875rem; }
+.workspace-nav { position: relative; color: var(--muted); min-height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: .6875rem; }
 .workspace-nav span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .workspace-nav svg { width: 19px; height: 19px; }
 .workspace-nav:hover:not([aria-current=page]) { background: var(--selection); color: var(--text); }
@@ -56,6 +59,13 @@ a { color: var(--accent); }
 .workspace-rail :is(a, button):focus-visible { outline-offset: -3px; }
 .workspace-nav[aria-current=page]:focus-visible { outline-color: var(--on-accent); }
 .nav-settings { margin-top: auto; }
+/* Unread on Chat (D245): a red count for you at the icon's corner, or a small dot
+   for other channel messages. The ring matches the tile so the icon stays legible. */
+.workspace-nav-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--alert-badge); color: var(--on-alert-badge); box-shadow: 0 0 0 2px var(--canvas); font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.workspace-nav-badge.is-dot { top: 9px; right: 10px; min-width: 0; width: 8px; height: 8px; padding: 0; background: var(--accent); }
+.workspace-nav:hover:not([aria-current=page]) .workspace-nav-badge { box-shadow: 0 0 0 2px var(--selection); }
+.workspace-nav[aria-current=page] .workspace-nav-badge { box-shadow: 0 0 0 2px var(--accent); }
+.workspace-nav[aria-current=page] .workspace-nav-badge.is-dot { background: var(--on-accent); }
 /* The transparent border preserves content geometry while the shadow defines the edge. */
 .workspace-body { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid transparent; border-radius: 18px; background: var(--surface); box-shadow: var(--workspace-shadow); }
 #app { height: auto; flex: 1; min-height: 0; }
@@ -77,6 +87,8 @@ a { color: var(--accent); }
 @media (forced-colors: active) {
   .workspace-body { border-color: CanvasText; box-shadow: none; }
   .workspace-rail :is(a, button):focus-visible, .workspace-nav[aria-current=page]:focus-visible { outline-color: Highlight; }
+  .workspace-nav-badge { outline: 1px solid CanvasText; }
+  .workspace-nav-badge.is-dot { forced-color-adjust: none; background: CanvasText; }
 }
 
 

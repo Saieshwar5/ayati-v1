@@ -96,6 +96,15 @@ a change that can affect them (a message change from someone else, an access cha
 a reset), one read at a time; receipts and reactions on your own messages, agent pauses
 and panel access do not trigger a read.
 
+One store per page reads the counts (`web/src/react/chat/unread-counts.ts`, started by
+the workspace application), with the conversation kinds and notification levels; the
+rail, tab title, Chat list and desktop alerts share it. A workspace or account change
+clears it, and late answers for the previous one are ignored. The rail's Chat count
+(D245) is unread direct messages plus @mentions and replies to you elsewhere, each
+message once; muted conversations add nothing. If nothing counts but other channel or
+group messages are unread, a dot shows instead. The tab title carries the same count,
+"(3) Home · Cuckoo", capped at 99+.
+
 ## Verification
 
 Run after starting the isolated server:

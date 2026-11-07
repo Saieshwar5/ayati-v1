@@ -4,23 +4,21 @@
 import { storageScope, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { navigate } from '../../navigation';
 import { subscribeChanges, type Change } from './live';
-import { chatRequest, type Conversation, type Message } from './model';
+import type { Conversation, Message } from './model';
 import { loadAttention } from '../attention/model';
+import { conversationSettings, conversationsLoaded, reloadConversations, setNotifyDefaults as storeDefaults } from './unread-counts';
+// The conversations, levels and defaults are read once for the workspace by the
+// shared unread store, which also keeps them current after access changes.
+export { rememberLevel } from './unread-counts';
 
 export type Level = 'all' | 'mentions' | 'none';
 /** The person's own defaults (Settings → Preferences), stored on the server. */
 export type NotifyDefaults = { desktop_alerts: boolean; channel_level: Level; approval_alerts: boolean };
-let defaults: NotifyDefaults = { desktop_alerts: true, channel_level: 'mentions', approval_alerts: true };
-export function setNotifyDefaults(next: NotifyDefaults | { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean }) { defaults = next as NotifyDefaults; }
-export const defaultLevel = (chat: Pick<Conversation, 'kind'>): Level => chat.kind === 'direct' ? 'all' : defaults.channel_level;
+export function setNotifyDefaults(next: NotifyDefaults | { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean }) { storeDefaults(next as NotifyDefaults); }
+export const defaultLevel = (chat: Pick<Conversation, 'kind'>, defaults = conversationSettings().defaults): Level => chat.kind === 'direct' ? 'all' : defaults.channel_level;
 
-const levels = new Map<string, Level>();
-const chats = new Map<string, Conversation>();
 const alerted = new Set<string>();
 const RECENT_SECONDS = 120;
-
-/** Keep alerts in step when the person changes a level on this page. */
-export function rememberLevel(chat: string, level: Level) { levels.set(chat, level); }
 
 export const alertsSupported = () => typeof window !== 'undefined' && 'Notification' in window;
 
@@ -38,18 +36,6 @@ export function shouldAlert(message: Message, chat: Conversation | undefined, le
   return level === 'all' || Boolean(message.for_me);
 }
 
-async function load() {
-  try {
-    const [list, saved] = await Promise.all([
-      chatRequest<{ chats: Conversation[] }>('/chats'),
-      chatRequest<{ levels: Record<string, Level>; defaults?: NotifyDefaults }>('/chat-notifications'),
-    ]);
-    chats.clear(); list.chats.forEach(chat => chats.set(chat.id, chat));
-    levels.clear(); Object.entries(saved.levels).forEach(([chat, level]) => levels.set(chat, level));
-    if (saved.defaults) defaults = saved.defaults;
-  } catch { /* Without the lists no alert is shown; the next change retries. */ }
-}
-
 function viewingConversation(chat: string) {
   const url = new URL(window.location.href);
   return document.visibilityState === 'visible' && document.hasFocus()
@@ -58,12 +44,12 @@ function viewingConversation(chat: string) {
 
 async function show(change: Change) {
   const message = change.message, id = change.chat;
-  if (!defaults.desktop_alerts || !message || !id || alerted.has(message.id)) return;
+  if (!conversationSettings().defaults.desktop_alerts || !message || !id || alerted.has(message.id)) return;
   // A new conversation's first message can arrive before the list refreshes.
-  if (!chats.has(id)) await load();
+  if (!conversationSettings().chats.has(id)) await reloadConversations();
   if (alerted.has(message.id)) return;
-  const chat = chats.get(id);
-  const level = levels.get(id) ?? (chat ? defaultLevel(chat) : 'none');
+  const { chats, levels } = conversationSettings(), chat = chats.get(id);
+  const level = levels[id] ?? (chat ? defaultLevel(chat) : 'none');
   if (!shouldAlert(message, chat, level, viewingConversation(id))) return;
   alerted.add(message.id);
   const author = message.name ?? 'Someone';
@@ -76,6 +62,7 @@ async function show(change: Change) {
 /** Approvals the person may decide that they have already been told about. */
 const knownApprovals = new Set<string>();
 async function approvals(silent: boolean) {
+  const { defaults } = conversationSettings();
   if (!defaults.desktop_alerts || !defaults.approval_alerts) return;
   try {
     const page = await loadAttention('needs_you', null);
@@ -89,21 +76,18 @@ async function approvals(silent: boolean) {
   } catch { /* The next approval change retries. */ }
 }
 
-/** Started once for the workspace; returns its cleanup. */
+/** Started once for the workspace, after the unread store; returns its cleanup. */
 export function startDesktopAlerts() {
   if (!alertsSupported() || !workspaceSession?.user) return;
-  let stopped = false, reload: number | undefined, approval: number | undefined;
+  let stopped = false, approval: number | undefined;
   // Approvals already waiting when the page opens are not announced again.
-  void load().then(() => approvals(true));
+  void conversationsLoaded().then(() => { if (!stopped) void approvals(true); });
   const unsubscribe = subscribeChanges(change => {
-    if (stopped) return;
-    if (change.kind === 'access' || change.kind === 'reset') { window.clearTimeout(reload); reload = window.setTimeout(() => void load(), 500); return; }
-    if (change.kind === 'message' && Notification.permission === 'granted') {
-      void show(change);
-      if (change.message?.progress?.state === 'approval') { window.clearTimeout(approval); approval = window.setTimeout(() => void approvals(false), 800); }
-    }
+    if (stopped || change.kind !== 'message' || Notification.permission !== 'granted') return;
+    void show(change);
+    if (change.message?.progress?.state === 'approval') { window.clearTimeout(approval); approval = window.setTimeout(() => void approvals(false), 800); }
   });
-  return () => { stopped = true; unsubscribe(); window.clearTimeout(reload); window.clearTimeout(approval); };
+  return () => { stopped = true; unsubscribe(); window.clearTimeout(approval); };
 }
 
 const dismissedKey = () => storageScope('chat.alerts-prompt-dismissed');

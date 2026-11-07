@@ -15,7 +15,7 @@ const note = (id, author) => ({ id, chat: 'orders', author, name: author, kind: 
 const pause = () => act(() => new Promise(resolve => setTimeout(resolve, 650)));
 
 test('unread counts are read again only for changes that can alter them, one read at a time', async () => {
-  let stream, stopLive, cursor = 1, count = 2, hold = false;
+  let stream, stopLive, stopUnread, cursor = 1, count = 2, hold = false;
   const reads = [], held = [];
   const original = globalThis.EventSource;
   globalThis.EventSource = class { constructor() { this.listeners = new Map(); stream = this; } addEventListener(name, fn) { this.listeners.set(name, fn); } close() {} };
@@ -24,8 +24,10 @@ test('unread counts are read again only for changes that can alter them, one rea
       try {
         await (await import('../src/workspace-context.ts')).enterWorkspace();
         const { startLive } = await import('../src/react/chat/live.ts');
+        const { startUnreadCounts } = await import('../src/react/chat/unread-counts.ts');
         const { WorkspaceChat } = await import('../src/react/chat/workspace-chat.tsx');
-        await update(() => { stopLive = startLive(); });
+        // The workspace application starts the live stream and the one unread store.
+        await update(() => { stopLive = startLive(); stopUnread = startUnreadCounts(); });
         await render(WorkspaceChat, { href: url });
         const emit = events => update(() => stream.listeners.get('changes')({ data: JSON.stringify({ cursor: ++cursor, events }) }));
         const badge = () => document.querySelector('.chat-unread')?.textContent;
@@ -58,7 +60,7 @@ test('unread counts are read again only for changes that can alter them, one rea
         assert.equal(reads.length, before + 3, 'then reads once more');
         assert.equal(badge(), '5');
       } finally {
-        await update(() => { stopLive?.(); stopLive = undefined; });
+        await update(() => { stopUnread?.(); stopLive?.(); stopLive = stopUnread = undefined; });
       }
     }, { url, fetch: async path => {
       if (path.endsWith('/session')) return response(session);
