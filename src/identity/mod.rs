@@ -25,6 +25,7 @@ mod library;
 mod login_state;
 mod member_profiles;
 mod metrics;
+pub(crate) mod models;
 pub mod operator;
 mod pictures;
 pub mod postgres;
@@ -243,6 +244,7 @@ fn router(app: Shared) -> Router {
         .merge(interactions::routes())
         .merge(library::routes())
         .merge(built_apps::routes())
+        .merge(models::routes())
         .merge(collaboration::routes())
         .merge(communications::routes())
         .merge(simulation::routes())

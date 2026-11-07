@@ -44,8 +44,8 @@ Main product contracts:
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:
-  workspaces, model providers and keys, routing with backups, spend and caps, platform
-  settings and one change log.
+  workspaces and suspension, provider keys and the emergency switch, the model catalog
+  live, spend and margin, platform settings and one change log.
 
 ## Run locally
 

@@ -74,6 +74,7 @@ for migrations, API and workers in a release.
 | `WORKOS_CLIENT_ID`, `WORKOS_API_KEY` | API only; configure the exact public `/auth/callback` URL in WorkOS |
 | `AYATI_WORKER_PROVIDERS` | API declaration of executor providers, `openai` and/or `fireworks-ai`, comma separated |
 | `AYATI_MODEL`, `AYATI_GOOSE_PROVIDER` | Operator-tested default model/provider; executors need matching credentials |
+| `AYATI_MODEL_CATALOG_FILE` | Optional [model catalog](model-catalog.md): the models people choose and the provider routes that serve them; needs `AYATI_MODEL_PROVIDERS_FILE` |
 | `AYATI_EXECUTOR_SLOTS` | Prepared Goose sessions per executor, 1–16, default 2 |
 | `CUCKOO_LIBRARY_S3_BUCKET`, `AWS_REGION` | Optional private bucket; ambient cloud credentials or scoped runtime secrets |
 | `CUCKOO_LIBRARY_S3_ENDPOINT` | Optional HTTPS S3-compatible endpoint |

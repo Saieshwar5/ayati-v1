@@ -1,46 +1,31 @@
-//! Which provider and model serve a model request (schema 87, Cuckoo Control).
+//! What Cuckoo Control adds to the model gateway (schema 91). The catalog's
+//! router (`identity::models::router`) still orders routes and rests failing
+//! providers; before a call this module:
 //!
-//! Before any call: a suspended workspace, a workspace over its monthly cap or a
-//! platform over its daily ceiling is refused. Then the requested model's route
-//! (if an operator set one) gives the main target and an optional backup, in an
-//! order chosen by the split; without a route the assignment's own provider and
-//! model are used, as before. Targets whose provider is switched off, or whose
-//! model the catalog blocks, are skipped.
+//! - refuses a suspended workspace, or any call once the platform has reached
+//!   its daily ceiling (`platform.daily_ceiling_usd`, on provider cost);
+//! - drops routes whose provider an operator switched off;
+//! - finds each provider's key: a provider added in the console (sealed with
+//!   `AYATI_SECRETS_KEY_FILE`), else the deployment's providers file.
 use super::super::postgres::{
     PgStore,
-    operator::{models::Route, providers::FileProvider, spend},
+    operator::{providers::FileProvider, spend},
 };
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// Spend limits are checked against totals at most this old, so one busy
-/// workspace does not sum its month on every call.
+/// The ceiling is checked against totals at most this old, so a busy platform
+/// does not sum the day's cost on every call.
 const LIMIT_CACHE: Duration = Duration::from_secs(15);
-
-pub(crate) struct Target {
-    pub provider: String,
-    pub model: String,
-    pub base_url: String,
-    pub key: String,
-}
-
-pub(crate) struct Plan {
-    pub targets: Vec<Target>,
-    /// How long to wait for a target to start answering before the next one.
-    pub timeout: Duration,
-    pub routed: bool,
-}
-
-/// A request Cuckoo will not send; the message is shown to the agent's user.
-pub(crate) struct Refused(pub String);
 
 /// Per workspace: when the limits were checked, and the refusal if any.
 type LimitCache = HashMap<String, (Instant, Option<String>)>;
 static LIMITS: Mutex<Option<LimitCache>> = Mutex::new(None);
 
-async fn limit_refusal(store: &PgStore, workspace: &str) -> Result<Option<String>> {
+/// Why Cuckoo will not send this workspace's next model call, if it won't.
+pub(crate) async fn refusal(store: &PgStore, workspace: &str) -> Result<Option<String>> {
     if let Some((at, refusal)) = LIMITS
         .lock()
         .unwrap()
@@ -66,119 +51,53 @@ pub(crate) fn forget_limits() {
     LIMITS.lock().unwrap().take();
 }
 
-/// Splits by request: every call in one request goes the same way, so one
-/// answer does not change model halfway.
-pub(super) fn main_first(sticky: &str, main_percent: i32) -> bool {
-    // FNV-1a: stable across processes and releases, unlike the std hasher.
-    let hash = sticky.bytes().fold(0xcbf29ce484222325u64, |h, b| {
-        (h ^ b as u64).wrapping_mul(0x100000001b3)
-    });
-    (hash % 100) < main_percent as u64
-}
-
-/// The (provider, model) pairs to try, in order, before switches and the catalog.
-pub(super) fn order(
-    route: Option<&Route>,
-    provider: &str,
-    model: &str,
-    sticky: &str,
-) -> Vec<(String, String)> {
-    match route {
-        None => vec![(provider.to_owned(), model.to_owned())],
-        Some(route) => {
-            let main = (route.main.provider.clone(), route.main.model.clone());
-            match &route.second {
-                None => vec![main],
-                Some(second) => {
-                    let second = (second.provider.clone(), second.model.clone());
-                    if main_first(sticky, route.main_percent) {
-                        vec![main, second]
-                    } else {
-                        vec![second, main]
-                    }
+/// The routes whose provider is on, in their order, and the operator's note for
+/// each switched-off provider that was skipped.
+pub(crate) async fn switched_on<T>(
+    store: &PgStore,
+    routes: Vec<(String, T)>,
+) -> Result<(Vec<(String, T)>, Vec<String>)> {
+    let (mut on, mut skipped) = (Vec::new(), Vec::new());
+    for (provider, route) in routes {
+        match store.model_provider_off(&provider).await? {
+            Some(note) => {
+                let note = format!("Cuckoo paused {provider}: {note}");
+                if !skipped.contains(&note) {
+                    skipped.push(note);
                 }
             }
+            None => on.push((provider, route)),
         }
     }
+    Ok((on, skipped))
 }
 
-pub(crate) async fn plan(
+/// A provider's address and key. A key kept in Cuckoo Control wins over the
+/// providers file's key file; the address comes from the console provider, or
+/// from the providers file.
+pub(crate) async fn credentials(
     app: &super::super::App,
-    workspace: &str,
     provider: &str,
-    model: &str,
-    sticky: &str,
-) -> Result<std::result::Result<Plan, Refused>> {
-    let store = &app.store;
-    if let Some(refusal) = limit_refusal(store, workspace).await? {
-        return Ok(Err(Refused(refusal)));
-    }
-    let route = store.model_route(model).await?;
-    let mut targets = Vec::new();
-    let mut skipped = Vec::new();
-    for (provider, model) in order(route.as_ref(), provider, model, sticky) {
-        if let Some(note) = store.model_provider_off(&provider).await? {
-            skipped.push(format!("Cuckoo paused {provider}: {note}"));
-            continue;
-        }
-        if store.model_blocked(&provider, &model).await? {
-            skipped.push(format!("{model} is not available on Cuckoo"));
-            continue;
-        }
-        match credentials(app, &provider).await {
-            Ok((base_url, key)) => targets.push(Target {
-                provider,
-                model,
-                base_url,
-                key,
-            }),
-            Err(error) => {
-                // The provider name only: credential errors never carry key text.
-                tracing::warn!(
-                    provider,
-                    error = format!("{error:#}"),
-                    "Model provider unavailable"
-                );
-                skipped.push(format!("{provider} is not set up"));
-            }
-        }
-    }
-    if targets.is_empty() {
-        let reason = skipped.join("; ");
-        return Ok(Err(Refused(if reason.is_empty() {
-            "No model provider is available".into()
-        } else {
-            reason
-        })));
-    }
-    Ok(Ok(Plan {
-        timeout: Duration::from_secs(
-            route
-                .as_ref()
-                .map(|r| r.timeout_seconds as u64)
-                .unwrap_or(600),
-        ),
-        routed: route.is_some(),
-        targets,
-    }))
-}
-
-/// A console provider's sealed key, else the deployment's providers file.
-async fn credentials(app: &super::super::App, provider: &str) -> Result<(String, String)> {
+) -> Result<(String, String)> {
+    let file = app.config.model_providers_file.as_deref();
     if let Some(stored) = app.store.model_provider_stored(provider).await? {
         let sealer = app
             .config
             .secrets_key_file
             .as_deref()
             .map(super::super::secrets::Sealer::new)
-            .context("AYATI_SECRETS_KEY_FILE is needed to use providers added in Cuckoo Control")?;
-        return Ok((stored.base_url, sealer.open(provider, &stored.sealed)?));
+            .context("AYATI_SECRETS_KEY_FILE is needed for keys kept in Cuckoo Control")?;
+        let base = match stored.base_url {
+            Some(base) => base,
+            None => {
+                let file =
+                    file.with_context(|| format!("No model provider {provider} is configured"))?;
+                super::model_gateway::provider_entry(file, provider)?.0
+            }
+        };
+        return Ok((base, sealer.open(provider, &stored.sealed)?));
     }
-    let file = app
-        .config
-        .model_providers_file
-        .as_deref()
-        .context("The model gateway has no providers file")?;
+    let file = file.with_context(|| format!("No model provider {provider} is configured"))?;
     super::model_gateway::provider(file, provider)
 }
 
@@ -200,60 +119,4 @@ pub(crate) fn file_providers(file: Option<&std::path::Path>) -> Vec<FileProvider
             base_url: e.base_url,
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::identity::postgres::operator::models::Target as RouteTarget;
-
-    fn route(main_percent: i32) -> Route {
-        Route {
-            model: "kimi-k2".into(),
-            main: RouteTarget {
-                provider: "fireworks".into(),
-                model: "accounts/fireworks/models/kimi-k2".into(),
-            },
-            second: Some(RouteTarget {
-                provider: "openai".into(),
-                model: "gpt-5-mini".into(),
-            }),
-            main_percent,
-            timeout_seconds: 30,
-        }
-    }
-
-    #[test]
-    fn without_a_route_the_assignment_model_is_used() {
-        assert_eq!(
-            order(None, "openai", "m1", "job"),
-            vec![("openai".into(), "m1".into())]
-        );
-    }
-
-    #[test]
-    fn the_split_is_stable_per_request_and_close_to_the_percentage() {
-        let r = route(90);
-        assert_eq!(
-            order(Some(&r), "x", "kimi-k2", "job-1"),
-            order(Some(&r), "x", "kimi-k2", "job-1")
-        );
-        let main = (0..10_000)
-            .filter(|i| main_first(&format!("job-{i}"), 90))
-            .count();
-        assert!((8_700..=9_300).contains(&main), "{main}");
-        // Whichever goes first, the other is the backup.
-        for i in 0..50 {
-            let o = order(Some(&r), "x", "kimi-k2", &format!("job-{i}"));
-            assert_eq!(o.len(), 2);
-            assert_ne!(o[0], o[1]);
-        }
-        assert!(
-            (0..100)
-                .all(|i| order(Some(&route(100)), "x", "k", &i.to_string())[0].0 == "fireworks")
-        );
-        assert!(
-            (0..100).all(|i| order(Some(&route(0)), "x", "k", &i.to_string())[0].0 == "openai")
-        );
-    }
 }

@@ -6,18 +6,23 @@ import { loadSettings } from './workspace-model';
 import { WorkspaceRules } from './workspace-rules';
 import { WorkspaceDeletion } from './workspace-deletion';
 import { PauseAgentsControl } from '../activity/agents-pause';
+import { loadCatalog } from '../agents/catalog-model';
 
 /** Settings → Workspace (designs/settings 4): name, rules and the danger zone. */
 export function WorkspaceGeneral({ renamed }: { renamed: (name: string) => void }) {
   const resource = useResource(loadSettings);
+  // Loaded alongside the settings; without it the model list keeps naming providers.
+  const catalog = useResource(loadCatalog);
   const data = resource.data;
+  const catalogSettled = Boolean(catalog.data || catalog.error);
   return <section className="settings-workspace"><header className="settings-section-heading"><div><h2>Workspace</h2>
     <p>Name, look and rules for the whole workspace.</p></div><span className="ui-badge">Admins only</span></header>
     {resource.error && <p role="alert">{resource.error}</p>}
     {!data && !resource.error && <p role="status">Loading workspace…</p>}
     {data && <>
       <GeneralForm initial={data.name} renamed={renamed} />
-      <WorkspaceRules initial={data} saved={next => resource.setData(next)} />
+      {catalogSettled ? <WorkspaceRules initial={data} catalog={catalog.data?.catalog_on ? catalog.data : undefined} saved={next => resource.setData(next)} />
+        : <p role="status">Loading models…</p>}
       <section className="settings-pause" aria-label="Pause all agents">
         <div><h3>Pause all agents</h3><p>If an agent is doing something wrong, stop every agent at once. Resume when it’s fixed.</p></div>
         <PauseAgentsControl />

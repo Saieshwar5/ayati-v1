@@ -4,7 +4,6 @@
 use super::*;
 
 pub(crate) const SIGNUP_PAUSED: &str = "signup.paused";
-pub(crate) const DEFAULT_CAP: &str = "workspace.default_cap_usd";
 pub(crate) const DAILY_CEILING: &str = "platform.daily_ceiling_usd";
 
 struct Definition {
@@ -21,12 +20,6 @@ const DEFINITIONS: &[Definition] = &[
         about: "Stop new workspaces, even with an invite code. Existing workspaces keep working; operators can still create one.",
         kind: "bool",
         default: || json!(false),
-    },
-    Definition {
-        key: DEFAULT_CAP,
-        about: "Monthly model spend limit for workspaces without their own cap. New agent work stops at the limit; empty means no limit.",
-        kind: "usd",
-        default: || Value::Null,
     },
     Definition {
         key: DAILY_CEILING,

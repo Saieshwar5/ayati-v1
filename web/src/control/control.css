@@ -111,7 +111,7 @@ textarea.cc-input, .cc-field textarea { padding: 8px 10px; min-height: 56px; res
 .cc-chart { padding: 14px; } .cc-chart svg { display: block; width: 100%; height: 160px; }
 .cc-gridline { stroke: var(--cc-line-soft); } .cc-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; }
 .cc-bars { display: flex; align-items: flex-end; gap: 3px; height: 160px; padding: 14px; }
-.cc-bars span { flex: 1; min-width: 2px; background: var(--cc-accent); border-radius: 2px 2px 0 0; opacity: 0.85; } .cc-bars span:last-child { opacity: 1; background: #c4ccff; }
+.cc-bars > span { flex: 1; min-width: 2px; border-radius: 2px 2px 0 0; }
 
 .cc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cc-table th { padding: 9px 14px; border-bottom: 1px solid var(--cc-line); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cc-dim); text-align: left; white-space: nowrap; }
@@ -174,3 +174,9 @@ pre.cc-mono { white-space: pre-wrap; padding: 8px; background: var(--cc-canvas);
   .cc-side a { white-space: nowrap; } .cc-main { padding: 14px 12px 100px; }
   .cc-log li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }
+
+/* Spend: charged and cost side by side per day. */
+.cc-dot.cc-charge, .cc-bar-pair .cc-charge { background: var(--cc-accent); }
+.cc-dot.cc-cost, .cc-bar-pair .cc-cost { background: #f0883e; }
+.cc-bars-pair .cc-bar-pair { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 100%; background: none; opacity: 1; }
+.cc-bars-pair .cc-bar-pair span { flex: 1; min-width: 1px; border-radius: 2px 2px 0 0; }

@@ -1,13 +1,11 @@
 //! `ayati admin`: the same actions as the Cuckoo Control web console, from a
 //! terminal, with the same change log (marked "cli"). Lists print a short table;
-//! `--json` prints the full answer for scripts.
+//! `--json` prints the full answer for scripts. Models, routes and prices live in
+//! the reviewed model catalog file (runtime/model-catalog.md); `models` shows them.
+use super::super::models::catalog::Files;
 use super::super::postgres::{
     PgStore,
-    operator::{
-        Operator, Via,
-        models::{Route, Target},
-        providers,
-    },
+    operator::{Operator, Via},
 };
 use super::Deps;
 use super::cli_args::Args;
@@ -21,16 +19,12 @@ const HELP: &str = "Cuckoo Control from a terminal. Acts as AYATI_OPERATOR (or -
   ayati admin workspace show ID
   ayati admin workspace suspend ID --reason TEXT
   ayati admin workspace resume ID --reason TEXT
-  ayati admin workspace cap ID (DOLLARS|default) --reason TEXT
   ayati admin providers
-  ayati admin provider add NAME --url URL --reason TEXT     (reads the API key from stdin)
-  ayati admin provider rotate-key NAME --reason TEXT        (reads the API key from stdin)
+  ayati admin provider key NAME --reason TEXT               (reads the API key from stdin)
+  ayati admin provider add NAME --url URL --reason TEXT     (a provider outside the providers file; key from stdin)
   ayati admin provider (off|on) NAME --reason TEXT
   ayati admin provider remove NAME --reason TEXT
-  ayati admin model set PROVIDER MODEL --input $/1M --output $/1M [--blocked] --reason TEXT
-  ayati admin routes
-  ayati admin route set MODEL --main PROVIDER:MODEL [--second PROVIDER:MODEL] [--split 90] [--timeout 30] --reason TEXT
-  ayati admin route remove MODEL --reason TEXT
+  ayati admin models [--hours 24]                           (catalog routes, traffic, failures and margin)
   ayati admin spend [--days 30]
   ayati admin settings
   ayati admin setting set KEY VALUE --reason TEXT
@@ -51,10 +45,16 @@ pub async fn run(raw: &[String]) -> Result<()> {
     let config = crate::config::Admin::from_env()?;
     let store = PgStore::connect(&config.database_url).await?;
     store.verify_schema().await?;
+    let catalog = config
+        .model_catalog_file
+        .clone()
+        .zip(config.model_providers_file.clone())
+        .map(|(catalog, providers)| Files { catalog, providers });
     let deps = Deps {
         store: &store,
         providers_file: config.model_providers_file.as_deref(),
         secrets_key_file: config.secrets_key_file.as_deref(),
+        catalog: catalog.as_ref(),
     };
     let email = args
         .option("as")
@@ -87,16 +87,6 @@ fn reason(args: &Args) -> Result<String> {
     super::super::postgres::operator::reason(args.required("reason")?)
 }
 
-fn target(text: &str) -> Result<Target> {
-    let (provider, model) = text
-        .split_once(':')
-        .context("Write targets as PROVIDER:MODEL")?;
-    Ok(Target {
-        provider: provider.trim().into(),
-        model: model.trim().into(),
-    })
-}
-
 fn read_key() -> Result<String> {
     eprintln!("Paste the API key, then press Enter (it is not shown again):");
     let mut key = String::new();
@@ -104,11 +94,12 @@ fn read_key() -> Result<String> {
     Ok(key.trim().to_owned())
 }
 
-fn number(text: &str, what: &str) -> Result<f64> {
-    text.trim()
-        .trim_start_matches('$')
-        .parse()
-        .with_context(|| format!("Use a number for {what}"))
+fn number<T: std::str::FromStr>(args: &Args, name: &str, default: T) -> Result<T> {
+    args.option(name)
+        .map(str::parse)
+        .transpose()
+        .map_err(|_| anyhow::anyhow!("Use a number for --{name}"))
+        .map(|v| v.unwrap_or(default))
 }
 
 async fn command(deps: &Deps<'_>, by: &Operator, args: &Args, words: &[&str]) -> Result<Value> {
@@ -133,28 +124,18 @@ async fn command(deps: &Deps<'_>, by: &Operator, args: &Args, words: &[&str]) ->
             store.operator_resume(by, id, &reason(args)?).await?;
             store.operator_workspace(id).await?
         }
-        ["workspace", "cap", id, amount] => {
-            args.only(&["reason"])?;
-            let cap = if *amount == "default" {
-                None
-            } else {
-                Some(number(amount, "the cap")?)
-            };
-            store.operator_set_cap(by, id, cap, &reason(args)?).await?;
-            store.operator_workspace(id).await?
-        }
         ["providers"] => deps.providers().await?,
+        ["provider", "key", name] => {
+            args.only(&["reason"])?;
+            let why = reason(args)?;
+            deps.store_key(by, name, &read_key()?, &why).await?;
+            deps.providers().await?
+        }
         ["provider", "add", name] => {
             args.only(&["url", "reason"])?;
             let why = reason(args)?;
             deps.add_provider(by, name, args.required("url")?, &read_key()?, &why)
                 .await?;
-            deps.providers().await?
-        }
-        ["provider", "rotate-key", name] => {
-            args.only(&["reason"])?;
-            let why = reason(args)?;
-            deps.rotate_key(by, name, &read_key()?, &why).await?;
             deps.providers().await?
         }
         ["provider", state @ ("on" | "off"), name] => {
@@ -165,72 +146,28 @@ async fn command(deps: &Deps<'_>, by: &Operator, args: &Args, words: &[&str]) ->
         }
         ["provider", "remove", name] => {
             args.only(&["reason"])?;
-            store
-                .operator_remove_provider(by, &providers::name(name)?, &reason(args)?)
-                .await?;
+            deps.remove_provider(by, name, &reason(args)?).await?;
             deps.providers().await?
         }
-        ["model", "set", provider, model] => {
-            args.only(&["input", "output", "blocked", "reason"])?;
-            let provider = providers::name(provider)?;
-            let model = super::super::postgres::operator::models::model_name(model)?;
-            store
-                .operator_set_model(
-                    by,
-                    &provider,
-                    &model,
-                    !args.switch("blocked"),
-                    number(args.required("input")?, "--input")?,
-                    number(args.required("output")?, "--output")?,
-                    &reason(args)?,
-                )
+        ["models"] => {
+            args.only(&["hours"])?;
+            let hours: i64 = number(args, "hours", 24)?;
+            ensure!((1..=24 * 31).contains(&hours), "Choose 1 hour to 31 days");
+            let mut report = store
+                .model_operations(super::super::user::now() * 1000 - hours * 3_600_000)
                 .await?;
-            deps.providers().await?
-        }
-        ["routes"] => store.operator_routes().await?,
-        ["route", "set", model] => {
-            args.only(&["main", "second", "split", "timeout", "reason"])?;
-            let second = args.option("second").map(target).transpose()?;
-            let split = match args.option("split") {
-                Some(split) => split
-                    .trim_end_matches('%')
-                    .parse()
-                    .context("Use --split 90 for 90% on the main model")?,
-                None => 100,
+            report["catalog"] = match deps.catalog.map(Files::load) {
+                None => json!({"on": false, "models": []}),
+                Some(Err(error)) => {
+                    json!({"on": true, "error": format!("{error:#}"), "models": []})
+                }
+                Some(Ok(catalog)) => json!({"on": true, "models": catalog.models}),
             };
-            let route = Route {
-                model: (*model).into(),
-                main: target(args.required("main")?)?,
-                second,
-                main_percent: split,
-                timeout_seconds: args
-                    .option("timeout")
-                    .map(str::parse)
-                    .transpose()
-                    .context("Use --timeout SECONDS")?
-                    .unwrap_or(30),
-            };
-            deps.set_route(by, &route, &reason(args)?).await?;
-            store.operator_routes().await?
-        }
-        ["route", "remove", model] => {
-            args.only(&["reason"])?;
-            store
-                .operator_remove_route(by, model, &reason(args)?)
-                .await?;
-            store.operator_routes().await?
+            report
         }
         ["spend"] => {
             args.only(&["days"])?;
-            store
-                .operator_spend(
-                    args.option("days")
-                        .map(str::parse)
-                        .transpose()
-                        .context("Use --days N")?
-                        .unwrap_or(30),
-                )
-                .await?
+            store.operator_spend(number(args, "days", 30)?).await?
         }
         ["settings"] => store.operator_settings().await?,
         ["setting", "set", key, value] => {
@@ -244,12 +181,7 @@ async fn command(deps: &Deps<'_>, by: &Operator, args: &Args, words: &[&str]) ->
         ["code", "issue"] => {
             args.only(&["for", "days"])?;
             let note = args.required("for")?;
-            let days = args
-                .option("days")
-                .map(str::parse)
-                .transpose()
-                .context("Use --days N")?
-                .unwrap_or(14);
+            let days: i64 = number(args, "days", 14)?;
             let issued = store.issue_workspace_code(&by.user, note, days).await?;
             store
                 .operator_record(
@@ -336,7 +268,7 @@ fn print_human(words: &[&str], answer: &Value) {
         Some("workspaces") => {
             println!(
                 "{:<38} {:<28} {:>6} {:>6} {:>10} {:>10}  STATUS",
-                "ID", "NAME", "PEOPLE", "AGENTS", "SPEND", "CAP"
+                "ID", "NAME", "PEOPLE", "AGENTS", "CHARGED", "BUDGET"
             );
             for w in rows("workspaces") {
                 println!(
@@ -345,8 +277,8 @@ fn print_human(words: &[&str], answer: &Value) {
                     text(&w["name"]).chars().take(28).collect::<String>(),
                     text(&w["people"]),
                     text(&w["agents"]),
-                    money(&w["spend"]),
-                    money(&w["cap"]),
+                    money(&w["charge"]),
+                    money(&w["budget"]),
                     text(&w["status"])
                 );
             }
@@ -356,53 +288,55 @@ fn print_human(words: &[&str], answer: &Value) {
                 text(&answer["total"])
             );
         }
-        Some("providers" | "provider" | "model") => {
+        Some("providers" | "provider") => {
             for p in rows("providers") {
                 let health = &p["health"];
+                let key = if p["key_in_console"] == true {
+                    format!("key …{} in console", text(&p["key_hint"]))
+                } else {
+                    "key file".into()
+                };
                 println!(
-                    "{:<16} {:<5} {:<10} {}  calls/h {} errors {} p95 {} ms",
+                    "{:<16} {:<4} {:<10} {:<22} {}  calls/h {} failed {} p95 {} ms",
                     text(&p["name"]),
                     if p["enabled"] == true { "on" } else { "OFF" },
                     text(&p["source"]),
+                    key,
                     text(&p["base_url"]),
                     text(&health["calls"]),
                     text(&health["errors"]),
                     text(&health["p95_ms"])
                 );
-                for m in p["models"].as_array().into_iter().flatten() {
+                for r in p["routes"].as_array().into_iter().flatten() {
                     println!(
-                        "    {} {:<40} in {} out {} per 1M",
-                        if m["enabled"] == true { "✓" } else { "✗" },
-                        text(&m["model"]),
-                        money(&m["input_per_mtok"]),
-                        money(&m["output_per_mtok"])
+                        "    serves {:<28} as {} (priority {})",
+                        text(&r["model"]),
+                        text(&r["provider_model"]),
+                        text(&r["priority"])
                     );
                 }
             }
         }
-        Some("routes" | "route") => {
-            for r in rows("routes") {
-                let second = if r["second_provider"].is_null() {
-                    "no backup".into()
-                } else {
-                    format!(
-                        "{}:{}",
-                        text(&r["second_provider"]),
-                        text(&r["second_model"])
-                    )
-                };
+        Some("models") => {
+            for p in rows("providers") {
                 println!(
-                    "{:<32} {}% {}:{}  then {}  (timeout {} s)",
-                    text(&r["model"]),
-                    text(&r["main_percent"]),
-                    text(&r["main_provider"]),
-                    text(&r["main_model"]),
-                    second,
-                    text(&r["timeout_seconds"])
+                    "{:<16} calls {:>7}  after fallback {:>5}  p95 {:>6} ms  charged {}  cost {}  margin {}",
+                    text(&p["key"]),
+                    text(&p["calls"]),
+                    text(&p["after_fallback"]),
+                    text(&p["latency_p95_ms"]),
+                    money(&p["charge_usd"]),
+                    money(&p["cost_usd"]),
+                    money(&p["margin_usd"])
                 );
             }
-            if rows("routes").is_empty() {
-                println!("No routes: every agent uses its own provider and model.");
+            for f in rows("failures") {
+                println!(
+                    "  failure {:<14} status {:>3} × {}",
+                    text(&f["provider"]),
+                    text(&f["status"]),
+                    text(&f["count"])
+                );
             }
         }
         Some("log") => {
@@ -419,27 +353,34 @@ fn print_human(words: &[&str], answer: &Value) {
             }
         }
         Some("spend") => {
+            let (m, t, f) = (&answer["month"], &answer["today"], &answer["forecast"]);
             println!(
-                "This month {}  today {}  forecast {}",
-                money(&answer["month"]),
-                money(&answer["today"]),
-                money(&answer["forecast"])
+                "This month charged {} cost {} margin {}  ·  today charged {} cost {}  ·  forecast charged {} cost {}",
+                money(&m["charge"]),
+                money(&m["cost"]),
+                money(&m["margin"]),
+                money(&t["charge"]),
+                money(&t["cost"]),
+                money(&f["charge"]),
+                money(&f["cost"])
             );
             for m in rows("by_model") {
                 println!(
-                    "  {:<12} {:<40} calls {:>7}  {}",
-                    text(&m["provider"]),
+                    "  {:<40} calls {:>7}  charged {}  cost {}",
                     text(&m["model"]),
                     text(&m["calls"]),
+                    money(&m["charge"]),
                     money(&m["cost"])
                 );
             }
         }
-        Some("code") if answer.get("code").is_some() => println!(
-            "Code for {}: {}  (shown once)",
-            text(&answer["note"]),
-            text(&answer["code"])
-        ),
+        Some("code") if answer.get("code").is_some() => {
+            println!(
+                "Code for {}: {}  (shown once)",
+                text(&answer["note"]),
+                text(&answer["code"])
+            )
+        }
         _ => println!(
             "{}",
             serde_json::to_string_pretty(answer).unwrap_or_default()

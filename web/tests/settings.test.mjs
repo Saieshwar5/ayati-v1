@@ -39,7 +39,7 @@ const page=()=>document.querySelector('.settings-detail h2')?.textContent;
 
 test('Members see their own pages and This workspace, and never read admin data',async()=>{
   await fixture('Member',async({render,reads,change})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace','Company rules']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace','Company rules','Usage']]]);
     assert.equal(page(),'Profile');
     assert.match(document.querySelector('.settings-heading p').textContent,/Northstar · Member/);
     await render(base+'&scope=workspace&section=people');
@@ -94,13 +94,15 @@ test('A refused leave keeps the dialog open with the reason',async()=>{
   } finally { refuseLeave=false; }
 });
 
-test('Admins see the workspace pages; Usage and Billing are marked as coming later',async()=>{
-  await fixture('Admin',async({render,click,dom})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Company rules','UsageComing later','BillingComing later','Audit log']]]);
+test('Admins see the workspace pages and Usage; Billing is marked as coming later',async()=>{
+  await fixture('Admin',async({render,click,dom,reads})=>{
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Company rules','Usage','BillingComing later','Audit log']]]);
     await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
     assert.match(dom.window.location.search,/view=settings&section=people/);
     await render(base+'&section=usage');
-    assert.match(page(),/Usage/); assert.match(document.querySelector('.settings-detail').textContent,/not built yet/);
+    assert.match(page(),/Usage/); assert.ok(reads.some(path=>path.includes('/usage?days=30')));
+    await render(base+'&section=billing');
+    assert.match(document.querySelector('.settings-detail').textContent,/not built yet/);
   });
 });
 

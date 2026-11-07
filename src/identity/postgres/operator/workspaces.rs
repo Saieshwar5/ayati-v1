@@ -9,7 +9,9 @@ const STOPPED: &str = "Stopped because Cuckoo suspended the workspace.";
 const NOT_SENT: &str = "Cuckoo suspended the workspace; no pending operation was dispatched.";
 
 /// Columns shared by the list and the detail view. `$1` is the month start in
-/// milliseconds, `$2` the default cap in micro-dollars (or NULL).
+/// milliseconds (UTC) and `$2` the start of the 7-day window. Charges and costs are
+/// the gateway's per-call figures (schema 88); the budget is the workspace's own
+/// monthly model budget (schema 89), set by its admins.
 const SUMMARY: &str = "'id',w.id,'name',w.name,
   'created_ms',(SELECT min(a.at)*1000 FROM relay_audit a WHERE a.workspace=w.id AND a.action='workspace_created'),
   'owner',(SELECT u.email FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=w.id
@@ -17,14 +19,15 @@ const SUMMARY: &str = "'id',w.id,'name',w.name,
   'people',(SELECT count(*) FROM relay_members m WHERE m.workspace=w.id),
   'agents',(SELECT count(*) FROM relay_shared_agents a WHERE a.workspace=w.id),
   'running',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=w.id AND j.state<>'finished'),
-  'spend',(SELECT COALESCE(sum(u.cost_micros),0) FROM relay_model_usage u WHERE u.workspace=w.id AND u.at_ms>=$1)/1000000.0,
-  'cap',COALESCE((to_jsonb(w)->>'spend_cap_micros')::bigint,$2::bigint)/1000000.0,
-  'own_cap',to_jsonb(w)->>'spend_cap_micros' IS NOT NULL,
+  'charge',(SELECT COALESCE(sum(u.charge_micro),0) FROM relay_model_usage u WHERE u.workspace=w.id AND u.at_ms>=$1)/1000000.0,
+  'cost',(SELECT COALESCE(sum(u.cost_micro),0) FROM relay_model_usage u WHERE u.workspace=w.id AND u.at_ms>=$1)/1000000.0,
+  'budget',(SELECT b.monthly_micro/1000000.0 FROM relay_model_budgets b WHERE b.workspace=w.id AND b.agent=''),
   'calls_7d',(SELECT COALESCE(jsonb_agg(c.n ORDER BY c.day),'[]'::jsonb) FROM (SELECT d.day,count(u.id) AS n
-     FROM generate_series($3::bigint,$3::bigint+6*86400000,86400000) d(day)
+     FROM generate_series($2::bigint,$2::bigint+6*86400000,86400000) d(day)
      LEFT JOIN relay_model_usage u ON u.workspace=w.id AND u.at_ms>=d.day AND u.at_ms<d.day+86400000 GROUP BY d.day) c),
-  'error_rate_7d',(SELECT CASE WHEN count(*)=0 THEN 0 ELSE round(100.0*count(*) FILTER (WHERE u.outcome='error')/count(*),1) END
-     FROM relay_model_usage u WHERE u.workspace=w.id AND u.at_ms>=$3),
+  'error_rate_7d',(SELECT CASE WHEN o.calls+o.failed=0 THEN 0 ELSE round(100.0*o.failed/(o.calls+o.failed),1) END FROM (SELECT
+     (SELECT count(*) FROM relay_model_usage u WHERE u.workspace=w.id AND u.at_ms>=$2) AS calls,
+     (SELECT count(*) FROM relay_model_failures f WHERE f.workspace=w.id AND f.at_ms>=$2) AS failed) o),
   'last_active_ms',(SELECT max(u.at_ms) FROM relay_model_usage u WHERE u.workspace=w.id),
   'status',CASE WHEN to_jsonb(w)->>'closed_ms' IS NOT NULL THEN 'closed'
      WHEN to_jsonb(w)->>'suspended_ms' IS NOT NULL THEN 'suspended'
@@ -32,20 +35,15 @@ const SUMMARY: &str = "'id',w.id,'name',w.name,
      WHEN to_jsonb(w)->>'agents_paused_ms' IS NOT NULL THEN 'paused' ELSE 'active' END";
 
 impl PgStore {
-    async fn summary_args(&self) -> Result<Vec<SqlValue>> {
+    fn summary_args() -> Vec<SqlValue> {
         let (month, day) = month_and_day_start();
-        let default_cap = self.platform_limit(settings::DEFAULT_CAP).await?;
-        Ok(vec![
-            month.into(),
-            default_cap.into(),
-            (day - 6 * 86_400_000).into(),
-        ])
+        vec![month.into(), (day - 6 * 86_400_000).into()]
     }
 
     pub(crate) async fn operator_workspaces(&self, search: &str) -> Result<Value> {
         let search = search.trim();
         one_line(search, 120, "search")?;
-        let mut args = self.summary_args().await?;
+        let mut args = Self::summary_args();
         args.push(
             format!(
                 "%{}%",
@@ -57,8 +55,8 @@ impl PgStore {
             .into(),
         );
         let list = json_rows(&self.db, &format!("SELECT jsonb_build_object({SUMMARY}) AS data FROM relay_workspaces w
-            WHERE $4='%%' OR w.name ILIKE $4 OR w.id ILIKE $4 OR EXISTS(SELECT 1 FROM relay_members m JOIN relay_users u ON u.id=m.user_id
-              WHERE m.workspace=w.id AND u.email ILIKE $4)
+            WHERE $3='%%' OR w.name ILIKE $3 OR w.id ILIKE $3 OR EXISTS(SELECT 1 FROM relay_members m JOIN relay_users u ON u.id=m.user_id
+              WHERE m.workspace=w.id AND u.email ILIKE $3)
             ORDER BY w.sequence DESC LIMIT 500"), args).await?;
         let total: i64 = query(
             &self.db,
@@ -72,8 +70,7 @@ impl PgStore {
     }
 
     pub(crate) async fn operator_workspace(&self, w: &str) -> Result<Value> {
-        let args = self.summary_args().await?;
-        let mut args = args;
+        let mut args = Self::summary_args();
         args.push(w.into());
         let mut data = query(&self.db, &format!("SELECT jsonb_build_object({SUMMARY},
               'admins',(SELECT count(*) FROM relay_members m WHERE m.workspace=w.id AND m.role IN ('Admin','Owner')),
@@ -86,7 +83,7 @@ impl PgStore {
               'suspended_ms',(to_jsonb(w)->>'suspended_ms')::bigint,'suspended_note',to_jsonb(w)->>'suspended_note',
               'agents_paused_ms',(to_jsonb(w)->>'agents_paused_ms')::bigint,
               'models',(SELECT COALESCE(jsonb_agg(DISTINCT a.model),'[]'::jsonb) FROM relay_shared_agents a WHERE a.workspace=w.id)) AS data
-            FROM relay_workspaces w WHERE w.id=$4"), args).await?
+            FROM relay_workspaces w WHERE w.id=$3"), args).await?
             .context("No such workspace")?
             .try_get::<Value>("", "data")?;
         data["log"] = json!(json_rows(&self.db, "SELECT jsonb_build_object('summary',l.summary,'reason',l.reason,'at_ms',l.at_ms,'via',l.via,
@@ -177,53 +174,6 @@ impl PgStore {
             "workspace_resumed",
             w,
             &format!("lifted the suspension of {name}"),
-            why,
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(())
-    }
-
-    /// A monthly cap in dollars, or `None` to follow the platform default.
-    pub(crate) async fn operator_set_cap(
-        &self,
-        by: &Operator,
-        w: &str,
-        usd: Option<f64>,
-        why: &str,
-    ) -> Result<()> {
-        let cap = usd.map(micros).transpose()?;
-        let tx = self.workspace_tx(w).await.context("No such workspace")?;
-        let name = Self::workspace_name(&tx, w).await?;
-        let before: Option<i64> = query(
-            &tx,
-            "SELECT spend_cap_micros FROM relay_workspaces WHERE id=$1",
-            vec![w.into()],
-        )
-        .await?
-        .context("No such workspace")?
-        .try_get("", "spend_cap_micros")?;
-        execute(
-            &tx,
-            "UPDATE relay_workspaces SET spend_cap_micros=$2 WHERE id=$1",
-            vec![w.into(), cap.into()],
-        )
-        .await?;
-        let shown = |cap: Option<i64>| {
-            cap.map(spend::dollars)
-                .unwrap_or_else(|| "the platform default".into())
-        };
-        record(
-            &tx,
-            by,
-            "workspaces",
-            "cap_changed",
-            w,
-            &format!(
-                "changed {name}'s monthly cap from {} to {}",
-                shown(before),
-                shown(cap)
-            ),
             why,
         )
         .await?;

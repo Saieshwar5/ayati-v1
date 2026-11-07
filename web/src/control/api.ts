@@ -31,22 +31,24 @@ export async function codesRequest<T>(path: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
-export type Session = { email: string; name: string; environment: string; can_store_keys: boolean };
+export type Session = { email: string; name: string; environment: string; can_store_keys: boolean; catalog_on: boolean };
 
+/** Charged: what people pay at catalog prices. Cost: what providers charge Cuckoo. */
+export type Money = { charge: number; cost: number };
 export type Alert = { level: 'bad' | 'warn' | 'info'; kind: string; title: string; body: string; target: string | null };
 export type Overview = {
   workspaces: number; active_7d: number; people: number; calls_per_min: number; calls_1h: number; errors_1h: number;
-  fell_back_1h: number; spend_today: number; spend_month: number; daily_ceiling: number | null;
+  fell_back_1h: number; today: Money; month: Money; daily_ceiling: number | null;
   pool: { queued: number; oldest_queued_seconds: number; ready: number; busy: number; executors: number };
   traffic_start_ms: number; traffic: { provider: string; buckets: number[] }[];
-  busiest: { id: string; name: string; running: number; queued: number; calls_5m: number; spend_today: number }[];
+  busiest: { id: string; name: string; running: number; queued: number; calls_5m: number; charge_today: number }[];
   alerts: Alert[];
 };
 
 export type WorkspaceStatus = 'active' | 'paused' | 'closing' | 'suspended' | 'closed';
 export type WorkspaceRow = {
   id: string; name: string; created_ms: number | null; owner: string | null; people: number; agents: number; running: number;
-  spend: number; cap: number | null; own_cap: boolean; calls_7d: number[]; error_rate_7d: number; last_active_ms: number | null;
+  charge: number; cost: number; budget: number | null; calls_7d: number[]; error_rate_7d: number; last_active_ms: number | null;
   status: WorkspaceStatus;
 };
 export type LogEntry = { id?: number; summary: string; reason: string; at_ms: number; via: 'web' | 'cli'; by: string; area?: string; target?: string };
@@ -56,27 +58,32 @@ export type WorkspaceDetail = WorkspaceRow & {
   models: string[]; log: LogEntry[];
 };
 
-export type CatalogModel = { provider: string; model: string; enabled: boolean; input_per_mtok: number; output_per_mtok: number; changed_ms: number };
 export type Provider = {
   name: string; base_url?: string; source: 'console' | 'deployment' | 'missing'; enabled: boolean;
-  key_hint?: string; key_rotated_ms?: number;
+  key_in_console?: boolean; key_hint?: string; key_rotated_ms?: number;
   switch: { note: string; changed_ms: number; by: string } | null;
-  health: { calls: number; errors: number; p95_ms: number | null }; models: CatalogModel[];
+  health: { calls: number; errors: number; p95_ms: number | null };
+  /** Catalog models this provider serves, from the reviewed catalog file. */
+  routes: { model: string; provider_model: string; priority: number }[];
 };
 export type Providers = { providers: Provider[]; can_store_keys: boolean };
 
-export type RouteRow = {
-  model: string; main_provider: string; main_model: string; second_provider: string | null; second_model: string | null;
-  main_percent: number; timeout_seconds: number; changed_ms: number; by: string;
-  traffic: { provider: string; model: string; calls: number; errors: number; p95_ms: number | null }[];
+/** The operator model view (`GET /admin/models`): traffic, failures, margin and the catalog's routes. */
+export type Usage = { key: string; calls: number; after_fallback: number; tokens: number; charge_usd: number; cost_usd: number; margin_usd: number; latency_avg_ms: number; latency_p95_ms: number };
+export type Price = { input: number; output: number; cached_input?: number | null };
+export type CatalogRoute = { provider: string; model: string; priority: number; weight: number; cost: Price; margin: Price };
+export type Operations = {
+  hours: number; providers: Usage[]; models: Usage[];
+  failures: { provider: string; status: number; count: number; last_ms: number }[];
+  resting: { provider: string; seconds: number }[];
+  catalog: { on: boolean; error?: string; models: { id: string; name: string; status: string; price: Price; routes: CatalogRoute[] }[] };
 };
-export type Routes = { routes: RouteRow[]; requested: { model: string; agents: number; calls_7d: number }[] };
 
 export type Spend = {
-  month_start_ms: number; month: number; today: number; forecast: number; daily_ceiling: number | null; default_cap: number | null;
-  daily: { day_ms: number; cost: number; calls: number }[];
-  by_model: { provider: string; model: string; calls: number; input_tokens: number; output_tokens: number; cost: number; unpriced_calls: number }[];
-  by_workspace: { id: string; name: string; cost: number; calls: number; cap: number | null; top_agent: { name: string; cost: number } | null }[];
+  month_start_ms: number; month: Money & { margin: number }; today: Money; forecast: Money; daily_ceiling: number | null;
+  daily: { day_ms: number; charge: number; cost: number; calls: number }[];
+  by_model: { model: string; calls: number; input_tokens: number; output_tokens: number; charge: number; cost: number; margin: number }[];
+  by_workspace: { id: string; name: string; charge: number; cost: number; margin: number; calls: number; budget: number | null; top_agent: { name: string; charge: number } | null }[];
 };
 
 export type ConsoleSetting = {
@@ -94,7 +101,8 @@ export type Code = {
 };
 
 export const money = (value: number | null | undefined, digits = 2) =>
-  value === null || value === undefined ? '—' : `$${value.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+  value === null || value === undefined ? '—'
+    : `${value < 0 ? '−' : ''}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 export const count = (value: number) => value.toLocaleString('en-US');
 export const when = (ms: number | null | undefined) => ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 export const ago = (ms: number | null | undefined) => {

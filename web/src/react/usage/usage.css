@@ -1,0 +1,45 @@
+/* Model usage (MG2): totals and tables in the shared surface. */
+.usage-report { display: grid; gap: 16px; min-width: 0; }
+.usage-report-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.usage-report-head h3 { margin: 0; font-size: 16px; }
+.usage-period { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.usage-period select { padding: 8px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
+.usage-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.usage-totals article { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--border-panel); border-radius: 10px; }
+.usage-totals small { color: var(--muted); font-size: 12px; }
+.usage-totals strong { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.usage-tables { display: grid; gap: 20px; }
+.usage-table-wrap { overflow-x: auto; }
+.usage-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.usage-table caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
+.usage-table th, .usage-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usage-table th:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; min-width: 120px; }
+.usage-table thead th { color: var(--muted); font-weight: 500; font-size: 12px; }
+@media (max-width: 760px) {
+  .usage-totals { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .usage-totals strong { font-size: 18px; }
+}
+/* Monthly budgets (MG3). */
+.usage-budgets { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+.usage-budgets h3 { margin: 0; font-size: 16px; }
+.usage-budget-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.usage-budget-list li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-panel); border-radius: 10px; }
+.usage-budget { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.usage-budget-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.usage-budget-head span, .usage-budget small { color: var(--muted); font-size: 12px; }
+.usage-budget meter { width: 100%; height: 8px; }
+.usage-budget-warning small { color: var(--warning); }
+.usage-budget-reached small { color: var(--danger); font-weight: 600; }
+.usage-budget-remove { display: grid; gap: 4px; justify-items: end; }
+.usage-budget-form .ui-fieldset { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, .8fr) auto; gap: 10px; align-items: end; border: 0; padding: 0; margin: 0; }
+.usage-budget-form select, .usage-budget-form input { width: 100%; padding: 9px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
+@media (max-width: 760px) {
+  .usage-budget-form .ui-fieldset { grid-template-columns: 1fr; }
+  .usage-budget-list li { flex-direction: column; align-items: stretch; }
+}
+/* The operator view (MG4). */
+.model-operations { gap: 18px; margin-top: 24px; min-width: 0; }
+.model-operations h2 { margin: 0; font-size: 18px; }
+.model-operations-resting { color: var(--warning); margin: 0; }
+.model-operations-loss { color: var(--danger); font-weight: 600; }
+.usage-table td[colspan] { text-align: left; color: var(--muted); }

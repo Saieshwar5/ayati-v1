@@ -94,6 +94,10 @@ impl MigratorTrait for Migrator {
             Box::new(super::built_apps::BuiltAppEvents),
             Box::new(super::built_apps::BuiltAppAsking),
             Box::new(super::built_apps::BuiltAppChanges),
+            Box::new(super::worker_control::model_usage::ModelRoutes),
+            Box::new(super::worker_control::model_usage::ModelCosts),
+            Box::new(super::model_budgets::ModelBudgets),
+            Box::new(super::model_operations::ModelOperations),
             Box::new(super::operator::OperatorConsole),
         ]
     }

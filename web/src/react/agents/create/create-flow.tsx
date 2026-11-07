@@ -25,7 +25,9 @@ const hints = [
 export function newAgent(directory: Directory): Agent {
   const id = crypto.randomUUID();
   // The workspace's default model, with its provider when the admin listed models.
-  const provider = directory.models?.find(choice => choice.model === directory.default_model)?.provider ?? defaults.provider;
+  // A catalog model never names a provider: Cuckoo chooses who serves it.
+  const provider = directory.catalog?.catalog_on ? ''
+    : directory.models?.find(choice => choice.model === directory.default_model)?.provider ?? defaults.provider;
   return { id, name: '', role: '', model: directory.default_model, audience: 'everyone', revision: 0,
     settings: { ...defaults, provider, avatar: defaultRobot(id) }, editable: true };
 }

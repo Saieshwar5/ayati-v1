@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
 import { backupChoices, colours, hours, providerName, providers, saveSettings, timeZones, type ModelChoice, type WorkspaceSettings } from './workspace-model';
+import type { Catalog } from '../agents/catalog-model';
 
 /** Colour, time zone, approval backup and models in one short form
- * (designs/settings 4). A failed save keeps the draft. */
-export function WorkspaceRules({ initial, saved }: { initial: WorkspaceSettings; saved: (next: WorkspaceSettings) => void }) {
+ * (designs/settings 4). A failed save keeps the draft. With Cuckoo's model catalog,
+ * admins choose from its models and never name a provider (MG1). */
+export function WorkspaceRules({ initial, catalog, saved }: { initial: WorkspaceSettings; catalog?: Catalog; saved: (next: WorkspaceSettings) => void }) {
   const [zones] = useState(timeZones);
   const [timezone, setTimezone] = useState(initial.timezone ?? zones[0]);
   const [colour, setColour] = useState(initial.colour);
   const [backup, setBackup] = useState(initial.approval_backup_hours);
   const [models, setModels] = useState<ModelChoice[]>(initial.models);
   const [preferred, setPreferred] = useState(initial.default_model);
-  const [adding, setAdding] = useState<ModelChoice>({ provider: providers[0][0], model: '' });
+  const [adding, setAdding] = useState<ModelChoice>({ provider: catalog ? '' : providers[0][0], model: '' });
+  const catalogName = (choice: ModelChoice) => catalog?.models.find(m => m.id === choice.model && !choice.provider)?.name;
+  const addable = catalog?.models.filter(m => m.status !== 'retiring' && !models.some(c => !c.provider && c.model === m.id)) ?? [];
   const mutation = useMutation();
   const add = () => {
     const model = adding.model.trim();
@@ -48,17 +52,22 @@ export function WorkspaceRules({ initial, saved }: { initial: WorkspaceSettings;
         {!models.length && <p className="ui-help">Any model is allowed. Add models to limit what agents can use.</p>}
         <ul>{models.map(choice => <li key={`${choice.provider}/${choice.model}`}>
           <label><input type="radio" name="default-model" checked={preferred === choice.model} onChange={() => setPreferred(choice.model)} />
-            <span><strong>{choice.model}</strong><small>{providerName(choice.provider)}{preferred === choice.model ? ' · default for new agents' : ''}</small></span></label>
+            <span><strong>{catalogName(choice) ?? choice.model}</strong><small>{catalog ? catalogName(choice) ? choice.model : 'Not one of Cuckoo’s models · remove it' : providerName(choice.provider)}{preferred === choice.model ? ' · default for new agents' : ''}</small></span></label>
           <Button aria-label={`Remove ${choice.model}`} onClick={() => remove(choice)}>Remove</Button>
         </li>)}</ul>
-        <div className="settings-model-add">
+        {catalog ? <div className="settings-model-add settings-model-add-catalog">
+          <select aria-label="Model to add" value={adding.model} onChange={event => setAdding({ provider: '', model: event.target.value })}>
+            <option value="">Choose a model…</option>
+            {addable.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <Button disabled={!adding.model} onClick={add}>Add model</Button>
+        </div> : <div className="settings-model-add">
           <select aria-label="Provider" value={adding.provider} onChange={event => setAdding(old => ({ ...old, provider: event.target.value }))}>
             {providers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
           <input aria-label="Model identifier" placeholder="Model identifier, e.g. gpt-5-mini" maxLength={200} value={adding.model}
             onChange={event => setAdding(old => ({ ...old, model: event.target.value.replace(/\s/g, '') }))}
             onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }} />
           <Button disabled={!adding.model.trim()} onClick={add}>Add model</Button>
-        </div>
+        </div>}
         <p className="ui-help">Agents already using a model you remove stop taking new requests until their owner picks an allowed one.</p>
       </fieldset>
       <Button type="submit" primary disabled={mutation.busy}>{mutation.busy ? 'Saving…' : 'Save changes'}</Button>

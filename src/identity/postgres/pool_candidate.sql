@@ -6,7 +6,8 @@ LEFT JOIN workspace_load w ON w.workspace=j.workspace
 -- Five attempts (attempt_resume::MAX_ATTEMPTS); each continues from the last.
 WHERE j.dispatch='pooled' AND j.attempts<5
 AND (j.state='queued' OR (j.state='running' AND j.lease_until<=floor(extract(epoch FROM clock_timestamp()))::bigint))
-AND a.model=$1 AND COALESCE(NULLIF(a.settings->>'provider',''),$2)=$2
+-- A gateway executor serving any catalog model ('gateway', '*') takes any agent's work.
+AND ($2='gateway' OR (a.model=$1 AND COALESCE(NULLIF(a.settings->>'provider',''),$2)=$2))
 AND NOT EXISTS(SELECT 1 FROM relay_chat_jobs other
  WHERE other.workspace=j.workspace AND other.payload->>'agent'=j.payload->>'agent' AND other.reply<>j.reply
  AND other.state='running' AND other.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint)

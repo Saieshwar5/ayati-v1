@@ -24,10 +24,10 @@ const GROUPS: { name: string; items: [Section, string][] }[] = [
   { name: 'Platform', items: [['config', 'Configuration'], ['log', 'Change log']] },
 ];
 const TITLES: Record<Section, [string, string]> = {
-  overview: ['Overview', 'Live · refreshes every 15 seconds'], spend: ['Spend', 'Model cost from token use and catalog prices'],
+  overview: ['Overview', 'Live · refreshes every 15 seconds'], spend: ['Spend', 'Charged at catalog prices, cost at route costs, and the margin'],
   reports: ['Problem reports', 'Sent from Settings → Help in any workspace'], workspaces: ['Workspaces', 'Every company using Cuckoo'],
   codes: ['Invite codes', 'Each code creates one workspace'], providers: ['Providers', 'Model services Cuckoo calls, their keys and models'],
-  routing: ['Routing', 'Which provider serves each model agents ask for, and the backup'],
+  routing: ['Routing', 'The model catalog’s routes, live: order, cost, margin and provider state'],
   config: ['Configuration', 'Platform settings and where each comes from'], log: ['Change log', 'Every operator change, from the web or the CLI'],
 };
 
@@ -113,7 +113,7 @@ function Console({ session }: { session: Session }) {
           {section === 'overview' && <Overview go={go} />}
           {section === 'workspaces' && <Workspaces key={params.get('q') ?? ''} go={go} initialQuery={params.get('q') ?? ''} selected={params.get('id')} />}
           {section === 'providers' && <ProvidersScreen providers={providers} canStoreKeys={session.can_store_keys} selected={params.get('id')} go={go} />}
-          {section === 'routing' && <Routing providers={providers.data} selected={params.get('id')} go={go} />}
+          {section === 'routing' && <Routing providers={providers.data} go={go} />}
           {section === 'spend' && <SpendScreen go={go} />}
           {section === 'codes' && <Codes />}
           {section === 'config' && <Configuration />}
@@ -131,7 +131,8 @@ function StatusStrip({ providers, error, go }: { providers?: Providers; error: s
   return <div className="cc-strip" aria-label="Live provider status">
     {error && <span className="cc-alert">{error}</span>}
     {providers?.providers.filter(p => p.source !== 'missing').map(p => {
-      const rate = p.health.calls ? (100 * p.health.errors / p.health.calls) : 0;
+      const tried = p.health.calls + p.health.errors;
+      const rate = tried ? 100 * p.health.errors / tried : 0;
       const tone = !p.enabled ? 'bad' : rate >= 5 ? 'warn' : 'ok';
       return <button key={p.name} type="button" onClick={() => go('providers', { id: p.name })}>
         <span className="cc-strip-name"><span className={`cc-dot ${tone}`} aria-hidden="true" />{p.name}

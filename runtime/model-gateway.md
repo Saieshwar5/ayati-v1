@@ -35,12 +35,14 @@ Goose ──OpenAI protocol──▶ slot's loopback proxy ──worker control�
    with the assignment's capability (same check as tools and output: credential,
    assignment scope and session). Requests up to 8 MiB.
 4. The controller uses the **assignment's model** (from its prepared context), whatever
-   Goose asked for, and its provider (or the first worker provider). For streamed
+   Goose asked for, and its provider (or the first worker provider). A model in the
+   [model catalog](model-catalog.md) goes to its routes instead, with fallback. For streamed
    answers it asks for usage in the last chunk.
 5. The answer streams back as it arrives. When it ends, the controller reads the token
    counts from the JSON answer or the last usage chunk and saves a row in
    `relay_model_usage` (workspace, assignment, agent, request, provider, model, tokens).
-6. Provider errors pass through with their status; an unreachable provider is 502.
+6. Provider errors pass through with their status; an unreachable provider is 502. A
+   used-up [monthly budget](model-budgets.md) answers 402 before any provider is called.
 
 ## Where it shows
 
@@ -58,15 +60,16 @@ out" (`model_usage` on `GET …/activity/requests/{reply}`).
 - Without the gateway, existing journeys (for example `tests/agent_tasks.mjs`) run as
   before.
 
-## Routes, backups, prices and limits (schema 87)
-
-[Cuckoo Control](cuckoo-control.md) adds routes keyed by the requested model (a main
-and an optional backup provider, a split and a timeout), an emergency switch per
-provider, a priced model catalog, workspace spending caps, a platform daily ceiling
-and suspension. Providers can also be added in the console with sealed keys. Every
-attempt, including failures, is saved with its latency and cost.
-
 ## Not yet
 
-- Non-OpenAI protocols (Anthropic, Gemini) as adapters.
-- Library embedding and summary calls follow neither routes nor switches.
+- Non-OpenAI protocols (Anthropic, Gemini) as adapters (planned via LiteLLM, MG5).
+- Prices and cost per task, budgets and the embedding and classification slots.
+
+Choosing catalog models per agent, and falling back between providers, are in the
+[model catalog](model-catalog.md) (MG1).
+
+## Operator controls (schema 91)
+
+[Cuckoo Control](cuckoo-control.md) adds an emergency switch that drops a provider's
+routes, refuses suspended workspaces and calls past the platform's daily ceiling, and
+lets a provider's API key live sealed in the console instead of its `key_file`.

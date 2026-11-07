@@ -25,9 +25,14 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn serve(settings: crate::config::Executor) -> Result<()> {
     super::start_trace::enable(settings.trace_start);
-    let profile = Profile {
-        provider: settings.goose.provider.clone(),
-        model: settings.model.clone(),
+    // AYATI_MODEL=* with the gateway: one executor serves every catalog model.
+    let profile = if settings.goose.gateway && settings.model == "*" {
+        Profile::any()
+    } else {
+        Profile {
+            provider: settings.goose.provider.clone(),
+            model: settings.model.clone(),
+        }
     };
     profile.validate()?;
     let size = settings.slots;

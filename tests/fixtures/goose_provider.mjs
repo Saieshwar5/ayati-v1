@@ -201,6 +201,8 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
         delta({ content: text.slice(8) });
       }
       delta({}, tool ? 'tool_calls' : 'stop');
+      // Like OpenAI-compatible providers, token counts come in a last chunk when asked for.
+      if (input.stream_options?.include_usage && !response.destroyed) response.write(`data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } })}\n\n`);
       response.end('data: [DONE]\n\n');
       timings.push({index,phase:'complete',time_ms:Date.now()});
     } else {

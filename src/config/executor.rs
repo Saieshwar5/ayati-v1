@@ -77,6 +77,9 @@ impl Executor {
             env.problem("An https:// worker control URL needs AYATI_WORKER_CONTROL_CA");
         }
         let model = env.required("AYATI_MODEL");
+        if model.as_deref() == Some("*") && !env.flag("AYATI_MODEL_GATEWAY") {
+            env.problem("AYATI_MODEL=* serves every catalog model and needs AYATI_MODEL_GATEWAY");
+        }
         let config = Self {
             common,
             identity,

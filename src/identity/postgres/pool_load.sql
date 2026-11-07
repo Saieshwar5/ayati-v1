@@ -12,7 +12,8 @@ WITH model_load AS (
   AND COALESCE(owned.provider,NULLIF(c.context->>'provider',''),NULLIF(oa.settings->>'provider',''),$2)=$2)
  +(SELECT count(*) FROM relay_executor_tasks t
   WHERE t.state='running' AND t.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint
-  AND t.model=$1 AND COALESCE(t.provider,$2)=$2) AS active
+  -- With executors serving any catalog model, the model limit covers them all.
+  AND ($2='gateway' OR (t.model=$1 AND COALESCE(t.provider,$2)=$2))) AS active
 ), ready_capacity AS (
  SELECT count(*) AS ready FROM relay_executor_slots s
  JOIN relay_executors e ON e.id=s.executor AND e.incarnation=s.incarnation

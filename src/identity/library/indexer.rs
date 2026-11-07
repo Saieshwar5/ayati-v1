@@ -51,16 +51,22 @@ pub(crate) async fn round(
                             .library_store_embeddings(&pending.workspace, settings.model, &embedded)
                             .await;
                         let _ = store
-                            .record_model_usage(
-                                &pending.workspace,
-                                "library",
-                                "",
-                                None,
-                                settings.provider,
-                                settings.model,
-                                tokens,
-                                0,
-                            )
+                            .record_model_usage(&crate::identity::postgres::ModelCall {
+                                workspace: &pending.workspace as &str,
+                                assignment: "library",
+                                agent: "",
+                                job: None,
+                                provider: settings.provider,
+                                model: settings.model,
+                                provider_model: settings.model,
+                                attempts: 1,
+                                person: None,
+                                charge_micro: 0,
+                                cost_micro: 0,
+                                latency_ms: None,
+                                input_tokens: tokens,
+                                output_tokens: 0,
+                            })
                             .await;
                         if stored.is_err() {
                             tracing::warn!("Library embeddings could not be stored");
@@ -102,16 +108,22 @@ pub(crate) async fn round(
                         .library_store_summary(w, item, revision, settings.model, &line)
                         .await;
                     let _ = store
-                        .record_model_usage(
-                            w,
-                            "library",
-                            "",
-                            None,
-                            settings.provider,
-                            settings.model,
-                            input,
-                            output,
-                        )
+                        .record_model_usage(&crate::identity::postgres::ModelCall {
+                            workspace: w,
+                            assignment: "library",
+                            agent: "",
+                            job: None,
+                            provider: settings.provider,
+                            model: settings.model,
+                            provider_model: settings.model,
+                            attempts: 1,
+                            person: None,
+                            charge_micro: 0,
+                            cost_micro: 0,
+                            latency_ms: None,
+                            input_tokens: input,
+                            output_tokens: output,
+                        })
                         .await;
                 }
                 Err(_) => {

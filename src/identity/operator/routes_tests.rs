@@ -1,9 +1,7 @@
 //! Cuckoo Control over HTTP and the gateway's routing, against real PostgreSQL
 //! and loopback model providers.
 use crate::identity::postgres::tests::{fixture, user, workspace};
-use crate::identity::worker_control::model::Scope;
-use crate::identity::worker_control::model_gateway::{Recorder, first_answer};
-use crate::identity::worker_control::model_routing::{self, Plan};
+use crate::identity::worker_control::model_routing;
 use crate::identity::{App, Provider, digest, router, workspaces::Runtimes};
 use axum::{
     Router,
@@ -84,29 +82,6 @@ async fn sign_in(app: &App, name: &str, email: &str) -> crate::identity::User {
         )
         .await
         .unwrap()
-}
-
-/// A loopback OpenAI-style provider answering with `status`, counting calls.
-async fn provider(status: u16) -> (String, Arc<std::sync::atomic::AtomicUsize>) {
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = calls.clone();
-    let service = axum::Router::new().route(
-        "/v1/chat/completions",
-        axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
-            let seen = seen.clone();
-            async move {
-                seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                (
-                    axum::http::StatusCode::from_u16(status).unwrap(),
-                    axum::Json(json!({"model": body["model"], "choices": [], "usage": {"prompt_tokens": 1000, "completion_tokens": 100}})),
-                )
-            }
-        }),
-    );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, service).await.unwrap() });
-    (format!("http://127.0.0.1:{}/v1", address.port()), calls)
 }
 
 #[tokio::test]
@@ -234,138 +209,59 @@ async fn keys_added_in_the_console_are_sealed_and_never_returned() {
 
 #[tokio::test]
 #[ignore = "requires local PostgreSQL"]
-async fn the_gateway_follows_routes_switches_and_backups() {
+async fn the_gateway_uses_console_keys_and_honors_switches_and_suspension() {
     let dir = tempfile::tempdir().unwrap();
-    let (main_url, main_calls) = provider(503).await;
-    let (second_url, second_calls) = provider(200).await;
-    let key_file = dir.path().join("second-key");
-    std::fs::write(&key_file, "sk-second").unwrap();
+    let key_file = dir.path().join("openai-key");
+    std::fs::write(&key_file, "sk-from-file").unwrap();
     let app = app(
         dir.path(),
-        json!([{"provider": "openai", "base_url": second_url, "key_file": key_file}]),
+        json!([
+            {"provider": "fireworks", "base_url": "https://api.fireworks.ai/inference/v1"},
+            {"provider": "openai", "base_url": "https://api.openai.com/v1", "key_file": key_file},
+        ]),
     )
     .await;
     let router = router(app.clone());
-    let operator = sign_in(&app, "operator", "operator@example.test").await;
+    sign_in(&app, "operator", "operator@example.test").await;
     let owner = user(&app.store, "gateway-owner").await;
     let w = workspace(&app.store, &owner).await;
-    for (path, body) in [
+    // A file provider with no key file has no key until one is kept in the console.
+    let missing = model_routing::credentials(&app, "fireworks")
+        .await
+        .unwrap_err();
+    assert!(format!("{missing:#}").contains("has no key"), "{missing:#}");
+    let (status, body) = call(
+        &router,
+        "POST",
+        "/api/identity/admin/providers/fireworks/key",
+        "operator-token",
+        json!({"key": "fw-console-1234", "reason": "Key kept in the console"}),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert!(!body.to_string().contains("fw-console-1234"));
+    assert_eq!(
+        model_routing::credentials(&app, "fireworks").await.unwrap(),
         (
-            "/api/identity/admin/providers",
-            json!({"name": "fireworks", "base_url": main_url, "key": "fw-key-1234", "reason": "Main provider"}),
-        ),
-        (
-            "/api/identity/admin/models",
-            json!({"provider": "openai", "model": "gpt-5-mini", "enabled": true, "input_per_mtok": 1.0, "output_per_mtok": 10.0, "reason": "Price list"}),
-        ),
-        (
-            "/api/identity/admin/routes",
-            json!({"model": "kimi-k2", "main_provider": "fireworks", "main_model": "kimi-k2-instruct",
-            "second_provider": "openai", "second_model": "gpt-5-mini", "main_percent": 100, "timeout_seconds": 10, "reason": "Fireworks first"}),
-        ),
-    ] {
-        let (status, answer) = call(&router, "POST", path, "operator-token", body).await;
-        assert_eq!(status, 200, "{path}: {answer}");
-    }
-    // A route may only name configured providers.
+            "https://api.fireworks.ai/inference/v1".into(),
+            "fw-console-1234".into()
+        )
+    );
+    assert_eq!(
+        model_routing::credentials(&app, "openai").await.unwrap(),
+        ("https://api.openai.com/v1".into(), "sk-from-file".into())
+    );
+    // Keys only for configured providers; console providers can't shadow the file.
     let (status, _) = call(
         &router,
         "POST",
-        "/api/identity/admin/routes",
+        "/api/identity/admin/providers/ghost/key",
         "operator-token",
-        json!({"model": "x", "main_provider": "ghost",
-        "main_model": "m", "main_percent": 100, "timeout_seconds": 10, "reason": "Unknown one"}),
+        json!({"key": "gh-key-123456", "reason": "Unknown one"}),
     )
     .await;
     assert_eq!(status, 400);
-    let plan = plan_for(&app, &w, "reply-1").await.unwrap();
-    assert_eq!(
-        plan.targets
-            .iter()
-            .map(|t| t.provider.as_str())
-            .collect::<Vec<_>>(),
-        ["fireworks", "openai"]
-    );
-    assert_eq!(
-        plan.targets[0].key, "fw-key-1234",
-        "the sealed key opens for the gateway"
-    );
-    assert_eq!(plan.targets[1].key, "sk-second");
-    // The main provider fails (503): the request moves to the backup and both are recorded.
-    let recorder = Recorder {
-        store: app.store.clone(),
-        scope: Scope {
-            executor: "e".into(),
-            incarnation: "i".into(),
-            slot: "s".into(),
-            slot_generation: 0,
-            assignment: "assignment-1".into(),
-            workspace: w.clone(),
-            agent: "atlas".into(),
-            chat: "c".into(),
-            thread: None,
-            reply: "reply-1".into(),
-            generation: 1,
-        },
-        job: Some("reply-1".into()),
-        requested: Some("kimi-k2".into()),
-    };
-    let mut body = json!({"messages": []});
-    let Ok((response, index, started)) = first_answer(&plan, &mut body, &recorder).await else {
-        panic!("no answer")
-    };
-    assert_eq!((response.status().as_u16(), index), (200, 1));
-    assert_eq!(
-        response.json::<Value>().await.unwrap()["model"],
-        "gpt-5-mini"
-    );
-    assert_eq!(
-        (
-            main_calls.load(std::sync::atomic::Ordering::SeqCst),
-            second_calls.load(std::sync::atomic::Ordering::SeqCst)
-        ),
-        (1, 1)
-    );
-    recorder
-        .save_named("openai", "gpt-5-mini", started, true, true, (1000, 100))
-        .await;
-    let (_, providers) = call(
-        &router,
-        "GET",
-        "/api/identity/admin/providers",
-        "operator-token",
-        Value::Null,
-    )
-    .await;
-    let fireworks = providers["providers"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["name"] == "fireworks")
-        .unwrap();
-    assert_eq!(fireworks["health"]["errors"], 1);
-    let (_, spend) = call(
-        &router,
-        "GET",
-        "/api/identity/admin/spend",
-        "operator-token",
-        Value::Null,
-    )
-    .await;
-    assert_eq!(
-        spend["month"], 0.002,
-        "1,000 in at $1 + 100 out at $10 per million"
-    );
-    let (_, overview) = call(
-        &router,
-        "GET",
-        "/api/identity/admin/overview",
-        "operator-token",
-        Value::Null,
-    )
-    .await;
-    assert_eq!(overview["fell_back_1h"], 1);
-    // Switched off: the gateway skips Fireworks entirely.
+    // Switched off: its routes are dropped, with the operator's note.
     let (status, _) = call(
         &router,
         "POST",
@@ -375,46 +271,39 @@ async fn the_gateway_follows_routes_switches_and_backups() {
     )
     .await;
     assert_eq!(status, 200);
-    let plan = plan_for(&app, &w, "reply-2").await.unwrap();
-    assert_eq!(plan.targets.len(), 1);
-    assert_eq!(plan.targets[0].provider, "openai");
-    // Both off: refused with the operator's note, nothing is sent.
-    call(
+    let (on, paused) = model_routing::switched_on(
+        &app.store,
+        vec![
+            ("fireworks".to_owned(), 1),
+            ("openai".to_owned(), 2),
+            ("fireworks".to_owned(), 3),
+        ],
+    )
+    .await
+    .unwrap();
+    assert_eq!(on, vec![("openai".to_owned(), 2)]);
+    assert_eq!(
+        paused,
+        vec!["Cuckoo paused fireworks: Fireworks incident".to_owned()]
+    );
+    // A suspended workspace is refused before any provider is called.
+    model_routing::forget_limits();
+    assert_eq!(model_routing::refusal(&app.store, &w).await.unwrap(), None);
+    let (status, _) = call(
         &router,
         "POST",
-        "/api/identity/admin/providers/openai/switch",
+        &format!("/api/identity/admin/workspaces/{w}/suspend"),
         "operator-token",
-        json!({"enabled": false, "reason": "OpenAI incident"}),
+        json!({"reason": "Chargeback"}),
     )
     .await;
-    let refused = plan_for(&app, &w, "reply-3").await.err().unwrap();
+    assert_eq!(status, 200);
+    model_routing::forget_limits();
     assert_eq!(
-        refused,
-        "Cuckoo paused fireworks: Fireworks incident; Cuckoo paused openai: OpenAI incident"
+        model_routing::refusal(&app.store, &w)
+            .await
+            .unwrap()
+            .as_deref(),
+        Some("This workspace is suspended by Cuckoo")
     );
-    // A suspended workspace is refused before any provider is considered.
-    let by = crate::identity::postgres::operator::Operator {
-        user: operator,
-        via: crate::identity::postgres::operator::Via::Web,
-    };
-    app.store
-        .operator_suspend(&by, &w, "Chargeback")
-        .await
-        .unwrap();
-    super::super::worker_control::model_routing::forget_limits();
-    assert_eq!(
-        plan_for(&app, &w, "reply-4").await.err().unwrap(),
-        "This workspace is suspended by Cuckoo"
-    );
-}
-
-/// The gateway's plan for an agent asking for kimi-k2 on openai.
-async fn plan_for(app: &App, w: &str, job: &str) -> Result<Plan, String> {
-    match model_routing::plan(app, w, "openai", "kimi-k2", job)
-        .await
-        .unwrap()
-    {
-        Ok(plan) => Ok(plan),
-        Err(model_routing::Refused(message)) => Err(message),
-    }
 }

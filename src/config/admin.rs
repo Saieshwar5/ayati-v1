@@ -11,6 +11,7 @@ pub struct Admin {
     pub operator: Option<String>,
     pub platform_admins: Vec<String>,
     pub model_providers_file: Option<PathBuf>,
+    pub model_catalog_file: Option<PathBuf>,
     pub secrets_key_file: Option<PathBuf>,
 }
 
@@ -22,6 +23,7 @@ impl Admin {
             operator: env.text("AYATI_OPERATOR").map(|e| e.to_lowercase()),
             platform_admins: super::operators::platform_admins(&mut env),
             model_providers_file: absolute(&mut env, "AYATI_MODEL_PROVIDERS_FILE"),
+            model_catalog_file: absolute(&mut env, "AYATI_MODEL_CATALOG_FILE"),
             secrets_key_file: absolute(&mut env, "AYATI_SECRETS_KEY_FILE"),
         };
         env.finish("admin")?;

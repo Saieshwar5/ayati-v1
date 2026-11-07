@@ -10,22 +10,19 @@ use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaMan
 use serde_json::json;
 
 pub(crate) mod log;
-pub(crate) mod models;
 pub(crate) mod overview;
 pub(crate) mod providers;
-#[cfg(test)]
-mod routing_tests;
 pub(crate) mod settings;
 pub(crate) mod spend;
 #[cfg(test)]
 mod tests;
 pub(crate) mod workspaces;
 
-/// Schema 87: the operator console.
+/// Schema 91: the operator console.
 pub(crate) struct OperatorConsole;
 impl MigrationName for OperatorConsole {
     fn name(&self) -> &str {
-        "m20261106_000087_operator_console"
+        "m20261107_000091_operator_console"
     }
 }
 #[async_trait::async_trait]

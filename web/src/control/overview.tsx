@@ -20,8 +20,8 @@ export function OverviewScreen({ go }: { go: Go }) {
         note={`${count(data.errors_1h)} failed · ${count(data.fell_back_1h)} answered by a backup`} />
       <Tile label="Executor slots" value={`${data.pool.busy}/${slots}`} tone={data.pool.oldest_queued_seconds > 120 ? 'warn' : undefined}
         note={`${data.pool.queued} waiting · ${data.pool.executors} executors`} />
-      <Tile label="Spend today" value={money(data.spend_today)}
-        note={data.daily_ceiling === null ? `${money(data.spend_month)} this month` : `of ${money(data.daily_ceiling)} daily ceiling`} />
+      <Tile label="Charged today" value={money(data.today.charge)}
+        note={`cost ${money(data.today.cost)}${data.daily_ceiling === null ? '' : ` of ${money(data.daily_ceiling)} ceiling`} · ${money(data.month.charge)} this month`} />
     </section>
     <div className="cc-row">
       <section className="cc-card cc-grow-2" aria-labelledby="cc-alerts">
@@ -41,10 +41,10 @@ export function OverviewScreen({ go }: { go: Go }) {
         <button type="button" className="cc-btn ghost" onClick={() => go('workspaces')}>All workspaces</button></div>
       {data.busiest.length === 0 ? <p className="cc-empty">No model calls in the last 5 minutes.</p> :
         <div className="cc-scroll"><table className="cc-table">
-          <thead><tr><th scope="col">Workspace</th><th scope="col">Running</th><th scope="col">Queued</th><th scope="col">Calls · 5 min</th><th scope="col">Spend today</th></tr></thead>
+          <thead><tr><th scope="col">Workspace</th><th scope="col">Running</th><th scope="col">Queued</th><th scope="col">Calls · 5 min</th><th scope="col">Charged today</th></tr></thead>
           <tbody>{data.busiest.map(w => <tr key={w.id}>
             <td><button type="button" className="cc-link" onClick={() => go('workspaces', { id: w.id })}>{w.name}</button></td>
-            <td className="cc-num">{w.running}</td><td className="cc-num">{w.queued}</td><td className="cc-num">{w.calls_5m}</td><td className="cc-num">{money(w.spend_today)}</td>
+            <td className="cc-num">{w.running}</td><td className="cc-num">{w.queued}</td><td className="cc-num">{w.calls_5m}</td><td className="cc-num">{money(w.charge_today)}</td>
           </tr>)}</tbody>
         </table></div>}
     </section>
@@ -58,7 +58,7 @@ function Tile({ label, value, note, tone }: { label: string; value: string; note
 
 function AlertRow({ alert, go }: { alert: Alert; go: Go }) {
   const action = alert.kind.startsWith('provider') ? <button type="button" className="cc-btn" onClick={() => go('providers', { id: alert.target ?? '' })}>Open provider</button>
-    : alert.kind === 'cap' ? <button type="button" className="cc-btn" onClick={() => go('workspaces', { id: alert.target ?? '' })}>Open workspace</button>
+    : alert.kind === 'budget' ? <button type="button" className="cc-btn" onClick={() => go('workspaces', { id: alert.target ?? '' })}>Open workspace</button>
     : alert.kind === 'reports' ? <button type="button" className="cc-btn" onClick={() => go('reports')}>Read</button>
     : alert.kind === 'codes' ? <button type="button" className="cc-btn" onClick={() => go('codes')}>See codes</button>
     : alert.kind === 'ceiling' ? <button type="button" className="cc-btn" onClick={() => go('config')}>Configuration</button> : null;

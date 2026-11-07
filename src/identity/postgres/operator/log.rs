@@ -1,14 +1,7 @@
 //! The change log: every operator change, newest first, 50 at a time.
 use super::*;
 
-const AREAS: &[&str] = &[
-    "workspaces",
-    "providers",
-    "models",
-    "routing",
-    "settings",
-    "codes",
-];
+const AREAS: &[&str] = &["workspaces", "providers", "settings", "codes"];
 
 impl PgStore {
     pub(crate) async fn operator_log(

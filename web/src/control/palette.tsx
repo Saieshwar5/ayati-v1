@@ -6,8 +6,8 @@ type Command = { label: string; cli: string; run: (go: Go, text: string) => void
 const COMMANDS: Command[] = [
   { label: 'Open the overview', cli: 'ayati admin overview', run: go => go('overview') },
   { label: 'Turn a provider off or on', cli: 'ayati admin provider off NAME --reason …', run: go => go('providers') },
-  { label: 'Add a model provider', cli: 'ayati admin provider add NAME --url URL --reason …', run: go => go('providers') },
-  { label: 'Change a route or its split', cli: 'ayati admin route set MODEL --main P:M --second P:M --split 90', run: go => go('routing') },
+  { label: 'Keep a provider’s API key here', cli: 'ayati admin provider key NAME --reason …', run: go => go('providers') },
+  { label: 'See catalog routes and margins', cli: 'ayati admin models', run: go => go('routing') },
   { label: 'Issue an invite code', cli: 'ayati admin code issue --for "…"', run: go => go('codes') },
   { label: 'See this month’s spend', cli: 'ayati admin spend', run: go => go('spend') },
   { label: 'Change a platform setting', cli: 'ayati admin setting set KEY VALUE --reason …', run: go => go('config') },
