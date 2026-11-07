@@ -1,6 +1,6 @@
-//! Wake-ups for the controller's background loops (schema 96).
+//! Wake-ups for the controller's background loops (schema 97).
 //!
-//! Until schema 96 the loops polled: the executor dispatcher every 200 ms, the
+//! Until schema 97 the loops polled: the executor dispatcher every 200 ms, the
 //! scheduler every second and the transcription worker every 5 seconds, which
 //! kept an idle database busy (D226). Now database triggers announce work on one
 //! channel in the transaction that changes it: a job or executor task added, put
@@ -64,7 +64,7 @@ impl WorkSignals {
 pub(crate) struct WorkNotifications;
 impl MigrationName for WorkNotifications {
     fn name(&self) -> &str {
-        "m20261107_000096_work_notifications"
+        "m20261107_000097_work_notifications"
     }
 }
 #[async_trait::async_trait]

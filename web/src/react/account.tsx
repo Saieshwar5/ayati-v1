@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { DisplayNameForm } from './display-name-form';
-import { workspaceId } from '../workspace-context';
 import { errorMessage, useMutation } from './requests';
 import { accessRequest, SignedOut, type Invitation, type Session } from './access/model';
 import { AccessShell } from './access/shell';
@@ -14,8 +13,9 @@ import { ModelOperations } from './access/model-operations';
 type Screen = { kind: 'home' } | { kind: 'code' } | { kind: 'create'; code?: string; expires?: number } | { kind: 'admin' };
 const lastKey = (user: string) => `relay.last-workspace.${user}`;
 
-/** Sign in, choose or create a workspace (invite-only early access), and the account view. */
-export function AccountPage({ embedded = false }: { embedded?: boolean }) {
+/** Sign in, choose or create a workspace (invite-only early access). Inside a workspace,
+ * Settings → Profile edits you and the account menu signs out (D245). */
+export function AccountPage() {
   const [session, setSession] = useState<Session>();
   const [screen, setScreen] = useState<Screen>(() => new URLSearchParams(location.search).has('admin') ? { kind: 'admin' } : { kind: 'home' });
   const [notice, setNotice] = useState('');
@@ -30,30 +30,24 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
     setSession(next);
     if (!initial) return;
     const params = new URLSearchParams(location.search);
-    if (embedded) {
-      if (!next.user) location.assign('/?view=account');
-      else if (!next.workspaces?.some(w => w.id === workspaceId)) location.assign('/?view=account&choose=1');
-      return;
-    }
     if (params.has('login_error')) setNotice('Sign-in was not completed. Try again, and make sure your email is verified.');
     if (!params.has('choose') && !params.has('admin') && !next.invitations?.length && next.user?.display_name) {
       let selected = next.workspaces?.length === 1 ? next.workspaces[0].id : '';
       try { const last = localStorage.getItem(lastKey(next.user.id)); if (!selected && next.workspaces?.some(w => w.id === last)) selected = last!; } catch { /* Optional. */ }
       if (selected) location.assign(`/w/${selected}/`);
     }
-  }, [embedded]);
+  }, []);
   useEffect(() => {
     let active = true;
-    document.title = embedded ? 'My account · Cuckoo' : 'Your workspaces · Cuckoo';
+    document.title = 'Your workspaces · Cuckoo';
     load(true).catch(error => { if (active) { setNotice(errorMessage(error)); setSession({ user: null }); } });
     return () => { active = false; };
-  }, [embedded, load]);
+  }, [load]);
 
   const signOut = () => void mutation.run(async () => {
     const result = await accessRequest<{ provider_session_revoked: boolean }>('/logout', {});
     setSession({ user: null }); setScreen({ kind: 'home' });
     if (!result.provider_session_revoked) setNotice('Signed out of Cuckoo. WorkOS session termination could not be confirmed.');
-    if (embedded) location.assign('/?view=account');
   });
   const guarded = (run: () => Promise<void>) => void mutation.run(async () => {
     try { await run(); } catch (error) { if (error instanceof SignedOut) setSession({ user: null }); throw error; }
@@ -76,12 +70,6 @@ export function AccountPage({ embedded = false }: { embedded?: boolean }) {
     <h1>What should people call you?</h1><p className="access-lead">Choose a display name to get started.</p>
     <DisplayNameForm key={user.id} user={user} saved={next => setSession(current => current ? { ...current, user: next } : current)} />
   </div>);
-  if (embedded) return <main className="access-content"><h1>My account</h1><p className="access-lead">{user.email}</p>
-    <DisplayNameForm key={user.id} user={user} saved={() => location.assign(location.href)} />
-    <div className="access-actions"><a className="access-button" href="/?view=account&choose=1">Your workspaces</a>
-      <button type="button" className="access-button" disabled={mutation.busy} onClick={signOut}>Sign out</button></div>
-    {mutation.status && <p className="access-alert" role="alert">{mutation.status}</p>}
-  </main>;
 
   const admin = Boolean(session.platform_admin);
   const workspaces = session.workspaces ?? [], invitations = session.invitations ?? [];

@@ -4,7 +4,6 @@ import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { WorkspaceShell } from './workspace-shell';
 import { SettingsPage } from './settings/settings-page';
-import { AccountPage } from './account';
 import { HomePage } from './home-page';
 import './agents/agents.css';
 import './agents/context-preview.css';
@@ -25,14 +24,13 @@ export function WorkspaceApplication() {
   useEffect(startDesktopAlerts, []);
   useEffect(() => {
     document.documentElement.dataset.page = page;
-    const title = page === 'account' ? 'My account' : page[0].toUpperCase() + page.slice(1);
-    document.title = `${title} · Cuckoo`;
+    document.title = `${page[0].toUpperCase() + page.slice(1)} · Cuckoo`;
   }, [page, href]);
   return <LibraryUploads><WorkspaceShell page={page}>
     {page === 'agents' ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' ? <WorkspaceChat href={href} />
       : page === 'activity' ? <Suspense fallback={<p role="status">Opening Activity…</p>}><ActivityPage key={href} href={href} /></Suspense>
       : page === 'apps' ? <Suspense fallback={<p role="status">Opening Apps…</p>}><AppsPage key={href} href={href} /></Suspense>
-      : page === 'account' ? <AccountPage embedded /> : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary>
+      : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary>
       : <HomePage />}
   </WorkspaceShell></LibraryUploads>;
 }

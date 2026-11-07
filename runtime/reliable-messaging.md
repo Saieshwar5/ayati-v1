@@ -55,7 +55,7 @@ change record also sends the notification (checked by a PostgreSQL test). When t
 listener connects or reconnects (also when the driver re-establishes a dropped
 connection) it wakes every stream, which replays anything committed while it was away.
 The same connection carries work notifications for the controller's background loops
-(`relay_work`, schema 96; see [idle database work](executor-pool.md#idle-database-work)),
+(`relay_work`, schema 97; see [idle database work](executor-pool.md#idle-database-work)),
 so each controller still holds one listener. A 30-second re-check covers a
 notification lost otherwise; until November 2026 this was every two seconds, which kept idle tabs busy. The existing
 application-wide workspace locks remain; this change does not claim to remove write
@@ -165,7 +165,7 @@ The change journal is retained indefinitely in this increment, honoring the requ
 not to delete simulation records. Production needs measured retention/compaction and a
 snapshot-expiry contract before large history volumes. Unread aggregation and receipt
 fan-out need larger multi-organization load measurements. The live transcript is bounded
-to 400 recent updates plus explicitly loaded older history; very old thread navigation
+to 400 recent updates plus older history loaded by scrolling up; very old thread navigation
 still relies on history loading.
 
 No service worker/offline application shell is installed: an already open application

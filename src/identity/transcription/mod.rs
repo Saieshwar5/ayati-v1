@@ -34,7 +34,7 @@ const AT_ONCE: i64 = 4;
 const TIME_LIMIT: Duration = Duration::from_secs(90);
 
 /// An upload here wakes the worker at once, and one on another controller is
-/// announced through PostgreSQL (schema 96). Retries and expired leases are due
+/// announced through PostgreSQL (schema 97). Retries and expired leases are due
 /// at a known time, so the worker sleeps until then; it still looks this often
 /// in case a notification was lost. Until November 2026 it looked every 5 s.
 const FALLBACK: Duration = Duration::from_secs(60);

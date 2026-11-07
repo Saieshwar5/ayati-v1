@@ -4,8 +4,8 @@ const eventName = 'relay:navigate';
 export function workspacePage(url: URL): WorkspacePage {
   const requested = url.searchParams.get('view');
   if (requested === 'people' || requested === 'users') return 'settings';
-  if (requested === 'company' || requested === 'feedback') return 'settings';
-  if (requested === 'account') return 'account';
+  // The My account page was removed (D245); Settings → Profile is the one place to edit you.
+  if (requested === 'company' || requested === 'feedback' || requested === 'account') return 'settings';
   if (requested === 'chat') return 'chat';
   if (requested === 'activity') return 'activity';
   // Connections moved from Settings to Apps (apps-page plan); old links still arrive.

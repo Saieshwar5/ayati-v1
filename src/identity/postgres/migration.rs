@@ -103,6 +103,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::invitation_delivery::InvitationDelivery),
             Box::new(super::unread::UnreadFromJoining),
             Box::new(super::transcripts::Transcripts),
+            Box::new(super::chat::activity::ChatActivity),
             Box::new(super::work_signals::WorkNotifications),
         ]
     }

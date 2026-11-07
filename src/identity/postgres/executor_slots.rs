@@ -8,7 +8,7 @@ use crate::identity::executor::model::Capacity;
 impl PgStore {
     /// Records a capacity report, which is also the executor's heartbeat. True
     /// when a slot changed; an unchanged report writes no slot row, so it neither
-    /// announces work nor wakes the dispatcher (schema 96).
+    /// announces work nor wakes the dispatcher (schema 97).
     pub(crate) async fn report_executor(
         &self,
         executor: &str,

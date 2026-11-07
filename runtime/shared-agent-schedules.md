@@ -140,7 +140,7 @@ shown explicitly while preserving the due cursor. An unfinished run is shown in
 the routine and prevents new occurrences until its existing task is terminal.
 
 Each controller's scheduler considers up to 20 due candidates per round. Since
-schema 96 it runs when work is announced (a schedule saved or resumed, a job
+schema 97 it runs when work is announced (a schedule saved or resumed, a job
 finished, an event or follow-up added; see
 [idle database work](executor-pool.md#idle-database-work)) and when the next
 schedule, follow-up, panel update or helper deadline is due, at most once a second

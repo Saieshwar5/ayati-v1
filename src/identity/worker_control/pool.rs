@@ -90,7 +90,7 @@ async fn capacity(
 ) -> Api<Value> {
     authorize(&state, &executor, &incarnation, &headers).await?;
     // A heartbeat that changes nothing gives the dispatcher nothing to do. A slot
-    // that became ready is also announced to the other controllers (schema 96).
+    // that became ready is also announced to the other controllers (schema 97).
     if pg(&state)
         .report_executor(&executor, &incarnation, &input)
         .await?
@@ -121,7 +121,7 @@ async fn stop(
     Ok(Json(json!({"stopped":true})))
 }
 /// The dispatcher runs when work is announced: here (intake, capacity reports,
-/// executor connections) or by any controller through PostgreSQL (schema 96).
+/// executor connections) or by any controller through PostgreSQL (schema 97).
 /// Lease, heartbeat and transcript-wait deadlines are not announced, so it also
 /// wakes just after the next one passes (whole seconds, hence the margin).
 /// Until November 2026 it polled every 200 ms, about 15 transactions a second

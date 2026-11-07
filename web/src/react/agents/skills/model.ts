@@ -60,14 +60,58 @@ export function readZip(data: Uint8Array): SkillFile[] {
   return strip(files);
 }
 
-/** A folder chosen with the browser's folder picker. */
-export async function readFolder(list: FileList): Promise<SkillFile[]> {
-  const chosen = [...list].filter(file => !ignored(file.webkitRelativePath || file.name));
+type Found = { path: string; file: File };
+
+async function readFound(found: Found[]): Promise<SkillFile[]> {
+  const chosen = found.filter(item => !ignored(item.path));
   if (chosen.length > MAX_FILES) throw new Error(`A skill can have at most ${MAX_FILES} files.`);
-  if (chosen.reduce((sum, file) => sum + file.size, 0) > MAX_BYTES) throw new Error('A skill can be at most 5 MB.');
-  const files = await Promise.all(chosen.map(async file => text(file.webkitRelativePath || file.name, new Uint8Array(await file.arrayBuffer()))));
+  if (chosen.reduce((sum, item) => sum + item.file.size, 0) > MAX_BYTES) throw new Error('A skill can be at most 5 MB.');
+  const files = await Promise.all(chosen.map(async item => text(item.path, new Uint8Array(await item.file.arrayBuffer()))));
   return strip(files);
 }
+
+/** A folder chosen with the browser's folder picker. */
+export function readFolder(list: FileList | File[]): Promise<SkillFile[]> {
+  return readFound([...list].map(file => ({ path: file.webkitRelativePath || file.name, file })));
+}
+
+/** Every file under a dropped folder, stopping as soon as there are too many. */
+async function walk(folder: FileSystemDirectoryEntry, found: Found[]): Promise<void> {
+  const reader = folder.createReader();
+  for (;;) {
+    // readEntries gives a folder's entries in batches, then an empty one.
+    const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    if (!batch.length) return;
+    for (const entry of batch) {
+      if (ignored(entry.fullPath)) continue;
+      if (entry.isDirectory) await walk(entry as FileSystemDirectoryEntry, found);
+      else found.push({ path: entry.fullPath.replace(/^\//, ''),
+        file: await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject)) });
+      if (found.length > MAX_FILES) throw new Error(`A skill can have at most ${MAX_FILES} files.`);
+    }
+  }
+}
+
+/** What was dropped on the upload step: one `.zip`, one skill folder or a SKILL.md.
+ * The caller collects `entries` and `files` during the drop event, while they exist. */
+export async function readDropped(entries: (FileSystemEntry | null)[], files: File[]): Promise<{ source: string; files: SkillFile[] }> {
+  const [entry] = entries;
+  if (entries.length === 1 && entry?.isDirectory) {
+    const found: Found[] = [];
+    await walk(entry as FileSystemDirectoryEntry, found);
+    return { source: entry.name, files: await readFound(found) };
+  }
+  const [file] = files;
+  if (files.length === 1 && /\.zip$/i.test(file.name)) return { source: file.name, files: readZip(new Uint8Array(await file.arrayBuffer())) };
+  if (files.length === 1 && file.name === 'SKILL.md') return { source: file.name, files: [text('SKILL.md', new Uint8Array(await file.arrayBuffer()))] };
+  throw new Error('Drop one .zip, one skill folder or a SKILL.md.');
+}
+
+/** Script sources as the server's file check counts them (`skill_files.rs`); for display only. */
+const SCRIPTS = ['py', 'sh', 'js', 'ts', 'rb', 'ps1', 'bash'];
+export const isScript = (path: string) => path.startsWith('scripts/') || (path.includes('.') && SCRIPTS.includes(path.split('.').pop()!.toLowerCase()));
+export const textBytes = (text: string) => new TextEncoder().encode(text).length;
+export const byteSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
 
 /** A standard `.zip` (a folder named after the skill), for Claude, Goose and others. */
 export function zipSkill(name: string, files: SkillFile[]): Uint8Array {

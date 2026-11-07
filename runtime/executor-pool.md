@@ -123,7 +123,7 @@ Executors are trusted operator processes in this local boundary.
 - SSE reconnect replays durable unacknowledged offers. An old connection's cleanup
   cannot detach its replacement. Delivery queues and frames are bounded. The SSE
   keep-alive (every second) does no database work.
-- The dispatcher runs when work is announced instead of polling (schema 96, see
+- The dispatcher runs when work is announced instead of polling (schema 97, see
   [Idle database work](#idle-database-work)), and just after the next lease,
   heartbeat or transcript-wait deadline; it still looks every 10 seconds.
 - An executor reports capacity when a slot changes and otherwise every 10 seconds

@@ -38,8 +38,8 @@ any model request. The audio, transcripts and keys are never logged.
    in `relay_object_transcripts` in the transaction that saves the file, and wakes this
    controller's worker. Other files queue nothing.
 2. Every controller runs the worker. An upload is announced to all of them
-   (schema 96), and a worker also wakes when a retry pause or lease ends, or
-   after 60 seconds (it looked every 5 seconds before schema 96). It takes up to
+   (schema 97), and a worker also wakes when a retry pause or lease ends, or
+   after 60 seconds (it looked every 5 seconds before schema 97). It takes up to
    4 transcripts at once with `FOR UPDATE SKIP LOCKED` and a 150-second lease in
    the database, so two replicas never send the same recording.
 3. The worker reads the bytes from file storage (checked against the upload's size and

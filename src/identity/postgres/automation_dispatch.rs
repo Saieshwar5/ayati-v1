@@ -13,7 +13,7 @@ impl PgStore {
     /// How long until the scheduler next has something due: a schedule, a
     /// follow-up, a panel update or a helper's wait deadline; None when nothing
     /// is. Work already due but held back (its last run unfinished, a full
-    /// queue) is not counted: finishing that work is announced (schema 96).
+    /// queue) is not counted: finishing that work is announced (schema 97).
     pub(crate) async fn next_admission_in(&self) -> Result<Option<Duration>> {
         let wait = query(&self.db, "WITH now AS (SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS ms)
             SELECT LEAST(

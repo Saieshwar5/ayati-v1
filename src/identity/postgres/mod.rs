@@ -300,7 +300,7 @@ use std::time::Duration;
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
-    /// Wake-ups for the background loops, from the same listener (schema 96).
+    /// Wake-ups for the background loops, from the same listener (schema 97).
     pub(crate) work: std::sync::Arc<work_signals::WorkSignals>,
     /// Agent replies go to pooled executors. False only for the scripted
     /// company simulation, which claims polling jobs inside the controller.

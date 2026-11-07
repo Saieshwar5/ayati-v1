@@ -1,16 +1,32 @@
 .workspace-menu-trigger { align-self:center; width:36px; min-height:36px; padding:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
 .workspace-menu-trigger:hover, .workspace-menu-trigger[aria-expanded=true] { background:var(--selection); }
 .workspace-profile-trigger { display:grid; place-items:center; border:0; background:transparent; width:42px; border-radius:12px; }
-.workspace-profile-avatar { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--border); border-radius:50%; background:var(--surface); }
-.workspace-menu { position:fixed; inset:64px auto auto 82px; margin:0; width:min(300px,calc(100vw - 94px)); max-height:calc(100dvh - 90px); overflow:auto; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
+.workspace-profile-avatar.face { width:30px; height:30px; font-size:11px; }
+/* Account menu (designs/chat-and-account screen 9): you, workspaces, then Settings and Sign out. */
+.workspace-menu { position:fixed; inset:64px auto auto 82px; margin:0; width:min(300px,calc(100vw - 94px)); max-height:calc(100dvh - 24px); overflow:auto; padding:6px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }
 .workspace-profile { top:auto; bottom:12px; }
-.workspace-menu h2 { overflow-wrap:anywhere; padding:8px 10px; margin:0; font-size:14px; }
-.workspace-menu-list { display:grid; gap:4px; max-height:40dvh; overflow:auto; }
-.workspace-menu-action { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:40px; padding:10px; border:0; border-radius:8px; background:transparent; color:var(--text); text-decoration:none; font-size:13px; text-align:left; overflow-wrap:anywhere; }
-.workspace-menu-action:hover, .workspace-menu-action[aria-current] { background:var(--soft); }
-.workspace-menu-action small { color:var(--muted); font-size:11px; flex-shrink:0; }
-.workspace-menu hr { border:0; border-top:1px solid var(--border); margin:8px 0; }
-.workspace-menu-email, .workspace-menu-role, .workspace-menu-status { margin:0; padding:4px 10px; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+.account-menu-identity { display:flex; align-items:center; gap:12px; padding:10px; }
+.account-menu-face.face { width:44px; height:44px; font-size:15px; }
+.account-menu-identity p, .account-menu-text { display:grid; gap:2px; min-width:0; margin:0; }
+.account-menu-identity strong { font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+.account-menu-identity span { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+/* Each group starts with a divider, so a status row can slot in after the identity. */
+.account-menu-group { display:grid; gap:2px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+.account-menu-group h2 { margin:0; padding:6px 10px 4px; color:var(--muted); font-size:12px; font-weight:500; }
+.workspace-menu-list { display:grid; gap:2px; margin:0; padding:0; list-style:none; }
+.workspace-menu-action { display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:8px 10px; border:0; border-radius:8px; background:transparent; color:var(--text); text-decoration:none; font:inherit; font-size:14px; text-align:left; overflow-wrap:anywhere; cursor:pointer; }
+.workspace-menu-action:hover:not([aria-current]) { background:var(--soft); }
+.workspace-menu-action[aria-current] { background:var(--selection); }
+.workspace-menu-action:focus-visible { outline-offset:-3px; }
+.workspace-menu-action:disabled { color:var(--muted); cursor:default; }
+.account-menu-icon { width:18px; height:18px; flex:none; color:var(--muted); }
+.account-menu-workspace .account-menu-icon { margin-left:auto; color:var(--text); }
+.account-menu-tile { display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:7px; color:#fff; font-size:11px; font-weight:700; }
+.account-menu-text { flex:1; }
+.account-menu-text strong { font-weight:500; }
+.account-menu-text small { color:var(--muted); font-size:12px; }
+.workspace-menu-status { margin:0; padding:4px 10px; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
 .workspace-menu-status:empty { display:none; }
-@media(max-width:600px) { .workspace-menu { left:62px; width:min(300px,calc(100vw - 70px)); } }
+@media(max-width:600px) { .workspace-menu { left:58px; width:min(300px,calc(100vw - 64px)); } .workspace-profile { bottom:6px; } }
 @media(pointer:coarse) { .workspace-menu-trigger, .workspace-menu-action { min-height:44px; } }
+@media(forced-colors:active) { .workspace-menu-action[aria-current] { outline:1px solid Highlight; } }

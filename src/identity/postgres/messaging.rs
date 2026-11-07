@@ -30,7 +30,7 @@ impl PgStore {
         Ok(message)
     }
     /// The controller's one LISTEN connection: message changes for live streams,
-    /// and work for the background loops (`work_signals.rs`, schema 96).
+    /// and work for the background loops (`work_signals.rs`, schema 97).
     pub async fn listen_changes(&self) -> Result<()> {
         let schema: String = query(&self.db, "SELECT current_schema() AS schema", vec![])
             .await?
