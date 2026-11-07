@@ -263,15 +263,15 @@ impl PgStore {
                 "Agents may not do that in this app. Tell the person to do it in the app themselves.",
             ));
         };
-        if let Some(fields) = input.data.as_ref().and_then(Value::as_object) {
-            if let Some(extra) = fields.keys().find(|f| !action.fields.contains(f)) {
-                tx.commit().await?;
-                return Ok(refused(format!(
-                    "\"{}\" sets only {}; not \"{extra}\".",
-                    action.title,
-                    action.fields.join(", ")
-                )));
-            }
+        if let Some(fields) = input.data.as_ref().and_then(Value::as_object)
+            && let Some(extra) = fields.keys().find(|f| !action.fields.contains(f))
+        {
+            tx.commit().await?;
+            return Ok(refused(format!(
+                "\"{}\" sets only {}; not \"{extra}\".",
+                action.title,
+                action.fields.join(", ")
+            )));
         }
         if mode == "ask" {
             let agent: String = query(
