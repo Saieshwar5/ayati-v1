@@ -220,6 +220,7 @@ mod home_update_runs;
 mod home_views;
 #[cfg(test)]
 mod interactive_reserve_tests;
+pub(crate) mod invitation_delivery;
 mod invite_link_migration;
 #[cfg(test)]
 mod invite_link_tests;

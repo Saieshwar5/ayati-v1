@@ -4,6 +4,33 @@ use reqwest::{Client, Method};
 use serde_json::{Value, json};
 use std::time::Duration;
 
+/// WorkOS answered with an error status. `code` is WorkOS's short error code (for
+/// example `invalid_request`), kept only when it is a plain identifier.
+#[derive(Debug)]
+pub struct ProviderError {
+    pub status: u16,
+    pub code: Option<String>,
+}
+impl ProviderError {
+    /// A 4xx answer is a definite refusal: WorkOS processed the request and created
+    /// nothing. 5xx and transport failures leave the outcome unknown.
+    pub fn refused(error: &anyhow::Error) -> Option<&Self> {
+        error
+            .downcast_ref::<Self>()
+            .filter(|error| (400..500).contains(&error.status))
+    }
+}
+impl std::fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Authentication service returned HTTP {}", self.status)?;
+        if let Some(code) = &self.code {
+            write!(f, " ({code})")?;
+        }
+        Ok(())
+    }
+}
+impl std::error::Error for ProviderError {}
+
 pub struct Provider {
     client: Client,
     key: String,
@@ -70,12 +97,26 @@ impl Provider {
             .send()
             .await
             .context("Authentication service unavailable")?;
-        // Provider bodies can contain tokens and personal data. Never forward them as errors.
-        ensure!(
-            response.status().is_success(),
-            "Authentication service returned HTTP {}",
-            response.status().as_u16()
-        );
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            // Provider bodies can contain tokens and personal data. Never forward them
+            // as errors; keep only WorkOS's short machine error code, if it is one.
+            let code = response
+                .bytes()
+                .await
+                .ok()
+                .filter(|body| body.len() <= 16 * 1024)
+                .and_then(|body| serde_json::from_slice::<Value>(&body).ok())
+                .and_then(|body| body["code"].as_str().map(str::to_owned))
+                .filter(|code| {
+                    !code.is_empty()
+                        && code.len() <= 64
+                        && code
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b == b'_' || b.is_ascii_digit())
+                });
+            return Err(ProviderError { status, code }.into());
+        }
         if response.status() == reqwest::StatusCode::NO_CONTENT {
             return Ok(json!({}));
         }
