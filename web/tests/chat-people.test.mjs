@@ -21,8 +21,10 @@ function fetcher(writes){return async(path,options={})=>{
 
 test('everyone in the workspace and every usable agent appear together, agents marked AI',async()=>{
   const writes=[];
-  await reactFixture(async({render,button,click,change})=>{
+  await reactFixture(async({render,button,click,change,update})=>{
     await start();const {WorkspaceChat}=await import('../src/react/chat/workspace-chat.tsx');
+    // The workspace application starts the one shared unread store.
+    const stopUnread=(await import('../src/react/chat/unread-counts.ts')).startUnreadCounts();
     await render(WorkspaceChat,{href:url});
     // Unread channels stand out and agent pictures are round robots or uploads.
     assert.ok(document.querySelector('a.chat-contact.chat-contact-unread'));
@@ -44,6 +46,7 @@ test('everyone in the workspace and every usable agent appear together, agents m
     await click(button('Agents 2'));
     assert.deepEqual([...document.querySelectorAll('dialog li')].length,0);
     assert.equal(writes.length,0,'browsing never writes');
+    await update(stopUnread);
   },{url,fetch:fetcher(writes)});
 });
 

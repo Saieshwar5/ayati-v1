@@ -11,6 +11,8 @@ Feature specifications still govern permissions, persistence and execution.
 - Keep the quiet global navigation rail visible across Home, Chat, Activity, Agents,
   Library, Apps and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
+  Chat carries the unread badge on every page (D245): a red `--alert-badge` count at
+  the icon's corner, or a small accent dot; the link's name says "Chat, 3 unread".
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
   transparent 1 px border to preserve content geometry. Keep the 12 px desktop

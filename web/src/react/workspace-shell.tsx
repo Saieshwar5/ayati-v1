@@ -3,6 +3,7 @@ import { currentWorkspace, workspaceUrl, workspaceSession } from '../workspace-c
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 import { PauseBanner } from './activity/agents-pause';
+import { badgeLabel, badgeText, useChatBadge, type ChatBadge } from './chat/unread-badge';
 
 export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'apps' | 'settings';
 function Icon({ name }: { name: WorkspacePage }) {
@@ -17,15 +18,28 @@ function Icon({ name }: { name: WorkspacePage }) {
   </svg>;
 }
 
+function RailLink({ name, current, unread }: { name: WorkspacePage; current: boolean; unread?: ChatBadge }) {
+  const label = name[0].toUpperCase() + name.slice(1);
+  const marked = unread && (unread.count > 0 || unread.dot);
+  return <a className={`workspace-nav nav-${name}`} href={workspaceUrl(`/?view=${name}`)} title={label}
+    aria-current={current ? 'page' : undefined} aria-label={marked ? badgeLabel(label, unread) : undefined}>
+    <Icon name={name} /><span>{label}</span>
+    {marked && <small className={`workspace-nav-badge${unread.count ? '' : ' is-dot'}`} aria-hidden="true">{unread.count ? badgeText(unread.count) : ''}</small>}
+  </a>;
+}
+
+/** Only this item follows the unread counts, so a new count never rerenders the shell. */
+function ChatRailLink({ current }: { current: boolean }) {
+  return <RailLink name="chat" current={current} unread={useChatBadge()} />;
+}
+
 export function WorkspaceShell({ page, children }: { page: WorkspacePage; children: ReactNode }) {
   const pages: WorkspacePage[] = ['home', 'chat', 'activity', 'agents', 'library', 'apps', 'settings'];
   return <div className="workspace-shell"><aside className="workspace-rail">
     <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Cuckoo home"><Brand symbol /></a>
-    <nav aria-label="Workspace">{pages.map(name => {
-      const label = name[0].toUpperCase() + name.slice(1);
-      return <a key={name} className={`workspace-nav nav-${name}`} href={workspaceUrl(`/?view=${name}`)} title={label}
-        aria-current={page === name ? 'page' : undefined}><Icon name={name} /><span>{label}</span></a>;
-    })}</nav>
+    <nav aria-label="Workspace">{pages.map(name => name === 'chat'
+      ? <ChatRailLink key={name} current={page === name} />
+      : <RailLink key={name} name={name} current={page === name} />)}</nav>
     <AccountMenu />
   </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}
     <DeletionBanner /><PauseBanner />{children}</div></div>;

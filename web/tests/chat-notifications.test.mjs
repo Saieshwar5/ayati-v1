@@ -36,6 +36,8 @@ test('the sidebar marks counts that are for you and muted conversations; the bel
   const writes=[];let finish;
   await reactFixture(async({render,click,update})=>{
     await start();const {WorkspaceChat}=await import('../src/react/chat/workspace-chat.tsx');
+    // The workspace application starts the one shared unread store.
+    const stopUnread=(await import('../src/react/chat/unread-counts.ts')).startUnreadCounts();
     await render(WorkspaceChat,{href:`${url}&conversation=orders`});
     const row=name=>[...document.querySelectorAll('a.chat-contact')].find(a=>a.textContent.includes(name));
     assert.ok(row('orders').querySelector('.chat-unread.chat-unread-mention'),'a mention makes the count stand out');
@@ -50,6 +52,7 @@ test('the sidebar marks counts that are for you and muted conversations; the bel
     await update(()=>finish(response({ok:true,level:'none'})));
     assert.equal(document.querySelector('.chat-notify-button').getAttribute('aria-label'),'Notifications: Nothing');
     assert.ok(row('orders').querySelector('.chat-muted'));
+    await update(stopUnread);
   },{url:`${url}&conversation=orders`,fetch:async(path,options={})=>{
     if(options.method==='POST'){writes.push({path,body:JSON.parse(options.body)});return new Promise(resolve=>{finish=resolve;});}
     return response(path.endsWith('/session')?session:path.endsWith('/chat-directory')?directory:path.endsWith('/chats')?{chats:[orders,quiet,direct],preferences:{available:true,revision:0,pins:[]}}
