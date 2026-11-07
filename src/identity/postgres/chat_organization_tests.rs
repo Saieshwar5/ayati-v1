@@ -1,5 +1,12 @@
-use super::{control_tests::setup, tests::*, *};
-use crate::identity::chat::organization_model::{Lifecycle, Pin, PinKind, SavePins};
+use super::{
+    control_tests::{request, setup},
+    tests::*,
+    *,
+};
+use crate::identity::chat::{
+    model::NewChat,
+    organization_model::{Lifecycle, Pin, PinKind, SavePins},
+};
 fn lifecycle(archived: bool, revision: i64) -> Lifecycle {
     Lifecycle {
         request: uuid::Uuid::new_v4().to_string(),
@@ -273,4 +280,109 @@ async fn archiving_keeps_saved_work_and_questions_current() {
         before,
         "archive and restore change intake, not who can read"
     );
+}
+
+fn listed(list: &Value, id: &str) -> Value {
+    let chats = list["chats"].as_array().unwrap();
+    chats.iter().find(|c| c["id"] == id).cloned().unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn channels_list_their_creator_creation_time_and_managers() {
+    let db = fixture().await;
+    let admin = user(&db, "list-admin").await;
+    let creator = user(&db, "list-creator").await;
+    let member = user(&db, "list-member").await;
+    let w = workspace(&db, &admin).await;
+    join(&db, &admin, &w, &creator, "Member").await;
+    join(&db, &admin, &w, &member, "Member").await;
+    let before = now();
+    let people = vec![member.id.clone(), admin.id.clone()];
+    let c = chat(&db, &creator, &w, people, vec![]).await;
+    let channel = listed(&db.organized_chats(&member, &w).await.unwrap(), &c);
+    assert_eq!(channel["creator"], creator.id);
+    let at = channel["created_at"].as_i64().unwrap();
+    assert!((before..=now()).contains(&at), "{at}");
+    let mut managers: Vec<_> = channel["managers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m.as_str().unwrap())
+        .collect();
+    managers.sort();
+    let mut expected = vec![admin.id.as_str(), creator.id.as_str()];
+    expected.sort();
+    assert_eq!(
+        managers, expected,
+        "the creator and admins, not other members"
+    );
+    assert_eq!(channel["can_archive"], false, "the member manages nothing");
+    // Direct messages show no creator or managers, and their creation is not
+    // recorded: admins never see who messages whom.
+    let input = NewChat {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "Direct".into(),
+        users: vec![creator.id.clone()],
+        agents: vec![],
+        kind: "direct".into(),
+        description: String::new(),
+    };
+    let dm = db.chat_create(&member, &w, &input).await.unwrap();
+    let direct = listed(&db.organized_chats(&member, &w).await.unwrap(), &dm);
+    assert!(direct.get("creator").is_none() && direct.get("managers").is_none());
+    let recorded: i64 = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_audit WHERE workspace=$1 AND action='channel_created'",
+        vec![w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(recorded, 1);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_archive_review_lists_bounded_unfinished_work_only_for_people_who_may_archive() {
+    let (db, owner, w, connection, job) = setup("ask").await;
+    db.control_propose(&job, &request(&connection, "review"))
+        .await
+        .unwrap();
+    db.chat_finish(&job, "Waiting for approval", "complete")
+        .await
+        .unwrap();
+    let member = user(&db, "review-member").await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let people = [owner.id.clone(), member.id.clone()];
+    db.channel_members(&owner, &w, &job.chat, &people)
+        .await
+        .unwrap();
+    for i in 0..22 {
+        let ask = message(&format!("Request {i}"), Some(&job.agent));
+        db.chat_send(&owner, &w, &job.chat, &ask).await.unwrap();
+    }
+    let review = db
+        .channel_lifecycle(&owner, &w, &job.chat, None)
+        .await
+        .unwrap();
+    assert_eq!(review["active_requests"], 23);
+    let items = review["unfinished"].as_array().unwrap();
+    assert_eq!((items.len(), &review["more"]), (20, &serde_json::json!(3)));
+    assert_eq!(items[0]["request"], job.reply);
+    assert_eq!(items[0]["state"], "approval");
+    assert_eq!(items[0]["summary"], "Update the sample order");
+    assert_eq!(items[0]["agent_name"], "Pool agent");
+    assert!(items[0]["started_ms"].as_i64().unwrap() > 0);
+    assert_eq!(items[1]["state"], "queued");
+    assert_eq!(items[1]["summary"], "Request 0");
+    // Someone who may not archive sees how much is unfinished, not what.
+    let plain = db
+        .channel_lifecycle(&member, &w, &job.chat, None)
+        .await
+        .unwrap();
+    assert_eq!(plain["active_requests"], 23);
+    assert!(plain.get("unfinished").is_none() && plain.get("more").is_none());
 }

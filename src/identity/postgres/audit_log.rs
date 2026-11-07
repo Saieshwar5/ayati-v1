@@ -66,6 +66,8 @@ fn phrase(action: &str) -> &'static str {
         "channel_members_updated" => "changed the members of {}",
         "channel_agents_updated" => "changed the agents in {}",
         "channel_archived" => "archived {}",
+        "channel_created" => "created {}",
+        "channel_left" => "left {}",
         "channel_settings_updated" => "changed the settings of {}",
         "library_access_changed" => "changed Library access",
         "sign_in" => "signed in",

@@ -3,6 +3,8 @@ import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
+  /** Channels only: who created it, when (Unix seconds; unknown for older channels) and which members manage it. */
+  creator?: string; created_at?: number | null; managers?: string[];
   /** Seconds of the newest activity, as the server ordered the list (chat_activity.rs). */
   activity?: number };
 /** Audio adds its transcript (schema 95); `not_enabled` where the deployment doesn't transcribe. */

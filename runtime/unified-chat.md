@@ -82,7 +82,8 @@ Unselected plain @text does not dispatch work. The separate recipient selector i
 Shared-chat scope information lives in Details, a 360 px panel beside the conversation
 inside the workspace frame (D245; a sheet on phones), shared with profiles. It shows the
 name once with notifications, Pin and Archive; About; one searchable list of people and
-agents where managers add or remove them; and, for admins, one-Save channel settings.
+agents where managers add or remove them; one-Save channel settings for the creator and
+admins (only admins change public/private); and Leave for people in the channel.
 A direct message's Details is the other person's profile. The always-visible Create panel
 shortcut above private-agent composers is removed; Home's creation flow and
 explicit creation-mode links remain available.

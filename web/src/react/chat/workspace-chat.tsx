@@ -129,7 +129,8 @@ export function WorkspaceChat({ href }: { href: string }) {
     </div>
     {panel && directory && <ChatPanel view={panel} setView={setPanel} chat={current} directory={directory} chats={chats} message={messageTarget}
       level={current && levels[current.id]} levelChanged={level => { if (current) setLevels(previous => ({ ...previous, [current.id]: level })); }}
-      pins={{ preferences, busy: pins.busy, toggle: pins.toggle }} changed={() => refresh.current()} />}
+      pins={{ preferences, busy: pins.busy, toggle: pins.toggle }} changed={() => refresh.current()}
+      left={() => { setPanel(undefined); setShowList(true); navigate(workspaceUrl('/?view=chat')); void refresh.current(); }} />}
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
