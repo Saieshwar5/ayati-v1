@@ -236,6 +236,7 @@ pub mod migration;
 #[cfg(test)]
 mod migration_fixture;
 mod objects;
+pub(crate) mod operator;
 mod people;
 mod rehearsal_context;
 mod rehearsal_history;
@@ -425,8 +426,9 @@ async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result
     query(
         db,
         // Old Owner/User names exist only in upgrading databases (schema 43). A closed
-        // (deleted) workspace refuses everyone; to_jsonb also works before schema 49.
-        "SELECT CASE m.role WHEN 'Owner' THEN 'Admin' WHEN 'User' THEN 'Member' ELSE m.role END AS role FROM relay_members m JOIN relay_workspaces w ON w.id=m.workspace WHERE m.workspace=$1 AND m.user_id=$2 AND to_jsonb(w)->>'closed_ms' IS NULL",
+        // (deleted) or suspended (schema 87) workspace refuses everyone; to_jsonb
+        // also works on older schemas.
+        "SELECT CASE m.role WHEN 'Owner' THEN 'Admin' WHEN 'User' THEN 'Member' ELSE m.role END AS role FROM relay_members m JOIN relay_workspaces w ON w.id=m.workspace WHERE m.workspace=$1 AND m.user_id=$2 AND to_jsonb(w)->>'closed_ms' IS NULL AND to_jsonb(w)->>'suspended_ms' IS NULL",
         vec![workspace.into(), actor.into()],
     )
     .await?

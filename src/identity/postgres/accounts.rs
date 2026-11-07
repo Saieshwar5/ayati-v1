@@ -79,7 +79,7 @@ impl PgStore {
         Ok(())
     }
     pub async fn snapshot(&self, user: &User) -> Result<Value> {
-        let workspaces = json_rows(&self.db, "SELECT jsonb_build_object('id',w.id,'name',w.name,'role',m.role,'people',(SELECT count(*) FROM relay_members x WHERE x.workspace=w.id),'agents',(SELECT count(*) FROM relay_shared_agents a WHERE a.workspace=w.id),'delete_at_ms',(to_jsonb(w)->>'delete_at_ms')::bigint,'colour',to_jsonb(w)->>'colour','timezone',to_jsonb(w)->>'timezone','agents_paused_ms',(to_jsonb(w)->>'agents_paused_ms')::bigint) AS data FROM relay_workspaces w JOIN relay_members m ON m.workspace=w.id WHERE m.user_id=$1 AND to_jsonb(w)->>'closed_ms' IS NULL ORDER BY w.sequence", vec![user.id.clone().into()]).await?;
+        let workspaces = json_rows(&self.db, "SELECT jsonb_build_object('id',w.id,'name',w.name,'role',m.role,'people',(SELECT count(*) FROM relay_members x WHERE x.workspace=w.id),'agents',(SELECT count(*) FROM relay_shared_agents a WHERE a.workspace=w.id),'delete_at_ms',(to_jsonb(w)->>'delete_at_ms')::bigint,'colour',to_jsonb(w)->>'colour','timezone',to_jsonb(w)->>'timezone','agents_paused_ms',(to_jsonb(w)->>'agents_paused_ms')::bigint,'suspended',to_jsonb(w)->>'suspended_ms' IS NOT NULL) AS data FROM relay_workspaces w JOIN relay_members m ON m.workspace=w.id WHERE m.user_id=$1 AND to_jsonb(w)->>'closed_ms' IS NULL ORDER BY w.sequence", vec![user.id.clone().into()]).await?;
         let invitations = json_rows(&self.db, "SELECT jsonb_build_object('id',i.id,'name',w.name,'role',i.role,'expires',i.expires,'inviter',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=i.inviter)) AS data FROM relay_invitations i JOIN relay_workspaces w ON w.id=i.workspace WHERE i.email=$1 AND i.status='pending' AND i.expires>$2 AND i.provider IS NOT NULL", vec![user.email.clone().into(), now().into()]).await?;
         Ok(json!({"user":user,"workspaces":workspaces,"invitations":invitations}))
     }
@@ -100,6 +100,13 @@ impl PgStore {
             tx.commit().await?;
             return self.create(user, name, id).await;
         }
+        // Cuckoo Control can pause sign-up; the code stays unused for later.
+        ensure!(
+            self.platform_setting(super::operator::settings::SIGNUP_PAUSED)
+                .await?
+                != serde_json::json!(true),
+            "Cuckoo is not opening new workspaces right now. Your invite code still works later."
+        );
         let Some(code_id) = super::workspace_codes::consume(&tx, user, code).await? else {
             // The lock may have waited for a concurrent copy of this same request.
             if owned(&tx, id, &user.id).await? {

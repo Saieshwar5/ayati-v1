@@ -26,6 +26,7 @@ mod login_state;
 mod member_profiles;
 mod metrics;
 pub(crate) mod models;
+pub mod operator;
 mod pictures;
 pub mod postgres;
 mod private_config;
@@ -34,6 +35,7 @@ mod profile;
 mod provider;
 mod rehearsals;
 mod routes;
+mod secrets;
 mod settings;
 mod shutdown;
 pub mod simulation;
@@ -246,6 +248,7 @@ fn router(app: Shared) -> Router {
         .merge(collaboration::routes())
         .merge(communications::routes())
         .merge(simulation::routes())
+        .merge(operator::routes::routes())
         .route("/health/live", get(hosting::live))
         .route("/health/ready", get(hosting::ready))
         .route(

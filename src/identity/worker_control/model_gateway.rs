@@ -22,8 +22,9 @@ pub(super) struct ModelRequest {
 struct Provider {
     provider: String,
     base_url: String,
-    key_file: std::path::PathBuf,
-    /// The API the provider speaks; only OpenAI's chat completions for now.
+    /// Optional since schema 91: the key may instead be kept in Cuckoo Control.
+    #[serde(default)]
+    key_file: Option<std::path::PathBuf>,
     #[serde(default = "openai")]
     protocol: String,
 }
@@ -31,8 +32,11 @@ fn openai() -> String {
     "openai".into()
 }
 
-/// The configured providers; read on each request so keys can be rotated in place.
-pub(crate) fn provider(file: &std::path::Path, name: &str) -> Result<(String, String)> {
+/// A provider's checked address from the providers file, and its key file if any.
+pub(crate) fn provider_entry(
+    file: &std::path::Path,
+    name: &str,
+) -> Result<(String, Option<std::path::PathBuf>)> {
     let providers: Vec<Provider> =
         serde_json::from_slice(&std::fs::read(file).context("Model providers file unavailable")?)
             .context("Invalid model providers file")?;
@@ -49,13 +53,21 @@ pub(crate) fn provider(file: &std::path::Path, name: &str) -> Result<(String, St
         url.scheme() == "https" || (url.scheme() == "http" && url.host_str() == Some("127.0.0.1")),
         "Model providers need HTTPS; loopback HTTP is for local checks"
     );
-    let key =
-        std::fs::read_to_string(&found.key_file).context("Model provider key file unavailable")?;
-    ensure!(!key.trim().is_empty(), "Model provider key file is empty");
     Ok((
         found.base_url.trim_end_matches('/').to_owned(),
-        key.trim().to_owned(),
+        found.key_file,
     ))
+}
+
+/// The configured providers; read on each request so keys can be rotated in place.
+pub(crate) fn provider(file: &std::path::Path, name: &str) -> Result<(String, String)> {
+    let (base, key_file) = provider_entry(file, name)?;
+    let key_file = key_file.with_context(|| {
+        format!("Model provider {name} has no key: set one in Cuckoo Control or give it a key_file")
+    })?;
+    let key = std::fs::read_to_string(&key_file).context("Model provider key file unavailable")?;
+    ensure!(!key.trim().is_empty(), "Model provider key file is empty");
+    Ok((base, key.trim().to_owned()))
 }
 
 /// Token counts from a JSON answer or the last usage chunk of a streamed one.
@@ -104,12 +116,6 @@ pub(super) async fn invoke(
     super::super::postgres::worker_control::require(
         record.session.as_deref() == Some(&input.assignment.session),
     )?;
-    let file = state
-        .app
-        .config
-        .model_providers_file
-        .clone()
-        .context("The model gateway is off")?;
     let context = record.context.clone().unwrap_or(Value::Null);
     // The assignment's model is authoritative, whatever Goose asked for.
     let model = context["model"]
@@ -132,6 +138,16 @@ pub(super) async fn invoke(
         return Ok((
             StatusCode::PAYMENT_REQUIRED,
             Json(json!({"error":{"message":reason,"type":"budget_reached"}})),
+        )
+            .into_response());
+    }
+    // Cuckoo Control (schema 91): suspended workspaces and the platform's daily ceiling.
+    if let Some(reason) =
+        super::model_routing::refusal(pg(&state), &input.assignment.scope.workspace).await?
+    {
+        return Ok((
+            StatusCode::FORBIDDEN,
+            Json(json!({"error":{"message":reason,"type":"cuckoo_refused"}})),
         )
             .into_response());
     }
@@ -159,6 +175,20 @@ pub(super) async fn invoke(
         }
         None => vec![(name, model.clone(), Price::default())],
     };
+    let (routes, paused) = super::model_routing::switched_on(
+        pg(&state),
+        routes.into_iter().map(|(p, m, c)| (p, (m, c))).collect(),
+    )
+    .await?;
+    let routes: Vec<(String, String, Price)> =
+        routes.into_iter().map(|(p, (m, c))| (p, m, c)).collect();
+    if routes.is_empty() {
+        return Ok((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{"message":paused.join("; "),"type":"provider_paused"}})),
+        )
+            .into_response());
+    }
     let (job, person) = match &record.work {
         super::super::postgres::worker_control::Work::Reply(assignment) => (
             Some(assignment.job.reply.clone()),
@@ -188,7 +218,7 @@ pub(super) async fn invoke(
     for (index, (name, provider_model, cost)) in routes.iter().enumerate() {
         tried += 1;
         let last = index + 1 == routes.len();
-        let (base, key) = provider(&file, name)?;
+        let (base, key) = super::model_routing::credentials(&state.app, name).await?;
         body["model"] = json!(provider_model);
         let sent = std::time::Instant::now();
         match upstream_client()

@@ -56,6 +56,11 @@ pub struct Controller {
     pub model_providers_file: Option<PathBuf>,
     /// The models people choose and the routes that serve them (MG1).
     pub model_catalog_file: Option<PathBuf>,
+    /// Seals model provider keys added in Cuckoo Control: an owned 0600 file of
+    /// 64 hex characters. Without it the console cannot store keys.
+    pub secrets_key_file: Option<PathBuf>,
+    /// The name Cuckoo Control shows in its environment band, e.g. production.
+    pub control_environment: String,
     /// Library meaning search (LB2b): "provider:model" for passage embeddings and for
     /// one-line document summaries, both from the model providers file.
     pub library_embedding_model: Option<(String, String)>,
@@ -213,6 +218,8 @@ impl Controller {
             mcp_servers_file: absolute(env, "AYATI_MCP_SERVERS_FILE"),
             model_providers_file: absolute(env, "AYATI_MODEL_PROVIDERS_FILE"),
             model_catalog_file: absolute(env, "AYATI_MODEL_CATALOG_FILE"),
+            secrets_key_file: absolute(env, "AYATI_SECRETS_KEY_FILE"),
+            control_environment: super::operators::control_environment(env, hosted),
             library_embedding_model: provider_model(env, "AYATI_LIBRARY_EMBEDDING_MODEL"),
             library_summary_model: provider_model(env, "AYATI_LIBRARY_SUMMARY_MODEL"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
@@ -225,7 +232,7 @@ impl Controller {
             aws_test_endpoint: test_endpoint(env),
             metrics_seconds: env.number("AYATI_METRICS_SECONDS", 60, 0..=3600),
             retain_sync_days: env.number("AYATI_RETAIN_SYNC_DAYS", 30, 1..=3650),
-            platform_admins: platform_admins(env),
+            platform_admins: super::operators::platform_admins(env),
             log_json: env.text("AYATI_LOG_FORMAT").as_deref() == Some("json"),
             cloud: CloudWorkers::read(env),
             trace_start: env.flag("AYATI_TRACE_START"),
@@ -353,26 +360,6 @@ fn composio_auth_configs(env: &mut Reader) -> std::collections::BTreeMap<String,
         }
     }
     configs
-}
-
-fn platform_admins(env: &mut Reader) -> Vec<String> {
-    let admins: Vec<String> = env
-        .text("AYATI_PLATFORM_ADMINS")
-        .map(|value| {
-            value
-                .split(',')
-                .map(|e| e.trim().to_lowercase())
-                .filter(|e| !e.is_empty())
-                .collect()
-        })
-        .unwrap_or_default();
-    if admins
-        .iter()
-        .any(|e| !e.contains('@') || e.chars().any(char::is_whitespace))
-    {
-        env.problem("AYATI_PLATFORM_ADMINS must be a comma-separated list of email addresses");
-    }
-    admins
 }
 
 fn test_endpoint(env: &mut Reader) -> Option<String> {

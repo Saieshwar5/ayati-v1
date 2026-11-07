@@ -19,7 +19,7 @@ pub(in crate::identity) async fn fixture() -> PgStore {
     let db = PgStore::connect(url.as_str()).await.unwrap();
     db.migrate().await.unwrap();
     db.verify_schema().await.unwrap();
-    db.db.execute_unprepared(&format!("GRANT USAGE ON SCHEMA {schema} TO relay_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {schema} TO relay_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA {schema} TO relay_app; REVOKE UPDATE,DELETE ON {schema}.relay_audit FROM relay_app;")).await.unwrap();
+    db.db.execute_unprepared(&format!("GRANT USAGE ON SCHEMA {schema} TO relay_app; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA {schema} TO relay_app; GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA {schema} TO relay_app; REVOKE UPDATE,DELETE ON {schema}.relay_audit FROM relay_app; REVOKE UPDATE,DELETE ON {schema}.relay_operator_log FROM relay_app;")).await.unwrap();
     url.set_username("relay_app").unwrap();
     let runtime = PgStore::connect(url.as_str()).await.unwrap();
     runtime.verify_schema().await.unwrap();

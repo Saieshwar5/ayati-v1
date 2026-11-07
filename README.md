@@ -20,6 +20,7 @@ configuration and database names remain. See [Cuckoo branding](runtime/cuckoo-br
 | Controller | `ayati identity` | Sign-in, workspaces, Chat, approvals, schedules, events and all PostgreSQL access |
 | Executor | `ayati executor` | Bounded prepared Goose slots that receive scoped assignments from the controller |
 | Migration job | `ayati workspace-db migrate` | Explicit PostgreSQL schema changes; never run on API startup |
+| Operator CLI | `ayati admin` | [Cuckoo Control](runtime/cuckoo-control.md) from a terminal: the same actions and change log as the console at `/control` |
 
 Executors never receive core database credentials or WorkOS keys. See
 [worker control](runtime/worker-control.md), the [shared executor pool](runtime/executor-pool.md)
@@ -42,6 +43,9 @@ Main product contracts:
   [shared schedules](runtime/shared-agent-schedules.md) and
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
+- [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:
+  workspaces and suspension, provider keys and the emergency switch, the model catalog
+  live, spend and margin, platform settings and one change log.
 
 ## Run locally
 

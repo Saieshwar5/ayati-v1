@@ -10,10 +10,12 @@ pub(crate) mod cloud;
 pub(crate) mod config;
 mod hub;
 pub(crate) mod model;
-mod model_gateway;
+pub(crate) mod model_gateway;
+pub(crate) mod model_routing;
 pub(crate) use model_gateway::{
     MODEL_BODY_LIMIT, provider as model_provider, upstream_client as model_client,
 };
+pub(crate) use model_routing::file_providers;
 pub(crate) mod output;
 mod pool;
 mod tls;

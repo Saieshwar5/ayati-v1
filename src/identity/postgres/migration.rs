@@ -98,6 +98,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::worker_control::model_usage::ModelCosts),
             Box::new(super::model_budgets::ModelBudgets),
             Box::new(super::model_operations::ModelOperations),
+            Box::new(super::operator::OperatorConsole),
         ]
     }
 }

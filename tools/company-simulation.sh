@@ -43,6 +43,7 @@ GRANT USAGE ON SCHEMA public TO relay_app;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO relay_app;
 GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO relay_app;
 REVOKE UPDATE,DELETE ON relay_audit FROM relay_app;
+REVOKE UPDATE,DELETE ON relay_operator_log FROM relay_app;
 REVOKE INSERT,UPDATE,DELETE ON seaql_migrations FROM relay_app;
 SQL
     ;;

@@ -67,3 +67,9 @@ out" (`model_usage` on `GET …/activity/requests/{reply}`).
 
 Choosing catalog models per agent, and falling back between providers, are in the
 [model catalog](model-catalog.md) (MG1).
+
+## Operator controls (schema 91)
+
+[Cuckoo Control](cuckoo-control.md) adds an emergency switch that drops a provider's
+routes, refuses suspended workspaces and calls past the platform's daily ceiling, and
+lets a provider's API key live sealed in the console instead of its `key_file`.
