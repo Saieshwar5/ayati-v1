@@ -22,7 +22,8 @@ test('a voice note folds its transcript away under its player', async () => {
     assert.equal(text.textContent, 'Book the van for Friday.');
     await click(toggle);
     assert.equal(text.hidden, true);
-    assert.equal(document.querySelectorAll('audio[controls]').length, 1);
+    assert.equal(document.querySelectorAll('.voice-player').length, 1);
+    assert.equal(document.querySelectorAll('.chat-transcript-toggle svg').length, 2, 'the lines icon and the chevron');
   });
 });
 
@@ -40,7 +41,7 @@ test('pending, failed and untranscribed voice notes show only their state', asyn
     // Where the deployment doesn't transcribe, and on uploads not yet sent.
     await render(MessageFiles, { files: [voice('off', { transcript_status: 'not_enabled' }), voice('unsent')] });
     assert.ok(!document.querySelector('.chat-transcript'));
-    assert.equal(document.querySelectorAll('audio[controls]').length, 2);
+    assert.equal(document.querySelectorAll('.voice-player').length, 2);
 
     // A silent recording still opens, saying so.
     await render(MessageFiles, { files: [voice('silent', { transcript_status: 'ready', transcript: '' })] });

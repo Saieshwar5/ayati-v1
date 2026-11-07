@@ -8,9 +8,12 @@ export type ComposerProps = {
   value: string; change: (value: string) => void; send: () => void;
   maxLength?: number; disabled?: boolean; sendDisabled?: boolean; placeholder?: string; label?: string;
   candidates?: Mention[]; media?: ReactNode; attachments?: ReactNode; trailing?: ReactNode;
+  /** A voice recording in progress replaces the text field; the draft stays. Enter sends and
+   * Escape calls `cancel` (when given) anywhere in the composer except on its buttons. */
+  voice?: { row: ReactNode; cancel?: () => void };
 };
 /** Shared UI; each conversation adapter owns its authorized transport and durable draft. */
-export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing }: ComposerProps) {
+export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice }: ComposerProps) {
   const input = useRef<HTMLTextAreaElement>(null);
   const restoreFocus = useRef(false);
   const submit = () => { if (!disabled && !sendDisabled) { restoreFocus.current = true; send(); } };
@@ -19,15 +22,22 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
   const { text, mentions } = decodeMentions(value);
   const query = /(?:^|\s)@([^@\n]{0,60})$/.exec(text.slice(0, caret));
   const start = query ? caret-query[1].length-1 : -1;
-  const choices = query && !dismissed && !mentions.some(m => start >= m.start && start < m.end)
+  const choices = query && !dismissed && !voice && !mentions.some(m => start >= m.start && start < m.end)
     ? candidates.filter(m => m.name.toLocaleLowerCase().includes(query[1].toLocaleLowerCase())).slice(0,8) : [];
   const selected = Math.min(active, Math.max(0, choices.length-1));
+  const recording = Boolean(voice), wasRecording = useRef(false);
   useLayoutEffect(() => {
     const node = input.current; if (!node) return;
+    // When a recording row closes, typing continues here unless focus moved elsewhere.
+    if (wasRecording.current && !recording) {
+      const focused = document.activeElement;
+      if (!focused || focused === document.body || node.form?.contains(focused)) restoreFocus.current = true;
+    }
+    wasRecording.current = recording;
     node.style.height = 'auto'; node.style.height = `${Math.min(node.scrollHeight, 160)}px`;
     if (restore.current !== undefined) { node.focus(); node.setSelectionRange(restore.current, restore.current); restore.current = undefined; }
-    if (!disabled && restoreFocus.current) { restoreFocus.current = false; node.focus(); }
-  }, [value, disabled, placeholder]);
+    if (!disabled && !recording && restoreFocus.current) { restoreFocus.current = false; node.focus(); }
+  }, [value, disabled, placeholder, recording]);
   useEffect(() => {
     const node = input.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
@@ -54,14 +64,19 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     restore.current = at+emoji.length; setCaret(restore.current); caretKnown.current = true;
     change(editMentions(value, next));
   };
-  return <form className="message-composer" aria-label="Message composer" onSubmit={event => { event.preventDefault(); submit(); }}>
+  return <form className={`message-composer${voice ? ' is-recording' : ''}`} aria-label="Message composer" onSubmit={event => { event.preventDefault(); submit(); }}
+    onKeyDown={voice && (event => {
+      if (event.nativeEvent.isComposing) return;
+      if (event.key === 'Escape' && voice.cancel) { event.preventDefault(); event.stopPropagation(); voice.cancel(); }
+      else if (event.key === 'Enter' && (event.target as HTMLElement).tagName !== 'BUTTON') { event.preventDefault(); submit(); }
+    })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
       {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
         <ParticipantFace kind={item.kind} who={item} /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? 'Asks this agent to work' : item.title || 'Person'}</small>
       </button>)}
     </div>}
     <textarea ref={input} aria-label={label} aria-autocomplete={candidates.length ? 'list' : undefined} aria-controls={choices.length ? menuId : undefined} aria-activedescendant={choices.length ? `${menuId}-${selected}` : undefined}
-      rows={1} placeholder={placeholder} value={text} disabled={disabled} maxLength={maxLength}
+      rows={1} placeholder={placeholder} value={text} disabled={disabled} maxLength={maxLength} hidden={recording}
       onBlur={event => { if (!event.currentTarget.form?.contains(event.relatedTarget as Node | null)) setDismissed(true); }}
       onSelect={event => { caretKnown.current = true; setCaret(event.currentTarget.selectionStart); }}
       onChange={event => { caretKnown.current = true; setCaret(event.target.selectionStart); setDismissed(false); setActive(0); change(editMentions(value,event.target.value)); }}
@@ -74,6 +89,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
           else setActive((selected+(event.key === 'ArrowDown' ? 1 : choices.length-1)) % choices.length);
         } else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); }
       }} />
+    {voice?.row}
     {attachments && <div className="composer-attachments">{attachments}</div>}
     <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}<Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button></div></div>
   </form>;

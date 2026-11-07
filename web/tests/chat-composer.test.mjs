@@ -35,64 +35,43 @@ test('inline suggestions select identities with keyboard, preserve newlines, and
  });
 });
 
-test('cancelled microphone requests release late streams without entering recording',async()=>{
- const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');
- const oldRecorder=globalThis.MediaRecorder;
- let resolveMedia,stopped=0,started=0;
- Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(resolve=>{resolveMedia=resolve;})}}});
- globalThis.MediaRecorder=class {constructor(){started++;}};
- try {
-  await reactFixture(async({render,button,click,update})=>{
-   const { VoiceRecorder }=await import('../src/react/chat/voice-recorder.tsx');let pending=false;
-   await render(VoiceRecorder,{disabled:false,attach:async()=>{},pending:value=>{pending=value;}});
-   await click(button('Record voice'));assert.equal(pending,true);
-   await click(button('Cancel recording'));assert.equal(pending,false);
-   await update(()=>resolveMedia({getTracks:()=>[{stop:()=>{stopped++;}}]}));
-   assert.equal(stopped,1);assert.equal(started,0);assert.ok(button('Record voice'));
-  });
- }finally{if(navigatorDescriptor)Object.defineProperty(globalThis,'navigator',navigatorDescriptor);else delete globalThis.navigator;globalThis.MediaRecorder=oldRecorder;}
-});
-
-test('Stop attaches once, failed upload retains audio for retry, and Cancel never attaches', async()=>{
- const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator'), old=globalThis.MediaRecorder;
- let attempts=0, fail=true, stopped=0;
- Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop:()=>stopped++}]})}}});
- globalThis.MediaRecorder=class {
-  state='inactive';mimeType='audio/webm';
-  start(){this.state='recording';}
-  stop(){this.state='inactive';this.ondataavailable({data:new Blob(['audio'],{type:this.mimeType})});this.onstop();}
- };
- try {await reactFixture(async({render,button,click})=>{
-  const {VoiceRecorder}=await import('../src/react/chat/voice-recorder.tsx');let pending=false;
-  await render(VoiceRecorder,{disabled:false,attach:async()=>{attempts++;if(fail)throw Error('offline');},pending:v=>pending=v});
-  await click(button('Record voice'));await click(button('Stop recording'));
-  assert.equal(attempts,1);assert.equal(pending,true);assert.ok(document.querySelector('audio'));
-  fail=false;await click(button('Retry voice upload'));assert.equal(attempts,2);assert.equal(pending,false);assert.equal(document.querySelector('audio'),null);
-  await click(button('Record voice'));await click(button('Cancel recording'));assert.equal(attempts,2);assert.equal(pending,false);assert.ok(stopped>=2);
- });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
-});
-
-test('voice notes ask for a widely playable format and are named by the recorded type', async()=>{
- const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator'), old=globalThis.MediaRecorder;
- let supported=[];const requested=[], files=[];
- Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}}});
- globalThis.MediaRecorder=class {
-  static isTypeSupported(type){return supported.includes(type);}
-  state='inactive';
-  constructor(_media,options){requested.push(options?.mimeType??'browser default');this.mimeType=options?.mimeType??'';}
-  start(){this.state='recording';}
-  stop(){this.state='inactive';this.ondataavailable({data:new Blob(['audio'])});this.onstop();}
- };
- try {await reactFixture(async({render,button,click})=>{
-  const {VoiceRecorder}=await import('../src/react/chat/voice-recorder.tsx');
-  await render(VoiceRecorder,{disabled:false,attach:async file=>{files.push(`${file.name} ${file.type}`);},pending:()=>{}});
-  // Chrome and current Firefox, older Firefox (Ogg only), Safari (MP4 only), then no match.
-  for(const types of [['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'],['audio/ogg;codecs=opus'],['audio/mp4'],[]]){
-   supported=types;await click(button('Record voice'));await click(button('Stop recording'));
+// Recording itself is covered in tests/voice-recorder.test.mjs; this is the composer's side.
+test('a voice row replaces the text field: Enter sends, Escape cancels, buttons keep their own keys, and typing resumes after', async()=>{
+ const calls=[];
+ await reactFixture(async({render,update,change,dom})=>{
+  const { Composer }=await import('../src/react/chat/composer.tsx');
+  let setVoice;
+  function Harness(){
+   const [value,set]=useState('draft kept');const [voice,choose]=useState();setVoice=choose;
+   return createElement(Composer,{value,change:set,send:()=>calls.push(`send:${value}`),voice,candidates:[{id:'a1',name:'Atlas',kind:'agent'}],
+    media:createElement('button',{className:'ui-button',type:'button'},'Attach')});
   }
- });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
- assert.deepEqual(requested,['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4','browser default']);
- assert.deepEqual(files,['voice-message.webm audio/webm;codecs=opus','voice-message.ogg audio/ogg;codecs=opus','voice-message.m4a audio/mp4','voice-message.webm audio/webm']);
+  await render(Harness);
+  const input=document.querySelector('textarea');
+  await change(input,'@At');assert.equal(document.querySelectorAll('[role=option]').length,1);
+  const row=createElement('div',{className:'voice-row',tabIndex:-1},createElement('button',{type:'button',onClick:()=>calls.push('row button')},'Row action'));
+  await update(()=>setVoice({row,cancel:()=>calls.push('cancel')}));
+  assert.equal(input.hidden,true);assert.equal(input.value,'@At','the draft stays while recording');
+  assert.equal(document.querySelectorAll('[role=option]').length,0,'no mention menu over the recording');
+  assert.ok(document.querySelector('form').classList.contains('is-recording'));
+  const press=(target,key)=>{const event=new dom.window.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true});target.dispatchEvent(event);return event.defaultPrevented;};
+  document.querySelector('.voice-row').focus();
+  let handled;
+  await update(()=>{handled=press(document.querySelector('.voice-row'),'Enter');});
+  assert.equal(handled,true);assert.deepEqual(calls,['send:@At']);
+  await update(()=>{handled=press(document.querySelector('.voice-row button'),'Enter');});
+  assert.equal(handled,false,'Enter on a button activates that button');assert.equal(calls.length,1);
+  await update(()=>{handled=press(document.querySelector('.voice-row'),'Escape');});
+  assert.equal(handled,true);assert.deepEqual(calls.slice(1),['cancel']);
+  // While sending there is nothing to cancel.
+  await update(()=>setVoice({row}));
+  await update(()=>{handled=press(document.querySelector('.voice-row'),'Escape');});
+  assert.equal(handled,false);assert.equal(calls.length,2);
+  document.querySelector('.voice-row').focus();
+  await update(()=>setVoice(undefined));
+  assert.equal(input.hidden,false);
+  assert.ok(document.activeElement===input,'focus returns to the text field');
+ });
 });
 
 test('the emoji picker inserts at the cursor, keeps mentions, searches, and closes with Escape', async()=>{

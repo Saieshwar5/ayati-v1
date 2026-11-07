@@ -56,9 +56,6 @@
 .result-files .chat-file > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .result-files .chat-file a { color:inherit; }
 .result-files .chat-file button { max-width:100%; overflow-wrap:anywhere; }
-.chat-transcript { display:block; margin:2px 0 4px; color:var(--muted); font-size:.85em; }
-.result-files .chat-file > .chat-transcript { display:block; }
-.chat-transcript p { margin:4px 0 0; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; }
 @media(max-width:640px) {
   .ui-dialog:has(.result-reader), .ui-dialog:has(.result-file-viewer), .ui-dialog:has(.result-reader-expanded) { width:100vw; height:100dvh; max-height:100dvh; margin:0; border-radius:0; }
   .result-body { padding:20px; }

@@ -76,9 +76,11 @@ stays queued while it waits, so no executor slot is held.
 
 Message history and live updates add `transcript_status`, `transcript` and
 `duration_ms` to audio attachments, so only people who can read the message see its
-transcript. Under the audio player, a **Transcript** button opens the text;
-"Transcribing…" and "Transcript unavailable" show the other states. Nothing extra shows
-when transcription is off.
+transcript. Under the voice message player ([Unified Chat](unified-chat.md#voice-messages-d245)),
+a **≡ Transcript ⌄** line opens the text; "Transcribing…" and "Transcript unavailable" show
+the other states. Nothing extra shows when transcription is off. The player shows
+`duration_ms` as the length when known, else the decoded recording's length. The composer
+stops recordings at 5 minutes, so they stay within the worker's limit.
 
 ## Usage and cost
 
@@ -98,7 +100,8 @@ is kept in `relay_object_transcripts.duration_ms`. Workspace budgets don't apply
   with "pending" after 30 seconds; without the setting, attachments still reach agents as
   `not_enabled`; only people who can read the message see the transcript; the 94 → 95
   upgrade; a worker round sends a short note and refuses one over 5 minutes.
-- Web (`web/tests/voice-transcript.test.mjs`): the transcript line's states.
+- Web (`web/tests/voice-transcript.test.mjs`): the transcript line's states; the recorder and
+  player are covered in `voice-recorder.test.mjs` and `voice-player.test.mjs`.
 
 ## Not yet
 

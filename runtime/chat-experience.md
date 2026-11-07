@@ -58,13 +58,12 @@ reply placement does not expose unrelated threads or private-agent memory. Share
 agent names accompany authorized messages so readers can identify agents even when
 they lack permission to invoke them.
 
-Attachment and voice buttons live inside the composer. Voice recordings have a
-visible elapsed timer, stop/cancel controls, automatic attachment on Stop. Cancel discards a recording. Sending still requires
-an explicit Send after attachment; it is blocked during recording and upload. Failed
-voice uploads retain a playable preview with Retry and Cancel controls. Media tracks, preview URLs, observers and
-pending requests are released on teardown. Shared upload limits remain 10 MiB/eight
-files; private uploads retain their existing 25 MiB/eight-file boundary. These are
-stored audio attachments, not speech recognition.
+Attachment and voice buttons live inside the composer. Since D245, Send or Enter sends a
+recording at once and the mic with × or Escape cancels it; failed sends keep it with Retry and
+Delete (see [voice messages](unified-chat.md#voice-messages-d245)). Media tracks, the live level's
+audio graph and animation frame, observers and pending requests are released on teardown. Shared
+upload limits remain 10 MiB/eight files; private uploads retain their existing 25 MiB/eight-file
+boundary. Speech recognition is described in [voice transcription](voice-transcription.md).
 
 Messages retain own-right/other-left alignment, quieter incoming surfaces and compact
 consecutive sender groups. Own messages omit repeated names/avatars, with time and
