@@ -10,8 +10,12 @@ export type Conversation = { id: string; name: string; kind: 'group' | 'channel'
   activity?: number };
 /** Audio adds its transcript (schema 95); `not_enabled` where the deployment doesn't transcribe. */
 export type TranscriptStatus = 'pending' | 'ready' | 'failed' | 'not_enabled';
+/** How far Cuckoo could read a non-audio file for agents (schema 100); `not_read` for
+ * files uploaded before then that were never shared. */
+export type FileReadingStatus = 'pending' | 'ready' | 'unsupported' | 'failed' | 'not_read';
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string;
-  transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null };
+  transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null;
+  reading?: FileReadingStatus };
 export type Message = {
   /** Unread for the viewer when this history page was read. */
   unread?: boolean;

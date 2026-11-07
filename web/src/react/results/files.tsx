@@ -3,6 +3,7 @@ import type { Attachment } from '../chat/model';
 import { workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useResults } from './provider';
+import { FileReading } from './file-reading';
 import { AudioTranscript } from './transcript';
 import { isVoiceNote, VoicePlayer } from './voice-player';
 export function MessageFiles({ files }: { files: Attachment[] }) {
@@ -16,6 +17,7 @@ export function MessageFiles({ files }: { files: Attachment[] }) {
       {audio && <><VoicePlayer file={file} src={`${url}?inline=true`} /><AudioTranscript file={file} /></>}
       {/* A recorded voice message is just its player and transcript (D245). */}
       {!(audio && isVoiceNote(file)) && <div>{open ? <Button onClick={() => open({ kind: 'file', id: file.id, name: file.name })}>{file.name}</Button> : <a href={url} download={file.name}>{file.name}</a>}<small> · {Math.ceil(file.size / 1024)} KB</small><a href={`${url}?version=${encodeURIComponent(file.checksum)}`} download={file.name} aria-label={`Download ${file.name}`}>↓</a></div>}
+      <FileReading file={file} />
     </div>;
   })}{files.length > 3 && <Button onClick={() => setMore(value => !value)}>{more ? 'Show fewer files' : `Show ${files.length - 3} more files`}</Button>}</div>;
 }
