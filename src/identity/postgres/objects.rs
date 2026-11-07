@@ -1,8 +1,15 @@
+//! Chat files: the uploaded objects, what was read from them and how agents
+//! find them. Every path checks the message that shared a file.
 use super::*;
 use crate::identity::collaboration::Object;
+
+#[path = "object_contents.rs"]
+pub(crate) mod contents;
+
 impl PgStore {
     /// Saves an uploaded file. With `transcribe`, audio also queues its
-    /// transcript in the same transaction (schema 95).
+    /// transcript in the same transaction (schema 95). Other files queue their
+    /// reading for agents (schema 100).
     pub(crate) async fn save_object(
         &self,
         user: &User,
@@ -18,6 +25,7 @@ impl PgStore {
         if transcribe && obj.mime.starts_with("audio/") {
             super::transcripts::queue_in(&tx, w, &obj.id).await?;
         }
+        contents::queue_in(&tx, w, &obj.id, &obj.mime).await?;
         tx.commit().await?;
         Ok(())
     }

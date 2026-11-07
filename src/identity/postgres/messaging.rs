@@ -32,6 +32,7 @@ impl PgStore {
         )
         .await?;
         super::transcripts::for_people(&tx, w, &mut messages).await?;
+        super::objects::contents::for_people(&tx, w, &mut messages).await?;
         let message = messages.into_iter().next().context("Message missing")?;
         ensure!(
             message["chat"] == chat && message["author"] == user.id,
@@ -151,6 +152,7 @@ impl PgStore {
             .await?;
             super::reply_views::hydrate(&tx, user, w, &mut messages).await?;
             super::transcripts::for_people(&tx, w, &mut messages).await?;
+            super::objects::contents::for_people(&tx, w, &mut messages).await?;
             for message in messages {
                 output.push(json!({"kind":"message","chat":message["chat"],"message":message}));
             }

@@ -19,6 +19,18 @@ pub fn mime(bytes: &[u8]) -> &'static str {
         "application/octet-stream"
     }
 }
+/// The kind of readable file a detected type is, as agents are told it, or None
+/// when no reader handles it.
+pub fn kind(mime: &str) -> Option<&'static str> {
+    match mime {
+        "text/plain" => Some("text"),
+        "application/pdf" => Some("pdf"),
+        "image/png" | "image/jpeg" => Some("image"),
+        super::office::DOCX => Some("word"),
+        super::office::XLSX => Some("excel"),
+        _ => None,
+    }
+}
 pub async fn text(bytes: &Bytes, mime: &str) -> (String, &'static str) {
     if mime == "text/plain" {
         return (

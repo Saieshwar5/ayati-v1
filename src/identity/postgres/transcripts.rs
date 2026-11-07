@@ -215,7 +215,7 @@ impl PgStore {
 
 /// Tells open conversations that a message's attachment changed, through the
 /// existing change stream; each reader's access is checked when it reloads.
-async fn announce(tx: &DatabaseTransaction, w: &str, object: &str) -> Result<()> {
+pub(super) async fn announce(tx: &DatabaseTransaction, w: &str, object: &str) -> Result<()> {
     let messages = rows(tx, "SELECT m.id,m.chat FROM relay_objects o JOIN relay_chat_messages m ON m.workspace=o.workspace AND m.chat=o.chat
         WHERE o.workspace=$1 AND o.id=$2 AND m.attachments @> jsonb_build_array(o.id) LIMIT 8", vec![w.into(), object.into()]).await?;
     for message in &messages {

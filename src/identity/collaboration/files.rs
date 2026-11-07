@@ -70,6 +70,8 @@ pub(super) async fn upload(
         .await?;
     if transcribe && object.mime.starts_with("audio/") {
         crate::identity::transcription::wake();
+    } else if !object.mime.starts_with("audio/") {
+        crate::identity::file_reading::wake();
     }
     Ok(Json(json!(object)))
 }
@@ -135,9 +137,13 @@ pub(crate) async fn stored(app: &App, w: &str, object: &Object) -> ApiResult<Byt
     )?;
     Ok(bytes)
 }
-/// Only sniffed passive formats render inline; other bytes are downloads.
-/// WebM and MP4 can also hold video, so they count as audio only when the
-/// uploader declared audio. Ogg also counts when its stream is Opus or Vorbis.
+/// The type recorded for an upload, from its own bytes. WebM and MP4 can also
+/// hold video, so they count as audio only when the uploader declared audio.
+/// Ogg also counts when its stream is Opus or Vorbis. Documents (PDF, Word,
+/// Excel, plain text) are recognised as the Library recognises them, so agents
+/// are told what a file is and it can be read for them (schema 100). The type
+/// never decides how a file is served: `media::deliver` opens only images and
+/// audio in the browser, and everything else downloads.
 fn sniff(bytes: &[u8], declared: Option<&str>) -> &'static str {
     // Compare the declared type without parameters such as `codecs=opus`.
     let declared = declared
@@ -156,6 +162,15 @@ fn sniff(bytes: &[u8], declared: Option<&str>) -> &'static str {
         "audio/ogg"
     } else if mp4_audio(bytes) && matches!(declared.as_str(), "audio/mp4" | "audio/x-m4a") {
         "audio/mp4"
+    } else {
+        document(bytes)
+    }
+}
+/// A PDF, Word or Excel file or plain text; anything else is opaque bytes.
+fn document(bytes: &[u8]) -> &'static str {
+    let mime = library::extract::mime(bytes);
+    if library::extract::kind(mime).is_some_and(|kind| kind != "image") {
+        mime
     } else {
         "application/octet-stream"
     }
@@ -243,7 +258,8 @@ mod tests {
             (&vorbis, None, "audio/ogg"),
             (&theora, Some("Audio/Ogg"), "audio/ogg"),
             (&theora, Some("video/ogg"), "application/octet-stream"),
-            (b"OggS", Some("video/ogg"), "application/octet-stream"),
+            // Four ASCII bytes are plain text, not a playable stream.
+            (b"OggS", Some("video/ogg"), "text/plain"),
             // Safari records MP4/AAC; MP4 needs a declared audio type.
             (&safari, Some("audio/mp4"), "audio/mp4"),
             (&m4a, Some("audio/x-m4a"), "audio/mp4"),
@@ -251,21 +267,66 @@ mod tests {
             (&safari, None, "application/octet-stream"),
             (&quicktime, Some("audio/mp4"), "application/octet-stream"),
             (&safari[..12], Some("audio/mp4"), "application/octet-stream"),
-            (
-                b"<html><script>",
-                Some("audio/mp4"),
-                "application/octet-stream",
-            ),
+            // Markup declared as audio is text: recorded, never played or rendered.
+            (b"<html><script>", Some("audio/mp4"), "text/plain"),
             // Chrome records WebM/Opus; WebM also needs a declared audio type.
             (webm, Some("audio/webm;codecs=opus"), "audio/webm"),
             (webm, Some("video/webm"), "application/octet-stream"),
-            (
-                b"<html><script>",
-                Some("audio/ogg"),
-                "application/octet-stream",
-            ),
+            (b"<html><script>", Some("audio/ogg"), "text/plain"),
             (b"RIFF\0\0\0\0WAVEfmt ", None, "audio/wav"),
             (b"\x89PNG\r\n\x1a\n", Some("text/html"), "image/png"),
+        ];
+        for (index, (bytes, declared, expected)) in cases.into_iter().enumerate() {
+            assert_eq!(sniff(bytes, declared), expected, "case {index}");
+        }
+    }
+
+    /// A zip holding one part, enough to tell Word from other archives.
+    fn package(part: &str) -> Vec<u8> {
+        use std::io::Write;
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        let mut zip = zip::ZipWriter::new(&mut buffer);
+        zip.start_file(part, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(b"<w:document/>").unwrap();
+        zip.finish().unwrap();
+        buffer.into_inner()
+    }
+
+    #[test]
+    fn documents_are_recorded_as_what_their_bytes_are() {
+        let word = package("word/document.xml");
+        let archive = package("notes/readme.xml");
+        let cases: [(&[u8], Option<&str>, &str); 7] = [
+            (
+                b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n",
+                Some("image/png"),
+                "application/pdf",
+            ),
+            (b"name,amount\nAcme,42\n", Some("text/csv"), "text/plain"),
+            (
+                &word,
+                None,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
+            // An archive that is not a Word or Excel file stays opaque.
+            (
+                &archive,
+                Some("application/zip"),
+                "application/octet-stream",
+            ),
+            (
+                b"\0\x01\x02binary",
+                Some("application/pdf"),
+                "application/octet-stream",
+            ),
+            // A declared type never makes bytes a document.
+            (
+                b"\x7fELF\x02\x01\x01\0",
+                Some("text/plain"),
+                "application/octet-stream",
+            ),
+            (b"\x89PNG\r\n\x1a\n", None, "image/png"),
         ];
         for (index, (bytes, declared, expected)) in cases.into_iter().enumerate() {
             assert_eq!(sniff(bytes, declared), expected, "case {index}");

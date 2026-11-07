@@ -1,5 +1,5 @@
 pub(in crate::identity) mod context;
-mod extract;
+pub(in crate::identity) mod extract;
 mod files;
 pub(in crate::identity) mod indexer;
 pub(in crate::identity) mod keeping;

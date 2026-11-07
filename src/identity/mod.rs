@@ -18,6 +18,7 @@ mod identifier;
 pub(crate) use identifier::identifier;
 pub(crate) mod archive;
 pub(crate) mod data_cleanup;
+mod file_reading;
 mod hosting;
 mod interactions;
 mod invite_links;
@@ -245,6 +246,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     library::indexer::start(app.clone());
     library::keeping::start(app.clone());
     transcription::start(app.clone())?;
+    file_reading::start(app.clone());
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {

@@ -107,6 +107,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::work_signals::WorkNotifications),
             Box::new(super::chat::presence::MemberPresence),
             Box::new(super::chat_intake::several_agents::SeveralAgentsPerMessage),
+            Box::new(super::objects::contents::FileReading),
         ]
     }
 }

@@ -239,7 +239,7 @@ pub(crate) mod messaging;
 pub mod migration;
 #[cfg(test)]
 mod migration_fixture;
-mod objects;
+pub(crate) mod objects;
 pub(crate) mod operator;
 mod people;
 mod rehearsal_context;

@@ -52,8 +52,11 @@ fn a_notification_wakes_only_the_loop_it_names_in_its_own_schema() {
     assert!(!woken(&signals.schedule), "another schema's work");
     signals.notified("public", "public/transcribe");
     assert!(woken(&signals.transcribe) && !woken(&signals.dispatch));
+    signals.notified("public", "public/read");
+    assert!(woken(&signals.read) && !woken(&signals.transcribe));
     signals.notified("public", "public/something-new");
     assert!(woken(&signals.dispatch) && woken(&signals.schedule) && woken(&signals.transcribe));
+    assert!(woken(&signals.read));
 }
 
 #[tokio::test]
@@ -219,6 +222,7 @@ async fn every_table_the_loops_act_on_announces_its_work() {
         "relay_executor_tasks",
         "relay_home_update_wanted",
         "relay_library_arrivals",
+        "relay_object_contents",
         "relay_object_transcripts",
         "relay_task_wakeups",
     ];
