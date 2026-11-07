@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { Button, Dialog } from '../ui';
+import { useCallback, useEffect, useId, useRef } from 'react';
+import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { chatRequest, type Conversation } from './model';
 import type { Lifecycle } from './organization-model';
 import { subscribeChanges } from './live';
-export function ChannelLifecycle({ chat, close, changed }: { chat: Conversation; close: () => void; changed: () => Promise<void> }) {
+
+/** Archive or restore review, shown in place inside Details (D245 screen 6). */
+export function ArchiveReview({ chat, close, changed }: { chat: Conversation; close: () => void; changed: () => Promise<void> }) {
   const load = useCallback(() => chatRequest<Lifecycle>(`/chats/${chat.id}/lifecycle`), [chat.id]);
   const resource = useResource(load), mutation = useMutation();
+  const id = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => subscribeChanges(change => { if (['access', 'reset'].includes(change.kind)) void resource.refresh().catch(() => {}); }), [resource.refresh]);
+  // One request identity per exact change, so a retry after a lost reply cannot repeat it.
   const attempt = useRef<{ signature: string; request: string }>(undefined);
-  const change = () => {
+  const confirm = () => {
     if (!resource.data?.manageable) return;
     const payload = { archived: !resource.data.archived, revision: resource.data.revision };
     const signature = JSON.stringify(payload);
@@ -17,16 +23,30 @@ export function ChannelLifecycle({ chat, close, changed }: { chat: Conversation;
     const request = attempt.current.request;
     void mutation.run(async () => { await chatRequest(`/chats/${chat.id}/lifecycle`, { ...payload, request }); await changed(); close(); });
   };
-  const archived = resource.data?.archived ?? Boolean(chat.archived);
-  return <Dialog title={archived ? 'Restore channel' : 'Archive channel'} close={close} busy={mutation.busy} status={mutation.status}
-    footer={<><Button disabled={mutation.busy} onClick={() => { mutation.setStatus(''); void resource.refresh().catch(() => {}); }}>Refresh channel state</Button><Button primary disabled={mutation.busy || !resource.data?.manageable} onClick={change}>{archived ? 'Restore channel' : 'Archive channel'}</Button></>}>
-    {resource.data && <h3>{chat.name}</h3>}
-    {resource.error && <p role="alert">{resource.error}</p>}
-    {!resource.data && !resource.error && <p role="status">Loading channel state…</p>}
-    {resource.data && <><p>{archived ? 'Restore lets people send new messages and agent requests again.' : 'Archive closes new messages and agent requests for everyone. History and saved files stay available under their existing access settings.'}</p>
-      <p>{resource.data.active_requests} visible unfinished {resource.data.active_requests === 1 ? 'request' : 'requests'}. Already accepted work can continue; its questions, approvals and Stop controls stay available.</p>
-      <p>{archived ? 'Stopped work and closed approvals stay closed. Restore does not start work or change permissions.' : 'Archive does not stop existing work or approve an action. You can still stop your own requests separately.'}</p>
-      {!resource.data.manageable && <p>Only the channel creator or a workspace admin with channel access can change this state.</p>}
-    </>}
-  </Dialog>;
+  const state = resource.data;
+  const archived = state?.archived ?? Boolean(chat.archived);
+  const running = state?.active_requests ?? 0;
+  return <section className="chat-archive-review" aria-labelledby={id} aria-busy={mutation.busy}>
+    <h3 id={id} ref={heading} tabIndex={-1}>{archived ? `Restore #${chat.name}?` : `Archive #${chat.name}?`}</h3>
+    <p>{archived
+      ? 'People can post and ask agents again. Stopped work stays stopped and nothing restarts on its own.'
+      : 'History and files stay. Nobody can post and agents take no new requests. Restore opens it again.'}</p>
+    {!state && !resource.error && <p className="chat-help" role="status">Checking unfinished work…</p>}
+    {resource.error && <p className="chat-error" role="alert">{resource.error}</p>}
+    {state && <div className="chat-archive-running">
+      <strong>{running ? `Still running · ${running}` : 'Nothing is still running'}</strong>
+      <Button className="chat-archive-check" disabled={mutation.busy} onClick={() => { mutation.setStatus(''); void resource.refresh().catch(() => {}); }}>Check again</Button>
+      {running > 0 && <p>{running === 1 ? 'One visible request has' : `${running} visible requests have`} not finished. {archived
+        ? 'Restore does not change them.'
+        : 'Accepted work can finish; its questions, approvals and Stop stay available. Stop it from its message if it should not.'}</p>}
+    </div>}
+    {state && !state.manageable && <p className="chat-help">Only the channel creator or a workspace admin with channel access can change this.</p>}
+    {mutation.status && <p className="chat-error" role="alert">{mutation.status}</p>}
+    <div className="chat-archive-review-actions">
+      <Button primary className={archived ? '' : 'chat-archive-confirm'} disabled={mutation.busy || !state?.manageable} onClick={confirm}>
+        {mutation.busy ? (archived ? 'Restoring…' : 'Archiving…') : archived ? 'Restore channel' : 'Archive channel'}
+      </Button>
+      <Button disabled={mutation.busy} onClick={close}>Cancel</Button>
+    </div>
+  </section>;
 }

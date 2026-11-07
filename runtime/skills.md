@@ -65,15 +65,21 @@ library so the server never parses untrusted archives.
 
 ## Screens
 
-Built from the approved Agents designs (2026-10-30, screens 2 and 8):
+Built from the approved Agents designs (2026-10-30, screens 2 and 8) and the Add
+skills panels (`designs/chat-and-account/` screens 7–8, D245):
 
 - **Instructions tab → "Skills it can use":** list with version and uses this
-  week, **＋ Add skill**, and ⋯ View and download / Remove.
-- **Create step 2 → Skills:** chips with **＋ Add skills**; they are added right
-  after the agent is created.
-- **Add skills** (drawer): workspace skills, my skills (and others' for admins),
-  and **Upload a new skill** with review and, for admins, "Share with the
-  workspace".
+  week, **＋ Add skills**, and ⋯ View and download / Remove.
+- **Create step 2 → Skills:** chips under the instructions box with **＋ Add
+  skills**; they are added right after the agent is created.
+- **Add skills** (one drawer): a search across name, description and owner; "In
+  this workspace", "Yours" and, for admins, "Other people's", with counts; flat rows
+  where **Add** attaches at once; unusable skills stay greyed with the reason as
+  text. Footer: "N added to <agent>", **Upload a skill** and **Done**.
+- **Upload a skill** (second step, back arrow): choose or drop a `.zip` or folder,
+  or paste a SKILL.md; then the checked file, what was read, one file list with
+  in-place previews, plain warnings and, for admins, "Share with the workspace".
+  **Add skill** saves and adds it; Back and Cancel return to the list unsaved.
 
 **Waiting for designs:** the Skills library page in Agents (lists, history,
 create-in-Cuckoo form, request to share), starter skills and "Save a chat as a
@@ -92,6 +98,8 @@ accept up to 8 MB of JSON.
   and budget, loads at the starting version, Activity steps) and the file checks'
   unit tests (names, paths, types, size, the expanded-archive limit).
 - Guest: `load_skill` forwards only a name and an optional file.
-- Web: `tests/agent-skills.test.mjs` (zip round trip, archive limits, picker,
-  upload review, double-click save, remove).
+- Web: `tests/agent-skills.test.mjs` (zip round trip, archive limits, dropped
+  folders, search, Add once, reasons as text, the upload step, Back/Cancel, failed
+  saves and retries, keyboard file control, focus on close, remove) and
+  `tests/agent-create.test.mjs` (step 2 Skills).
 - Journey: `tests/agent_skills.mjs` with real Goose 1.54.0.

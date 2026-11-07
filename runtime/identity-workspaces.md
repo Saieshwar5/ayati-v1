@@ -103,9 +103,9 @@ All controller state lives in PostgreSQL. See
 ## Display names
 
 On first entry, including existing accounts without a name, Relay asks “What
-should people call you?” before workspace selection. People can edit their
-account-wide Display name in **My account** or under **Edit display name** in the
-workspace chooser. Names are trimmed, required, and limited to 80 Unicode
+should people call you?” before workspace selection. Afterwards people change their
+account-wide name in **Settings → Profile** (D245), together with their photo, job
+title and About for that workspace. Names are trimmed, required, and limited to 80 Unicode
 characters; control characters are rejected. Names need not be unique.
 
 The same name appears in account avatars, Users, chat recipients, direct-message
@@ -114,7 +114,8 @@ in account/member details and recipient selection to distinguish people with the
 same name. Until someone chooses a name, existing messages retain the email
 fallback. Identity, membership, grants and message ownership still use stable user
 IDs; a name never grants access. Only the currently authenticated person can
-change their name through `POST /api/identity/profile` with `{ "display_name": "…" }`.
+change their name: first entry uses `POST /api/identity/profile` with
+`{ "display_name": "…" }`, and Profile uses `POST …/workspaces/{w}/my-profile`.
 
 PostgreSQL requires the explicit forward migration before starting the updated
 server: run `workspace-db migrate` with the administrator connection (or

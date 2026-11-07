@@ -11,6 +11,7 @@ import { ToolsStep, type ToolChoices } from './tools-step';
 import { loadAvailable, saveRule, switchTool } from '../control-model';
 import { assignSkill, type Skill } from '../skills/model';
 import { SkillPicker } from '../skills/skill-picker';
+import { SkillIcon } from '../skills/skill-icons';
 import './create.css';
 
 const steps = ['Name and picture', 'Instructions', 'People', 'Tools and safety'];
@@ -84,19 +85,20 @@ export function AgentCreate({ start, directory, close, created }: {
         choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <InstructionsStep name={draft.name} title={draft.role} text={draft.settings.instructions} rules={directory.system_prompt}
-        change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))} />}
-      {step === 1 && <section className="agent-create-skills" aria-label="Skills">
-        <h3>Skills <small>How-to steps loaded only when needed</small></h3>
-        <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip">{skill.name}
-          <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
-          <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
-      </section>}
+        change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))}>
+        <section className="agent-create-skills" aria-label="Skills">
+          <h3>Skills <small>How-to steps loaded only when needed</small></h3>
+          <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip"><SkillIcon name="book" />{skill.name}
+            <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
+            <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
+        </section>
+      </InstructionsStep>}
       {step === 2 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
         members={members.data?.users} audience={audience} people={people} managers={managers}
         setAudience={setAudience} setPeople={setPeople} setManagers={setManagers} />}
       {step === 3 && <ToolsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
     </fieldset>
-    {pickingSkills && <SkillPicker owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
+    {pickingSkills && <SkillPicker agent={draft.name} owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
       choose={skill => setSkills(old => old.some(s => s.id === skill.id) ? old : [...old, skill])} />}
     <footer className="agent-create-footer">
       {step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}

@@ -8,6 +8,15 @@ export function PinButton({ pin, name, preferences, busy, toggle }: { pin: Pin; 
   const pinned = preferences.pins.some(item => samePin(item, pin));
   return <Button className="chat-pin-action" aria-label={`${pinned ? 'Unpin' : 'Pin'} ${name}`} title={pinned ? 'Unpin conversation' : 'Pin conversation'} aria-pressed={pinned} disabled={busy} onClick={() => toggle(pin)}>{pinned ? '★' : '☆'}</Button>;
 }
+/** The labelled Pin among a conversation's quiet actions in Details. */
+export function PinAction({ pin, preferences, busy, toggle }: { pin: Pin; preferences?: Preferences; busy: boolean; toggle: (pin: Pin) => void }) {
+  if (!preferences?.available) return null;
+  const pinned = preferences.pins.some(item => samePin(item, pin));
+  return <Button className="chat-details-action" aria-pressed={pinned} title={pinned ? 'Unpin conversation' : 'Pin conversation'} disabled={busy} onClick={() => toggle(pin)}>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M9 4h6l-1 6 3 3v1H7v-1l3-3-1-6ZM12 14v6" /></svg>
+    Pin
+  </Button>;
+}
 export function usePinActions(preferences: Preferences | undefined, saved: (next: Preferences) => void, epoch: { current: number }, refresh: () => Promise<void>) {
   const mutation = useMutation();
   const attempt = useRef<{ signature: string; request: string }>(undefined);
