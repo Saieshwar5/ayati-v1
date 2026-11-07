@@ -80,7 +80,7 @@ impl PgStore {
     }
     pub async fn snapshot(&self, user: &User) -> Result<Value> {
         let workspaces = json_rows(&self.db, "SELECT jsonb_build_object('id',w.id,'name',w.name,'role',m.role,'people',(SELECT count(*) FROM relay_members x WHERE x.workspace=w.id),'agents',(SELECT count(*) FROM relay_shared_agents a WHERE a.workspace=w.id),'delete_at_ms',(to_jsonb(w)->>'delete_at_ms')::bigint,'colour',to_jsonb(w)->>'colour','timezone',to_jsonb(w)->>'timezone','agents_paused_ms',(to_jsonb(w)->>'agents_paused_ms')::bigint,'suspended',to_jsonb(w)->>'suspended_ms' IS NOT NULL) AS data FROM relay_workspaces w JOIN relay_members m ON m.workspace=w.id WHERE m.user_id=$1 AND to_jsonb(w)->>'closed_ms' IS NULL ORDER BY w.sequence", vec![user.id.clone().into()]).await?;
-        let invitations = json_rows(&self.db, "SELECT jsonb_build_object('id',i.id,'name',w.name,'role',i.role,'expires',i.expires,'inviter',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=i.inviter)) AS data FROM relay_invitations i JOIN relay_workspaces w ON w.id=i.workspace WHERE i.email=$1 AND i.status='pending' AND i.expires>$2 AND i.provider IS NOT NULL", vec![user.email.clone().into(), now().into()]).await?;
+        let invitations = json_rows(&self.db, "SELECT jsonb_build_object('id',i.id,'name',w.name,'role',i.role,'expires',i.expires,'inviter',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=i.inviter)) AS data FROM relay_invitations i JOIN relay_workspaces w ON w.id=i.workspace WHERE i.email=$1 AND i.status='pending' AND i.expires>$2 AND (i.provider IS NOT NULL OR i.delivery='link')", vec![user.email.clone().into(), now().into()]).await?;
         Ok(json!({"user":user,"workspaces":workspaces,"invitations":invitations}))
     }
     /// Workspace creation for people who are not platform administrators: the
@@ -175,7 +175,7 @@ impl PgStore {
         let own_role = manager(&tx, workspace, &user.id).await?;
         let members = json_rows(&tx, "SELECT jsonb_build_object('id',u.id,'email',u.email,'display_name',u.display_name,'role',m.role) AS data FROM relay_members m JOIN relay_users u ON u.id=m.user_id WHERE m.workspace=$1 ORDER BY m.sequence",vec![workspace.into()]).await?;
         let invitations = if own_role == "Admin" {
-            json_rows(&tx, "SELECT jsonb_build_object('id',id,'email',email,'role',role,'status',status,'expires',expires) AS data FROM relay_invitations WHERE workspace=$1 AND status NOT IN ('cancelled','accepted') ORDER BY sequence DESC",vec![workspace.into()]).await?
+            json_rows(&tx, "SELECT jsonb_build_object('id',id,'email',email,'role',role,'status',status,'expires',expires,'delivery',delivery) AS data FROM relay_invitations WHERE workspace=$1 AND status NOT IN ('cancelled','accepted') ORDER BY sequence DESC",vec![workspace.into()]).await?
         } else {
             vec![]
         };

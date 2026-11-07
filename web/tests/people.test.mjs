@@ -80,6 +80,33 @@ test('Unconfirmed delivery refreshes invitations without losing the failed draft
   });
 });
 
+test('A refused email still gives the admin the link to send, marked Link only', async () => {
+  let current;
+  await fixture('Admin', async ({ people, writes, button, click, change, submit }) => {
+    current = people;
+    await click(button('＋ Invite person'));
+    const form = document.querySelector('form');
+    await change(form.elements.email, 'existing@example.com');
+    await submit(form);
+    const dialog = document.querySelector('dialog');
+    assert.match(dialog.textContent, /Invitation ready/);
+    assert.match(dialog.textContent, /could not be sent, so send this link to existing@example.com yourself/);
+    assert.doesNotMatch(dialog.textContent, /received an email/);
+    assert.match(dialog.querySelector('code').textContent, /\/invite\/secret$/);
+    assert.equal(writes.length, 1);
+    await click(button('Done'));
+    await click(tab('Invitations'));
+    const panel = document.querySelector('[role=tabpanel]:not([hidden])');
+    assert.match(panel.textContent, /Link only/);
+    assert.ok(button('Copy a new invite link for existing@example.com'));
+  }, (path, body) => {
+    if (body && path.endsWith('/invitations')) {
+      current.invitations.push({ id: 'refused', email: body.email, role: 'Member', status: 'pending', delivery: 'link', expires: Date.now() / 1000 + 600 });
+      return { ok: true, data: { id: 'refused', email_sent: false, link: 'http://localhost/invite/secret' } };
+    }
+  });
+});
+
 test('People shows roles and marks you; the menu offers the right role change', async () => {
   await fixture('Admin', async ({ button, click }) => {
     const rows = [...document.querySelectorAll('.settings-person')];

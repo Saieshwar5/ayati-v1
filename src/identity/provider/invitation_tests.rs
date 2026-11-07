@@ -32,6 +32,13 @@ async fn mail(
             tokio::time::sleep(Duration::from_millis(250)).await;
             (StatusCode::OK, Json(json!({"id":format!("mail_{call}")})))
         }
+        // WorkOS refuses for certain, as for an address that already has an account.
+        4 => (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"code":"user_already_exists","message":"guest@example.test already exists"}),
+            ),
+        ),
         _ => (StatusCode::OK, Json(json!({"id":format!("mail_{call}")}))),
     }
 }
@@ -264,4 +271,95 @@ async fn local_cancellation_survives_failed_provider_revocation() {
         .0,
         400
     );
+}
+
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn refused_email_leaves_a_link_only_invitation_the_person_can_accept() {
+    let f = Fixture::new().await;
+    f.mail.mode.store(4, Ordering::SeqCst);
+    let (status, sent) = f
+        .call(
+            "owner",
+            &f.invitations(),
+            Some(json!({"email":"guest@example.test","role":"Member"})),
+        )
+        .await;
+    assert_eq!(
+        status, 200,
+        "a definite refusal still makes a usable invitation"
+    );
+    assert_eq!(sent["email_sent"], false);
+    assert!(sent["link"].as_str().unwrap().contains("/invite/"));
+    assert_eq!(f.mail.calls.load(Ordering::SeqCst), 1);
+    let people = format!("/api/identity/workspaces/{}/people", f.workspace);
+    let listed = f.call("owner", &people, None).await.1;
+    assert_eq!(listed["invitations"][0]["status"], "pending");
+    assert_eq!(listed["invitations"][0]["delivery"], "link");
+    // The invited person finds it on their own page, and only they can accept it.
+    let session = f.call("guest", "/api/identity/session", None).await.1;
+    assert_eq!(session["invitations"].as_array().unwrap().len(), 1);
+    let id = sent["id"].as_str().unwrap();
+    let accept = format!("/api/identity/invitations/{id}/accept");
+    assert_eq!(f.call("outsider", &accept, Some(json!({}))).await.0, 400);
+    assert_eq!(f.call("guest", &accept, Some(json!({}))).await.0, 200);
+    assert_eq!(f.call("guest", &accept, Some(json!({}))).await.0, 400);
+    assert_eq!(
+        f.call("owner", &people, None).await.1["members"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+/// Only WorkOS's plain error code survives; bodies can carry emails or tokens.
+#[tokio::test]
+async fn provider_errors_keep_only_a_plain_error_code() {
+    let router = Router::new()
+        .route(
+            "/plain",
+            post(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(
+                        json!({"code":"user_already_exists","message":"guest@example.test exists"}),
+                    ),
+                )
+            }),
+        )
+        .route(
+            "/personal",
+            post(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"code":"guest@example.test"})),
+                )
+            }),
+        )
+        .route("/down", post(|| async { StatusCode::SERVICE_UNAVAILABLE }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let provider = Provider::fixture(format!("http://{address}"));
+    let call = |path: &'static str| provider.request(reqwest::Method::POST, path, Some(json!({})));
+
+    let plain = call("/plain").await.unwrap_err();
+    let refusal = ProviderError::refused(&plain).expect("a 4xx is a definite refusal");
+    assert_eq!(refusal.code.as_deref(), Some("user_already_exists"));
+    assert_eq!(
+        plain.to_string(),
+        "Authentication service returned HTTP 400 (user_already_exists)"
+    );
+
+    let personal = call("/personal").await.unwrap_err();
+    assert_eq!(ProviderError::refused(&personal).unwrap().code, None);
+    assert!(!personal.to_string().contains('@'));
+
+    let down = call("/down").await.unwrap_err();
+    assert!(
+        ProviderError::refused(&down).is_none(),
+        "a 5xx leaves the outcome unknown"
+    );
+    server.abort();
 }

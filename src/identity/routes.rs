@@ -303,16 +303,42 @@ pub(super) async fn invite(
             Some(json!({"email":email,"expires_in_days":7})),
         )
         .await;
-    let provider_id = result.as_ref().ok().and_then(|v| v["id"].as_str());
-    app.store.delivered(&id, provider_id).await?;
-    check(
-        provider_id.is_some(),
-        "Email delivery could not be confirmed. No access was granted. Cancel this invitation before trying again.",
-    )?;
+    let email_sent = match &result {
+        Ok(value) => {
+            let provider_id = value["id"].as_str();
+            app.store.delivered(&id, provider_id).await?;
+            if provider_id.is_none() {
+                tracing::warn!(invitation = %id, "Invitation email: WorkOS answered without an invitation id");
+            }
+            check(
+                provider_id.is_some(),
+                "Email delivery could not be confirmed. No access was granted. Cancel this invitation before trying again.",
+            )?;
+            true
+        }
+        Err(error) => match crate::identity::provider::ProviderError::refused(error) {
+            // WorkOS refused for certain and created nothing: the invitation works by link.
+            Some(refusal) => {
+                tracing::warn!(invitation = %id, status = refusal.status,
+                    code = refusal.code.as_deref().unwrap_or("none"),
+                    "Invitation email: WorkOS refused to send it; the invitation works by link");
+                app.store.link_only(&id).await?;
+                false
+            }
+            None => {
+                tracing::warn!(invitation = %id, error = %error, "Invitation email: delivery is uncertain");
+                app.store.delivered(&id, None).await?;
+                return Err(anyhow::anyhow!(
+                    "Email delivery could not be confirmed. No access was granted. Cancel this invitation before trying again."
+                )
+                .into());
+            }
+        },
+    };
     // The owner can also send the Cuckoo link themselves (shown once).
     let token = app.store.issue_invite_link(&user, &workspace, &id).await?;
     Ok(Json(
-        json!({"id": id, "link": format!("{}/invite/{token}", app.config.origin)}),
+        json!({"id": id, "email_sent": email_sent, "link": format!("{}/invite/{token}", app.config.origin)}),
     ))
 }
 pub(super) async fn accept(

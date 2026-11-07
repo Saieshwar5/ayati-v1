@@ -51,7 +51,7 @@ impl PgStore {
         .context("Invitation unavailable for this account")?;
         let workspace: String = row.try_get("", "workspace")?;
         let tx = self.workspace_tx(&workspace).await?;
-        let row=query(&tx,"SELECT role,inviter FROM relay_invitations WHERE id=$1 AND email=$2 AND status='pending' AND expires>$3 AND provider IS NOT NULL FOR UPDATE",vec![id.into(),user.email.clone().into(),now().into()]).await?.context("Invitation unavailable for this account")?;
+        let row=query(&tx,"SELECT role,inviter FROM relay_invitations WHERE id=$1 AND email=$2 AND status='pending' AND expires>$3 AND (provider IS NOT NULL OR delivery='link') FOR UPDATE",vec![id.into(),user.email.clone().into(),now().into()]).await?.context("Invitation unavailable for this account")?;
         let assigned: String = row.try_get("", "role")?;
         let inviter: String = row.try_get("", "inviter")?;
         manager(&tx, &workspace, &inviter).await?;

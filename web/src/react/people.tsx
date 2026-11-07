@@ -8,7 +8,7 @@ import { PersonMenu, RoleDialog, type PersonAction } from './people-actions';
 import { RemovePersonDialog, personName } from './remove-person-dialog';
 
 export type Member = { id: string; email: string; display_name?: string | null; role: string };
-type People = { role: string; members: Member[]; invitations: { id: string; email: string; role: string; status: string; expires: number }[] };
+type People = { role: string; members: Member[]; invitations: { id: string; email: string; role: string; status: string; expires: number; delivery?: 'email' | 'link' }[] };
 const base = `/workspaces/${workspaceId}`;
 const loadPeople = () => identityRequest<People>(`${base}/people`);
 
@@ -43,7 +43,7 @@ export function PeoplePage() {
       </div>)}{data && !members.length && <p className="ui-empty">{query ? 'No members match your search.' : 'No members to show.'}</p>}</div> },
       { title: `Invitations · ${data?.invitations.length ?? 0}`, content: <div className="ui-directory">{invitations.map(invitation => <div className="ui-row" key={invitation.id}>
         <div className="ui-row-title"><strong>{invitation.email}</strong><small>{invitation.role}</small></div>
-        <span className="ui-badge">{invitation.status === 'delivery_unknown' ? 'Delivery unconfirmed' : invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.status}</span>
+        <span className="ui-badge">{invitation.status === 'delivery_unknown' ? 'Delivery unconfirmed' : invitation.expires * 1000 <= Date.now() ? 'Expired' : invitation.delivery === 'link' ? 'Link only' : invitation.status}</span>
         {data?.role === 'Admin' && invitation.status === 'pending' && invitation.expires * 1000 > Date.now() && <Button disabled={mutation.busy}
           aria-label={`Copy a new invite link for ${invitation.email}`} onClick={() => void mutation.run(async () => {
             // Links are stored hashed, so copying makes a new one and the old link stops working.
@@ -73,20 +73,24 @@ function InviteDialog({ close, saved, failed }: { close: () => void; saved: () =
   const emailInput = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState('');
   const [link, setLink] = useState('');
+  const [emailSent, setEmailSent] = useState(true);
   const [copied, setCopied] = useState(false);
   const mutation = useMutation();
   // After sending, the link is shown once so the owner can also send it on WhatsApp or chat.
-  if (link) return <Dialog title="Invitation sent" close={() => void saved()}>
-    <p className="ui-help">{email} received an email. You can also send this link; it works for {email} only and expires in 7 days.</p>
+  if (link) return <Dialog title={emailSent ? 'Invitation sent' : 'Invitation ready'} close={() => void saved()}>
+    <p className="ui-help">{emailSent
+      ? `${email} received an email. You can also send this link; it works for ${email} only and expires in 7 days.`
+      : `The email could not be sent, so send this link to ${email} yourself. It works for ${email} only and expires in 7 days. If they already use Cuckoo, they also see it after signing in.`}</p>
     <p className="invite-link"><code>{link}</code></p>
     <div className="access-actions"><Button primary onClick={() => void navigator.clipboard?.writeText(link).then(() => setCopied(true))}>{copied ? 'Link copied' : 'Copy invite link'}</Button>
       <Button onClick={() => void saved()}>Done</Button></div>
   </Dialog>;
   return <Dialog title="Invite a person" busy={mutation.busy} status={mutation.status} close={close} initialFocus={emailInput}>
     <form className="ui-form" onSubmit={event => { event.preventDefault(); void mutation.run(async () => {
-      let result: { link?: string };
-      try { result = await identityRequest<{ id: string; link?: string }>(`${base}/invitations`, { email, role: 'Member' }); }
+      let result: { link?: string; email_sent?: boolean };
+      try { result = await identityRequest<{ id: string; link?: string; email_sent?: boolean }>(`${base}/invitations`, { email, role: 'Member' }); }
       catch (error) { failed(); throw error; }
+      setEmailSent(result.email_sent !== false);
       if (result.link) setLink(result.link); else await saved();
     }); }}>
       <label className="ui-field">Email address<input ref={emailInput} name="email" type="email" required autoComplete="email" placeholder="name@example.com" value={email} onChange={event => setEmail(event.target.value)} /></label>
