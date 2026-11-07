@@ -3,6 +3,8 @@
 use super::*;
 use crate::identity::collaboration::Object;
 
+#[path = "agent_files.rs"]
+pub(super) mod agent_files;
 #[path = "object_contents.rs"]
 pub(crate) mod contents;
 

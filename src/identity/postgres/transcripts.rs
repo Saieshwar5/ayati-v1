@@ -21,9 +21,9 @@ pub(crate) const LEASE_MS: i64 = 150_000;
 /// Longest transcript kept; five minutes of speech is about 5,000 characters.
 pub(crate) const MAX_TEXT: usize = 16_000;
 /// Most of one transcript an agent reads, so older messages still fit.
-const AGENT_TEXT: usize = 8_000;
+pub(super) const AGENT_TEXT: usize = 8_000;
 /// What the web client sends for a message that only shares files.
-const FILES_ONLY: &str = "Shared files";
+pub(super) const FILES_ONLY: &str = "Shared files";
 
 pub(crate) struct Transcripts;
 impl MigrationName for Transcripts {
@@ -243,7 +243,7 @@ pub(super) async fn announce(tx: &DatabaseTransaction, w: &str, object: &str) ->
 }
 
 /// The saved transcripts of these objects: status, text and duration.
-async fn saved(
+pub(super) async fn saved(
     tx: &DatabaseTransaction,
     w: &str,
     objects: &[String],
@@ -294,68 +294,4 @@ pub(super) async fn for_people(
         }
     }
     Ok(())
-}
-
-/// Replaces each message's attachment IDs with what an agent may know of them:
-/// name, mime, size and, for audio, its transcript or why there is none.
-pub(super) async fn for_agents(
-    tx: &DatabaseTransaction,
-    w: &str,
-    chat: &str,
-    messages: &mut [Value],
-) -> Result<()> {
-    let ids: Vec<String> = messages
-        .iter()
-        .flat_map(|m| m["attachments"].as_array().cloned().unwrap_or_default())
-        .filter_map(|id| id.as_str().map(str::to_owned))
-        .collect();
-    let mut objects = std::collections::HashMap::new();
-    if !ids.is_empty() {
-        for row in rows(tx, "SELECT id,name,mime,size FROM relay_objects WHERE workspace=$1 AND chat=$2 AND id IN (SELECT jsonb_array_elements_text($3::jsonb))", vec![w.into(), chat.into(), json!(ids).into()]).await? {
-            let id: String = row.try_get("", "id")?;
-            objects.insert(id, (row.try_get::<String>("", "name")?, row.try_get::<String>("", "mime")?, row.try_get::<i64>("", "size")?));
-        }
-    }
-    let found = saved(tx, w, &ids).await?;
-    for message in messages.iter_mut() {
-        let ids = message
-            .as_object_mut()
-            .and_then(|m| m.remove("attachments"))
-            .and_then(|a| a.as_array().cloned())
-            .unwrap_or_default();
-        let files: Vec<Value> = ids
-            .iter()
-            .filter_map(|id| Some((id.as_str()?, objects.get(id.as_str()?)?)))
-            .map(|(id, (name, mime, size))| {
-                let mut file = json!({"name": name, "mime": mime, "size": size});
-                if audio(mime) {
-                    describe_audio(&mut file, found.get(id));
-                }
-                file
-            })
-            .collect();
-        if files.is_empty() {
-            continue;
-        }
-        // A message that only shares files has no words of its own.
-        if message["content"] == FILES_ONLY {
-            message["content"] = json!("");
-        }
-        message["attachments"] = json!(files);
-    }
-    Ok(())
-}
-
-fn describe_audio(file: &mut Value, saved: Option<&(String, Option<String>, Option<i32>)>) {
-    file["transcript_status"] = json!(saved.map_or("not_enabled", |s| s.0.as_str()));
-    if let Some(ms) = saved.and_then(|s| s.2) {
-        file["duration_seconds"] = json!((i64::from(ms) + 500) / 1000);
-    }
-    if let Some(text) = saved.and_then(|s| s.1.as_deref()) {
-        let kept: String = text.chars().take(AGENT_TEXT).collect();
-        if kept.len() < text.len() {
-            file["transcript_truncated"] = json!(true);
-        }
-        file["transcript"] = json!(kept);
-    }
 }

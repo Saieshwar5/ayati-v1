@@ -19,6 +19,17 @@ AND NOT EXISTS(SELECT 1 FROM relay_chat_messages asked
  JOIN relay_object_transcripts t ON t.workspace=asked.workspace AND t.object=attached.object
  WHERE j.created_ms>(extract(epoch FROM clock_timestamp())*1000)::bigint-30000
  AND asked.workspace=j.workspace AND asked.id=j.request_message AND t.status='pending')
+-- It also waits, under the same limit, for files being read that were shared
+-- in its conversation in the two minutes before it: its own, or a file sent
+-- and then asked about (schema 100). Only pending readings are scanned.
+AND NOT EXISTS(SELECT 1 FROM relay_object_contents c
+ JOIN relay_objects o ON o.workspace=c.workspace AND o.id=c.object
+ JOIN relay_chat_messages asked ON asked.workspace=j.workspace AND asked.id=j.request_message
+ WHERE c.status='pending' AND c.workspace=j.workspace AND o.chat=asked.chat
+ AND c.created_ms BETWEEN j.created_ms-120000 AND j.created_ms
+ AND j.created_ms>(extract(epoch FROM clock_timestamp())*1000)::bigint-30000
+ AND EXISTS(SELECT 1 FROM relay_chat_messages shared WHERE shared.workspace=o.workspace
+  AND shared.chat=o.chat AND shared.attachments @> jsonb_build_array(o.id)))
 AND (SELECT active FROM model_load)<$4
 AND COALESCE(w.active,0)<$3
 AND (j.work_class='interactive' OR (

@@ -81,7 +81,10 @@ impl PgStore {
                     message["content"] = json!(question);
                 }
             }
-            super::conversation_context::prompt(id, messages)?
+            let files =
+                super::objects::agent_files::request_files(&tx, &job.workspace, id, &messages)
+                    .await?;
+            super::conversation_context::prompt(id, messages, files)?
         } else {
             // Old migrations and historical Library tasks have no exact request
             // link. Preserve their stored payload, never guess another message.

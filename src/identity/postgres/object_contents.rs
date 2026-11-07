@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 #[cfg(test)]
 #[path = "object_contents_tests.rs"]
-mod tests;
+pub(in crate::identity::postgres) mod tests;
 
 /// Tries per file; a lease that runs out counts as a try.
 pub(crate) const ATTEMPTS: i16 = 3;

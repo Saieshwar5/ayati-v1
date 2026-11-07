@@ -379,7 +379,9 @@ impl PgStore {
             workspace: workspace.into(),
             requester: user.id.clone(),
             agent: agent.into(),
-            prompt: super::conversation_context::prompt(&input.id, messages)?,
+            // The stored prompt serves only tasks without a request link; file
+            // text is added when the request runs (request_context).
+            prompt: super::conversation_context::prompt(&input.id, messages, vec![])?,
         };
         execute(
             tx,
