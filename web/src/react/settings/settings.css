@@ -27,19 +27,16 @@
 .settings-detail > section + section { margin-top:48px; }
 .settings-people .ui-tabs { border-bottom:1px solid var(--border); padding-bottom:14px; margin-top:12px; }
 .settings-people .ui-row { min-height:72px; }
-.my-profile { max-width:640px; margin-top:24px; padding-top:24px; border-top:1px solid var(--border); }
+.my-profile { max-width:640px; margin-top:24px; }
 .my-profile .ui-fieldset { display:grid; gap:16px; }
 .my-profile .ui-field small { margin-left:6px; color:var(--muted); font-weight:400; }
 .my-profile .ui-field textarea { resize:vertical; }
+.my-profile .ui-field input[readonly] { background:var(--soft); border-color:var(--border); color:var(--muted); }
 .my-profile .ui-button.primary { justify-self:start; }
 .my-profile-photo { display:flex; align-items:center; gap:18px; }
 .my-profile-face.face { width:80px; height:80px; font-size:26px; }
 .my-profile-photo-actions { display:flex; gap:8px; }
-.settings-account .account-profile-form { max-width:640px; }
-.settings-account .access-field input,.settings-general input { width:100%; padding:12px; color:var(--text); background:var(--surface); border:1px solid var(--border-control); border-radius:8px; }
-.settings-account .access-button { width:auto; padding:10px 18px; margin:12px 0; }
-.settings-readonly { border-top:1px solid var(--border); margin-top:20px; padding-top:20px; display:grid; gap:8px; }
-.settings-readonly span,.settings-readonly p { color:var(--muted); font-size:13px; margin:0; }
+.settings-general input { width:100%; padding:12px; color:var(--text); background:var(--surface); border:1px solid var(--border-control); border-radius:8px; }
 .settings-general { margin-top:28px; max-width:640px; }
 .settings-themes { display:flex; flex-wrap:wrap; gap:16px; border:0; padding:20px 0; margin:24px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
 .settings-themes legend { padding-top:20px; font-weight:600; }

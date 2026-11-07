@@ -65,10 +65,17 @@ Connections moved to the [Apps page](apps-page.md); `section=connections` links 
   `ayati workspace-db problem-reports`. Short guides link to People, Agents,
   Connections and Activity.
 - **Phones:** the sidebar list comes first, and a chosen page shows "‹ Settings".
+- **Profile** is the one place to edit your name, photo, job title and About; the
+  sign-in email is shown read-only (D245, `designs/chat-and-account` screen 9).
+  The old My account page and its second name editor were removed.
+- **Account menu** (your photo at the foot of the rail): you, your workspaces (the
+  current one ticked with your role, then All workspaces…), Settings (opens
+  Profile) and Sign out; simulations add Switch employee. Edit profile, My account
+  and Appearance were removed; theme is in Preferences. A status row comes later.
 
 Pages use `?view=settings&section=<page>`. Older links still open the right page:
 - `scope=…&section=my-account|appearance|help-&-feedback|general|access|activity|teams`;
-- `?view=people|users|company|feedback`;
+- `?view=people|users|company|feedback`, and `?view=account` (Profile);
 - `#theme`.
 
 Workspace pages fall back to Profile for members, and the server refuses their APIs
