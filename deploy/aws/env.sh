@@ -16,6 +16,8 @@
 #   env.sh kept                 list the snapshots and files kept between windows
 #   env.sh forget [--yes]       delete everything kept (next window starts empty)
 #   env.sh verify-clean         list anything temporary that still exists
+# The fast cycle (cycle.sh): park | wake | ship [--full|--rolling] [--dirty] |
+#   smoke | db-capacity. Park between sessions instead of down; wake reuses the database.
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
@@ -31,6 +33,7 @@ mfa="arn:aws:iam::$AYATI_AWS_ACCOUNT:mfa/${AYATI_AWS_CLI_USER:-cuckoo-cli}"
 deployer="arn:aws:iam::$AYATI_AWS_ACCOUNT:role/ayati-access-deployer"
 stacks=(network data roles services)
 snapshot_prefix="$AYATI_ENV-keep-"
+parked_file="$state/parked"   # present while parked (cycle.sh)
 kept_snapshots=2
 
 say() { printf '\n== %s\n' "$*"; }
@@ -113,8 +116,9 @@ image() {
         || echo "Warning: uncommitted changes are included in $release" >&2
     repo=$(output ayati-foundation RepositoryUri)
     say "Build $release"
+    # Keep BUILD_JOBS fixed: a new value discards the cached Goose build (about 10 minutes).
     docker build --platform linux/amd64 --build-arg AYATI_RELEASE="$release" \
-        --build-arg BUILD_JOBS="${AYATI_BUILD_JOBS:-4}" -t "$repo:$release" "$root"
+        --build-arg BUILD_JOBS="${AYATI_BUILD_JOBS:-8}" -t "$repo:$release" "$root"
     deploy_aws ecr get-login-password | docker login --username AWS --password-stdin "${repo%%/*}"
     if ! deploy_aws ecr describe-images --repository-name ayati/runtime --image-ids imageTag="$release" >/dev/null 2>&1; then
         docker push "$repo:$release"
@@ -122,6 +126,7 @@ image() {
     digest=$(deploy_aws ecr describe-images --repository-name ayati/runtime --image-ids imageTag="$release" \
         --query 'imageDetails[0].imageDigest' --output text)
     echo "$repo@$digest" > "$state/image"
+    git -C "$root" rev-parse HEAD > "$state/image-commit"
     echo "Image $repo@$digest"
     mirror_psql "$repo"
 }
@@ -166,12 +171,15 @@ setup() {
     task=$(deploy_aws ecs run-task --cluster "$cluster" --launch-type FARGATE \
         --task-definition "$(output "$(stack services)" SetupTaskDefinition)" \
         --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$group],assignPublicIp=DISABLED}" \
-        --query 'tasks[0].taskArn' --output text)
-    deploy_aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task"
+        --query 'tasks[0].taskArn' --output text) || task=''
+    # Each step is checked here: callers may run setup where set -e does not apply.
+    case "$task" in arn:*) ;; *) echo "Setup task did not start" >&2; return 1 ;; esac
+    deploy_aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task" || { echo "Setup task wait failed" >&2; return 1; }
     codes=$(deploy_aws ecs describe-tasks --cluster "$cluster" --tasks "$task" \
-        --query 'tasks[0].containers[].[name,exitCode]' --output text)
+        --query 'tasks[0].containers[].[name,exitCode]' --output text) || codes=''
     echo "$codes"
-    if awk '$2 != "0" {bad=1} END {exit !bad}' <<<"$codes"; then
+    # Every container must report exit code 0; a missing code is a failure too.
+    if [ -z "$codes" ] || awk '$2 != "0" {bad=1} END {exit !bad}' <<<"$codes"; then
         echo "Setup failed; see env.sh logs" >&2; return 1
     fi
 }
@@ -202,8 +210,10 @@ data_exists() { deploy_aws cloudformation describe-stacks --stack-name "$(stack 
 restore_from() {
     local fresh=$1 current
     if data_exists; then
+        # A failed read must stop up: an empty value would replace a restored database.
         current=$(deploy_aws cloudformation describe-stacks --stack-name "$(stack data)" \
-            --query "Stacks[0].Parameters[?ParameterKey=='SnapshotIdentifier'].ParameterValue" --output text)
+            --query "Stacks[0].Parameters[?ParameterKey=='SnapshotIdentifier'].ParameterValue" --output text) \
+            || { echo "Cannot read the database stack's snapshot value; stopping." >&2; return 1; }
         [ "$current" = None ] || echo "$current"
     elif [ "$fresh" = false ]; then
         latest_snapshot
@@ -227,13 +237,19 @@ up() {
         if [ "$fresh" = true ] && ! data_exists; then empty_bucket "$(output "$(stack keep)" BucketName)"; fi
     fi
     deploy_stack "$(stack network)" network.yaml Environment="$AYATI_ENV" \
-        ZoneA=ap-south-1a ZoneB=ap-south-1b
-    deploy_stack "$(stack data)" data.yaml Environment="$AYATI_ENV" SnapshotIdentifier="$snapshot"
+        ZoneA=ap-south-1a ZoneB=ap-south-1b WithNat=true
+    # MinCapacity above 0 also resumes a parked (paused) Aurora before setup connects.
+    deploy_stack "$(stack data)" data.yaml Environment="$AYATI_ENV" SnapshotIdentifier="$snapshot" \
+        MinCapacity=0.5
     deploy_stack "$(stack roles)" roles.yaml Environment="$AYATI_ENV" --capabilities CAPABILITY_NAMED_IAM
     services 0 0
-    setup
+    mark_deploy_start
+    # Migrations connect with a 10 s timeout; a resuming Aurora can take longer once.
+    setup || { echo "Setup failed; retrying once in case the database was resuming." >&2; setup; }
     services "${AYATI_CONTROLLERS:-1}" "${AYATI_EXECUTORS:-1}"
     wait_stable
+    record_deployed
+    rm -f "$parked_file"
     echo "Up in $(( ($(date -u +%s) - started) / 60 )) minutes: https://$AYATI_HOSTNAME"
 }
 
@@ -243,9 +259,11 @@ deploy() {
     require_session
     trap still_running ERR
     services 0 0
+    mark_deploy_start
     setup
     services "${AYATI_CONTROLLERS:-1}" "${AYATI_EXECUTORS:-1}"
     wait_stable
+    record_deployed
 }
 
 check() {
@@ -329,15 +347,24 @@ down() {
         echo "Window lasted $(( ($(date -u +%s) - $(cat "$state/started")) / 60 )) minutes."
         rm -f "$state/started"
     fi
+    rm -f "$parked_file"
     verify_clean
 }
 
 # Tags can lag deletion, so billable services are also listed directly.
+# While parked, the network (without NAT), roles and the paused database stay on purpose.
 verify_clean() {
     say "Temporary resources still present"
-    local found=0 line
+    local found=0 line name allowed=''
+    if [ -f "$parked_file" ]; then
+        allowed="$(stack network) $(stack data) $(stack roles) $AYATI_ENV-core"
+        echo "Parked on purpose: $allowed"
+    fi
     while read -r line; do
-        [ -n "$line" ] && { echo "$line"; found=1; }
+        for name in $line; do
+            case " $allowed " in *" $name "*) continue ;; esac
+            echo "$name"; found=1
+        done
     done < <(
         observe_aws cloudformation describe-stacks --query "Stacks[?starts_with(StackName,'$AYATI_ENV-') && StackName!='$(stack keep)'].StackName" --output text
         observe_aws rds describe-db-clusters --query "DBClusters[?starts_with(DBClusterIdentifier,'$AYATI_ENV')].DBClusterIdentifier" --output text
@@ -397,6 +424,9 @@ cost() {
                  printf "%8.2f  total (Cost Explorer lags about a day)\n", total}' | sort -rn
 }
 
+# shellcheck source=cycle.sh
+. "$here/cycle.sh"
+
 command=${1:-}; shift || true
 case "$command" in
     unlock) unlock "$@" ;;
@@ -415,5 +445,10 @@ case "$command" in
     kept) kept ;;
     forget) forget "$@" ;;
     verify-clean) verify_clean ;;
-    *) sed -n '2,19p' "$0"; exit 2 ;;
+    park) park ;;
+    wake) wake ;;
+    ship) ship "$@" ;;
+    smoke) smoke ;;
+    db-capacity) db_capacity ;;
+    *) sed -n '2,21p' "$0"; exit 2 ;;
 esac
