@@ -113,65 +113,23 @@ pub(super) async fn download(
     )?;
     // A revocation during the storage read must fence the outgoing response too.
     app.store.library_file(&user, &w, &id).await?;
-    let size = bytes.len();
-    let range = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
-    let (start, end) = if let Some(range) = range {
-        let selected = range
-            .strip_prefix("bytes=")
-            .and_then(|r| r.split_once('-'))
-            .filter(|(a, b)| !a.contains(',') && !b.contains(','));
-        let parsed = selected.and_then(|(a, b)| {
-            if a.is_empty() {
-                let last = b.parse::<usize>().ok()?;
-                (last > 0).then_some((size.saturating_sub(last), size - 1))
-            } else {
-                Some((
-                    a.parse::<usize>().ok()?,
-                    if b.is_empty() {
-                        size - 1
-                    } else {
-                        b.parse::<usize>().ok()?.min(size - 1)
-                    },
-                ))
-            }
-        });
-        let Some((start, end)) = parsed.filter(|(a, b)| a <= b && *a < size) else {
-            return Ok((
-                StatusCode::RANGE_NOT_SATISFIABLE,
-                [(header::CONTENT_RANGE, format!("bytes */{size}"))],
-            )
-                .into_response());
-        };
-        (start, end)
-    } else {
-        (0, size - 1)
-    };
     // Keep the transfer slot with a bounded-chunk body so a slow reader cannot
     // release capacity while its entire file is still queued for transmission.
-    let selected = bytes.slice(start..=end);
-    let length = selected.len();
-    let stream =
-        futures_util::stream::unfold((selected, 0, slot), |(bytes, offset, slot)| async move {
-            if offset >= bytes.len() {
-                return None;
-            }
-            let end = (offset + 64 * 1024).min(bytes.len());
-            Some((
-                Ok::<_, std::io::Error>(bytes.slice(offset..end)),
-                (bytes, end, slot),
-            ))
-        });
-    let mut response = Response::new(Body::from_stream(stream));
-    response
-        .headers_mut()
-        .insert(header::CONTENT_LENGTH, length.to_string().parse()?);
-    if range.is_some() {
-        *response.status_mut() = StatusCode::PARTIAL_CONTENT;
-        response.headers_mut().insert(
-            header::CONTENT_RANGE,
-            format!("bytes {start}-{end}/{size}").parse()?,
-        );
-    }
+    let mut response = crate::media::ranged(&headers, bytes, |selected| {
+        Body::from_stream(futures_util::stream::unfold(
+            (selected, 0, slot),
+            |(bytes, offset, slot)| async move {
+                if offset >= bytes.len() {
+                    return None;
+                }
+                let end = (offset + 64 * 1024).min(bytes.len());
+                Some((
+                    Ok::<_, std::io::Error>(bytes.slice(offset..end)),
+                    (bytes, end, slot),
+                ))
+            },
+        ))
+    })?;
     let mime = item["mime"].as_str().unwrap_or("application/octet-stream");
     let inline = input.inline
         && ["image/png", "image/jpeg", "application/pdf", "text/plain"].contains(&mime);
@@ -188,7 +146,6 @@ pub(super) async fn download(
         .parse()?,
     );
     h.insert(header::CACHE_CONTROL, "private, no-store".parse()?);
-    h.insert(header::ACCEPT_RANGES, "bytes".parse()?);
     h.insert("x-content-type-options", "nosniff".parse()?);
     h.insert(
         header::CONTENT_SECURITY_POLICY,

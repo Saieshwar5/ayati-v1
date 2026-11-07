@@ -3,7 +3,8 @@
 use anyhow::{Context, Result, ensure};
 use axum::{
     Json,
-    http::{HeaderMap, header},
+    body::{Body, Bytes},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
@@ -105,7 +106,89 @@ impl Read {
         Ok(())
     }
 }
-pub(crate) fn deliver(bytes: Vec<u8>, name: &str, mime: &str, input: &Read) -> Result<Response> {
+/// What a request's `Range` header selects from a complete file. Media
+/// players (Safari and iOS especially) fetch audio in byte ranges to play and
+/// seek. Only one `bytes` range is served; several ranges are refused.
+#[derive(Debug, PartialEq, Eq)]
+enum ByteRange {
+    /// No range was requested, or the header was not readable text.
+    Whole,
+    /// One satisfiable range; `end` is inclusive, as in `Content-Range`.
+    Part { start: usize, end: usize },
+    /// A malformed, multiple or out-of-file range.
+    Unsatisfiable,
+}
+impl ByteRange {
+    fn requested(request: &HeaderMap, size: usize) -> Self {
+        let Some(range) = request.get(header::RANGE).and_then(|v| v.to_str().ok()) else {
+            return Self::Whole;
+        };
+        let parsed = range
+            .strip_prefix("bytes=")
+            .and_then(|r| r.split_once('-'))
+            .filter(|(first, last)| !first.contains(',') && !last.contains(','))
+            .zip(size.checked_sub(1))
+            .and_then(|((first, last), final_byte)| {
+                if first.is_empty() {
+                    // `bytes=-N` asks for the final N bytes.
+                    let suffix = last.parse::<usize>().ok()?;
+                    (suffix > 0).then(|| (size.saturating_sub(suffix), final_byte))
+                } else {
+                    let start = first.parse::<usize>().ok()?;
+                    let end = if last.is_empty() {
+                        final_byte
+                    } else {
+                        last.parse::<usize>().ok()?.min(final_byte)
+                    };
+                    Some((start, end))
+                }
+            });
+        match parsed {
+            Some((start, end)) if start <= end => Self::Part { start, end },
+            _ => Self::Unsatisfiable,
+        }
+    }
+}
+/// Answers with the whole of `bytes` (200), the one range the request asks
+/// for (206), or 416. `body` builds the response body from the selected bytes
+/// so callers may stream them. Callers add the content headers.
+pub(crate) fn ranged(
+    request: &HeaderMap,
+    bytes: Bytes,
+    body: impl FnOnce(Bytes) -> Body,
+) -> Result<Response> {
+    let size = bytes.len();
+    let (status, selected, content_range) = match ByteRange::requested(request, size) {
+        ByteRange::Whole => (StatusCode::OK, bytes, None),
+        ByteRange::Part { start, end } => (
+            StatusCode::PARTIAL_CONTENT,
+            bytes.slice(start..=end),
+            Some(format!("bytes {start}-{end}/{size}")),
+        ),
+        ByteRange::Unsatisfiable => (
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            Bytes::new(),
+            Some(format!("bytes */{size}")),
+        ),
+    };
+    let length = selected.len();
+    let mut response = Response::new(body(selected));
+    *response.status_mut() = status;
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_LENGTH, length.into());
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    if let Some(content_range) = content_range {
+        headers.insert(header::CONTENT_RANGE, content_range.parse()?);
+    }
+    Ok(response)
+}
+pub(crate) fn deliver(
+    bytes: Bytes,
+    name: &str,
+    mime: &str,
+    input: &Read,
+    request: &HeaderMap,
+) -> Result<Response> {
     if input.preview {
         let supported = name.rsplit('.').next().is_some_and(|extension| {
             matches!(
@@ -138,7 +221,7 @@ pub(crate) fn deliver(bytes: Vec<u8>, name: &str, mime: &str, input: &Read) -> R
     }
     let passive = matches!(
         mime,
-        "image/png" | "image/jpeg" | "audio/wav" | "audio/webm"
+        "image/png" | "image/jpeg" | "audio/wav" | "audio/webm" | "audio/ogg" | "audio/mp4"
     );
     let mime = if input.thumbnail {
         "image/png"
@@ -153,7 +236,8 @@ pub(crate) fn deliver(bytes: Vec<u8>, name: &str, mime: &str, input: &Read) -> R
     } else {
         "attachment"
     };
-    let mut headers = HeaderMap::new();
+    let mut response = ranged(request, bytes, Body::from)?;
+    let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, mime.parse()?);
     headers.insert(
         header::CONTENT_DISPOSITION,
@@ -161,7 +245,7 @@ pub(crate) fn deliver(bytes: Vec<u8>, name: &str, mime: &str, input: &Read) -> R
     );
     headers.insert(header::CACHE_CONTROL, "private, no-store".parse()?);
     headers.insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse()?);
-    Ok((headers, bytes).into_response())
+    Ok(response)
 }
 
 #[cfg(test)]
@@ -203,8 +287,15 @@ mod tests {
 
     #[test]
     fn active_content_downloads_as_an_opaque_attachment() {
-        let html = b"<script>alert(1)</script>".to_vec();
-        let response = deliver(html, "<script>.html", mime(b"<script>"), &Read::default()).unwrap();
+        let html = Bytes::from_static(b"<script>alert(1)</script>");
+        let response = deliver(
+            html,
+            "<script>.html",
+            mime(b"<script>"),
+            &Read::default(),
+            &HeaderMap::new(),
+        )
+        .unwrap();
         assert_eq!(
             response.headers()[header::CONTENT_TYPE],
             "application/octet-stream"
@@ -216,6 +307,82 @@ mod tests {
         assert_eq!(
             response.headers()[header::X_CONTENT_TYPE_OPTIONS],
             "nosniff"
+        );
+    }
+
+    #[test]
+    fn a_single_byte_range_is_selected_and_others_are_refused() {
+        let requested = |range: &str, size| {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::RANGE, range.parse().unwrap());
+            ByteRange::requested(&headers, size)
+        };
+        let part = |start, end| ByteRange::Part { start, end };
+        assert_eq!(
+            ByteRange::requested(&HeaderMap::new(), 10),
+            ByteRange::Whole
+        );
+        assert_eq!(requested("bytes=0-", 10), part(0, 9));
+        assert_eq!(requested("bytes=2-4", 10), part(2, 4));
+        assert_eq!(requested("bytes=5-100", 10), part(5, 9));
+        assert_eq!(requested("bytes=-3", 10), part(7, 9));
+        assert_eq!(requested("bytes=-30", 10), part(0, 9));
+        for refused in [
+            "bytes=-0",
+            "bytes=10-",
+            "bytes=4-2",
+            "bytes=0-1,4-5",
+            "items=0-1",
+            "bytes=x-",
+            "bytes=-",
+        ] {
+            assert_eq!(
+                requested(refused, 10),
+                ByteRange::Unsatisfiable,
+                "{refused}"
+            );
+        }
+        assert_eq!(requested("bytes=0-", 0), ByteRange::Unsatisfiable);
+        assert_eq!(ByteRange::requested(&HeaderMap::new(), 0), ByteRange::Whole);
+    }
+
+    #[tokio::test]
+    async fn passive_audio_plays_inline_and_seeks_in_byte_ranges() {
+        let audio = Bytes::from_static(b"OggS voice note bytes");
+        let inline = Read {
+            inline: true,
+            ..Read::default()
+        };
+        let send = |mime: &str, range: Option<&str>| {
+            let mut request = HeaderMap::new();
+            if let Some(range) = range {
+                request.insert(header::RANGE, range.parse().unwrap());
+            }
+            deliver(audio.clone(), "voice-message.ogg", mime, &inline, &request).unwrap()
+        };
+        let whole = send("audio/ogg", None);
+        assert_eq!(whole.status(), StatusCode::OK);
+        assert_eq!(whole.headers()[header::CONTENT_TYPE], "audio/ogg");
+        assert_eq!(whole.headers()[header::ACCEPT_RANGES], "bytes");
+        assert!(
+            whole.headers()[header::CONTENT_DISPOSITION]
+                .to_str()
+                .unwrap()
+                .starts_with("inline;")
+        );
+        let part = send("audio/ogg", Some("bytes=0-3"));
+        assert_eq!(part.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(part.headers()[header::CONTENT_RANGE], "bytes 0-3/21");
+        assert_eq!(part.headers()[header::CONTENT_LENGTH], "4");
+        assert_eq!(part.headers()[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+        let body = axum::body::to_bytes(part.into_body(), 1024).await.unwrap();
+        assert_eq!(&body[..], b"OggS");
+        let refused = send("audio/ogg", Some("bytes=21-"));
+        assert_eq!(refused.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(refused.headers()[header::CONTENT_RANGE], "bytes */21");
+        assert_eq!(
+            send("audio/mp4", None).headers()[header::CONTENT_TYPE],
+            "audio/mp4"
         );
     }
 }

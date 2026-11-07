@@ -42,7 +42,8 @@ The history response contains a bounded 200-message page plus older roots refere
 by that page. PostgreSQL exposes `next_before` for older pages and the client merges
 loaded history by message ID. SQLite retains its recent-history window. Thread reply
 counts reflect loaded messages, not exhaustive totals. Agent context remains capped at 30 messages and
-14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording,
+14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording
+(WebM, Ogg or MP4, whichever the browser records; audio is served in byte ranges),
 with immutable local objects and download-time access checks. Unread counts and live delivery now follow [reliable messaging](reliable-messaging.md). Push
 notifications and typing indicators remain unimplemented.
 [Personal pins and guarded channel archive/restore](chat-organization.md) are implemented separately; accepted work retains its original authority. Legacy baseline polling was 2.5 seconds for the open conversation and five

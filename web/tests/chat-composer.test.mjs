@@ -72,6 +72,29 @@ test('Stop attaches once, failed upload retains audio for retry, and Cancel neve
  });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
 });
 
+test('voice notes ask for a widely playable format and are named by the recorded type', async()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator'), old=globalThis.MediaRecorder;
+ let supported=[];const requested=[], files=[];
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}}});
+ globalThis.MediaRecorder=class {
+  static isTypeSupported(type){return supported.includes(type);}
+  state='inactive';
+  constructor(_media,options){requested.push(options?.mimeType??'browser default');this.mimeType=options?.mimeType??'';}
+  start(){this.state='recording';}
+  stop(){this.state='inactive';this.ondataavailable({data:new Blob(['audio'])});this.onstop();}
+ };
+ try {await reactFixture(async({render,button,click})=>{
+  const {VoiceRecorder}=await import('../src/react/chat/voice-recorder.tsx');
+  await render(VoiceRecorder,{disabled:false,attach:async file=>{files.push(`${file.name} ${file.type}`);},pending:()=>{}});
+  // Chrome and current Firefox, older Firefox (Ogg only), Safari (MP4 only), then no match.
+  for(const types of [['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'],['audio/ogg;codecs=opus'],['audio/mp4'],[]]){
+   supported=types;await click(button('Record voice'));await click(button('Stop recording'));
+  }
+ });}finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;globalThis.MediaRecorder=old;}
+ assert.deepEqual(requested,['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4','browser default']);
+ assert.deepEqual(files,['voice-message.webm audio/webm;codecs=opus','voice-message.ogg audio/ogg;codecs=opus','voice-message.m4a audio/mp4','voice-message.webm audio/webm']);
+});
+
 test('the emoji picker inserts at the cursor, keeps mentions, searches, and closes with Escape', async()=>{
  let sent=[];
  await reactFixture(async({render,change,update,click,submit,button,dom})=>{

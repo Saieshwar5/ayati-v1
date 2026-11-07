@@ -76,7 +76,8 @@ it does not migrate the user's ordinary workspace.
   safe names and immutable UUID object keys. Uploads remain uploader-only until
   published in that conversation. Cross-channel attachment reuse is rejected.
   Current channel/workspace access is checked again on download. Only recognized
-  passive image/audio formats render inline; other formats download.
+  passive formats render inline (PNG and JPEG images; WAV, WebM, Ogg and MP4
+  audio, served in byte ranges); other formats download.
 - The local object store is an integrated filesystem implementation, not S3 or an
   independently deployed object-storage service. It intentionally keeps orphan bytes
   after uncertain metadata writes. Quotas, reconciliation and garbage collection remain.
