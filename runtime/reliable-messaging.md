@@ -60,7 +60,9 @@ contention.
 
 Each stream revalidates the session and workspace access before every batch it sends,
 then filters messages by current conversation access. An idle re-check that finds
-nothing new sends nothing; keep-alives hold the connection. Stream batches are reads:
+nothing new sends nothing. After 15 seconds without a batch the stream sends a named
+`alive` event with no database work (browsers fire nothing for SSE comments); the tab
+reconnects only after 45 seconds without either. Stream batches are reads:
 they accept a WorkOS session answer up to 60 seconds old (see
 [identity and workspaces](identity-workspaces.md)); the local session and membership
 are checked in PostgreSQL every time. Membership events carry no private channel

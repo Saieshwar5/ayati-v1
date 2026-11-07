@@ -23,6 +23,18 @@ fn wakes(
     }
 }
 
+/// Sent after this long without a batch. It costs no database work.
+const KEEP_ALIVE: Duration = Duration::from_secs(15);
+
+/// Browsers fire no event for an SSE comment, so the keep-alive is a named event
+/// the tab's watchdog (`web/src/react/chat/live.ts`) can count as a sign of life.
+/// Its data must not be empty: browsers drop an event without a data line.
+fn keep_alive() -> KeepAlive {
+    KeepAlive::new()
+        .interval(KEEP_ALIVE)
+        .event(Event::default().event("alive").data("{}"))
+}
+
 /// An idle re-check with nothing new is not sent; keep-alives hold the stream.
 fn worth_sending(page: &Value, last_cursor: Option<i64>) -> bool {
     last_cursor != page["cursor"].as_i64()
@@ -155,8 +167,7 @@ async fn events(
             ("Cache-Control", "private, no-store"),
             ("X-Accel-Buffering", "no"),
         ],
-        Sse::new(ReceiverStream::new(receive))
-            .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))),
+        Sse::new(ReceiverStream::new(receive)).keep_alive(keep_alive()),
     )
         .into_response())
 }
@@ -239,5 +250,22 @@ mod tests {
             &json!({"cursor": 7, "reset": true, "events": []}),
             Some(7)
         ));
+    }
+
+    #[tokio::test]
+    async fn an_idle_stream_sends_a_keep_alive_event_the_browser_can_see() {
+        use futures_util::StreamExt;
+        let idle = futures_util::stream::pending::<Result<Event, Infallible>>();
+        // The production interval is 15 seconds; only the timing is shortened here.
+        let response = Sse::new(idle)
+            .keep_alive(keep_alive().interval(Duration::from_millis(10)))
+            .into_response();
+        let mut body = response.into_body().into_data_stream();
+        let frame = tokio::time::timeout(Duration::from_secs(5), body.next())
+            .await
+            .expect("an idle stream sends a keep-alive")
+            .expect("the stream stays open")
+            .expect("the keep-alive is readable");
+        assert_eq!(&frame[..], b"event: alive\ndata: {}\n\n");
     }
 }
