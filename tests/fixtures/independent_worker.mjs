@@ -281,7 +281,8 @@ export async function workerFixture(t, options = {}) {
     },
     async executorIdentity(worker) {
       const clean=worker.logs.replace(/\u001b\[[0-9;]*m/g,'');
-      const id=clean.match(/executor="?([a-f0-9-]{36})/)?.[1];
+      // Text logs say executor="<id>"; container JSON logs say "executor":"<id>".
+      const id=clean.match(/executor"?[=:]"?([a-f0-9-]{36})/)?.[1];
       assert.ok(id,'Executor has not published its durable identity');
       return JSON.parse(await sqlAsync(`SELECT row_to_json(e) FROM (SELECT id,incarnation FROM relay_executors WHERE id='${id}') e`,scoped.href));
     },

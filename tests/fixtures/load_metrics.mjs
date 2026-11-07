@@ -4,27 +4,42 @@ export function quantiles(values) {
   assert.ok(sorted.length > 0 && sorted.every(Number.isFinite), 'Missing/nonfinite measurement');
   return Object.fromEntries([50, 95, 99].map(p => ['p' + p, sorted[Math.ceil(p * sorted.length / 100) - 1]]));
 }
+// Container images log one JSON object per line (AYATI_LOG_FORMAT=json, fields
+// flattened, JSON-valued fields as strings); local processes log key=value text.
+// Returns the named fields of one start record, or null.
+export function startRecord(line, field) {
+  if (line.startsWith('{')) {
+    let record;
+    try { record = JSON.parse(line); } catch { return null; }
+    const { assignment, side } = record;
+    const value = record[field];
+    if (!/^[a-f0-9-]+$/.test(assignment ?? '') || !['controller', 'executor'].includes(side) || typeof value !== 'string') return null;
+    return { assignment, side, value: JSON.parse(value) };
+  }
+  const match = line.match(new RegExp(`assignment="?([a-f0-9-]+)"?.*side="?(controller|executor)"?.*${field}=(\\{.*\\})`));
+  return match ? { assignment: match[1], side: match[2], value: JSON.parse(match[3]) } : null;
+}
 export function traces(app) {
   const found = new Map();
   for (const process of app.processes()) for (const line of process.logs.replace(/\x1b\[[0-9;]*m/g, '').split('\n')) {
-    const match = line.match(/assignment="?([a-f0-9-]+)"?.*side="?(controller|executor)"?.*start_trace=(\{.*\})/);
-    if (!match) continue;
-    const item = found.get(match[1]) ?? {};
-    item[match[2]] ??= JSON.parse(match[3]); found.set(match[1], item);
+    const record = startRecord(line, 'start_trace');
+    if (!record) continue;
+    const item = found.get(record.assignment) ?? {};
+    item[record.side] ??= record.value; found.set(record.assignment, item);
   }
   return found;
 }
 export function startPoints(app) {
   const found = new Map();
   for (const process of app.processes()) for (const line of process.logs.replace(/\x1b\[[0-9;]*m/g, '').split('\n')) {
-    const match = line.match(/assignment="?([a-f0-9-]+)"?.*side="?(controller|executor)"?.*start_point=(\{.*\})/);
-    if (!match) continue;
-    const point = JSON.parse(match[3]);
+    const record = startRecord(line, 'start_point');
+    if (!record) continue;
+    const point = record.value;
     assert.equal(point.version, 1);
     assert.ok(Number.isSafeInteger(point.unix_us));
-    const item = found.get(match[1]) ?? {};
+    const item = found.get(record.assignment) ?? {};
     item[point.phase] ??= point.unix_us;
-    found.set(match[1], item);
+    found.set(record.assignment, item);
   }
   return found;
 }
