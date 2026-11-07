@@ -141,6 +141,17 @@ impl PgStore {
         for member in users {
             role(&tx, w, member).await?;
         }
+        // People who stay keep when they joined, so their unread is unchanged
+        // (unread.rs); only people added now start from now.
+        let joined = rows(
+            &tx,
+            "SELECT user_id,joined_ms FROM relay_chat_people WHERE workspace=$1 AND chat=$2",
+            vec![w.into(), chat.into()],
+        )
+        .await?
+        .iter()
+        .map(|row| Ok((row.try_get("", "user_id")?, row.try_get("", "joined_ms")?)))
+        .collect::<Result<std::collections::HashMap<String, i64>>>()?;
         execute(
             &tx,
             "DELETE FROM relay_chat_people WHERE workspace=$1 AND chat=$2",
@@ -148,7 +159,7 @@ impl PgStore {
         )
         .await?;
         for member in users {
-            execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![w.into(),chat.into(),member.clone().into()]).await?;
+            execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id,joined_ms) VALUES($1,$2,$3,COALESCE($4,(extract(epoch FROM now())*1000)::bigint)) ON CONFLICT DO NOTHING",vec![w.into(),chat.into(),member.clone().into(),joined.get(member).copied().into()]).await?;
         }
         audit(&tx, &user.id, Some(w), "channel_members_updated", chat).await?;
         super::task_revocation::inaccessible(&tx, w).await?;

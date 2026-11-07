@@ -20,14 +20,14 @@ import './organization.css';
 import './people.css';
 import { SearchConversations } from './search-conversations';
 import { useDirectConversation } from './direct-conversation';
+import { useUnreadCounts } from './unread-counts';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
   const [preferences, setPreferences] = useState<Preferences>();
   const [archivedVisible, showArchived] = useState(false);
   const sourceEpoch = useRef(0);
-  const [unread, setUnread] = useState<Record<string, number>>({});
-  const [mentioned, setMentioned] = useState<Record<string, number>>({});
+  const { counts: unread, mentions: mentioned } = useUnreadCounts();
   const [levels, setLevels] = useState<Record<string, Level>>({});
   const [directory, setDirectory] = useState<Directory>();
   const [chats, setChats] = useState<Conversation[]>([]);
@@ -51,18 +51,14 @@ export function WorkspaceChat({ href }: { href: string }) {
           chatRequest<{ levels: Record<string, Level> }>('/chat-notifications', undefined, abort.signal).catch(() => ({ levels: {} })),
         ]);
         if (!abort.signal.aborted) { setDirectory(people); setChats(conversations.chats); setLevels(notify.levels ?? {}); setPreferences(previous => conversations.preferences && previous && previous.revision > conversations.preferences.revision ? previous : conversations.preferences); setError(''); }
-      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setChats([]); setDirectory(undefined); setUnread({}); setPreferences(undefined); } } }
+      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setChats([]); setDirectory(undefined); setPreferences(undefined); } } }
       finally { busy = false; if (again && !abort.signal.aborted) { again = false; void load(); } }
     };
     refresh.current = load; void load();
-    let unreadTimer: number | undefined;
-    const counts = async () => { try { const data = await chatRequest<{ unread: { chat: string; count: number; mentions?: number }[] }>('/unread', undefined, abort.signal); if (!abort.signal.aborted) { setUnread(Object.fromEntries(data.unread.map(item => [item.chat, item.count]))); setMentioned(Object.fromEntries(data.unread.map(item => [item.chat, item.mentions ?? 0]))); } } catch { /* Keep last known counts during an outage. */ } };
-    void counts();
     const unsubscribe = subscribeChanges(change => {
       if (change.kind === 'access' || change.kind === 'reset') { sourceEpoch.current++; void load(); }
-      if (unreadTimer === undefined) unreadTimer = window.setTimeout(() => { unreadTimer = undefined; void counts(); }, 500);
     });
-    return () => { sourceEpoch.current++; abort.abort(); unsubscribe(); window.clearTimeout(unreadTimer); };
+    return () => { sourceEpoch.current++; abort.abort(); unsubscribe(); };
   }, []);
   useEffect(() => { setShowList(!selected); setChooser(undefined); setSearch(false); }, [selected]);
   const open = (id: string) => { setChooser(undefined); setSearch(false); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}`)); void refresh.current(); };
