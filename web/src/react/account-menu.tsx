@@ -7,6 +7,9 @@ import { initials, tileColor } from './access/model';
 import { chatRequest, type Directory } from './chat/model';
 import { PersonFace } from './faces';
 import { useMutation } from './requests';
+import { activeStatus, applyPresence, usePresence } from './chat/presence';
+import { clearsPhrase, PresenceDot, statusEmoji, statusLabel } from './chat/presence-view';
+import { StatusDialog } from './chat/status-dialog';
 
 type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out';
 function MenuIcon({ name }: { name: IconName }) {
@@ -20,24 +23,41 @@ function MenuIcon({ name }: { name: IconName }) {
 
 /** The session has your name and email; your photo comes from the workspace directory.
  * It is read when the shell opens and again each time the menu opens, so a photo changed
- * in Settings → Profile shows without a reload. Older reads are discarded. */
+ * in Settings → Profile shows without a reload. Older reads are discarded. The same read
+ * brings your status and presence into the presence store. */
 function useMyPhoto(userId: string | undefined, reads: number) {
   const [photo, setPhoto] = useState<string | null>(null);
   useEffect(() => {
     if (!userId) return;
     const abort = new AbortController();
     chatRequest<Directory>('/chat-directory', undefined, abort.signal).then(directory => {
-      if (!abort.signal.aborted) setPhoto(directory.users?.find(person => person.id === userId)?.photo ?? null);
+      if (abort.signal.aborted) return;
+      applyPresence(directory.presence);
+      setPhoto(directory.users?.find(person => person.id === userId)?.photo ?? null);
     }).catch(() => { /* Initials stay when the directory is unavailable. */ });
     return () => abort.abort();
   }, [userId, reads]);
   return photo;
 }
 
+/** Your status under your name (screen 9, note 2); it opens Set a status. */
+function StatusLine({ choose }: { choose: () => void }) {
+  const status = activeStatus(usePresence(workspaceSession?.user?.id));
+  const ends = status ? clearsPhrase(status) : '';
+  return <button type="button" className="workspace-menu-action account-menu-status" onClick={choose}
+    aria-label={status ? `Status: ${statusLabel(status)}${ends ? `, ${ends}` : ''}. Change status` : 'Set a status'}>
+    <span className="account-menu-status-mark" aria-hidden="true">{status ? statusEmoji(status) : <span className="presence-dot inline" />}</span>
+    <span className="account-menu-text"><strong>{status ? statusLabel(status) : 'Set a status'}</strong>{' '}
+      <small>{status ? `${ends ? `${ends} · ` : ''}change` : 'Available'}</small></span>
+    <svg className="account-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+  </button>;
+}
+
 export function AccountMenu() {
   const workspace = currentWorkspace();
   const user = workspaceSession?.user ?? undefined;
   const [open, setOpen] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [reads, setReads] = useState(0);
   const photo = useMyPhoto(user?.id, reads);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -53,6 +73,8 @@ export function AccountMenu() {
   };
   // The browser closes the popover on Escape too; closing here also returns focus to your photo.
   const close = () => { menu.current?.hidePopover?.(); trigger.current?.focus(); };
+  // The menu closes first, so the dialog returns focus to your photo.
+  const chooseStatus = () => { close(); setChoosing(true); };
   const signOut = () => void mutation.run(async () => {
     try { await identityRequest('/logout', {}); location.assign('/?view=account'); }
     catch { throw new Error('Sign-out failed. Please try again.'); }
@@ -60,16 +82,16 @@ export function AccountMenu() {
   return <>
     <button ref={trigger} type="button" title="Your account" className="workspace-menu-trigger workspace-profile-trigger" aria-label="Your account"
       aria-controls="workspace-profile" aria-expanded={open} popoverTarget="workspace-profile">
-      <PersonFace person={me} className="workspace-profile-avatar" />
+      <PersonFace person={me} className="workspace-profile-avatar" badge={<PresenceDot id={user.id} />} />
     </button>
     {createPortal(<section ref={menu} id="workspace-profile" className="workspace-menu workspace-profile" popover="auto" aria-label="Your account"
       onToggle={event => toggled((event.nativeEvent as ToggleEvent).newState)}
       onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); close(); } }}>
       <div className="account-menu-identity">
-        <PersonFace person={me} className="account-menu-face" />
+        <PersonFace person={me} className="account-menu-face" badge={<PresenceDot id={user.id} />} />
         <p><strong>{name}</strong>{' '}<span>{email}</span></p>
       </div>
-      {/* Status (designs/chat-and-account screen 3) will be its own row here, between you and your workspaces. */}
+      <StatusLine choose={chooseStatus} />
       <nav className="account-menu-group" aria-labelledby="account-menu-workspaces">
         <h2 id="account-menu-workspaces">Workspaces</h2>
         <ul className="workspace-menu-list">{workspaceSession?.workspaces?.map(entry => <li key={entry.id}>
@@ -87,5 +109,6 @@ export function AccountMenu() {
         <p className="workspace-menu-status" role="status">{mutation.status}</p>
       </div>
     </section>, document.body)}
+    {choosing && <StatusDialog close={() => setChoosing(false)} />}
   </>;
 }

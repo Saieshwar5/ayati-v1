@@ -1,6 +1,7 @@
 import { workspaceId, workspaceSession, storageScope } from '../../workspace-context';
 import { chatRequest, type Message } from './model';
 import { flushOutbox, stopOutbox, subscribeSent } from './outbox';
+import { applyPresence } from './presence';
 export type Change = { kind: 'message' | 'access' | 'reset' | 'sample_access' | 'event_access' | 'panel_access' | 'agents'; source?: string; chat?: string; message?: Message };
 const subscribers = new Set<(change: Change) => void>();
 const statusSubscribers = new Set<() => void>();
@@ -9,6 +10,15 @@ export const liveStatus = () => status;
 export function subscribeStatus(fn: () => void) { statusSubscribers.add(fn); return () => { statusSubscribers.delete(fn); }; }
 export function subscribeChanges(fn: (change: Change) => void) { subscribers.add(fn); return () => { subscribers.delete(fn); }; }
 const setStatus = (value: string) => { status = value; statusSubscribers.forEach(fn => fn()); };
+/** The connection shows only while it is down (D245, screen 2 note 5): offline, or trying again. */
+export function connectionProblem(value: string): 'offline' | 'reconnecting' | undefined {
+  if (value.startsWith('Offline')) return 'offline';
+  if (value.startsWith('Reconnecting') || value.startsWith('Cannot reach server')) return 'reconnecting';
+  return undefined;
+}
+let retryNow: (() => void) | undefined;
+/** Try to reconnect at once rather than waiting for the next attempt. */
+export function reconnectNow() { retryNow?.(); }
 // An idle stream sends no batches, only an `alive` event after 15 s without one
 // (src/identity/chat/sync.rs). Reconnect once two of them are missed, not sooner.
 const SILENT_STREAM_LIMIT_MS = 45_000;
@@ -79,6 +89,12 @@ export function startLive() {
     });
     // A sign of life only: no change to publish and no status to show.
     stream.addEventListener('alive', () => { lastEvent = Date.now(); });
+    // Who is online and their statuses: everyone after connecting, then each change.
+    stream.addEventListener('presence', event => {
+      if (stopped) return;
+      lastEvent = Date.now();
+      try { applyPresence((JSON.parse((event as MessageEvent).data) as { people?: unknown }).people); } catch { /* The next snapshot repairs it. */ }
+    });
     const reconnect = () => {
       if (stopped) return;
       stream?.close(); setStatus('Reconnecting… Messages remain on this device until confirmed.');
@@ -109,5 +125,6 @@ export function startLive() {
   const online = () => { stream?.close(); clearTimeout(retry); if (receiptsEnabled) connect(); else void detect(); void flushOutbox().catch(() => {}); };
   const offline = () => { stream?.close(); clearTimeout(retry); setStatus('Offline · messages are kept on this device until confirmed.'); };
   window.addEventListener('online', online); window.addEventListener('offline', offline);
-  return () => { stopped = true; unsubscribeSent(); stream?.close(); clearTimeout(retry); window.clearInterval(timer); window.clearInterval(fallback); window.removeEventListener('online', online); window.removeEventListener('offline', offline); delivered.clear(); seen.clear(); stopOutbox(); };
+  retryNow = () => { failures = 0; online(); };
+  return () => { stopped = true; retryNow = undefined; unsubscribeSent(); stream?.close(); clearTimeout(retry); window.clearInterval(timer); window.clearInterval(fallback); window.removeEventListener('online', online); window.removeEventListener('offline', offline); delivered.clear(); seen.clear(); stopOutbox(); };
 }

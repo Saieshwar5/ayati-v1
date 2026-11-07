@@ -102,7 +102,6 @@
 }
 
 .chat-contact > span > small, .chat-choice > span > small { display:block; margin-top:3px; color:var(--muted); font-size:11px; }
-.chat-connection { font-size:11px; color:var(--muted); margin:4px 16px; }
 .chat-receipt { margin-top:8px; font-size:11px; color:var(--muted); }
 .chat-receipt summary { cursor:pointer; }
 .chat-receipt small { display:block; margin-top:4px; }

@@ -3,15 +3,18 @@ import { ConversationFace, ParticipantFace, ParticipantName } from './conversati
 import { directPartner, type Conversation, type Directory } from './model';
 import { NotifyMenu } from './notify-controls';
 import type { Level } from './notifications';
+import { PresenceLine } from './presence-view';
 
 /** How the conversation reaches the side panel: open state for the toggle, show, and the archive review. */
 export type DetailsControl = { open: boolean; toggle: () => void; show: () => void; review: () => void };
 
-export function ConversationHeader({ chat, directory, title, connection, back, search, level, levelChanged, details }: {
-  chat: Conversation; directory: Directory; title: string; connection: string; back: () => void; search: () => void;
+/** The connection is no longer shown here; it appears as a banner only while down (D245). */
+export function ConversationHeader({ chat, directory, title, back, search, level, levelChanged, details }: {
+  chat: Conversation; directory: Directory; title: string; back: () => void; search: () => void;
   level?: Level; levelChanged: (level: Level) => void; details: DetailsControl;
 }) {
   const partner = directPartner(chat, directory);
+  const person = partner?.kind === 'user' ? partner.who.id : undefined;
   const summary = partner ? (partner.kind === 'agent' ? partner.who.role : partner.who.title || 'Direct message')
     : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`,
       chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
@@ -23,8 +26,7 @@ export function ConversationHeader({ chat, directory, title, connection, back, s
     <div>
       <h2 title={title}>{partner ? <ParticipantName kind={partner.kind} name={title} /> : title}</h2>
       <div className="chat-header-meta">
-        <small className="chat-kind">{summary}</small>
-        <p className="chat-connection" role="status">{connection}</p>
+        {person ? <PresenceLine id={person} fallback={summary ?? ''} /> : <small className="chat-kind">{summary}</small>}
       </div>
     </div>
     <Button className="ui-icon chat-search-button" aria-label={`Search in ${title}`} title="Search this conversation" onClick={search}>

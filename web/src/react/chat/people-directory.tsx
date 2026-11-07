@@ -7,8 +7,19 @@ import type { Conversation, Directory } from './model';
 import type { Pin, Preferences } from './organization-model';
 import { samePin } from './organization-model';
 import { useShowProfile } from './profile-card';
+import { usePresence } from './presence';
+import { presenceName, StatusEmoji } from './presence-view';
 
 type Filter = 'all' | 'user' | 'agent';
+
+/** One person or agent; a person's name is read with their presence ("Meera Iyer, online, In a meeting"). */
+function DirectoryWho({ item, self, detail, open }: { item: DirectTarget; self: boolean; detail: string; open: () => void }) {
+  const presence = usePresence(item.kind === 'user' ? item.id : undefined);
+  return <button type="button" className="people-directory-who" onClick={open} aria-label={`View profile of ${presenceName(item.name, presence)}`}>
+    <ParticipantFace kind={item.kind} who={item} presence />
+    <span><span className="people-directory-name"><ParticipantName kind={item.kind} name={self ? `${item.name} (you)` : item.name} />{item.kind === 'user' && <StatusEmoji id={item.id} />}</span><small>{detail}</small></span>
+  </button>;
+}
 
 /** Everyone in the workspace and every agent the viewer can use, in one list. */
 export function PeopleDirectory({ directory, chats, preferences, togglePin, close, opened }: {
@@ -45,10 +56,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
         const self = item.kind === 'user' && item.id === me;
         const detail = item.kind === 'agent' ? [item.role, item.manager && `managed by ${item.manager}`].filter(Boolean).join(' · ') : item.title || (item.role === 'Admin' ? 'Admin' : '');
         return <li key={`${item.kind}:${item.id}`}>
-          <button type="button" className="people-directory-who" onClick={() => showProfile({ kind: item.kind, id: item.id })} aria-label={`View profile of ${item.name}`}>
-            <ParticipantFace kind={item.kind} who={item} />
-            <span><ParticipantName kind={item.kind} name={self ? `${item.name} (you)` : item.name} /><small>{detail}</small></span>
-          </button>
+          <DirectoryWho item={item} self={self} detail={detail} open={() => showProfile({ kind: item.kind, id: item.id })} />
           {!self && preferences?.available && <Button className="ui-icon chat-pin-action" aria-pressed={Boolean(pinned)} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${item.name}`} title={pinned ? 'Unpin' : 'Pin to Chat'} disabled={direct.busy} onClick={() => pinTarget(item)}>{pinned ? '★' : '☆'}</Button>}
           {!self && <Button disabled={direct.busy} onClick={() => void direct.choose(item)}>Message</Button>}
         </li>;

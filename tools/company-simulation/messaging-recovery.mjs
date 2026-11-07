@@ -32,7 +32,7 @@ try{
  const sender=await a.newPage(),receiver=await b.newPage();
  const path=`/w/${c.w.split('/').at(-1)}/?view=chat&conversation=${chat}`;
  await Promise.all([sender.goto(base+path),receiver.goto('http://127.0.0.1:8878'+path)]);
- for(const page of [sender,receiver])await page.getByText('Connected',{exact:true}).waitFor();
+ for(const page of [sender,receiver])await page.locator('.chat-conversation[data-connection="Connected"]').waitFor();
  await sender.getByRole('textbox',{name:'Message',exact:true}).fill('Cross-instance PostgreSQL notification');
  await sender.getByRole('button',{name:'Send message',exact:true}).click();
  await receiver.getByText('Cross-instance PostgreSQL notification',{exact:true}).waitFor();checks.push('Live message crosses application instances');

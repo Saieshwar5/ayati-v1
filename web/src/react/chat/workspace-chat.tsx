@@ -23,6 +23,8 @@ import { SearchConversations } from './search-conversations';
 import { useDirectConversation } from './direct-conversation';
 import { useUnreadCounts } from './unread-counts';
 import { useConversationOrder } from './conversation-order';
+import { applyPresence, clearPresence } from './presence';
+import { PresenceWords, StatusEmoji } from './presence-view';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
@@ -53,8 +55,8 @@ export function WorkspaceChat({ href }: { href: string }) {
           chatRequest<{ chats: Conversation[]; preferences?: Preferences }>('/chats', undefined, abort.signal),
           chatRequest<{ levels: Record<string, Level> }>('/chat-notifications', undefined, abort.signal).catch(() => ({ levels: {} })),
         ]);
-        if (!abort.signal.aborted) { setDirectory(people); setChats(conversations.chats); setLevels(notify.levels ?? {}); setPreferences(previous => conversations.preferences && previous && previous.revision > conversations.preferences.revision ? previous : conversations.preferences); setError(''); }
-      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setChats([]); setDirectory(undefined); setPreferences(undefined); } } }
+        if (!abort.signal.aborted) { applyPresence(people.presence); setDirectory(people); setChats(conversations.chats); setLevels(notify.levels ?? {}); setPreferences(previous => conversations.preferences && previous && previous.revision > conversations.preferences.revision ? previous : conversations.preferences); setError(''); }
+      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setChats([]); setDirectory(undefined); setPreferences(undefined); clearPresence(); } } }
       finally { busy = false; if (again && !abort.signal.aborted) { again = false; void load(); } }
     };
     refresh.current = load; void load();
@@ -76,7 +78,8 @@ export function WorkspaceChat({ href }: { href: string }) {
       href={workspaceUrl(`/?view=chat&conversation=${chat.id}`)}
       aria-current={selected === chat.id ? 'page' : undefined}>
       {directory ? <ConversationFace chat={chat} directory={directory} /> : <span className="chat-avatar channel">#</span>}
-      <span>{partner ? <ParticipantName kind={partner.kind} name={name} /> : <span className="chat-name-text">{name}</span>}{chat.archived && <small>Archived</small>}</span>
+      <span>{partner ? <ParticipantName kind={partner.kind} name={name} /> : <span className="chat-name-text">{name}</span>}
+        {partner?.kind === 'user' && <><StatusEmoji id={partner.who.id} /><PresenceWords id={partner.who.id} /></>}{chat.archived && <small>Archived</small>}</span>
       {levels[chat.id] === 'none' && <span className="chat-muted" title="Muted"><BellIcon muted /></span>}
       {count > 0 && <small className={`chat-unread${mentioned[chat.id] ? ' chat-unread-mention' : ''}`} aria-label={`${count} unread messages${mentioned[chat.id] ? `, ${mentioned[chat.id]} for you` : ''}`}>{count}</small>}
     </a><PinButton pin={{ kind: 'chat', id: chat.id }} name={name} preferences={preferences} busy={pins.busy} toggle={pins.toggle} /></div>;

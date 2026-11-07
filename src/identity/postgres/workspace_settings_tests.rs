@@ -34,6 +34,7 @@ async fn preferences_follow_the_person_and_set_the_channel_default() {
         desktop_alerts: false,
         channel_level: "all".into(),
         approval_alerts: false,
+        show_online: None,
     };
     db.save_preferences(&owner, &w, &chosen).await.unwrap();
     // A reload (a fresh read) and the chat bell defaults agree.

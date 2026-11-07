@@ -1,6 +1,7 @@
 // Round pictures for people and agents. People show their photo or initials;
 // agents show an uploaded image or a robot bundled with the app. An "AI" tag
 // next to an agent's name is what tells the two apart.
+import type { ReactNode } from 'react';
 import { workspaceId } from '../workspace-context';
 import './faces.css';
 
@@ -38,10 +39,11 @@ export function initials(name: string): string {
   return name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(part => Array.from(part)[0]).join('').toUpperCase() || '?';
 }
 
-export function PersonFace({ person, className = 'chat-avatar' }: { person: PersonIdentity; className?: string }) {
+/** `badge` sits on the face's edge, such as Chat's online dot (presence-view.tsx). */
+export function PersonFace({ person, className = 'chat-avatar', badge }: { person: PersonIdentity; className?: string; badge?: ReactNode }) {
   const photo = personPhoto(person);
-  return <span className={`${className} face person face-tone-${stableNumber(person.id) % 6}`} aria-hidden="true">
-    {photo ? <img alt="" src={photo} loading="lazy" /> : initials(person.name)}
+  return <span className={`${className} face person face-tone-${stableNumber(person.id) % 6}${badge ? ' face-badged' : ''}`} aria-hidden="true">
+    {photo ? <img alt="" src={photo} loading="lazy" /> : initials(person.name)}{badge}
   </span>;
 }
 

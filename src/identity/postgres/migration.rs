@@ -105,6 +105,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::transcripts::Transcripts),
             Box::new(super::chat::activity::ChatActivity),
             Box::new(super::work_signals::WorkNotifications),
+            Box::new(super::chat::presence::MemberPresence),
         ]
     }
 }

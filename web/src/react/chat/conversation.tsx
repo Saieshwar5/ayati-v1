@@ -3,6 +3,7 @@ import { ManagedResults } from '../results/managed';
 import { PendingMessages } from './pending-messages';
 import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission } from './outbox';
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
+import { ConnectionBanner } from './connection-banner';
 import { ChatComposer } from './attachments';
 import { requestAgent } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
@@ -197,9 +198,10 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const partner = directPartner(chat, directory);
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`}>
-    <ConversationHeader chat={chat} directory={directory} title={title} connection={connection} back={back} search={() => setSearching(true)}
+  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
+    <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
       level={level} levelChanged={levelChanged} details={details} />
+    <ConnectionBanner status={connection} />
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {
       const node = messages.current!, distance = node.scrollHeight - node.scrollTop - node.clientHeight;

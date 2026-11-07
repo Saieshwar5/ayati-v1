@@ -1,4 +1,5 @@
 use super::*;
+use crate::identity::postgres::messaging::Live;
 use axum::{
     extract::Query,
     response::sse::{Event, KeepAlive, Sse},
@@ -10,17 +11,25 @@ use std::{convert::Infallible, time::Duration};
 /// reconnects, so this re-check only covers a lost notification.
 const FALLBACK: Duration = Duration::from_secs(30);
 
-/// Whether a wake-up from the change listener concerns this workspace. `*` is
-/// sent when the listener (re)connects: anything announced while it was away.
-fn wakes(
-    event: &Result<String, tokio::sync::broadcast::error::RecvError>,
-    workspace: &str,
-) -> bool {
+type Heard = Result<Live, tokio::sync::broadcast::error::RecvError>;
+
+/// Whether a wake-up from the change listener means this workspace's stream
+/// reads its changes. `Everything` is sent when the listener (re)connects:
+/// anything announced while it was away. Presence goes out as it is.
+fn wakes(event: &Heard, workspace: &str) -> bool {
     match event {
-        Ok(changed) => changed == workspace || changed == "*",
+        Ok(Live::Changed(changed)) => changed == workspace,
+        Ok(Live::Everything) => true,
+        Ok(Live::Presence(_)) => false,
         // Missed wake-ups (lagging) or a closed channel: check now to be safe.
         Err(_) => true,
     }
+}
+
+/// Whether presence changes may have been missed, so the stream sends
+/// everyone's presence again after its next check.
+fn missed_presence(event: &Heard) -> bool {
+    matches!(event, Ok(Live::Everything) | Err(_))
 }
 
 /// Sent after this long without a batch. It costs no database work.
@@ -43,6 +52,24 @@ fn worth_sending(page: &Value, last_cursor: Option<i64>) -> bool {
             .as_array()
             .is_some_and(|events| !events.is_empty())
 }
+/// Sends one event, allowing a slow consumer five seconds; false once the
+/// stream is gone or stuck.
+async fn deliver(
+    send: &tokio::sync::mpsc::Sender<Result<Event, Infallible>>,
+    event: Event,
+) -> bool {
+    matches!(
+        tokio::time::timeout(Duration::from_secs(5), send.send(Ok(event))).await,
+        Ok(Ok(()))
+    )
+}
+
+/// Ids and states only (`postgres/presence.rs`); no `id:` line, so the
+/// browser's reconnect position stays the change cursor.
+fn presence_event(people: String) -> Event {
+    Event::default().event("presence").data(people)
+}
+
 use tokio_stream::wrappers::ReceiverStream;
 #[derive(Deserialize)]
 struct Cursor {
@@ -101,11 +128,16 @@ async fn events(
     if query.compact {
         crate::response::compact_events(&mut first);
     }
+    // A member with this stream open is online (D245).
+    super::presence::opened(&app, &w, &user.id).await;
     let (send, receive) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1);
     tokio::spawn(async move {
         let _permit = permit;
         let mut page = first;
         let mut sent_cursor = None;
+        // Everyone's presence follows the first batch, and again after a check
+        // that may have missed changes; single changes go out as they happen.
+        let mut presence_due = true;
         loop {
             let cursor = page["cursor"].as_i64().unwrap_or(0);
             let more = page["more"].as_bool().unwrap_or(false);
@@ -114,10 +146,7 @@ async fn events(
                     .event("changes")
                     .id(cursor.to_string())
                     .data(page.to_string());
-                if !matches!(
-                    tokio::time::timeout(Duration::from_secs(5), send.send(Ok(event))).await,
-                    Ok(Ok(()))
-                ) {
+                if !deliver(&send, event).await {
                     break;
                 }
                 // Live batches only: the first page is catch-up and may be old.
@@ -128,13 +157,33 @@ async fn events(
                 }
                 sent_cursor = Some(cursor);
             }
+            if presence_due {
+                presence_due = false;
+                if let Some(people) = super::presence::snapshot(&app, &user, &w).await
+                    && !deliver(&send, presence_event(people)).await
+                {
+                    break;
+                }
+            }
             if !more {
+                // Presence changes go out between checks without one of their own:
+                // access was confirmed under FALLBACK ago, and is again by then.
+                let check = tokio::time::Instant::now() + FALLBACK;
                 loop {
                     tokio::select! {
                         _=send.closed()=>return,
                         _=app.runtimes.stopping.cancelled()=>return,
-                        _=tokio::time::sleep(FALLBACK)=>break,
-                        event=wake.recv()=>if wakes(&event, &w) { break }
+                        _=tokio::time::sleep_until(check)=>break,
+                        event=wake.recv()=>{
+                            if let Ok(Live::Presence(change)) = &event
+                                && let Some(people) = super::presence::change(change, &w)
+                                && !deliver(&send, presence_event(people)).await
+                            {
+                                return;
+                            }
+                            presence_due |= missed_presence(&event);
+                            if wakes(&event, &w) { break }
+                        }
                     }
                 }
             }
@@ -226,11 +275,43 @@ mod tests {
 
     #[test]
     fn streams_wake_for_their_workspace_a_reconnect_or_a_missed_wake() {
-        assert!(wakes(&Ok("w1".into()), "w1"));
-        assert!(!wakes(&Ok("w2".into()), "w1"));
-        assert!(wakes(&Ok("*".into()), "w1"));
+        assert!(wakes(&Ok(Live::Changed("w1".into())), "w1"));
+        assert!(!wakes(&Ok(Live::Changed("w2".into())), "w1"));
+        assert!(wakes(&Ok(Live::Everything), "w1"));
         assert!(wakes(&Err(RecvError::Lagged(3)), "w1"));
         assert!(wakes(&Err(RecvError::Closed), "w1"));
+    }
+
+    #[test]
+    fn presence_goes_out_as_it_is_and_is_resent_after_anything_missed() {
+        use crate::identity::postgres::chat::presence::Change;
+        let change = Change {
+            workspace: "w1".into(),
+            person: json!({"id": "meera", "online": true, "last_seen": 5, "status": null, "revision": 2}),
+        };
+        let heard: Heard = Ok(Live::Presence(change.into()));
+        assert!(
+            !wakes(&heard, "w1"),
+            "no database read for a presence change"
+        );
+        let Ok(Live::Presence(change)) = &heard else {
+            unreachable!()
+        };
+        let sent: Value =
+            serde_json::from_str(&super::super::presence::change(change, "w1").unwrap()).unwrap();
+        assert_eq!(
+            sent,
+            json!({"people": [{"id": "meera", "online": true, "last_seen": 5, "status": null, "revision": 2}]})
+        );
+        assert_eq!(
+            super::super::presence::change(change, "w2"),
+            None,
+            "another workspace's"
+        );
+        assert!(!missed_presence(&heard));
+        assert!(!missed_presence(&Ok(Live::Changed("w1".into()))));
+        assert!(missed_presence(&Ok(Live::Everything)));
+        assert!(missed_presence(&Err(RecvError::Lagged(1))));
     }
 
     #[test]

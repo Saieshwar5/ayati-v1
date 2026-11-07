@@ -1,3 +1,4 @@
+use super::messaging::Live;
 use super::tests::{chat, fixture, join, message, user, workspace};
 use super::*;
 #[tokio::test]
@@ -213,7 +214,7 @@ async fn the_listener_wakes_every_stream_when_it_connects_and_relays_each_change
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(first, "*", "connecting wakes every stream");
+    assert_eq!(first, Live::Everything, "connecting wakes every stream");
     // A committed message announces its workspace; the stream needs nothing else.
     let c = chat(&db, &owner, &w, vec![], vec![]).await;
     db.chat_send(&owner, &w, &c, &message("hello", None))
@@ -224,11 +225,11 @@ async fn the_listener_wakes_every_stream_when_it_connects_and_relays_each_change
             .await
             .unwrap()
             .unwrap();
-        if got == w {
+        if got == Live::Changed(w.clone()) {
             break got;
         }
     };
-    assert_eq!(relayed, w);
+    assert_eq!(relayed, Live::Changed(w));
     listening.abort();
 }
 

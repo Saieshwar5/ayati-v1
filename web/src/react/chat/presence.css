@@ -1,0 +1,84 @@
+/* Presence and status (D245, designs/chat-and-account screens 2, 3, 9 and 10). */
+.presence-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* The green dot on a face's edge; a ring of the surface keeps it apart from the photo. */
+.presence-dot { position: absolute; right: -1px; bottom: -1px; width: 26%; height: 26%; min-width: 8px; min-height: 8px; max-width: 11px; max-height: 11px; box-sizing: border-box; border-radius: 50%; background: var(--online); box-shadow: 0 0 0 2px var(--surface); }
+.presence-dot.inline { position: static; display: inline-block; flex: none; width: 7px; height: 7px; min-width: 0; min-height: 0; margin-right: 5px; box-shadow: none; vertical-align: 1px; }
+.profile-card-face .presence-dot { right: 4px; bottom: 4px; width: 22px; height: 22px; max-width: none; max-height: none; box-shadow: 0 0 0 3px var(--surface); }
+.account-menu-face .presence-dot { width: 12px; height: 12px; }
+
+.presence-status-emoji { flex: none; margin-left: 6px; font-size: 13px; line-height: 1; cursor: default; }
+.people-directory-name { display: inline-flex; align-items: center; min-width: 0; }
+
+/* "● Online · 🗓️ In a meeting · until 11:30 AM" under a direct message's name. */
+.presence-line { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presence-online { display: inline-flex; align-items: center; color: var(--text); }
+.presence-separator { color: var(--muted); }
+
+/* The header keeps its avatar and dot on phones too (screen 10); the avatar opens
+   the profile there, so a direct message's Profile button makes room for the line. */
+@media (max-width: 600px) {
+  .workspace-chat .chat-pane-header > .chat-header-identity { display: inline-flex; }
+  .workspace-chat .chat-pane-header:has(> .chat-header-identity) > .chat-details-toggle { display: none; }
+  .workspace-chat .chat-pane-header > .chat-header-identity > .chat-avatar { width: 32px; height: 32px; flex-basis: 32px; font-size: 12px; }
+}
+
+.mention-menu .presence-mention-status { flex: none; max-width: 42%; overflow: hidden; color: var(--muted); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+.profile-card-identity .profile-card-presence { display: flex; align-items: center; margin-top: 6px; color: var(--text); font-size: 13px; }
+.profile-card-status { display: grid; gap: 3px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--soft); }
+.profile-card-status strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.profile-card-status small { color: var(--muted); font-size: 12px; }
+
+/* Your own connection, only while it is down (screen 2, note 5). */
+.chat-connection-banner { display: flex; align-items: center; gap: 10px; margin: 8px 16px 0; padding: 7px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; }
+.chat-connection-banner.offline { background: var(--warning-bg); color: var(--warning); }
+.chat-connection-banner.reconnecting { background: var(--soft); color: var(--muted); }
+.chat-connection-banner > svg { flex: none; width: 16px; height: 16px; }
+.chat-connection-banner > span { flex: 1; min-width: 0; }
+.chat-connection-banner .ui-button { min-height: 28px; padding: 3px 10px; border-color: transparent; background: transparent; color: inherit; font-weight: 600; }
+.chat-connection-spinner { animation: presence-turn 1s linear infinite; }
+@keyframes presence-turn { to { transform: rotate(360deg); } }
+
+/* The status line under your name in the account menu (screen 9, note 2). */
+.workspace-profile .workspace-menu-action.account-menu-status { margin-top: 2px; background: var(--soft); }
+.workspace-profile .workspace-menu-action.account-menu-status:hover { background: var(--selection); }
+.account-menu-status-mark { display: grid; place-items: center; flex: none; width: 28px; height: 28px; font-size: 18px; }
+.account-menu-status-mark .presence-dot.inline { width: 10px; height: 10px; margin: 0; }
+
+/* Set a status (screen 3). */
+.status-dialog { display: grid; gap: 16px; }
+.status-dialog-own { position: relative; display: flex; align-items: center; gap: 8px; }
+.status-dialog-own > input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: 10px; background: var(--surface); color: var(--text); }
+.status-dialog-own .composer-emoji { width: 52px; min-height: 42px; border: 1px solid var(--border-control); border-radius: 10px; background: var(--surface); font-size: 20px; }
+.status-dialog-own .emoji-panel { top: calc(100% + 6px); right: auto; bottom: auto; left: 0; }
+.status-dialog-choices, .status-dialog-after { display: grid; min-width: 0; margin: 0; padding: 0; border: 0; }
+.status-dialog-choices { gap: 2px; }
+.status-dialog-choice { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
+.status-dialog-choice:hover { background: var(--soft); }
+.status-dialog-choice.chosen { background: var(--selection); }
+.status-dialog-choice:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.status-dialog-choice > span:nth-child(2) { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.status-dialog-choice strong { font-size: 14px; font-weight: 500; }
+.status-dialog-choice small { color: var(--muted); font-size: 12px; }
+.status-dialog-choice input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.status-dialog-mark { display: grid; place-items: center; flex: none; width: 24px; font-size: 18px; }
+.status-dialog-mark .presence-dot.inline { width: 10px; height: 10px; margin: 0; }
+.status-dialog-after { gap: 8px; }
+.status-dialog-after legend { padding: 0 0 8px; font-size: 13px; font-weight: 600; }
+.status-dialog-after:disabled { opacity: .55; }
+.status-dialog-segments { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-dialog-segments label { position: relative; padding: 6px 12px; border: 1px solid var(--border-control); border-radius: 8px; font-size: 13px; cursor: pointer; }
+.status-dialog-segments label.chosen { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.status-dialog-segments label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.status-dialog-segments input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit; }
+.status-dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; justify-content: flex-end; }
+.status-dialog-actions .status-dialog-clear { margin-right: auto; border-color: transparent; background: transparent; }
+
+@media (pointer: coarse) { .status-dialog-choice, .status-dialog-segments label { min-height: 44px; } .status-dialog-segments label { display: inline-flex; align-items: center; } }
+@media (prefers-reduced-motion: reduce) { .chat-connection-spinner { animation: none; } }
+@media (forced-colors: active) {
+  .presence-dot { forced-color-adjust: none; background: CanvasText; box-shadow: 0 0 0 2px Canvas; }
+  .chat-connection-banner { border: 1px solid CanvasText; }
+  .status-dialog-choice.chosen, .status-dialog-segments label.chosen { outline: 2px solid Highlight; }
+}

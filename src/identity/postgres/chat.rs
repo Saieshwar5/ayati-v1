@@ -10,6 +10,8 @@ pub(crate) mod front_desk;
 #[cfg(test)]
 #[path = "front_desk_tests.rs"]
 mod front_desk_tests;
+#[path = "presence.rs"]
+pub(crate) mod presence;
 #[path = "agent_updates.rs"]
 pub(crate) mod updates;
 #[path = "agent_updates_migration.rs"]
@@ -153,8 +155,10 @@ impl PgStore {
         } else {
             vec![]
         };
+        // Online, last seen and statuses (D245); agents have none.
+        let presence = presence::workspace_views(&tx, workspace, presence::now_ms()).await?;
         tx.commit().await?;
-        Ok(json!({"users":users,"grants":grants,"role":own_role}))
+        Ok(json!({"users":users,"grants":grants,"role":own_role,"presence":presence}))
     }
     pub async fn chat_create(
         &self,
