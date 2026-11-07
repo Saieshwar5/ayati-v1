@@ -87,6 +87,24 @@ async fn session(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Jso
 async fn overview(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     operator(&app, &headers).await?;
     let mut data = app.store.operator_overview().await?;
+    // Live messaging on this server: connections, delivery and sending times.
+    let messaging = crate::identity::live_metrics::snapshot();
+    let mut extra = Vec::new();
+    if messaging["listening"] == false {
+        extra.push(json!({"level": "bad", "kind": "listener", "title": "This server isn't hearing message changes",
+            "body": "Live messages arrive only through the 30-second check until it reconnects.", "target": null}));
+    }
+    let delivery = &messaging["delivery"];
+    if delivery["count"].as_u64().unwrap_or(0) >= 20
+        && delivery["p95_ms"].as_u64().unwrap_or(0) > 1000
+    {
+        extra.push(json!({"level": "warn", "kind": "delivery", "title": "Live messages are slow to arrive",
+            "body": format!("95% of messages reached people within {} ms over the last 10 minutes.", delivery["p95_ms"]), "target": null}));
+    }
+    data["messaging"] = messaging;
+    if let Some(alerts) = data["alerts"].as_array_mut() {
+        alerts.extend(extra);
+    }
     // Resting is the catalog router's memory on this controller (schema 87).
     for (provider, seconds) in crate::identity::models::router::resting_now() {
         data["alerts"].as_array_mut().into_iter().for_each(|alerts| {

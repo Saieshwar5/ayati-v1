@@ -9,6 +9,8 @@ pub struct Provider {
     key: String,
     pub client_id: String,
     base_url: String,
+    /// Sessions WorkOS recently confirmed (`provider/recent.rs`).
+    trusted: recent::Trusted,
 }
 
 impl Provider {
@@ -18,6 +20,7 @@ impl Provider {
             key: String::new(),
             client_id: "simulation".into(),
             base_url: "simulation://disabled".into(),
+            trusted: Default::default(),
         }
     }
     #[cfg(test)]
@@ -27,6 +30,7 @@ impl Provider {
             key: String::new(),
             client_id: "client_test".into(),
             base_url: "https://api.workos.com".into(),
+            trusted: Default::default(),
         }
     }
     #[cfg(test)]
@@ -50,6 +54,7 @@ impl Provider {
             key,
             client_id,
             base_url: "https://api.workos.com".into(),
+            trusted: Default::default(),
         })
     }
 
@@ -95,8 +100,9 @@ impl Provider {
             .await
     }
 
-    /// Both checks are required on every request, but neither depends on the other.
-    /// Do not cache this result: provider revocation and email changes must remain live.
+    /// Both checks are required, but neither depends on the other. This result is
+    /// never cached here; requests use [`Provider::identity_valid_recently`], which
+    /// trusts a positive answer for a bounded time (`provider/recent.rs`).
     pub async fn identity_valid(&self, user: &str, session: &str, email: &str) -> Result<bool> {
         let profile_path = format!("/user_management/users/{user}");
         let (active, current) = tokio::try_join!(
@@ -178,3 +184,4 @@ mod tests;
 
 #[cfg(test)]
 mod invitation_tests;
+mod recent;

@@ -197,3 +197,37 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
         request.id
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_listener_wakes_every_stream_when_it_connects_and_relays_each_change() {
+    let db = fixture().await;
+    let owner = user(&db, "listen-owner").await;
+    let w = workspace(&db, &owner).await;
+    let mut wake = db.changes.subscribe();
+    let listening = tokio::spawn({
+        let db = db.clone();
+        async move { db.listen_changes().await }
+    });
+    let first = tokio::time::timeout(std::time::Duration::from_secs(10), wake.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first, "*", "connecting wakes every stream");
+    // A committed message announces its workspace; the stream needs nothing else.
+    let c = chat(&db, &owner, &w, vec![], vec![]).await;
+    db.chat_send(&owner, &w, &c, &message("hello", None))
+        .await
+        .unwrap();
+    let relayed = loop {
+        let got = tokio::time::timeout(std::time::Duration::from_secs(10), wake.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        if got == w {
+            break got;
+        }
+    };
+    assert_eq!(relayed, w);
+    listening.abort();
+}

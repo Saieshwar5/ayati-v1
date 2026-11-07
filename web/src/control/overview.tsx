@@ -1,5 +1,5 @@
 import { useResource } from '../react/requests';
-import { control, count, money, type Alert, type Overview } from './api';
+import { control, count, money, type Alert, type Messaging, type Overview } from './api';
 import type { Go } from './app';
 import { Loading, providerHue, usePolling } from './shared';
 
@@ -23,6 +23,7 @@ export function OverviewScreen({ go }: { go: Go }) {
       <Tile label="Charged today" value={money(data.today.charge)}
         note={`cost ${money(data.today.cost)}${data.daily_ceiling === null ? '' : ` of ${money(data.daily_ceiling)} ceiling`} · ${money(data.month.charge)} this month`} />
     </section>
+    {data.messaging && <LiveMessaging live={data.messaging} />}
     <div className="cc-row">
       <section className="cc-card cc-grow-2" aria-labelledby="cc-alerts">
         <div className="cc-card-head"><h2 id="cc-alerts">Open alerts</h2><span className="cc-dim cc-num">{data.alerts.length} open</span></div>
@@ -49,6 +50,27 @@ export function OverviewScreen({ go }: { go: Go }) {
         </table></div>}
     </section>
   </div>;
+}
+
+const ms = (value: number | null) => value === null ? '—' : value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`;
+
+/** How fast messages travel on this server: saved → on the other person's connection. */
+function LiveMessaging({ live }: { live: Messaging }) {
+  const slow = (live.delivery.p95_ms ?? 0) > 1000;
+  return <section className="cc-card" aria-labelledby="cc-live">
+    <div className="cc-card-head"><h2 id="cc-live">Live messaging · this server, last {Math.round(live.window_seconds / 60)} minutes</h2>
+      {live.listening ? <span className="cc-tag ok">LISTENING</span> : <span className="cc-tag bad">NOT LISTENING</span>}</div>
+    <div className="cc-tiles cc-pad">
+      <div><div className="cc-cap">Open connections</div><div className="cc-tile-value cc-num">{count(live.open_streams)}</div>
+        <div className="cc-dim cc-small">{count(live.streams_opened)} opened since start</div></div>
+      <div><div className="cc-cap">Delivery · 95%</div><div className={`cc-tile-value cc-num${slow ? ' warn' : ''}`}>{ms(live.delivery.p95_ms)}</div>
+        <div className="cc-dim cc-small">median {ms(live.delivery.p50_ms)} · {count(live.delivery.count)} deliveries</div></div>
+      <div><div className="cc-cap">Sending · 95%</div><div className="cc-tile-value cc-num">{ms(live.sending.p95_ms)}</div>
+        <div className="cc-dim cc-small">median {ms(live.sending.p50_ms)} · {count(live.sending.count)} sends</div></div>
+      <div><div className="cc-cap">Listener</div><div className="cc-tile-value cc-num">{live.listening ? 'On' : 'Off'}</div>
+        <div className="cc-dim cc-small">{live.listener_connects} connection{live.listener_connects === 1 ? '' : 's'} to the database</div></div>
+    </div>
+  </section>;
 }
 
 function Tile({ label, value, note, tone }: { label: string; value: string; note: string; tone?: 'warn' }) {

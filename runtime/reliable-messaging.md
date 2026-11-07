@@ -50,12 +50,20 @@ receipt changes and relevant membership/channel changes. A per-workspace clock r
 serializes event allocation through commit; another workspace has a separate clock.
 Rolled-back messages cannot leave committed journal records. PostgreSQL NOTIFY wakes
 all application instances; LISTEN uses an existing driver connection. Notifications
-carry only a workspace ID and are not the source of truth. A two-second replay fallback
-covers lost notifications/listener reconnection. The existing application-wide workspace
-locks remain; this change does not claim to remove write contention.
+carry only a workspace ID and are not the source of truth. Every trigger that writes a
+change record also sends the notification (checked by a PostgreSQL test). When the
+listener connects or reconnects it wakes every stream, which replays anything committed
+while it was away. A 30-second re-check covers a notification lost otherwise; until
+November 2026 this was every two seconds, which kept idle tabs busy. The existing
+application-wide workspace locks remain; this change does not claim to remove write
+contention.
 
-Each stream revalidates the session and workspace access on every batch, then filters
-messages by current conversation access. Membership events carry no private channel
+Each stream revalidates the session and workspace access before every batch it sends,
+then filters messages by current conversation access. An idle re-check that finds
+nothing new sends nothing; keep-alives hold the connection. Stream batches are reads:
+they accept a WorkOS session answer up to 60 seconds old (see
+[identity and workspaces](identity-workspaces.md)); the local session and membership
+are checked in PostgreSQL every time. Membership events carry no private channel
 identifier. Replay batches scan at most 100 events. A one-batch output buffer and
 five-second send timeout bound slow consumers. Snapshot/reset and live updates merge
 by stable message ID. The tab stores its last applied cursor in account/workspace-scoped
@@ -107,6 +115,34 @@ there is no multi-hour or hosted-capacity claim.
 This small local debug-build sample is not a hosted latency guarantee. Look at the
 retained messaging-* results for subsequent runs.
 
+### Idle connections and delivery under load
+
+```sh
+node tools/company-simulation/messaging-live-load.mjs http://127.0.0.1:8876 6 100 50
+```
+
+Signs in the 20 simulated employees, opens six live connections each (the per-person
+limit), counts what each connection receives while nothing is sent, then sends
+messages to a channel of all 20 and times their arrival on every connection. Database
+transactions were counted from `pg_stat_database` over one clean idle minute.
+
+| 120 connections, 50 messages | Two-second re-check | Wake on change, 30 s re-check |
+| --- | --- | --- |
+| Idle batches per connection per minute | 29.4 | 0 |
+| Idle database transactions per second | 184 | 15 |
+| Delivery p95 | 93 ms | 93 ms |
+| Missing deliveries | 0 | 0 |
+| Send p95 | 19 ms | 15 ms |
+
+The server's background work alone was about 3 transactions per second. The
+simulation skips WorkOS; worked out from the same counts, live connections in a real
+deployment made about two WorkOS calls per connection every two seconds (about 120 per
+second for these 120 connections, against a WorkOS limit near 1,000 user-management
+reads per 10 seconds) and now make under one per second.
+
+Cuckoo Control's overview shows the same measurements for the server it runs on (see
+[Cuckoo Control](cuckoo-control.md#live-messaging)).
+
 ## Operating limits
 
 The change journal is retained indefinitely in this increment, honoring the requirement
@@ -120,7 +156,7 @@ No service worker/offline application shell is installed: an already open applic
 can queue while disconnected; loading the entire website from scratch while its server
 is down is not promised. Browser data clearing can remove unsent local messages. Failed
 uploads are not durably resumable offline. Push notifications, typing/presence, browser
-multi-tab connection sharing, per-tenant cluster-wide rate quotas, message editing,
+multi-tab connection sharing (not needed at the measured idle cost above), per-tenant cluster-wide rate quotas, message editing,
 unsend and per-organization receipt policy remain separate features. A stream receipt
 is not a cryptographic proof of human attention. Authorization is checked against the
 server's current state; it cannot retract information already delivered to a device.
