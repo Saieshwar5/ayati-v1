@@ -406,3 +406,84 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
     assert_eq!(identity::hosting::live().await, StatusCode::OK);
     server.abort();
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn deleting_the_last_message_that_shares_a_file_deletes_its_stored_bytes() {
+    let db = fixture().await;
+    let owner = db
+        .login(
+            "user_hosted",
+            "owner@example.test",
+            &identity::digest("token"),
+            "session_hosted",
+        )
+        .await
+        .unwrap();
+    let w = workspace(&db, &owner).await;
+    let c = chat(&db, &owner, &w, vec![], vec![]).await;
+    let (provider, _, server) = provider().await;
+    let root = tempfile::tempdir().unwrap();
+    let store = Arc::new(object_store::memory::InMemory::new());
+    let hosted = app(
+        db,
+        root.path(),
+        &provider,
+        identity::library::Storage::S3(store.clone()),
+    );
+    let cookie = "ayati_identity=token";
+    let (status, _, object) = call(
+        &hosted,
+        "POST",
+        &format!("/api/identity/workspaces/{w}/chats/{c}/objects?name=quote.pdf"),
+        cookie,
+        b"%PDF-1.7\nquote for Acme".to_vec(),
+    )
+    .await;
+    assert_eq!(status, 200, "{}", String::from_utf8_lossy(&object));
+    let object = serde_json::from_slice::<Value>(&object).unwrap();
+    assert_eq!(object["mime"], "application/pdf", "recorded as what it is");
+    let id = object["id"].as_str().unwrap().to_owned();
+    // The uploader shares the same file in two messages.
+    let mut first = message("The quote", None);
+    first.attachments = vec![id.clone()];
+    let mut again = message("The quote again", None);
+    again.attachments = vec![id.clone()];
+    for sent in [&first, &again] {
+        hosted.store.chat_send(&owner, &w, &c, sent).await.unwrap();
+    }
+    let key = object_store::path::Path::from(format!("chat/{w}/{id}"));
+    use object_store::ObjectStoreExt;
+    let delete =
+        |message: &str| format!("/api/identity/workspaces/{w}/chats/{c}/messages/{message}/delete");
+    let download = format!("/api/identity/workspaces/{w}/objects/{id}");
+    assert_eq!(
+        call(&hosted, "POST", &delete(&first.id), cookie, b"{}".to_vec())
+            .await
+            .0,
+        200
+    );
+    assert!(store.head(&key).await.is_ok(), "still shared by a message");
+    assert_eq!(call(&hosted, "GET", &download, cookie, vec![]).await.0, 200);
+    assert_eq!(
+        call(&hosted, "POST", &delete(&again.id), cookie, b"{}".to_vec())
+            .await
+            .0,
+        200
+    );
+    assert!(store.head(&key).await.is_err(), "stored bytes removed");
+    assert_ne!(call(&hosted, "GET", &download, cookie, vec![]).await.0, 200);
+    let left = query(
+        &hosted.store.db,
+        "SELECT (SELECT count(*) FROM relay_objects WHERE workspace=$1 AND id=$2)
+            +(SELECT count(*) FROM relay_object_contents WHERE workspace=$1 AND object=$2) AS n",
+        vec![w.clone().into(), id.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get::<i64>("", "n")
+    .unwrap();
+    assert_eq!(left, 0, "the file and its reading are gone");
+    server.abort();
+}

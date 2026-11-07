@@ -10,6 +10,33 @@ pub(crate) mod contents;
 #[path = "conversation_files.rs"]
 mod conversation_files;
 
+/// Removes the files in `ids` that no message shares any more: their
+/// transcripts, their readings (by cascade) and the files. Returns their IDs, so
+/// the caller can remove the stored bytes once the transaction commits.
+pub(super) async fn remove_unshared(
+    tx: &DatabaseTransaction,
+    w: &str,
+    ids: &Value,
+) -> Result<Vec<String>> {
+    if ids.as_array().is_none_or(Vec::is_empty) {
+        return Ok(vec![]);
+    }
+    let unshared = "o.workspace=$1 AND o.id IN (SELECT jsonb_array_elements_text($2::jsonb))
+        AND NOT EXISTS(SELECT 1 FROM relay_chat_messages m WHERE m.workspace=o.workspace
+        AND m.chat=o.chat AND m.attachments @> jsonb_build_array(o.id))";
+    let args = || vec![w.into(), ids.clone().into()];
+    execute(tx, &format!("DELETE FROM relay_object_transcripts t USING relay_objects o WHERE t.workspace=o.workspace AND t.object=o.id AND {unshared}"), args()).await?;
+    rows(
+        tx,
+        &format!("DELETE FROM relay_objects o WHERE {unshared} RETURNING o.id"),
+        args(),
+    )
+    .await?
+    .into_iter()
+    .map(|row| Ok(row.try_get("", "id")?))
+    .collect()
+}
+
 impl PgStore {
     /// Saves an uploaded file. With `transcribe`, audio also queues its
     /// transcript in the same transaction (schema 95). Other files queue their

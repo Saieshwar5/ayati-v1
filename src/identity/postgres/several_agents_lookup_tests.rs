@@ -98,7 +98,8 @@ async fn delete_retry_and_receipts_handle_each_agents_job() {
     assert_eq!(
         r.db.delete_message(&r.member, &r.w, &r.c, &both.id)
             .await
-            .unwrap(),
+            .unwrap()
+            .stopped,
         2
     );
     for job in &jobs {

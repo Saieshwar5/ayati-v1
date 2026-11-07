@@ -97,7 +97,13 @@ async fn deleting_a_request_stops_the_agent_work_it_started() {
         latest(&db, &owner, &w, &c, &job.reply).await["state"],
         "queued"
     );
-    assert_eq!(db.delete_message(&owner, &w, &c, &ask.id).await.unwrap(), 1);
+    assert_eq!(
+        db.delete_message(&owner, &w, &c, &ask.id)
+            .await
+            .unwrap()
+            .stopped,
+        1
+    );
     assert_eq!(
         latest(&db, &owner, &w, &c, &job.reply).await["state"],
         "cancelled"

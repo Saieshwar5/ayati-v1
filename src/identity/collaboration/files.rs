@@ -137,6 +137,28 @@ pub(crate) async fn stored(app: &App, w: &str, object: &Object) -> ApiResult<Byt
     )?;
     Ok(bytes)
 }
+/// Removes a deleted file's stored bytes, from private S3 (hosted) or the local
+/// object root; a file already gone is fine. Its record was deleted first, so a
+/// failure leaves bytes nothing points to and nobody can reach; it is logged
+/// without the file's name.
+pub(crate) async fn remove_stored(app: &App, w: &str, id: &str) {
+    let removed = if hosting::hosted(app) {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            app.library.delete(&format!("chat/{w}/{id}")),
+        )
+        .await
+        .unwrap_or_else(|_| Err(anyhow::anyhow!("File removal timed out")))
+    } else {
+        match tokio::fs::remove_file(app.runtimes.object_root(w).join(id)).await {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+            _ => Ok(()),
+        }
+    };
+    if removed.is_err() {
+        tracing::warn!("A deleted chat file's stored bytes could not be removed");
+    }
+}
 /// The type recorded for an upload, from its own bytes. WebM and MP4 can also
 /// hold video, so they count as audio only when the uploader declared audio.
 /// Ogg also counts when its stream is Opus or Vorbis. Documents (PDF, Word,

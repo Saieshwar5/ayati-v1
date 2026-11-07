@@ -7,6 +7,15 @@ pub const REACTIONS: [&str; 12] = [
     "👍", "✅", "👀", "🙏", "🎉", "❤️", "😂", "🔥", "👏", "🤔", "😮", "💯",
 ];
 
+/// What deleting a message did.
+#[derive(Debug)]
+pub struct Deleted {
+    /// Agent requests it asked for that were stopped.
+    pub stopped: u64,
+    /// Files no message shares any more, whose stored bytes are to be removed.
+    pub files: Vec<String>,
+}
+
 impl PgStore {
     /// Changes the text of the caller's own message. Agent work it already
     /// started continues with the original request. Mentions the edit adds
@@ -48,16 +57,26 @@ impl PgStore {
 
     /// Removes the text and files of the caller's own message and stops any
     /// agent work it asked for that has not finished. The message keeps its
-    /// place so thread replies stay attached.
+    /// place so thread replies stay attached. Its files go with it: their rows,
+    /// readings and transcripts here, their stored bytes by the caller once
+    /// this commits (`Deleted::files`), so neither people nor agents find them.
     pub async fn delete_message(
         &self,
         user: &User,
         w: &str,
         chat: &str,
         message: &str,
-    ) -> Result<u64> {
+    ) -> Result<Deleted> {
         let tx = self.workspace_tx(w).await?;
         own_open_message(&tx, user, w, chat, message).await?;
+        let shared: Value = query(
+            &tx,
+            "SELECT attachments FROM relay_chat_messages WHERE workspace=$1 AND id=$2",
+            vec![w.into(), message.into()],
+        )
+        .await?
+        .context("Message unavailable")?
+        .try_get("", "attachments")?;
         execute(
             &tx,
             "UPDATE relay_chat_messages SET content='',attachments='[]',state='deleted',edited_at=$3 WHERE workspace=$1 AND id=$2",
@@ -83,9 +102,10 @@ impl PgStore {
                 stopped += 1;
             }
         }
+        let files = super::objects::remove_unshared(&tx, w, &shared).await?;
         audit(&tx, &user.id, Some(w), "message_deleted", message).await?;
         tx.commit().await?;
-        Ok(stopped)
+        Ok(Deleted { stopped, files })
     }
 
     /// Adds or removes one of the caller's reactions. Repeating either is harmless.

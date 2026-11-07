@@ -49,8 +49,11 @@ async fn delete(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    let stopped = app.store.delete_message(&user, &w, &chat, &message).await?;
-    Ok(Json(json!({"ok":true,"stopped_requests":stopped})))
+    let deleted = app.store.delete_message(&user, &w, &chat, &message).await?;
+    for file in &deleted.files {
+        crate::identity::collaboration::remove_stored_object(&app, &w, file).await;
+    }
+    Ok(Json(json!({"ok":true,"stopped_requests":deleted.stopped})))
 }
 
 async fn react(
