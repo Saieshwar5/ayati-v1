@@ -86,11 +86,10 @@ async fn keeping_rules_delete_old_items_for_good_except_what_is_on_hold() {
     db.library_hold_set(&s.owner, &s.w, &contract.id, &reason("Supplier dispute"))
         .await
         .unwrap();
-    assert_eq!(
+    assert!(
         db.library_keeping(&s.member, &s.w, &s.returns)
             .await
-            .is_ok(),
-        false,
+            .is_err(),
         "the member can't open Policies"
     );
     assert_eq!(
