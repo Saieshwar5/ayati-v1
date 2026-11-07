@@ -1,27 +1,31 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '../requests';
 import { Button } from '../ui';
 import { chatRequest, type Conversation } from './model';
 import { alertsSupported, defaultLevel, dismissPrompt, promptDismissed, rememberLevel, type Level } from './notifications';
 
-const CHOICES: { level: Level; label: string; help: (direct: boolean) => string }[] = [
-  { level: 'all', label: 'All new messages', help: direct => direct ? 'Default for direct messages' : 'Every message here' },
-  { level: 'mentions', label: '@mentions and replies', help: direct => direct ? 'Only when you are mentioned' : 'Default for channels' },
-  { level: 'none', label: 'Nothing', help: () => 'Muted · the unread count still shows' },
+const CHOICES: { level: Level; label: string; short: string; help: (direct: boolean) => string }[] = [
+  { level: 'all', label: 'All new messages', short: 'All messages', help: direct => direct ? 'Default for direct messages' : 'Every message here' },
+  { level: 'mentions', label: '@mentions and replies', short: 'Mentions', help: direct => direct ? 'Only when you are mentioned' : 'Default for channels' },
+  { level: 'none', label: 'Nothing', short: 'Muted', help: () => 'Muted · the unread count still shows' },
 ];
 
-/** The bell in a conversation header: how much this conversation may alert you. */
-export function NotifyMenu({ chat, level, changed }: { chat: Conversation; level?: Level; changed: (level: Level) => void }) {
+/** The bell in a conversation header (and, labelled, in Details): how much this conversation may alert you. */
+export function NotifyMenu({ chat, level, changed, labelled = false }: { chat: Conversation; level?: Level; changed: (level: Level) => void; labelled?: boolean }) {
   const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
   const mutation = useMutation();
   const current = level ?? defaultLevel(chat);
+  const choice = CHOICES.find(item => item.level === current)!;
   const choose = (next: Level) => void mutation.run(async () => {
     await chatRequest(`/chats/${chat.id}/notifications`, { level: next });
     rememberLevel(chat.id, next); changed(next); setOpen(false);
   });
-  return <span className="chat-notify">
-    <Button className="ui-icon chat-notify-button" aria-label={`Notifications: ${CHOICES.find(choice => choice.level === current)!.label}`} aria-expanded={open}
-      title="Notifications" onClick={() => setOpen(!open)}><BellIcon muted={current === 'none'} /></Button>
+  // Escape closes only this menu, not the panel or dialog around it.
+  return <span className={`chat-notify${labelled ? ' chat-notify-labelled' : ''}`}
+    onKeyDown={event => { if (open && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); toggle.current?.focus(); } }}>
+    <Button ref={toggle} className={labelled ? 'chat-notify-button' : 'ui-icon chat-notify-button'} aria-label={`Notifications: ${labelled ? choice.short : choice.label}`} aria-expanded={open}
+      title="Notifications" onClick={() => setOpen(!open)}><BellIcon muted={current === 'none'} />{labelled && <><span aria-hidden="true">{choice.short}</span><Chevron /></>}</Button>
     {open && <div className="chat-notify-menu" role="menu" aria-label={`Notify me in ${chat.kind === 'direct' ? 'this conversation' : `#${chat.name}`} about`}>
       {CHOICES.map(choice => <button type="button" role="menuitemradio" aria-checked={current === choice.level} key={choice.level} disabled={mutation.busy} onClick={() => choose(choice.level)}>
         <span>{choice.label}<small>{choice.help(chat.kind === 'direct')}</small></span>{current === choice.level && <span aria-hidden="true">✓</span>}
@@ -43,6 +47,10 @@ export function AlertsPrompt() {
       <Button onClick={() => { dismissPrompt(); setHidden(true); }}>Not now</Button>
     </div>
   </div>;
+}
+
+function Chevron() {
+  return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>;
 }
 
 export function BellIcon({ muted = false }: { muted?: boolean }) {

@@ -9,7 +9,8 @@ import { ConversationPane } from './conversation';
 import { chatRequest, conversationName, directPartner, type Conversation, type Directory } from './model';
 import { ConversationFace, ParticipantName } from './conversation-face';
 import { PeopleDirectory } from './people-directory';
-import { ProfileCard, ShowProfile, type ProfileTarget } from './profile-card';
+import { ShowProfile, type ProfileTarget } from './profile-card';
+import { ChatPanel, type PanelView } from './conversation-details';
 import { AlertsPrompt, BellIcon } from './notify-controls';
 import type { Level } from './notifications';
 import './workspace-chat.css';
@@ -35,7 +36,7 @@ export function WorkspaceChat({ href }: { href: string }) {
   const [search, setSearch] = useState(false);
   const [chooser, setChooser] = useState<'channel' | 'direct'>();
   const [people, showPeople] = useState(false);
-  const [profile, setProfile] = useState<ProfileTarget>();
+  const [panel, setPanel] = useState<PanelView>();
   const [showList, setShowList] = useState(!selected);
   const refresh = useRef<() => Promise<void>>(async () => {});
   const pins = usePinActions(preferences, next => setPreferences(previous => previous && previous.revision > next.revision ? previous : next), sourceEpoch, () => refresh.current());
@@ -86,10 +87,18 @@ export function WorkspaceChat({ href }: { href: string }) {
   const messageTarget = (target: ProfileTarget & { name: string }) => {
     const who = target.kind === 'user' ? directory?.users.find(user => user.id === target.id) : directory?.agents.find(agent => agent.id === target.id);
     if (!who) return;
-    setProfile(undefined);
+    setPanel(undefined);
     void direct.choose({ ...who, kind: target.kind });
   };
-  return <ShowProfile.Provider value={setProfile}><div className={`workspace-chat${showList ? ' show-chat-list' : ''}`} onClick={event => {
+  // The panel sits beside the conversation, so the People & agents dialog closes first.
+  const showProfile = (target: ProfileTarget) => { showPeople(false); setPanel({ kind: 'profile', target }); };
+  const details = {
+    open: panel?.kind === 'details' && Boolean(current),
+    toggle: () => setPanel(previous => previous?.kind === 'details' ? undefined : { kind: 'details' }),
+    show: () => setPanel(previous => previous?.kind === 'details' ? previous : { kind: 'details' }),
+    review: () => { if (current) setPanel({ kind: 'details', review: current.id }); },
+  };
+  return <ShowProfile.Provider value={showProfile}><div className={`workspace-chat${showList ? ' show-chat-list' : ''}`} onClick={event => {
     if ((event.target as Element).closest('a.chat-contact')) setShowList(false);
   }}>
     <aside className="chat-directory" aria-label="Conversations"><header><h1>Chat</h1>
@@ -113,12 +122,14 @@ export function WorkspaceChat({ href }: { href: string }) {
       {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     </aside>
     <div className="chat-content">
-      {current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} changed={() => refresh.current()} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} />
+      {current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} details={details} />
         : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button><div><span className="chat-welcome-mark">↗</span><h2>{selected ? 'Opening conversation' : 'A place to work together'}</h2><p>{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : 'Message a person, talk to an agent, or bring your team together in a channel.'}</p>{!selected && <Button primary disabled={!directory} onClick={() => setChooser('direct')}>New message</Button>}</div></div>}
     </div>
+    {panel && directory && <ChatPanel view={panel} setView={setPanel} chat={current} directory={directory} chats={chats} message={messageTarget}
+      level={current && levels[current.id]} levelChanged={level => { if (current) setLevels(previous => ({ ...previous, [current.id]: level })); }}
+      pins={{ preferences, busy: pins.busy, toggle: pins.toggle }} changed={() => refresh.current()} />}
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
-    {profile && directory && <ProfileCard target={profile} directory={directory} chats={chats} close={() => setProfile(undefined)} message={messageTarget} />}
   </div></ShowProfile.Provider>;
 }

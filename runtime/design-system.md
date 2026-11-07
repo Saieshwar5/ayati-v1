@@ -127,7 +127,8 @@ People show their photo or initials on a tinted circle; agents show an uploaded
 image or a bundled robot (`web/public/agent-avatars/robot-01.svg` to `robot-24`).
 An agent is told apart only by the small `AI` tag after its name — never by a
 separate sidebar section. Private channels show a lock and public channels `#`.
-Names and avatars open a profile drawer; People & agents at the foot of the list
+Names and avatars open a profile in the side panel beside the conversation, which
+also holds channel Details (D245); People & agents at the foot of the list
 opens the whole-workspace directory (everyone sees every member).
 
 The search button beside Chat opens a focused dialog for authorized channels,

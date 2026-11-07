@@ -54,8 +54,12 @@ test('a profile card opens from the directory and Message starts one direct conv
     await render(WorkspaceChat,{href:url});
     await click(button('People & agents3 · 2'));
     await click(button('View profile of Ravi Kumar'));
-    const card=[...document.querySelectorAll('dialog')].find(d=>d.textContent.includes('Dispatch and suppliers.'));
-    assert.ok(card,'about text shown');
+    // The profile opens in the side panel beside the conversation; the directory dialog closes.
+    assert.equal(document.querySelectorAll('dialog').length,0);
+    const card=document.querySelector('aside.chat-side-panel');
+    assert.equal(card.getAttribute('aria-label'),'Profile');
+    assert.match(card.textContent,/Dispatch and suppliers\./,'about text shown');
+    assert.equal(card.contains(document.activeElement),true,'focus moves into the panel');
     assert.match(card.textContent,/Channels together# orders/);
     const message=[...card.querySelectorAll('button')].find(b=>b.textContent==='Message');
     await click(message);
@@ -73,7 +77,8 @@ test('an agent card shows who manages it and adds it to a channel the viewer man
     await render(WorkspaceChat,{href:url});
     await click(button('People & agents3 · 2'));
     await click(button('View profile of Atlas'));
-    const card=[...document.querySelectorAll('dialog')].find(d=>d.textContent.includes('Managed by'));
+    const card=document.querySelector('aside.chat-side-panel');
+    assert.equal(card.getAttribute('aria-label'),'Agent profile');
     assert.match(card.textContent,/Priya Shah/);
     assert.match(card.textContent,/is an AI agent/);
     const select=card.querySelector('select');

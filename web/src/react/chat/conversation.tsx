@@ -1,29 +1,28 @@
 import { ApprovalViewer } from '../approvals/viewer';
 import { ManagedResults } from '../results/managed';
-import { ChannelLifecycle } from './channel-lifecycle';
 import { PendingMessages } from './pending-messages';
 import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission } from './outbox';
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ChatComposer } from './attachments';
 import { requestAgent } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
-import { ChannelAgents, ChannelMembers, ChannelSettings } from './members';
 import type { Attachment, Message } from './model';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { storageScope } from '../../workspace-context';
 import { ChatMessage } from './message';
 import { ChatThread } from './thread';
 import { mergeMessages, newerMessage } from './message-state';
-import { Button, Dialog } from '../ui';
+import { Button } from '../ui';
 import { errorMessage } from '../requests';
 import { chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
-import { ConversationFace, ParticipantName } from './conversation-face';
-import { useShowProfile } from './profile-card';
-import { NotifyMenu } from './notify-controls';
+import { ShowProfile, useShowProfile } from './profile-card';
+import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
 
-export function ConversationPane({ chat, directory, back, focus, changed = async () => {}, level, levelChanged = () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void>; level?: Level; levelChanged?: (level: Level) => void }) {
+const noDetails: DetailsControl = { open: false, toggle: () => {}, show: () => {}, review: () => {} };
+
+export function ConversationPane({ chat, directory, back, focus, level, levelChanged = () => {}, details = noDetails }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; level?: Level; levelChanged?: (level: Level) => void; details?: DetailsControl }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
@@ -36,9 +35,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [history, setHistory] = useState<History>();
   const [error, setError] = useState('');
-  const [details, setDetails] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [lifecycle, setLifecycle] = useState(false);
   const [thread, setThread] = useState<string>();
   const [busy, setBusy] = useState(false);
   const directAgent = chat.kind === 'direct' ? chat.agents[0] ?? '' : '';
@@ -150,29 +147,11 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const title = conversationName(chat, directory);
   const partner = directPartner(chat, directory);
   const showProfile = useShowProfile();
-  const summary = partner ? (partner.kind === 'agent' ? partner.who.role : partner.who.title || 'Direct message')
-    : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`, chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`}>
-    <header className="chat-pane-header">
-      <Button className="chat-back" onClick={back}>‹ Chats</Button>
-      {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} onClick={() => showProfile({ kind: partner.kind, id: partner.who.id })}>
-        <ConversationFace chat={chat} directory={directory} />
-      </button> : <ConversationFace chat={chat} directory={directory} />}
-      <div>
-        <h2 title={title}>{partner ? <ParticipantName kind={partner.kind} name={title} /> : title}</h2>
-        <div className="chat-header-meta">
-          <small className="chat-kind">{summary}</small>
-          <p className="chat-connection" role="status">{connection}</p>
-        </div>
-      </div>
-      <Button className="ui-icon chat-search-button" aria-label={`Search in ${title}`} title="Search this conversation" onClick={() => setSearching(true)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
-      </Button>
-      <NotifyMenu chat={chat} level={level} changed={levelChanged} />
-      <Button onClick={() => setDetails(true)}>Details</Button>
-    </header>
-    {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={() => setLifecycle(true)}>Restore channel</Button>}</div>}
+    <ConversationHeader chat={chat} directory={directory} title={title} connection={connection} back={back} search={() => setSearching(true)}
+      level={level} levelChanged={levelChanged} details={details} />
+    {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => { const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }}>
       {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
       {partner?.kind === 'agent' && <p className="chat-visibility-note">Activity with {title} is visible to its managers and admins.</p>}
@@ -191,9 +170,10 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
-    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />}
+    {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
+    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
+      <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
+    </ShowProfile.Provider>}
     {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
-    {details && <Dialog title="Conversation details" drawer close={() => setDetails(false)}><h3>{title}</h3><p>{chat.description || "Messages follow this channel’s access settings."}</p>{chat.can_archive && chat.kind !== 'direct' && <Button onClick={() => setLifecycle(true)}>{chat.archived ? 'Restore channel' : 'Archive channel'}</Button>}<p>Shared agents use this conversation only. Public channels are visible to all workspace members; private channels require membership. Internal work operations require a separate grant.</p><h3>Members</h3>{chat.kind !== 'direct' && <><ChannelSettings chat={chat} directory={directory} /><ChannelMembers chat={chat} directory={directory} /><ChannelAgents chat={chat} directory={directory} /></>}{chat.users.map(id => <p key={id}>{directory.users.find(user => user.id === id)?.name ?? 'Former member'}</p>)}{chat.agents.map(id => <p key={id}>{directory.agents.find(agent => agent.id === id)?.name ?? 'Agent'} · Agent</p>)}</Dialog>}
-    {lifecycle && <ChannelLifecycle chat={chat} close={() => setLifecycle(false)} changed={changed} />}
   </section></ManagedResults></ApprovalViewer>;
 }
