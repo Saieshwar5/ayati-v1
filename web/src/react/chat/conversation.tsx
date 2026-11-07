@@ -22,6 +22,10 @@ import { useShowProfile } from './profile-card';
 import { NotifyMenu } from './notify-controls';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
+import { readingAnchor, restoreReading, type ReadingAnchor } from './reading-position';
+
+/** Scrolling within this distance of the top (px) starts loading the next older page. */
+const olderThreshold = 400;
 
 export function ConversationPane({ chat, directory, back, focus, changed = async () => {}, level, levelChanged = () => {} }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; changed?: () => Promise<void>; level?: Level; levelChanged?: (level: Level) => void }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
@@ -56,6 +60,10 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   const attempt = useRef<Submission>(undefined);
   const refresh = useRef<() => Promise<void>>(async () => {});
   const alive = useRef(true);
+  // One older-page read at a time, each page once; after a failure only the button retries.
+  const olderRead = useRef<{ pending: boolean; loaded?: number; failed: boolean }>({ pending: false, failed: false });
+  const anchor = useRef<ReadingAnchor>(undefined);
+  const forgetOlder = () => { setOlder([]); setCursor(undefined); olderRead.current = { pending: false, failed: false }; };
   useEffect(() => {
     setFocused([]); setFocusError('');
     if (!focus) return;
@@ -87,7 +95,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
           const merged = mergeMessages(data.messages, [...incoming.current.values()]);
           setHistory({ ...data, messages: merged }); acknowledge(chat.id, data.messages); void confirmSent(data.messages).catch(() => {}); setError('');
         }
-      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setHistory(undefined); setOlder([]); incoming.current.clear(); } } }
+      } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setHistory(undefined); forgetOlder(); incoming.current.clear(); } } }
       finally { loading = false; if (queued && !abort.signal.aborted) { queued = false; void load(); } }
     };
     refresh.current = load; void load();
@@ -99,7 +107,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
         setHistory(old=>old ? {...old,messages:old.messages.map(clear)}:old); setOlder(old=>old.map(clear)); setFocused(old=>old.map(clear));
         void load();
       }
-      if (change.kind === 'reset' || change.kind === 'access') { sourceEpoch.current++; incoming.current.clear(); setHistory(undefined); setOlder([]); void load(); }
+      if (change.kind === 'reset' || change.kind === 'access') { sourceEpoch.current++; incoming.current.clear(); setHistory(undefined); forgetOlder(); void load(); }
       if (change.chat === chat.id && change.message) {
         const message = change.message; void confirmSent([message]).catch(() => {});
         const previous = incoming.current.get(message.id);
@@ -112,6 +120,8 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     return () => { alive.current = false; abort.abort(); unsubscribe(); };
   }, [chat.id]);
   useLayoutEffect(() => { if (!readingResult.current && bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history, pendingMessages]);
+  // Older messages arrive above the reader; keep the message they were reading in place.
+  useLayoutEffect(() => { restoreReading(messages.current, anchor.current); anchor.current = undefined; }, [older]);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   const send = async () => {
     if (chat.archived) return;
@@ -131,13 +141,23 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     } catch (e) { if (alive.current) setError(errorMessage(e)); }
     finally { pending.current = false; if (alive.current) setBusy(false); }
   };
-  const loadOlder = async () => {
-    const before = cursor === undefined ? history?.next_before : cursor;
-    if (!before || loadingOlder) return; setLoadingOlder(true);
+  const olderCursor = cursor === undefined ? history?.next_before : cursor;
+  /** Scrolling near the top calls this on its own; the button passes `explicit`, which also retries a failed read. */
+  const loadOlder = async (explicit = false) => {
+    const before = olderCursor, read = olderRead.current;
+    if (!before || read.pending || before === read.loaded || (read.failed && !explicit)) return;
+    read.pending = true; setLoadingOlder(true);
     const epoch=sourceEpoch.current;
-    try { const page = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true&before=${before}`); if (alive.current && epoch===sourceEpoch.current) { bottom.current = false; setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null); } }
-    catch (e) { if (alive.current) setError(errorMessage(e)); }
-    finally { if (alive.current) setLoadingOlder(false); }
+    try {
+      const page = await chatRequest<History>(`/chats/${chat.id}/messages?compact=true&before=${before}`);
+      read.failed = false;
+      if (alive.current && epoch===sourceEpoch.current) {
+        read.loaded = before; bottom.current = false; anchor.current = readingAnchor(messages.current);
+        setOlder(previous => mergeMessages(page.messages, previous, [...incoming.current.values()])); setCursor(page.next_before ?? null);
+      }
+    }
+    catch (e) { read.failed = true; if (alive.current) setError(errorMessage(e)); }
+    finally { read.pending = false; if (alive.current) setLoadingOlder(false); }
   };
   const allMessages = mergeMessages(focused, older, history?.messages ?? []);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
@@ -168,8 +188,11 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
       <Button onClick={() => setDetails(true)}>Details</Button>
     </header>
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={() => setLifecycle(true)}>Restore channel</Button>}</div>}
-    <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => { const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; }}>
-      {(cursor === undefined ? history?.next_before : cursor) && <Button disabled={loadingOlder} onClick={() => void loadOlder()}>Load older messages</Button>}
+    <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {
+      const node = messages.current!; bottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+      if (node.scrollTop < olderThreshold) void loadOlder();
+    }}>
+      {olderCursor && <Button disabled={loadingOlder} onClick={() => void loadOlder(true)}>{loadingOlder ? 'Loading older messages…' : 'Load older messages'}</Button>}
       {partner?.kind === 'agent' && <p className="chat-visibility-note">Activity with {title} is visible to its managers and admins.</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
