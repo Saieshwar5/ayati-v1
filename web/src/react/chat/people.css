@@ -32,7 +32,7 @@
 .people-directory-who > span:last-child { display: grid; gap: 2px; min-width: 0; }
 .people-directory-who small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Profile drawer for a person or an agent. */
+/* Profile of a person or an agent, shown in the Chat side panel. */
 .profile-card { display: grid; gap: 16px; }
 .profile-card-face.face { width: 96px; height: 96px; font-size: 32px; }
 .profile-card-identity h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; }

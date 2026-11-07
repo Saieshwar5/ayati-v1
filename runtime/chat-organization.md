@@ -30,8 +30,9 @@ cannot overwrite a newer order; no blind retry or inference occurs on reads.
 
 A channel creator or workspace admin with current source access can archive or
 restore a non-direct channel, matching the existing membership-management rule.
-The review shows the current visible unfinished-request count and explains that
-already accepted work may continue. Channel settings and agent grants remain separate. Archive uses a revision and
+The review opens in place near the top of Details (no second dialog) and shows the
+current visible unfinished-request count, explaining that already accepted work may
+continue; the archived banner's Restore opens the same review. Channel settings and agent grants remain separate. Archive uses a revision and
 an exact request receipt, records actor/time and writes an audit event. Repeated
 acknowledgment cannot repeat the lifecycle change; a stale opposing request cannot
 reverse a later decision.
