@@ -42,6 +42,7 @@ mod shutdown;
 pub mod simulation;
 mod skills;
 pub(crate) mod start_trace;
+mod transcription;
 pub mod user;
 mod worker_control;
 mod workspace_codes;
@@ -243,6 +244,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     data_cleanup::start(app.clone());
     library::indexer::start(app.clone());
     library::keeping::start(app.clone());
+    transcription::start(app.clone())?;
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {

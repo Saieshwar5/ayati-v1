@@ -3,7 +3,10 @@ import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
-export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string };
+/** Audio adds its transcript (schema 95); `not_enabled` where the deployment doesn't transcribe. */
+export type TranscriptStatus = 'pending' | 'ready' | 'failed' | 'not_enabled';
+export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string;
+  transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null };
 export type Message = {
   source_scope?: string | null;
   handoff?: import('./handoffs').Handoff;

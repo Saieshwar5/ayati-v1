@@ -27,7 +27,9 @@ libc = "0.2"
 # reqwest and sqlx. The aws-lc-rs provider is selected explicitly.
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+# multipart (2026-11-07): voice-note transcription uploads audio as a form, the
+# OpenAI-compatible /audio/transcriptions API. Its mime_guess is already in the tree.
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "multipart"] }
 rusqlite = { version = "0.38", features = ["bundled"] }
 sea-orm = { version = "=2.0.4", default-features = false, features = ["macros", "sqlx-postgres", "runtime-tokio-rustls", "with-json"] }
 sea-orm-migration = { version = "=2.0.4", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls"] }

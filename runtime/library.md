@@ -115,8 +115,10 @@ can prepare an agent excerpt. PDF text extraction is optional and requires Linux
 with limited memory, CPU, output size, pages and elapsed time. If isolation/parser
 setup fails, the file remains stored/downloadable with extraction unavailable.
 PDF excerpts cover at most 50 pages; each question uses limited prepared text.
-Images are read by text recognition (LB2c, below). Audio/video transcription and
-arbitrary uploaded HTML/SVG rendering are not included.
+Images are read by text recognition (LB2c, below). Library audio and video aren't
+transcribed, and arbitrary uploaded HTML/SVG rendering is not included. Voice notes
+and other audio attached in Chat are transcribed for agents when configured
+([voice transcription](voice-transcription.md)).
 
 ## Keeping rules and legal holds (schema 82, LB7)
 

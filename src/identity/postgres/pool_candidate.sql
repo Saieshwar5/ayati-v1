@@ -11,6 +11,14 @@ AND ($2='gateway' OR (a.model=$1 AND COALESCE(NULLIF(a.settings->>'provider','')
 AND NOT EXISTS(SELECT 1 FROM relay_chat_jobs other
  WHERE other.workspace=j.workspace AND other.payload->>'agent'=j.payload->>'agent' AND other.reply<>j.reply
  AND other.state='running' AND other.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint)
+-- A request whose audio is still being transcribed waits for it, at most 30
+-- seconds after it was asked; then it runs and the agent sees "pending"
+-- (schema 95). Waiting here holds no executor slot.
+AND NOT EXISTS(SELECT 1 FROM relay_chat_messages asked
+ CROSS JOIN LATERAL jsonb_array_elements_text(asked.attachments) AS attached(object)
+ JOIN relay_object_transcripts t ON t.workspace=asked.workspace AND t.object=attached.object
+ WHERE j.created_ms>(extract(epoch FROM clock_timestamp())*1000)::bigint-30000
+ AND asked.workspace=j.workspace AND asked.id=j.request_message AND t.status='pending')
 AND (SELECT active FROM model_load)<$4
 AND COALESCE(w.active,0)<$3
 AND (j.work_class='interactive' OR (

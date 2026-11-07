@@ -76,6 +76,7 @@ pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()>
     super::data_cleanup::start(app.clone());
     super::library::indexer::start(app.clone());
     super::library::keeping::start(app.clone());
+    super::transcription::start(app.clone())?;
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
         app.config.origin
