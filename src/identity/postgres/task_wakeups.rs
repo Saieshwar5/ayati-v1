@@ -173,6 +173,7 @@ impl PgStore {
                 note.map(|n| format!(" Your note: {n}")).unwrap_or_default(),
             ),
             agent: Some(row.try_get("", "agent")?),
+            agents: vec![],
             thread: None,
             attachments: vec![],
         };

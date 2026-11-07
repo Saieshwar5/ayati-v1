@@ -166,6 +166,7 @@ impl PgStore {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(input.agent.clone()),
+            agents: vec![],
             thread: Some(thread.clone()),
             attachments: vec![],
             content: input.task.clone(),

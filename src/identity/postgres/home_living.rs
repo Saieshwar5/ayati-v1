@@ -235,6 +235,7 @@ impl PgStore {
                 }
             ),
             agent: Some(row.try_get("", "agent")?),
+            agents: vec![],
             thread: None,
             attachments: vec![],
         };

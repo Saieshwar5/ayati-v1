@@ -29,8 +29,20 @@ export function editMentions(source: string, next: string): string {
   const kept = mentions.flatMap(m => m.end <= start ? [m] : m.start >= end ? [{ ...m, start: m.start+shift, end: m.end+shift }] : []);
   return encodeMentions(next, kept);
 }
-export function requestAgent(source: string, direct = ''): string | undefined {
-  const agents = [...new Set(decodeMentions(source).mentions.filter(m => m.kind === 'agent').map(m => m.id))];
-  if (agents.length > 1 || (direct && agents.some(id => id !== direct))) throw new Error('Ask one agent per message. Send a separate request for another agent.');
-  return direct || agents[0];
+/** The most agents one message may ask; each answers separately, in its own reply. */
+export const maxAgents = 3;
+/** The agents a draft mentions, once each, in the order mentioned. */
+export function mentionedAgents(source: string): string[] {
+  return [...new Set(decodeMentions(source).mentions.filter(m => m.kind === 'agent').map(m => m.id))];
+}
+/** The agents a draft asks: those it mentions, at most `maxAgents`. A direct
+ * message with an agent asks that agent, and only it. */
+export function requestAgents(source: string, direct = ''): string[] {
+  const agents = mentionedAgents(source);
+  if (direct) {
+    if (agents.some(id => id !== direct)) throw new Error('A direct message asks only its own agent. Ask other agents in a channel.');
+    return [direct];
+  }
+  if (agents.length > maxAgents) throw new Error(`Ask at most ${maxAgents} agents in one message. Send another message for the others.`);
+  return agents;
 }

@@ -254,13 +254,13 @@ test('a reply in an agent thread asks that agent unless the reply mentions anoth
       await change(reply(),'How many are reserved?');
       await submit(document.querySelector('dialog .message-composer'));
       await until(update,()=>sent.length===1);
-      assert.deepEqual([sent[0].agent,sent[0].thread],['assistant-two','root']);
+      assert.deepEqual([sent[0].agents,sent[0].thread],[['assistant-two'],'root']);
       // Naming another agent asks that agent instead.
       await change(reply(),'@Ot');
       await click(document.querySelector('dialog [role=option]'));
       await submit(document.querySelector('dialog .message-composer'));
       await until(update,()=>sent.length===2);
-      assert.deepEqual([sent[1].agent,sent[1].thread],['assistant-three','root']);
+      assert.deepEqual([sent[1].agents,sent[1].thread],[['assistant-three'],'root']);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
     path = new URL(path, 'http://localhost').pathname;

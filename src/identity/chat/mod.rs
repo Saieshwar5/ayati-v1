@@ -1,3 +1,4 @@
+pub(crate) mod asked_together;
 pub(super) mod execution;
 pub(crate) mod mentions;
 mod message_actions;
@@ -188,14 +189,12 @@ async fn send(
     let user = identity(&app, &headers).await?;
     // Validate the conversation before loading any agent runtime.
     app.store.check_chat(&user, &workspace, &chat).await?;
-    if let Some(id) = &input.agent {
-        super::collaboration::validate_agent(&app, &user, &workspace, id).await?;
-    }
-    if app
+    validate_asked(&app, &user, &workspace, &input).await?;
+    if !app
         .store
-        .chat_send(&user, &workspace, &chat, &input)
+        .chat_send_all(&user, &workspace, &chat, &input)
         .await?
-        .is_some()
+        .is_empty()
     {
         app.runtimes.chat_wake.notify_one();
     }
@@ -217,11 +216,11 @@ async fn background(
     let user = identity(&app, &headers).await?;
     let pg = &app.store;
     pg.check_chat(&user, &workspace, &chat).await?;
-    let agent = input
-        .agent
-        .as_ref()
-        .context("Background requests need an agent")?;
-    super::collaboration::validate_agent(&app, &user, &workspace, agent).await?;
+    check(
+        !input.asked()?.is_empty(),
+        "Background requests need an agent",
+    )?;
+    validate_asked(&app, &user, &workspace, &input).await?;
     if pg
         .chat_background(&user, &workspace, &chat, &input)
         .await?
@@ -232,6 +231,31 @@ async fn background(
     Ok(Json(
         json!({"ok":true,"work_class":"background","message":pg.accepted_message(&user,&workspace,&chat,&input.id).await.ok()}),
     ))
+}
+
+/// Each asked agent is one this person may use. Asking several, a refusal names
+/// every agent that can't be asked, and nothing is sent (several_agents.rs).
+async fn validate_asked(
+    app: &App,
+    user: &User,
+    w: &str,
+    input: &model::NewMessage,
+) -> anyhow::Result<()> {
+    let asked = input.asked()?;
+    let mut refusals = Vec::new();
+    for id in &asked {
+        let Err(error) = super::collaboration::validate_agent(app, user, w, id).await else {
+            continue;
+        };
+        if asked.len() == 1 || error.downcast_ref::<sea_orm::DbErr>().is_some() {
+            return Err(error);
+        }
+        let name =
+            mentions::agent_name(&input.content, id).unwrap_or_else(|| "An agent you asked".into());
+        refusals.push((name, error.to_string()));
+    }
+    anyhow::ensure!(refusals.is_empty(), model::refused(asked.len(), &refusals));
+    Ok(())
 }
 
 /// Start chat change sync. Pooled executors receive agent replies through worker

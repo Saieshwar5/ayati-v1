@@ -105,6 +105,7 @@ impl PgStore {
                 data["content"].as_str().unwrap()
             ),
             agent: Some(agent.into()),
+            agents: vec![],
             thread: None,
             attachments: vec![],
         };

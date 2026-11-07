@@ -5,7 +5,7 @@ import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission 
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ConnectionBanner } from './connection-banner';
 import { ChatComposer } from './attachments';
-import { requestAgent } from './mentions';
+import { requestAgents } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
 import type { Attachment, Message } from './model';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -154,14 +154,15 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     const attachments = (voice ? [...files, voice] : files).map(f => f.id);
     if (pending.current || (!draft.trim() && !attachments.length)) return false;
     pending.current = true; setBusy(true); setError('');
-    let target: string | undefined;
-    try { target = requestAgent(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
-    // Replying to an agent's message asks that agent, unless the text names another.
+    let agents: string[];
+    try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
+    // Replying to an agent's message asks that agent, unless the text names others.
     const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
-    if (!target && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) target = quoted.author;
+    if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
+    const asked = agents.length ? agents : undefined;
     const content = draft || filesOnlyContent;
     // The same payload keeps its ID, so a retried send can't post twice.
-    if (!attempt.current || attempt.current.content !== content || attempt.current.agent !== (target || undefined) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agent: target || undefined, reply_to: replyTo, attachments };
+    if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agents: asked, reply_to: replyTo, attachments };
     const submission = attempt.current;
     try {
       await enqueue(chat.id, submission);
@@ -214,7 +215,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
       {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
-      <PendingMessages chat={chat.id} />
+      <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
     </div>
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}

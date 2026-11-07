@@ -35,16 +35,58 @@ serialized content. Names may coincide without changing the referenced identity.
 
 Private channels suggest their people; public channels may mention workspace members
 who already have access. The server validates membership on a new send within the
-write transaction. Agent mentions must match the explicit target and pass existing
-requester and channel checks; a message that mentions an agent without asking it is
-refused with a message saying so. One agent may be requested per message; multiple human
-mentions are supported. Ordinary `@text` does not dispatch work. An edit checks the
+write transaction. Every mentioned agent must be one the message asks, and each passes
+the existing requester and channel checks; a message that mentions an agent without
+asking it is refused with a message saying so. Multiple human mentions are supported.
+Ordinary `@text` does not dispatch work. An edit checks the
 mentions it adds with the same rules (people who can read the conversation, well-formed
 identities). An edit never asks an agent, so adding an agent mention is refused with
 "Editing does not ask an agent. Send a new message to ask it."; mentions already in
 the message stay as they are. Human mentions are
 highlighted in the conversation and participate in ordinary unread/receipt behavior;
 this increment does not add a separate mention inbox, email or push notifications.
+
+## Several agents in one message (schema 99)
+
+The owner's decision of 2026-11-07 reverses the one-agent rule of 2026-10-21: a message
+may @mention and ask **up to 3 agents**, and each answers separately, in its own reply,
+with its own job, permissions, budget, model and receipts. The picker offers more agents
+("Also asks this agent", "Already asked") until three are asked, then shows the others as
+"Up to 3 agents per message"; sending a fourth says "Ask at most 3 agents in one message.
+Send another message for the others." and keeps the draft. While a send is unconfirmed,
+the pending message lists "Asking Atlas…" for each agent; once accepted, each agent's
+reply waits, types and finishes on its own. A direct message with an agent asks only that
+agent. Quoting an agent's message or replying in an agent's thread still asks that agent
+when the text names none.
+
+- **API:** `POST …/messages` takes `agents: [id, …]` (1 to 3, each once) and still
+  accepts the older single `agent` (not both). Background requests take the same fields.
+- **All or nothing:** every agent passes every check (may this person ask it here, paused,
+  model allowed, monthly budget, in the conversation) and the queue has room for all of
+  them, or nothing is saved. One refusal names each agent and its reason, for example
+  "Vega can't take this message: Agent is not shared with you. Nothing was sent; remove
+  @Vega to ask the others." A partial send would leave a message that mentions an agent who
+  was never asked, which reads as if it was, and an outbox retry would have to know which
+  agents were left out. With all or nothing, the message and one job per agent exist
+  together or not at all, so the outbox's exact replay creates nothing new. Asking one
+  agent keeps the reasons people saw before.
+- **After acceptance** each job is independent: one agent failing, being stopped,
+  answered at the front desk or refused by the gateway (402 `budget_reached`) never blocks
+  the others. Deleting the message stops every unfinished job; Retry in Activity asks only
+  that agent again (other agents' mentions become plain names); seen ticks are per agent.
+- **Instructions:** each agent is told, by name, which other agents the same message
+  asked, to answer only its own part and not to answer, speak or hand off for them. Each
+  answers from the conversation as it was when asked: another agent's reply to the same
+  message is left out of its context, whichever finishes first.
+- **Storage:** schema 99 (`m20261107_000099_several_agents_per_message`) replaces
+  `relay_chat_jobs`' unique request message with `relay_jobs_request_agent`, unique per
+  workspace, request message and agent. The message's `target` keeps the first agent asked.
+- **Checks:** PostgreSQL `chat_intake::several_agents_tests` (two replies and jobs, exact
+  replay, refusals by name for access, pause, budget, four agents and the queue, delete,
+  retry, receipts, instructions and context, the 98 → 99 upgrade); web
+  `tests/chat-several-agents.test.mjs` and `tests/chat-composer.test.mjs`; journey
+  `tests/several_agents.mjs` (real pinned Goose, scripted provider: one message, two
+  pooled runs, two replies, each run told about the other agent).
 
 ## Presence and status (D245)
 

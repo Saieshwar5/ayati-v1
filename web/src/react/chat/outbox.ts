@@ -1,6 +1,10 @@
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { chatRequest, type Message } from './model';
-export type Submission = { id: string; content: string; agent?: string; thread?: string; reply_to?: string; attachments: string[] };
+/** `agents` asks up to three agents; `agent` is how entries saved by an earlier
+ * version asked one, and the server still accepts it. */
+export type Submission = { id: string; content: string; agents?: string[]; agent?: string; thread?: string; reply_to?: string; attachments: string[] };
+/** The agents a pending message asks. */
+export const askedAgents = (payload: Submission): string[] => payload.agents ?? (payload.agent ? [payload.agent] : []);
 export type PendingMessage = { key: string; scope: string; chat: string; payload: Submission; at: number; state: 'waiting' | 'sending' | 'checking' | 'failed' | 'paused' | 'sent'; error?: string; attempts: number; next: number };
 const sentListeners = new Set<(chat: string, message?: Message) => void>();
 export function subscribeSent(fn: (chat: string, message?: Message) => void) { sentListeners.add(fn); return () => { sentListeners.delete(fn); }; }
@@ -72,7 +76,7 @@ export async function flushOutbox() {
     for (const original of [...entries]) {
       if (version !== generation || original.scope !== scope()) break;
       if (['failed', 'paused', 'sent'].includes(original.state) || original.next > Date.now()) continue;
-      if (original.payload.agent && Date.now() - original.at > 15 * 60_000) {
+      if (askedAgents(original.payload).length && Date.now() - original.at > 15 * 60_000) {
         await update({ ...original, state: 'paused', error: 'This agent request is over 15 minutes old. Review it before retrying.' }); continue;
       }
       const item = { ...original, state: 'sending' as const };

@@ -56,8 +56,9 @@ POST /api/identity/workspaces/{workspace}/chats/{chat}/background-requests
 
 It uses the same session, origin/request guard, conversation membership, agent
 grant, attachment/thread checks and content bounds as ordinary chat. It requires
-PostgreSQL pooled execution and an explicit agent. The response includes
-`work_class: "background"`; the request and queued reply appear in normal history.
+PostgreSQL pooled execution and an explicit agent; since schema 99 it may instead
+send `agents` (up to three, each with its own job, all admitted or none). The response
+includes `work_class: "background"`; the request and queued reply appear in normal history.
 This is an API capability; no new frontend control is added in this increment.
 
 Class is fixed by the route, outside the model prompt/payload. The ordinary
@@ -68,7 +69,8 @@ Later start/output/final operations still recheck current authority. A queued
 background request does not preserve a revoked grant.
 
 Background intake is limited to 32 pending replies per workspace within the
-existing 64-reply total bound. Excess background submissions receive HTTP 429
+existing 64-reply total bound; a message asking several agents needs room for each of
+its replies. Excess background submissions receive HTTP 429
 without a partial message/job. This prevents background work alone from filling
 all pending-request space. Interactive traffic can still fill the total queue;
 no unbounded intake is introduced.

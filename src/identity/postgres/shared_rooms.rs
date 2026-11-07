@@ -71,25 +71,6 @@ pub(super) async fn moved_from(db: &impl ConnectionTrait, job: &Job) -> Result<O
         vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next())
 }
 
-/// Mentions travel as Markdown links; outside their room they become plain names.
-fn plain_mentions(text: &str) -> String {
-    let mut out = String::new();
-    let mut rest = text;
-    while let Some(start) = rest.find("](mention:") {
-        let Some(open) = rest[..start].rfind('[') else {
-            break;
-        };
-        let Some(close) = rest[start..].find(')') else {
-            break;
-        };
-        out.push_str(&rest[..open]);
-        out.push_str(&rest[open + 1..start]);
-        rest = &rest[start + close + 1..];
-    }
-    out.push_str(rest);
-    out
-}
-
 /// The person's direct conversation with the agent, opened if it doesn't exist.
 async fn direct_room(
     tx: &DatabaseTransaction,
@@ -183,9 +164,13 @@ impl PgStore {
             );
         }
         let room: String = request.try_get("", "name")?;
+        // Mentions travel as Markdown links; outside their room they become plain names.
         let mut content = format!(
             "You asked in {room}: {}",
-            plain_mentions(&request.try_get::<String>("", "content")?)
+            crate::identity::chat::mentions::plain(
+                &request.try_get::<String>("", "content")?,
+                |_, _| false
+            )
         );
         while content.len() > 12000 {
             content.pop();
@@ -198,6 +183,7 @@ impl PgStore {
             id: uuid::Uuid::new_v4().to_string(),
             content,
             agent: Some(job.agent.clone()),
+            agents: vec![],
         };
         let person = User {
             id: job.requester.clone(),

@@ -110,6 +110,7 @@ impl PgStore {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(agent.into()),
+            agents: vec![],
             thread: None,
             attachments: vec![],
             content: format!(
