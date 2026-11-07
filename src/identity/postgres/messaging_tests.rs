@@ -259,3 +259,70 @@ async fn every_change_record_trigger_wakes_live_streams() {
         "these write change records without waking streams: {silent:?}"
     );
 }
+
+/// The web client sends a thread reply with no agent mention to the agent that
+/// wrote the thread's first message; the server still checks that this person
+/// may ask it.
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_reply_in_an_agents_thread_asks_it_only_when_the_person_may_ask_it() {
+    let db = fixture().await;
+    let owner = user(&db, "thread-agent-owner").await;
+    let member = user(&db, "thread-agent-member").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let (_, shared) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (_, private) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let c = chat(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec![shared.clone(), private.clone()],
+    )
+    .await;
+    // Only its owner may ask this agent, even in a shared conversation.
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET audience='only_me',owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![w.clone().into(), private.clone().into(), owner.id.clone().into()],
+    )
+    .await
+    .unwrap();
+    let mut roots = vec![];
+    for agent in [&shared, &private] {
+        let job = db
+            .chat_send(&owner, &w, &c, &message("Count the stock", Some(agent)))
+            .await
+            .unwrap()
+            .unwrap();
+        let job = super::handoff_tests::claim(&db, &job).await;
+        db.chat_finish(&job, "Twelve boxes", "complete")
+            .await
+            .unwrap();
+        roots.push(job.reply);
+    }
+    let mut reply = message("And how many are reserved?", Some(&shared));
+    reply.thread = Some(roots[0].clone());
+    let job = db
+        .chat_send(&member, &w, &c, &reply)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (job.agent.as_str(), job.requester.as_str()),
+        (shared.as_str(), member.id.as_str())
+    );
+    let history = db.chat_messages(&member, &w, &c).await.unwrap();
+    let answer = history["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == job.reply)
+        .unwrap();
+    assert_eq!(answer["thread"], roots[0], "the answer stays in the thread");
+    let mut denied = message("And how many are reserved?", Some(&private));
+    denied.thread = Some(roots[1].clone());
+    let refused = db.chat_send(&member, &w, &c, &denied).await.unwrap_err();
+    assert!(refused.to_string().contains("not shared with you"));
+}

@@ -1,9 +1,12 @@
 use super::*;
 use crate::identity::{
     chat::model::{Job, NewMessage},
-    handoffs::model::Request,
+    handoffs::{guidance::Helpers, model::Request},
 };
 use serde_json::json;
+#[cfg(test)]
+#[path = "handoff_guidance_tests.rs"]
+mod guidance_tests;
 async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Result<Value> {
     let user = User {
         id: job.requester.clone(),
@@ -23,6 +26,42 @@ async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Resul
     ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind='channel' AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must participate in the same channel");
     Ok(profile)
 }
+/// Managed shared agents in this channel that `job` may hand work to now.
+/// Agents already in this handoff chain are left out: asking them would make
+/// a cycle.
+async fn eligible_helpers(tx: &DatabaseTransaction, job: &Job) -> Result<Helpers> {
+    let ancestors = super::handoff_access::tree(tx, job).await?;
+    let mut lineage = vec![job.agent.clone()];
+    let mut child = job.reply.clone();
+    for _ in 0..3 {
+        let Some(h) = ancestors.iter().find(|h| h["child"] == child) else {
+            break;
+        };
+        lineage.push(h["sender"].as_str().unwrap().into());
+        child = h["parent"].as_str().unwrap().into();
+    }
+    let candidates = json_rows(tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await?;
+    let others = candidates.iter().filter(|c| c["id"] != job.agent).count();
+    let mut agents = vec![];
+    for candidate in candidates {
+        let id = candidate["id"].as_str().unwrap();
+        if lineage.iter().any(|v| v == id) {
+            continue;
+        }
+        let access = async {
+            participant(tx, job, id).await?;
+            super::handoff_access::event_source(tx, job, id).await?;
+            Ok::<_, anyhow::Error>(())
+        }
+        .await;
+        match access {
+            Ok(()) => agents.push(candidate),
+            Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
+            Err(_) => {}
+        }
+    }
+    Ok(Helpers { agents, others })
+}
 impl PgStore {
     pub(crate) async fn handoff_targets(&self, job: &Job) -> Result<Value> {
         let tx = self.read_tx(&job.workspace).await?;
@@ -33,26 +72,33 @@ impl PgStore {
         );
         participant(&tx, job, &job.agent).await?;
         super::channel_lifecycle::accepting(&tx, &job.workspace, &job.chat).await?;
-        let ancestors = super::handoff_access::tree(&tx, job).await?;
-        let mut lineage = vec![job.agent.clone()];
-        let mut child = job.reply.clone();
-        for _ in 0..3 {
-            let Some(h) = ancestors.iter().find(|h| h["child"] == child) else {
-                break;
-            };
-            lineage.push(h["sender"].as_str().unwrap().into());
-            child = h["parent"].as_str().unwrap().into();
-        }
-        let mut agents = vec![];
-        for candidate in json_rows(&tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await? {
-   let id=candidate["id"].as_str().unwrap();if lineage.iter().any(|v|v==id){continue}
-   let access=async{participant(&tx,job,id).await?;super::handoff_access::event_source(&tx,job,id).await?;Ok::<_,anyhow::Error>(())}.await;
-   match access {Ok(())=>agents.push(candidate),Err(e) if e.is::<sea_orm::DbErr>()=>return Err(e),Err(_)=>{}}
-  }
+        let agents = eligible_helpers(&tx, job).await?.agents;
         tx.commit().await?;
         Ok(
             json!({"agents":agents,"message":"Helpers keep their own permissions and the sender's original limits. Use a stable request key; finish this attempt after saving a handoff."}),
         )
+    }
+    /// The same eligibility as `handoff_targets`, read while preparing a task.
+    /// `None` when this task cannot hand off at all: it is not in an open
+    /// channel, execution is not pooled, or its agent is not a managed shared
+    /// agent the requester may ask there.
+    pub(crate) async fn handoff_helpers(&self, job: &Job) -> Result<Option<Helpers>> {
+        if !self.pooled {
+            return Ok(None);
+        }
+        let tx = self.read_tx(&job.workspace).await?;
+        let sender = async {
+            participant(&tx, job, &job.agent).await?;
+            super::channel_lifecycle::accepting(&tx, &job.workspace, &job.chat).await
+        }
+        .await;
+        let helpers = match sender {
+            Ok(()) => Some(eligible_helpers(&tx, job).await?),
+            Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
+            Err(_) => None,
+        };
+        tx.commit().await?;
+        Ok(helpers)
     }
     pub(crate) async fn request_handoff(&self, job: &Job, input: &Request) -> Result<Value> {
         input.validate()?;

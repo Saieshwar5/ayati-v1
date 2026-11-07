@@ -1,3 +1,4 @@
+pub(crate) mod guidance;
 pub(crate) mod model;
 
 #[cfg(test)]

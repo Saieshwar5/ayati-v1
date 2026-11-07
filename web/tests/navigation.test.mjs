@@ -219,6 +219,41 @@ test('unified Chat keeps its directory across channel and direct-message navigat
   }});
 });
 
+test('a reply in an agent thread asks that agent unless the reply mentions another agent', async () => {
+  const chats = [{id:'inventory',name:'Inventory',kind:'channel',description:'Stock',users:['owner'],agents:['assistant-two','assistant-three']}];
+  const sent = [];
+  await reactFixture(async ({dom,render,click,update,change,submit,button}) => {
+    const setup = await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      await click([...document.querySelectorAll('.chat-directory a')].find(a=>a.textContent.includes('Inventory')));
+      await until(update,()=>button('Reply in thread'));
+      await click(button('Reply in thread'));
+      const reply = () => document.querySelector('textarea[aria-label="Reply in thread"]');
+      await change(reply(),'How many are reserved?');
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===1);
+      assert.deepEqual([sent[0].agent,sent[0].thread],['assistant-two','root']);
+      // Naming another agent asks that agent instead.
+      await change(reply(),'@Ot');
+      await click(document.querySelector('dialog [role=option]'));
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===2);
+      assert.deepEqual([sent[1].agent,sent[1].thread],['assistant-three','root']);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
+    if(path.endsWith('/chat-directory'))return response({users:[],agents:[{id:'assistant-two',name:'Ramesh'},{id:'assistant-three',name:'Otto'}],role:'Admin'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/messages')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);sent.push(body);return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:2+sent.length,sequence:2+sent.length,chat:'inventory'}});}
+      return response({agents:['assistant-two','assistant-three'],messages:[{id:'root',author:'assistant-two',name:'Ramesh',kind:'agent',content:'Twelve boxes are in stock.',state:'complete',at:1,thread:null}]});
+    }
+    return response(dataFor(path));
+  }});
+});
+
 test('rebrands only the built-in guide while preserving custom agent names', async () => {
   const { displayAgentName } = await import('../src/agents.ts');
   for (const name of ['Ayati', 'Relay', 'Cuckoo']) {

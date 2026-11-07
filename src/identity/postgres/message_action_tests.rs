@@ -246,3 +246,88 @@ async fn author_edits_and_deletes_keep_answers_already_given() {
     // Earlier agent answers in this conversation are not withdrawn.
     assert_eq!(generation().await, before);
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn edits_check_the_mentions_they_add_and_never_ask_an_agent() {
+    let db = fixture().await;
+    let owner = user(&db, "edit-mention-owner").await;
+    let member = user(&db, "edit-mention-member").await;
+    let outsider = user(&db, "edit-mention-outsider").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    join(&db, &owner, &w, &outsider, "Member").await;
+    let (_, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let c = chat(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec![agent.clone()],
+    )
+    .await;
+    let asking = format!("[@Pool agent](mention:agent:{agent}) count the stock");
+    let asked = message(&asking, Some(&agent));
+    db.chat_send(&owner, &w, &c, &asked).await.unwrap();
+    let note = message("Stock is low", None);
+    db.chat_send(&owner, &w, &c, &note).await.unwrap();
+    let jobs = || async {
+        query(
+            &db.db,
+            "SELECT count(*) AS n FROM relay_chat_jobs WHERE workspace=$1",
+            vec![w.clone().into()],
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<i64>("", "n")
+        .unwrap()
+    };
+    let before = jobs().await;
+    // The same people rules as a new message: no one outside this private
+    // conversation, and no malformed identity.
+    let outside = format!("Stock is low, [@Outsider](mention:user:{})", outsider.id);
+    let refused = db.edit_message(&owner, &w, &c, &note.id, &outside).await;
+    assert!(
+        refused
+            .unwrap_err()
+            .to_string()
+            .contains("not in this conversation")
+    );
+    let malformed = "Stock is low, [@Nobody](mention:user:../../secret)";
+    assert!(
+        db.edit_message(&owner, &w, &c, &note.id, malformed)
+            .await
+            .is_err()
+    );
+    // An edit never asks an agent, so adding an agent mention is refused.
+    let added = format!("[@Pool agent](mention:agent:{agent}) stock is low");
+    assert_eq!(
+        db.edit_message(&owner, &w, &c, &note.id, &added)
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Editing does not ask an agent. Send a new message to ask it."
+    );
+    assert_eq!(
+        latest(&db, &owner, &w, &c, &note.id).await["content"],
+        "Stock is low"
+    );
+    // A member mention, a plain edit and an agent mention already there are fine.
+    let tagged = format!("Stock is low, [@Member](mention:user:{})", member.id);
+    db.edit_message(&owner, &w, &c, &note.id, &tagged)
+        .await
+        .unwrap();
+    db.edit_message(&owner, &w, &c, &note.id, "Stock is very low")
+        .await
+        .unwrap();
+    let today = format!("{asking} today");
+    db.edit_message(&owner, &w, &c, &asked.id, &today)
+        .await
+        .unwrap();
+    assert_eq!(
+        latest(&db, &owner, &w, &c, &asked.id).await["content"],
+        today
+    );
+    assert_eq!(jobs().await, before, "an edit never starts work");
+}

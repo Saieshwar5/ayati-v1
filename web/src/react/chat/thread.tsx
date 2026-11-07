@@ -25,7 +25,9 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
   const update = (value: string) => { setText(value); try { sessionStorage.setItem(key, value); } catch { /* Optional draft. */ } };
   const send = () => mutation.run(async () => {
     if (archived || !text.trim() && !files.length) return;
-    const target = requestAgent(text);
+    let target = requestAgent(text);
+    // In an agent's thread a reply asks that agent, unless the text names another.
+    if (!target && root.kind === 'agent' && history.agents.includes(root.author)) target = root.author;
     if (!attempt.current || attempt.current.content !== (text || "Shared files") || attempt.current.agent !== (target || undefined) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(files.map(f => f.id))) attempt.current = { id: crypto.randomUUID(), content: text || "Shared files", thread: root.id, agent: target || undefined, attachments: files.map(f => f.id) };
     await enqueue(chat, attempt.current);
     update(''); setFiles([]); attempt.current = undefined;

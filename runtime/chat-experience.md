@@ -36,15 +36,23 @@ serialized content. Names may coincide without changing the referenced identity.
 Private channels suggest their people; public channels may mention workspace members
 who already have access. The server validates membership on a new send within the
 write transaction. Agent mentions must match the explicit target and pass existing
-requester and channel checks. One agent may be requested per message; multiple human
-mentions are supported. Ordinary `@text` does not dispatch work. Human mentions are
+requester and channel checks; a message that mentions an agent without asking it is
+refused with a message saying so. One agent may be requested per message; multiple human
+mentions are supported. Ordinary `@text` does not dispatch work. An edit checks the
+mentions it adds with the same rules (people who can read the conversation, well-formed
+identities). An edit never asks an agent, so adding an agent mention is refused with
+"Editing does not ask an agent. Send a new message to ask it."; mentions already in
+the message stay as they are. Human mentions are
 highlighted in the conversation and participate in ordinary unread/receipt behavior;
 this increment does not add a separate mention inbox, email or push notifications.
 
 ## Replies and media
 
 An agent requested in the main channel responds in the main channel timeline.
-Only an explicitly threaded request creates a threaded response. Existing stored
+Only an explicitly threaded request creates a threaded response. Quoting an agent's
+message asks that agent, and in a thread whose first message an agent wrote, a reply
+with no agent mention asks that agent; an explicit agent mention wins in both. The
+server still checks that the person may ask that agent here. Existing stored
 threads remain untouched. Request context remains narrowly scoped as before; changing
 reply placement does not expose unrelated threads or private-agent memory. Shared
 agent names accompany authorized messages so readers can identify agents even when

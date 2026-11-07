@@ -1,7 +1,9 @@
 //! Stable mention identities travel in Markdown links; names are presentation only.
-use anyhow::{Result, ensure};
+use anyhow::{Result, bail, ensure};
 
-pub(crate) fn parse(content: &str, target: Option<&str>) -> Result<Vec<(String, String)>> {
+/// Every mention in `content`, without repeats. Checks only their form; callers
+/// check who may be mentioned.
+pub(crate) fn parse(content: &str) -> Result<Vec<(String, String)>> {
     let mut mentions = Vec::new();
     for part in content.split("](mention:").skip(1) {
         let Some((value, _)) = part.split_once(')') else {
@@ -19,9 +21,6 @@ pub(crate) fn parse(content: &str, target: Option<&str>) -> Result<Vec<(String, 
                     .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
             "Invalid mention identity"
         );
-        if kind == "agent" {
-            ensure!(target == Some(id), "Ask one mentioned agent per message");
-        }
         let mention = (kind.to_string(), id.to_string());
         if !mentions.contains(&mention) {
             mentions.push(mention);
@@ -31,13 +30,36 @@ pub(crate) fn parse(content: &str, target: Option<&str>) -> Result<Vec<(String, 
     Ok(mentions)
 }
 
+/// A person's message asks the agent it mentions, so a mentioned agent must be
+/// the message's target.
+pub(crate) fn ensure_target(mentions: &[(String, String)], target: Option<&str>) -> Result<()> {
+    for (kind, id) in mentions {
+        if kind != "agent" {
+            continue;
+        }
+        match target {
+            None => bail!(
+                "This message mentions an agent without asking it. Ask that agent, or remove the mention."
+            ),
+            Some(target) if target != id => bail!("Ask one mentioned agent per message"),
+            Some(_) => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn sent(content: &str, target: Option<&str>) -> Result<Vec<(String, String)>> {
+        let mentions = parse(content)?;
+        ensure_target(&mentions, target)?;
+        Ok(mentions)
+    }
     #[test]
     fn mentions_keep_identity_separate_from_names_and_authority() {
         assert_eq!(
-            parse(
+            sent(
                 "[@Same name](mention:user:u1) [@Same name](mention:user:u2)",
                 None
             )
@@ -45,10 +67,17 @@ mod tests {
             .len(),
             2
         );
-        assert!(parse("[@Agent](mention:agent:a1)", None).is_err());
-        assert!(parse("[@Agent](mention:agent:a1)", Some("a2")).is_err());
-        assert!(parse("[@Agent](mention:agent:a1)", Some("a1")).is_ok());
-        assert!(parse("[@Nobody](mention:user:../../secret)", None).is_err());
-        assert!(parse("ordinary @text", None).unwrap().is_empty());
+        let untargeted = sent("[@Agent](mention:agent:a1)", None).unwrap_err();
+        assert!(untargeted.to_string().contains("without asking it"));
+        let other = sent("[@Agent](mention:agent:a1)", Some("a2")).unwrap_err();
+        assert!(other.to_string().contains("one mentioned agent"));
+        assert!(sent("[@Agent](mention:agent:a1)", Some("a1")).is_ok());
+        assert!(sent("[@Nobody](mention:user:../../secret)", None).is_err());
+        assert!(sent("ordinary @text", None).unwrap().is_empty());
+        // Form alone: an agent mention parses without a target.
+        assert_eq!(
+            parse("Ask [@Atlas](mention:agent:a1)").unwrap(),
+            vec![("agent".to_string(), "a1".to_string())]
+        );
     }
 }

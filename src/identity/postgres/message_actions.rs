@@ -9,7 +9,9 @@ pub const REACTIONS: [&str; 12] = [
 
 impl PgStore {
     /// Changes the text of the caller's own message. Agent work it already
-    /// started continues with the original request.
+    /// started continues with the original request. Mentions the edit adds
+    /// follow the rules of a new message, except that an edit never asks an
+    /// agent; mentions already in the message stay as they are.
     pub async fn edit_message(
         &self,
         user: &User,
@@ -22,8 +24,17 @@ impl PgStore {
             !content.trim().is_empty() && content.len() <= 12000,
             "Write a message of at most 12,000 bytes"
         );
+        let mentions = crate::identity::chat::mentions::parse(content)?;
         let tx = self.workspace_tx(w).await?;
-        own_open_message(&tx, user, w, chat, message).await?;
+        let before = own_open_message(&tx, user, w, chat, message).await?;
+        // Older text that no longer parses has no mentions to keep.
+        let kept = crate::identity::chat::mentions::parse(&before).unwrap_or_default();
+        let added: Vec<_> = mentions.into_iter().filter(|m| !kept.contains(m)).collect();
+        ensure!(
+            added.iter().all(|(kind, _)| kind != "agent"),
+            "Editing does not ask an agent. Send a new message to ask it."
+        );
+        super::chat_intake::mentioned_people_visible(&tx, w, chat, &added).await?;
         execute(
             &tx,
             "UPDATE relay_chat_messages SET content=$3,edited_at=$4 WHERE workspace=$1 AND id=$2",
@@ -130,18 +141,19 @@ impl PgStore {
 }
 
 /// Only the person who wrote a message may change it, while it is still a
-/// delivered message in a conversation they can read and write.
+/// delivered message in a conversation they can read and write. Returns its
+/// current text.
 async fn own_open_message(
     tx: &DatabaseTransaction,
     user: &User,
     w: &str,
     chat: &str,
     message: &str,
-) -> Result<()> {
+) -> Result<String> {
     super::chat::access(tx, user, w, chat).await?;
     let row = query(
         tx,
-        "SELECT m.author,m.kind,m.state,c.archived FROM relay_chat_messages m JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat
+        "SELECT m.author,m.kind,m.state,m.content,c.archived FROM relay_chat_messages m JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat
          WHERE m.workspace=$1 AND m.chat=$2 AND m.id=$3 FOR UPDATE OF m",
         vec![w.into(), chat.into(), message.into()],
     )
@@ -160,5 +172,5 @@ async fn own_open_message(
         !row.try_get::<bool>("", "archived")?,
         "This channel is archived. Restore it before changing messages."
     );
-    Ok(())
+    Ok(row.try_get("", "content")?)
 }
