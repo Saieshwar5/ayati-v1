@@ -280,7 +280,9 @@ impl Pool {
             chat_reserve: env.number("AYATI_EXECUTOR_CHAT_RESERVE", 0usize, 0..=1023),
             workspace_limit: env.number("AYATI_EXECUTOR_WORKSPACE_LIMIT", capacity, 1..=1024),
             model_limit: env.number("AYATI_EXECUTOR_MODEL_LIMIT", capacity, 1..=1024),
-            expiry_seconds: env.number("AYATI_EXECUTOR_EXPIRY_SECONDS", 15, 6..=120),
+            // Executors report every 10 seconds (`executor::reporting::HEARTBEAT`);
+            // 40 seconds or more means at least three missed heartbeats.
+            expiry_seconds: env.number("AYATI_EXECUTOR_EXPIRY_SECONDS", 45, 40..=300),
         };
         if pool.chat_reserve
             >= pool

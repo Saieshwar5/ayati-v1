@@ -52,9 +52,12 @@ Rolled-back messages cannot leave committed journal records. PostgreSQL NOTIFY w
 all application instances; LISTEN uses an existing driver connection. Notifications
 carry only a workspace ID and are not the source of truth. Every trigger that writes a
 change record also sends the notification (checked by a PostgreSQL test). When the
-listener connects or reconnects it wakes every stream, which replays anything committed
-while it was away. A 30-second re-check covers a notification lost otherwise; until
-November 2026 this was every two seconds, which kept idle tabs busy. The existing
+listener connects or reconnects (also when the driver re-establishes a dropped
+connection) it wakes every stream, which replays anything committed while it was away.
+The same connection carries work notifications for the controller's background loops
+(`relay_work`, schema 96; see [idle database work](executor-pool.md#idle-database-work)),
+so each controller still holds one listener. A 30-second re-check covers a
+notification lost otherwise; until November 2026 this was every two seconds, which kept idle tabs busy. The existing
 application-wide workspace locks remain; this change does not claim to remove write
 contention.
 

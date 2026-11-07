@@ -277,6 +277,7 @@ pub(crate) mod transcripts;
 mod unread;
 mod work;
 mod work_rooms;
+pub(crate) mod work_signals;
 pub(crate) mod worker_control;
 #[cfg(test)]
 mod worker_control_migration_tests;
@@ -299,6 +300,8 @@ use std::time::Duration;
 pub struct PgStore {
     db: DatabaseConnection,
     pub(crate) changes: tokio::sync::broadcast::Sender<String>,
+    /// Wake-ups for the background loops, from the same listener (schema 96).
+    pub(crate) work: std::sync::Arc<work_signals::WorkSignals>,
     /// Agent replies go to pooled executors. False only for the scripted
     /// company simulation, which claims polling jobs inside the controller.
     pub(crate) pooled: bool,
@@ -314,9 +317,14 @@ impl PgStore {
     /// request before it reaches PostgreSQL.
     #[cfg(test)]
     pub(crate) fn disconnected() -> Self {
+        Self::with(DatabaseConnection::default())
+    }
+    /// The default policy; `open` applies the controller's.
+    fn with(db: DatabaseConnection) -> Self {
         Self {
-            db: DatabaseConnection::default(),
+            db,
             changes: tokio::sync::broadcast::channel(256).0,
+            work: Default::default(),
             pooled: false,
             assignment_seconds: 180,
             handoff_wait_seconds: 604_800,
@@ -351,15 +359,7 @@ impl PgStore {
         let db = Database::connect(options)
             .await
             .map_err(|_| anyhow::anyhow!("Cannot connect to Cuckoo PostgreSQL"))?;
-        Ok(Self {
-            db,
-            changes: tokio::sync::broadcast::channel(256).0,
-            pooled: false,
-            assignment_seconds: 180,
-            handoff_wait_seconds: 604_800,
-            library_models: None,
-            model_catalog: None,
-        })
+        Ok(Self::with(db))
     }
 
     /// Serialize mutations only within a workspace. Independent businesses use other connections.

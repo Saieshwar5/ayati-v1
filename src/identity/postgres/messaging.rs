@@ -29,18 +29,34 @@ impl PgStore {
         tx.commit().await?;
         Ok(message)
     }
+    /// The controller's one LISTEN connection: message changes for live streams,
+    /// and work for the background loops (`work_signals.rs`, schema 96).
     pub async fn listen_changes(&self) -> Result<()> {
+        let schema: String = query(&self.db, "SELECT current_schema() AS schema", vec![])
+            .await?
+            .context("Schema unavailable")?
+            .try_get("", "schema")?;
         let mut listener = sea_orm::sqlx::postgres::PgListener::connect_with(
             self.db.get_postgres_connection_pool(),
         )
         .await?;
-        listener.listen("relay_message_changes").await?;
-        // Anything announced while the listener was away: every stream checks now.
+        listener
+            .listen_all(["relay_message_changes", super::work_signals::CHANNEL])
+            .await?;
         crate::identity::live_metrics::listener(true);
-        let _ = self.changes.send("*".into());
         loop {
-            let notification = listener.recv().await?;
-            let _ = self.changes.send(notification.payload().to_owned());
+            // Anything announced while the listener was away: every stream and
+            // every loop checks now.
+            let _ = self.changes.send("*".into());
+            self.work.wake_all();
+            // `None` means the connection dropped and was re-established.
+            while let Some(notification) = listener.try_recv().await? {
+                if notification.channel() == super::work_signals::CHANNEL {
+                    self.work.notified(&schema, notification.payload());
+                } else {
+                    let _ = self.changes.send(notification.payload().to_owned());
+                }
+            }
         }
     }
     pub async fn sync_page(&self, user: &User, w: &str, after: Option<i64>) -> Result<Value> {

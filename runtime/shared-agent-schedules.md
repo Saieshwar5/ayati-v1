@@ -139,7 +139,12 @@ failed or cancelled. Individual task outcomes remain separate. Queue pressure is
 shown explicitly while preserving the due cursor. An unfinished run is shown in
 the routine and prevents new occurrences until its existing task is terminal.
 
-Each controller polls once per second, considering up to 20 due candidates.
+Each controller's scheduler considers up to 20 due candidates per round. Since
+schema 96 it runs when work is announced (a schedule saved or resumed, a job
+finished, an event or follow-up added; see
+[idle database work](executor-pool.md#idle-database-work)) and when the next
+schedule, follow-up, panel update or helper deadline is due, at most once a second
+and at least every 30 seconds. Until November 2026 it polled every second.
 A checked timestamp rotates pressured candidates; workspace transactions and the
 unique receipt serialize admission across replicas. The existing background limit
 of 32 pending requests and total limit of 64 remain intact. A nested transaction

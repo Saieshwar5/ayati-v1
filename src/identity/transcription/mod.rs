@@ -33,6 +33,14 @@ const AT_ONCE: i64 = 4;
 /// (`transcripts::LEASE_MS`) is longer, so a slow request can't be taken twice.
 const TIME_LIMIT: Duration = Duration::from_secs(90);
 
+/// An upload here wakes the worker at once, and one on another controller is
+/// announced through PostgreSQL (schema 96). Retries and expired leases are due
+/// at a known time, so the worker sleeps until then; it still looks this often
+/// in case a notification was lost. Until November 2026 it looked every 5 s.
+const FALLBACK: Duration = Duration::from_secs(60);
+/// After the queue was unreadable, look again this soon.
+const RETRY: Duration = Duration::from_secs(5);
+
 static WAKE: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
 /// Starts this controller's worker now rather than at its next look.
@@ -76,16 +84,21 @@ pub(in crate::identity) fn start(app: Shared) -> Result<()> {
         .context("AYATI_TRANSCRIPTION_MODEL names a provider Cuckoo can't use")?;
     tokio::spawn(async move {
         let stopping = app.runtimes.stopping.clone();
+        let work = app.store.work.clone();
         loop {
             let busy = round(&app, &configured).await;
             let pause = if busy {
                 Duration::ZERO
             } else {
-                Duration::from_secs(5)
+                match app.store.next_transcript_in().await {
+                    Ok(next) => next.map_or(FALLBACK, |next| next.min(FALLBACK)),
+                    Err(_) => RETRY,
+                }
             };
             tokio::select! {
                 _ = stopping.cancelled() => break,
                 _ = WAKE.notified() => {}
+                _ = work.transcribe.notified() => {}
                 _ = tokio::time::sleep(pause) => {}
             }
         }
