@@ -13,7 +13,8 @@ export type Handoff = {
   target_name: string;
   principal_name: string;
   chat: string;
-  thread: string;
+  /** Where the exchange is: null on the main timeline (D246), else that thread. */
+  thread: string | null;
   task: string;
   state: string;
   detail: string;
@@ -26,9 +27,10 @@ export type Handoff = {
 export type Coordination = { incoming: Handoff | null; outgoing: Handoff[] };
 export const taskLink = (h: Handoff, original = false) =>
   workspaceUrl(
-    `/?view=chat&conversation=${encodeURIComponent(h.chat)}&message=${encodeURIComponent(original ? h.root : h.child)}${original ? '' : `&thread=${encodeURIComponent(h.thread)}`}`,
+    `/?view=chat&conversation=${encodeURIComponent(h.chat)}&message=${encodeURIComponent(original ? h.root : h.child)}${original || !h.thread ? '' : `&thread=${encodeURIComponent(h.thread)}`}`,
   );
-export function HandoffCard({ handoff, refresh }: { handoff: Handoff; refresh?: () => Promise<void> }) {
+/** On the handoff message itself (`onRequest`) the message already shows the task. */
+export function HandoffCard({ handoff, refresh, onRequest = false }: { handoff: Handoff; refresh?: () => Promise<void>; onRequest?: boolean }) {
   const m = useMutation();
   const state =
     handoff.state !== 'pending'
@@ -56,10 +58,12 @@ export function HandoffCard({ handoff, refresh }: { handoff: Handoff; refresh?: 
         </strong>
         <span>Agent handoff · {state}</span>
       </header>
-      <p>
-        {[...handoff.task].slice(0, 180).join('')}
-        {[...handoff.task].length > 180 && '…'}
-      </p>
+      {!onRequest && (
+        <p>
+          {[...handoff.task].slice(0, 180).join('')}
+          {[...handoff.task].length > 180 && '…'}
+        </p>
+      )}
       <p className="ui-help">
         Requested by {handoff.principal_name}. {handoff.target_name} keeps its own permissions and {handoff.sender_name}
         's limits.
@@ -91,8 +95,12 @@ export function HandoffCard({ handoff, refresh }: { handoff: Handoff; refresh?: 
     </section>
   );
 }
-export function CoordinationView({ data, refresh }: { data?: Coordination; refresh?: () => Promise<void> }) {
+/** In a conversation, `shownIn` is where this reply is (null: the main timeline). An
+ * exchange in that same place shows its card on its own handoff message just above,
+ * so only exchanges kept in a thread under the reply (before D246) show it here. */
+export function CoordinationView({ data, refresh, shownIn }: { data?: Coordination; refresh?: () => Promise<void>; shownIn?: string | null }) {
   if (!data) return null;
+  const outgoing = shownIn === undefined ? data.outgoing : data.outgoing.filter((h) => (h.thread ?? null) !== shownIn);
   return (
     <>
       {data.incoming && (
@@ -101,7 +109,7 @@ export function CoordinationView({ data, refresh }: { data?: Coordination; refre
           <a href={taskLink(data.incoming, true)}>Open original task</a>
         </p>
       )}
-      {data.outgoing.map((h) => (
+      {outgoing.map((h) => (
         <HandoffCard key={h.id} handoff={h} refresh={refresh} />
       ))}
     </>

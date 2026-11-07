@@ -7,13 +7,20 @@ use serde_json::json;
 #[cfg(test)]
 #[path = "handoff_guidance_tests.rs"]
 mod guidance_tests;
-async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Result<Value> {
+#[cfg(test)]
+#[path = "handoff_visibility_tests.rs"]
+pub(super) mod visibility_tests;
+/// `agent` may take part in a handoff for `job`'s person here: a managed shared
+/// agent in the same channel or group that the person may ask. Direct messages
+/// and email or WhatsApp threads have no handoffs.
+async fn participant(db: &DatabaseTransaction, job: &Job, agent: &str) -> Result<Value> {
     let user = User {
         id: job.requester.clone(),
         email: String::new(),
         display_name: None,
     };
     super::chat::access(db, &user, &job.workspace, &job.chat).await?;
+    super::communications::access::ordinary_chat(db, &job.workspace, &job.chat).await?;
     let profile = super::agent_profiles::stored(db, &job.workspace, agent).await?;
     ensure!(
         profile["audience"] != "only_me" && profile["revision"].as_i64().is_some_and(|r| r > 0),
@@ -23,10 +30,10 @@ async fn participant(db: &impl ConnectionTrait, job: &Job, agent: &str) -> Resul
         super::chat::agent_access_in(db, &job.requester, &job.workspace, agent, &job.chat).await?,
         "Original requester lacks this agent's request permission"
     );
-    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind='channel' AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must participate in the same channel");
+    ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind IN ('channel','group') AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must be in the same channel or group");
     Ok(profile)
 }
-/// Managed shared agents in this channel that `job` may hand work to now.
+/// Managed shared agents in this channel or group that `job` may hand work to now.
 /// Agents already in this handoff chain are left out: asking them would make
 /// a cycle.
 async fn eligible_helpers(tx: &DatabaseTransaction, job: &Job) -> Result<Helpers> {
@@ -68,7 +75,7 @@ impl PgStore {
         super::control_actions::authorize(&tx, job, true).await?;
         ensure!(
             self.pooled,
-            "Channel handoffs need pooled background execution"
+            "Agent handoffs need pooled background execution"
         );
         participant(&tx, job, &job.agent).await?;
         super::channel_lifecycle::accepting(&tx, &job.workspace, &job.chat).await?;
@@ -80,8 +87,8 @@ impl PgStore {
     }
     /// The same eligibility as `handoff_targets`, read while preparing a task.
     /// `None` when this task cannot hand off at all: it is not in an open
-    /// channel, execution is not pooled, or its agent is not a managed shared
-    /// agent the requester may ask there.
+    /// channel or group, execution is not pooled, or its agent is not a managed
+    /// shared agent the requester may ask there.
     pub(crate) async fn handoff_helpers(&self, job: &Job) -> Result<Option<Helpers>> {
         if !self.pooled {
             return Ok(None);
@@ -112,7 +119,7 @@ impl PgStore {
   }
         ensure!(
             self.pooled,
-            "Channel handoffs need pooled background execution"
+            "Agent handoffs need pooled background execution"
         );
         super::handoff_controls::ready_for_new_work(&tx, job).await?;
         ensure!(query(&tx,"SELECT j.reply FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply=$2 AND (EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply AND q.state='pending') OR EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=j.workspace AND a.job=j.reply AND a.state IN ('pending','executing','uncertain')))",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.is_none(),"Resolve the current question or operation before delegating another task");
@@ -149,9 +156,10 @@ impl PgStore {
         let row=query(&tx,"SELECT j.run_cycle,m.thread FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply WHERE j.workspace=$1 AND j.reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.unwrap();
         let cycle: i32 = row.try_get("", "run_cycle")?;
         ensure!(cycle < 19, "Task is at its continuation limit");
-        let thread = row
-            .try_get::<Option<String>>("", "thread")?
-            .unwrap_or_else(|| job.reply.clone());
+        // The exchange goes where the sender was asked, so the people there see
+        // the agents talking (D246): the main timeline (no thread) or the thread
+        // its reply is in. Before schema 100 it went into a thread under the reply.
+        let thread: Option<String> = row.try_get("", "thread")?;
         let expires = parent
             .and_then(|h| h["expires_ms"].as_i64())
             .or_else(|| tree.first().and_then(|h| h["expires_ms"].as_i64()))
@@ -167,7 +175,7 @@ impl PgStore {
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(input.agent.clone()),
             agents: vec![],
-            thread: Some(thread.clone()),
+            thread: thread.clone(),
             attachments: vec![],
             content: input.task.clone(),
         };
@@ -188,7 +196,7 @@ impl PgStore {
         super::tasks::ensure_automatic(&tx, job, "request").await?;
         tx.commit().await?;
         Ok(
-            json!({"id":id,"state":"pending","reply":child.reply,"message":"Helper task saved in the original channel/thread. Explain what is waiting and finish this bounded attempt. The controller releases your worker and resumes the same task when the helper ends; do not poll or request more business actions."}),
+            json!({"id":id,"state":"pending","reply":child.reply,"message":"Your task was posted where you were asked, and the helper answers below it; the people there can read both. Explain what is waiting and finish this bounded attempt. The controller releases your worker and resumes the same task when the helper ends; do not poll or request more business actions."}),
         )
     }
 }

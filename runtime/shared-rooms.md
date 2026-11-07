@@ -78,6 +78,22 @@ so it answers only its part. Each reads the room as it was when asked, without t
 agents' replies to that message. Moving to a private conversation is per agent: one
 agent calling `continue_privately` moves the question for that agent only.
 
+## Agents asking agents (D246)
+
+When someone asks one agent to get something from another agent in the room, the
+agents talk in the room (schema 100, [channel handoffs](channel-agent-handoffs.md#visible-in-the-conversation-schema-100-d246)):
+the first agent posts its question to the other ("Nova, can you check the walnut
+stock for Kapoor?"), the other answers below it, and the first agent's reply follows.
+On the main timeline when the request was there, in its thread when it was in one.
+Group rooms can hand off as channels can, with the same rules; direct messages and
+email/WhatsApp threads can't. The question is written for everyone in the room, so it
+leaves out anything they may not see, and each agent keeps its own permissions.
+
+Later requests in the room remember the exchange when no part of it used source data
+(an event, a business operation, Library documents, changed notes); otherwise the
+whole exchange stays out of later context, like a direct reply built from a tool
+([later memory](channel-agent-handoffs.md#later-memory-d246)).
+
 ## Threads
 
 A request in a thread reads that thread first (up to 50 messages), then the
@@ -100,6 +116,9 @@ History search and reading still cover the whole conversation.
   group staying private, thread-first reading, and moving a question: the
   direct room, the agent-written message, origin, exact retry, refusal in a
   private room and for someone who can't message the agent directly.
+- PostgreSQL: `handoff_admission::visibility_tests` cover the exchange on the main
+  timeline and in a thread and group rooms and their eligibility;
+  `conversation_context::handoff_memory_tests` what later requests remember.
 - Unit: the executor's `continue_privately` forwards no arguments.
 - Journey: `tests/channel_context.mjs`, with real Goose. The owner saves a
   brief in a channel, another member's request reads it and knows two people

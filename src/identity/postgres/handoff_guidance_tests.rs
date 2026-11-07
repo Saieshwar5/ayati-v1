@@ -1,5 +1,5 @@
-//! A channel task is told when to hand off and which helpers it can ask; other
-//! conversations get no handoff guidance. A handoff task may name agents.
+//! A channel or group task is told when to hand off and which helpers it can
+//! ask; direct messages get no handoff guidance. A handoff task may name agents.
 use super::super::{
     handoff_tests::{Setup, claim, setup},
     tests::*,
@@ -84,10 +84,12 @@ async fn channel_tasks_list_their_eligible_helpers_and_other_conversations_get_n
     let direct = instructions_in(&s, &conversation(&s, "direct").await).await;
     assert!(!direct.contains("request_handoff") && !direct.contains("Asking other agents"));
 
-    // A channel with no other managed agent says so, in one sentence.
-    let solo = instructions_in(&s, &conversation(&s, "channel").await).await;
-    assert!(solo.contains("there is no other managed shared agent in this channel"));
-    assert!(!solo.contains("call request_handoff"));
+    // A channel or group with no other managed agent says so, in one sentence.
+    for kind in ["channel", "group"] {
+        let solo = instructions_in(&s, &conversation(&s, kind).await).await;
+        assert!(solo.contains("there is no other managed shared agent in this conversation"));
+        assert!(!solo.contains("call request_handoff"));
+    }
 }
 
 #[tokio::test]

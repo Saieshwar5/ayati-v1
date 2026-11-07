@@ -54,7 +54,9 @@ are removed first. The existing since-joining policy remains.
 
 General recent history and older-history retrieval exclude Library-derived
 answers, the initial source question/title in a Library-created conversation,
-business-operation answers, event replies and helper requests/results. Those
+business-operation answers, event replies and the requests/results of an agent
+handoff with any such part (since D246 an exchange with none is remembered whole;
+see [later memory](channel-agent-handoffs.md#later-memory-d246)). Those
 records need their source-aware paths; ordinary conversation membership must not
 silently renew their source authority. Conversation titles are omitted from the
 model's identity envelope because a Library conversation title can itself reveal

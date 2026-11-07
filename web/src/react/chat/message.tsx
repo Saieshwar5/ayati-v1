@@ -53,8 +53,8 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
       {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
-      {message.handoff && <HandoffCard handoff={message.handoff}/>}
-      <CoordinationView data={message.coordination}/>
+      {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
+      <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
       {message.approval && <ApprovalCard reference={message.approval} />}
       {message.task && <TaskChip task={message.task} />}
       {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} />)}
