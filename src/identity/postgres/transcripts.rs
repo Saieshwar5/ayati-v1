@@ -143,6 +143,23 @@ impl PgStore {
             .collect()
     }
 
+    /// How long until a waiting transcript's retry pause or lease ends, when it
+    /// can be taken (or given up) again; None when none is waiting for a time.
+    pub(crate) async fn next_transcript_in(&self) -> Result<Option<std::time::Duration>> {
+        let wait = query(
+            &self.db,
+            &format!(
+                "SELECT min(lease_until_ms)-{NOW_MS} AS wait FROM relay_object_transcripts
+            WHERE status='pending' AND lease_until_ms>{NOW_MS}"
+            ),
+            vec![],
+        )
+        .await?
+        .context("Transcript queue unavailable")?
+        .try_get::<Option<i64>>("", "wait")?;
+        Ok(wait.map(|ms| std::time::Duration::from_millis(ms.max(0) as u64)))
+    }
+
     /// Saves what happened to a held transcript. False when the lease was lost
     /// and another controller took it, so this result is dropped.
     pub(crate) async fn finish_transcript(&self, item: &Claimed, outcome: Outcome) -> Result<bool> {

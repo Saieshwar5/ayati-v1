@@ -68,6 +68,8 @@ async fn events(
 ) -> std::result::Result<impl IntoResponse, Error> {
     authorize(&state, &key.0, &key.1, &headers).await?;
     let (connection, receiver) = state.hub.attach(key.clone())?;
+    // The keep-alive is a comment frame and does no database work; the executor
+    // reconnects after three seconds without one (`executor/stream.rs`).
     Ok(Sse::new(Offers {
         receiver: ReceiverStream::new(receiver),
         state,
@@ -87,10 +89,14 @@ async fn capacity(
     Json(input): Json<Capacity>,
 ) -> Api<Value> {
     authorize(&state, &executor, &incarnation, &headers).await?;
-    pg(&state)
+    // A heartbeat that changes nothing gives the dispatcher nothing to do. A slot
+    // that became ready is also announced to the other controllers (schema 97).
+    if pg(&state)
         .report_executor(&executor, &incarnation, &input)
-        .await?;
-    state.hub.wake.notify_one();
+        .await?
+    {
+        state.hub.wake.notify_one();
+    }
     Ok(Json(json!({"reported":true})))
 }
 async fn drain(
@@ -114,26 +120,49 @@ async fn stop(
     pg(&state).stop_executor(&executor, &incarnation).await?;
     Ok(Json(json!({"stopped":true})))
 }
+/// The dispatcher runs when work is announced: here (intake, capacity reports,
+/// executor connections) or by any controller through PostgreSQL (schema 97).
+/// Lease, heartbeat and transcript-wait deadlines are not announced, so it also
+/// wakes just after the next one passes (whole seconds, hence the margin).
+/// Until November 2026 it polled every 200 ms, about 15 transactions a second
+/// on an idle controller.
+const DEADLINE_MARGIN: Duration = Duration::from_millis(50);
+/// It still looks this often in case a notification was lost: a missed job then
+/// waits at most this long. Idle, that is three transactions per interval.
+const FALLBACK: Duration = Duration::from_secs(10);
+/// After a database error, try again this soon.
+const RETRY: Duration = Duration::from_secs(1);
+
 pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) {
     let stopping = state.app.runtimes.stopping.clone();
+    let work = state.app.store.work.clone();
     loop {
-        if pg(&state).expire_executors(expiry).await.is_err() {
-            tracing::warn!("Executor registry unavailable; admission paused");
-        }
+        let wait = match pg(&state).expire_executors(expiry).await {
+            Ok(next) => next.map_or(FALLBACK, |next| (next + DEADLINE_MARGIN).min(FALLBACK)),
+            Err(_) => {
+                tracing::warn!("Executor registry unavailable; admission paused");
+                RETRY
+            }
+        };
+        let mut until = tokio::time::Instant::now() + wait;
+        let retry = || tokio::time::Instant::now() + RETRY;
         let connected = state.hub.connected();
         for key in &connected {
             if stopping.is_cancelled() {
                 return;
             }
-            if let Ok(offers) = pg(&state).pending_offers(&key.0, &key.1).await {
-                for offer in offers {
-                    super::super::start_trace::point(
-                        &offer.assignment,
-                        "controller",
-                        "offer_available",
-                    );
-                    state.hub.offer(key, &offer);
+            match pg(&state).pending_offers(&key.0, &key.1).await {
+                Ok(offers) => {
+                    for offer in offers {
+                        super::super::start_trace::point(
+                            &offer.assignment,
+                            "controller",
+                            "offer_available",
+                        );
+                        state.hub.offer(key, &offer);
+                    }
                 }
+                Err(_) => until = until.min(retry()),
             }
             for _ in 0..16 {
                 match pg(&state)
@@ -151,6 +180,7 @@ pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) 
                     Ok(None) => break,
                     Err(_) => {
                         tracing::warn!("Executor dispatch deferred; ownership remains durable");
+                        until = until.min(retry());
                         break;
                     }
                 }
@@ -160,7 +190,8 @@ pub(super) async fn dispatch(state: StateData, limits: PoolLimits, expiry: u64) 
             _=stopping.cancelled()=>break,
             _=state.hub.wake.notified()=>{},
             _=state.app.runtimes.chat_wake.notified()=>{},
-            _=tokio::time::sleep(Duration::from_millis(200))=>{},
+            _=work.dispatch.notified()=>{},
+            _=tokio::time::sleep_until(until)=>{},
         }
     }
 }

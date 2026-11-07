@@ -74,7 +74,7 @@ hint discovery and uses a private child home in both prepared and controlled pat
 | `AYATI_EXECUTOR_WORKSPACE_LIMIT` | Pool capacity; 1–1024 | Controller |
 | `AYATI_EXECUTOR_MODEL_LIMIT` | Pool capacity; 1–1024 | Controller, provider/model pair |
 | `AYATI_EXECUTOR_CHAT_RESERVE` | 0; below global/workspace/model limits | Controller; [background admission](interactive-reserve.md) |
-| `AYATI_EXECUTOR_EXPIRY_SECONDS` | 15; 6–120 | Controller, readiness heartbeat expiry |
+| `AYATI_EXECUTOR_EXPIRY_SECONDS` | 45; 40–300 | Controller, readiness heartbeat expiry (executors beat every 10 s, so at least three missed beats) |
 | `AYATI_ASSIGNMENT_LEASE_SECONDS` | 120; 6–300 | Controller, accepted execution lease |
 | `AYATI_ASSIGNMENT_RUN_SECONDS` | 180; 1–86400 | Controller, persisted at intake |
 
@@ -121,10 +121,15 @@ Executors are trusted operator processes in this local boundary.
 ## Recovery, draining and limits
 
 - SSE reconnect replays durable unacknowledged offers. An old connection's cleanup
-  cannot detach its replacement. Delivery queues and frames are bounded; a
-  200 ms reconciliation tick supplements immediate intake/readiness wakeups.
-- Separate executor heartbeats withdraw all slots after registry expiry. Run
-  leases fence each attempt independently. Short controller restarts reconnect
+  cannot detach its replacement. Delivery queues and frames are bounded. The SSE
+  keep-alive (every second) does no database work.
+- The dispatcher runs when work is announced instead of polling (schema 97, see
+  [Idle database work](#idle-database-work)), and just after the next lease,
+  heartbeat or transcript-wait deadline; it still looks every 10 seconds.
+- An executor reports capacity when a slot changes and otherwise every 10 seconds
+  as its heartbeat. A controller withdraws all its slots after registry expiry
+  (45 seconds by default). Run leases fence each attempt independently. Short
+  controller restarts reconnect
   without repeating active inference; a longer outage stops the harness at its
   safe deadline. A lost registry identity requires restarting the executor.
 - SIGTERM withdraws idle capacity and preserves already offered/running work,
@@ -154,6 +159,41 @@ Executors are trusted operator processes in this local boundary.
 - Scratch is private and removed after use, but processes share the executor OS
   account and provider profile. This is not a hard tenant OS/microVM boundary.
   Inherited local command/browser/memory/VM/business tools are disabled.
+
+## Idle database work
+
+Until November 2026 an idle controller with one two-slot executor made about 38
+transactions and 234 statements a second (measured locally; Aurora showed the same
+38 commits a second with nobody using the app). The dispatcher polled every 200 ms,
+the scheduler every second, executors reported every second and the transcription
+worker looked every 5 seconds. Schema 96 replaces the polling:
+
+| Loop | Wakes on | Otherwise |
+| --- | --- | --- |
+| Dispatcher | Intake, capacity changes, executor connections; any controller's new, returned or finished job or task, slot becoming ready, finished transcript | Just after the next lease, heartbeat or 30-second transcript-wait deadline; at least every 10 s |
+| Executor reports | A slot changes state or draining begins (at once) | Every 10 s (heartbeat); a refused report is retried every second |
+| Scheduler | New or finished jobs, schedules, events, Library arrivals, app records, follow-ups, panel updates, helper waits | The next due time; at least every 30 s; never more than once a second |
+| Transcription | An upload on any controller | The next retry or lease end; at least every 60 s |
+
+Database triggers send `pg_notify('relay_work', '<schema>/<loop>')` in the
+transaction that changes the work, so a notification never arrives before the
+change is visible. Each controller's one LISTEN connection (shared with live chat)
+wakes the loop; a reconnect wakes them all. Notifications are hints: every loop
+still reads the database, and the dispatcher's own claims and offers announce
+nothing, so it never wakes itself. An unchanged heartbeat writes no slot row.
+Partial indexes keep recovery on unfinished capabilities, front-desk requests and
+live executors as history grows.
+
+Measured locally over two idle minutes (one controller, one two-slot executor,
+`pg_stat_database` and a statement log): 37.8 → 3.7 transactions and 234 → 7.2
+statements a second; table scans 248 → 8 a second and rows written 181 → 5 a minute.
+About a third of the remaining transactions are pooled connections preparing their
+statements for the first time, which fades; most of the rest is the communications
+gateway's three-second round, which is unchanged.
+
+Trade-off: a hung executor whose connection stays open keeps its ready slots for
+up to 45 seconds (was 15); offers made to it in that time expire after their
+15-second startup lease and are offered elsewhere as a new attempt.
 
 ## Verification and next work
 

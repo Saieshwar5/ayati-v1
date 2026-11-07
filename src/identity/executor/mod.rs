@@ -6,6 +6,7 @@ mod model_proxy;
 mod output;
 #[cfg(test)]
 mod output_tests;
+pub(crate) mod reporting;
 mod slots;
 mod stream;
 use crate::identity::{
@@ -92,7 +93,10 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
     for (index, slot) in slots.iter().enumerate() {
         slot.prepare(index, &root, &preparation, &mut jobs);
     }
+    // Local harness checks only; capacity goes to the controller when it changes
+    // and as a heartbeat (`reporting.rs`).
     let mut tick = tokio::time::interval(Duration::from_secs(1));
+    let mut reports = reporting::Reports::default();
     let mut drained = false;
     let mut failed = false;
     let mut refresh = tokio::time::Instant::now() + Duration::from_secs(300);
@@ -182,12 +186,19 @@ pub async fn serve(settings: crate::config::Executor) -> Result<()> {
         let report = Capacity {
             slots: slots.iter().filter_map(Slot::report).collect(),
         };
-        let reported = client
-            .post::<serde_json::Value>(&format!("{base}/capacity"), &report)
-            .await;
-        if reported.is_ok() {
-            health::record(data, &slots, drained);
-        }
+        let now = tokio::time::Instant::now();
+        let reported = if reports.due(&report, drained, now) {
+            let sent = client
+                .post::<serde_json::Value>(&format!("{base}/capacity"), &report)
+                .await;
+            if sent.is_ok() {
+                reports.accepted(report, drained, now);
+                health::record(data, &slots, drained);
+            }
+            sent.map(|_| ())
+        } else {
+            Ok(())
+        };
         if let Err(error) = reported {
             if error.is::<super::worker_control::client::Conflict>() {
                 tracing::warn!(

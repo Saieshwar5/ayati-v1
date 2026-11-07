@@ -35,7 +35,7 @@ impl Profile {
         Ok(())
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SlotReport {
     pub slot: String,
@@ -47,7 +47,7 @@ pub(crate) struct SlotReport {
     #[serde(default)]
     pub preparation_version: u8,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Capacity {
     pub slots: Vec<SlotReport>,

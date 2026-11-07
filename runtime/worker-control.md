@@ -143,6 +143,11 @@ routes; assignment credentials cannot register or access another run.
 
 - Renewal rechecks every 500 ms for responsive cancellation. Expiry or denial
   stops and reaps Goose; a newer authorized attempt never resumes in-memory state.
+  This runs only while an assignment runs; an idle executor sends a capacity
+  report when a slot changes and otherwise a heartbeat every 10 seconds, and the
+  controller withdraws it after `AYATI_EXECUTOR_EXPIRY_SECONDS` (45 by default,
+  at least 40) without one. Offers reach executors through announced work, not
+  polling ([idle database work](executor-pool.md#idle-database-work)).
 - Run capabilities expire after five minutes and extend only with valid renewal.
   Cancellation, slot replacement and expired-owner reconciliation clear prepared
   context. Completion keeps a replayable receipt for up to five minutes.

@@ -99,6 +99,16 @@ fn retired_modes_and_executor_settings_are_refused_on_the_controller() {
 }
 
 #[test]
+fn executor_expiry_always_spans_several_missed_heartbeats() {
+    let heartbeat = crate::identity::executor::reporting::HEARTBEAT.as_secs();
+    assert_eq!(controller(&[]).unwrap().pool.expiry_seconds, 45);
+    let shortest = controller(&[("AYATI_EXECUTOR_EXPIRY_SECONDS", "40")]).unwrap();
+    assert!(heartbeat < shortest.pool.expiry_seconds / 3);
+    // The pre-November default no longer leaves room for three missed beats.
+    assert!(controller(&[("AYATI_EXECUTOR_EXPIRY_SECONDS", "15")]).is_err());
+}
+
+#[test]
 fn the_drain_delay_fits_inside_the_shutdown_limit() {
     let config = controller(&[]).unwrap();
     assert_eq!((config.drain_seconds, config.shutdown_seconds), (0, 60));

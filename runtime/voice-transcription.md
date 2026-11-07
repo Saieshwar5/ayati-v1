@@ -37,9 +37,11 @@ any model request. The audio, transcripts and keys are never logged.
 1. An audio upload (`audio/webm`, `audio/ogg`, `audio/mp4` or `audio/wav`) queues a row
    in `relay_object_transcripts` in the transaction that saves the file, and wakes this
    controller's worker. Other files queue nothing.
-2. Every controller runs the worker and looks every 5 seconds. It takes up to 4
-   transcripts at once with `FOR UPDATE SKIP LOCKED` and a 150-second lease in the
-   database, so two replicas never send the same recording.
+2. Every controller runs the worker. An upload is announced to all of them
+   (schema 97), and a worker also wakes when a retry pause or lease ends, or
+   after 60 seconds (it looked every 5 seconds before schema 97). It takes up to
+   4 transcripts at once with `FOR UPDATE SKIP LOCKED` and a 150-second lease in
+   the database, so two replicas never send the same recording.
 3. The worker reads the bytes from file storage (checked against the upload's size and
    checksum) and reads the length from the file where it says (WAV, Ogg, WebM, MP4).
    A recording over 5 minutes (10 MiB at most) is never sent. Each request has 90 seconds.
