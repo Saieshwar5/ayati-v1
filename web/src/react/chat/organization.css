@@ -13,6 +13,11 @@
   .chat-contact-row .chat-pin-action[aria-pressed=false] { opacity:0; }
   .chat-contact-row:hover .chat-pin-action, .chat-contact-row:focus-within .chat-pin-action { opacity:1; }
 }
+/* Touch screens have no hover to reveal an empty star on every row: rows show only
+   the ★ of pinned chats (tap to unpin), and pinning is in the chat's Details. */
+@media(hover:none), (pointer:coarse) {
+  .chat-contact-row .chat-pin-action[aria-pressed=false] { display:none; }
+}
 @media(max-width:600px) {
   .chat-directory .chat-pin-action { flex-basis:40px; width:40px; min-height:40px; }
   .chat-archive-banner { padding:12px; }
