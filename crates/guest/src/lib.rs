@@ -1,5 +1,6 @@
 mod app_schema;
 pub mod control_mcp;
+mod file_schema;
 mod history_schema;
 mod library_schema;
 pub mod panel_schema;

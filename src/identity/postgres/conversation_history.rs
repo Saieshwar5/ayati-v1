@@ -24,13 +24,15 @@ pub(crate) struct Read {
     offset: i64,
 }
 
-struct Scope {
-    thread: Option<String>,
-    joined: i64,
-    before: i64,
+/// The eligible part of the running task's conversation, shared with the file
+/// tools (`objects::conversation_files`) so both select the same messages.
+pub(super) struct Scope {
+    pub(super) thread: Option<String>,
+    pub(super) joined: i64,
+    pub(super) before: i64,
 }
 
-async fn scope(tx: &DatabaseTransaction, job: &Job) -> Result<Scope> {
+pub(super) async fn scope(tx: &DatabaseTransaction, job: &Job) -> Result<Scope> {
     super::control_actions::authorize(tx, job, true).await?;
     // Bound SQL work independently of the model and the surrounding task lease.
     execute(tx, "SET LOCAL statement_timeout = '5s'", vec![]).await?;
@@ -71,11 +73,11 @@ async fn scope(tx: &DatabaseTransaction, job: &Job) -> Result<Scope> {
     })
 }
 
-const FILTER: &str = "m.workspace=$1 AND m.chat=$2 AND m.sequence<$3 AND m.sequence>$4
+pub(super) const FILTER: &str = "m.workspace=$1 AND m.chat=$2 AND m.sequence<$3 AND m.sequence>$4
     AND ($5::text IS NULL OR m.id=$5 OR m.thread=$5) AND m.state IN ('sent','complete')";
-const AUTHOR_JOINS: &str = "LEFT JOIN relay_users u ON u.id=m.author AND m.kind='user'
+pub(super) const AUTHOR_JOINS: &str = "LEFT JOIN relay_users u ON u.id=m.author AND m.kind='user'
     LEFT JOIN relay_shared_agents a ON a.workspace=m.workspace AND a.id=m.author AND m.kind='agent'";
-const AUTHOR: &str = "jsonb_build_object('id',m.author,'kind',m.kind,
+pub(super) const AUTHOR: &str = "jsonb_build_object('id',m.author,'kind',m.kind,
     'display_name',CASE WHEN m.kind='agent' THEN a.name ELSE u.display_name END)";
 
 impl PgStore {

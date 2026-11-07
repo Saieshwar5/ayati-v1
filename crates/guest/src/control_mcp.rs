@@ -9,6 +9,9 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some(name @ ("search_conversation_history" | "read_conversation_history")) => {
             crate::history_schema::observed(name, input)
         }
+        Some(name @ ("list_conversation_files" | "read_conversation_file")) => {
+            crate::file_schema::observed(name, input)
+        }
         Some("save_working_context") => crate::working_context_schema::observed(input),
         Some("operations" | "handoff_targets" | "personal_panels" | "continue_privately") => {
             input == &json!({})
@@ -104,6 +107,8 @@ impl ServerHandler for ControlTools {
             crate::working_context_schema::tool(),
             crate::history_schema::search_tool(),
             crate::history_schema::read_tool(),
+            crate::file_schema::list_tool(),
+            crate::file_schema::read_tool(),
             crate::personal_panel_schema::tool(),
             crate::rule_schema::tool(),
             json!({"name":"home_panel_update_context","description":"Read the controller-bound update agreement, fixed panel definition and exact source reads for this maintenance task only. Available only after the human enabled panel updates. It grants no new source authority.","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}}),

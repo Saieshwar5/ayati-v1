@@ -7,6 +7,8 @@ use crate::identity::collaboration::Object;
 pub(super) mod agent_files;
 #[path = "object_contents.rs"]
 pub(crate) mod contents;
+#[path = "conversation_files.rs"]
+mod conversation_files;
 
 impl PgStore {
     /// Saves an uploaded file. With `transcribe`, audio also queues its
