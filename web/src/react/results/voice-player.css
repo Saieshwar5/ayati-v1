@@ -1,0 +1,49 @@
+/* Sent voice messages: one player for sender and receiver (designs/chat-and-account, D245). */
+/* One width for every voice message, as in the design; narrower bubbles shrink the waveform. */
+.voice-player, .result-files .chat-file > .voice-player { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; width:280px; min-width:0; max-width:100%; margin:4px 0 2px; }
+.chat-file .voice-player > audio, .voice-player > audio { display:none; }
+.voice-play { position:relative; flex:none; display:inline-grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:var(--accent); color:var(--on-accent); cursor:pointer; }
+/* A 44 px target around the 32 px circle. */
+.voice-play::after { content:''; position:absolute; inset:-6px; }
+.voice-play svg { width:14px; height:14px; fill:currentColor; stroke:none; }
+.voice-track { flex:1 1 auto; display:flex; align-items:center; min-width:48px; max-width:200px; height:32px; border-radius:6px; cursor:pointer; touch-action:manipulation; }
+.voice-track[aria-disabled=true] { cursor:default; }
+.voice-track:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+/* Played bars use the text colour and the rest the muted one, in both themes. */
+.voice-wave { display:flex; align-items:center; justify-content:space-between; gap:2px; width:100%; height:24px; }
+.voice-wave i { flex:0 1 3px; min-width:1px; border-radius:2px; background:var(--muted); opacity:.5; }
+.voice-wave i.is-played { background:var(--text); opacity:1; }
+.voice-progress { width:100%; height:4px; border-radius:2px; overflow:hidden; background:color-mix(in srgb, var(--muted) 35%, transparent); }
+.voice-progress > span { display:block; height:100%; background:var(--text); }
+.voice-length { flex:none; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.chat-message .voice-error { display:block; color:var(--danger); font-size:12px; }
+
+/* "≡ Transcript ⌄" under the player; the text opens below it. */
+.result-files .chat-file > .chat-transcript { display:block; }
+.result-files .chat-transcript { margin:2px 0 4px; color:var(--muted); font-size:13px; }
+.result-files .chat-transcript.is-waiting { display:inline-flex; align-items:center; gap:6px; min-height:28px; }
+.chat-transcript-toggle { display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:2px 6px 2px 0; border:0; border-radius:6px; background:none; color:var(--muted); font:inherit; cursor:pointer; }
+.chat-transcript-toggle:hover { color:var(--text); }
+.chat-transcript svg { flex:none; width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.chat-transcript-chevron { margin-left:2px; transition:transform .15s ease; }
+.chat-transcript-toggle[aria-expanded=true] .chat-transcript-chevron { transform:rotate(180deg); }
+.chat-message .chat-transcript p { max-width:60ch; margin:6px 0 2px; color:var(--text); font-size:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* An own voice message keeps its time and ticks on the folded Transcript line (screen 4):
+   the bubble lays out the player, the transcript line and the time, which wraps when narrow. */
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) { display:flex; flex-wrap:wrap; align-items:center; column-gap:12px; width:min-content; }
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) :is(.result-files, .chat-file) { display:contents; }
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) > *,
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) .chat-file > * { flex-basis:100%; }
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) .chat-transcript { flex-basis:auto; margin:0; white-space:nowrap; }
+.chat-voice-bubble:has(.chat-transcript > [aria-expanded=false], .chat-transcript.is-waiting) > .chat-message-meta { flex-basis:auto; margin:0 0 0 auto; }
+
+@media (pointer:coarse) {
+  .voice-track { height:44px; }
+  .chat-transcript-toggle, .result-files .chat-transcript.is-waiting { min-height:44px; }
+}
+@media (prefers-reduced-motion:reduce) { .chat-transcript-chevron { transition:none; } }
+@media (forced-colors:active) {
+  .voice-play { border:1px solid ButtonText; }
+  .voice-wave i { background:GrayText; opacity:1; }
+  .voice-wave i.is-played, .voice-progress > span { background:CanvasText; }
+}

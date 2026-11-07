@@ -162,7 +162,14 @@ request). Desktop alerts use the browser's notifications while Cuckoo is open, o
 any page, once the person allows them from the one-time prompt in the chat list;
 nothing alerts for the conversation you are reading, your own messages or old
 history. Email for missed messages comes with hosted email delivery.
-Stop recording attaches the audio to the draft; Send remains explicit. Recipient selection is under
+Voice messages follow `designs/chat-and-account` screens 4, 10 and 11 (D245, reversing the earlier
+"Stop attaches the audio to the draft; Send remains explicit"): the mic beside Send records in the
+composer row (red dot, timer, live level, "Enter sends · Esc cancels"); Send or Enter stops, uploads
+and sends it with any typed text at once; the same button, now a mic with ×, cancels, as does Escape.
+Recording stops at 5 minutes (or 10 MiB) and waits for Send or Delete rather than sending itself. A
+failed upload or send stays as "Voice message 0:12 not sent" with Retry and Delete. Sent voice
+messages share one player for sender and receiver (play/pause, a waveform that fills, the length, a
+keyboard slider; one plays at a time) with the folded Transcript line under it. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
 above the composer; explicit creation-mode links and Home creation still work.

@@ -1,0 +1,42 @@
+/* Voice messages in the composer (designs/chat-and-account screens 4, 10 and 11; D245). */
+.message-composer textarea[hidden] { display:none; }
+.message-composer.is-recording .composer-media > .ui-button, .message-composer.is-recording .emoji-picker { display:none; }
+.message-composer .composer-mic { position:relative; width:34px; padding:6px; border-radius:9px; }
+.message-composer .composer-mic.is-recording { color:var(--danger); background:color-mix(in srgb, var(--danger) 12%, transparent); }
+.message-composer .composer-mic .composer-mic-badge { fill:var(--danger); stroke:var(--surface); stroke-width:1.2; }
+.message-composer .composer-mic .composer-mic-cross { stroke:var(--surface); stroke-width:1.5; stroke-linecap:round; }
+
+/* The row takes the text field's place; the composer's own focus ring shows it is focused. */
+.voice-row { grid-column:1 / 4; grid-row:2; display:flex; align-items:center; gap:10px; min-width:0; min-height:34px; padding:0 6px 0 10px; outline:0; }
+.voice-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--danger); }
+.voice-row:not(.is-recording) .voice-dot { background:var(--muted); }
+.voice-timer { flex:none; min-width:4ch; color:var(--text); font-size:14px; font-weight:500; font-variant-numeric:tabular-nums; }
+.voice-level { flex:1 1 auto; min-width:40px; max-width:240px; height:28px; color:var(--text); }
+.voice-left { flex:none; color:var(--danger); font-size:12px; font-variant-numeric:tabular-nums; }
+.voice-hint { flex:none; margin-left:auto; color:var(--muted); font-size:12px; white-space:nowrap; }
+.voice-status { flex:1; min-width:0; color:var(--muted); font-size:13px; }
+.voice-sending { flex:1 1 auto; min-width:40px; max-width:240px; height:4px; accent-color:var(--text); }
+@media (prefers-reduced-motion:no-preference) {
+  .voice-row.is-recording .voice-dot { animation:voice-pulse 1.4s ease-in-out infinite; }
+  @keyframes voice-pulse { 50% { opacity:.35; } }
+}
+
+/* A stopped recording that hasn't been sent, above the text field. */
+.voice-draft { flex:1 1 100%; display:flex; align-items:center; gap:4px 12px; flex-wrap:wrap; min-width:0; padding:4px 4px 4px 12px; border-radius:10px; background:var(--soft); color:var(--text); font-size:13px; }
+.voice-draft.is-failed { background:color-mix(in srgb, var(--danger) 10%, var(--surface)); color:var(--danger); }
+.voice-draft > span { flex:1 1 180px; min-width:0; }
+.voice-draft small { display:block; color:var(--muted); font-size:12px; }
+.voice-draft.is-failed small { color:inherit; opacity:.85; }
+.message-composer .voice-draft .ui-button { color:var(--text); font-weight:500; }
+.message-composer .voice-draft .ui-button + .ui-button { color:var(--muted); font-weight:400; }
+
+@media (max-width:600px), (pointer:coarse) { .voice-hint { display:none; } }
+@media (pointer:coarse) {
+  .message-composer .composer-mic, .message-composer .composer-actions button[type=submit] { width:44px; min-width:44px; min-height:44px; }
+  .message-composer .voice-draft .ui-button { min-height:44px; }
+}
+@media (forced-colors:active) {
+  .voice-dot, .voice-row:not(.is-recording) .voice-dot { background:CanvasText; }
+  .message-composer .composer-mic .composer-mic-badge { fill:CanvasText; stroke:Canvas; }
+  .message-composer .composer-mic .composer-mic-cross { stroke:Canvas; }
+}

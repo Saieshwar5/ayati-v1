@@ -49,6 +49,20 @@ notifications and typing indicators remain unimplemented.
 [Personal pins and guarded channel archive/restore](chat-organization.md) are implemented separately; accepted work retains its original authority. Legacy baseline polling was 2.5 seconds for the open conversation and five
 seconds for the directory, paused when the document is hidden.
 
+## Voice messages (D245)
+
+The composer's mic records in place of the text field; Send or Enter sends the recording at once
+(stop, upload, then one outbox message with the draft's text and files, keeping its idempotent ID),
+and the mic with × or Escape cancels without uploading. Recordings stop at 5 minutes or 10 MiB and
+wait for Send or Delete: the limit never sends by itself, because a message (perhaps asking an agent)
+should only leave on the person's action. A failed upload or send keeps the recording, with Retry
+(re-sending an already uploaded file without uploading it again) and Delete; closing the page while
+a recording is held asks first. Microphone refusal, a missing microphone, an insecure page and a
+browser without `MediaRecorder` each say so. Sent audio uses a custom player whose waveform is
+decoded (Web Audio) only once the message is visible, falling back to a plain bar; only one plays at
+a time. Recorded notes show just the player and the transcript line; uploaded audio files keep their
+name and download link. Switching conversations still discards an unsent recording, as for files.
+
 ## Storage upgrade
 
 PostgreSQL migration `m20261020_000002_conversation_kinds` adds conversation kind,

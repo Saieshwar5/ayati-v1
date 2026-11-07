@@ -16,7 +16,7 @@ import { ChatThread } from './thread';
 import { mergeMessages, newerMessage } from './message-state';
 import { Button, Dialog } from '../ui';
 import { errorMessage } from '../requests';
-import { chatRequest, conversationName, directPartner, type Conversation, type Directory, type History } from './model';
+import { chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ConversationFace, ParticipantName } from './conversation-face';
 import { useShowProfile } from './profile-card';
 import { NotifyMenu } from './notify-controls';
@@ -113,22 +113,27 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
   }, [chat.id]);
   useLayoutEffect(() => { if (!readingResult.current && bottom.current && messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [history, pendingMessages]);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
-  const send = async () => {
-    if (chat.archived) return;
-    if (pending.current || (!draft.trim() && !files.length)) return;
+  /** Resolves true once the message is in the outbox; a voice recording joins the draft's files. */
+  const send = async (voice?: Attachment): Promise<boolean> => {
+    if (chat.archived) return false;
+    const attachments = (voice ? [...files, voice] : files).map(f => f.id);
+    if (pending.current || (!draft.trim() && !attachments.length)) return false;
     pending.current = true; setBusy(true); setError('');
     let target: string | undefined;
-    try { target = requestAgent(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return; }
+    try { target = requestAgent(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
     // Replying to an agent's message asks that agent, unless the text names another.
     const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
     if (!target && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) target = quoted.author;
-    if (!attempt.current || attempt.current.content !== (draft || "Shared files") || attempt.current.agent !== (target || undefined) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(files.map(f => f.id))) attempt.current = { id: crypto.randomUUID(), content: draft || "Shared files", agent: target || undefined, reply_to: replyTo, attachments: files.map(f => f.id) };
+    const content = draft || filesOnlyContent;
+    // The same payload keeps its ID, so a retried send can't post twice.
+    if (!attempt.current || attempt.current.content !== content || attempt.current.agent !== (target || undefined) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agent: target || undefined, reply_to: replyTo, attachments };
     const submission = attempt.current;
     try {
       await enqueue(chat.id, submission);
-      if (!alive.current) return;
+      if (!alive.current) return true;
       updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
-    } catch (e) { if (alive.current) setError(errorMessage(e)); }
+      return true;
+    } catch (e) { if (alive.current) setError(errorMessage(e)); return false; }
     finally { pending.current = false; if (alive.current) setBusy(false); }
   };
   const loadOlder = async () => {
@@ -180,7 +185,7 @@ export function ConversationPane({ chat, directory, back, focus, changed = async
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
-    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={() => void send()} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
+    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),

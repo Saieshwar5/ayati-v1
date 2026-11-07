@@ -35,6 +35,8 @@ export type Message = {
   edited_at?: number | null; for_me?: boolean; reactions?: { emoji: string; count: number; mine: boolean }[];
 };
 export type History = { messages: Message[]; agents: string[]; next_before?: number | null };
+/** Stored as the content of a message that only shares files; shown as nothing but the files. */
+export const filesOnlyContent = 'Shared files';
 export const chatRequest = <T>(path: string, body?: unknown, signal?: AbortSignal) => identityRequest<T>(`/workspaces/${workspaceId}${path}`, body, signal);
 export function conversationName(chat: Conversation, directory: Directory): string {
   if (chat.kind !== 'direct') return chat.name;

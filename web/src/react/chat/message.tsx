@@ -2,7 +2,7 @@ import { messageHtml } from '../../markdown';
 import '../../message-content.css';
 import { MessageReceipt, useSeen } from './receipt';
 import { workspaceSession } from '../../workspace-context';
-import type { Directory, Message } from './model';
+import { filesOnlyContent, type Directory, type Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
 import { RoutineCard } from './routine-proposal';
@@ -32,7 +32,10 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
     : person ? <PersonFace person={person} /> : <PersonFace person={{ id: message.author, name }} />;
   const profile = (agent || person) && (() => showProfile({ kind: agent ? 'agent' : 'user', id: message.author }));
   const element = useSeen(message, own);
-  const text = message.state === 'queued' ? message.progress?.text || message.content : message.content;
+  const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
+  const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder ? '' : message.content;
+  // Just a voice message: its time and ticks can share the transcript line.
+  const voiceOnly = own && placeholder && message.attachments?.length === 1 && message.attachments[0].mime.startsWith('audio/');
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [inspecting, setInspecting] = useState(false);
@@ -46,7 +49,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
-    <div>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}</header>}
+    <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
       {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
