@@ -71,7 +71,20 @@ Connections moved to the [Apps page](apps-page.md); `section=connections` links 
 - **Account menu** (your photo at the foot of the rail): you, your workspaces (the
   current one ticked with your role, then All workspaces…), Settings (opens
   Profile) and Sign out; simulations add Switch employee. Edit profile, My account
-  and Appearance were removed; theme is in Preferences. A status row comes later.
+  and Appearance were removed; theme is in Preferences. Under your name, the status
+  line ("In a meeting · Clears tonight · change", or "Set a status") opens **Set a
+  status** (D245, `designs/chat-and-account` screen 3): Available, Working, Busy, In a
+  meeting, Away, or your own text (80 characters) and emoji, and Clear after 1 hour,
+  today, this week or never, worked out in your own time zone. Busy quietens desktop
+  alerts to direct messages and what is for you (@mentions and replies to your
+  requests); approval alerts wait in Home's Notifications while Busy. Your photo on the
+  rail shows the green dot others see.
+- **Show when I'm online** (Preferences, D245): one switch, on by default, saved on the
+  server with your presence (`show_online` in `GET/POST /preferences`). Off, nobody sees
+  a green dot or "last seen" for you, enforced by the server, while you still see
+  theirs; your status still shows. A save that leaves it out keeps it as it is, so an
+  older page cannot show someone who chose to hide. See
+  [presence](reliable-messaging.md#presence-and-status-schema-98-d245).
 
 Pages use `?view=settings&section=<page>`. Older links still open the right page:
 - `scope=…&section=my-account|appearance|help-&-feedback|general|access|activity|teams`;

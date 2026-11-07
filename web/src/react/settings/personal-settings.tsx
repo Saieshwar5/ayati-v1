@@ -35,7 +35,8 @@ export function Preferences() {
   </section>;
 }
 
-type Saved = { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean };
+/** `show_online` is "Show when I'm online" (D245); the server keeps it with your presence. */
+type Saved = { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean; show_online?: boolean };
 const loadPreferences = () => chatRequest<Saved>('/preferences');
 
 function NotificationDefaults() {
@@ -47,7 +48,7 @@ function NotificationDefaults() {
     const next = { ...data, ...change };
     void mutation.run(async () => { resource.setData(await chatRequest<Saved>('/preferences', next)); setNotifyDefaults(next); mutation.setStatus('Saved.'); });
   };
-  return <section className="settings-notifications" aria-label="Notifications"><h3>Notifications</h3>
+  return <><section className="settings-notifications" aria-label="Notifications"><h3>Notifications</h3>
     {resource.error && <p role="alert">{resource.error}</p>}
     {!data && !resource.error && <p role="status">Loading notifications…</p>}
     {data && <fieldset className="ui-fieldset settings-rows" disabled={mutation.busy}>
@@ -61,6 +62,12 @@ function NotificationDefaults() {
         <label className="ui-switch"><input type="checkbox" role="switch" checked={data.approval_alerts} onChange={event => save({ approval_alerts: event.target.checked })} /><span>Approvals for agents I manage</span></label></div>
       <div className="settings-row"><span><strong>Email alerts</strong><small>When you are away from Cuckoo.</small></span><span className="ui-badge settings-soon">Coming later</span></div>
     </fieldset>}
-    <p className="ui-status" role="status">{mutation.status}</p>
-  </section>;
+  </section>
+  {data && <section className="settings-presence" aria-label="Presence"><h3>Presence</h3>
+    <fieldset className="ui-fieldset settings-rows" disabled={mutation.busy}>
+      <div className="settings-row"><span><strong>Show when I’m online</strong><small>Off: nobody sees a green dot or “last seen” for you. Your status still shows.</small></span>
+        <label className="ui-switch"><input type="checkbox" role="switch" checked={data.show_online !== false} onChange={event => save({ show_online: event.target.checked })} /><span>Show when I’m online</span></label></div>
+    </fieldset>
+  </section>}
+  <p className="ui-status" role="status">{mutation.status}</p></>;
 }

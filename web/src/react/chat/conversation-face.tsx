@@ -1,15 +1,19 @@
 import { AgentFace, AiTag, PersonFace } from '../faces';
 import { directPartner, type Conversation, type Directory, type Participant } from './model';
+import { PresenceDot } from './presence-view';
 
-/** A channel shows # (or a lock when private); a direct message shows the other side. */
+/** A channel shows # (or a lock when private); a direct message shows the other side, with their online dot. */
 export function ConversationFace({ chat, directory }: { chat: Conversation; directory: Directory }) {
   const partner = directPartner(chat, directory);
-  if (partner) return <ParticipantFace kind={partner.kind} who={partner.who} />;
+  if (partner) return <ParticipantFace kind={partner.kind} who={partner.who} presence />;
   return <span className="chat-avatar channel" aria-hidden="true">{chat.visibility === 'public' ? '#' : <LockIcon />}</span>;
 }
 
-export function ParticipantFace({ kind, who }: { kind: 'user' | 'agent'; who: Participant }) {
-  return kind === 'agent' ? <AgentFace agent={who} /> : <PersonFace person={who} />;
+/** `presence` adds a person's green dot (D245); agents never have one. */
+export function ParticipantFace({ kind, who, presence = false }: { kind: 'user' | 'agent'; who: Participant; presence?: boolean }) {
+  if (kind === 'agent') return <AgentFace agent={who} />;
+  // The dot subscribes on its own, so a change rerenders only the faces showing that person.
+  return <PersonFace person={who} badge={presence ? <PresenceDot id={who.id} /> : undefined} />;
 }
 
 /** The name with an AI tag for agents, so people and agents read the same way. */

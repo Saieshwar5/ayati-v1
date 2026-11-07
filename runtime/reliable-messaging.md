@@ -99,6 +99,52 @@ a change that can affect them (a message change from someone else, an access cha
 a reset), one read at a time; receipts and reactions on your own messages, agent pauses
 and panel access do not trigger a read.
 
+## Presence and status (schema 98, D245)
+
+Presence rides on the same stream; no browser timer sends heartbeats. While a person's
+stream is open, the controller holding it keeps them online: one beat when the stream
+opens, then one statement every 15 seconds for everyone connected to that controller
+(none while nobody is). A beat writes only when the last one is at least 28 seconds old,
+whichever tab or controller wrote it, so an online person costs about one row update
+every 30 seconds (`relay_member_presence.seen_ms`, one row per member, updated in
+place). Someone is online while their last beat is under 70 seconds old, worked out
+when read, so a crashed controller cannot leave anyone online.
+
+Beats are never journal rows: nothing goes into `relay_sync_events`, and a beat that
+changes nothing anyone sees announces nothing. Only transitions are announced: coming
+online, going offline, a status set or cleared, and "Show when I'm online" switched.
+Each raises the row's revision and sends the new view with `pg_notify('relay_presence',
+'<schema>/<json>')` in the transaction that makes it. The listener (the same LISTEN
+connection) hands it to this controller's streams for that workspace, which send a
+named `presence` event carrying `{people: [{id, online, last_seen, status, revision}]}`:
+ids and states only, no `id:` line, so the reconnect cursor stays the change cursor.
+Each stream also sends everyone's presence after its first batch and again after the
+listener reconnects or the stream lagged, so a missed change is repaired. The browser
+keeps one store (`web/src/react/chat/presence.ts`) fed by `/chat-directory` and these
+events; an older revision never replaces a newer one, and data for another workspace or
+account is dropped.
+
+Going offline needs a clock: a sweep marks people offline once their last beat expires.
+Each controller runs it when the earliest online person could expire (so about every 30
+seconds while anyone is online, never while nobody is), woken by a `relay_work`
+`<schema>/presence` signal when someone comes online. A transaction-scoped advisory
+lock lets one controller sweep at a time; the others look again 28 seconds later. The
+update's row lock makes each offline change, and its announcement, happen exactly once.
+The sweep is the one deliberate look across workspaces, through a partial index on
+people still marked online. A status's end (`clear_at`) is checked when read, so no
+sweep clears statuses.
+
+Privacy is enforced when the view is built on the server: only members of the workspace
+read it (the directory, the stream and the status endpoint check membership), agents are
+not members and have none, and someone who turned off "Show when I'm online" is shown
+offline with no last seen to everyone, themselves included; their beats raise no revision
+and announce nothing, and their status still shows. Away is a status: the browser shows
+no dot for it. Presence events between a stream's checks rely on the access check made
+under 30 seconds earlier. `POST /api/identity/workspaces/{w}/status` with `{"status":
+{kind, emoji, text, clear_at}}` or `{"status": null}` sets or clears your own status;
+text is at most 80 characters on one line and the emoji is a single emoji, both checked
+by the server and the database.
+
 ## Verification
 
 Run after starting the isolated server:
@@ -171,7 +217,7 @@ still relies on history loading.
 No service worker/offline application shell is installed: an already open application
 can queue while disconnected; loading the entire website from scratch while its server
 is down is not promised. Browser data clearing can remove unsent local messages. Failed
-uploads are not durably resumable offline. Push notifications, typing/presence, browser
+uploads are not durably resumable offline. Push notifications, typing indicators, browser
 multi-tab connection sharing (not needed at the measured idle cost above), per-tenant cluster-wide rate quotas, message editing,
 unsend and per-organization receipt policy remain separate features. A stream receipt
 is not a cryptographic proof of human attention. Authorization is checked against the

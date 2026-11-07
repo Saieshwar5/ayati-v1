@@ -118,9 +118,27 @@ Use the approved OpenPencil page 09 / option 1: one workspace with a floating
 composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
 240 px before the existing phone list/conversation switch. Sidebar and conversation
 headers share a 64 px height. Only the conversation header has a bottom divider;
-do not extend it under the sidebar's Chat title. Keep connection status in the
-header. Use 28 px single-line sidebar rows, 40 px header avatars and 36 px
+do not extend it under the sidebar's Chat title. Since D245 the header no longer
+shows your own connection ("Connected", "Reconnecting…"): a thin banner under it
+appears only while you are offline (warning colors, with Retry) or reconnecting
+(quiet, with a turning icon that stops under reduced motion). A direct message's
+header shows the other person instead: "● Online · 🗓️ In a meeting · until 11:30 AM",
+"Last seen 9:58 AM" (or a date), or their job title when nothing is known; agents
+show their job and never presence. Use 28 px single-line sidebar rows, 40 px header
+avatars (32 px on phones, where the header keeps the avatar and its dot) and 36 px
 incoming-message avatars. Unread rows use a bold name and an accent count.
+
+Presence follows `designs/chat-and-account` screens 2, 3, 9 and 10 (D245). A green
+dot (`--online`, ringed with the surface) on a person's face means Cuckoo was open in
+about the last minute; there is no dot when away, when the status is Away or when they
+hide their presence, and agents never have one. Dots appear in the Chat list, the
+direct message header, People & agents, the profile panel, the @mention list and your
+own photo on the rail. The status emoji follows the name in the list, with its text
+on hover; the profile shows the status with when it clears; the @mention list shows
+it after the job. Rows read "Meera Iyer, online, In a meeting" to screen readers.
+Status text is shown only as text. Set a status is a native dialog opened from the
+status line in the account menu: preset rows with a radio each, your own text with
+an emoji picker, Clear after as segmented radios, then Clear status, Cancel and Save.
 
 People and agents share the same lists and the same round avatars (`faces.tsx`).
 People show their photo or initials on a tinted circle; agents show an uploaded

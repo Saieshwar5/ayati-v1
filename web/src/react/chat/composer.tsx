@@ -3,6 +3,7 @@ import { ParticipantFace, ParticipantName } from './conversation-face';
 import { Button } from '../ui';
 import { decodeMentions, editMentions, encodeMentions, type Mention } from './mentions';
 import { EmojiPicker } from './emoji-picker';
+import { MentionStatus } from './presence-view';
 import './composer.css';
 export type ComposerProps = {
   value: string; change: (value: string) => void; send: () => void;
@@ -72,7 +73,8 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
       {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
-        <ParticipantFace kind={item.kind} who={item} /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? 'Asks this agent to work' : item.title || 'Person'}</small>
+        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? 'Asks this agent to work' : item.title || 'Person'}</small>
+        {item.kind === 'user' && <MentionStatus id={item.id} />}
       </button>)}
     </div>}
     <textarea ref={input} aria-label={label} aria-autocomplete={candidates.length ? 'list' : undefined} aria-controls={choices.length ? menuId : undefined} aria-activedescendant={choices.length ? `${menuId}-${selected}` : undefined}

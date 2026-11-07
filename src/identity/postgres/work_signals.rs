@@ -35,6 +35,8 @@ pub(crate) struct WorkSignals {
     pub schedule: Notify,
     /// The voice transcription worker.
     pub transcribe: Notify,
+    /// The presence sweep: someone came online and can now go offline (schema 98).
+    pub presence: Notify,
 }
 impl WorkSignals {
     /// Wakes the loop a notification for `schema` names; one for another schema
@@ -50,6 +52,7 @@ impl WorkSignals {
             "dispatch" => self.dispatch.notify_one(),
             "schedule" => self.schedule.notify_one(),
             "transcribe" => self.transcribe.notify_one(),
+            "presence" => self.presence.notify_one(),
             _ => self.wake_all(),
         }
     }
@@ -58,6 +61,7 @@ impl WorkSignals {
         self.dispatch.notify_one();
         self.schedule.notify_one();
         self.transcribe.notify_one();
+        self.presence.notify_one();
     }
 }
 

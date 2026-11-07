@@ -4,6 +4,17 @@ use serde_json::json;
 // Used for both snapshot and live payloads, including updated receipts and media.
 pub(super) const MESSAGE: &str = "SELECT to_jsonb(m) - 'target' - 'requester' || jsonb_build_object('for_me',(strpos(m.content,'](mention:user:'||$3||')')>0 OR (m.kind='agent' AND m.requester=$3)),'reactions',(SELECT coalesce(jsonb_agg(jsonb_build_object('emoji',x.emoji,'count',x.n,'mine',x.mine) ORDER BY x.first,x.emoji),'[]'::jsonb) FROM (SELECT r.emoji,count(*) AS n,bool_or(r.user_id=$3) AS mine,min(r.at) AS first FROM relay_message_reactions r WHERE r.workspace=m.workspace AND r.message=m.id GROUP BY r.emoji) x),'name',CASE WHEN m.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=m.workspace AND a.id=m.author) ELSE COALESCE(u.display_name,u.email) END,'attachments',coalesce((SELECT jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'mime',o.mime,'size',o.size,'checksum',o.checksum)) FROM relay_objects o WHERE o.workspace=m.workspace AND o.chat=m.chat AND m.attachments @> jsonb_build_array(o.id)),'[]'::jsonb),'delivered',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id) ELSE 0 END,'seen',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND seen_at IS NOT NULL)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.seen_at IS NOT NULL) ELSE 0 END) AS data FROM relay_chat_messages m LEFT JOIN relay_users u ON u.id=m.author WHERE m.workspace=$1 AND m.id=$2";
 
+/// What the controller's listener tells this process's live streams.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Live {
+    /// Messages, receipts or access changed in this workspace.
+    Changed(String),
+    /// The listener (re)connected: anything may have changed while it was away.
+    Everything,
+    /// Someone's presence or status changed (schema 98, `presence.rs`).
+    Presence(std::sync::Arc<super::chat::presence::Change>),
+}
+
 impl PgStore {
     pub async fn accepted_message(
         &self,
@@ -29,9 +40,10 @@ impl PgStore {
         tx.commit().await?;
         Ok(message)
     }
-    /// The controller's one LISTEN connection: message changes for live streams,
-    /// and work for the background loops (`work_signals.rs`, schema 97).
+    /// The controller's one LISTEN connection: message changes and presence for
+    /// live streams, and work for the background loops (`work_signals.rs`, schema 97).
     pub async fn listen_changes(&self) -> Result<()> {
+        use super::chat::presence;
         let schema: String = query(&self.db, "SELECT current_schema() AS schema", vec![])
             .await?
             .context("Schema unavailable")?
@@ -41,20 +53,31 @@ impl PgStore {
         )
         .await?;
         listener
-            .listen_all(["relay_message_changes", super::work_signals::CHANNEL])
+            .listen_all([
+                "relay_message_changes",
+                super::work_signals::CHANNEL,
+                presence::CHANNEL,
+            ])
             .await?;
         crate::identity::live_metrics::listener(true);
         loop {
             // Anything announced while the listener was away: every stream and
             // every loop checks now.
-            let _ = self.changes.send("*".into());
+            let _ = self.changes.send(Live::Everything);
             self.work.wake_all();
             // `None` means the connection dropped and was re-established.
             while let Some(notification) = listener.try_recv().await? {
-                if notification.channel() == super::work_signals::CHANNEL {
-                    self.work.notified(&schema, notification.payload());
-                } else {
-                    let _ = self.changes.send(notification.payload().to_owned());
+                let payload = notification.payload();
+                match notification.channel() {
+                    super::work_signals::CHANNEL => self.work.notified(&schema, payload),
+                    presence::CHANNEL => {
+                        if let Some(change) = presence::Change::parse(&schema, payload) {
+                            let _ = self.changes.send(Live::Presence(change.into()));
+                        }
+                    }
+                    _ => {
+                        let _ = self.changes.send(Live::Changed(payload.to_owned()));
+                    }
                 }
             }
         }

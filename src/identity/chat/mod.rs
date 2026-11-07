@@ -5,9 +5,11 @@ pub(crate) mod model;
 mod notifications;
 mod organization;
 pub(crate) mod organization_model;
+mod presence;
 mod search;
 mod stream_limit;
 pub(crate) use stream_limit::open_now as open_streams;
+pub(crate) mod status;
 mod sync;
 mod task_progress;
 use super::*;
@@ -23,6 +25,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(organization::routes())
         .merge(message_actions::routes())
         .merge(notifications::routes())
+        .merge(presence::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
             get(focus),
@@ -235,6 +238,7 @@ async fn background(
 /// control; only the scripted company simulation answers inside the controller.
 pub(super) fn start_dispatcher(app: Shared) {
     sync::start(app.clone());
+    presence::start(app.clone());
     if app.simulation.is_some() && !app.store.pooled {
         super::simulation::dispatch::start(app);
     }

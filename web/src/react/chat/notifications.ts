@@ -6,6 +6,7 @@ import { navigate } from '../../navigation';
 import { subscribeChanges, type Change } from './live';
 import { chatRequest, type Conversation, type Message } from './model';
 import { loadAttention } from '../attention/model';
+import { activeStatus, ownPresence } from './presence';
 
 export type Level = 'all' | 'mentions' | 'none';
 /** The person's own defaults (Settings → Preferences), stored on the server. */
@@ -30,11 +31,16 @@ export function alertText(content: string): string {
   return text.length > 140 ? `${text.slice(0, 137)}…` : text;
 }
 
-export function shouldAlert(message: Message, chat: Conversation | undefined, level: Level, viewing: boolean, now = Date.now() / 1000): boolean {
+/** Busy (D245) quietens alerts to direct messages and what is for you: @mentions
+ * and replies to your requests. It ends when the status clears. */
+export const quietened = () => activeStatus(ownPresence())?.kind === 'busy';
+
+export function shouldAlert(message: Message, chat: Conversation | undefined, level: Level, viewing: boolean, now = Date.now() / 1000, quiet = quietened()): boolean {
   if (!chat || viewing || level === 'none') return false;
   if (message.author === workspaceSession?.user?.id) return false;
   if (message.state !== (message.kind === 'agent' ? 'complete' : 'sent')) return false;
   if (now - message.at > RECENT_SECONDS) return false;
+  if (quiet && chat.kind !== 'direct' && !message.for_me) return false;
   return level === 'all' || Boolean(message.for_me);
 }
 
@@ -77,6 +83,9 @@ async function show(change: Change) {
 const knownApprovals = new Set<string>();
 async function approvals(silent: boolean) {
   if (!defaults.desktop_alerts || !defaults.approval_alerts) return;
+  // Busy keeps approvals in Home's Notifications without an alert; they are
+  // remembered, so ending Busy does not announce old ones.
+  silent ||= quietened();
   try {
     const page = await loadAttention('needs_you', null);
     for (const item of page.items) {

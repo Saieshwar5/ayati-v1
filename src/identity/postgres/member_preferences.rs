@@ -1,5 +1,6 @@
-//! Personal notification defaults (D232 slice 2), stored on the server so they
-//! follow the person to every device. Theme stays on the device.
+//! Personal notification defaults (D232 slice 2) and "Show when I'm online"
+//! (D245), stored on the server so they follow the person to every device.
+//! Theme stays on the device.
 use super::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -13,6 +14,11 @@ pub(crate) struct Preferences {
     pub channel_level: String,
     /// Alerts when an agent the person manages asks for approval.
     pub approval_alerts: bool,
+    /// Whether others see when the person is online (kept with their presence,
+    /// `presence.rs`). Left out of a save, it stays as it is, so a page that
+    /// predates it can never show someone who chose to hide.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_online: Option<bool>,
 }
 
 impl Default for Preferences {
@@ -21,6 +27,7 @@ impl Default for Preferences {
             desktop_alerts: true,
             channel_level: "mentions".into(),
             approval_alerts: true,
+            show_online: None,
         }
     }
 }
@@ -49,6 +56,7 @@ pub(crate) async fn defaults(
         desktop_alerts: row.try_get("", "desktop_alerts")?,
         channel_level: row.try_get("", "channel_level")?,
         approval_alerts: row.try_get("", "approval_alerts")?,
+        show_online: None,
     })
 }
 
@@ -56,12 +64,13 @@ impl PgStore {
     pub(crate) async fn preferences(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let saved = defaults(&tx, w, &user.id).await?;
+        let mut saved = defaults(&tx, w, &user.id).await?;
+        saved.show_online = Some(super::super::chat::presence::visible(&tx, w, &user.id).await?);
         tx.commit().await?;
         Ok(json!(saved))
     }
 
-    /// Saves all three choices at once; the page sends the whole set each time.
+    /// Saves the notification choices at once; the page sends the whole set each time.
     pub(crate) async fn save_preferences(
         &self,
         user: &User,
@@ -78,7 +87,19 @@ impl PgStore {
         execute(&tx, "INSERT INTO relay_member_preferences(workspace,user_id,desktop_alerts,channel_level,approval_alerts) VALUES($1,$2,$3,$4,$5)
             ON CONFLICT(workspace,user_id) DO UPDATE SET desktop_alerts=EXCLUDED.desktop_alerts,channel_level=EXCLUDED.channel_level,approval_alerts=EXCLUDED.approval_alerts",
             vec![w.into(), user.id.clone().into(), input.desktop_alerts.into(), input.channel_level.clone().into(), input.approval_alerts.into()]).await?;
+        use super::super::chat::presence;
+        let show_online = match input.show_online {
+            Some(shown) => {
+                presence::set_visible(&tx, w, &user.id, shown).await?;
+                shown
+            }
+            None => presence::visible(&tx, w, &user.id).await?,
+        };
         tx.commit().await?;
-        Ok(json!(input))
+        Ok(json!(Preferences {
+            show_online: Some(show_online),
+            channel_level: input.channel_level.clone(),
+            ..*input
+        }))
     }
 }

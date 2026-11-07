@@ -39,7 +39,7 @@ async function shell(run, { simulation = false, user = { id: 'one', email: 'priy
   } });
 }
 
-test('The account menu holds only you, your workspaces, Settings and Sign out (D245)', async () => {
+test('The account menu holds only you, your status, your workspaces, Settings and Sign out (D245)', async () => {
   await shell(async () => {
     assert.equal(document.querySelectorAll('aside button[aria-label="Your account"]').length, 1);
     assert.equal(document.querySelector('aside').lastElementChild.getAttribute('aria-label'), 'Your account');
@@ -47,7 +47,7 @@ test('The account menu holds only you, your workspaces, Settings and Sign out (D
     assert.equal(trigger().getAttribute('popovertarget'), 'workspace-profile');
     assert.equal(named(menu().querySelector('.account-menu-identity')), 'Priya Shah priya@example.com');
     assert.equal(menu().querySelector('h2').textContent, 'Workspaces');
-    assert.deepEqual(items(), ['Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Settings', 'Sign out']);
+    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Settings', 'Sign out']);
     assert.deepEqual([...menu().querySelectorAll('a')].map(link => link.getAttribute('href')),
       [`/w/${first}/`, `/w/${second}/`, '/?view=account&choose=1', `/w/${first}/?view=settings&section=profile`]);
     // The current workspace is ticked; the others are plain choices.
@@ -93,7 +93,7 @@ test('Escape closes the menu and returns focus to your photo', async () => {
 
 test('Simulations keep the switch-employee entry', async () => {
   await shell(async () => {
-    assert.deepEqual(items(), ['Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Simulation · switch employee', 'Settings', 'Sign out']);
+    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Simulation · switch employee', 'Settings', 'Sign out']);
     assert.equal([...menu().querySelectorAll('a')].find(link => named(link) === 'Simulation · switch employee').getAttribute('href'), '/index.html?view=simulation');
   }, { simulation: true });
 });

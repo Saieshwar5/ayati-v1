@@ -46,6 +46,24 @@ the message stay as they are. Human mentions are
 highlighted in the conversation and participate in ordinary unread/receipt behavior;
 this increment does not add a separate mention inbox, email or push notifications.
 
+## Presence and status (D245)
+
+People show who is around (`designs/chat-and-account` screens 2, 3, 9, 10): a green
+dot on the face of anyone who had Cuckoo open in about the last minute, no dot when
+away, and "Last seen 9:58 AM" (or a date) in a direct message's header. Agents never
+show presence. A status is one of Available, Working, Busy, In a meeting, Away or your
+own text (80 characters) with an emoji, and clears after 1 hour, today, this week or
+never; it shows after the name in the Chat list, in the profile, in the @mention list
+and under your name in the account menu, which opens Set a status. Away shows no dot
+even with Cuckoo open. Busy quietens desktop alerts to direct messages, @mentions and
+replies to your requests. "Show when I'm online" (Settings → Preferences) is one-sided:
+off hides your dot and last seen from everyone, while you still see theirs.
+
+The header no longer shows your own connection; a thin banner appears only while you
+are offline or reconnecting. The browser keeps one presence store fed by
+`/chat-directory` and the live stream's `presence` events, with no extra polling.
+Server design, write rate and privacy: [presence and status](reliable-messaging.md#presence-and-status-schema-98-d245).
+
 ## Replies and media
 
 An agent requested in the main channel responds in the main channel timeline.

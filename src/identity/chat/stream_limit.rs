@@ -18,6 +18,14 @@ pub(crate) fn open_now() -> usize {
         .lock()
         .map_or(0, |counts| counts.total)
 }
+/// Each (workspace, person) with a live connection open on this server now:
+/// the people this controller keeps online (`presence.rs`).
+pub(super) fn open_people() -> Vec<(String, String)> {
+    COUNTS.get_or_init(Default::default).lock().map_or_else(
+        |_| Vec::new(),
+        |counts| counts.users.keys().cloned().collect(),
+    )
+}
 pub(super) struct Permit {
     workspace: String,
     user: String,

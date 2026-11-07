@@ -235,7 +235,7 @@ mod login_flows;
 pub(crate) mod message_search;
 #[cfg(test)]
 mod message_search_tests;
-mod messaging;
+pub(crate) mod messaging;
 pub mod migration;
 #[cfg(test)]
 mod migration_fixture;
@@ -299,7 +299,7 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct PgStore {
     db: DatabaseConnection,
-    pub(crate) changes: tokio::sync::broadcast::Sender<String>,
+    pub(crate) changes: tokio::sync::broadcast::Sender<messaging::Live>,
     /// Wake-ups for the background loops, from the same listener (schema 97).
     pub(crate) work: std::sync::Arc<work_signals::WorkSignals>,
     /// Agent replies go to pooled executors. False only for the scripted

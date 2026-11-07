@@ -21,7 +21,7 @@ try {
  const sender=await a.newPage(),receiver=await b.newPage();
  for(const p of [sender,receiver])p.on('pageerror',e=>errors.push(String(e)));
  await Promise.all([sender.goto(url),receiver.goto(url)]);
- for(const p of [sender,receiver])await p.getByText('Connected',{exact:true}).waitFor();
+ for(const p of [sender,receiver])await p.locator('.chat-conversation[data-connection="Connected"]').waitFor();
  const send=async(text)=>{await sender.getByRole('textbox',{name:'Message',exact:true}).fill(text);await sender.getByRole('button',{name:'Send message',exact:true}).click();};
  const history=async()=>{const r=await a.request.get(`${c.base}${c.w}/chats/${chat}/messages`);assert.ok(r.ok());return(await r.json()).messages;};
  await receiver.evaluate(()=>{Object.defineProperty(document,'hidden',{get:()=>true,configurable:true});Object.defineProperty(document,'hasFocus',{value:()=>false,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});
@@ -76,7 +76,7 @@ try {
  });
  await check('Disconnected recipients replay missed messages on reconnect',async()=>{
   await b.setOffline(true);
-  await until(async()=>(await receiver.locator('.chat-connection').textContent())!=='Connected');
+  await until(async()=>(await receiver.locator('.chat-conversation').getAttribute('data-connection'))!=='Connected');
   const missed=[0,1,2].map(i=>`Catch-up ${i} ${randomUUID()}`);
   for(const text of missed)await send(text);
   await until(async()=>(await history()).filter(m=>missed.includes(m.content)).length===3);

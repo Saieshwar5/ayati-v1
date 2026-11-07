@@ -11,3 +11,6 @@
 .face-tone-5 { --tone: #2a7a75; }
 .face.person:not(:has(img)) { background: color-mix(in srgb, var(--tone) 16%, var(--surface)); color: color-mix(in srgb, var(--tone) 75%, var(--text)); }
 .ai-tag { display: inline-block; padding: 0 5px; border-radius: 5px; background: var(--selection); color: var(--muted); font-size: 10px; font-weight: 600; line-height: 16px; letter-spacing: .02em; vertical-align: middle; }
+/* A badge (Chat's online dot) overlaps the edge, so the picture is clipped instead of the face. */
+.face.face-badged { position: relative; overflow: visible; }
+.face.face-badged > img { border-radius: inherit; }

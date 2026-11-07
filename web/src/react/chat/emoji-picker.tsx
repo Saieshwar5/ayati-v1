@@ -2,8 +2,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { searchEmoji } from './emoji-list';
 
-/** Composer button that inserts an emoji into the text being written. */
-export function EmojiPicker({ insert, disabled }: { insert: (emoji: string) => void; disabled?: boolean }) {
+/** Composer button that inserts an emoji into the text being written. With
+ * `chosen` (the status dialog) the button shows the emoji picked so far. */
+export function EmojiPicker({ insert, disabled, chosen }: { insert: (emoji: string) => void; disabled?: boolean; chosen?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const root = useRef<HTMLSpanElement>(null);
@@ -21,13 +22,14 @@ export function EmojiPicker({ insert, disabled }: { insert: (emoji: string) => v
   }, [open]);
 
   return <span className="emoji-picker" ref={root}>
-    <Button ref={toggle} className="ui-icon composer-emoji" aria-label="Add emoji" title="Add emoji" aria-expanded={open} aria-controls={open ? id : undefined}
+    <Button ref={toggle} className={`ui-icon composer-emoji${chosen === undefined ? '' : ' emoji-chosen'}`} aria-label={chosen === undefined ? 'Add emoji' : `Choose an emoji${chosen ? `, now ${chosen}` : ''}`}
+      title={chosen === undefined ? 'Add emoji' : 'Choose an emoji'} aria-expanded={open} aria-controls={open ? id : undefined}
       disabled={disabled} onClick={() => (open ? close(false) : setOpen(true))}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      {chosen ? <span aria-hidden="true">{chosen}</span> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
         <circle cx="12" cy="12" r="9" /><path d="M8.5 14.5s1.3 1.8 3.5 1.8 3.5-1.8 3.5-1.8" /><path d="M9 9.5h.01M15 9.5h.01" strokeWidth="2.4" strokeLinecap="round" />
-      </svg>
+      </svg>}
     </Button>
-    {open && <div className="emoji-panel" id={id} role="dialog" aria-label="Emoji" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(true); } }}>
+    {open && <div className="emoji-panel" id={id} role="dialog" aria-label="Emoji" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); } }}>
       <input type="search" autoFocus aria-label="Search emoji" placeholder="Search emoji" value={query} onChange={event => setQuery(event.target.value)} />
       <div className="emoji-grid" role="group" aria-label={query ? 'Matching emoji' : 'Frequently used'}>
         {results.map(item => <button type="button" key={item.emoji} aria-label={item.words.split(' ')[0]} title={item.words.split(' ').slice(0, 2).join(' ')}

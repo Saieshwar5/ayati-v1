@@ -67,4 +67,3 @@
 .workspace-chat .chat-pane-header > div:not(.chat-notify) { min-width: 0; flex: 1; }
 .workspace-chat .chat-header-meta .chat-kind { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-chat .chat-pane-header h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 600px) { .workspace-chat .chat-header-meta .chat-connection { display: none; } }
