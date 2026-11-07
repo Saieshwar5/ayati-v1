@@ -123,6 +123,17 @@ supply another principal, parent, workspace, channel, thread or permission set.
 Shared pooled execution is required. Other adapters fail without admitting work.
 The UI requires no invented connector grants or separate handoff permission form.
 
+A channel task's instructions say when to hand off: when someone asks the agent to
+ask, get something from, check with or coordinate with another agent, it calls
+`request_handoff`; writing `@Name` in its reply does not reach that agent. They
+list the helpers eligible when the task is prepared (name, ID and role), using the
+same checks as `handoff_targets`, which the agent calls if the list may be stale.
+With no eligible helper they say so in one sentence: no other managed shared agent
+is in the channel, or the others are already in this handoff or may not work for
+this person. Direct messages, groups and other non-channel conversations get no
+handoff instructions. A handoff task may name agents with mention links: they stay
+plain text and only the handoff's target is asked.
+
 A helper result enters its parent's continuation as at most 2,000 characters with
 an explicit `truncated` marker and original source link. The complete saved child
 response remains available through its authorized reader; the original result is
