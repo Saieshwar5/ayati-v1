@@ -44,6 +44,16 @@ impl MigrationTrait for SeveralAgentsPerMessage {
     }
 }
 
+/// What the asked agents take a message for.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Asking {
+    /// Work for each agent, in the interactive or the background queue.
+    Work { background: bool },
+    /// An emoji-only message each agent only reacts to (agent_reactions.rs). It
+    /// takes no queue place, model call or budget, so none of those is checked.
+    Reaction,
+}
+
 /// Every asked agent may take this message, or none is asked: the queue has
 /// room for all of them, and each passes the same checks a single agent always
 /// has. One refused agent refuses the message, naming each agent and its reason.
@@ -53,32 +63,18 @@ pub(super) async fn admit(
     w: &str,
     chat: &str,
     asked: &[String],
-    background: bool,
+    asking: Asking,
 ) -> Result<()> {
     if asked.is_empty() {
         return Ok(());
     }
     ensure_running(tx, w).await?;
-    let more = asked.len() as i64;
-    let pending: i64 = query(tx, "SELECT count(*) AS total FROM relay_chat_messages WHERE workspace=$1 AND kind='agent' AND state='queued'", vec![w.into()])
-        .await?
-        .context("Missing count")?
-        .try_get("", "total")?;
-    if background {
-        let count: i64 = query(tx, "SELECT count(*) AS total FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.id=j.reply WHERE j.workspace=$1 AND j.work_class='background' AND m.state='queued'", vec![w.into()])
-            .await?
-            .context("Missing background count")?
-            .try_get("", "total")?;
-        if count + more > 32 {
-            return Err(BackgroundQueueFull.into());
-        }
-    }
-    if pending + more > 64 {
-        return Err(QueueFull.into());
+    if let Asking::Work { background } = asking {
+        queue_room(tx, w, asked.len() as i64, background).await?;
     }
     let mut refusals = Vec::new();
     for agent in asked {
-        if let Some(reason) = refusal(tx, user, w, chat, agent).await? {
+        if let Some(reason) = refusal(tx, user, w, chat, agent, asking).await? {
             refusals.push((agent, reason));
         }
     }
@@ -96,6 +92,27 @@ pub(super) async fn admit(
     }
 }
 
+/// The queue has room for `more` replies.
+async fn queue_room(tx: &DatabaseTransaction, w: &str, more: i64, background: bool) -> Result<()> {
+    let pending: i64 = query(tx, "SELECT count(*) AS total FROM relay_chat_messages WHERE workspace=$1 AND kind='agent' AND state='queued'", vec![w.into()])
+        .await?
+        .context("Missing count")?
+        .try_get("", "total")?;
+    if background {
+        let count: i64 = query(tx, "SELECT count(*) AS total FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.id=j.reply WHERE j.workspace=$1 AND j.work_class='background' AND m.state='queued'", vec![w.into()])
+            .await?
+            .context("Missing background count")?
+            .try_get("", "total")?;
+        if count + more > 32 {
+            return Err(BackgroundQueueFull.into());
+        }
+    }
+    if pending + more > 64 {
+        return Err(QueueFull.into());
+    }
+    Ok(())
+}
+
 /// Why `agent` can't take this person's message here, if it can't.
 async fn refusal(
     tx: &DatabaseTransaction,
@@ -103,6 +120,7 @@ async fn refusal(
     w: &str,
     chat: &str,
     agent: &str,
+    asking: Asking,
 ) -> Result<Option<String>> {
     let here = query(
         tx,
@@ -125,10 +143,12 @@ async fn refusal(
             "Agent is not shared with you".into()
         }));
     }
-    if !agent_model_allowed(tx, w, agent).await? {
+    if asking != Asking::Reaction && !agent_model_allowed(tx, w, agent).await? {
         return Ok(Some("This agent's model is no longer allowed in this workspace. Ask its owner to choose another model.".into()));
     }
-    if let Some(reason) = budget_reached(tx, w, agent).await? {
+    if asking != Asking::Reaction
+        && let Some(reason) = budget_reached(tx, w, agent).await?
+    {
         return Ok(Some(reason));
     }
     if here.is_none() {
@@ -154,13 +174,15 @@ async fn name(tx: &DatabaseTransaction, w: &str, chat: &str, agent: &str) -> Res
 }
 
 /// A replayed message ID asks exactly the agents it asked the first time, in
-/// the same request class; an exact replay starts nothing new.
+/// the same request class; an exact replay starts nothing new. `reaction`: the
+/// message is emoji-only, which agents react to instead of answering.
 pub(super) async fn replayed(
     tx: &DatabaseTransaction,
     w: &str,
     id: &str,
     asked: &[String],
     class: &str,
+    reaction: bool,
 ) -> Result<()> {
     let jobs = rows(
         tx,
@@ -180,6 +202,11 @@ pub(super) async fn replayed(
             job.try_get::<String>("", "work_class")? == class,
             "Request class cannot change on replay"
         );
+    }
+    // Each agent reacted instead of taking a job (schema 101). The same message
+    // saved before then has jobs, found above.
+    if reaction && jobs.is_empty() {
+        linked = super::super::message_actions::agent_reactions::acknowledged(tx, w, id).await?;
     }
     // Requests saved before schema 16 have no job linked to their message.
     let wanted: BTreeSet<String> = asked.iter().cloned().collect();

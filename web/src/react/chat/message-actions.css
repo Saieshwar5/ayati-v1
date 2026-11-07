@@ -27,6 +27,11 @@
 .chat-message-own .chat-reactions { justify-content: flex-end; }
 .chat-reaction { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
 .chat-reaction[aria-pressed=true] { border-color: color-mix(in srgb, var(--working) 40%, var(--border)); background: color-mix(in srgb, var(--working) 10%, var(--surface)); color: var(--text); }
+/* An agent acknowledging an emoji-only message: its face, name and emoji, not a toggle. */
+.chat-agent-reaction { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-height: 24px; padding: 2px 8px 2px 3px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 12px; }
+.chat-agent-reaction .chat-agent-reaction-face { width: 18px; height: 18px; }
+.chat-agent-reaction-name { min-width: 0; overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+.chat-agent-reaction > span:last-child { flex: none; }
 .chat-reactions .chat-reaction-picker .chat-message-tool { height: 24px; min-width: 26px; border: 1px solid var(--border); border-radius: 12px; }
 
 /* Edited, deleted and editing states. */

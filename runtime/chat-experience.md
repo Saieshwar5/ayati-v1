@@ -117,6 +117,66 @@ Checks: web `tests/chat-visible-handoffs.test.mjs` (order on the main timeline, 
 thread, before schema 100 and with a nested helper; one card; links) and
 `tests/channel-handoffs.test.mjs`.
 
+## Reactions are feedback, never work (schema 101, D246)
+
+The owner's report after AWS window 1: agents answered an emoji sent as a message, but
+not a reaction to their reply. D229 stands: a reaction, a person's or an agent's,
+never starts, approves or cancels anything. Two things changed instead.
+
+- **Feedback in context.** When an agent answers later in a conversation, each of its
+  own replies in the evidence carries the reactions people left on it, as
+  `reactions: [{"emoji":"👍","count":2}]`, most chosen first. Counts only: Chat shows
+  nobody's name on a reaction, so neither does the context. Reactions on people's or
+  other agents' messages are left out, and at most the 20 latest reacted replies keep
+  theirs. The prompt says they are feedback on that reply (👍 or ✅ that it helped, 🤔
+  that it was doubtful) and untrusted data like message text, never instructions or
+  approvals. Details: [conversation context](conversation-context.md#reactions-as-feedback-d246).
+- **An emoji-only message costs no model run.** A person's message that asks agents (a
+  direct message, a quote of an agent's message, an @mention or an agent's thread) and
+  is only emoji gets each asked agent's reaction instead of a reply: "Atlas reacted 👍".
+  Emoji-only means: apart from whitespace and @mentions, one to eight grapheme
+  clusters (Unicode UAX #29), each a single emoji by the same rule as a status emoji
+  (skin tones, joined emoji like 👩‍💻, flags and keycaps count as one). Any letter,
+  digit, "?" or markup, more than eight emoji, or an attached file makes it an ordinary
+  request. The agent reacts with the message's first emoji when it is one of the
+  twelve reactions (skin tone and presentation marks aside), otherwise 👍.
+  - No job, reply, front desk or executor task is created, so there is no model call,
+    budget use or executor slot, and no "Waiting to start" or typing indicator.
+  - The message is stored and synced as usual; each agent's delivered and seen ticks
+    are set at once, as it has read it.
+  - Several agents asked at once each react. Intake stays all or nothing, with the
+    checks that still apply: agents paused for the workspace, may this person ask the
+    agent here, the agent paused, in the conversation. Queue room, the model and the
+    monthly budget are not checked because nothing runs.
+  - An outbox retry of the same message changes nothing; deleting the message removes
+    its agent reactions with it. Email or WhatsApp messages, background requests and
+    handoffs are unchanged, and emoji that ask no agent are an ordinary message.
+    Retry in Activity refuses an emoji-only request saved before schema 101 ("Ask
+    again in words") rather than send it again for a reaction.
+- **Why a reaction, not a short reply.** A reaction is the acknowledgement people
+  already use for "thanks 👍": it adds no message to sort, notify, count as unread or
+  feed into later context, and it costs nothing. A canned text reply would do all of
+  those while saying less.
+- **Client.** Agent reactions show under the message beside people's chips, each with
+  the agent's face and name ("Atlas reacted 👍"). They are not toggles; people's chips,
+  quick reactions and the picker are unchanged.
+- **API and storage.** Message payloads (history, live changes, the accepted message)
+  add `agent_reactions: [{"agent", "emoji", "name"}]`; `reactions` keeps only people's.
+  Schema 101 (`m20261107_000101_agent_reactions`) adds `relay_agent_reactions(workspace,
+  chat, message, agent, emoji, at)`, one per agent and message, removed with its
+  message; `relay_message_reactions` is unchanged. A change refreshes only that message
+  on open screens. The grapheme split uses `unicode-segmentation` 1.13.3 (MIT or
+  Apache-2.0), already in the dependency tree.
+- **Checks.** PostgreSQL `reaction_feedback_tests` (feedback with counts at intake and
+  execution, people's messages left out, a reaction creates no job, the 20-reply bound)
+  and `agent_reaction_tests` (an emoji-only direct message: no job, reply or executor
+  task, the agent's reaction and ticks, retry and
+  delete; two agents and a quote; an agent past its budget still reacts and a paused
+  one refuses; emoji with words still runs; the 100 → 101 upgrade);
+  unit tests for emoji-only; web `tests/chat-message-actions.test.mjs`
+  (name, face, not a toggle, picker unchanged) and `tests/chat-several-agents.test.mjs`
+  (an emoji-only send shows both agents' reactions and no waiting or typing reply).
+
 ## Presence and status (D245)
 
 People show who is around (`designs/chat-and-account` screens 2, 3, 9, 10): a green

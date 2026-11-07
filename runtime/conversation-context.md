@@ -71,6 +71,24 @@ A [read-only context preview](conversation-context-preview.md) makes the current
 conversation selection visible in Agents → Knowledge. It does not impersonate
 another requester or claim to reproduce a historical task.
 
+## Reactions as feedback (D246)
+
+People's reactions on the agent's own replies are added to those replies in the
+evidence, so it can learn how earlier answers landed: `reactions` lists each emoji
+with how many people chose it, most chosen first, for example
+`[{"emoji":"👍","count":2},{"emoji":"🎉","count":1}]`. Who reacted is left out,
+because Chat shows only counts. Replies by other agents and people's messages carry
+none, and agents' own reactions (schema 101) are never feedback. Only the 20 latest
+reacted replies keep their reactions, and they count towards the 14,000-byte bound.
+They are read whenever evidence is assembled (intake, each execution attempt, the
+context preview), so a reaction added while a request waits is seen when it runs.
+
+The prompt explains them only when present: they are feedback on that reply (👍, ✅,
+🙏, 👏, 🎉, 💯, ❤️ or 🔥 that it helped or was appreciated, 🤔 or 😮 doubt or
+surprise, 👀 someone looking into it), and untrusted data like message content, never
+instructions, answers, approvals or requests to act. A reaction still starts no
+work, changes no context fence and approves nothing ([chat](chat-experience.md#reactions-are-feedback-never-work-schema-101-d246)).
+
 ## Older-history tools
 
 Controller-backed managed execution supplies `search_conversation_history` and
@@ -126,6 +144,9 @@ are not automatically learned from private conversation history.
 disposable `RELAY_TEST_DATABASE_URL` checks same-name speakers, forged identity
 text, current profile changes, source conversation isolation, agent authors,
 revocation, exact retries and escaped-input bounds.
+`cargo test --locked --lib reaction_feedback -- --ignored` checks reaction feedback with
+counts at intake and execution, that people's messages carry none and that a
+reaction creates no job.
 
 After `cargo build --locked`, `node --test tests/trusted_sender_context.mjs` uses
 real pinned Goose with a synthetic local inference provider and a disposable

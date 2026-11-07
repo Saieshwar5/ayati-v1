@@ -1,6 +1,12 @@
 //! Editing and deleting your own messages, and reacting to any message you can
 //! read. Reactions are expressions only: they never approve or request work.
+//! An agent sees people's reactions on its replies as feedback (D246).
 use super::*;
+#[cfg(test)]
+#[path = "agent_reaction_tests.rs"]
+mod agent_reaction_tests;
+#[path = "agent_reactions.rs"]
+pub(super) mod agent_reactions;
 
 /// The reactions offered in Chat. A small fixed set keeps them readable.
 pub const REACTIONS: [&str; 12] = [
@@ -64,12 +70,14 @@ impl PgStore {
             vec![w.into(), message.into(), now().into()],
         )
         .await?;
-        execute(
-            &tx,
-            "DELETE FROM relay_message_reactions WHERE workspace=$1 AND message=$2",
-            vec![w.into(), message.into()],
-        )
-        .await?;
+        for table in ["relay_message_reactions", "relay_agent_reactions"] {
+            execute(
+                &tx,
+                &format!("DELETE FROM {table} WHERE workspace=$1 AND message=$2"),
+                vec![w.into(), message.into()],
+            )
+            .await?;
+        }
         let replies = rows(
             &tx,
             "SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND request_message=$2 AND state<>'finished'",
