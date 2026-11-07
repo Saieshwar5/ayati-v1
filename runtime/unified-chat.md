@@ -40,7 +40,17 @@ durable jobs and result-publication checks continue to apply.
 
 The history response contains a bounded 200-message page plus older roots referenced
 by that page. PostgreSQL exposes `next_before` for older pages and the client merges
-loaded history by message ID. SQLite retains its recent-history window. Thread reply
+loaded history by message ID. Scrolling within 400 px of the top loads the next page
+automatically, one read at a time and each page once, and keeps the message being read
+in place. **Load older messages** stays for keyboard use and is the only retry after a
+failed read. A live reset or access change forgets loaded pages and their cursor.
+History marks the viewer's unread messages by the unread-count rule, so a conversation
+opens at an "N unread messages" line above its first unread message ("N+" when unread
+messages continue in older pages), unless a linked message is open. The line stays put
+while the conversation is open and goes once you send a message. Scrolled up more than a
+screen, a floating button jumps to the newest message and counts new finished messages
+from others; thread replies, agent progress notes and changes to older messages are not
+counted. SQLite retains its recent-history window. Thread reply
 counts reflect loaded messages, not exhaustive totals. Agent context remains capped at 30 messages and
 14,000 characters. PostgreSQL supports scoped shared attachments, image/audio display and voice recording
 (WebM, Ogg or MP4, whichever the browser records; audio is served in byte ranges),

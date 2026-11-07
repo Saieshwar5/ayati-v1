@@ -2,12 +2,18 @@ import { identityRequest, workspaceId, workspaceSession } from '../../workspace-
 import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
 export type Directory = { users: Participant[]; agents: Participant[]; role: string };
-export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean };
+export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
+  /** Seconds of the newest activity, as the server ordered the list (chat_activity.rs). */
+  activity?: number };
 /** Audio adds its transcript (schema 95); `not_enabled` where the deployment doesn't transcribe. */
 export type TranscriptStatus = 'pending' | 'ready' | 'failed' | 'not_enabled';
 export type Attachment = { id: string; name: string; mime: string; size: number; checksum: string;
   transcript?: string | null; transcript_status?: TranscriptStatus; duration_ms?: number | null };
 export type Message = {
+  /** Unread for the viewer when this history page was read. */
+  unread?: boolean;
+  /** Seconds when a message became sent or finished after it was created (an agent's late reply). */
+  activity_at?: number | null;
   source_scope?: string | null;
   handoff?: import('./handoffs').Handoff;
   coordination?: import('./handoffs').Coordination;

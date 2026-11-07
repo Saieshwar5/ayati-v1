@@ -1,0 +1,16 @@
+/* "N unread messages" above the first unread message of this visit. */
+.chat-unread-line { display:flex; align-items:center; gap:10px; margin:16px 0 12px; color:var(--text); font-size:11px; font-weight:600; }
+.chat-unread-line::before, .chat-unread-line::after { content:""; flex:1; height:1px; background:var(--border-control); }
+
+/* Sticky with no height, so showing it never changes the list's scroll height. */
+.chat-jump-latest { position:sticky; bottom:0; height:0; display:flex; justify-content:center; z-index:2; pointer-events:none; }
+.chat-jump-latest .ui-button {
+  pointer-events:auto; transform:translateY(calc(-100% - 12px)); display:inline-flex; align-items:center; gap:6px;
+  min-height:34px; padding:6px 14px; border-radius:999px; border:1px solid var(--border-structure);
+  background:var(--raised); color:var(--text); font-size:12px; font-weight:600; white-space:nowrap;
+  box-shadow:0 4px 14px var(--shadow-deep);
+}
+.chat-jump-latest .ui-button:hover { background:var(--soft); }
+.chat-jump-latest svg { width:14px; height:14px; }
+@media (pointer:coarse) { .chat-jump-latest .ui-button { min-height:44px; } }
+@media (forced-colors:active) { .chat-jump-latest .ui-button { border-color:ButtonText; } .chat-unread-line::before, .chat-unread-line::after { background:CanvasText; } }

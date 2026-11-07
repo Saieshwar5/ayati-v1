@@ -204,3 +204,54 @@ async fn schema_94_starts_existing_members_at_the_upgrade_without_a_rewrite() {
         .await.unwrap().unwrap().try_get::<i64>("", "age").unwrap();
     assert!((0..60_000).contains(&joined), "joined {joined} ms ago");
 }
+
+/// The messages a history page marks unread for this person, by content.
+async fn marked(db: &PgStore, person: &User, w: &str, chat: &str) -> Vec<String> {
+    db.chat_page(person, w, chat, None).await.unwrap()["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["unread"] == true)
+        .map(|m| m["content"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn history_marks_exactly_the_messages_the_unread_count_counts() {
+    let db = fixture().await;
+    let owner = user(&db, "unread-marks-owner").await;
+    let member = user(&db, "unread-marks-member").await;
+    let late = user(&db, "unread-marks-late").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
+    db.channel_settings(&owner, &w, &c, "public", false, None)
+        .await
+        .unwrap();
+    let read = message("Read already", None);
+    for input in [&read, &message("Not read yet", None)] {
+        db.chat_send(&owner, &w, &c, input).await.unwrap();
+    }
+    db.chat_send(&member, &w, &c, &message("Own message", None))
+        .await
+        .unwrap();
+    db.acknowledge(&member, &w, &c, std::slice::from_ref(&read.id), true)
+        .await
+        .unwrap();
+
+    assert_eq!(marked(&db, &member, &w, &c).await, ["Not read yet"]);
+    assert_eq!(count(&db, &member, &w, &c).await, 1, "the count agrees");
+    assert_eq!(marked(&db, &owner, &w, &c).await, ["Own message"]);
+
+    // History from before someone joined is never their unread.
+    a_minute_passes(&db, &w).await;
+    join(&db, &owner, &w, &late, "Member").await;
+    assert!(marked(&db, &late, &w, &c).await.is_empty());
+
+    // An archived channel has no unread count, so nothing is marked either.
+    db.channel_lifecycle(&owner, &w, &c, Some(&lifecycle(true, 0)))
+        .await
+        .unwrap();
+    assert!(marked(&db, &member, &w, &c).await.is_empty(), "archived");
+}

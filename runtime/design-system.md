@@ -176,6 +176,13 @@ access boundaries and remaining work; a visual component grants no authority.
 
 Personal Pinned rows appear once above Channels and Direct messages, in pin-time
 order. Pin controls are keyboard/touch accessible and keep unread/selected state.
+With a mouse, an unpinned row shows its ☆ on hover or focus. Touch screens show
+only the ★ of pinned rows (tap to unpin); pinning is in the chat's Details panel.
+Channels and Direct messages follow newest activity; rows hold still under a moving
+mouse or keyboard focus and catch up afterwards ([order](chat-organization.md#conversation-order-schema-96)).
+The unread line in a conversation is a 1 px `--border-control` rule with a bold count;
+the jump-to-latest button is a raised pill floating above the composer, shown only while
+scrolled up. Both follow the theme tokens and forced colors.
 Archived channels leave active pins and lists; an explicit Archived section keeps
 them reachable with their source permissions. Show closed intake in the root view
 and Archived thread title. Archive review belongs near the top of Details and
