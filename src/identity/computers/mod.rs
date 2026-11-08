@@ -7,13 +7,14 @@ mod e2b;
 #[cfg(test)]
 pub(crate) mod fake;
 mod providers_file;
+pub(in crate::identity) mod sleeper;
 #[cfg(test)]
 mod tests;
 
 use anyhow::Result;
 use std::time::Duration;
 
-pub(crate) use providers_file::{ProvidersFile, Routed};
+pub(crate) use providers_file::{ProvidersFile, Routed, SIZES};
 
 /// The agent's home folder on every computer.
 pub(crate) const HOME: &str = "/home/user";
@@ -114,7 +115,15 @@ pub(crate) fn adapter(name: &str) -> Option<&'static dyn Provider> {
 #[derive(Clone)]
 pub(crate) struct Computers {
     file: std::path::PathBuf,
+    /// Awake computers' access, by provider id, with when it was last refreshed. A
+    /// refresh also tells the provider to keep the computer awake a while longer.
+    awake: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<String, (Awake, std::time::Instant)>>,
+    >,
 }
+
+/// How often an awake computer's stay-awake time is renewed while in use.
+pub(crate) const RENEW: Duration = Duration::from_secs(60);
 impl Computers {
     /// The configured providers file, checked now so a broken one stops the
     /// controller at start instead of failing agents later.
@@ -126,10 +135,48 @@ impl Computers {
         Ok(Some(Self::new(file.clone())))
     }
     pub(crate) fn new(file: std::path::PathBuf) -> Self {
-        Self { file }
+        Self {
+            file,
+            awake: Default::default(),
+        }
     }
     pub(crate) fn file(&self) -> Result<ProvidersFile> {
         ProvidersFile::read(&self.file)
+    }
+    /// The sizes people may choose, with what each costs per hour awake. Never the
+    /// provider or what it costs Cuckoo. None when the file can't be read now.
+    pub(crate) fn offered(&self) -> serde_json::Value {
+        match self.file() {
+            Ok(file) => serde_json::json!({
+                "sleep_after_minutes": file.sleep_after_minutes,
+                "sizes": file.sizes.iter().map(|s| serde_json::json!({
+                    "size": s.size, "cpu": s.cpu, "memory_gb": s.memory_gb,
+                    "disk_gb": s.disk_gb, "usd_per_hour": s.usd_per_hour,
+                })).collect::<Vec<_>>(),
+            }),
+            Err(error) => {
+                tracing::warn!("The computer providers file can't be read: {error}");
+                serde_json::Value::Null
+            }
+        }
+    }
+    /// This computer's access, unless it needs renewing.
+    pub(crate) fn fresh(&self, id: &str) -> Option<Awake> {
+        let awake = self.awake.lock().ok()?;
+        awake
+            .get(id)
+            .filter(|(_, at)| at.elapsed() < RENEW)
+            .map(|(a, _)| a.clone())
+    }
+    pub(crate) fn remember(&self, awake: &Awake) {
+        if let Ok(mut map) = self.awake.lock() {
+            map.insert(awake.id.clone(), (awake.clone(), std::time::Instant::now()));
+        }
+    }
+    pub(crate) fn forget(&self, id: &str) {
+        if let Ok(mut map) = self.awake.lock() {
+            map.remove(id);
+        }
     }
 }
 

@@ -66,7 +66,7 @@ pub(super) fn question(
 
 /// Whether the person answered this question: none while unasked or waiting, yes only
 /// for the exact question Cuckoo wrote, answered by the person the agent works for.
-pub(super) async fn answered(
+pub(in crate::identity::postgres) async fn answered(
     tx: &DatabaseTransaction,
     job: &Job,
     key: &str,

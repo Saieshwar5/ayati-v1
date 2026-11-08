@@ -270,7 +270,7 @@ pub(crate) use actions::{AgentRule, BuiltAppActions};
 mod events;
 pub(crate) use events::{AppWatch, BuiltAppChanges, BuiltAppEvents};
 #[path = "built_app_asking.rs"]
-mod asking;
+pub(super) mod asking;
 pub(crate) use asking::BuiltAppAsking;
 
 #[cfg(test)]

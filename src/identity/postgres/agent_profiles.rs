@@ -83,6 +83,7 @@ impl PgStore {
         .await?;
         if old.is_some() {
             let a = managed_access(&tx, &user.id, w, &input.id, true).await?;
+            self.computer_allowed(input, a["settings"]["computer"]["on"] == true)?;
             let settings = merged_guidance(&input.settings, &a["settings"])?;
             // An exact retry after a lost response succeeds without changing revision again.
             if a["revision"].as_i64() != Some(input.revision) {
@@ -115,6 +116,7 @@ impl PgStore {
             execute(&tx,&format!("UPDATE relay_shared_agents SET name=$3,role=$4,model=$5,settings=$6,{audience}=$7,revision=revision+1 WHERE workspace=$1 AND id=$2"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),settings.into(),audience_value(audience,&input.audience).into()]).await?;
         } else {
             // Everyone may create agents (D231).
+            self.computer_allowed(input, false)?;
             let settings = serde_json::to_value(&input.settings)?;
             ensure!(input.revision == 0, "Agent missing");
             allowed_model(self.model_catalog.as_ref(), &tx, w, input).await?;

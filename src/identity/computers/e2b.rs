@@ -130,8 +130,13 @@ impl Provider for E2b {
             .send()
             .await
             .context("E2B could not be reached")?;
-        // Already asleep is fine.
-        if response.status() == reqwest::StatusCode::CONFLICT {
+        // Already asleep is fine; one that is gone is started again on its next use.
+        if [
+            reqwest::StatusCode::CONFLICT,
+            reqwest::StatusCode::NOT_FOUND,
+        ]
+        .contains(&response.status())
+        {
             return Ok(());
         }
         checked(response, "Putting the computer to sleep").await?;

@@ -247,6 +247,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     data_cleanup::start(app.clone());
     library::indexer::start(app.clone());
     library::keeping::start(app.clone());
+    computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;
     shutdown::serve(app, listener, control).await
 }

@@ -290,6 +290,22 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.read_web_page(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "computer_run" => {
+            pg.computer_run(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "computer_list_files" => {
+            pg.computer_list_files(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "computer_read_file" => {
+            pg.computer_read_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "computer_write_file" => {
+            pg.computer_write_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "my_apps" => {
             ensure!(arguments == json!({}), "Invalid apps request");
             pg.agent_my_apps(job).await

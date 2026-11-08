@@ -60,6 +60,10 @@ impl Fake {
             .map(|c| c.network.clone())
             .unwrap_or(Value::Null)
     }
+    /// The provider loses this computer, as if it was removed on its side.
+    pub fn lose(&self, id: &str) {
+        self.shared.computers.lock().unwrap().remove(id);
+    }
     pub fn exists(&self, id: &str) -> bool {
         self.shared.computers.lock().unwrap().contains_key(id)
     }
