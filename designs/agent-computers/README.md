@@ -25,7 +25,9 @@ example company is fictional and all numbers are examples.
 
 Owner decisions: start with **E2B, Daytona and AWS Lambda MicroVMs**; **Linux
 only** (agents need a browser, files and programs, not a desktop made for
-people); keeping data in India matters but is not designed now.
+people); keeping data in India matters but is not designed now; **one computer
+per agent, with the browser on the same computer** and browsing as a control
+(2026-11-08).
 
 | File | Screen and notes |
 | --- | --- |
@@ -38,6 +40,11 @@ people); keeping data in India matters but is not designed now.
 | `7-create-connectors-computer.png` | Agent creation, step 2 **Connectors**: the computer sits with the apps as one more thing the agent can use. (1–2) Off by default; switching it on grants nothing yet. (3) Cuckoo computer or a company computer. (4) Only the sizes the admin allows. (5) Browsing is decided in Controls; if it's left off and a skill in step 3 needs a website with no app, the agent asks there. (6) Nothing is made or charged until the agent is created and uses it. |
 | `8-create-controls-computer.png` | Agent creation, step 5 **Controls**: a group for the computer beside the apps. (1) **Internet**: no internet, only listed websites, or any website, limited by the admin and enforced on the computer's network. (2) Browser: Allow / Ask first / Block. (3) Clicks that submit are Ask first and money asks the manager. (4) Files, programs and installs are separate controls. (5) Admin limits win. (6) The computer is made on first use. |
 | `9-where-the-browser-lives.png` | The three options for the browser (one computer with browsing as a control; two computers per agent; a separate browser service) and how option A enforces "browser off" with two locks: no browser tools, and no internet on the computer's network. |
+| `10-chat-browser-use.png` | Chat. (1) After the work: one line, "Used its computer for 3 min", linking to the steps in Activity. (2) While working: one live line with Watch and Stop; the screen is never streamed into Chat. (3) A hand-over is asked in the reply, like a question, and only the person who asked can act. (4) "Keep Atlas signed in", with the warning that everyone who uses the agent shares the login. (5) Replies still go to the agent. |
+| `11-activity-hand-over.png` | Activity → Needs me gains **In the browser** beside approvals and questions. The details give what the agent needs with its last screenshot, show that waiting costs nothing, offer Take over the browser or I can't do it, and list the steps so far. |
+| `12-hand-over-view.png` | The person uses the agent's browser: just the browser, live, with Paste, I can't do it and **Done, give back**. The agent sees nothing while a person is in control, and that part isn't recorded. The shared-login warning, Keep signed in, the same website rules, and a 15-minute idle limit. |
+| `13-live-view-commands.png` | The live view follows the work: the browser's screen only while the agent browses, otherwise **Commands**, with each command, where and when it ran, a short result, files changed and the Controls in force. |
+| `14-phone-hand-over.png` | Phone: the notification opens Needs me; the browser fits the phone and uses its keyboard, which suits one-time codes that arrive on that phone. |
 
 ## Turning it on while creating an agent
 
@@ -69,6 +76,113 @@ browser computer.
   interface, for a possible "browser only" size.
 - Admins can block browsing for the whole workspace in Settings → Computers; agent
   owners can only be stricter.
+
+## Hand-over: when the agent needs a person in the browser
+
+Websites ask for passwords, one-time codes, CAPTCHAs and "Is this you?" checks.
+The agent must not get past these on its own, so it hands the browser to a
+person.
+
+- **How it starts.** The agent calls a hand-over tool with a reason: sign in,
+  type a code, solve a check, or confirm something on the page. Cuckoo also
+  forces a hand-over when the agent tries to type into a password field:
+  **agents never type passwords**.
+- **Who gets it.** The person who asked; for scheduled or event work, the
+  agent's owner and managers. It appears in the agent's reply in Chat, in
+  Activity → Needs me ("In the browser") and as a notification. In a channel,
+  others see "Waiting for Meera to sign in".
+- **Waiting is free.** It is saved like a question: the agent holds no model or
+  worker, the computer sleeps after the admin's idle time, and the request waits
+  up to its time limit (default 24 hours). Taking over wakes the computer on the
+  same page. E2B and AWS keep the page in memory; on Daytona, which keeps only
+  the disk, the page reloads with the same cookies.
+- **While a person is in control,** Cuckoo sends the agent nothing (no
+  screenshots, keystrokes or page text) and records nothing. The person sees and
+  uses only the browser, with the same website rules. Paste helps with password
+  managers. It ends with **Done, give back** or after 15 minutes idle.
+- **After.** The agent checks the page and continues. **I can't do it** tells
+  the agent, which replies and stops or changes plan.
+- **Logins belong to the agent,** shared by everyone who uses it. The hand-over
+  says so and asks for the company's account. **Keep signed in** (on by
+  default) keeps the cookies; unticked, Cuckoo clears that website's cookies
+  when the request ends.
+- **Unasked take-over.** Anyone who can stop the request (the person who asked,
+  the agent's owner and managers, admins) can also press Take control in the
+  live view; the agent pauses the same way.
+
+## What Chat shows
+
+Chat stays a conversation, not a screen. While the agent works, its reply shows
+one live line ("using its browser on portal.sharmatraders.in · Watch · Stop").
+A hand-over shows as a card in the reply for the person who asked. When the work
+is done, one quiet line says how long the computer was used, linking to the steps
+in Activity. Screenshots, commands and the live screen live in the live view and
+Activity, where the request's own visibility rules already apply. Files reach
+people as attachments to the reply or in the Library.
+
+## The live view follows the work
+
+There is no desktop. The browser (Chromium) runs on the agent's Linux computer,
+and the live picture is the browser's own screencast through its debugging
+protocol (CDP). People's clicks and typing are sent back the same way. So the
+screen exists only while the agent is browsing. The rest of the time the live view
+shows **Commands** (each command, where and when it ran, a short result, and the
+files changed), and nothing runs to draw a screen. This works the same on E2B,
+Daytona, AWS and a company's own computer, needs no VNC, and is light enough for
+phones.
+
+## Before building: what to understand
+
+1. **Three moving parts.** The agent (on Cuckoo's executors, as today), a
+   computer service inside Cuckoo's controller (states, Controls, metering,
+   recording, hand-overs, the live picture) and the provider adapters. Inside
+   each computer runs Cuckoo's Linux image with Chromium and a small Cuckoo
+   helper that runs commands, reads and writes files, and drives the browser.
+   The agent never talks to the computer directly; every tool call goes through
+   the controller, so Controls apply and the provider stays hidden.
+2. **What's in the image.** Ubuntu, Chromium, Python, Node, common document
+   tools (PDF text, LibreOffice for Office files), and fonts for Indian scripts,
+   so pages and PDFs in Hindi or Tamil render. One image for every provider. When
+   Cuckoo updates the image (security fixes), the agent's files, logins and
+   programs stay.
+3. **What persists.** The whole disk is kept by the provider between wakes, and
+   Cuckoo also copies the agent's home folder (files, browser profile) and the
+   list of programs it installed to Cuckoo's own storage. That copy is what lets a
+   computer move to another provider, and what keeps an AWS computer beyond 8
+   hours. The first slice should decide how often to copy (on every sleep is the
+   proposal).
+4. **One request at a time.** One computer and one browser per agent. Requests
+   that need the computer queue for it; requests that don't, never wait. A
+   hand-over holds the browser for its request until it ends or times out, so
+   other requests for the same agent wait too. Later, separate browser sessions
+   per request could let requests overlap.
+5. **Shared, not private.** Everyone who uses an agent shares its computer and
+   its website logins. Each request gets its own folder, and file tools stay
+   inside it unless the agent saves to a shared folder on purpose. This is the
+   biggest thing to explain to customers, and the screens say it where it
+   matters.
+6. **Models and the browser.** The agent reads pages mainly as text (the page's
+   structure), which every model can use and which costs little. It uses
+   screenshots only when the model can see images (the catalog's "vision"
+   ability). So a cheap text-only model can still browse most business
+   websites.
+7. **Two locks on the internet.** Blocked browser tools are never given to the
+   agent, and the computer's own network allows only the permitted websites. How
+   each provider blocks outgoing traffic must be confirmed in the real test; if a
+   provider can't, Cuckoo routes the computer's traffic through its own filter.
+8. **Recording.** Steps, short command results and screenshots are saved with
+   the request and follow the workspace's keeping rules. Screenshots can contain
+   personal data, so they inherit the request's visibility. Hand-over periods are
+   never recorded.
+9. **Cost.** Billed per second while awake (wake, work, a few idle minutes), plus
+   storage. A hand-over wait costs nothing because the computer sleeps. Charges
+   join model charges in Usage and the same budgets.
+10. **Testing without paying.** Automated tests use a local test provider (the
+    same image on the build machine) so they don't need the cloud. One guarded
+    test runs against each real provider before a release.
+11. **What's needed to start.** An account and API key for E2B, Daytona and AWS
+    (with Lambda MicroVMs in one region), a small spending limit on each for
+    testing, and their API hosts allowed in this session's network settings.
 
 ## Rules that keep it safe
 
@@ -153,7 +267,8 @@ hosts always-on personal agents per instance, not computers for our own agents.
 2. **First slice:** sizes file, provider interface, E2B adapter, states and
    sleeping, command and file tools, On/Off and sizes on the Environment tab, and
    metering.
-3. **Browser and live view,** with Take control and held clicks.
+3. **Browser and live view:** the browser through CDP, the live picture,
+   hand-overs in Chat and Activity, Take control and held clicks.
 4. **Daytona and AWS adapters,** disk copies and moves, and the Cuckoo Control
    screen.
 5. **Your own computer** and the Connector.

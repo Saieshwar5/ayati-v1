@@ -799,6 +799,182 @@ const s9 = screen('s9', `<div style="position:absolute;left:88px;top:12px;width:
   'Two locks, so “no browser” really means no web: the tools are never given to Iris, and the computer’s network stops anything else, such as a program, from reaching websites.',
 ], '<b>Why not separate computers:</b> isolating the browser protects files from the browser process, but the danger is the agent being misled, and the agent drives both computers anyway.'), 'none');
 
-document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9;
+
+/* ---------- Shared bits for hand-over screens ---------- */
+const loginPage = (scale = 1) => `<div class="bwin" style="margin:${14 * scale}px">
+  <div class="btabs"><span>Sharma Traders · Sign in</span></div>
+  <div class="burl">${I('lock')}<span class="u">portal.sharmatraders.in/login</span></div>
+  <div style="flex:1;display:grid;place-items:center;background:#f6f7f9">
+    <div style="width:${Math.round(340 * scale)}px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:${Math.round(20 * scale)}px;display:flex;flex-direction:column;gap:${Math.round(10 * scale)}px;font-size:${13 * scale}px">
+      <b style="font-size:${16 * scale}px">Sign in to your account</b>
+      <span class="muted" style="font-size:${12 * scale}px">Customer ID</span><div class="input" style="padding:${7 * scale}px 10px">MF-20417</div>
+      <span class="muted" style="font-size:${12 * scale}px">Password</span><div class="input" style="padding:${7 * scale}px 10px;letter-spacing:3px">••••••••••</div>
+      <span class="muted" style="font-size:${12 * scale}px">6-digit code sent to +91 98••• ••412</span><div class="input" style="padding:${7 * scale}px 10px;border-color:var(--link);box-shadow:0 0 0 3px #e3e8fb">4 8 1 _ _ _</div>
+      <span style="background:#1f6f43;color:#fff;border-radius:7px;padding:${8 * scale}px;text-align:center;font-weight:600">Sign in</span>
+    </div></div></div>`;
+const stepDot = (cls, title, sub) => `<div style="display:flex;gap:10px;align-items:flex-start;font-size:13.5px"><span style="width:10px;height:10px;border-radius:50%;margin-top:5px;flex:0 0 auto;${cls}"></span><span><b style="font-weight:550">${title}</b>${sub ? `<small style="display:block;color:var(--muted);font-size:12.5px">${sub}</small>` : ''}</span></div>`;
+const DONE = 'background:var(--success)', WAIT = 'border:2px solid #d9a21b', TODO = 'border:2px solid var(--border-control)';
+
+/* ---------- 10. Chat ---------- */
+const chatList = `<aside style="width:300px;border-right:1px solid var(--border);padding:26px 16px;flex:0 0 auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h1 style="font-size:22px;margin:0;font-weight:650">Chat</h1><span class="icon-btn">${I('plus')}</span></div>
+  <div class="search">${I('search')}Search conversations</div>
+  <div style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 8px 6px">Direct</div>
+  <div class="agent-row on"><span class="av"><img src="${AV('01')}" alt=""></span><span><b>Atlas</b><small>Needs you to sign in</small></span></div>
+  <div class="agent-row"><span class="av"><img src="${AV('05')}" alt=""></span><span><b>Ledger</b><small>GST summary is ready</small></span></div>
+  <div style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 8px 6px">Channels</div>
+  <div class="agent-row"><span class="tile" style="width:40px;height:40px;border-radius:12px">#</span><span><b>orders</b><small>Ravi: thanks!</small></span></div></aside>`;
+const msgMe = text => `<div style="align-self:flex-end;max-width:520px;background:var(--selection);border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.5">${text}</div>`;
+const agentMsg = (time, body) => `<div style="display:flex;gap:12px;max-width:760px"><span class="av" style="width:34px;height:34px"><img src="${AV('01')}" alt=""></span>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-size:13px"><b>Atlas</b> <span class="muted">Agent · ${time}</span></span>
+  <div style="border:1px solid var(--border);background:var(--soft);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;position:relative">${body}</div></div></div>`;
+const usedLine = (text, link) => `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px">${I('monitor')}<span>${text}</span><span class="linkbtn" style="margin-left:auto;font-size:12.5px">${link}</span></div>`;
+const s10 = screen('s10', `<div class="frame">${chatList}<div class="main">
+  <header style="display:flex;align-items:center;gap:12px;padding:18px 28px;border-bottom:1px solid var(--border)"><span class="av" style="width:38px;height:38px"><img src="${AV('01')}" alt=""></span><span><b style="font-size:16px">Atlas</b><small class="muted" style="display:block;font-size:12.5px">Orders assistant · Agent</small></span></header>
+  <div style="flex:1;min-height:0;padding:20px 28px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+    <div class="muted" style="text-align:center;font-size:12px">Yesterday</div>
+    ${msgMe('Has Sharma Traders updated our GST invoice for April?')}
+    ${agentMsg('16:02', `Yes. Invoice ST-2026-0398 now shows the corrected GSTIN. I saved the PDF to Library → Suppliers → Sharma Traders.
+      <span style="position:relative">${pin(1, 'left:-58px;top:4px')}${usedLine('Used its computer for 3 min · browser and 2 commands', 'Steps')}</span>`)}
+    <div class="muted" style="text-align:center;font-size:12px">Today</div>
+    ${msgMe('Download the May invoices from Sharma Traders and tell me which are overdue.')}
+    ${agentMsg('10:38', `<div style="display:flex;gap:10px;align-items:center;position:relative">${pin(2, 'left:-58px;top:2px')}<span class="dot wake" style="display:inline-block"></span><span style="font-size:13.5px"><b>Waiting for you</b> · using its browser on portal.sharmatraders.in · 3 min</span><span class="btn small" style="margin-left:auto">${I('eye')}Watch</span><span class="btn small">${I('stop')}Stop</span></div>
+      <div style="background:#fff;border:1px solid #f0d3a8;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;position:relative">${pin(3, 'left:-46px;top:12px')}
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tile" style="background:var(--warning-bg);color:var(--warning)">${I('hand')}</span><span><b style="font-size:15px">Sign in to Sharma Traders for Atlas</b><small style="display:block;color:#4b5058;font-size:13px;margin-top:2px">The website signed Atlas out. Sign in once and Atlas will carry on with the invoices. Atlas can’t see what you type.</small></span></div>
+        <div class="check" style="position:relative">${pin(4, 'left:-46px;top:0')}<span class="box2" style="background:var(--accent);border-color:var(--accent)"></span><span>Keep Atlas signed in<small>Everyone who uses Atlas will use this login, so use the company’s account.</small></span></div>
+        <div style="display:flex;gap:10px;align-items:center"><span class="btn primary">${I('hand')}Take over the browser</span><span class="btn">I can’t do it</span><span class="muted" style="font-size:12.5px;margin-left:auto">Waits up to 24 hours · computer asleep meanwhile</span></div>
+      </div>`)}
+  </div>
+  <div style="padding:14px 28px 20px;position:relative">${pin(5, 'left:4px;top:24px')}<div style="border:1px solid var(--border-control);border-radius:14px;padding:12px 16px;color:var(--muted);display:flex;align-items:center">Message Atlas…<span style="margin-left:auto">${I('mic')}</span></div></div>
+</div></div>`, notes('Chat · browser use and hand-over', [
+  'After the work, one quiet line under the reply: how long the computer was used and what for. <b>Steps</b> opens the request in Activity; no screenshots in Chat.',
+  'While working, one live line: what Atlas is doing on its computer, with <b>Watch</b> and <b>Stop</b>. It never streams the screen into the conversation.',
+  'When Atlas needs a person in the browser it asks <b>in the reply</b>, like a question. Only the person who asked can take over; in a channel, others see “Waiting for Meera to sign in”.',
+  'Signing in for an agent signs it in for everyone who uses it. The card says so, and <b>Keep Atlas signed in</b> can be unticked to forget the login when the request ends.',
+  'Chat stays a conversation: if Meera replies instead (“use the other account”), Atlas reads it as usual.',
+], '<b>Scheduled or event work</b> has nobody in Chat: the hand-over goes to the agent’s owner and managers in Activity → Needs me, with a notification.'), 'Chat');
+
+/* ---------- 11. Activity · Needs me with a hand-over ---------- */
+const needRow = (icon, tone, title, who, btn, on) => `<div style="display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;${on ? 'background:#f3f4fd' : ''}">
+  <span class="tile" style="${tone}">${I(icon)}</span><span style="flex:1;min-width:0"><b style="font-weight:600;font-size:14.5px;display:block">${title}</b><small class="muted" style="font-size:12.5px">${who}</small></span><span class="btn small ${on ? 'primary' : ''}">${btn}</span></div>`;
+const capRow = text => `<div style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:12px 0 4px">${text}</div>`;
+const s11 = screen('s11', `<div class="frame"><div style="flex:1.15;min-width:0;padding:30px 34px;border-right:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h1 style="margin:0;font-size:28px;font-weight:650">Activity</h1><div class="search" style="width:260px;margin:0">${I('search')}Search activity</div></div>
+    <div style="display:flex;gap:6px;margin:18px 0 6px"><span class="chip on" style="border-radius:10px">Needs me <b style="background:#a42f35;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px">3</b></span><span class="chip" style="border:0">Now</span><span class="chip" style="border:0">History</span></div>
+    <div style="position:relative">${pin(1, 'left:-30px;top:12px')}${capRow('In the browser · 1')}
+    ${needRow('hand', 'background:var(--warning-bg);color:var(--warning)', 'Sign in to Sharma Traders', '<b>Atlas</b> · for your request in your direct chat · 3 min', 'Take over', true)}</div>
+    ${capRow('Approvals · 1')}
+    ${needRow('shield', 'background:var(--warning-bg);color:var(--warning)', 'Approve a 12% discount for Gupta Furniture', '<b>Nova</b> · asked by Kavya Nair in #sales · 18 min', 'Review')}
+    ${capRow('Questions · 1')}
+    ${needRow('info', 'background:#eef1fd;color:var(--link)', 'Which courier for the Bengaluru order?', '<b>Atlas</b> · for your request · 1 h', 'Answer')}
+  </div>
+  <div style="flex:1;min-width:0;padding:28px 30px;display:flex;flex-direction:column;gap:14px;position:relative">
+    <span class="pill" style="align-self:flex-start;background:var(--warning-bg);color:var(--warning)">Waiting for you · in the browser</span>
+    <h2 style="margin:0;font-size:22px;font-weight:650">Sign in to Sharma Traders</h2>
+    <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;font-size:13.5px"><span class="muted">Agent</span><span><b>Atlas</b></span><span class="muted">Asked by</span><span>You, Meera Iyer</span><span class="muted">Where</span><span>Direct chat</span><span class="muted">When</span><span>Today 10:41</span></div>
+    <div class="panel" style="padding:14px 16px;gap:10px;position:relative">${pin(2, 'left:-42px;top:12px')}<span style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600">What Atlas needs</span>
+      <div style="display:flex;gap:14px"><div style="width:150px;height:96px;border-radius:8px;border:1px solid var(--border-panel);background:linear-gradient(#dfe3e8 0 12px,#f6f7f9 12px);display:grid;place-items:center;flex:0 0 auto"><div style="width:70px;height:56px;background:#fff;border:1px solid var(--border);border-radius:5px"></div></div>
+      <span style="font-size:13.5px;line-height:1.55">Sign in at <b>portal.sharmatraders.in</b>. The website signed Atlas out; it may ask for a code sent to your phone.<small style="display:block;color:var(--muted);margin-top:4px">Screenshot from 10:41, when Atlas stopped.</small></span></div></div>
+    <div class="notice info" style="position:relative">${pin(3, 'left:-42px;top:8px')}${I('moon')}<span>Atlas is paused. Its computer sleeps after 5 minutes and wakes in about 2 seconds when you take over, on this page.</span></div>
+    <div style="display:flex;gap:10px;align-items:center;position:relative">${pin(4, 'left:-42px;top:8px')}<span class="btn primary">${I('hand')}Take over the browser</span><span class="btn">I can’t do it</span><span class="linkbtn">${I('chat')}Open conversation</span></div>
+    <div style="position:relative;display:flex;flex-direction:column;gap:9px">${pin(5, 'left:-42px;top:0')}<span style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600">Steps so far</span>
+      ${stepDot(DONE, 'Read your request')}
+      ${stepDot(DONE, 'Opened portal.sharmatraders.in', 'Browser · allowed website')}
+      ${stepDot(DONE, 'Tried the saved login', 'The website asked to sign in again')}
+      ${stepDot(WAIT, 'Waiting for you to sign in')}
+      ${stepDot(TODO, 'Download the May invoices')}
+      ${stepDot(TODO, 'Tell you which are overdue')}</div>
+  </div></div>`, notes('Activity · a hand-over in Needs me', [
+  'A new kind of item in <b>Needs me</b>, “In the browser”, next to approvals and questions. It counts in the badge and sends the usual notification.',
+  'What Atlas needs, in plain words, with the last screenshot so the person knows what they will see.',
+  'Waiting costs nothing: Atlas holds no model or worker, and the computer sleeps. Taking over wakes it on the same page.',
+  '<b>Take over the browser</b> opens the hand-over view. <b>I can’t do it</b> tells Atlas, which replies and ends or changes plan; it never guesses a password.',
+  'Steps so far, as for any request, with the wait in amber and what comes next in grey.',
+], '<b>Who gets it:</b> the person who asked; for scheduled or event work, the agent’s owner and managers. It expires with the request (default 24 hours).'), 'Activity');
+
+/* ---------- 12. Hand-over view ---------- */
+const s12 = screen('s12', `<div class="frame"><div style="flex:1"></div></div><div class="scrim"></div>
+  <div class="modal">
+    <div class="modal-head"><span class="tile" style="background:var(--warning-bg);color:var(--warning)">${I('hand')}</span>
+      <span><h3>You’re using Atlas’s browser <span class="pill" style="font-size:12px;margin-left:6px;background:var(--selection);color:#4b5058">Atlas paused</span></h3><small>Sign in to Sharma Traders · for your request “Download the May invoices…”</small></span>
+      <span style="margin-left:auto;display:flex;gap:10px;align-items:center;position:relative">${pin(1, 'left:-30px;top:6px')}<span class="btn">Paste</span><span class="btn">I can’t do it</span><span class="btn primary">${I('check')}Done, give back to Atlas</span></span></div>
+    <div style="display:flex;gap:10px;align-items:center;background:#eef1fd;color:#2e3f8f;padding:9px 22px;font-size:13px;position:relative">${pin(2, 'left:2px;top:6px')}${I('eye')}<span>Atlas can’t see the screen or what you type until you give it back. This part isn’t kept in the steps.</span><span style="margin-left:auto;display:flex;gap:6px;align-items:center">${I('clock')}Ends in 14:32</span></div>
+    <div class="modal-body" style="grid-template-columns:minmax(0,1fr) 300px">
+      <div class="screenarea" style="background:#e9ecf0;padding:10px">${pin(3, 'left:10px;top:20px')}<div class="desk" style="background:#e9ecf0">${loginPage(1)}</div></div>
+      <div class="steps-col" style="gap:14px">
+        <h4>What to do</h4>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;line-height:1.5"><span><b>1.</b> Sign in with the company’s Sharma Traders account.</span><span><b>2.</b> If it asks, type the code sent to your phone.</span><span><b>3.</b> Press <b>Done, give back to Atlas</b>.</span></div>
+        <div class="notice" style="position:relative">${pin(4, 'left:-30px;top:8px')}${I('warning')}<span>Everyone who uses Atlas will use this login. Use the company’s account, not your own.</span></div>
+        <div class="check" style="position:relative">${pin(5, 'left:-30px;top:0')}<span class="box2" style="background:var(--accent);border-color:var(--accent)"></span><span>Keep Atlas signed in<small>Untick to forget this login when the request ends.</small></span></div>
+        <div style="margin-top:auto;font-size:12.5px;color:var(--muted);line-height:1.5;position:relative">${pin(6, 'left:-30px;top:0')}Only websites Atlas may use open here. Downloads stay on Atlas’s computer.</div>
+      </div>
+    </div>
+  </div>`, notes('Hand-over: the person uses the browser', [
+  '<b>Done, give back to Atlas</b> resumes the request; Atlas checks the page and continues. <b>Paste</b> sends text from your clipboard, for password managers. <b>I can’t do it</b> ends the hand-over.',
+  'While a person is in control, Cuckoo sends Atlas nothing: no screenshots, no keystrokes, no page text. Nothing from this part is saved in the steps.',
+  'Just the browser, not a desktop: the person sees and uses exactly the page Atlas left, live.',
+  'A login typed for an agent is the agent’s login, used for everyone who talks to it. The warning says so before anyone signs in.',
+  'Keeping the login is the person’s choice; unticked, Cuckoo clears that website’s cookies when the request ends.',
+  'The same website rules apply to people: the browser can only open what Atlas may open, and nothing is downloaded to the person’s device.',
+], '<b>Ends</b> after 15 minutes without activity, or when the person leaves; the request then waits again in Needs me.'), 'none');
+
+/* ---------- 13. Live view when Atlas isn't using the browser ---------- */
+const term = lines => `<div style="background:#16191e;color:#d9dee6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.65;border-radius:10px;padding:14px 16px;flex:1;overflow:hidden">${lines}</div>`;
+const cmd = (time, dir, text) => `<div style="margin-top:8px"><span style="color:#7d8590">${time} · ${dir}</span><br><span style="color:#8b9cff">$</span> ${text}</div>`;
+const out = text => `<div style="color:#aeb6c2;white-space:pre">${text}</div>`;
+const s13 = screen('s13', `<div class="frame">${roster()}<div class="main">${atlasHead}</div></div><div class="scrim"></div>
+  <div class="modal">
+    <div class="modal-head"><span class="av" style="width:36px;height:36px"><img src="${AV('01')}" alt=""></span>
+      <span><h3>Atlas’s computer <span class="pill work" style="font-size:12px;margin-left:6px">Working · 9 min</span></h3><small>On “Download the May invoices from Sharma Traders and tell me which are overdue” for Meera</small></span>
+      <span style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="btn">${I('stop')}Stop</span><span class="icon-btn" style="background:var(--soft)">${I('x')}</span></span></div>
+    <div style="display:flex;gap:6px;padding:10px 22px;border-bottom:1px solid var(--border);align-items:center;position:relative">${pin(1, 'left:2px;top:12px')}
+      <span class="chip" style="border-radius:9px;color:var(--muted)">${I('globe')} Browser · not in use</span><span class="chip on" style="border-radius:9px">${I('terminal')} Commands</span>
+      <span class="muted" style="font-size:12.5px;margin-left:10px">Atlas closed the browser at 10:52. The screen is off, so it costs nothing; it comes back when Atlas browses again.</span></div>
+    <div class="modal-body">
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;position:relative">${pin(2, 'left:-4px;top:20px')}
+        ${term(`${cmd('10:53', 'requests/may-invoices', 'ls')}${out('ST-2026-0412.pdf  ST-2026-0447.pdf  ST-2026-0461.pdf')}
+          ${cmd('10:53', 'requests/may-invoices', 'pdftotext ST-2026-0461.pdf - | grep -i "due date"')}${out('Due date: 31 May 2026')}
+          ${cmd('10:54', 'requests/may-invoices', 'python3 overdue.py *.pdf --today 2026-06-03 > overdue.csv')}${out('3 invoices read · 1 overdue · finished in 1.4 s')}
+          ${cmd('10:54', 'requests/may-invoices', 'libreoffice --headless --convert-to xlsx overdue.csv')}<div style="color:#e3b341">running · 6 s</div>`)}
+        <div class="muted" style="font-size:12.5px;position:relative">${pin(3, 'left:-24px;top:-2px')}Long output is shortened here; the full output is kept with the request. Commands time out after 10 minutes.</div>
+      </div>
+      <div class="steps-col" style="gap:12px;position:relative">${pin(4, 'left:-11px;top:14px')}<h4>Files changed</h4>
+        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px"><span>${I('file')} requests/may-invoices/<b>overdue.csv</b> <span class="kind read">New</span></span><span>${I('file')} requests/may-invoices/<b>overdue.xlsx</b> <span class="kind">Being made</span></span><span>${I('download')} 3 invoices downloaded at 10:47</span></div>
+        <h4 style="margin-top:6px">Allowed by Controls</h4>
+        <div style="font-size:13px;line-height:1.5;color:#33383e">Run programs: <b>Allow</b><br>Install programs: <b>Block</b> (your admin)<br>Internet: <b>only listed websites</b></div>
+        <div style="margin-top:auto;font-size:12.5px;color:var(--muted);line-height:1.5;position:relative">${pin(5, 'left:-30px;top:0')}When the request ends, Atlas attaches overdue.xlsx to its reply. Files stay on the computer until it is reset.</div>
+      </div>
+    </div>
+  </div>`, notes('Live view without the browser: commands', [
+  'The live view follows what Atlas is doing: the browser’s screen only while it browses; otherwise <b>Commands</b>. The screen isn’t running then, so it costs nothing.',
+  'Each command with where it ran, when, and a short result, as it happens.',
+  'Outputs are shortened on screen and kept in full with the request; each command has a time limit.',
+  'Files changed and downloaded, and the Controls that allow what Atlas is doing.',
+  'Files reach people by being attached to Atlas’s reply or saved to the Library, never by opening the computer’s disk.',
+], '<b>The same view in Activity:</b> a finished request shows browser steps with screenshots and command steps with their command and result, in one list.'));
+
+/* ---------- 14. Phone hand-over ---------- */
+const s14 = screen('s14', `<div class="phones" style="left:200px">
+  <div class="phone"><div class="phone-screen"><div class="status-bar"><span>10:42</span><span>●●●</span></div>
+    <div style="margin:8px 10px;background:rgb(255 255 255/.92);border-radius:16px;padding:12px 14px;box-shadow:0 4px 14px rgb(0 0 0/.15);position:relative">${pin(1, 'left:-14px;top:-10px')}<div style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)"><img src="../../web/public/brand/cuckoo-symbol.svg" style="width:18px" alt="">Cuckoo · now</div>
+      <b style="display:block;font-size:14px;margin-top:4px">Atlas needs you to sign in</b><span style="font-size:13px">Sharma Traders signed Atlas out. Tap to sign in so it can carry on with the May invoices.</span></div>
+    <div class="phone-frame" style="margin-top:8px"><div class="ph-head"><h2>Needs me</h2></div>
+      <div class="ph-body"><div style="border:1px solid #f0d3a8;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px"><b>Sign in to Sharma Traders</b><small class="muted">Atlas · for your request · 1 min</small><span class="btn primary" style="min-height:42px">${I('hand')}Take over the browser</span></div>
+      <div style="border:1px solid var(--border);border-radius:12px;padding:12px"><b>Approve a 12% discount</b><small class="muted" style="display:block">Nova · asked by Kavya Nair</small></div></div></div></div></div>
+  <div class="phone"><div class="phone-screen"><div class="status-bar"><span>10:43</span><span>●●●</span></div>
+    <div class="phone-frame" style="position:relative">${pin(2, 'right:10px;top:150px')}
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)"><span class="tile" style="width:30px;height:30px;background:var(--warning-bg);color:var(--warning)">${I('hand')}</span><b style="font-size:14px;flex:1">Atlas’s browser</b><span class="muted" style="font-size:12px">14:51</span></div>
+      <div style="font-size:11.5px;background:#eef1fd;color:#2e3f8f;padding:6px 12px">Atlas can’t see what you type.</div>
+      <div style="flex:1;display:flex;background:#e9ecf0;min-height:0">${loginPage(0.62)}</div>
+      <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);position:relative">${pin(3, 'right:10px;top:-14px')}<span class="btn" style="flex:1">Paste</span><span class="btn primary" style="flex:2">Done, give back</span></div>
+      <div style="height:150px;background:#d1d5db;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(k => `<span style="background:${k ? '#fff' : 'transparent'};border-radius:6px;display:grid;place-items:center;font-size:18px">${k}</span>`).join('')}</div>
+    </div></div></div>
+</div>`, notes('Phone: hand-over where the code arrives', [
+  'The notification says what Atlas needs and why. Tapping it opens Needs me on that item; codes usually arrive on this same phone.',
+  'The browser fits the phone’s width and uses the phone’s own keyboard; the page is the one Atlas left.',
+  'Paste and Done stay within thumb reach. Done gives the browser back to Atlas.',
+], '<b>Built with</b> the browser’s own picture of the page and input events, not a remote desktop, so it is light enough for a phone connection.'), 'none');
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s13 + s14;
 </script>
 </body></html>
