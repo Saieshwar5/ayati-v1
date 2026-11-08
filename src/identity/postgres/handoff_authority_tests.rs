@@ -4,7 +4,7 @@ use crate::identity::{
     control::{connections_model::SystemApproval, model::ActionRequest},
 };
 use serde_json::json;
-async fn pause(s: &Setup, agent: &str, paused: bool) {
+pub(super) async fn pause(s: &Setup, agent: &str, paused: bool) {
     let current =
         s.db.managed_agent(&s.owner, &s.w, agent, true)
             .await

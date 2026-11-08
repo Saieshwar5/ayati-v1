@@ -88,6 +88,35 @@ when the text names none.
   `tests/several_agents.mjs` (real pinned Goose, scripted provider: one message, two
   pooled runs, two replies, each run told about the other agent).
 
+## Agents talking in the conversation (schema 100, D246)
+
+When an agent hands work to another agent, the people there see them talk, with the
+approved [handoff card](../designs/channel-agent-handoffs/README.md). Where the
+request was asked (the main timeline, or its thread) they read, in order:
+
+1. the person's request ("@Atlas ask Nova about walnut");
+2. the sending agent's handoff message, written by it ("Nova, can you check the walnut
+   stock for Kapoor?"), with the card: "Atlas → Nova · Agent handoff · Working", who
+   asked, the helper keeping its own permissions and the sender's limits, Open helper
+   task, Open original task and, for the person who asked or an admin, Stop helper task;
+3. the helper's answer, with "Helping Atlas · Requested by Ananya. Open original task";
+4. the sending agent's reply, "Waiting for another agent" until the helper ends, then
+   its result.
+
+The reply is created when the request is sent, so it sorts by sequence before the
+exchange; the client places it after its handoff messages and their answers in the
+same place (`mergeMessages`), as it already places a reply after the agent's working
+updates. Each exchange has one card, on its handoff message, which doesn't repeat the
+task the message shows. Exchanges saved before schema 100 stay in a thread under the
+reply, which keeps showing their card. A viewer without source access sees the same
+messages with "Handoff unavailable because source access changed." and "Response
+unavailable…"; with no handoff details, the sender's reply keeps its first position.
+Group conversations hand off as channels do. Server rules, memory and
+checks: [channel handoffs](channel-agent-handoffs.md#visible-in-the-conversation-schema-100-d246).
+Checks: web `tests/chat-visible-handoffs.test.mjs` (order on the main timeline, in a
+thread, before schema 100 and with a nested helper; one card; links) and
+`tests/channel-handoffs.test.mjs`.
+
 ## Presence and status (D245)
 
 People show who is around (`designs/chat-and-account` screens 2, 3, 9, 10): a green

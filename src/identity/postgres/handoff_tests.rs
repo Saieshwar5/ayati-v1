@@ -111,7 +111,8 @@ async fn handoff_exact_replica_replay_commits_one_agent_authored_message_and_ori
     let msg=query(&s.db.db,"SELECT m.author,m.kind,m.thread FROM relay_chat_messages m JOIN relay_agent_handoffs h ON h.workspace=m.workspace AND h.request_message=m.id",vec![]).await.unwrap().unwrap();
     assert_eq!(msg.try_get::<String>("", "author").unwrap(), s.a);
     assert_eq!(msg.try_get::<String>("", "kind").unwrap(), "agent");
-    assert_eq!(msg.try_get::<String>("", "thread").unwrap(), s.parent.reply);
+    // Asked on the main timeline, the request is posted there (D246).
+    assert_eq!(msg.try_get::<Option<String>>("", "thread").unwrap(), None);
     assert!(
         s.db.request_handoff(
             &s.parent,
@@ -164,8 +165,9 @@ async fn handoff_checkpoint_then_result_releases_parent_and_queues_one_exact_con
         .await
         .unwrap()
         .unwrap();
-    assert!(!next.prompt.contains("HELPER_COMPLETED_RESULT"));
-    assert!(!next.prompt.contains("Final original task result"));
+    // D246: an exchange with no source-bearing part is remembered whole.
+    assert!(next.prompt.contains("HELPER_COMPLETED_RESULT"));
+    assert!(next.prompt.contains("Final original task result"));
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]

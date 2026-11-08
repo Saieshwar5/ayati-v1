@@ -176,6 +176,7 @@ async fn history_excludes_event_results_and_handoff_instructions_and_answers() {
     .await;
 
     let s = super::handoff_tests::setup().await;
+    let orders = super::conversation_context::handoff_memory_tests::order_reads(&s).await;
     let mut input = super::handoff_tests::request(&s.b, "history-helper");
     input.task = "HANDOFF_PRIVATE_INSTRUCTION".into();
     let receipt = s.db.request_handoff(&s.parent, &input).await.unwrap();
@@ -186,6 +187,9 @@ async fn history_excludes_event_results_and_handoff_instructions_and_answers() {
         .await
         .unwrap();
     let child = super::handoff_tests::claim(&s.db, &child).await;
+    // A helper answer from a business operation keeps its whole exchange out
+    // (D246); an exchange with no source-bearing part is remembered.
+    super::conversation_context::handoff_memory_tests::read_an_order(&s, &child, &orders).await;
     s.db.chat_finish(&child, "HANDOFF_PRIVATE_ANSWER", "complete")
         .await
         .unwrap();

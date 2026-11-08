@@ -8,7 +8,7 @@ use crate::identity::{
     events::{catalog::Source, model::Trigger},
 };
 use serde_json::json;
-async fn event_setup() -> (Setup, String, Source) {
+pub(super) async fn event_setup() -> (Setup, String, Source) {
     let mut s = setup().await;
     s.db.cancel_assignment(&s.owner, &s.w, &s.c, &s.parent.reply)
         .await
