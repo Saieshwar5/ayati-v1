@@ -48,3 +48,51 @@ test('members read the limits without changing them, and an unset Cuckoo says so
     assert.match(document.body.textContent, /Computers aren’t set up on this Cuckoo yet/);
   }, { url, fetch: async () => response({ policy: open, can_change: false, configured: false }) });
 });
+
+test('admins set how many computers may be awake and see each agent’s month', async () => {
+  const saves = [];
+  const computers = [{ agent: 'atlas', name: 'Atlas', size: 'standard', state: 'awake', in_use: true, waiting: 2, seconds: 7500, charge_usd: 0.35 }];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { ComputersSettings } = await import('../src/react/settings/computers-settings.tsx');
+    await render(ComputersSettings);
+    const table = [...document.querySelectorAll('table')].find(node => node.querySelector('caption').textContent === 'Agents’ computers this month');
+    assert.match(table.textContent, /AtlasStandardWorking, in use · 2 waiting2 h 5 min\$0\.35/);
+    const awake = [...document.querySelectorAll('label')].find(node => node.textContent.startsWith('Computers awake at once')).querySelector('input');
+    await change(awake, '3');
+    assert.match(document.body.textContent, /When 3 are working, other agents wait their turn/);
+    await click(button('Save computer limits'));
+    assert.equal(saves[0].max_awake, 3);
+  }, { url, fetch: async (path, options = {}) => {
+    if (!options.body) return response({ policy: { ...open, max_awake: 0 }, can_change: true, configured: true, computers });
+    const body = JSON.parse(options.body); saves.push(body);
+    return response({ policy: body, can_change: true, configured: true, computers });
+  } });
+});
+
+test('operators see every computer by provider and pause them all with a reason', async () => {
+  const writes = [];
+  const data = { configured: true, paused: false,
+    sizes: [{ size: 'small', cpu: 1, memory_gb: 2, usd_per_hour: 0.09, routes: [{ provider: 'e2b', image: 'cuckoo-computer-small', usd_per_hour: 0.06 }] }],
+    providers: [{ provider: 'e2b', computers: 3, awake: 1, problems: 1, seconds: 36000, charge: 2.5, cost: 1.6 }],
+    computers: [{ workspace: 'w1', workspace_name: 'Mehta Furnishings', agent: 'a1', agent_name: 'Atlas', size: 'small', provider: 'e2b', provider_id: 'sbx-1',
+      state: 'awake', awake_since: 1, last_used: 1762600000, problem: null, in_use: true, seconds: 3600, charge: 0.09, cost: 0.06 }] };
+  await reactFixture(async ({ render, button, click, change }) => {
+    const { ComputersScreen } = await import('../src/control/computers.tsx');
+    await render(ComputersScreen);
+    const text = document.body.textContent;
+    assert.match(text, /Awake now1of 1 computers/);
+    assert.match(text, /\$2\.50/);
+    assert.match(text, /margin \$0\.90/);
+    assert.match(text, /e2b: cuckoo-computer-small · \$0\.06/);
+    assert.match(text, /AtlasMehta FurnishingsWorking/);
+    await click(button('Pause all computers'));
+    const reason = document.querySelector('dialog textarea');
+    await change(reason, 'Provider incident');
+    await click([...document.querySelectorAll('dialog button')].find(node => node.textContent === 'Pause all computers'));
+    assert.deepEqual(writes, [{ key: 'computers.paused', value: true, reason: 'Provider incident' }]);
+    assert.match(document.body.textContent, /Agents’ computers are paused/);
+  }, { url: 'http://localhost/control.html?section=computers', fetch: async (path, options = {}) => {
+    if (options.body) { writes.push(JSON.parse(options.body)); return response({}); }
+    return response(writes.length ? { ...data, paused: true } : data);
+  } });
+});

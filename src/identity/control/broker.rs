@@ -85,6 +85,7 @@ async fn exchange(
             "Tool capability denied"
         );
         let Access { client, assignment } = &state.access;
+        let seconds = tool_seconds(&input.tool, &input.arguments);
         client
             .post_timeout::<Value>(
                 &format!("/v1/assignments/{}/tools", assignment.scope.assignment),
@@ -93,7 +94,7 @@ async fn exchange(
                     tool: input.tool,
                     arguments: input.arguments,
                 },
-                45,
+                seconds,
             )
             .await
     }
@@ -106,6 +107,16 @@ async fn exchange(
                 json!({"error":"Operation denied or unavailable. Check the saved action history before retrying."}),
             ),
         ),
+    }
+}
+/// How long the controller may take to answer one tool call. A command on the agent's
+/// computer may run for its own `seconds`; other computer and browser work gets a
+/// minute and a half. The guest waits a little longer (`computer_schema::seconds`).
+fn tool_seconds(tool: &str, arguments: &Value) -> u64 {
+    match tool {
+        "computer_run" => arguments["seconds"].as_u64().unwrap_or(60).clamp(1, 600) + 30,
+        _ if tool.starts_with("computer_") || tool.starts_with("browser_") => 90,
+        _ => 45,
     }
 }
 #[derive(Deserialize, Serialize)]

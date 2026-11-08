@@ -155,6 +155,9 @@ mod computer_live;
 mod computer_policy;
 #[cfg(test)]
 mod computer_policy_tests;
+#[cfg(test)]
+mod computer_turn_tests;
+mod computer_turns;
 pub(crate) use computer_live::LiveInput;
 #[cfg(test)]
 mod computer_tests;

@@ -113,6 +113,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::computers::ComputersMigration),
             Box::new(super::computer_browser_migration::ComputerBrowserMigration),
             Box::new(super::computer_policy::ComputerPolicyMigration),
+            Box::new(super::computer_turns::ComputerTurnsMigration),
         ]
     }
 }

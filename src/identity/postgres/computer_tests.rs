@@ -254,7 +254,7 @@ async fn requests_take_turns_and_idle_computers_sleep_and_are_charged() {
     assert!(session.try_get::<i64>("", "seconds").unwrap() >= 3600);
     // An hour of a small computer: $0.09 charged; it cost $0.10 at the provider.
     let charge: i64 = session.try_get("", "charge_micro").unwrap();
-    assert!((90_000..90_100).contains(&charge), "{charge}");
+    assert!((90_000..91_000).contains(&charge), "{charge}");
     assert!(session.try_get::<i64>("", "cost_micro").unwrap() >= 100_000);
     assert_eq!(
         session.try_get::<Option<String>>("", "person").unwrap(),

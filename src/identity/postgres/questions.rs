@@ -65,6 +65,15 @@ impl PgStore {
         result["chat"] = json!(job.chat);
         // A browser hand-over opens this agent's browser.
         result["agent"] = json!(job.agent);
+        result["screenshot"] = json!(
+            super::computer_turns::hand_over_shot(
+                &tx,
+                w,
+                &job.reply,
+                data["request_key"].as_str().unwrap_or("")
+            )
+            .await?
+        );
         result["answered_by"] = data["answered_by"].clone();
         result["answered_ms"] = data["answered_ms"].clone();
         tx.commit().await?;

@@ -131,6 +131,15 @@ impl PgStore {
         let Some(settings) = agent_computer(&self.db, &job.workspace, &job.agent).await? else {
             return Ok(Err(refused("Agent unavailable")));
         };
+        if self
+            .platform_setting(super::operator::settings::COMPUTERS_PAUSED)
+            .await?
+            == json!(true)
+        {
+            return Ok(Err(unavailable(
+                "Cuckoo paused agents' computers for now. Answer without one.",
+            )));
+        }
         if !settings.on {
             let policy = super::computer_policy::workspace_policy(&self.db, &job.workspace).await?;
             return Ok(Err(refused(if policy.allowed {
@@ -159,32 +168,25 @@ impl PgStore {
             )));
         };
         let route = &size.routes[0];
+        let max_awake = super::computer_policy::workspace_policy(&self.db, &job.workspace)
+            .await?
+            .max_awake;
+        let row = match self
+            .computer_turn(
+                job,
+                &settings.size,
+                &route.provider,
+                &route.image,
+                max_awake,
+                HOLD_SECONDS,
+            )
+            .await?
+        {
+            super::computer_turns::Turn::Taken(row) => row,
+            super::computer_turns::Turn::Refused(refusal) => return Ok(Err(refusal)),
+        };
         let at = now();
-        let tx = self.db.begin().await?;
-        // A computer not made yet follows the size chosen now; one already made keeps its
-        // size until it is reset.
-        execute(&tx, "INSERT INTO relay_computers(workspace,agent,size,provider,image,created_at) VALUES($1,$2,$3,$4,$5,$6)
-            ON CONFLICT(workspace,agent) DO UPDATE SET size=EXCLUDED.size,provider=EXCLUDED.provider,image=EXCLUDED.image
-            WHERE relay_computers.provider_id IS NULL AND relay_computers.state='asleep'",
-            vec![job.workspace.clone().into(), job.agent.clone().into(), settings.size.clone().into(), route.provider.clone().into(), route.image.clone().into(), at.into()]).await?;
-        let row = query(&tx, "SELECT size,provider,image,provider_id,state,internet,held_by,held_until FROM relay_computers WHERE workspace=$1 AND agent=$2 FOR UPDATE",
-            vec![job.workspace.clone().into(), job.agent.clone().into()]).await?.context("Computer unavailable")?;
-        let held_by: Option<String> = row.try_get("", "held_by")?;
-        let held_until: i64 = row.try_get("", "held_until")?;
-        if held_by.as_deref().is_some_and(|r| r != job.reply) && held_until > at {
-            return Ok(Err(unavailable(
-                "Your computer is busy with another request. Try again in a minute, or answer without it.",
-            )));
-        }
         let state: String = row.try_get("", "state")?;
-        if state == "deleting" {
-            return Ok(Err(unavailable(
-                "Your computer is being reset. Try again in a minute.",
-            )));
-        }
-        execute(&tx, "UPDATE relay_computers SET held_by=$3,held_until=$4,last_used=$5 WHERE workspace=$1 AND agent=$2",
-            vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into(), (at + HOLD_SECONDS).into(), at.into()]).await?;
-        tx.commit().await?;
 
         let provider: String = row.try_get("", "provider")?;
         let image: String = row.try_get("", "image")?;
@@ -285,6 +287,11 @@ impl PgStore {
         let file = computers.file()?;
         let at = now();
         let idle = at - i64::from(file.sleep_after_minutes) * 60;
+        // Paused by an operator: every awake computer goes to sleep now.
+        let paused = self
+            .platform_setting(super::operator::settings::COMPUTERS_PAUSED)
+            .await?
+            == json!(true);
         let longest = at - i64::from(file.longest_work_minutes) * 60;
         let due = rows(
             &self.db,
@@ -292,9 +299,9 @@ impl PgStore {
               (a.id IS NULL) AS orphaned FROM relay_computers c
               LEFT JOIN relay_shared_agents a ON a.workspace=c.workspace AND a.id=c.agent
               WHERE c.state='deleting' OR a.id IS NULL
-                 OR (c.state='awake' AND ((c.held_until<$1 AND c.last_used<$2) OR c.awake_since<$3))
+                 OR (c.state='awake' AND ($4 OR (c.held_until<$1 AND c.last_used<$2) OR c.awake_since<$3))
               LIMIT 50",
-            vec![at.into(), idle.into(), longest.into()],
+            vec![at.into(), idle.into(), longest.into(), paused.into()],
         )
         .await?;
         let mut done = 0;
@@ -441,6 +448,14 @@ impl PgStore {
             execute(db, "UPDATE relay_computers SET held_by=NULL,held_until=0 WHERE workspace=$1 AND held_by=$2
                 AND NOT EXISTS (SELECT 1 FROM relay_task_questions q WHERE q.workspace=$1 AND q.reply=$2
                   AND q.request_key LIKE 'browser-hand-over-%' AND q.state='pending')", vec![w.into(), reply.into()]).await?;
+            if super::model_budgets::present(db, "relay_computer_waits").await? {
+                execute(
+                    db,
+                    "DELETE FROM relay_computer_waits WHERE workspace=$1 AND reply=$2",
+                    vec![w.into(), reply.into()],
+                )
+                .await?;
+            }
         }
         Ok(())
     }

@@ -31,7 +31,7 @@ function folded(list: AttentionItem[]): (AttentionItem | AttentionItem[])[] {
 }
 const waitLine = (item: AttentionItem, now = Date.now()) => item.backup_at && item.backup_at <= now ? ' · an admin can decide now'
   : item.backup_at ? ` · admin backup in ${Math.max(1, Math.round((item.backup_at - now) / 3600000))} h` : '';
-const action = (item: AttentionItem) => item.kind === 'question' ? 'Answer' : item.kind === 'approval' ? item.status === 'uncertain' ? 'Check' : 'Review' : 'Open';
+const action = (item: AttentionItem) => item.kind === 'question' ? item.status === 'browser' ? 'Take over' : 'Answer' : item.kind === 'approval' ? item.status === 'uncertain' ? 'Check' : 'Review' : 'Open';
 
 /** Needs me: approvals, questions and work that needs a look, from every agent
  * (designs/activity 1). Opening an item records a read receipt first; reading
@@ -66,7 +66,9 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
   const items = (data?.items ?? []).filter(item => !search || `${item.title} ${item.agent_name} ${item.conversation_name}`.toLowerCase().includes(search.toLowerCase()));
   const groups: [string, AttentionItem[]][] = [
     ['Approvals', items.filter(i => i.kind === 'approval' && i.status !== 'uncertain').sort((a, b) => urgent(a, b))],
-    ['Questions', items.filter(i => i.kind === 'question').sort((a, b) => urgent(a, b))],
+    // A browser hand-over waits for the person to use the agent's browser (designs/agent-computers 11).
+    ['In the browser', items.filter(i => i.kind === 'question' && i.status === 'browser').sort((a, b) => urgent(a, b))],
+    ['Questions', items.filter(i => i.kind === 'question' && i.status !== 'browser').sort((a, b) => urgent(a, b))],
     ['Needs review', items.filter(i => i.kind === 'outcome' || i.status === 'uncertain')],
   ];
   return <section className="activity-needs" aria-label="Needs me">

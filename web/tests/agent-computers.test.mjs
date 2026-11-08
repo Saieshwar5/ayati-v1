@@ -278,3 +278,35 @@ test('a hand-over question opens the browser and Done gives it back as the answe
     return response({});
   } }));
 });
+
+test('a hand-over shows the page it needs help with', async () => {
+  const question = { id: 'q2', key: 'browser-hand-over-9f', revision: 1, state: 'pending', values: null, respondent: 'owner', respondent_name: 'Ravi Kumar', can_respond: true,
+    reply: 'r1', chat: 'c1', agent: 'atlas', screenshot: 'data:image/jpeg;base64,/9j/AAAA',
+    specification: { version: 1, kind: 'single_choice', title: 'Atlas needs you in its browser: type a one-time code', description: 'Type the code sent to your phone',
+      fallback: '', options: [{ id: 'yes', label: 'Done, give back' }, { id: 'no', label: 'I can’t do it' }], fields: [], allow_other: false } };
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { QuestionDialog } = await import('../src/react/questions/dialog.tsx');
+    await render(QuestionDialog, { id: 'q2', close() {} });
+    const picture = document.querySelector('img.question-screenshot');
+    assert.equal(picture.getAttribute('src'), 'data:image/jpeg;base64,/9j/AAAA');
+    assert.equal(picture.getAttribute('alt'), 'The page Atlas needs help with');
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response(question) });
+});
+
+test('Needs me lists browser hand-overs apart from questions, to take over', async () => {
+  const base = { version: 'pending', at: Date.now(), agent: 'atlas', agent_name: 'Atlas', chat: 'c1', thread: null, conversation_name: 'Orders', archived: false, read: false, reviewed: false };
+  const items = [
+    { ...base, kind: 'question', id: 'q1', reply: 'r1', title: 'Atlas needs you in its browser: sign in', status: 'browser' },
+    { ...base, kind: 'question', id: 'q2', reply: 'r2', title: 'Which supplier?', status: 'pending' },
+  ];
+  await reactFixture(async ({ render }) => {
+    const { NeedsMe } = await import('../src/react/activity/needs-me.tsx');
+    await render(NeedsMe, { first: { data: { items, available: true, next_before: null }, error: '', loading: false, refresh: async () => {} }, search: '' });
+    const headings = [...document.querySelectorAll('h2.activity-group')].map(node => node.textContent);
+    assert.deepEqual(headings, ['In the browser · 1', 'Questions · 1']);
+    const browser = document.querySelector('[aria-label="In the browser"]');
+    assert.ok([...browser.querySelectorAll('button')].some(node => node.textContent === 'Take over'));
+  }, { url });
+});
