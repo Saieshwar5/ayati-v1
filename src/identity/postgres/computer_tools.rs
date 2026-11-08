@@ -292,7 +292,20 @@ impl PgStore {
     /// For "Ask first": none once the person said yes to this exact command; otherwise
     /// the question to ask, or the refusal when they said no.
     async fn computer_permission(&self, job: &Job, command: &str) -> Result<Option<Value>> {
-        let name: String = query(
+        let name = self.computer_agent_name(job).await?;
+        let digest = crate::identity::provider::digest(command);
+        self.ask_first(
+            job,
+            &format!("computer-{}", &digest[..20.min(digest.len())]),
+            &format!("May {name} run this on its computer?"),
+            &command.chars().take(1000).collect::<String>(),
+            ("command", command),
+        )
+        .await
+    }
+
+    pub(super) async fn computer_agent_name(&self, job: &Job) -> Result<String> {
+        Ok(query(
             &self.db,
             "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
             vec![job.workspace.clone().into(), job.agent.clone().into()],
@@ -300,31 +313,54 @@ impl PgStore {
         .await?
         .map(|r| r.try_get("", "name"))
         .transpose()?
-        .unwrap_or_else(|| "the agent".into());
-        let digest = crate::identity::provider::digest(command);
-        let key = format!("computer-{}", &digest[..20.min(digest.len())]);
+        .unwrap_or_else(|| "the agent".into()))
+    }
+
+    /// A yes/no question to the person who asked, under `key`: none once they said yes,
+    /// the refusal when they said no, otherwise the question for the agent to ask. A
+    /// waiting step (`kind`, `detail`) is recorded for Activity.
+    pub(super) async fn ask_first(
+        &self,
+        job: &Job,
+        key: &str,
+        title: &str,
+        description: &str,
+        (kind, detail): (&str, &str),
+    ) -> Result<Option<Value>> {
         let specification = json!({
             "version": 1,
             "kind": "single_choice",
-            "title": format!("May {name} run this on its computer?"),
-            "description": command.chars().take(1000).collect::<String>(),
+            "title": title,
+            "description": description,
             "fallback": "Reply yes or no.",
-            "options": [{"id": "yes", "label": "Yes, run it"}, {"id": "no", "label": "No"}],
+            "options": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}],
         });
+        self.asked(job, key, specification, (kind, detail),
+            "This asks first. Call ask_question with this question unchanged, then try again after the person answers.",
+            "The person said no. Don't do it; tell them what you'll do instead.").await
+    }
+
+    /// Whether the person answered the question under `key` yes; otherwise the question.
+    pub(super) async fn asked(
+        &self,
+        job: &Job,
+        key: &str,
+        specification: Value,
+        (kind, detail): (&str, &str),
+        ask: &str,
+        refused: &str,
+    ) -> Result<Option<Value>> {
         let tx = self.read_tx(&job.workspace).await?;
-        let answer = super::built_apps::asking::answered(&tx, job, &key, &specification).await?;
+        let answer = super::built_apps::asking::answered(&tx, job, key, &specification).await?;
         tx.commit().await?;
         Ok(match answer {
             Some(true) => None,
-            Some(false) => Some(super::computers::refused(
-                "The person said no to this command. Don't run it; tell them what you'll do instead.",
-            )),
+            Some(false) => Some(super::computers::refused(refused)),
             None => {
-                self.computer_step(job, "command", command, "pending", None, "", 0, 0)
+                self.computer_step(job, kind, detail, "pending", None, "", 0, 0)
                     .await?;
                 Some(
-                    json!({"state": "needs_confirmation", "question": {"key": key, "specification": specification},
-                    "message": "Running programs asks first. Call ask_question with this question unchanged, then run the same command again after the person answers."}),
+                    json!({"state": "needs_confirmation", "question": {"key": key, "specification": specification}, "message": ask}),
                 )
             }
         })
@@ -332,7 +368,7 @@ impl PgStore {
 
     /// Records one step for Activity and the live view.
     #[allow(clippy::too_many_arguments)]
-    async fn computer_step(
+    pub(super) async fn computer_step(
         &self,
         job: &Job,
         kind: &str,

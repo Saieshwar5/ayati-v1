@@ -1,6 +1,8 @@
 """Build Cuckoo's agent computer image as an E2B template, then check a computer
 started from it: browser ready with nothing to install, memory, and the CDP check.
-Usage: e2b_template.py [alias] [--no-build]  (default cuckoo-computer-dev). Never prints keys."""
+Usage: e2b_template.py [alias] [--cpu=N] [--memory-mb=M] [--no-build]
+(default cuckoo-computer-dev, 1 CPU, 2048 MB). Build one template per size in the
+providers file. Never prints keys."""
 import json, pathlib, sys, time
 from e2b import Sandbox, Template
 
@@ -10,13 +12,24 @@ args = [a for a in sys.argv[1:] if not a.startswith("--")]
 alias = args[0] if args else "cuckoo-computer-dev"
 build = "--no-build" not in sys.argv
 
+
+def option(name, default):
+    """A whole-number option such as --cpu=2."""
+    for arg in sys.argv[1:]:
+        if arg.startswith(f"--{name}="):
+            return int(arg.split("=", 1)[1])
+    return default
+
+
+cpu, memory_mb = option("cpu", 1), option("memory-mb", 2048)
+
 # Chromium's page process needs memory overcommit; set once when the template's
 # snapshot is made, so every computer started from it has it.
 template = Template().from_dockerfile(dockerfile.read_text()).set_start_cmd(
     "sudo sysctl -w vm.overcommit_memory=1", "test \"$(cat /proc/sys/vm/overcommit_memory)\" = 1")
 if build:
     started = time.monotonic()
-    info = Template.build(template, alias=alias, cpu_count=1, memory_mb=2048,
+    info = Template.build(template, alias=alias, cpu_count=cpu, memory_mb=memory_mb,
                           on_build_logs=lambda entry: print("  build:", str(entry)[:160], flush=True))
     print(json.dumps({"built": alias, "seconds": round(time.monotonic() - started, 1), "info": str(info)[:200]}), flush=True)
 

@@ -21,6 +21,32 @@ fn client(timeout: Duration) -> Result<reqwest::Client> {
         .build()?)
 }
 
+/// The next whole Connect message in `buffer`, with its flags; flag 2 ends the stream.
+fn take_message(buffer: &mut Vec<u8>) -> Option<(u8, Value)> {
+    if buffer.len() < 5 {
+        return None;
+    }
+    let size = u32::from_be_bytes([buffer[1], buffer[2], buffer[3], buffer[4]]) as usize;
+    if buffer.len() < 5 + size {
+        return None;
+    }
+    let flags = buffer[0];
+    let message = serde_json::from_slice(&buffer[5..5 + size]).unwrap_or(Value::Null);
+    buffer.drain(..5 + size);
+    Some((flags, message))
+}
+
+/// Decoded output bytes of one stream (stdout or stderr) in a process event.
+fn output(event: &Value, stream: &str) -> Option<Vec<u8>> {
+    use base64::Engine as _;
+    let data = event["data"][stream].as_str()?;
+    Some(
+        base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .unwrap_or_default(),
+    )
+}
+
 /// The computer's file address for one path, as its own user.
 fn files_url(base: &str, path: &str) -> Result<reqwest::Url> {
     let mut url = reqwest::Url::parse(&format!("{base}/files")).context("Invalid computer URL")?;
@@ -187,7 +213,7 @@ impl Provider for E2b {
             "args": ["-k", "5", seconds, "/bin/bash", "-l", "-c", script],
             "envs": {},
             "cwd": super::HOME,
-        }});
+        }, "stdin": false});
         let mut response = client(timeout + Duration::from_secs(20))?
             .post(format!("{}/process.Process/Start", call.computers))
             .header("E2b-Sandbox-Id", &computer.id)
@@ -215,16 +241,7 @@ impl Provider for E2b {
             .context("The command's output stopped")?
         {
             buffer.extend_from_slice(&chunk);
-            while buffer.len() >= 5 {
-                let size =
-                    u32::from_be_bytes([buffer[1], buffer[2], buffer[3], buffer[4]]) as usize;
-                if buffer.len() < 5 + size {
-                    break;
-                }
-                let flags = buffer[0];
-                let message: Value =
-                    serde_json::from_slice(&buffer[5..5 + size]).unwrap_or(Value::Null);
-                buffer.drain(..5 + size);
+            while let Some((flags, message)) = take_message(&mut buffer) {
                 if flags & 2 != 0 {
                     // End of stream: an error here means the command didn't run.
                     if let Some(error) = message.get("error") {
@@ -237,11 +254,7 @@ impl Provider for E2b {
                 }
                 let event = &message["event"];
                 for (name, kept) in [("stdout", &mut stdout), ("stderr", &mut stderr)] {
-                    if let Some(data) = event["data"][name].as_str() {
-                        use base64::Engine as _;
-                        let bytes = base64::engine::general_purpose::STANDARD
-                            .decode(data)
-                            .unwrap_or_default();
+                    if let Some(bytes) = output(event, name) {
                         total += bytes.len() as u64;
                         keep(kept, &bytes);
                     }
@@ -260,6 +273,76 @@ impl Provider for E2b {
             // `timeout` exits 124 when it stopped the command, 137 after the kill.
             timed_out: exit_code == 124 || exit_code == 137,
         })
+    }
+
+    async fn stream(
+        &self,
+        call: &Call<'_>,
+        computer: &Awake,
+        command: &str,
+        tag: &str,
+    ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>> {
+        let start = json!({"process": {
+            "cmd": "/bin/bash", "args": ["-l", "-c", command], "envs": {}, "cwd": super::HOME,
+        }, "tag": tag, "stdin": true});
+        // No overall timeout: the stream lasts as long as the program; it is stopped by
+        // closing its input.
+        let mut response = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(20))
+            .build()?
+            .post(format!("{}/process.Process/Start", call.computers))
+            .header("E2b-Sandbox-Id", &computer.id)
+            .header("E2b-Sandbox-Port", ENVD_PORT)
+            .header("X-Access-Token", &computer.token)
+            .header("Authorization", USER)
+            .header("Content-Type", "application/connect+json")
+            .header("Connect-Protocol-Version", "1")
+            .body(envelope(&start))
+            .send()
+            .await
+            .context("The computer could not be reached")?;
+        ensure!(
+            response.status().is_success(),
+            "Starting the program failed ({})",
+            response.status()
+        );
+        let (sender, receiver) = tokio::sync::mpsc::channel(64);
+        tokio::spawn(async move {
+            let mut buffer = Vec::new();
+            while let Ok(Some(chunk)) = response.chunk().await {
+                buffer.extend_from_slice(&chunk);
+                while let Some((flags, message)) = take_message(&mut buffer) {
+                    if flags & 2 != 0 {
+                        return;
+                    }
+                    if let Some(bytes) = output(&message["event"], "stdout")
+                        && sender.send(bytes).await.is_err()
+                    {
+                        return;
+                    }
+                }
+            }
+        });
+        Ok(receiver)
+    }
+
+    async fn send(&self, call: &Call<'_>, computer: &Awake, tag: &str, bytes: &[u8]) -> Result<()> {
+        use base64::Engine as _;
+        let input = base64::engine::general_purpose::STANDARD.encode(bytes);
+        let response = client(Duration::from_secs(20))?
+            .post(format!("{}/process.Process/SendInput", call.computers))
+            .header("E2b-Sandbox-Id", &computer.id)
+            .header("E2b-Sandbox-Port", ENVD_PORT)
+            .header("X-Access-Token", &computer.token)
+            .header("Authorization", USER)
+            .header("Connect-Protocol-Version", "1")
+            .json(&json!({"process": {"tag": tag}, "input": {"stdin": input}}))
+            .send()
+            .await
+            .context("The computer could not be reached")?;
+        checked(response, "Sending to the program").await?;
+        Ok(())
     }
 
     async fn write(

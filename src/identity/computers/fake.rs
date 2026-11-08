@@ -30,6 +30,8 @@ struct Shared {
     computers: Arc<Mutex<HashMap<String, Computer>>>,
     log: Arc<Mutex<Vec<String>>>,
     next: Arc<Mutex<u32>>,
+    /// Input of programs started with a tag, by "computer/tag".
+    inputs: Arc<tokio::sync::Mutex<HashMap<String, tokio::process::ChildStdin>>>,
 }
 
 /// A running stand-in; dropping it stops nothing, the test process ends it.
@@ -96,6 +98,7 @@ pub(crate) async fn start() -> Fake {
         .route("/sandboxes/{id}", delete(remove))
         .route("/sandboxes/{id}/network", axum::routing::put(network))
         .route("/process.Process/Start", post(run))
+        .route("/process.Process/SendInput", post(send_input))
         .route("/files", post(write).get(read))
         .with_state(shared.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -267,12 +270,21 @@ async fn run(State(s): State<Shared>, headers: HeaderMap, body: Bytes) -> Respon
         .into_iter()
         .map(|a| a.replace(super::HOME, &home.to_string_lossy()))
         .collect();
-    let output = tokio::process::Command::new(process["cmd"].as_str().unwrap_or("/bin/false"))
-        .args(&args)
-        .current_dir(&cwd)
-        .env("HOME", &home)
-        .output()
-        .await;
+    let mut command = tokio::process::Command::new(process["cmd"].as_str().unwrap_or("/bin/false"));
+    command.args(&args).current_dir(&cwd).env("HOME", &home);
+    // The browser helper: a local Chromium for tests, on a port of this computer's own.
+    if let Ok(chromium) = std::env::var("AYATI_TEST_CHROMIUM") {
+        command.env("CUCKOO_CHROMIUM", chromium);
+    }
+    command.env("CUCKOO_BROWSER_PORT", browser_port(&home).to_string());
+    if let (Some(tag), true) = (message["tag"].as_str(), message["stdin"] == true) {
+        let id = headers
+            .get("e2b-sandbox-id")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        return streamed(&s, command, format!("{id}/{tag}")).await;
+    }
+    let output = command.output().await;
     use base64::Engine as _;
     let encode = |b: &[u8]| base64::engine::general_purpose::STANDARD.encode(b);
     let mut out = frame(0, &json!({"event": {"start": {"pid": 1}}}));
@@ -300,6 +312,92 @@ async fn run(State(s): State<Shared>, headers: HeaderMap, body: Bytes) -> Respon
         Body::from(out),
     )
         .into_response()
+}
+
+/// A port for this computer's browser, so tests running at once don't share one.
+fn browser_port(home: &std::path::Path) -> u16 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    home.hash(&mut hasher);
+    20_000 + (hasher.finish() % 20_000) as u16
+}
+
+/// A program whose input stays open: its output is sent as it comes, like E2B does.
+async fn streamed(s: &Shared, mut command: tokio::process::Command, key: String) -> Response {
+    use tokio::io::AsyncReadExt as _;
+    command
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
+    let Ok(mut child) = command.spawn() else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    s.inputs
+        .lock()
+        .await
+        .insert(key.clone(), child.stdin.take().unwrap());
+    let mut stdout = child.stdout.take().unwrap();
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Vec<u8>, std::io::Error>>(64);
+    let inputs = s.inputs.clone();
+    tokio::spawn(async move {
+        use base64::Engine as _;
+        let encode = |b: &[u8]| base64::engine::general_purpose::STANDARD.encode(b);
+        let _ = sender
+            .send(Ok(frame(0, &json!({"event": {"start": {"pid": 1}}}))))
+            .await;
+        let mut chunk = vec![0u8; 65536];
+        while let Ok(n) = stdout.read(&mut chunk).await {
+            if n == 0 {
+                break;
+            }
+            let data = json!({"event": {"data": {"stdout": encode(&chunk[..n])}}});
+            if sender.send(Ok(frame(0, &data))).await.is_err() {
+                break;
+            }
+        }
+        let code = child.wait().await.ok().and_then(|s| s.code()).unwrap_or(-1);
+        inputs.lock().await.remove(&key);
+        let _ = sender
+            .send(Ok(frame(
+                0,
+                &json!({"event": {"end": {"exitCode": code, "exited": true}}}),
+            )))
+            .await;
+        let _ = sender.send(Ok(frame(2, &json!({})))).await;
+    });
+    (
+        [("content-type", "application/connect+json")],
+        Body::from_stream(tokio_stream::wrappers::ReceiverStream::new(receiver)),
+    )
+        .into_response()
+}
+
+async fn send_input(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> StatusCode {
+    use base64::Engine as _;
+    use tokio::io::AsyncWriteExt as _;
+    if computer(&s, &headers).is_err() {
+        return StatusCode::UNAUTHORIZED;
+    }
+    let id = headers
+        .get("e2b-sandbox-id")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let key = format!("{id}/{}", body["process"]["tag"].as_str().unwrap_or(""));
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(body["input"]["stdin"].as_str().unwrap_or(""))
+        .unwrap_or_default();
+    let mut inputs = s.inputs.lock().await;
+    let Some(input) = inputs.get_mut(&key) else {
+        return StatusCode::NOT_FOUND;
+    };
+    if input.write_all(&bytes).await.is_err() || input.flush().await.is_err() {
+        return StatusCode::GONE;
+    }
+    StatusCode::OK
 }
 
 async fn write(

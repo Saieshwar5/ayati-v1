@@ -1,3 +1,4 @@
+pub(crate) mod computer_policy;
 mod computer_routes;
 pub(crate) mod computer_settings;
 pub(crate) mod config;

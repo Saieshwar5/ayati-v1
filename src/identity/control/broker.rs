@@ -306,6 +306,38 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.computer_write_file(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "browser_open" => {
+            pg.browser_open(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_read" => {
+            ensure!(arguments == json!({}), "Invalid browser request");
+            pg.browser_read(job).await
+        }
+        "browser_click" => {
+            pg.browser_click(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_type" => {
+            pg.browser_type(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_choose" => {
+            pg.browser_choose(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_press" => {
+            pg.browser_press(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_screenshot" => {
+            pg.browser_screenshot(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "browser_hand_over" => {
+            pg.browser_hand_over(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "my_apps" => {
             ensure!(arguments == json!({}), "Invalid apps request");
             pg.agent_my_apps(job).await

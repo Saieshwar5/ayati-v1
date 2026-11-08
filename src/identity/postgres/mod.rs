@@ -147,6 +147,15 @@ mod task_progress;
 mod task_progress_tests;
 pub(crate) mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
+mod browser_tools;
+mod computer_browser_migration;
+#[cfg(test)]
+mod computer_browser_tests;
+mod computer_live;
+mod computer_policy;
+#[cfg(test)]
+mod computer_policy_tests;
+pub(crate) use computer_live::LiveInput;
 #[cfg(test)]
 mod computer_tests;
 mod computer_tools;
