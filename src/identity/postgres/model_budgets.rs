@@ -51,14 +51,35 @@ fn warn_default() -> i16 {
     80
 }
 
-/// The budgets that apply here, each with this month's charges so far.
-const BUDGETS: &str = "WITH zone AS (SELECT COALESCE(to_jsonb(w)->>'timezone','UTC') AS z FROM relay_workspaces w WHERE w.id=$1),
+/// The budgets that apply here, each with this month's charges so far: model calls and,
+/// from schema 103, agent computers' awake time (designs/agent-computers).
+fn budgets(computers: bool) -> String {
+    let computer_charges = if computers {
+        " + (SELECT COALESCE(sum(s.charge_micro),0)::bigint FROM relay_computer_sessions s
+   WHERE s.workspace=$1 AND s.woke_at*1000>=month.start AND (b.agent='' OR s.agent=b.agent))"
+    } else {
+        ""
+    };
+    format!("WITH zone AS (SELECT COALESCE(to_jsonb(w)->>'timezone','UTC') AS z FROM relay_workspaces w WHERE w.id=$1),
  month AS (SELECT (extract(epoch FROM (date_trunc('month', now() AT TIME ZONE z) AT TIME ZONE z))*1000)::bigint AS start FROM zone)
  SELECT b.agent, b.monthly_micro, b.warn_percent::bigint AS warn_percent, month.start,
   (SELECT COALESCE(sum(u.charge_micro),0)::bigint FROM relay_model_usage u
-   WHERE u.workspace=$1 AND u.at_ms>=month.start AND (b.agent='' OR u.agent=b.agent)) AS used
+   WHERE u.workspace=$1 AND u.at_ms>=month.start AND (b.agent='' OR u.agent=b.agent)){computer_charges} AS used
  FROM relay_model_budgets b, month WHERE b.workspace=$1 AND ($2::text IS NULL OR b.agent IN ('',$2))
- ORDER BY b.agent<>'', b.agent";
+ ORDER BY b.agent<>'', b.agent")
+}
+
+/// Whether a table exists yet: upgrade tests run requests at older schemas.
+pub(super) async fn present(db: &impl ConnectionTrait, table: &str) -> Result<bool> {
+    Ok(query(
+        db,
+        "SELECT to_regclass($1) IS NOT NULL AS present",
+        vec![table.into()],
+    )
+    .await?
+    .context("Missing schema check")?
+    .try_get::<bool>("", "present")?)
+}
 
 fn state(row: &QueryResult) -> Result<Value> {
     let limit: i64 = row.try_get("", "monthly_micro")?;
@@ -85,18 +106,11 @@ pub(crate) async fn budget_reached(
     agent: &str,
 ) -> Result<Option<String>> {
     // Upgrade tests send messages at schemas before 89, which have no budgets.
-    let present = query(
-        db,
-        "SELECT to_regclass('relay_model_budgets') IS NOT NULL AS present",
-        vec![],
-    )
-    .await?
-    .context("Missing budget check")?
-    .try_get::<bool>("", "present")?;
-    if !present {
+    if !present(db, "relay_model_budgets").await? {
         return Ok(None);
     }
-    for row in rows(db, BUDGETS, vec![w.into(), Some(agent.to_owned()).into()]).await? {
+    let list = budgets(present(db, "relay_computer_sessions").await?);
+    for row in rows(db, &list, vec![w.into(), Some(agent.to_owned()).into()]).await? {
         let budget = state(&row)?;
         if budget["state"] == "reached" {
             return Ok(Some(if budget["agent"] == "" {
@@ -122,7 +136,8 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let mut list = vec![];
-        for row in rows(&tx, BUDGETS, vec![w.into(), None::<String>.into()]).await? {
+        let sql = budgets(present(&tx, "relay_computer_sessions").await?);
+        for row in rows(&tx, &sql, vec![w.into(), None::<String>.into()]).await? {
             list.push(state(&row)?);
         }
         let names = rows(

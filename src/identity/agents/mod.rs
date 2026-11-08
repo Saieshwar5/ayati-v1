@@ -1,3 +1,5 @@
+mod computer_routes;
+pub(crate) mod computer_settings;
 pub(crate) mod config;
 pub(crate) mod system_prompt;
 use super::*;
@@ -10,7 +12,7 @@ use axum::{
 use config::{SYSTEM_GUIDE, SaveAgent};
 use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
-    Router::new()
+    computer_routes::routes()
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/requests",
             get(requests),
@@ -108,7 +110,7 @@ async fn list(
     let role = workspaces::membership(&app, &user, &w).await?;
     let (models, default_model) = app.store.workspace_models(&user, &w).await?;
     Ok(Json(
-        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":super::models::default_model(&app, default_model),"models":models,"catalog":super::models::offered(&app)?}),
+        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":super::models::default_model(&app, default_model),"models":models,"catalog":super::models::offered(&app)?,"web_search":app.store.web_search.is_some(),"computers":app.store.computers.as_ref().map(|c| c.offered())}),
     ))
 }
 async fn save(
@@ -175,6 +177,10 @@ async fn prompt(
             business_actions: input.apps,
             executor: app.store.pooled,
             library: false,
+            // A new agent has web search unless its creator switches it off.
+            web_search: app.store.web_search.is_some(),
+            // Computers are off until the owner turns one on.
+            computer: false,
             skills: input
                 .skills
                 .into_iter()

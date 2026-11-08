@@ -6,13 +6,17 @@ import { meanings } from '../settings/workspace-connections-model';
 import { effectLabel, loadControls, modes, saveRule, states, switchTool, type Action, type Mode, type ToolConnection, type ToolOperation } from './control-model';
 import { ModePicker } from './mode-picker';
 import type { Agent } from './model';
+import { WebSearchCard } from './web-search';
+import { ComputerToolsCard } from './computer/computer-controls';
 
 export const connectorName = (c: ToolConnection) => c.name || c.server;
 
-/** Tools: the connectors an admin added, a switch per connector and a rule per
- * action that can only be stricter than the admin's (designs/agents-simplified 9).
- * Rules belong to the agent, not to one conversation. */
-export function ToolsTab({ agent }: { agent: Agent }) {
+/** Tools: Cuckoo's own tools first (web search, designs/web-search, and the agent's
+ * computer controls when it has one, designs/agent-computers 8), then the
+ * connectors an admin added, a switch per connector and a rule per action that can
+ * only be stricter than the admin's (designs/agents-simplified 9). Rules belong to
+ * the agent, not to one conversation. */
+export function ToolsTab({ agent, webSearch = false, computers = false, saved }: { agent: Agent; webSearch?: boolean; computers?: boolean; saved?: () => Promise<void> }) {
   const load = useCallback(() => loadControls(agent.id), [agent.id]);
   const { data, error, refresh } = useResource(load);
   const mutation = useMutation();
@@ -22,6 +26,9 @@ export function ToolsTab({ agent }: { agent: Agent }) {
     await work(); await refresh(); mutation.setStatus(done);
   });
   return <section className="agent-tools" aria-label="Tools">
+    {webSearch && saved && <WebSearchCard agent={agent} saved={saved} />}
+    {computers && saved && <ComputerToolsCard agent={agent} saved={saved} />}
+    {(webSearch || computers) && <h3 className="agent-group-label">Apps your admin added</h3>}
     <p className="agent-tools-note">Your admin decides which tools exist and the loosest rule for each action. Here you can only make an action stricter. “Ask first” goes to {agent.name}’s managers.</p>
     {error && <p role="alert">{error} <Button onClick={() => void refresh().catch(() => {})}>Retry</Button></p>}
     {!data && !error && <p role="status">Loading tools…</p>}

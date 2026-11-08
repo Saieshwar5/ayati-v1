@@ -4,6 +4,8 @@ import { errorMessage } from '../../requests';
 import { modes, type Mode, type ToolConnection } from '../control-model';
 import { connectorName, ToolAction } from '../tools-tab';
 import { suggestControls, type ControlSuggestion, type ControlsRequest } from '../skills/writer-model';
+import { ComputerControls } from '../computer/computer-controls';
+import type { ComputerSettings } from '../computer/model';
 
 /** The connectors chosen during create, any action made stricter, and what was
  * suggested for each action. */
@@ -31,9 +33,10 @@ function applySuggestions(choices: ToolChoices, list: ControlSuggestion[], all =
  * for every action of the chosen apps, suggested by the agent from its apps,
  * skills, ground rules and who can talk to it. Suggestions are never looser than
  * safe defaults or the admin's rule; Cuckoo enforces the result before every action. */
-export function ControlsStep({ name, connections, choices, change, request, suggested, setSuggested }: {
+export function ControlsStep({ name, connections, choices, change, request, suggested, setSuggested, computer, changeComputer }: {
   name: string; connections?: ToolConnection[]; choices: ToolChoices; change: Dispatch<SetStateAction<ToolChoices>>;
   request: Omit<ControlsRequest, 'connections'>; suggested?: Suggested; setSuggested: (next: Suggested) => void;
+  computer?: ComputerSettings; changeComputer: (next: ComputerSettings) => void;
 }) {
   const [problem, setProblem] = useState('');
   const display = name.trim() || 'this agent';
@@ -56,6 +59,11 @@ export function ControlsStep({ name, connections, choices, change, request, sugg
   if (!connections) return <p role="status">Loading connectors…</p>;
   const reset = () => change(applySuggestions(choices, chosen.flatMap(connection => Object.values(choices[connection.id].suggested ?? {})), true));
   return <div className="agent-create-tools">
+    {computer && <article className="agent-tool" aria-labelledby="agent-create-computer-title">
+      <header><span><strong id="agent-create-computer-title">{display === 'this agent' ? 'Its' : `${display}’s`} computer</strong>
+        <small>Cuckoo checks these before every command, and the computer’s network allows only what Internet allows. It is made the first time {display} uses it.</small></span></header>
+      <ComputerControls name={display} value={computer} change={changeComputer} disabled={false} />
+    </article>}
     <div className="agent-tools-note" aria-live="polite">
       {!chosen.length ? `No apps chosen, so ${display} can’t act in any app. You can switch apps on later on the Tools tab.`
         : problem ? `Controls couldn’t be suggested: ${problem} Your admin’s rules apply until you change them.`

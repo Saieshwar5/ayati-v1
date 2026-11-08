@@ -17,6 +17,7 @@ mod home_panels;
 mod identifier;
 pub(crate) use identifier::identifier;
 pub(crate) mod archive;
+pub(crate) mod computers;
 pub(crate) mod data_cleanup;
 mod hosting;
 mod interactions;
@@ -45,6 +46,7 @@ mod skills;
 pub(crate) mod start_trace;
 mod transcription;
 pub mod user;
+pub(crate) mod web_search;
 mod worker_control;
 mod workspace_codes;
 mod workspaces;
@@ -245,6 +247,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     data_cleanup::start(app.clone());
     library::indexer::start(app.clone());
     library::keeping::start(app.clone());
+    computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;
     shutdown::serve(app, listener, control).await
 }

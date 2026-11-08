@@ -15,12 +15,15 @@ import { useSkillWriting } from '../skills/setup-chat';
 import { skillText, type DraftSkill, type LibraryPick } from '../skills/writer-model';
 import { SkillPicker } from '../skills/skill-picker';
 import { SkillIcon } from '../skills/skill-icons';
+import { BuiltInTools, searchesWeb, WebSearchChoice } from '../web-search';
+import { ComputerChoice } from '../computer/computer-choice';
+import { computerOf, type ComputerOffer } from '../computer/model';
 import './create.css';
 
-const steps = ['Name and picture', 'Connectors', 'Skills', 'People', 'Controls'];
+const steps = ['Name and picture', 'Tools', 'Skills', 'People', 'Controls'];
 const hints = [
   'Only the name is needed. Everything else can change later.',
-  'Skipping is fine. Apps can change later on the Tools tab.',
+  'Skipping is fine. Tools can change later on the Tools tab.',
   'Ground rules and skills can be changed at any time.',
   'Defaults are fine for most agents.',
   'Cuckoo checks these before every action. Change them later on the Tools tab.',
@@ -38,10 +41,12 @@ export function newAgent(directory: Directory): Agent {
 }
 
 /** Create an agent in five short steps (designs/agent-built-skills): name, the
- * apps it can use, its skills, people, then controls. Tools are saved right after
- * the agent; retrying after a failure updates the same agent and its tools. */
-export function AgentCreate({ start, close, created }: {
-  start: Agent; close: () => void; created: (id: string) => Promise<void>;
+ * tools and apps it can use, its skills, people, then controls. Tools are saved
+ * right after the agent; retrying after a failure updates the same agent and its
+ * tools. Web search and a computer are offered when this Cuckoo has them
+ * (designs/web-search, designs/agent-computers 7 and 8). */
+export function AgentCreate({ start, close, created, webSearch = false, computers }: {
+  start: Agent; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const [draft, setDraft] = useState(start);
@@ -99,7 +104,13 @@ export function AgentCreate({ start, close, created }: {
         change={(key, value) => setDraft(old => ({ ...old, [key]: value }))}
         choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
         upload={setFile} reject={mutation.setStatus} />}
-      {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
+      {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
+        builtIn={(webSearch || computers) && <BuiltInTools>
+          {webSearch && <WebSearchChoice name={draft.name.trim() || 'This agent'} on={searchesWeb(draft.settings)}
+            change={on => setDraft(old => ({ ...old, settings: { ...old.settings, web_search: on } }))} />}
+          {computers && <ComputerChoice name={draft.name.trim() || 'This agent'} offer={computers} value={draft.settings.computer}
+            change={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))} />}
+        </BuiltInTools>} />}
       {step === 2 && <SkillsStep name={draft.name} title={draft.role} text={draft.settings.instructions}
         apps={chosen.length > 0} connections={chosen} writing={writing} drafts={drafts} setDrafts={setDrafts} library={skills} reuse={addSkills}
         change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))}>
@@ -111,6 +122,8 @@ export function AgentCreate({ start, close, created }: {
         members={members.data?.users} audience={audience} people={people} managers={managers}
         setAudience={setAudience} setPeople={setPeople} setManagers={setManagers} />}
       {step === 4 && <ControlsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
+        computer={computers && computerOf(draft.settings).on ? computerOf(draft.settings) : undefined}
+        changeComputer={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))}
         suggested={suggested} setSuggested={setSuggested} request={{ name: draft.name.trim(), role: draft.role, audience, ground_rules: draft.settings.instructions,
           skills: [...drafts, ...skills.map(skill => ({ ...skill, steps: '' }))].map(({ name, description, steps }) => ({ name, description, steps })) }} />}
     </fieldset>

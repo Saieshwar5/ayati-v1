@@ -9,6 +9,8 @@ impl PgStore {
             business_actions: self.control_enabled(w, agent).await?,
             executor: self.pooled,
             library: self.library_agent_has_items(w, agent).await?,
+            web_search: self.web_search_on(w, agent).await?,
+            computer: self.computer_on(w, agent).await?,
             skills: self.agent_skill_listing(w, agent).await?,
         })
     }

@@ -87,7 +87,7 @@ export function AgentsPage() {
     </div><footer>People, purpose and controlled work.</footer></aside>
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
-      {creating && data && <AgentCreate key={creating.id} start={creating} close={() => setCreating(undefined)}
+      {creating && data && <AgentCreate key={creating.id} start={creating} close={() => setCreating(undefined)} webSearch={Boolean(data.web_search)} computers={data.computers}
         created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); }} />}
       {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}

@@ -317,6 +317,8 @@ impl PgStore {
         if query(tx,"SELECT reply FROM relay_chat_jobs WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint AND workspace=$3 FOR UPDATE",vec![job.reply.clone().into(),claim.clone().into(),job.workspace.clone().into()]).await?.is_none() {
             return Ok(false);
         }
+        // The agent's computer is free for its other requests as soon as this one ends.
+        Self::computer_release(tx, &job.workspace, &job.reply).await?;
         let user = User {
             id: job.requester.clone(),
             email: String::new(),
@@ -345,12 +347,13 @@ impl PgStore {
             self.carry_steers(tx, job).await?;
         }
         execute(tx,"UPDATE relay_worker_assignments SET state='finished',outcome=$2,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE id=$1 AND state='running'",vec![claim.clone().into(),if allowed { state } else { "cancelled" }.into()]).await?;
-        // Library documents the agent read are cited from Cuckoo's own receipts.
+        // Library documents and web pages the agent read are cited from Cuckoo's own receipts.
         let cited;
         let content = if allowed && state == "complete" {
             cited = format!(
-                "{content}{}",
-                super::library::agent_tools::read_citations(tx, job).await?
+                "{content}{}{}",
+                super::library::agent_tools::read_citations(tx, job).await?,
+                super::web_reads::web_citations(tx, job).await?
             );
             cited.as_str()
         } else {
