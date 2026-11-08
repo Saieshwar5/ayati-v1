@@ -1,0 +1,14 @@
+/* Marks shared by Apps, the Add app catalog, agent setup and the Tools tab
+   (designs/connector-screens). */
+.app-letter { color: #fff; font-weight: 650; font-size: 18px; line-height: 1; }
+.app-letter.big { font-size: 26px; }
+.app-letter.small { width: 36px; height: 36px; border-radius: 10px; font-size: 15px; }
+.kind-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kind-chip { display: inline-block; padding: 2px 7px; border-radius: 6px; background: var(--selection); color: var(--text); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.kind-chip.read { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
+.kind-chip.money { background: var(--warning-bg); color: var(--warning); }
+.kind-chip.sends_outside { background: color-mix(in srgb, var(--receipt-seen) 12%, var(--surface)); color: var(--receipt-seen); }
+.kind-chip.delete { background: color-mix(in srgb, var(--danger) 11%, var(--surface)); color: var(--danger); }
+.health-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.health-tag.paused { background: var(--soft); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
+.mark-icon { width: 14px; height: 14px; flex: none; }
