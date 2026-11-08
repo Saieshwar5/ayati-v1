@@ -396,6 +396,9 @@ connected account, and the proxy.
 
 ## C9 · Connections catalog, one-step connect, provider health
 
+Screens for this plan, with the current client beside them, are in
+[connector screens](../connector-screens/README.md).
+
 **Build.**
 
 - Catalog with categories and server-side search and paging:
