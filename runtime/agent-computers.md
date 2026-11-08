@@ -43,7 +43,40 @@ First slice (server and screens) built 2026-11-08.
   awake longer than `longest_work_minutes` (5 minutes to 24 hours) in one go.
 - The controller checks the file at start and refuses to start if it is broken.
 
-## What agents get
+## Setting it up on a Cuckoo
+
+1. **Release.** Deploy the controller and the executors from the same release. The
+   computer and browser tools agents see come from the guest in the executor image;
+   the controller does the work.
+2. **Schema.** Run `ayati workspace-db migrate`. The controller needs schema 105.
+3. **Images.** Build one E2B template per size from
+   [deploy/agent-computer/Dockerfile](../deploy/agent-computer/Dockerfile), with an E2B
+   key in `E2B_API_KEY`:
+
+   ```bash
+   .venv/bin/python -I tools/computer-provider-check/e2b_template.py cuckoo-computer-small --cpu=1 --memory-mb=2048
+   .venv/bin/python -I tools/computer-provider-check/e2b_template.py cuckoo-computer-standard --cpu=2 --memory-mb=4096
+   .venv/bin/python -I tools/computer-provider-check/e2b_template.py cuckoo-computer-large --cpu=4 --memory-mb=8192
+   ```
+
+   Each build takes about two minutes and ends by starting a computer from the image and
+   checking the browser. Disk size comes from the E2B plan, so set `disk_gb` to what
+   computers really get.
+4. **Key and providers file.** Put the E2B key alone in a private file (`chmod 600`)
+   on the controller, write the providers file (above) naming the three templates, and
+   set `AYATI_COMPUTER_PROVIDERS_FILE` to its absolute path. `usd_per_hour` on a size is
+   what people are charged; on a route it is E2B's own price for that CPU and memory,
+   from E2B's pricing page. Restart the controller; it refuses to start if the file is
+   broken.
+5. **Network.** The controller needs outbound HTTPS to `api.e2b.app` and
+   `sandbox.e2b.app`. Executors don't.
+6. **E2B plan.** Keep `longest_work_minutes` under the plan's longest sandbox time, and
+   check how many sandboxes may run at once and how long paused ones are kept.
+7. **Check.** Turn the computer on for a test agent, ask it to run `uname -a` and to
+   open a website its internet allows, then look at Activity, Usage, and the computer
+   going to sleep 5 minutes later.
+
+
 
 Four tools of Cuckoo's own, and one system prompt section, **Its computer**, when its
 computer is on:
