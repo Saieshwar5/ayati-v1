@@ -170,17 +170,17 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);backgroun
 .composer{margin:8px 12px 12px;border:1px solid var(--border-control);border-radius:18px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px}
 .composer .send{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center}
 .composer .send .i{width:15px;height:15px}
-.drafts{display:flex;flex-direction:column;gap:9px;min-width:0;position:relative}
+.drafts{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
 .drafts-head{display:flex;align-items:baseline;gap:10px}
 .drafts-head h3{margin:0;font-size:15px}
 .drafts-head small{color:var(--muted);font-size:13px}
-.draft{border:1px solid var(--border-panel);border-radius:12px;padding:10px 14px;display:grid;gap:3px;background:#fff}
+.draft{border:1px solid var(--border-panel);border-radius:12px;padding:8px 14px;display:grid;gap:2px;background:#fff}
 .draft.always{border-color:var(--accent)}
 .draft-top{display:flex;align-items:center;gap:8px}
 .draft-top b{font-size:14px}
 .draft .when{font-size:13px}
 .draft small{color:var(--muted);font-size:12px}
-.draft .acts{display:flex;gap:4px;margin-top:4px;margin-left:-6px}
+.draft .acts{display:flex;gap:4px;margin-top:1px;margin-left:-6px}
 .badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
 .badge.always{background:var(--accent);color:#fff}
 .badge.new{background:#eef1fd;color:var(--link)}
@@ -206,6 +206,27 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);backgroun
 .layer-title .badge{margin-left:auto}
 .layer p{margin:0;font-size:13px;color:var(--muted)}
 .layer.locked .layer-title .i{color:var(--muted)}
+
+.seg{display:inline-flex;border:1px solid var(--border-panel);border-radius:10px;padding:3px;gap:2px;background:#fff}
+.seg span{padding:5px 13px;border-radius:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.seg .allow{background:#e3f3ea;color:var(--success);font-weight:600}
+.seg .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}
+.seg .block{background:#fdeeee;color:var(--danger);font-weight:600}
+.seg .off{opacity:.4}
+.switch{width:38px;height:22px;border-radius:999px;background:var(--border-panel);position:relative;flex:0 0 auto}
+.switch.on{background:var(--accent)}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.switch.on::after{left:19px}
+.conn{border-bottom:1px solid var(--border);padding:10px 0;position:relative}
+.conn-head{display:flex;align-items:center;gap:12px}
+.conn-head b{font-size:14.5px;display:block}
+.conn-head small{color:var(--muted);font-size:12.5px}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:6px 0 6px 50px;align-items:center}
+.op b{font-size:13.5px;font-weight:550;display:block}
+.op small{color:var(--muted);font-size:12px;display:block}
+.op small.why{color:var(--link)}
+.review{display:flex;gap:8px;background:var(--soft);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45;margin-top:4px}
+.review .i{width:15px;height:15px;margin-top:1px;color:var(--muted)}
 </style></head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -237,6 +258,7 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);backgroun
 <symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
 <symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
 <symbol id="shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
 <symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
 </svg>
 <div id="root"></div>
@@ -285,26 +307,26 @@ const teachChat = `<div class="chat" style="height:100%">
     <div class="composer">Tell Iris what to change…<span style="margin-left:auto">${I('mic')}</span><span class="send">${I('send')}</span></div>
 </div>`;
 
-function draft({ name, badge, when, meta, cls = '', acts = true }) {
+function draft({ name, badge, when, meta, cls = '', acts = true, extra = '' }) {
   return `<div class="draft ${cls}"><div class="draft-top">${I(cls === 'always' ? 'shield' : 'book')}<b>${name}</b>${badge}</div>
-    <span class="when">${when}</span><small>${meta}</small>
+    <span class="when">${when}</span><small>${meta}</small>${extra}
     ${acts ? `<div class="acts"><span class="linkbtn">${I('pencil')}Edit</span><span class="linkbtn">${I('chat')}Ask Iris</span><span class="linkbtn" style="color:var(--muted)">Remove</span></div>` : ''}</div>`;
 }
 
 const teachDrafts = `<div class="drafts">
-  <div class="drafts-head"><h3>Iris’s skills</h3><small>4 drafts · saved when you create Iris</small><span style="margin-left:auto" class="linkbtn">${I('pencil')}Write one yourself</span></div>
+  <div class="drafts-head"><h3>Iris’s skills</h3><small>saved when you create Iris</small><span style="margin-left:auto;position:relative" class="linkbtn">${I('pencil')}Write one</span><span class="linkbtn" style="position:relative">${pin(4, 'left:-22px;top:-14px')}${I('upload')}Upload</span></div>
   <div style="position:relative">${pin(3, 'left:-30px;top:12px')}
   ${draft({ name: 'Ground rules', cls: 'always', badge: '<span class="badge always">Always on</span>', when: 'Who Iris is, how it talks, what it never does and when it asks Meera.', meta: 'Read with every message · 6 lines' })}</div>
   ${draft({ name: 'Refund check', badge: '<span class="badge new">New</span>', when: 'Use it when a customer asks for a refund, a return or their money back.', meta: '5 steps · reads “Returns policy 2026” in the Library' })}
-  ${draft({ name: 'Delivery date question', badge: '<span class="badge new">New</span>', when: 'Use it when a customer asks when an order will arrive.', meta: '4 steps' })}
-  <div style="position:relative">${pin(4, 'left:-30px;top:12px')}
-  ${draft({ name: 'Complaint reply', badge: '<span class="badge ws">Workspace skill</span>', when: 'Use it when a customer is unhappy or writes a complaint.', meta: 'Already in your workspace (Priya Shah), so Iris added it instead of writing a copy', acts: false })}</div>
-  <div class="notice info" style="position:relative">${pin(5, 'left:-30px;top:10px')}${I('shield')}<span><b>“Never give discounts” can be enforced.</b> Text is guidance. In step 4, set <i>Apply discount</i> to Block and Cuckoo stops it even if Iris tries.</span></div>
+  ${draft({ name: 'Delivery date question', badge: '<span class="badge new">New</span>', when: 'Use it when a customer asks when an order will arrive.', meta: '4 steps · uses the delivery tracker' })}
+  ${draft({ name: 'Site measurement', badge: '<span class="badge ws">Uploaded</span>', when: 'Use it when a customer sends room measurements.', meta: 'From site-measurement.zip · 3 files · your own skill',
+    extra: `<div class="review">${I('info')}<span><b>Iris checked it:</b> its script can’t run here, so I’ll follow the written steps. No clash with Ground rules.</span></div>` })}
+  <div class="sp-bar" style="position:relative;font-size:12.5px">${pin(5, 'left:-30px;top:6px')}${I('book')}<span>Also uses the workspace skill <b>Complaint reply</b> (Priya Shah)</span><span class="right linkbtn" style="font-size:12.5px">Remove</span></div>
 </div>`;
 
 const s1 = screen('s1', `<div class="frame">${roster('new')}<div class="main">
   <header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>
-  <ol class="steps" style="margin:0"><li class="done"><span>✓</span>Name and picture</li><li class="line"></li><li class="cur"><span>2</span>Skills</li><li class="line"></li><li><span>3</span>People</li><li class="line"></li><li><span>4</span>Tools and safety</li></ol>
+  <ol class="steps" style="margin:0"><li class="done"><span>✓</span>Name and picture</li><li class="line"></li><li class="cur"><span>2</span>Skills</li><li class="line"></li><li><span>3</span>Tools and safety</li><li class="line"></li><li><span>4</span>People</li></ol>
   <div style="flex:1;min-height:0;padding:16px 32px;display:flex;flex-direction:column;gap:14px">
     <div class="sp-bar" style="position:relative">${pin(1, 'left:-30px;top:6px')}${I('lock')}<span><b>Cuckoo system prompt</b> · the same for every agent · nobody in the workspace can change it</span><span class="right linkbtn">Read all of it ${I('arrow')}</span></div>
     <div style="flex:1;min-height:0;display:grid;grid-template-columns:470px minmax(0,1fr);gap:24px">
@@ -312,15 +334,15 @@ const s1 = screen('s1', `<div class="frame">${roster('new')}<div class="main">
       ${teachDrafts}
     </div>
   </div>
-  <footer class="foot" style="position:relative">${pin(6, 'left:8px;top:-12px')}<span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Nothing is saved until you create Iris. Skills can be changed any time.</p></footer>
+  <footer class="foot" style="position:relative">${pin(6, 'left:8px;top:-12px')}<span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Next: Tools and safety, suggested from these skills. Nothing is saved until you create Iris.</p></footer>
 </div></div>`, notes('Create · 2 Skills (proposed)', [
   'The <b>Cuckoo system prompt</b> is shown at the top of the step: the same for every agent, locked. “Read all of it” opens the full text (screen 3).',
-  'You describe the agent in your own words, typed or as a voice message. Iris asks only what it needs. Before the first message, starters (Customer support, Sales follow-up…) fill the box with an example description.',
+  'You describe the agent in your own words, typed or as a voice message. Iris asks only what it needs. Before the first message, starters fill the box with an example description.',
   'Iris writes the skills. <b>Ground rules</b> is always on: who it is, how it talks, what it never does, when to ask a person. The others are opened only when a request needs them.',
-  'Iris reuses workspace skills instead of writing duplicates, and picks names that are free in the workspace.',
-  'A restriction Cuckoo can enforce becomes a suggested <b>Tools and safety</b> rule, because a skill is guidance and a rule is enforced.',
-  'Each draft: <b>Edit</b> by hand, <b>Ask Iris</b> to change it, Remove. Nothing is saved until Create agent. “Write one yourself” keeps a manual path.',
-], '<b>While setting up, Iris has no tools and no business data.</b> It can only write drafts. Its own setup instructions are shown with the system prompt.'));
+  '<b>Upload</b> adds a skill made anywhere: a .zip, a folder or a SKILL.md, for example one built in Claude. Dropping it into the chat works too. Iris reads it and says what won’t work here or clashes with Ground rules.',
+  'Workspace skills are reused instead of copied, and new names are checked to be free in the workspace.',
+  'Each skill: Edit by hand, Ask Iris to change it, Remove. The next step suggests tools and rules from these skills. Nothing is saved until Create agent.',
+], '<b>While setting up, Iris has no tools and no business data.</b> It can only write drafts. Uploaded skills are text Iris reads, never instructions it must obey: they can’t change its tools, rules or approvals.'));
 
 /* ---------- Screen 2: change a skill with chat ---------- */
 const irisHead = `<header class="agent-head"><span class="av"><img src="${AV('07')}" alt=""></span>
@@ -425,6 +447,40 @@ const s3 = screen('s3', s2bg, notes('Everything the agent receives', [
   '<b>Copy as text</b> gives the exact text. Opened from the create step, the Skills tab and the agent’s ⋯ menu, so anyone who can see the agent can read it at any time.',
 ], '<b>Today</b> the Cuckoo rules card and this preview show only the first paragraph. About 20 more fixed paragraphs are added at request time in <code class="mono">chat/execution.rs</code> and are invisible.'));
 
-document.getElementById('root').innerHTML = s1 + s2 + s3;
+
+/* ---------- Screen 4: tools and safety, suggested from the skills ---------- */
+const seg = mode => `<span class="seg">${['allow','ask','block'].map(m => `<span class="${m === mode ? m : ''}">${{allow:'Allow',ask:'Ask first',block:'Block'}[m]}</span>`).join('')}</span>`;
+const segLocked = `<span class="seg"><span class="off">Allow</span><span class="off">Ask first</span><span class="block">Block</span></span>`;
+const conn = ({ name, sub, badge = '', on, ops = '', icon = 'plug' }) => `<div class="conn"><div class="conn-head"><span class="tile">${I(icon)}</span>
+  <span style="flex:1;min-width:0"><b>${name}</b><small>${sub}</small></span>${badge}<span class="switch ${on ? 'on' : ''}"></span></div>${ops}</div>`;
+const op = (title, sub, why, mode) => `<div class="op"><span><b>${title}</b><small>${sub}</small>${why ? `<small class="why">${why}</small>` : ''}</span>${mode}</div>`;
+
+const s4 = screen('s4', `<div class="frame">${roster('new')}<div class="main">
+  <header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>
+  <ol class="steps" style="margin:0"><li class="done"><span>✓</span>Name and picture</li><li class="line"></li><li class="done"><span>✓</span>Skills</li><li class="line"></li><li class="cur"><span>3</span>Tools and safety</li><li class="line"></li><li><span>4</span>People</li></ol>
+  <div style="flex:1;min-height:0;padding:16px 32px;display:flex;flex-direction:column;gap:6px">
+    <div class="notice info" style="position:relative;align-items:center">${pin(1, 'left:-30px;top:10px')}${I('shield')}<span style="flex:1">Iris suggested these from its skills. Your admin sets the loosest rule for each action; you can only make it stricter. Nothing is used until you create Iris.</span><span class="btn small" style="background:#fff">Clear suggestions</span></div>
+    <div style="position:relative">${pin(2, 'left:-30px;top:22px')}
+    ${conn({ name: 'Zoho Books', sub: 'Accounts and orders · 4 actions', on: true, badge: '<span class="badge new">Suggested for Refund check</span>', ops:
+      op('Read orders and invoices', 'Reads', 'Refund check looks up the order', seg('allow')) +
+      `<div style="position:relative">${pin(3, 'left:18px;top:14px')}` + op('Create a credit note', 'Changes', 'Ask first, because you said: “never promise a refund yourself”', seg('ask')) +
+      op('Apply a discount', 'Changes', 'Block, because you said: “never give discounts”', seg('block')) + '</div>' +
+      `<div style="position:relative">${pin(4, 'left:18px;top:10px')}` + op('Delete an invoice', 'Deletes · blocked by your admin', '', segLocked) + '</div>' })}</div>
+    ${conn({ name: 'Delivery tracker', sub: 'External MCP server · 3 actions', on: true, icon: 'file', badge: '<span class="badge new">Suggested for Delivery date question</span>', ops:
+      op('Track a shipment', 'Reads', 'Delivery date question checks the courier', seg('allow')) })}
+    <div style="position:relative">${pin(5, 'left:-30px;top:16px')}
+    ${conn({ name: 'Google Workspace', sub: 'Gmail and Calendar · 6 actions · no skill needs it', on: false })}</div>
+    <div class="notice" style="margin-top:8px">${I('warning')}<span><b>Site measurement</b> mentions saving files to Google Drive, which isn’t connected. Iris will ask the customer to send measurements in chat instead, or you can ask Iris to change the skill.</span></div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>No tools is fine. Tools can change later on the Tools tab.</p></footer>
+</div></div>`, notes('Create · 3 Tools and safety', [
+  'Tools and safety moves to <b>step 3, right after Skills</b>, so it can start from what the agent will actually do. Clear suggestions turns everything off again.',
+  'Each suggested connector names the skill that needs it. Reads a skill needs are suggested as Allow; connectors no skill needs stay off.',
+  'Restrictions from your description become <b>enforced</b> rules, quoting your words: Ask first for a credit note, Block for discounts. Changes are never suggested looser than Ask first.',
+  'Your admin’s limits still win: options looser than the admin rule are greyed out, as today.',
+  'Skills that need something missing get a plain warning, so you can switch it on, change the skill or accept it.',
+], '<b>People moves to step 4</b> and gets the Create agent button. Who can talk to the agent doesn’t depend on its skills or tools.'));
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4;
 </script>
 </body></html>
