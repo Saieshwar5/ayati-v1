@@ -238,7 +238,7 @@ pub(crate) async fn dispatch_with(
     };
     let outcome = tokio::time::timeout(
         std::time::Duration::from_secs(45),
-        call.run(&dispatch.arguments),
+        call.run(&dispatch.arguments, &dispatch.id),
     )
     .await;
     let (value, success) = match outcome {

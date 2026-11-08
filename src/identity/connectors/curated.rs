@@ -18,9 +18,37 @@ pub(crate) struct Catalog {
 pub(crate) struct CatalogApp {
     pub id: String,
     pub name: String,
+    /// One of [`CATEGORIES`]: how the Add app catalog groups apps.
+    pub category: String,
+    /// A few words on what the app is, shown under its name.
+    pub description: String,
     /// Provider name to the provider's own app identity (Composio's toolkit).
     pub providers: BTreeMap<String, String>,
     pub actions: Vec<Action>,
+    /// Events agents can be started by, under Cuckoo's names.
+    #[serde(default)]
+    pub triggers: Vec<Trigger>,
+}
+/// The categories of the Add app catalog, in screen order: (id, name).
+pub(crate) const CATEGORIES: [(&str, &str); 8] = [
+    ("email_calendar", "Email and calendar"),
+    ("files", "Files and documents"),
+    ("sales", "Sales and customers"),
+    ("accounting", "Accounting and payments"),
+    ("messaging", "Messaging"),
+    ("projects", "Projects and tasks"),
+    ("support", "Support"),
+    ("shops", "Shops"),
+];
+/// An app event, such as "New email". Like an action, each provider maps it to
+/// its own trigger and field names; only the mapped scalar fields (at most
+/// eight) ever reach an agent.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Trigger {
+    pub id: String,
+    pub title: String,
+    pub providers: BTreeMap<String, Binding>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -65,6 +93,33 @@ fn validate(catalog: &Catalog) -> Result<()> {
         crate::identity::identifier(&app.id)?;
         ensure!(apps.insert(&app.id), "Duplicate connector app {}", app.id);
         ensure!(!app.name.trim().is_empty() && !app.actions.is_empty() && app.actions.len() <= 20);
+        ensure!(
+            CATEGORIES.iter().any(|(id, _)| *id == app.category)
+                && !app.description.trim().is_empty()
+                && app.description.len() <= 80,
+            "{} needs a known category and a short description",
+            app.id
+        );
+        ensure!(app.triggers.len() <= 20, "Too many triggers for {}", app.id);
+        for trigger in &app.triggers {
+            ensure!(
+                trigger.id.starts_with(&format!("{}.", app.id)) && actions.insert(&trigger.id),
+                "Trigger {} must be unique and named after its app",
+                trigger.id
+            );
+            for (provider, binding) in &trigger.providers {
+                ensure!(
+                    app.providers.contains_key(provider),
+                    "{} has no {provider} app",
+                    app.id
+                );
+                ensure!(
+                    !binding.fields.is_empty() && binding.fields.len() <= 8,
+                    "{} must map one to eight event fields",
+                    trigger.id
+                );
+            }
+        }
         for action in &app.actions {
             ensure!(
                 action.id.starts_with(&format!("{}.", app.id)) && actions.insert(&action.id),

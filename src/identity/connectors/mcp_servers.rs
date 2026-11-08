@@ -65,6 +65,7 @@ impl ConnectorProvider for McpServers {
             definition: server.public(),
             binding: None,
             fingerprint,
+            identity: None,
         }))
     }
     async fn finish(&self, _: &str, _: &str, _: &Value) -> Result<Account> {
@@ -101,7 +102,7 @@ struct McpCall {
 }
 #[async_trait::async_trait]
 impl Call for McpCall {
-    async fn run(mut self: Box<Self>, arguments: &Value) -> Outcome {
+    async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
         match self.remote.call(&self.operation, arguments).await {
             Ok(value) => Outcome::Completed(value),
             Err(_) => Outcome::Uncertain,

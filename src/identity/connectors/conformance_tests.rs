@@ -52,7 +52,7 @@ async fn run(
     args: &Value,
 ) -> Outcome {
     let call = provider.prepare(saved, op).await.expect("prepared");
-    call.run(args).await
+    call.run(args, "conformance-key").await
 }
 
 async fn conformance(fixture: &dyn Fixture) {

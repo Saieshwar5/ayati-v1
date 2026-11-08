@@ -2,6 +2,8 @@
   "apps": [
     {
       "id": "gmail",
+      "category": "email_calendar",
+      "description": "Email",
       "name": "Gmail",
       "providers": { "composio": "gmail" },
       "actions": [
@@ -56,6 +58,8 @@
     },
     {
       "id": "google_calendar",
+      "category": "email_calendar",
+      "description": "Calendar",
       "name": "Google Calendar",
       "providers": { "composio": "googlecalendar" },
       "actions": [
@@ -86,6 +90,8 @@
     },
     {
       "id": "google_sheets",
+      "category": "files",
+      "description": "Spreadsheets",
       "name": "Google Sheets",
       "providers": { "composio": "googlesheets" },
       "actions": [
@@ -116,6 +122,8 @@
     },
     {
       "id": "google_drive",
+      "category": "files",
+      "description": "Files and folders",
       "name": "Google Drive",
       "providers": { "composio": "googledrive" },
       "actions": [

@@ -326,6 +326,7 @@ impl ConnectorProvider for Composio {
             fingerprint: fingerprint(NAME, &definition, Some(value)),
             definition,
             binding: Some(value.clone()),
+            identity: None,
         })
     }
 
@@ -385,7 +386,7 @@ struct ComposioCall {
 }
 #[async_trait::async_trait]
 impl Call for ComposioCall {
-    async fn run(mut self: Box<Self>, arguments: &Value) -> Outcome {
+    async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
         let Ok(arguments) = curated::provider_arguments(&self.fields, arguments) else {
             return Outcome::Uncertain;
         };

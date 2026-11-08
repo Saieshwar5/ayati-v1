@@ -51,6 +51,10 @@ pub(crate) struct Account {
     pub definition: Value,
     pub binding: Option<Value>,
     pub fingerprint: String,
+    /// The app's own stable identity for the account (a mailbox, a Slack team
+    /// and user), when the provider can prove it. Reconnecting the same
+    /// identity keeps the account's rules; `None` always starts over.
+    pub identity: Option<String>,
 }
 
 /// The first step of connecting an app.
@@ -103,7 +107,72 @@ impl std::error::Error for Refusal {}
 /// An action checked and ready to send.
 #[async_trait::async_trait]
 pub(crate) trait Call: Send {
-    async fn run(self: Box<Self>, arguments: &Value) -> Outcome;
+    /// `key` is the same for every attempt at one action (its id): providers
+    /// that support idempotency pass it on so the app never acts twice.
+    async fn run(self: Box<Self>, arguments: &Value, key: &str) -> Outcome;
+}
+
+/// What a provider supports. Screens and the gateway read these flags, never a
+/// provider's name, so a new provider or connector kind needs no screen changes.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub(crate) struct Capabilities {
+    /// Accounts connect through a sign-in page.
+    pub sign_in: bool,
+    /// Disconnecting revokes access at the provider.
+    pub revoke: bool,
+    /// Actions may take lists of plain values (cc, attendees).
+    pub list_fields: bool,
+    /// The call's key reaches the app, so a repeated call can't act twice.
+    pub idempotency_key: bool,
+    /// [`ConnectorProvider::find_outcome`] can answer for some actions.
+    pub find_outcome: bool,
+    /// Events can be subscribed to (see the trigger methods).
+    pub triggers: bool,
+}
+
+/// Whether an unconfirmed write happened, as far as the provider can tell.
+#[derive(Debug, PartialEq)]
+pub(crate) enum Found {
+    Happened(Value),
+    NotHappened,
+    Unknown,
+}
+
+/// A provider subscription for one event type on one account.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Subscription {
+    /// The provider's id for it (a Composio `ti_…`, a Pipedream `dc_…`).
+    pub id: String,
+    /// A per-subscription signing key, when the provider issues one. The caller
+    /// seals it before saving; it is never logged or sent to a client.
+    pub signing_key: Option<String>,
+}
+
+/// One verified delivery, in Cuckoo's terms. Signature and time window are
+/// checked before this exists; the caller still matches it to a saved
+/// subscription and workspace before trusting any field.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Delivery {
+    /// The provider's event id: the receipt key, so a retry is a duplicate.
+    pub event_id: String,
+    /// The provider's identity for the workspace (Composio's user id), if sent.
+    pub user: Option<String>,
+    /// The provider's account id, if the event names one.
+    pub account: Option<String>,
+    pub kind: DeliveryKind,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum DeliveryKind {
+    /// An app event for the subscription `subscription`.
+    Event {
+        subscription: String,
+        trigger: String,
+        data: Value,
+    },
+    /// The account's sign-in stopped working at the provider.
+    AccountExpired,
+    /// Something the provider sends that Cuckoo doesn't use; acknowledged only.
+    Ignored,
 }
 
 /// The jobs every connector provider does.
@@ -123,6 +192,52 @@ pub(crate) trait ConnectorProvider: Send + Sync {
     /// Check the saved account still works and `operation` still means what was
     /// reviewed. Nothing is sent to the app. A [`Refusal`] explains a refusal.
     async fn prepare(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Box<dyn Call>>;
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::default()
+    }
+    /// The provider's current input schema for a reviewed operation, for the
+    /// drift check. Nothing is sent to the app.
+    async fn describe(&self, _saved: &Saved<'_>, _operation: &Operation) -> Result<Value> {
+        anyhow::bail!("This connector provider can't describe its actions")
+    }
+    /// After an unconfirmed write: did it happen? Only reads the app.
+    async fn find_outcome(
+        &self,
+        _saved: &Saved<'_>,
+        _operation: &Operation,
+        _key: &str,
+        _arguments: &Value,
+    ) -> Result<Found> {
+        Ok(Found::Unknown)
+    }
+    /// Subscribe the account to the provider event `trigger` (the provider's own
+    /// name, from the catalog) with `config`; events go to `webhook`.
+    async fn subscribe(
+        &self,
+        _saved: &Saved<'_>,
+        _trigger: &str,
+        _config: &Value,
+        _webhook: &str,
+    ) -> Result<Subscription> {
+        anyhow::bail!("This connector provider has no events")
+    }
+    /// Remove a subscription at the provider. Removing one that is already
+    /// gone succeeds.
+    async fn unsubscribe(&self, _saved: &Saved<'_>, _subscription: &str) -> Result<()> {
+        anyhow::bail!("This connector provider has no events")
+    }
+    /// Verify a delivery's signature and time window on the raw body with
+    /// `secret` (the project's or the subscription's), then read it.
+    fn parse_delivery(
+        &self,
+        _headers: &axum::http::HeaderMap,
+        _body: &[u8],
+        _secret: &str,
+        _now: i64,
+    ) -> Result<Vec<Delivery>> {
+        anyhow::bail!("This connector provider has no events")
+    }
 }
 
 /// Process-wide provider settings, read once at controller start.
