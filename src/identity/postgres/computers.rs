@@ -86,7 +86,7 @@ pub(super) async fn steps(db: &impl ConnectionTrait, w: &str, reply: &str) -> Re
     }
     json_rows(db, "SELECT jsonb_build_object('id','computer-'||s.position,
         'title',CASE s.kind WHEN 'command' THEN 'Ran: '||left(s.detail,160) WHEN 'list' THEN 'Looked in '||s.detail
-          WHEN 'read' THEN 'Read '||s.detail ELSE 'Saved '||s.detail END,
+          WHEN 'read' THEN 'Read '||s.detail WHEN 'browser' THEN s.detail ELSE 'Saved '||s.detail END,
         'effect','computer','state',s.state,'automatic',true,'decision',NULL,'decided_by',NULL,'account',NULL,'arguments','{}'::jsonb,
         'computer',jsonb_build_object('kind',s.kind,'detail',s.detail,'exit_code',s.exit_code,'output',left(COALESCE(s.output,''),20000),
           'output_bytes',s.output_bytes,'milliseconds',s.milliseconds),'at',s.at) AS data
@@ -422,8 +422,11 @@ impl PgStore {
         .map(|r| r.try_get::<bool>("", "present"))
         .transpose()?
         .unwrap_or(false);
+        // A person using the browser in a hand-over keeps the computer for this request.
         if present {
-            execute(db, "UPDATE relay_computers SET held_by=NULL,held_until=0 WHERE workspace=$1 AND held_by=$2", vec![w.into(), reply.into()]).await?;
+            execute(db, "UPDATE relay_computers SET held_by=NULL,held_until=0 WHERE workspace=$1 AND held_by=$2
+                AND NOT EXISTS (SELECT 1 FROM relay_task_questions q WHERE q.workspace=$1 AND q.reply=$2
+                  AND q.request_key LIKE 'browser-hand-over-%' AND q.state='pending')", vec![w.into(), reply.into()]).await?;
         }
         Ok(())
     }

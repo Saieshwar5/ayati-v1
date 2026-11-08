@@ -6,6 +6,7 @@
 mod e2b;
 #[cfg(test)]
 pub(crate) mod fake;
+pub(crate) mod live;
 mod providers_file;
 pub(in crate::identity) mod sleeper;
 #[cfg(test)]
@@ -24,6 +25,11 @@ pub(crate) const KEPT_BYTES: usize = 64 * 1024;
 pub(crate) const SHOWN_CHARS: usize = 8_000;
 /// The longest one command may run.
 pub(crate) const LONGEST_COMMAND: Duration = Duration::from_secs(600);
+/// Cuckoo's browser helper, uploaded to each computer before its first browser use, so
+/// it always matches this controller (deploy/agent-computer/cuckoo-browser.mjs).
+pub(crate) const BROWSER_HELPER: &str =
+    include_str!("../../../deploy/agent-computer/cuckoo-browser.mjs");
+pub(crate) const BROWSER_HELPER_PATH: &str = "/home/user/.cuckoo/browser.mjs";
 
 /// Where and how to call a provider, from the providers file.
 pub(crate) struct Call<'a> {
@@ -92,6 +98,17 @@ pub(crate) trait Provider: Send + Sync {
         cwd: &str,
         timeout: Duration,
     ) -> Result<Ran>;
+    /// Starts a long-running program, named by `tag`, whose input stays open; its
+    /// output arrives on the channel until it ends. Used for the browser's live view.
+    async fn stream(
+        &self,
+        call: &Call<'_>,
+        computer: &Awake,
+        command: &str,
+        tag: &str,
+    ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>>;
+    /// Writes to the input of the program started with `tag`.
+    async fn send(&self, call: &Call<'_>, computer: &Awake, tag: &str, bytes: &[u8]) -> Result<()>;
     async fn write(
         &self,
         call: &Call<'_>,
@@ -120,6 +137,10 @@ pub(crate) struct Computers {
     awake: std::sync::Arc<
         std::sync::Mutex<std::collections::HashMap<String, (Awake, std::time::Instant)>>,
     >,
+    /// Computers that have this controller's browser helper, by provider id.
+    helpers: std::sync::Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
+    /// Live pictures of agents' browsers being watched now.
+    pub(crate) live: live::Feeds,
 }
 
 /// How often an awake computer's stay-awake time is renewed while in use.
@@ -138,6 +159,8 @@ impl Computers {
         Self {
             file,
             awake: Default::default(),
+            helpers: Default::default(),
+            live: Default::default(),
         }
     }
     pub(crate) fn file(&self) -> Result<ProvidersFile> {
@@ -160,6 +183,15 @@ impl Computers {
             }
         }
     }
+    /// Whether this computer already has the browser helper.
+    pub(crate) fn has_helper(&self, id: &str) -> bool {
+        self.helpers.lock().is_ok_and(|set| set.contains(id))
+    }
+    pub(crate) fn helper_uploaded(&self, id: &str) {
+        if let Ok(mut set) = self.helpers.lock() {
+            set.insert(id.to_owned());
+        }
+    }
     /// This computer's access, unless it needs renewing.
     pub(crate) fn fresh(&self, id: &str) -> Option<Awake> {
         let awake = self.awake.lock().ok()?;
@@ -176,6 +208,9 @@ impl Computers {
     pub(crate) fn forget(&self, id: &str) {
         if let Ok(mut map) = self.awake.lock() {
             map.remove(id);
+        }
+        if let Ok(mut set) = self.helpers.lock() {
+            set.remove(id);
         }
     }
 }

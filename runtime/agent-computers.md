@@ -1,4 +1,4 @@
-# Agent computers (schema 103)
+# Agent computers (schemas 103 and 104)
 
 An agent can have its own Linux computer for work with files and programs: reading a
 PDF or spreadsheet, converting a file, working through data or running a script. It
@@ -55,6 +55,19 @@ computer is on:
 - **`computer_list_files({path?})`**, **`computer_read_file({path})`** (text up to
   30,000 characters) and **`computer_write_file({path, content})`** (up to 1 MB).
 
+A browser on the same computer (schema 104), for websites no app covers:
+
+- **`browser_open({url})`**, **`browser_read()`**, **`browser_click({ref})`**,
+  **`browser_type({ref, text, submit?})`**, **`browser_choose({ref, option})`** and
+  **`browser_press({key})`** return the page's address, title, text (8,000 characters)
+  and up to 150 numbered elements: links, buttons, fields and menus with their options.
+  The agent acts on an element by its number; it never needs pixels.
+- **`browser_screenshot({name?})`** saves a PNG in the request's folder.
+- **`browser_hand_over({need, message})`** asks the person who asked to use the
+  browser themselves: to sign in, type a one-time code, prove they're a person or check
+  something. It returns a question for `ask_question` with **Done, give back** and
+  **I can't do it**.
+
 Each request works in `requests/<reply id>` in the agent's home folder. Paths start
 there; `shared/` is kept for every request. Absolute paths and `..` are refused. The
 provider's name never appears in a tool result.
@@ -67,6 +80,18 @@ provider's name never appears in a tool result.
 - **Programs:** `allow` (default), `ask` or `block`. With `ask`, each new command is
   put to the person who asked, as a yes/no question; only their yes to that exact
   command lets it run. With `block`, only the file tools work.
+- **Browsing:** `browser` is `allow` (default), `ask` (each new website is put to the
+  person who asked) or `block`. **Pressing buttons:** `submit` is `ask` (default),
+  `allow` or `block`; it covers pressing a button, sending a form and Enter. Links,
+  typing and menus are browsing. The helper reports what it would press without
+  pressing it, so Cuckoo can ask first.
+- **Passwords and one-time codes** are never typed by the agent: the helper refuses
+  password fields, and the agent hands the browser over instead. Typed text is not
+  kept in steps.
+- **Hand-over:** while its question is open, the computer stays with that request for
+  up to 15 minutes after the person's last input, even after the agent's attempt ends.
+  Only the person who asked controls the browser, and only then; the agent sees nothing
+  meanwhile and nothing the person does is recorded.
 - **Internet:** `none` (default), `listed` (only `websites`, up to 30 host names such
   as `portal.example.in` or `*.example.in`) or `any`. The provider enforces it on the
   computer's network; a changed setting applies on the next use.
@@ -74,6 +99,20 @@ provider's name never appears in a tool result.
   At the limit the computer isn't woken.
 - **Size.** A size chosen later applies to the next computer made: after a reset, or
   if the first one hasn't been made yet.
+
+## The browser and the live picture
+
+Cuckoo's helper ([deploy/agent-computer/cuckoo-browser.mjs](../deploy/agent-computer/cuckoo-browser.mjs))
+is uploaded by the controller before a computer's first browser use, so it always
+matches the controller. It starts Chromium with its own profile, listening for CDP on
+127.0.0.1 only, and runs one action per call through the provider's authenticated
+command channel. No port is opened on the computer.
+
+The live picture uses the same channel: while someone watches, the helper's `live`
+mode streams JPEG screencast frames (about 13–40 KB, only when the page changes) and
+reads a person's input as lines on its input, sent with E2B's `SendInput` by a tag
+unique to that stream. The controller shares one stream with every watcher and stops
+it when the last one leaves. Watching never wakes a computer.
 
 ## Lifecycle
 
@@ -97,6 +136,12 @@ provider's name never appears in a tool result.
 
 ## Where it shows
 
+- **Live:** `GET …/agent-profiles/{id}/computer/live` is a server-sent event stream:
+  first `{"watching": {"control", "reply"}}`, then frames `{"frame", "width",
+  "height"}` and address changes `{"url"}`. The agent's owner, admins and the person
+  whose request holds the computer may watch. `POST …/computer/live/input` takes one
+  `mouse` (`mousePressed`, `mouseReleased` or `mouseMoved` at `x`, `y`), `wheel`,
+  `text` or `key`, only from that person during a hand-over.
 - **API:** `GET …/agent-profiles/{id}/computer` gives anyone who can see the agent its
   setting, the computer's state and this month's awake time and charge.
   `POST …/computer/reset` is for the owner or an admin. The agents list carries
@@ -141,6 +186,13 @@ Screens (designs/agent-computers 1, 7 and 8):
 - Web (`web/tests/agent-computers.test.mjs`): turning it on once and keeping it off
   after a failed save; the state, sizes, month and reset; read-only viewers; Tools
   controls and website checks; the create flow on and off; Activity steps; Usage.
+- `cargo test the_real_e2b_runs_the_browser_helper -- --ignored`: the helper opening a
+  page on E2B, then the live picture streamed and stopped through the Rust adapter.
+- PostgreSQL browser tests (`postgres::computer_browser_tests`) need a local Chromium
+  in `AYATI_TEST_CHROMIUM`: pages as text, typing, menus, passwords refused, buttons
+  asked first then allowed, the browsing and button controls, Activity steps, and a
+  hand-over: who may watch and control, the computer kept, a person's typing landing
+  in the page, and Done giving it back.
 - PostgreSQL (`postgres::computer_tests`):
   - off until turned on; commands, files and the request's folder; paths outside it
     refused; the default network rule; Activity steps; the Environment status;
@@ -151,8 +203,9 @@ Screens (designs/agent-computers 1, 7 and 8):
 
 ## Not yet
 
-- The browser, the live view and the browser hand-over, and Chat's one line
-  ("Used its computer for 3 min") linking to the steps.
+- Chat's one line ("Used its computer for 3 min") and a last screenshot in the
+  hand-over card; a phone-sized hand-over view.
+- Money on websites asking a manager; "Keep signed in" choices per website.
 - Moving a computer to another size or provider with its files, Daytona and AWS,
   the Cuckoo Control computers page and the own-computer connector.
 - Workspace policy (allowed sizes, an admin off switch) and Settings → Computers.

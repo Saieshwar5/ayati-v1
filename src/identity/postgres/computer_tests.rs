@@ -11,15 +11,15 @@ use crate::identity::computers::{Computers, fake};
 use crate::identity::control::broker::invoke;
 use serde_json::json;
 
-struct Setup {
-    db: PgStore,
-    fake: fake::Fake,
+pub(super) struct Setup {
+    pub db: PgStore,
+    pub fake: fake::Fake,
     _dir: tempfile::TempDir,
-    owner: User,
-    w: String,
-    agent: String,
+    pub owner: User,
+    pub w: String,
+    pub agent: String,
 }
-async fn setup() -> Setup {
+pub(super) async fn setup() -> Setup {
     let mut db = fixture().await;
     let fake = fake::start().await;
     let dir = tempfile::tempdir().unwrap();
@@ -37,7 +37,7 @@ async fn setup() -> Setup {
     }
 }
 /// Changes the agent's computer settings as its owner would in the Environment tab.
-async fn computer(s: &Setup, settings: Value) {
+pub(super) async fn computer(s: &Setup, settings: Value) {
     execute(
         &s.db.db,
         "UPDATE relay_shared_agents SET settings=jsonb_set(settings,'{computer}',$2) WHERE id=$1",
@@ -47,7 +47,7 @@ async fn computer(s: &Setup, settings: Value) {
     .unwrap();
 }
 /// A new request, each in its own conversation, claimed as an executor would.
-async fn ask(s: &Setup, text: &str) -> Job {
+pub(super) async fn ask(s: &Setup, text: &str) -> Job {
     let room = chat(&s.db, &s.owner, &s.w, vec![], vec![s.agent.clone()]).await;
     s.db.chat_send(&s.owner, &s.w, &room, &message(text, Some(&s.agent)))
         .await
