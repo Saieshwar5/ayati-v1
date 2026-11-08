@@ -17,6 +17,7 @@ mod home_panels;
 mod identifier;
 pub(crate) use identifier::identifier;
 pub(crate) mod archive;
+pub(crate) mod computers;
 pub(crate) mod data_cleanup;
 mod hosting;
 mod interactions;
