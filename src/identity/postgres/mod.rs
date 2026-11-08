@@ -281,6 +281,7 @@ mod task_revocation;
 mod tasks;
 pub(crate) mod transcripts;
 mod unread;
+mod web_reads;
 mod work;
 mod work_rooms;
 pub(crate) mod work_signals;
@@ -317,6 +318,8 @@ pub struct PgStore {
     pub(crate) library_models: Option<crate::identity::library::models::Configured>,
     /// The model catalog (MG1), when configured: agents then choose catalog models.
     pub(crate) model_catalog: Option<crate::identity::models::catalog::Files>,
+    /// Web search services for agents (schema 102), when configured.
+    pub(crate) web_search: Option<crate::identity::web_search::WebSearch>,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -336,6 +339,7 @@ impl PgStore {
             handoff_wait_seconds: 604_800,
             library_models: None,
             model_catalog: None,
+            web_search: None,
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -346,6 +350,7 @@ impl PgStore {
         store.handoff_wait_seconds = config.handoff_wait_seconds;
         store.library_models = crate::identity::library::models::Configured::from(config);
         store.model_catalog = crate::identity::models::catalog::Files::from(config);
+        store.web_search = crate::identity::web_search::WebSearch::from(config)?;
         store.verify_schema().await?;
         Ok(store)
     }

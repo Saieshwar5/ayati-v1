@@ -138,6 +138,9 @@ pub(crate) async fn prepare_traced(
     {
         instructions.push_str(prompt::LIBRARY);
     }
+    if control_tools && db.web_search_on(&job.workspace, &job.agent).await? {
+        instructions.push_str(prompt::WEB_SEARCH);
+    }
     if control_tools && db.built_app_actions_offered(job).await? {
         instructions.push_str(prompt::APP_ACTIONS);
     }

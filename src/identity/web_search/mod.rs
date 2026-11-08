@@ -128,15 +128,17 @@ pub(crate) struct WebSearch {
     file: std::path::PathBuf,
 }
 impl WebSearch {
-    pub(crate) fn from(config: &crate::config::Controller) -> Option<Self> {
-        config.web_search_providers_file.clone().map(Self::new)
+    /// The configured providers file, checked now so a broken one stops the
+    /// controller at start instead of failing agents later.
+    pub(crate) fn from(config: &crate::config::Controller) -> Result<Option<Self>> {
+        let Some(file) = &config.web_search_providers_file else {
+            return Ok(None);
+        };
+        ProvidersFile::read(file)?;
+        Ok(Some(Self::new(file.clone())))
     }
     pub(crate) fn new(file: std::path::PathBuf) -> Self {
         Self { file }
-    }
-    /// Checks the file now, so a broken one stops the controller at start.
-    pub(crate) fn check(&self) -> Result<()> {
-        ProvidersFile::read(&self.file).map(|_| ())
     }
     /// Search with the first provider in the search order that answers.
     pub(crate) async fn search(&self, query: &Query) -> Result<Answered<Vec<Found>>> {

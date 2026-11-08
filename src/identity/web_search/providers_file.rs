@@ -72,6 +72,7 @@ impl ProvidersFile {
         Ok(file)
     }
 
+    #[cfg(test)]
     pub fn parse(text: &str) -> Result<Self> {
         let file: Self = serde_json::from_str(text).context("Invalid web search providers file")?;
         file.check()?;
