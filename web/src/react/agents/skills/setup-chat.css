@@ -1,0 +1,42 @@
+/* The setup chat and written skills (designs/agent-built-skills 2 and 5). */
+.agent-skills-writing { display: grid; grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.agent-skills-column { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.setup-chat { display: flex; flex-direction: column; gap: 10px; min-width: 0; border: 1px solid var(--border-panel); border-radius: 14px; padding: 12px 14px; background: var(--surface); }
+.setup-chat-header { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.setup-chat-header strong { font-size: 14px; }
+.setup-chat-header small { color: var(--muted); font-size: 12px; }
+.setup-chat-messages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
+.setup-chat-message { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.setup-chat-message.agent { align-self: flex-start; background: var(--soft); border: 1px solid var(--border); border-top-left-radius: 4px; }
+.setup-chat-message.person { align-self: flex-end; background: var(--selection); border-top-right-radius: 4px; }
+.setup-chat-notes { margin: 0; padding: 8px 12px 8px 28px; border-radius: 8px; background: var(--warning-bg); color: var(--warning); font-size: 12.5px; display: grid; gap: 4px; }
+.setup-chat .agent-starters .ui-button { min-height: 32px; font-size: 12.5px; }
+.setup-chat-composer { display: flex; align-items: flex-end; gap: 8px; }
+.setup-chat-composer textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--border-control); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 13.5px; background: var(--surface); color: var(--text); }
+.setup-chat-composer textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.setup-chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.setup-chat-error { margin: 0; color: var(--danger); font-size: 13px; }
+.setup-chat-guide { font-size: 12.5px; color: var(--muted); }
+.setup-chat-guide summary { cursor: pointer; }
+.setup-chat-guide pre { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--soft); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; max-height: 260px; overflow-y: auto; }
+.draft-skills { list-style: none; margin: 0 0 10px; padding: 0; border-top: 1px solid var(--border); }
+.draft-skills > li { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.draft-skill-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 260px; font-size: 13px; overflow-wrap: anywhere; }
+.draft-skill-text strong { font-size: 14px; }
+.draft-skill-text small { color: var(--muted); font-size: 12px; }
+.draft-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--selection); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.draft-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.draft-actions .ui-button { min-height: 32px; font-size: 12.5px; }
+.agent-create-skills > .ui-button { margin-top: 10px; }
+.draft-editor { display: grid; gap: 12px; }
+.draft-editor .ui-help { margin: 0; }
+@media (max-width: 900px) {
+  .agent-skills-writing { grid-template-columns: 1fr; }
+}
+.skill-proposals { display: grid; gap: 10px; }
+.skill-proposals h4 { margin: 0; font-size: 13.5px; }
+.skill-proposal { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; }
+.skill-proposal p { margin: 0; overflow-wrap: anywhere; }
+.skill-diff { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
+.skill-diff-removed { color: var(--danger); text-decoration: line-through; }
+.skill-diff-added { color: var(--success); font-weight: 600; }

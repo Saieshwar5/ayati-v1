@@ -10,7 +10,9 @@ import { loadMembers, PeopleStep } from './people-step';
 import { ConnectorsStep } from './connectors-step';
 import { ControlsStep, type ToolChoices } from './controls-step';
 import { loadAvailable, saveRule, switchTool } from '../control-model';
-import { assignSkill, type Skill } from '../skills/model';
+import { assignSkill, createSkill } from '../skills/model';
+import { useSkillWriting } from '../skills/setup-chat';
+import { skillText, type DraftSkill, type LibraryPick } from '../skills/writer-model';
 import { SkillPicker } from '../skills/skill-picker';
 import { SkillIcon } from '../skills/skill-icons';
 import './create.css';
@@ -51,7 +53,11 @@ export function AgentCreate({ start, close, created }: {
   const members = useResource(loadMembers);
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<LibraryPick[]>([]);
+  const [drafts, setDrafts] = useState<DraftSkill[]>([]);
+  const writing = useSkillWriting();
+  const chosen = Object.entries(tools).filter(([, choice]) => choice.on).map(([id]) => id);
+  const addSkills = (picks: LibraryPick[]) => setSkills(old => [...old, ...picks.filter(pick => !old.some(skill => skill.id === pick.id))]);
   const [pickingSkills, setPickingSkills] = useState(false);
   const mutation = useMutation();
   const first = useRef<HTMLInputElement>(null);
@@ -70,7 +76,12 @@ export function AgentCreate({ start, close, created }: {
         if (mode && mode !== operation.workspace_mode) await saveRule(draft.id, { connection: connection.id, operation: operation.id, mode, revision: 0 });
       }
     }
-    // Assigning is idempotent, so a retry after a failure adds each skill once.
+    // Written skills become the owner's own skills. Saving and assigning are
+    // idempotent, so a retry after a failure saves and adds each one once.
+    for (const written of drafts) {
+      const saved = await createSkill(written.id, false, [{ path: 'SKILL.md', text: skillText(written.name, written.description, written.steps) }]);
+      await assignSkill(draft.id, saved.id, true);
+    }
     for (const skill of skills) await assignSkill(draft.id, skill.id, true);
     await created(draft.id);
   });
@@ -89,14 +100,11 @@ export function AgentCreate({ start, close, created }: {
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
       {step === 2 && <SkillsStep name={draft.name} title={draft.role} text={draft.settings.instructions}
-        apps={Object.values(tools).some(choice => choice.on)} skills={skills.map(({ name, description }) => ({ name, description }))}
+        apps={chosen.length > 0} connections={chosen} writing={writing} drafts={drafts} setDrafts={setDrafts} library={skills} reuse={addSkills}
         change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))}>
-        <section className="agent-create-skills" aria-label="Skills">
-          <h3>Skills <small>Steps for one kind of request, opened only when a request needs them</small></h3>
-          <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip"><SkillIcon name="book" />{skill.name}
-            <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
-            <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
-        </section>
+        <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip"><SkillIcon name="book" />{skill.name}
+          <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
+          <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
       </SkillsStep>}
       {step === 3 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
         members={members.data?.users} audience={audience} people={people} managers={managers}
@@ -104,7 +112,7 @@ export function AgentCreate({ start, close, created }: {
       {step === 4 && <ControlsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
     </fieldset>
     {pickingSkills && <SkillPicker agent={draft.name} owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
-      choose={skill => setSkills(old => old.some(s => s.id === skill.id) ? old : [...old, skill])} />}
+      choose={({ id, name, description }) => addSkills([{ id, name, description }])} />}
     <footer className="agent-create-footer">
       {step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}
       {step < steps.length - 1

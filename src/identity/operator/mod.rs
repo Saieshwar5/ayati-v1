@@ -155,6 +155,8 @@ pub(crate) fn deployment_settings(config: &crate::config::Controller) -> Value {
         {"key": "model_catalog_file", "env": "AYATI_MODEL_CATALOG_FILE", "value": file(&config.model_catalog_file), "about": "The reviewed model catalog and its routes"},
         {"key": "transcription_model", "env": "AYATI_TRANSCRIPTION_MODEL", "value": config.transcription_model.as_ref().map(|(p, m)| format!("{p}:{m}")),
             "about": "Speech-to-text for voice notes; their audio is sent to this provider"},
+        {"key": "skill_writer_model", "env": "AYATI_SKILL_WRITER_MODEL", "value": config.skill_writer_model.as_ref().map(|(p, m)| format!("{p}:{m}")),
+            "about": "Writes agents' skills in chat during setup; what people describe is sent to this provider"},
         {"key": "secrets_key_file", "env": "AYATI_SECRETS_KEY_FILE", "value": config.secrets_key_file.as_ref().map(|_| "set"), "about": "Seals provider keys added in the console"},
         {"key": "executor_capacity", "env": "AYATI_EXECUTOR_CAPACITY", "value": config.pool.capacity, "about": "Agent work running at once"},
         {"key": "chat_reserve", "env": "AYATI_EXECUTOR_CHAT_RESERVE", "value": config.pool.chat_reserve, "about": "Slots kept free for Chat replies"},

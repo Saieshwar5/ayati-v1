@@ -1,4 +1,5 @@
 import { AgentSkills } from './skills/agent-skills';
+import { AgentSkillChat } from './skills/agent-skill-chat';
 import { useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
@@ -10,15 +11,18 @@ import { EverythingItReceives, SystemPromptCard } from './system-prompt';
 type Draft = Pick<Settings, 'instructions' | 'memory' | 'history'>;
 const pick = (settings: Settings): Draft => ({ instructions: settings.instructions, memory: settings.memory, history: settings.history });
 
-/** Instructions: the owner and admins edit them in place; others read them. The
- * Cuckoo system prompt, what it knows and channel history sit beside them
- * (designs/agents-simplified 8). Skills arrive with M6. */
+/** Instructions: the ground rules, which the owner and admins edit in place and
+ * others read; its skills; what it knows and channel history. Beside them, the
+ * owner and admins can change rules and skills by chat, and everyone can read
+ * the Cuckoo system prompt (designs/agents-simplified 8, agent-built-skills 5). */
 export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: string; saved: () => Promise<void> }) {
   // The draft keeps the revision it started from, so a save never overwrites
   // someone else's newer change.
   const [base, setBase] = useState(agent);
   const [draft, setDraft] = useState<Draft>(() => pick(agent.settings));
   const [previewing, setPreviewing] = useState(false);
+  // Remounts the skills list after a change made in the chat.
+  const [skillsRevision, setSkillsRevision] = useState(0);
   const mutation = useMutation();
   const changed = JSON.stringify(draft) !== JSON.stringify(pick(base.settings));
   if (!changed && base.revision !== agent.revision) { setBase(agent); setDraft(pick(agent.settings)); }
@@ -33,16 +37,16 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
     <div className="agent-create-main">
       <section aria-label="Instructions">
         {agent.editable
-          ? <label className="ui-field">Instructions <small>Character, job and rules, in your own words</small>
+          ? <label className="ui-field">Ground rules <small>Always on: who {agent.name} is, how it talks, what it never does and when to ask a person</small>
             <textarea rows={16} maxLength={24000} value={draft.instructions} onChange={event => edit({ instructions: event.target.value })} /></label>
-          : <><h3>Instructions</h3><p className="agent-instructions-text">{agent.settings.instructions || 'No instructions yet.'}</p></>}
+          : <><h3>Ground rules</h3><p className="agent-instructions-text">{agent.settings.instructions || 'No ground rules yet.'}</p></>}
         {agent.editable && <div className="agent-save-row">
           <Button primary disabled={mutation.busy || !changed} onClick={save}>Save changes</Button>
           {changed && <Button disabled={mutation.busy} onClick={() => { setDraft(pick(base.settings)); mutation.setStatus(''); }}>Discard</Button>}
           <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
         </div>}
       </section>
-      <AgentSkills agent={agent} />
+      <AgentSkills key={skillsRevision} agent={agent} />
       <section className="agent-knows" aria-label={`What ${agent.name} knows`}>
         <h3>What {agent.name} knows</h3>
         {agent.editable && <label className="ui-check"><input type="checkbox" checked={draft.memory} onChange={event => edit({ memory: event.target.checked })} />Use approved notes in its answers</label>}
@@ -58,6 +62,8 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
       </details>
     </div>
     <aside className="agent-create-side">
+      {agent.editable && <AgentSkillChat agent={agent} rules={draft.instructions} takeRules={text => edit({ instructions: text })}
+        changed={() => setSkillsRevision(revision => revision + 1)} />}
       <SystemPromptCard name={agent.name} rules={rules} open={() => setPreviewing(true)} />
     </aside>
     {previewing && <EverythingItReceives draft={{ name: agent.name, role: agent.role, instructions: draft.instructions, agent: agent.id }} close={() => setPreviewing(false)} />}

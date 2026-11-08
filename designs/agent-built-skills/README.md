@@ -1,9 +1,10 @@
 # Agent setup: connectors, skills written by the agent, and controls (proposal)
 
-Approved by the owner on 2026-11-08. Built so far: the visible system prompt
-(screen 6) and the five-step flow with today's controls (screens 1, 3 and 4, with
-the Ground rules box and Add skills in step 3). Not built yet: skills written in
-chat (screens 2 and 5) and suggested controls. Replaces the earlier
+Approved by the owner on 2026-11-08. Built: the visible system prompt (screen 6),
+the five-step flow (screens 1 and 3), skills written in chat in step 3 (screen 2)
+and changes by chat on the agent's Instructions tab (screen 5; the tab keeps its
+name). Not built yet: suggested controls (screen 4 shows today's per-action rules)
+and the agent's review of uploaded skills. Replaces the earlier
 "instructions and skills in one place" proposal (same branch). It changes the
 create flow and the Instructions tab from the approved
 [Agents](../agents-simplified/README.md) designs and builds on skills (D234),

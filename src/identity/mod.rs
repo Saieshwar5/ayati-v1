@@ -40,6 +40,7 @@ mod secrets;
 mod settings;
 mod shutdown;
 pub mod simulation;
+pub(crate) mod skill_writer;
 mod skills;
 pub(crate) mod start_trace;
 mod transcription;
@@ -252,6 +253,7 @@ fn router(app: Shared) -> Router {
         .merge(agents::routes())
         .merge(activity::routes())
         .merge(skills::routes())
+        .merge(skill_writer::routes())
         .merge(member_profiles::routes())
         .merge(control::routes())
         .merge(connectors::routes::routes())
