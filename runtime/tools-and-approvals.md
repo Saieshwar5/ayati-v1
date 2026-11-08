@@ -15,7 +15,7 @@ built in M3).
   - API: `POST /api/identity/workspaces/{w}/control/connector-rules` with
     `{connection, operation, mode, needs_other, revision}`.
 - **An agent's owner (or an admin)** switches connectors on for the agent and may
-  make any action stricter on its **Tools** tab, or in create step 4.
+  make any action stricter on its **Tools** tab, or in create step 5 (Controls), where the agent suggests a mode and a reason for each action ([skills](skills.md#written-in-chat)).
   - `POST …/agent-profiles/{id}/control/tools` with `{connection, enabled}`.
   - `POST …/agent-profiles/{id}/control/rules` with `{connection, operation, mode, revision}`.
   - A rule looser than the admin's is refused.
@@ -23,7 +23,7 @@ built in M3).
   may ask the agent. `relay_control_effective_rules` holds the stricter of the
   two for every connector the agent uses.
 - `GET /api/identity/workspaces/{w}/control/available` lists connectors and
-  their workspace rules for any member, for create step 4.
+  their workspace rules for any member, for create step 5 (Controls).
 
 ## Company rules
 

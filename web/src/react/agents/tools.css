@@ -39,3 +39,6 @@
 .agent-tool-actions li strong, .agent-tool-actions li small { display: block; }
 .agent-tool-actions li small { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .agent-tool-actions h3 { font-size: 15px; margin: 0 0 8px; }
+.agent-tool-action small.agent-tool-note { color: var(--text); }
+.agent-create-tools .agent-tools-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.agent-create-tools .agent-tools-note .ui-button { margin-left: auto; }

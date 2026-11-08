@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Agent-built skills mockups</title>
+<style>
+:root{--surface:#fff;--canvas:#f3f4f5;--text:#22252a;--muted:#697079;--border:#e5e7ea;--border-panel:#d1d6dd;--border-control:#aeb8c5;--soft:#f7f8f9;--selection:#eef0f2;--accent:#22252a;--on-accent:#fff;--danger:#a42f35;--warning:#945b10;--warning-bg:#fff3e2;--success:#26745c;--working:#6257cf;--link:#3d55c9;--pin:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{width:1820px;height:900px;display:flex;position:relative;overflow:hidden;background:#fff;margin-bottom:40px}
+.app{width:1440px;height:900px;background:var(--canvas);position:relative;flex:0 0 auto}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;vertical-align:middle}
+/* rail */
+.rail{position:absolute;left:0;top:0;bottom:0;width:88px;display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:8px}
+.rail .logo{width:36px;height:26px;margin-bottom:30px;object-fit:contain}
+.rail a{width:64px;height:54px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--muted);text-decoration:none}
+.rail a .i{width:20px;height:20px;color:#3a3f46}
+.rail a.on{background:var(--accent);color:#fff}.rail a.on .i{color:#fff}
+.rail .me{position:absolute;bottom:34px;width:34px;height:34px;border-radius:50%;background:#e3efe3;display:grid;place-items:center;font-size:12px;font-weight:600;color:#2f5b3a}
+/* frame */
+.frame{position:absolute;left:88px;top:12px;width:1340px;height:876px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.roster{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.roster-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roster-head h1{font-size:22px;margin:0;font-weight:650}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-control);background:#fff;font:inherit;font-size:13.5px;font-weight:550;color:var(--text);white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.quiet{border-color:transparent;background:transparent}
+.btn.small{min-height:30px;padding:0 10px;font-size:13px}
+.btn .i{width:16px;height:16px}
+.search{display:flex;align-items:center;gap:8px;height:40px;border-radius:10px;border:1px solid var(--border-control);padding:0 12px;color:var(--muted);font-size:14px;margin-bottom:14px}
+.agent-row{display:flex;gap:12px;padding:10px;border-radius:12px;align-items:flex-start;margin-bottom:2px}
+.agent-row.on{background:var(--selection)}
+.av{width:40px;height:40px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.av img{width:100%;height:100%;display:block}
+.agent-row b{display:block;font-weight:550;font-size:14.5px}
+.agent-row small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;margin-top:5px;background:var(--selection);color:var(--text)}
+.tag.warn{background:var(--warning-bg);color:var(--warning)}
+/* main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.create-head{display:flex;justify-content:space-between;align-items:center;padding:30px 32px 10px}
+.create-head h2{margin:0;font-size:26px;font-weight:650}
+.steps{display:flex;gap:28px;align-items:center;padding:8px 32px 18px;border-bottom:1px solid var(--border);font-size:14px;color:var(--muted)}
+.steps li{display:flex;align-items:center;gap:10px;list-style:none}
+.steps li span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:12px;font-weight:600}
+.steps li.cur{color:var(--text);font-weight:600}.steps li.cur span{background:var(--accent);color:#fff}
+.steps li.done span{background:var(--success);color:#fff}
+.steps .line{width:40px;height:1px;background:var(--border-panel)}
+.body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
+.foot{display:flex;align-items:center;gap:12px;padding:16px 32px 20px;border-top:1px solid var(--border)}
+.foot p{margin:0;color:var(--muted);font-size:13px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0;position:relative}
+.starters{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.starters > span{font-size:13px;margin-right:4px;white-space:nowrap}
+.chip{border:1px solid var(--border-panel);border-radius:999px;padding:6px 12px;font-size:13px;background:#fff;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.write-for-me{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#eef1fd;color:var(--link);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:550;white-space:nowrap}
+.write-for-me .i{width:15px;height:15px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.sec-head h3{margin:0;font-size:15px;font-weight:650;white-space:nowrap}
+.sec-head small{color:var(--muted);font-size:13px}
+.sec-head .right{margin-left:auto;white-space:nowrap}
+.box{border:1px solid var(--border-control);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.55;background:#fff;white-space:pre-wrap}
+.box.rich{white-space:normal;overflow:hidden}.box .h{font-weight:600;margin-top:7px}
+.meter{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px;margin-top:-4px}
+.skills{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.skill{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.tile{width:36px;height:36px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.skill b{font-weight:600;font-size:14px}
+.skill .when{display:block;font-size:13px;margin-top:1px}
+.skill small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.skill .acts{display:flex;gap:4px;align-items:center}
+.skill.suggest{border:1px dashed var(--border-panel);border-radius:10px;padding:10px 12px;margin:10px 0 2px;background:var(--soft)}
+.skill.suggest .tile{background:#eef1fd;color:var(--link)}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.row-actions{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row-actions .count{margin-left:auto;color:var(--muted);font-size:12.5px}
+/* side cards */
+.card{border:1px solid var(--border);border-radius:12px;padding:15px 17px;background:var(--soft);font-size:13px;line-height:1.55}
+.card h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h4 small{font-weight:500;font-size:11px;color:var(--muted);background:var(--selection);padding:2px 8px;border-radius:6px}
+.card ul{margin:0;padding-left:0;list-style:none}
+.card li{display:flex;gap:8px;margin:4px 0}
+.card li .i{width:15px;height:15px;color:var(--success);margin-top:2px}
+.card .link{color:var(--link);font-weight:550;display:inline-flex;gap:6px;align-items:center;margin-top:6px}
+.flow{display:grid;gap:8px}
+.flow .lane{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.flow .lane b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.flow .lane.when{border-style:dashed}
+.flow .arrow{text-align:center;color:var(--muted);font-size:12px;line-height:1}
+.muted{color:var(--muted)}
+/* pins */
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.25);z-index:20}
+/* notes */
+.notes{flex:1;padding:4px 26px 0 30px;background:#fff}
+.notes h2{font-size:19px;font-weight:600;margin:0 0 18px}
+.notes ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.notes li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13.5px;line-height:1.48;color:#33383e}
+.notes li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.notes .sub{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--muted)}
+.notes .sub b{color:var(--text)}
+/* drawer */
+.scrim{position:absolute;inset:0;background:rgb(34 37 42/.42);z-index:5}
+.drawer{position:absolute;right:12px;top:12px;bottom:12px;width:500px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.18)}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:22px 24px 6px}
+.drawer-head h3{margin:0;font-size:20px;font-weight:650;flex:1}
+.drawer-head .x{width:34px;height:34px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.drawer-body{flex:1;min-height:0;overflow:visible;padding:4px 24px 12px;display:flex;flex-direction:column;gap:14px;position:relative}
+.drawer-foot{display:flex;align-items:center;gap:10px;padding:14px 24px 18px;border-top:1px solid var(--border)}
+.field label,.field .lab{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:13.5px;margin-bottom:6px}
+.field .lab .right{margin-left:auto;font-weight:500}
+.input{border:1px solid var(--border-control);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.5;background:#fff}
+.input.area{white-space:pre-wrap;line-height:1.55}
+.help{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45;display:flex;gap:8px}
+.help .right{margin-left:auto;white-space:nowrap}
+.help code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);padding:1px 5px;border-radius:5px;color:var(--text)}
+.files{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.files li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.files li small{color:var(--muted);font-size:12px}
+.files li .acts{margin-left:auto;display:flex;gap:2px}
+.linkbtn{color:var(--link);font-weight:550;font-size:13px;padding:4px 6px;border-radius:6px;display:inline-flex;gap:5px;align-items:center}
+.linkbtn .i{width:15px;height:15px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+.check .box2{width:18px;height:18px;border:1.5px solid var(--border-control);border-radius:4px;margin-top:1px;flex:0 0 auto}
+.check small{display:block;color:var(--muted);font-size:12.5px}
+.notice{display:flex;gap:10px;background:var(--warning-bg);color:var(--warning);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5}
+.notice .i{width:17px;height:17px;margin-top:1px}
+.notice.info{background:#eef1fd;color:#2e3f8f}
+.notice.err{background:#fdeeee;color:var(--danger)}
+.meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hl{background:#fff7d6;border-radius:3px}
+/* agent page */
+.agent-head{display:flex;gap:16px;align-items:center;padding:28px 32px 6px}
+.agent-head .av{width:56px;height:56px;border-radius:14px}
+.agent-head h2{margin:0;font-size:24px;font-weight:650;display:flex;gap:10px;align-items:center}
+.agent-head small{color:var(--muted);font-size:14px}
+.pill{font-size:12px;font-weight:550;background:#e6f4ec;color:var(--success);padding:3px 9px;border-radius:6px}
+.tabs{display:flex;gap:30px;padding:12px 32px 0;border-bottom:1px solid var(--border);font-size:14.5px;color:#4b5058}
+.tabs span{padding-bottom:12px}.tabs .on{color:var(--text);font-weight:600;border-bottom:2px solid var(--accent)}
+/* states grid */
+.grid4{position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.state{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 24px;position:relative;display:flex;flex-direction:column;gap:12px}
+.state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+/* phone */
+.phones{position:absolute;left:271px;top:24px;display:flex;gap:70px}
+.phone{width:390px;height:844px;border-radius:44px;background:#1b1d21;padding:12px;box-shadow:0 10px 30px rgb(0 0 0/.18);position:relative}
+.phone-screen{width:100%;height:100%;border-radius:34px;background:var(--canvas);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status-bar{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600}
+.phone-frame{flex:1;margin:0 6px 6px;background:#fff;border-radius:14px;box-shadow:0 4px 12px rgb(23 33 43/10%);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.ph-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.ph-head h2{margin:0;font-size:20px;font-weight:650}
+.ph-steps{display:flex;gap:6px;align-items:center;padding:4px 16px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)}
+.ph-steps i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:11px;font-weight:600}
+.ph-steps i.done{background:var(--success);color:#fff}.ph-steps i.cur{background:var(--accent);color:#fff}
+.ph-body{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.ph-foot{display:flex;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--border)}
+.ph-foot .btn{flex:1;min-height:44px}
+
+.sp-bar{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:13px}
+.sp-bar .right{margin-left:auto;white-space:nowrap}
+.chat{border:1px solid var(--border-panel);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;background:#fff;min-height:0;position:relative}
+.chat-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13.5px}
+.chat-head .av{width:28px;height:28px}
+.chat-head small{color:var(--muted);font-size:12px;display:block}
+.msgs{flex:1;padding:12px 14px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;overflow:hidden;font-size:13.5px;line-height:1.48}
+.msg{max-width:90%;padding:8px 12px;border-radius:12px}
+.msg.agent{background:var(--soft);border:1px solid var(--border);align-self:flex-start;border-top-left-radius:4px}
+.msg.me{background:#e9edf3;align-self:flex-end;border-top-right-radius:4px}
+.msg ol{margin:4px 0 0;padding-left:18px}
+.msg .voice{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-bottom:4px}
+.quick{display:flex;gap:6px;padding:0 12px;flex-wrap:nowrap;overflow:hidden}
+.quick .chip{font-size:12px;padding:4px 10px}
+.composer{margin:8px 12px 12px;border:1px solid var(--border-control);border-radius:18px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px}
+.composer .send{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center}
+.composer .send .i{width:15px;height:15px}
+.drafts{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
+.drafts-head{display:flex;align-items:baseline;gap:10px}
+.drafts-head h3{margin:0;font-size:15px}
+.drafts-head small{color:var(--muted);font-size:13px}
+.draft{border:1px solid var(--border-panel);border-radius:12px;padding:8px 14px;display:grid;gap:2px;background:#fff}
+.draft.always{border-color:var(--accent)}
+.draft-top{display:flex;align-items:center;gap:8px}
+.draft-top b{font-size:14px}
+.draft .when{font-size:13px}
+.draft small{color:var(--muted);font-size:12px}
+.draft .acts{display:flex;gap:4px;margin-top:1px;margin-left:-6px}
+.badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.badge.always{background:var(--accent);color:#fff}
+.badge.new{background:#eef1fd;color:var(--link)}
+.badge.ws{background:var(--selection);color:var(--text)}
+.badge.changed{background:var(--warning-bg);color:var(--warning)}
+.diff{border:1px solid var(--border-control);border-radius:10px;padding:8px 6px;font-size:13px;line-height:1.5;display:grid;gap:2px}
+.diff div{padding:2px 8px;border-radius:5px}
+.diff .del{background:#fdeeee;color:#8a2c31;text-decoration:line-through}
+.diff .add{background:#e3f3ea;color:#1d5c47}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.list li{padding:10px 10px;border-bottom:1px solid var(--border);display:grid;gap:2px;font-size:13px;border-radius:0}
+.list li.on{background:var(--selection);border-radius:8px;border-bottom-color:transparent}
+.list li b{font-size:13.5px;display:flex;gap:6px;align-items:center}
+.list li small{color:var(--muted);font-size:12px}
+.psec{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);align-items:start;font-size:13.5px}
+.psec .st{font-size:12px;color:var(--muted);white-space:nowrap}
+.psec .ok{color:var(--success)}
+.psec .no{color:var(--muted)}
+.psec small{display:block;color:var(--muted);font-size:12px}
+.ptext{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;background:var(--soft);border-radius:8px;padding:10px 12px;margin-top:6px;color:#33383e;white-space:pre-wrap}
+.layer{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--border)}
+.layer-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.layer-title .badge{margin-left:auto}
+.layer p{margin:0;font-size:13px;color:var(--muted)}
+.layer.locked .layer-title .i{color:var(--muted)}
+
+.seg{display:inline-flex;border:1px solid var(--border-panel);border-radius:10px;padding:3px;gap:2px;background:#fff}
+.seg span{padding:5px 13px;border-radius:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.seg .allow{background:#e3f3ea;color:var(--success);font-weight:600}
+.seg .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}
+.seg .block{background:#fdeeee;color:var(--danger);font-weight:600}
+.seg .off{opacity:.4}
+.switch{width:38px;height:22px;border-radius:999px;background:var(--border-panel);position:relative;flex:0 0 auto}
+.switch.on{background:var(--accent)}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.switch.on::after{left:19px}
+.conn{border-bottom:1px solid var(--border);padding:10px 0;position:relative}
+.conn-head{display:flex;align-items:center;gap:12px}
+.conn-head b{font-size:14.5px;display:block}
+.conn-head small{color:var(--muted);font-size:12.5px}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:6px 0 6px 50px;align-items:center}
+.op b{font-size:13.5px;font-weight:550;display:block}
+.op small{color:var(--muted);font-size:12px;display:block}
+.op small.why{color:var(--link)}
+.review{display:flex;gap:8px;background:var(--soft);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45;margin-top:4px}
+.review .i{width:15px;height:15px;margin-top:1px;color:var(--muted)}
+
+.steps.five{gap:16px}.steps.five .line{width:22px}
+.kind{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap;background:var(--selection);color:var(--text)}
+.kind.read{background:#e3f3ea;color:#1d5c47}.kind.money{background:var(--warning-bg);color:var(--warning)}
+.kind.out{background:#eef1fd;color:var(--link)}.kind.del{background:#fdeeee;color:var(--danger)}
+.app-row{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--border)}
+.app-row b{font-size:14.5px;display:block}
+.app-row small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.app-row .switch{margin-top:6px}
+.kinds{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.app-row small.detail{margin-top:6px}
+.card .setup-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.card .setup-steps li{display:flex;gap:10px;margin:0;align-items:flex-start}
+.setup-steps i{font-style:normal;width:22px;height:22px;flex:0 0 auto;border-radius:50%;background:var(--selection);display:grid;place-items:center;font-size:11.5px;font-weight:600}
+.setup-steps li.cur i{background:var(--accent);color:#fff}
+.setup-steps b{font-size:13.5px;display:block;color:var(--text)}.setup-steps small{display:block;color:var(--muted);font-size:12.5px;line-height:1.4}
+.choice{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border:1px solid var(--border);border-radius:10px}
+.choice.on{border-color:#9aa6d8;background:#f6f7fe}
+.choice b{display:block;font-size:14px;font-weight:550}.choice small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-control);margin-top:2px;flex:0 0 auto;position:relative}
+.radio.on{border-color:var(--accent)}.radio.on::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.person{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.person b{display:block;font-size:14px;font-weight:550}.person small{color:var(--muted);font-size:12.5px}
+.initials{width:32px;height:32px;border-radius:50%;background:#e3efe3;color:#2f5b3a;display:grid;place-items:center;font-size:12px;font-weight:600}
+.why-line{display:flex !important;gap:8px;align-items:center;margin-top:2px}
+.why-line span:last-child{color:var(--muted)}
+.why-line b{display:inline;font-size:inherit;font-weight:600;color:var(--text)}
+.cond{margin:0 0 6px 50px;display:flex;gap:8px;align-items:center;font-size:12.5px;background:var(--soft);border:1px dashed var(--border-panel);border-radius:8px;padding:6px 10px}
+.cond .i{width:15px;height:15px;color:var(--muted)}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="warning" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13v1M15 13v1M2 14h2M20 14h2"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+</svg>
+<div id="root"></div>
+<script>
+const AV = n => `../../web/public/agent-avatars/robot-${n}.svg`;
+const I = (id, cls = '') => `<svg class="i ${cls}"><use href="#${id}"/></svg>`;
+const pin = (n, style) => `<span class="pin" style="${style}">${n}</span>`;
+
+function rail() {
+  const items = [['home','Home'],['chat','Chat'],['activity','Activity'],['bot','Agents'],['library','Library'],['sliders','Settings']];
+  return `<nav class="rail"><img class="logo" src="../../web/public/brand/cuckoo-symbol.svg" alt="">
+    ${items.map(([icon, label]) => `<a class="${label === 'Agents' ? 'on' : ''}">${I(icon)}${label}</a>`).join('')}
+    <span class="me">RK</span></nav>`;
+}
+
+function roster(selected) {
+  const rows = [
+    ['new', '07', 'New agent', 'Not created yet', ''],
+    ['iris', '07', 'Iris', 'Customer support', ''],
+    ['atlas', '01', 'Atlas', 'Orders assistant', '<span class="tag warn">1 waiting for approval</span>'],
+    ['ledger', '05', 'Ledger', 'Accounts helper', ''],
+    ['nova', '09', 'Nova', 'Sales follow-up', ''],
+  ].filter(row => selected === 'new' ? row[0] !== 'iris' : row[0] !== 'new');
+  return `<aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div>
+    <div class="search">${I('search')}Search agents</div>
+    ${rows.map(([id, av, name, sub, tag]) => `<div class="agent-row ${id === selected ? 'on' : ''}"><span class="av"><img src="${AV(av)}" alt=""></span>
+      <span><b>${name}</b><small>${sub}</small>${tag}</span></div>`).join('')}</aside>`;
+}
+
+function notes(title, items, sub = '') {
+  return `<aside class="notes"><h2>${title}</h2><ol>${items.map((text, index) => `<li><i>${index + 1}</i><span>${text}</span></li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}</aside>`;
+}
+const screen = (id, app, side) => `<section class="screen" id="${id}"><div class="app">${rail()}${app}</div>${side}</section>`;
+const irisAv = (size = 28) => `<span class="av" style="width:${size}px;height:${size}px"><img src="${AV('07')}" alt=""></span>`;
+
+function draft({ name, badge, when, meta, cls = '', acts = true, extra = '' }) {
+  return `<div class="draft ${cls}"><div class="draft-top">${I(cls === 'always' ? 'shield' : 'book')}<b>${name}</b>${badge}</div>
+    <span class="when">${when}</span><small>${meta}</small>${extra}
+    ${acts ? `<div class="acts"><span class="linkbtn">${I('pencil')}Edit</span><span class="linkbtn">${I('chat')}Ask Iris</span><span class="linkbtn" style="color:var(--muted)">Remove</span></div>` : ''}</div>`;
+}
+
+
+/* ---------- Screen 2: change a skill with chat ---------- */
+const irisHead = `<header class="agent-head"><span class="av"><img src="${AV('07')}" alt=""></span>
+    <div><h2>Iris <span class="pill">Available</span></h2><small>Customer support · owned by Ravi Kumar</small></div>
+    <span style="margin-left:auto" class="btn primary">${I('chat')}Open in Chat</span></header>
+  <nav class="tabs"><span>Overview</span><span>Activity</span><span class="on">Skills</span><span>Tools</span><span>Schedules</span><span>Environment</span></nav>`;
+
+const skillList = `<div style="display:flex;flex-direction:column;gap:10px;min-width:0;position:relative">${pin(1, 'left:-30px;top:2px')}
+  <div class="sp-bar" style="padding:7px 10px;font-size:12.5px">${I('lock')}<span>Cuckoo system prompt</span><span class="right linkbtn" style="font-size:12.5px">View</span></div>
+  <ul class="list">
+    <li><b>${I('shield')}Ground rules <span class="badge always">Always on</span></b><small>Version 2 · every message</small></li>
+    <li class="on"><b>${I('book')}Refund check <span class="badge changed">Change ready</span></b><small>Version 2 · used 9 times this week</small></li>
+    <li><b>${I('book')}Delivery date question</b><small>Version 1 · used 21 times</small></li>
+    <li><b>${I('book')}Site measurement</b><small>Uploaded · version 1</small></li>
+  </ul>
+  <span class="btn small" style="align-self:flex-start">${I('plus')}New skill</span>
+  <p class="muted" style="margin:0;font-size:12px">What Iris knows (notes and Library) stays below the skills.</p>
+</div>`;
+
+const skillDetail = `<div style="display:flex;flex-direction:column;gap:10px;min-width:0;position:relative">${pin(2, 'left:-26px;top:2px')}
+  <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;font-size:18px">Refund check</h3><span class="mono" style="font-size:11.5px">refund-check</span>
+    <span style="margin-left:auto" class="linkbtn">${I('history')}History</span><span class="btn small">${I('pencil')}Edit</span></div>
+  <div class="meta">Version 2 · used only by Iris · changed by Ravi Kumar with Iris, 3 days ago</div>
+  <div class="field"><label>Use it when</label><div class="input">A customer asks for a refund, a return or their money back.</div></div>
+  <div class="field"><div class="lab">Steps<span class="right muted" style="font-size:12.5px;font-weight:500">2 lines changed by Iris · not saved</span></div>
+    <div class="diff">
+      <div>1. Find the order in Zoho Books, or ask for the order number.</div>
+      <div class="del">2. Returns are accepted within 7 days of delivery.</div>
+      <div class="add">2. Returns are accepted within 10 days of delivery.</div>
+      <div>3. Check “Returns policy 2026” in the Library for items that can’t be returned.</div>
+      <div class="del">4. Over ₹5,000: promise nothing and hand over to Meera.</div>
+      <div class="add">4. Over ₹3,000: promise nothing and hand over to Meera.</div>
+      <div>5. Otherwise say the refund takes 5–7 working days.</div>
+    </div></div>
+  <div style="display:flex;gap:10px;align-items:center;position:relative">${pin(4, 'left:-26px;top:6px')}<span class="btn primary">Save as version 3</span><span class="btn">Discard change</span></div>
+</div>`;
+
+const changeChat = `<div style="position:relative;min-height:0">${pin(3, 'left:-12px;top:-10px')}<div class="chat" style="height:100%">
+  <div class="chat-head">${irisAv()}<span><b>Change with Iris</b><small>Private · only Iris’s owner, managers and admins</small></span></div>
+  <div class="msgs">
+    <div class="msg me">From now, returns are allowed for 10 days, and ask Meera for refunds above ₹3,000.</div>
+    <div class="msg agent">I changed two lines in <b>Refund check</b>. They’re highlighted. Save to make it version 3, or tell me what to adjust.</div>
+    <div class="msg me">Does Ground rules need a change too?</div>
+    <div class="msg agent">No. Ground rules only says I never promise refunds; the amount lives in Refund check.</div>
+  </div>
+  <div class="composer">Tell Iris what to change…<span style="margin-left:auto">${I('mic')}</span><span class="send">${I('send')}</span></div>
+</div></div>`;
+
+const s2 = screen('s2', `<div class="frame">${roster('iris')}<div class="main">${irisHead}
+  <div style="flex:1;min-height:0;padding:18px 32px 22px;display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:30px">
+    ${skillList}${skillDetail}${changeChat}
+  </div></div></div>`, notes('Agent · Skills · Change with chat', [
+  'The Instructions tab becomes <b>Skills</b>: Ground rules first (always on), then the other skills with their version and use this week. The system prompt is one click away.',
+  'The selected skill shows exactly what will change, as a highlighted diff, before anything is saved.',
+  '<b>Change with Iris</b> is a private setup chat. Iris proposes changes to any of its skills, or a new skill, and explains where a rule lives. It can’t save by itself.',
+  '<b>Save as version 3</b> makes the change real; Discard drops it. Each version records who changed it and that it came from chat. History can bring back an older version.',
+  '<b>Edit</b> opens the same skill as a form for changing it by hand.',
+], '<b>Customers can’t change skills.</b> In ordinary Chat, if anyone asks Iris to change how it works, Iris says only its owner can. That keeps a customer from rewriting its rules.'));
+
+/* ---------- Screen 3: the whole system prompt ---------- */
+const promptDrawer = `<div class="scrim"></div><div class="drawer" style="width:640px">
+  <div class="drawer-head"><h3>Everything Iris receives</h3><span class="x">${I('x')}</span></div>
+  <div class="drawer-body" style="gap:0">
+    <p class="muted" style="margin:0 0 6px;font-size:13px">In this order, with every message. Built by the same code as a real request.</p>
+    <div class="layer locked" style="position:relative">${pin(1, 'left:-35px;top:10px')}
+      <div class="layer-title">${I('lock')}1 · Cuckoo system prompt<span class="badge ws">Same for every agent · 8 Nov 2026</span></div>
+      <div class="psec" style="position:relative">${I('check', 'ok')}<span><b>Who you are and safety</b>
+        <div class="ptext">Your name is Iris. Your job title: Customer support.
+Use your configured name and responsibilities…</div></span><span class="st">Always</span></div>
+      <div class="psec" style="position:relative">${pin(2, 'left:-35px;top:8px')}${I('check', 'ok')}<span><b>Skills</b><small>How to find and open a skill</small></span><span class="st">Iris has skills</span></div>
+      <div class="psec">${I('check', 'ok')}<span><b>Library</b><small>Search, read and name company documents</small></span><span class="st">Library is on</span></div>
+      <div class="psec">${I('check', 'ok')}<span><b>Working voice, tasks, problems, routines, goals</b><small>Updates while working, promises tracked as tasks</small></span><span class="st">Cuckoo executor</span></div>
+      <div class="psec">${I('check', 'ok')}<span><b>Business actions and approvals</b><small>Use apps through Cuckoo; wait for approvals</small></span><span class="st">3 apps</span></div>
+      <div class="psec">${I('minus', 'no')}<span><b>Apps built in Cuckoo</b><small>Added when Iris can act in a Cuckoo app</small></span><span class="st">Not included</span></div>
+      <span class="linkbtn" style="margin-top:6px">Show every section in full</span>
+    </div>
+    <div class="layer" style="position:relative">${pin(3, 'left:-35px;top:10px')}
+      <div class="layer-title">${I('shield')}2 · Ground rules<span class="badge always">Iris’s · always on</span></div>
+      <p>You are Iris, customer support for Mehta Furnishings. Be polite and short; reply in Hindi or English. Never give discounts…</p></div>
+    <div class="layer">
+      <div class="layer-title">${I('book')}3 · Skill list<span class="badge ws">3 skills</span></div>
+      <p>Only names and “Use it when”: refund-check, delivery-date-question, site-measurement.</p></div>
+    <div class="layer" style="position:relative">${pin(4, 'left:-35px;top:10px')}
+      <div class="layer-title">${I('chat')}4 · Added for each message</div>
+      <p>Who is talking and where, recent messages, Iris’s tools and their rules.</p></div>
+    <div class="layer" style="border:0">
+      <div class="layer-title">${I('file')}5 · Only when needed</div>
+      <p>A skill’s steps and files, when Iris opens it. Activity shows “Used skill: refund-check (version 3)”.</p></div>
+  </div>
+  <div class="drawer-foot" style="position:relative">${pin(5, 'left:14px;top:-12px')}<span class="linkbtn" style="margin-right:auto">${I('copy')}Copy as text</span><span class="btn primary">Done</span></div>
+</div>`;
+
+const s2bg = `<div class="frame">${roster('iris')}<div class="main">${irisHead}
+  <div style="flex:1;min-height:0;padding:18px 32px 22px;display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:30px">
+    ${skillList.replace(/<span class="pin"[^>]*>\d<\/span>/g, '')}${skillDetail.replace(/<span class="pin"[^>]*>\d<\/span>/g, '')}<div></div>
+  </div></div>${promptDrawer}</div>`;
+
+const s3 = screen('s3', s2bg, notes('Everything the agent receives', [
+  'The <b>Cuckoo system prompt</b> in full, not a summary: locked, the same for every agent, dated so a change by Cuckoo is visible.',
+  'Each section says whether it is included for this agent and why. Sections exist only for features the agent can use, so the text is the same for every agent that has the same features.',
+  'Then the parts that belong to Iris: Ground rules (always on) and the skill list (names and “Use it when” only).',
+  'What is added per message and what is read only when needed, described in words, because it changes with every request.',
+  '<b>Copy as text</b> gives the exact text. Opened from the create step, the Skills tab and the agent’s ⋯ menu, so anyone who can see the agent can read it at any time.',
+], '<b>Today</b> the Cuckoo rules card and this preview show only the first paragraph. About 20 more fixed paragraphs are added at request time in <code class="mono">chat/execution.rs</code> and are invisible.'));
+
+
+
+/* ---------- The five-step create flow ---------- */
+const STEP_NAMES = ['Name and picture', 'Connectors', 'Skills', 'People', 'Controls'];
+const steps5 = cur => `<ol class="steps five" style="margin:0">${STEP_NAMES.map((name, index) =>
+  `${index ? '<li class="line"></li>' : ''}<li class="${index + 1 < cur ? 'done' : index + 1 === cur ? 'cur' : ''}"><span>${index + 1 < cur ? '✓' : index + 1}</span>${name}</li>`).join('')}</ol>`;
+const createHead = `<header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>`;
+const KINDS = { read: 'Reads', change: 'Changes', money: 'Money', out: 'Sends outside', del: 'Deletes' };
+const kind = key => `<span class="kind ${key}">${KINDS[key]}</span>`;
+
+/* ---------- Step 2: Connectors ---------- */
+const appRow = ({ name, sub, kinds, detail = '', on, extra = '' }) => `<div class="app-row"><span class="tile">${I('plug')}</span>
+  <span style="flex:1;min-width:0"><b>${name}</b><small>${sub}</small><span class="kinds">${kinds.map(kind).join('')}</span>${detail ? `<small class="detail">${detail}</small>` : ''}</span>
+  ${extra}<span class="switch ${on ? 'on' : ''}"></span></div>`;
+
+const sConn = screen('c1', `<div class="frame">${roster('new')}<div class="main">${createHead}${steps5(2)}
+  <div class="body">
+    <div class="col" style="gap:8px">
+      <div class="sec-head" style="position:relative;margin:0">${pin(1, 'left:-30px;top:0')}<h3>What can Iris use?</h3><small>Apps your admin added to Mehta Furnishings</small></div>
+      <div style="border-top:1px solid var(--border)">
+        <div style="position:relative">${pin(2, 'left:-30px;top:44px')}${pin(3, 'right:46px;top:16px')}
+        ${appRow({ name: 'Zoho Books', sub: 'Accounts, orders and invoices · 5 actions', kinds: ['read', 'change', 'money', 'del'], on: true,
+          detail: 'Read orders and invoices · Update an order · Create a credit note · Apply a discount · Delete an invoice' })}</div>
+        ${appRow({ name: 'Delivery tracker', sub: 'MCP server · shipment tracking · 1 action', kinds: ['read'], on: true, detail: 'Track a shipment' })}
+        ${appRow({ name: 'Google Workspace', sub: 'Gmail, Calendar and Drive · 6 actions', kinds: ['read', 'change', 'out'], on: false })}
+        ${appRow({ name: 'Razorpay', sub: 'Payments and payment links · 3 actions', kinds: ['read', 'money'], on: false })}
+      </div>
+      <div class="sp-bar" style="position:relative;margin-top:6px">${pin(4, 'left:-30px;top:6px')}${I('plus')}<span>Need another app or MCP server? Admins add them in Settings → Connections.</span><span class="right linkbtn">Ask an admin</span></div>
+    </div>
+    <div style="position:relative">${pin(5, 'left:-12px;top:-8px')}
+      <section class="card"><h4>How Iris gets set up</h4>
+        <ol class="setup-steps">
+          <li class="cur"><i>2</i><span><b>Connectors</b><small>What Iris can use. You are here.</small></span></li>
+          <li><i>3</i><span><b>Skills</b><small>Iris writes how it does the job, using these apps.</small></span></li>
+          <li><i>4</i><span><b>People</b><small>Who talks to Iris and who approves.</small></span></li>
+          <li><i>5</i><span><b>Controls</b><small>Iris suggests what needs approval. Cuckoo enforces it.</small></span></li>
+        </ol>
+        <p class="muted" style="margin:10px 0 0">Switching an app on gives Iris no permission by itself. Not sure? Skip it: Iris suggests apps while writing skills.</p>
+      </section>
+    </div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Skipping is fine. Apps can change later on the Tools tab.</p></footer>
+</div></div>`, notes('Create · 2 Connectors (new)', [
+  'A new step right after Name and picture: <b>which apps Iris can use</b>. Only apps and MCP servers an admin already added are listed.',
+  'Each app says what it can do in plain words, grouped by the kinds admins already review: reads, changes, money, sends outside, deletes.',
+  'The switch makes an app <b>available</b> to Iris. It grants nothing yet: what Iris may do with it is decided in step 5, Controls.',
+  'A missing app or MCP server is requested from an admin, who adds it in Settings → Connections. Nobody adds one inside this flow.',
+  'The whole setup is explained once, in order. Skipping is fine; Iris suggests apps in the next step.',
+], '<b>Step 1, Name and picture,</b> is unchanged from the approved design.'));
+
+/* ---------- Step 3: Skills ---------- */
+const skillsChat = `<div class="chat" style="height:100%">
+  <div class="chat-head">${irisAv()}<span><b>Iris</b><small>Setting up · no tools, nothing is saved yet</small></span></div>
+  <div class="msgs">
+    <div class="msg agent" style="position:relative">Hi, I’m Iris. I can use <b>Zoho Books</b> and the <b>delivery tracker</b>. Tell me what I should do, how to talk to people and what I must never do.</div>
+    <div class="msg me"><div class="voice">${I('mic')}Voice message · 0:41 · transcript</div>Answer customers about orders, delivery and returns. Be polite and short, in Hindi or English. Never give discounts. Returns only within 7 days. If someone is angry, pass them to Meera.</div>
+    <div class="msg agent">Got it. Above what refund amount should I ask Meera?</div>
+    <div class="msg me">Above ₹5,000. The policy is in the Library: Returns policy 2026.</div>
+    <div class="msg agent">I wrote 3 skills using Zoho Books and the delivery tracker, and checked the one you uploaded. Tell me what to change.</div>
+  </div>
+  <div class="composer">Tell Iris what to change…<span style="margin-left:auto">${I('mic')}</span><span class="send">${I('send')}</span></div>
+</div>`;
+
+const skillsDrafts = `<div class="drafts">
+  <div class="drafts-head"><h3>Iris’s skills</h3><small>saved when you create Iris</small><span style="margin-left:auto" class="linkbtn">${I('pencil')}Write one</span><span class="linkbtn" style="position:relative">${pin(5, 'left:-22px;top:-14px')}${I('upload')}Upload</span></div>
+  <div style="position:relative">${pin(3, 'left:-30px;top:12px')}
+  ${draft({ name: 'Ground rules', cls: 'always', badge: '<span class="badge always">Always on</span>', when: 'Who Iris is, how it talks, what it never does and when it asks Meera.', meta: 'Read with every message · 6 lines' })}</div>
+  <div style="position:relative">${pin(4, 'left:-30px;top:12px')}
+  ${draft({ name: 'Refund check', badge: '<span class="badge new">New</span>', when: 'Use it when a customer asks for a refund, a return or their money back.', meta: 'Uses Zoho Books: Read orders and invoices, Create a credit note' })}</div>
+  ${draft({ name: 'Delivery date question', badge: '<span class="badge new">New</span>', when: 'Use it when a customer asks when an order will arrive.', meta: 'Uses Delivery tracker: Track a shipment' })}
+  ${draft({ name: 'Site measurement', badge: '<span class="badge ws">Uploaded</span>', when: 'Use it when a customer sends room measurements.', meta: 'From site-measurement.zip · uses Google Drive',
+    extra: `<div class="review">${I('info')}<span><b>Iris checked it:</b> its script can’t run here, so I’ll follow the written steps.</span></div>` })}
+  <div class="notice info" style="position:relative;align-items:center">${pin(6, 'left:-30px;top:10px')}${I('plug')}<span style="flex:1">Site measurement saves files to Google Drive. Add <b>Google Workspace</b> to Iris’s apps?</span>
+    <span class="btn small" style="background:#fff">Add app</span><span class="btn small quiet">Not now</span></div>
+</div>`;
+
+const sSkills = screen('c2', `<div class="frame">${roster('new')}<div class="main">${createHead}${steps5(3)}
+  <div style="flex:1;min-height:0;padding:16px 32px;display:flex;flex-direction:column;gap:14px">
+    <div class="sp-bar" style="position:relative">${pin(1, 'left:-30px;top:6px')}${I('lock')}<span><b>Cuckoo system prompt</b> · the same for every agent · nobody in the workspace can change it</span><span class="right linkbtn">Read all of it ${I('arrow')}</span></div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:450px minmax(0,1fr);gap:24px">
+      <div style="position:relative;min-height:0">${pin(2, 'left:-30px;top:60px')}${skillsChat}</div>
+      ${skillsDrafts}
+    </div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Nothing is saved until you create Iris. Skills can change any time.</p></footer>
+</div></div>`, notes('Create · 3 Skills', [
+  'The <b>Cuckoo system prompt</b> sits locked at the top: the same for every agent. Read all of it shows the full text (screen 6).',
+  'Iris already knows its apps and their actions, so it asks only about the job. Describe it typed or as a voice message.',
+  '<b>Ground rules</b> is always on: who Iris is, tone, what it never does, when to ask a person. Other skills are opened only when a request needs them.',
+  'Each skill shows <b>which app actions it uses</b>. That is information for Controls, never a permission. Workspace skills are reused instead of copied.',
+  '<b>Upload</b> adds a skill made anywhere (a .zip, folder or SKILL.md, for example from Claude). Iris checks it and says what won’t work here.',
+  'When a skill needs an app Iris doesn’t have, Iris asks. Add app switches it on in Connectors, still without permissions.',
+], '<b>While setting up, Iris has no tools and no business data.</b> It writes drafts only. Each skill has Edit, Ask Iris and Remove.'));
+
+/* ---------- Step 4: People ---------- */
+const choice = (on, title, sub) => `<div class="choice ${on ? 'on' : ''}"><span class="radio ${on ? 'on' : ''}"></span><span><b>${title}</b><small>${sub}</small></span></div>`;
+const person = (initials, name, sub, tag) => `<div class="person"><span class="initials">${initials}</span><span style="flex:1"><b>${name}</b><small>${sub}</small></span>${tag}</div>`;
+
+const sPeople = screen('c3', `<div class="frame">${roster('new')}<div class="main">${createHead}${steps5(4)}
+  <div class="body">
+    <div class="col" style="gap:10px">
+      <div style="position:relative">${pin(1, 'left:-30px;top:0')}<h3 style="margin:0;font-size:15px">Who can talk to Iris</h3></div>
+      ${choice(true, 'Everyone in Mehta Furnishings', 'Any member can message Iris or add it to a channel.')}
+      ${choice(false, 'Selected people', 'Choose who can message Iris.')}
+      ${choice(false, 'Only me', 'Only you can message Iris. Admins can still see its settings and activity.')}
+      <p class="muted" style="margin:0;font-size:13px">In a channel, anyone in that channel can ask Iris.</p>
+      <div style="position:relative;margin-top:8px">${pin(2, 'left:-30px;top:0')}<h3 style="margin:0;font-size:15px">Managers</h3></div>
+      <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Managers approve Iris’s “Ask first” actions, see all its activity and can pause it. If no manager decides within 4 hours, an admin can.</p>
+      <div style="border-top:1px solid var(--border)">
+        ${person('RK', 'Ravi Kumar (you)', 'ravi@mehtafurnishings.in', '<span class="badge new">Owner</span>')}
+        ${person('MI', 'Meera Iyer', 'Customer care lead', '<span class="linkbtn" style="color:var(--muted)">Remove</span>')}
+      </div>
+      <span class="btn small" style="align-self:flex-start">${I('plus')}Add manager</span>
+    </div>
+    <div class="col">
+      <section class="card"><h4>Who sees Iris’s activity</h4>
+        <p style="margin:0"><b style="color:var(--text)">You and other managers</b><br><span class="muted">Everything Iris does.</span></p>
+        <p style="margin:6px 0 0"><b style="color:var(--text)">Admins</b><br><span class="muted">Everything Iris does.</span></p>
+        <p style="margin:6px 0 0"><b style="color:var(--text)">Everyone else</b><br><span class="muted">Only their own requests.</span></p></section>
+      <div style="position:relative">${pin(3, 'left:-12px;top:-8px')}
+      <div class="notice info">${I('shield')}<span><b>Used in the next step.</b> Everyone can talk to Iris, so Controls suggests “Ask first” for anything that spends money or sends outside, approved by Ravi or Meera.</span></div></div>
+    </div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Defaults are fine for most agents.</p></footer>
+</div></div>`, notes('Create · 4 People', [
+  'Same as the approved People step, moved to step 4 so it comes <b>before Controls</b>. Everyone is still the default.',
+  'Managers approve “Ask first” actions. Controls names them, so it needs to know them first.',
+  'Who can talk to Iris changes how careful Controls is: an agent open to everyone gets stricter suggestions than one only you use.',
+]));
+
+/* ---------- Step 5: Controls ---------- */
+const seg5 = mode => `<span class="seg">${['allow', 'ask', 'block'].map(m => `<span class="${m === mode ? m : ''}">${{ allow: 'Allow', ask: 'Ask first', block: 'Block' }[m]}</span>`).join('')}</span>`;
+const segAdmin = `<span class="seg"><span class="off">Allow</span><span class="off">Ask first</span><span class="block">Block</span></span>`;
+const ctl = (title, key, why, mode, extra = '') => `<div class="op"><span><b>${title}</b><small class="why-line">${kind(key)}<span>${why}</span></small></span>${mode}</div>${extra}`;
+const group = (name, sub, body, on = true) => `<div class="conn"><div class="conn-head"><span class="tile">${I('plug')}</span>
+  <span style="flex:1;min-width:0"><b>${name}</b><small>${sub}</small></span></div>${body}</div>`;
+
+const sControls = screen('c4', `<div class="frame">${roster('new')}<div class="main">${createHead}${steps5(5)}
+  <div style="flex:1;min-height:0;padding:14px 32px;display:flex;flex-direction:column;gap:4px">
+    <div class="notice info" style="position:relative;align-items:center">${pin(1, 'left:-30px;top:10px')}${I('shield')}<span style="flex:1">Iris suggested these from <b>3 apps, 4 skills, what you said and who can talk to it</b>. Suggestions only make things stricter; letting Iris act without asking is your choice.</span><span class="btn small" style="background:#fff">Reset to suggestions</span></div>
+    ${group('Zoho Books', '5 actions', `
+      <div style="position:relative">${pin(2, 'left:-30px;top:8px')}${ctl('Read orders and invoices', 'read', 'Refund check and Delivery date question read orders', seg5('allow'))}</div>
+      <div style="position:relative">${pin(3, 'left:-30px;top:8px')}${ctl('Update an order', 'change', 'No skill changes orders', seg5('block'))}</div>
+      <div style="position:relative">${pin(4, 'left:-30px;top:8px')}${ctl('Create a credit note', 'money', 'Refund check · <b>you chose Allow</b>; Iris suggested Ask first', seg5('allow'),
+        `<div class="cond">${I('shield')}<span><b>If amount is over 5,000, ask first</b> · from what you said: “above ₹5,000 ask Meera”</span><span class="linkbtn" style="margin-left:auto;font-size:12.5px">Change</span></div>`)}</div>
+      ${ctl('Apply a discount', 'money', 'You said: “never give discounts”', seg5('block'))}
+      <div style="position:relative">${pin(5, 'left:-30px;top:8px')}${ctl('Delete an invoice', 'del', 'Blocked by your admin', segAdmin)}</div>`)}
+    ${group('Delivery tracker', '1 action · Track a shipment: Allow, for Delivery date question', '')}
+    ${group('Google Workspace', '2 actions Iris could use · added for Site measurement', `
+      ${ctl('Save a file to Drive', 'change', 'Site measurement saves measurements', seg5('ask'))}
+      ${ctl('Send an email', 'out', 'No skill sends email', seg5('block'))}`)}
+  </div>
+  <footer class="foot" style="position:relative">${pin(6, 'left:8px;top:-12px')}<span class="btn">Back</span><span class="btn primary">${I('check')}Create agent</span><p>Cuckoo checks these before every action. Change them later on the Tools tab.</p></footer>
+</div></div>`, notes('Create · 5 Controls', [
+  'The last step. Iris suggests a rule for every action of every app it has, from the apps, its skills, what you said and who can talk to it.',
+  'Each action shows its kind and <b>why</b>, naming the skill that needs it. Reads a skill needs are Allow.',
+  'Actions no skill uses are Blocked, so Iris can’t do more than its job.',
+  'Iris only suggests stricter rules. Letting it act without asking (Allow on money here) is <b>your</b> choice, and Cuckoo keeps the limit you gave as a condition.',
+  'Your admin’s limits still win; looser options are greyed out.',
+  '<b>Create agent</b> saves everything. Cuckoo enforces these rules before every action; Iris can’t change them while working.',
+], '<b>New on the server:</b> conditions for one agent. Today conditions are company rules for every agent, set by admins. Agent conditions can only make things stricter.'));
+
+document.getElementById('root').innerHTML = sConn + sSkills + sPeople + sControls + s2 + s3;
+</script>
+</body></html>

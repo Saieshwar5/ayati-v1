@@ -68,6 +68,9 @@ pub struct Controller {
     /// Speech-to-text for voice notes and other audio (schema 95): "provider:model"
     /// from the model providers file, called by the controller.
     pub transcription_model: Option<(String, String)>,
+    /// Writes agents' skills in chat while people set them up: "provider:model"
+    /// from the model providers file, called by the controller with no tools.
+    pub skill_writer_model: Option<(String, String)>,
     /// Composio's project API key (a private 0600 file); no file, no Composio.
     pub composio_key_file: Option<PathBuf>,
     /// A loopback fixture for tests; the official API otherwise.
@@ -226,6 +229,7 @@ impl Controller {
             library_embedding_model: provider_model(env, "AYATI_LIBRARY_EMBEDDING_MODEL"),
             library_summary_model: provider_model(env, "AYATI_LIBRARY_SUMMARY_MODEL"),
             transcription_model: provider_model(env, "AYATI_TRANSCRIPTION_MODEL"),
+            skill_writer_model: provider_model(env, "AYATI_SKILL_WRITER_MODEL"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),
@@ -257,6 +261,9 @@ impl Controller {
         }
         if config.transcription_model.is_some() && config.model_providers_file.is_none() {
             env.problem("AYATI_TRANSCRIPTION_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
+        }
+        if config.skill_writer_model.is_some() && config.model_providers_file.is_none() {
+            env.problem("AYATI_SKILL_WRITER_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         // Model keys belong on executors (.env.executor locally).

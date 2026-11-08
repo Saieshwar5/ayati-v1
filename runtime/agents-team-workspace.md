@@ -1,12 +1,12 @@
 # Agents team workspace
 
 > **Updated 2026-10-31 (D233, M2):** the agent page now follows
-> `designs/agents-simplified/`. **＋ New agent** opens a three-step create flow
-> (Name and picture, Instructions, People) beside the list. An agent page has a
+> `designs/agents-simplified/`. **＋ New agent** opens a five-step create flow (2026-11-08)
+> (Name and picture, Connectors, Skills, People, Controls; see [agent-built skills](../designs/agent-built-skills/README.md)) beside the list. An agent page has a
 > header with **Open in Chat** and a ⋯ menu (Pause or Resume, Name and picture,
 > Transfer owner) for its owner and admins, and six tabs: **Overview** (about,
 > your open requests, key facts with Change links), **Activity** (request
-> history; since M4 it is [Activity](activity.md) History filtered to the agent), **Instructions** (edited in place, with the locked Cuckoo rules,
+> history; since M4 it is [Activity](activity.md) History filtered to the agent), **Instructions** (edited in place, with the locked Cuckoo system prompt,
 > what it knows and channel history), **Tools** (today's rules until M3),
 > **Schedules** and **Environment** (model, and "Coming later" cards). The
 > drawer editor, the Work, Access, Knowledge and Automation tabs, the "Not

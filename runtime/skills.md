@@ -70,7 +70,7 @@ skills panels (`designs/chat-and-account/` screens 7–8, D245):
 
 - **Instructions tab → "Skills it can use":** list with version and uses this
   week, **＋ Add skills**, and ⋯ View and download / Remove.
-- **Create step 2 → Skills:** chips under the instructions box with **＋ Add
+- **Create step 3 → Skills:** chips under the Ground rules box with **＋ Add
   skills**; they are added right after the agent is created.
 - **Add skills** (one drawer): a search across name, description and owner; "In
   this workspace", "Yours" and, for admins, "Other people's", with counts; flat rows
@@ -84,6 +84,48 @@ skills panels (`designs/chat-and-account/` screens 7–8, D245):
 **Waiting for designs:** the Skills library page in Agents (lists, history,
 create-in-Cuckoo form, request to share), starter skills and "Save a chat as a
 skill" (D234 slices 2–3).
+
+## Written in chat
+
+While setting up an agent (create step 3) and on its Instructions tab, the person
+describes the job and a model writes the **Ground rules** (the always-on
+instructions) and skills as drafts (designs/agent-built-skills 2 and 5).
+
+- **Setting:** `AYATI_SKILL_WRITER_MODEL=provider:model` from the model providers
+  file. Without it the chat is hidden and both are written by hand ("Write a
+  skill" and the Ground rules box).
+- **What the model gets:** the fixed guide (`skill_writer/guide.rs`, shown in the
+  chat as "What … is told while setting up"), then the setup as JSON data: the
+  agent's name and job title, its apps with each action's title and kind (the
+  connectors chosen in step 2, or a saved agent's switched-on ones), workspace
+  skills and the person's own for reuse, the ground rules and current skills, and
+  the conversation (at most 40 messages). No tools, no business data, no keys.
+- **What comes back** (`POST …/skill-writer`): a reply, new ground rules or none,
+  new or changed skills, names to remove or reuse, apps it needed but the agent
+  lacks, and notes. Every skill becomes a SKILL.md that passes the upload checks;
+  names are made valid and, when taken anywhere in the workspace, get the agent's
+  name added (`refund-check-iris`), with a note. Nothing is saved by this route.
+- **Saving:** in New agent, drafts become the owner's own skills and are attached
+  on Create agent, each with a key that changes with its text, so a retry saves
+  one skill. On the agent page each proposal is shown as a line diff and applied
+  on its own: ground rules go into the box (saved with Save changes); a changed
+  skill is saved as its next version keeping its other files; new skills are
+  created and attached; removals and reuse use the existing assign route.
+- **Who:** anyone creating an agent; on a saved agent, its owner or an admin (the
+  route checks it). Each turn is recorded as model usage (`skill_writer`).
+- **Limits:** the model only drafts; quality depends on it. A refused or failed
+  turn keeps what was typed.
+- **Suggested controls** (create step 5, `POST …/skill-writer/controls`): a mode and
+  a reason for every action of the agent's apps, from its apps, skills, ground
+  rules and who can talk to it. With the writer the model suggests them; without
+  it, or when it fails, plain rules do: an action no skill names is blocked, a
+  "never …" line blocks matching actions that change something (never reads),
+  deletes are blocked, and other actions a skill uses ask first. Every suggestion
+  is clamped to Cuckoo's safe defaults (read Allow, delete Block, otherwise Ask
+  first) and the admin's rule; looser choices are the person's own. Suggestions
+  fill only actions the person hasn't changed, are asked again only when the
+  setup changes, and "Reset to suggestions" restores them. Only modes stricter
+  than the admin's are saved, as today's agent rules.
 
 ## API
 
@@ -101,5 +143,5 @@ accept up to 8 MB of JSON.
 - Web: `tests/agent-skills.test.mjs` (zip round trip, archive limits, dropped
   folders, search, Add once, reasons as text, the upload step, Back/Cancel, failed
   saves and retries, keyboard file control, focus on close, remove) and
-  `tests/agent-create.test.mjs` (step 2 Skills).
+  `tests/agent-create.test.mjs` (step 3 Skills).
 - Journey: `tests/agent_skills.mjs` with real Goose 1.54.0.

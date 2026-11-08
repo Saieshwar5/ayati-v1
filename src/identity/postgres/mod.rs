@@ -266,8 +266,14 @@ mod response_tests;
 mod responses;
 pub(crate) mod settings;
 mod shared_rooms;
+mod skill_writing;
+#[cfg(test)]
+mod skill_writing_tests;
 pub(crate) mod skills;
 mod source_access;
+mod system_prompt;
+#[cfg(test)]
+mod system_prompt_tests;
 mod task_continuation;
 #[cfg(test)]
 mod task_continuation_tests;

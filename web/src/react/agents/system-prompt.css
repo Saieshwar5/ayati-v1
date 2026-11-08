@@ -1,0 +1,21 @@
+/* Everything an agent receives (designs/agent-built-skills 6). */
+.ui-dialog.ui-drawer:has(.system-prompt) { width: min(640px, calc(100vw - 32px)); }
+.system-prompt { display: grid; gap: 18px; }
+.system-prompt section { display: grid; gap: 6px; min-width: 0; }
+.system-prompt .ui-help { margin: 0; }
+.system-prompt-layer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; font-size: 15px; }
+.system-prompt-layer small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.system-prompt-sections { list-style: none; margin: 4px 0 0; padding: 0; border-top: 1px solid var(--border); }
+.system-prompt-section { border-bottom: 1px solid var(--border); }
+.system-prompt-section summary { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 10px; padding: 9px 4px; cursor: pointer; list-style: none; border-radius: 6px; }
+.system-prompt-section summary::-webkit-details-marker { display: none; }
+.system-prompt-section summary:hover { background: var(--soft); }
+.system-prompt-section summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.system-prompt-mark { grid-row: span 2; font-weight: 700; color: var(--muted); text-align: center; }
+.system-prompt-section.system-prompt-included .system-prompt-mark { color: var(--success); }
+.system-prompt-section.system-prompt-conversation .system-prompt-mark::before { content: ''; display: inline-block; width: 7px; height: 7px; border: 1.5px solid currentColor; border-radius: 50%; }
+.system-prompt-title { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.system-prompt-reason { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.system-prompt-section.system-prompt-not_included .system-prompt-title { color: var(--muted); font-weight: 500; }
+.system-prompt-text { margin: 4px 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.system-prompt-skills { margin: 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 4px; overflow-wrap: anywhere; }

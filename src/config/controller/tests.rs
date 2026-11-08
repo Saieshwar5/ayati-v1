@@ -348,6 +348,13 @@ fn transcription_is_a_provider_and_model_from_the_providers_file() {
         Some(("fireworks-audio".into(), "whisper-v3-turbo".into()))
     );
     assert!(controller(&[]).unwrap().transcription_model.is_none());
+    let writer =
+        controller(&[providers, ("AYATI_SKILL_WRITER_MODEL", "openai:gpt-5-mini")]).unwrap();
+    assert_eq!(
+        writer.skill_writer_model,
+        Some(("openai".into(), "gpt-5-mini".into()))
+    );
+    assert!(controller(&[("AYATI_SKILL_WRITER_MODEL", "openai:gpt-5-mini")]).is_err());
     let Err(error) = controller(&[providers, ("AYATI_TRANSCRIPTION_MODEL", "whisper-v3")]) else {
         panic!("a model without a provider must be refused")
     };

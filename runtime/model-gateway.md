@@ -12,6 +12,7 @@ the core-agent plan (CA3, draft decision D240). Built 2026-11-05. Off by default
 | Controller | `AYATI_MODEL_PROVIDERS_FILE`: a JSON list of `{provider, base_url, key_file}`. `base_url` is the provider's OpenAI-compatible base (`https://api.openai.com/v1`, `https://api.fireworks.ai/inference/v1`); HTTPS, or loopback HTTP for local checks. Key files are read on every request, so keys rotate in place. |
 | Controller (Library) | `AYATI_LIBRARY_EMBEDDING_MODEL` and `AYATI_LIBRARY_SUMMARY_MODEL` (`provider:model`): the controller's own calls for Library meaning search and document summaries, with keys from the same file ([Library and agents](library-agents.md)). |
 | Controller (voice notes) | `AYATI_TRANSCRIPTION_MODEL` (`provider:model`): speech-to-text for audio attachments through `/audio/transcriptions`, with keys from the same file ([voice transcription](voice-transcription.md)). |
+| Controller (skill writer) | `AYATI_SKILL_WRITER_MODEL` (`provider:model`): writes agents' ground rules and skills in the setup chat through `/chat/completions`, with keys from the same file and no tools ([skills](skills.md#written-in-chat)). |
 | Executors | `AYATI_MODEL_GATEWAY=1`. Executors then **refuse** `OPENAI_API_KEY`, `FIREWORKS_API_KEY`, `OPENAI_HOST` and `OPENAI_BASE_PATH`. |
 
 The controller still refuses `OPENAI_API_KEY` and `FIREWORKS_API_KEY` in its
