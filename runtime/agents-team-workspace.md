@@ -1,8 +1,8 @@
 # Agents team workspace
 
 > **Updated 2026-10-31 (D233, M2):** the agent page now follows
-> `designs/agents-simplified/`. **＋ New agent** opens a three-step create flow
-> (Name and picture, Instructions, People) beside the list. An agent page has a
+> `designs/agents-simplified/`. **＋ New agent** opens a five-step create flow (2026-11-08)
+> (Name and picture, Connectors, Skills, People, Controls; see [agent-built skills](../designs/agent-built-skills/README.md)) beside the list. An agent page has a
 > header with **Open in Chat** and a ⋯ menu (Pause or Resume, Name and picture,
 > Transfer owner) for its owner and admins, and six tabs: **Overview** (about,
 > your open requests, key facts with Change links), **Activity** (request

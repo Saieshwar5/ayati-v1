@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
+import { meanings } from '../settings/workspace-connections-model';
 import { effectLabel, loadControls, modes, saveRule, states, switchTool, type Action, type Mode, type ToolConnection, type ToolOperation } from './control-model';
 import { ModePicker } from './mode-picker';
 import type { Agent } from './model';
@@ -50,7 +51,7 @@ export function ToolAction({ operation, value = operation.mode, disabled, change
   const limit = operation.workspace_mode === 'block' ? 'blocked by your admin' : `admin limit: ${modes[operation.workspace_mode]}`;
   return <div className="agent-tool-action">
     <span><strong>{operation.title}</strong>
-      <small>{effectLabel(operation.effect)} · {limit}{operation.needs_other ? ' · someone other than the requester approves' : ''}</small></span>
+      <small>{operation.meaning ? meanings[operation.meaning] : effectLabel(operation.effect)} · {limit}{operation.needs_other ? ' · someone other than the requester approves' : ''}</small></span>
     <ModePicker label={`${operation.title} rule`} value={value} ceiling={operation.workspace_mode} disabled={disabled} change={change} />
   </div>;
 }

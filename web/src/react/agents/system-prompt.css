@@ -12,9 +12,10 @@
 .system-prompt-section summary:hover { background: var(--soft); }
 .system-prompt-section summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .system-prompt-mark { grid-row: span 2; font-weight: 700; color: var(--muted); text-align: center; }
-.system-prompt-section.included .system-prompt-mark { color: var(--success); }
+.system-prompt-section.system-prompt-included .system-prompt-mark { color: var(--success); }
+.system-prompt-section.system-prompt-conversation .system-prompt-mark::before { content: ''; display: inline-block; width: 7px; height: 7px; border: 1.5px solid currentColor; border-radius: 50%; }
 .system-prompt-title { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .system-prompt-reason { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
-.system-prompt-section.not_included .system-prompt-title { color: var(--muted); font-weight: 500; }
+.system-prompt-section.system-prompt-not_included .system-prompt-title { color: var(--muted); font-weight: 500; }
 .system-prompt-text { margin: 4px 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .system-prompt-skills { margin: 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 4px; overflow-wrap: anywhere; }

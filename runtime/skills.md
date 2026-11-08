@@ -70,7 +70,7 @@ skills panels (`designs/chat-and-account/` screens 7–8, D245):
 
 - **Instructions tab → "Skills it can use":** list with version and uses this
   week, **＋ Add skills**, and ⋯ View and download / Remove.
-- **Create step 2 → Skills:** chips under the instructions box with **＋ Add
+- **Create step 3 → Skills:** chips under the Ground rules box with **＋ Add
   skills**; they are added right after the agent is created.
 - **Add skills** (one drawer): a search across name, description and owner; "In
   this workspace", "Yours" and, for admins, "Other people's", with counts; flat rows
@@ -101,5 +101,5 @@ accept up to 8 MB of JSON.
 - Web: `tests/agent-skills.test.mjs` (zip round trip, archive limits, dropped
   folders, search, Add once, reasons as text, the upload step, Back/Cancel, failed
   saves and retries, keyboard file control, focus on close, remove) and
-  `tests/agent-create.test.mjs` (step 2 Skills).
+  `tests/agent-create.test.mjs` (step 3 Skills).
 - Journey: `tests/agent_skills.mjs` with real Goose 1.54.0.

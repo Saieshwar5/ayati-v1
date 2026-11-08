@@ -7,7 +7,7 @@ import './system-prompt.css';
 const states: Record<PromptSection['state'], { mark: string; label: string }> = {
   included: { mark: '✓', label: 'Included' },
   not_included: { mark: '–', label: 'Not included' },
-  conversation: { mark: '◐', label: 'In some conversations' },
+  conversation: { mark: '', label: 'In some conversations' },
 };
 
 /** Everything an agent receives (designs/agent-built-skills 6): the Cuckoo system
@@ -74,7 +74,7 @@ export function EverythingItReceives({ draft, close }: { draft: PromptDraft; clo
 
 function SectionRow({ section }: { section: PromptSection }) {
   const state = states[section.state];
-  return <li className={`system-prompt-section ${section.state}`}>
+  return <li className={`system-prompt-section system-prompt-${section.state}`}>
     <details>
       <summary>
         <span className="system-prompt-mark" aria-hidden="true">{state.mark}</span>
