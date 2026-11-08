@@ -45,6 +45,7 @@ mod skills;
 pub(crate) mod start_trace;
 mod transcription;
 pub mod user;
+pub(crate) mod web_search;
 mod worker_control;
 mod workspace_codes;
 mod workspaces;

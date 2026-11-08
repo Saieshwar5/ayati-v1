@@ -61,6 +61,8 @@ pub struct Settings {
     pub avatar: String,
     pub memory: bool,
     pub browser: bool,
+    /// Web search, on unless its owner or a manager switched it off (schema 102).
+    pub web_search: bool,
     pub history: String,
     pub paused: bool,
 }
@@ -75,6 +77,7 @@ impl Default for Settings {
             avatar: "spark".into(),
             memory: false,
             browser: false,
+            web_search: true,
             history: "all".into(),
             paused: false,
         }

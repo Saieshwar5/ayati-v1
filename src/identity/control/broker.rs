@@ -282,6 +282,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.library_set_row(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "web_search" => {
+            pg.web_search(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "read_web_page" => {
+            pg.read_web_page(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "my_apps" => {
             ensure!(arguments == json!({}), "Invalid apps request");
             pg.agent_my_apps(job).await

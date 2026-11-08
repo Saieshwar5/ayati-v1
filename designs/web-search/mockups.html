@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Web search mockups</title>
+<style>
+:root{--surface:#fff;--canvas:#f3f4f5;--text:#22252a;--muted:#697079;--border:#e5e7ea;--border-panel:#d1d6dd;--border-control:#aeb8c5;--soft:#f7f8f9;--selection:#eef0f2;--accent:#22252a;--on-accent:#fff;--danger:#a42f35;--warning:#945b10;--warning-bg:#fff3e2;--success:#26745c;--working:#6257cf;--link:#3d55c9;--pin:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{width:1820px;height:900px;display:flex;position:relative;overflow:hidden;background:#fff;margin-bottom:40px}
+.app{width:1440px;height:900px;background:var(--canvas);position:relative;flex:0 0 auto}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;vertical-align:middle}
+/* rail */
+.rail{position:absolute;left:0;top:0;bottom:0;width:88px;display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:8px}
+.rail .logo{width:36px;height:26px;margin-bottom:30px;object-fit:contain}
+.rail a{width:64px;height:54px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--muted);text-decoration:none}
+.rail a .i{width:20px;height:20px;color:#3a3f46}
+.rail a.on{background:var(--accent);color:#fff}.rail a.on .i{color:#fff}
+.rail .me{position:absolute;bottom:34px;width:34px;height:34px;border-radius:50%;background:#e3efe3;display:grid;place-items:center;font-size:12px;font-weight:600;color:#2f5b3a}
+/* frame */
+.frame{position:absolute;left:88px;top:12px;width:1340px;height:876px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.roster{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.roster-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roster-head h1{font-size:22px;margin:0;font-weight:650}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-control);background:#fff;font:inherit;font-size:13.5px;font-weight:550;color:var(--text);white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.quiet{border-color:transparent;background:transparent}
+.btn.small{min-height:30px;padding:0 10px;font-size:13px}
+.btn .i{width:16px;height:16px}
+.search{display:flex;align-items:center;gap:8px;height:40px;border-radius:10px;border:1px solid var(--border-control);padding:0 12px;color:var(--muted);font-size:14px;margin-bottom:14px}
+.agent-row{display:flex;gap:12px;padding:10px;border-radius:12px;align-items:flex-start;margin-bottom:2px}
+.agent-row.on{background:var(--selection)}
+.av{width:40px;height:40px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.av img{width:100%;height:100%;display:block}
+.agent-row b{display:block;font-weight:550;font-size:14.5px}
+.agent-row small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;margin-top:5px;background:var(--selection);color:var(--text)}
+.tag.warn{background:var(--warning-bg);color:var(--warning)}
+/* main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.create-head{display:flex;justify-content:space-between;align-items:center;padding:30px 32px 10px}
+.create-head h2{margin:0;font-size:26px;font-weight:650}
+.steps{display:flex;gap:28px;align-items:center;padding:8px 32px 18px;border-bottom:1px solid var(--border);font-size:14px;color:var(--muted)}
+.steps li{display:flex;align-items:center;gap:10px;list-style:none}
+.steps li span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:12px;font-weight:600}
+.steps li.cur{color:var(--text);font-weight:600}.steps li.cur span{background:var(--accent);color:#fff}
+.steps li.done span{background:var(--success);color:#fff}
+.steps .line{width:40px;height:1px;background:var(--border-panel)}
+.body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
+.foot{display:flex;align-items:center;gap:12px;padding:16px 32px 20px;border-top:1px solid var(--border)}
+.foot p{margin:0;color:var(--muted);font-size:13px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0;position:relative}
+.starters{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.starters > span{font-size:13px;margin-right:4px;white-space:nowrap}
+.chip{border:1px solid var(--border-panel);border-radius:999px;padding:6px 12px;font-size:13px;background:#fff;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.write-for-me{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#eef1fd;color:var(--link);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:550;white-space:nowrap}
+.write-for-me .i{width:15px;height:15px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.sec-head h3{margin:0;font-size:15px;font-weight:650;white-space:nowrap}
+.sec-head small{color:var(--muted);font-size:13px}
+.sec-head .right{margin-left:auto;white-space:nowrap}
+.box{border:1px solid var(--border-control);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.55;background:#fff;white-space:pre-wrap}
+.box.rich{white-space:normal;overflow:hidden}.box .h{font-weight:600;margin-top:7px}
+.meter{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px;margin-top:-4px}
+.skills{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.skill{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.tile{width:36px;height:36px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.skill b{font-weight:600;font-size:14px}
+.skill .when{display:block;font-size:13px;margin-top:1px}
+.skill small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.skill .acts{display:flex;gap:4px;align-items:center}
+.skill.suggest{border:1px dashed var(--border-panel);border-radius:10px;padding:10px 12px;margin:10px 0 2px;background:var(--soft)}
+.skill.suggest .tile{background:#eef1fd;color:var(--link)}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.row-actions{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row-actions .count{margin-left:auto;color:var(--muted);font-size:12.5px}
+/* side cards */
+.card{border:1px solid var(--border);border-radius:12px;padding:15px 17px;background:var(--soft);font-size:13px;line-height:1.55}
+.card h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h4 small{font-weight:500;font-size:11px;color:var(--muted);background:var(--selection);padding:2px 8px;border-radius:6px}
+.card ul{margin:0;padding-left:0;list-style:none}
+.card li{display:flex;gap:8px;margin:4px 0}
+.card li .i{width:15px;height:15px;color:var(--success);margin-top:2px}
+.card .link{color:var(--link);font-weight:550;display:inline-flex;gap:6px;align-items:center;margin-top:6px}
+.flow{display:grid;gap:8px}
+.flow .lane{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.flow .lane b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.flow .lane.when{border-style:dashed}
+.flow .arrow{text-align:center;color:var(--muted);font-size:12px;line-height:1}
+.muted{color:var(--muted)}
+/* pins */
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.25);z-index:20}
+/* notes */
+.notes{flex:1;padding:4px 26px 0 30px;background:#fff}
+.notes h2{font-size:19px;font-weight:600;margin:0 0 18px}
+.notes ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.notes li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13.5px;line-height:1.48;color:#33383e}
+.notes li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.notes .sub{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--muted)}
+.notes .sub b{color:var(--text)}
+/* drawer */
+.scrim{position:absolute;inset:0;background:rgb(34 37 42/.42);z-index:5}
+.drawer{position:absolute;right:12px;top:12px;bottom:12px;width:500px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.18)}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:22px 24px 6px}
+.drawer-head h3{margin:0;font-size:20px;font-weight:650;flex:1}
+.drawer-head .x{width:34px;height:34px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.drawer-body{flex:1;min-height:0;overflow:visible;padding:4px 24px 12px;display:flex;flex-direction:column;gap:14px;position:relative}
+.drawer-foot{display:flex;align-items:center;gap:10px;padding:14px 24px 18px;border-top:1px solid var(--border)}
+.field label,.field .lab{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:13.5px;margin-bottom:6px}
+.field .lab .right{margin-left:auto;font-weight:500}
+.input{border:1px solid var(--border-control);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.5;background:#fff}
+.input.area{white-space:pre-wrap;line-height:1.55}
+.help{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45;display:flex;gap:8px}
+.help .right{margin-left:auto;white-space:nowrap}
+.help code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);padding:1px 5px;border-radius:5px;color:var(--text)}
+.files{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.files li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.files li small{color:var(--muted);font-size:12px}
+.files li .acts{margin-left:auto;display:flex;gap:2px}
+.linkbtn{color:var(--link);font-weight:550;font-size:13px;padding:4px 6px;border-radius:6px;display:inline-flex;gap:5px;align-items:center}
+.linkbtn .i{width:15px;height:15px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+.check .box2{width:18px;height:18px;border:1.5px solid var(--border-control);border-radius:4px;margin-top:1px;flex:0 0 auto}
+.check small{display:block;color:var(--muted);font-size:12.5px}
+.notice{display:flex;gap:10px;background:var(--warning-bg);color:var(--warning);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5}
+.notice .i{width:17px;height:17px;margin-top:1px}
+.notice.info{background:#eef1fd;color:#2e3f8f}
+.notice.err{background:#fdeeee;color:var(--danger)}
+.meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hl{background:#fff7d6;border-radius:3px}
+/* agent page */
+.agent-head{display:flex;gap:16px;align-items:center;padding:28px 32px 6px}
+.agent-head .av{width:56px;height:56px;border-radius:14px}
+.agent-head h2{margin:0;font-size:24px;font-weight:650;display:flex;gap:10px;align-items:center}
+.agent-head small{color:var(--muted);font-size:14px}
+.pill{font-size:12px;font-weight:550;background:#e6f4ec;color:var(--success);padding:3px 9px;border-radius:6px}
+.tabs{display:flex;gap:30px;padding:12px 32px 0;border-bottom:1px solid var(--border);font-size:14.5px;color:#4b5058}
+.tabs span{padding-bottom:12px}.tabs .on{color:var(--text);font-weight:600;border-bottom:2px solid var(--accent)}
+/* states grid */
+.grid4{position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.state{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 24px;position:relative;display:flex;flex-direction:column;gap:12px}
+.state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+/* phone */
+.phones{position:absolute;left:271px;top:24px;display:flex;gap:70px}
+.phone{width:390px;height:844px;border-radius:44px;background:#1b1d21;padding:12px;box-shadow:0 10px 30px rgb(0 0 0/.18);position:relative}
+.phone-screen{width:100%;height:100%;border-radius:34px;background:var(--canvas);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status-bar{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600}
+.phone-frame{flex:1;margin:0 6px 6px;background:#fff;border-radius:14px;box-shadow:0 4px 12px rgb(23 33 43/10%);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.ph-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.ph-head h2{margin:0;font-size:20px;font-weight:650}
+.ph-steps{display:flex;gap:6px;align-items:center;padding:4px 16px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)}
+.ph-steps i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:11px;font-weight:600}
+.ph-steps i.done{background:var(--success);color:#fff}.ph-steps i.cur{background:var(--accent);color:#fff}
+.ph-body{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.ph-foot{display:flex;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--border)}
+.ph-foot .btn{flex:1;min-height:44px}
+
+.sp-bar{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:13px}
+.sp-bar .right{margin-left:auto;white-space:nowrap}
+.chat{border:1px solid var(--border-panel);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;background:#fff;min-height:0;position:relative}
+.chat-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13.5px}
+.chat-head .av{width:28px;height:28px}
+.chat-head small{color:var(--muted);font-size:12px;display:block}
+.msgs{flex:1;padding:12px 14px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;overflow:hidden;font-size:13.5px;line-height:1.48}
+.msg{max-width:90%;padding:8px 12px;border-radius:12px}
+.msg.agent{background:var(--soft);border:1px solid var(--border);align-self:flex-start;border-top-left-radius:4px}
+.msg.me{background:#e9edf3;align-self:flex-end;border-top-right-radius:4px}
+.msg ol{margin:4px 0 0;padding-left:18px}
+.msg .voice{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-bottom:4px}
+.quick{display:flex;gap:6px;padding:0 12px;flex-wrap:nowrap;overflow:hidden}
+.quick .chip{font-size:12px;padding:4px 10px}
+.composer{margin:8px 12px 12px;border:1px solid var(--border-control);border-radius:18px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px}
+.composer .send{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center}
+.composer .send .i{width:15px;height:15px}
+.drafts{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
+.drafts-head{display:flex;align-items:baseline;gap:10px}
+.drafts-head h3{margin:0;font-size:15px}
+.drafts-head small{color:var(--muted);font-size:13px}
+.draft{border:1px solid var(--border-panel);border-radius:12px;padding:8px 14px;display:grid;gap:2px;background:#fff}
+.draft.always{border-color:var(--accent)}
+.draft-top{display:flex;align-items:center;gap:8px}
+.draft-top b{font-size:14px}
+.draft .when{font-size:13px}
+.draft small{color:var(--muted);font-size:12px}
+.draft .acts{display:flex;gap:4px;margin-top:1px;margin-left:-6px}
+.badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.badge.always{background:var(--accent);color:#fff}
+.badge.new{background:#eef1fd;color:var(--link)}
+.badge.ws{background:var(--selection);color:var(--text)}
+.badge.changed{background:var(--warning-bg);color:var(--warning)}
+.diff{border:1px solid var(--border-control);border-radius:10px;padding:8px 6px;font-size:13px;line-height:1.5;display:grid;gap:2px}
+.diff div{padding:2px 8px;border-radius:5px}
+.diff .del{background:#fdeeee;color:#8a2c31;text-decoration:line-through}
+.diff .add{background:#e3f3ea;color:#1d5c47}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.list li{padding:10px 10px;border-bottom:1px solid var(--border);display:grid;gap:2px;font-size:13px;border-radius:0}
+.list li.on{background:var(--selection);border-radius:8px;border-bottom-color:transparent}
+.list li b{font-size:13.5px;display:flex;gap:6px;align-items:center}
+.list li small{color:var(--muted);font-size:12px}
+.psec{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);align-items:start;font-size:13.5px}
+.psec .st{font-size:12px;color:var(--muted);white-space:nowrap}
+.psec .ok{color:var(--success)}
+.psec .no{color:var(--muted)}
+.psec small{display:block;color:var(--muted);font-size:12px}
+.ptext{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;background:var(--soft);border-radius:8px;padding:10px 12px;margin-top:6px;color:#33383e;white-space:pre-wrap}
+.layer{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--border)}
+.layer-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.layer-title .badge{margin-left:auto}
+.layer p{margin:0;font-size:13px;color:var(--muted)}
+.layer.locked .layer-title .i{color:var(--muted)}
+
+.seg{display:inline-flex;border:1px solid var(--border-panel);border-radius:10px;padding:3px;gap:2px;background:#fff}
+.seg span{padding:5px 13px;border-radius:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.seg .allow{background:#e3f3ea;color:var(--success);font-weight:600}
+.seg .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}
+.seg .block{background:#fdeeee;color:var(--danger);font-weight:600}
+.seg .off{opacity:.4}
+.switch{width:38px;height:22px;border-radius:999px;background:var(--border-panel);position:relative;flex:0 0 auto}
+.switch.on{background:var(--accent)}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.switch.on::after{left:19px}
+.conn{border-bottom:1px solid var(--border);padding:10px 0;position:relative}
+.conn-head{display:flex;align-items:center;gap:12px}
+.conn-head b{font-size:14.5px;display:block}
+.conn-head small{color:var(--muted);font-size:12.5px}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:6px 0 6px 50px;align-items:center}
+.op b{font-size:13.5px;font-weight:550;display:block}
+.op small{color:var(--muted);font-size:12px;display:block}
+.op small.why{color:var(--link)}
+.review{display:flex;gap:8px;background:var(--soft);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45;margin-top:4px}
+.review .i{width:15px;height:15px;margin-top:1px;color:var(--muted)}
+
+.steps.five{gap:16px}.steps.five .line{width:22px}
+.kind{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap;background:var(--selection);color:var(--text)}
+.kind.read{background:#e3f3ea;color:#1d5c47}.kind.money{background:var(--warning-bg);color:var(--warning)}
+.kind.out{background:#eef1fd;color:var(--link)}.kind.del{background:#fdeeee;color:var(--danger)}
+.app-row{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--border)}
+.app-row b{font-size:14.5px;display:block}
+.app-row small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.app-row .switch{margin-top:6px}
+.kinds{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.app-row small.detail{margin-top:6px}
+.card .setup-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.card .setup-steps li{display:flex;gap:10px;margin:0;align-items:flex-start}
+.setup-steps i{font-style:normal;width:22px;height:22px;flex:0 0 auto;border-radius:50%;background:var(--selection);display:grid;place-items:center;font-size:11.5px;font-weight:600}
+.setup-steps li.cur i{background:var(--accent);color:#fff}
+.setup-steps b{font-size:13.5px;display:block;color:var(--text)}.setup-steps small{display:block;color:var(--muted);font-size:12.5px;line-height:1.4}
+.choice{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border:1px solid var(--border);border-radius:10px}
+.choice.on{border-color:#9aa6d8;background:#f6f7fe}
+.choice b{display:block;font-size:14px;font-weight:550}.choice small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-control);margin-top:2px;flex:0 0 auto;position:relative}
+.radio.on{border-color:var(--accent)}.radio.on::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.person{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.person b{display:block;font-size:14px;font-weight:550}.person small{color:var(--muted);font-size:12.5px}
+.initials{width:32px;height:32px;border-radius:50%;background:#e3efe3;color:#2f5b3a;display:grid;place-items:center;font-size:12px;font-weight:600}
+.why-line{display:flex !important;gap:8px;align-items:center;margin-top:2px}
+.why-line span:last-child{color:var(--muted)}
+.why-line b{display:inline;font-size:inherit;font-weight:600;color:var(--text)}
+.cond{margin:0 0 6px 50px;display:flex;gap:8px;align-items:center;font-size:12.5px;background:var(--soft);border:1px dashed var(--border-panel);border-radius:8px;padding:6px 10px}
+.cond .i{width:15px;height:15px;color:var(--muted)}
+/* web search additions */
+.group-label{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650;margin-top:6px;display:flex;gap:10px;align-items:baseline}
+.group-label small{text-transform:none;letter-spacing:0;font-weight:500;font-size:12.5px}
+.tile.web{background:#eef1fd;color:var(--link)}
+.tools-body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
+.tool-card{border:1px solid var(--border-panel);border-radius:12px;padding:14px 16px;background:#fff;display:grid;gap:12px;position:relative}
+.tool-card header{display:flex;gap:14px;align-items:center}
+.tool-card header b{font-size:14.5px;display:block}
+.tool-card header small{color:var(--muted);font-size:12.5px;display:block;margin-top:1px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--soft);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:18px;font-weight:650}
+.stat small{color:var(--muted);font-size:12px}
+.searches{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.searches li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.searches li small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.searches li .when{color:var(--muted);font-size:12px;white-space:nowrap}
+.mini-op{display:flex;justify-content:space-between;align-items:center;padding:7px 0 7px 50px;font-size:13px;border-top:1px solid var(--border)}
+/* chat */
+.convs{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.convs h1{font-size:22px;margin:0 0 16px;font-weight:650}
+.conv{padding:10px;border-radius:10px;font-size:13.5px;margin-bottom:2px}
+.conv.on{background:var(--selection)}
+.conv b{display:block;font-weight:550}.conv small{color:var(--muted);font-size:12.5px}
+.thread{flex:1;min-width:0;display:flex;flex-direction:column}
+.thread-head{padding:22px 28px 14px;border-bottom:1px solid var(--border)}
+.thread-head h2{margin:0;font-size:19px;font-weight:650}.thread-head small{color:var(--muted)}
+.thread-msgs{flex:1;padding:20px 28px;display:flex;flex-direction:column;gap:16px;justify-content:flex-end}
+.m{display:flex;gap:12px;max-width:760px;position:relative}
+.m .av{width:34px;height:34px}
+.m .who{font-size:13px;font-weight:600}.m .who small{color:var(--muted);font-weight:400;margin-left:6px}
+.m .text{font-size:14px;line-height:1.55;margin-top:2px}
+.m .text p{margin:0 0 6px}
+.progress{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);background:var(--soft);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:4px 0 8px;width:fit-content}
+.progress .i{width:15px;height:15px;color:var(--link)}
+.cites{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:grid;gap:4px}
+.cites h5{margin:0 0 2px;font-size:12px;color:var(--muted);font-weight:600}
+.cites a{color:var(--link);font-size:13px;text-decoration:none;display:flex;gap:6px;align-items:center}
+.cites a .i{width:14px;height:14px}
+.cites a small{color:var(--muted);font-size:12px}
+.details{width:330px;border-left:1px solid var(--border);padding:22px 22px;display:flex;flex-direction:column;gap:12px;position:relative}
+.details h3{margin:0;font-size:16px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:13px}
+.kv span:nth-child(odd){color:var(--muted)}
+/* control console */
+.cc{position:absolute;left:12px;top:12px;right:12px;bottom:12px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.cc-side{width:220px;border-right:1px solid var(--border);padding:24px 14px;font-size:13.5px;background:var(--soft)}
+.cc-side .brand{font-weight:700;font-size:15px;margin-bottom:20px;display:flex;gap:8px;align-items:center}
+.cc-side .brand img{width:26px}
+.cc-side h6{margin:16px 8px 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cc-side a{display:block;padding:7px 10px;border-radius:8px;color:var(--text)}
+.cc-side a.on{background:var(--accent);color:#fff;font-weight:600}
+.cc-side a.new::after{content:'new';font-size:10px;font-weight:700;color:var(--link);background:#eef1fd;border-radius:5px;padding:1px 5px;margin-left:6px}
+.cc-main{flex:1;min-width:0;padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+.cc-main .crumb{color:var(--muted);font-size:12.5px}
+.cc-main h1{margin:2px 0 0;font-size:24px}
+.cc-cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:22px;align-items:start}
+.cc-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cc-card{border:1px solid var(--border-panel);border-radius:12px;padding:13px 15px;display:grid;gap:7px;font-size:13px;position:relative}
+.cc-card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.cc-card .top{display:flex;justify-content:space-between;align-items:center}
+.cc-card .top b{font-size:15px;display:flex;gap:8px;align-items:center}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ok{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:#e3f3ea;color:var(--success)}
+.ok.idle{background:var(--selection);color:var(--muted)}
+.can{display:flex;gap:6px}
+.can span{font-size:11.5px;padding:2px 7px;border-radius:6px;background:var(--selection)}
+.can span.yes{background:#e3f3ea;color:#1d5c47}.can span.no{background:#fdeeee;color:var(--danger);text-decoration:line-through}
+.cc-card .num{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px}
+.panel{border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:grid;gap:10px;background:#fff;position:relative}
+.panel h3{margin:0;font-size:15px}
+.order{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.order li{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:9px;padding:7px 10px;font-size:13px}
+.order li i{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--selection);display:grid;place-items:center;font-size:11px;font-weight:700}
+.order li small{margin-left:auto;color:var(--muted);font-size:12px}
+.order li.first i{background:var(--accent);color:#fff}
+.btn.danger{border-color:#e7b9bc;color:var(--danger)}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="warning" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13v1M15 13v1M2 14h2M20 14h2"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+<symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+</svg>
+<div id="root"></div>
+<script>
+const AV = n => `../../web/public/agent-avatars/robot-${n}.svg`;
+const I = (id, cls = '') => `<svg class="i ${cls}"><use href="#${id}"/></svg>`;
+const pin = (n, style) => `<span class="pin" style="${style}">${n}</span>`;
+
+function rail() {
+  const items = [['home','Home'],['chat','Chat'],['activity','Activity'],['bot','Agents'],['library','Library'],['sliders','Settings']];
+  return `<nav class="rail"><img class="logo" src="../../web/public/brand/cuckoo-symbol.svg" alt="">
+    ${items.map(([icon, label]) => `<a class="${label === 'Agents' ? 'on' : ''}">${I(icon)}${label}</a>`).join('')}
+    <span class="me">RK</span></nav>`;
+}
+
+function roster(selected) {
+  const rows = [
+    ['new', '07', 'New agent', 'Not created yet', ''],
+    ['iris', '07', 'Iris', 'Customer support', ''],
+    ['atlas', '01', 'Atlas', 'Orders assistant', '<span class="tag warn">1 waiting for approval</span>'],
+    ['ledger', '05', 'Ledger', 'Accounts helper', ''],
+    ['nova', '09', 'Nova', 'Sales follow-up', ''],
+  ].filter(row => selected === 'new' ? row[0] !== 'iris' : row[0] !== 'new');
+  return `<aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div>
+    <div class="search">${I('search')}Search agents</div>
+    ${rows.map(([id, av, name, sub, tag]) => `<div class="agent-row ${id === selected ? 'on' : ''}"><span class="av"><img src="${AV(av)}" alt=""></span>
+      <span><b>${name}</b><small>${sub}</small>${tag}</span></div>`).join('')}</aside>`;
+}
+
+function notes(title, items, sub = '') {
+  return `<aside class="notes"><h2>${title}</h2><ol>${items.map((text, index) => `<li><i>${index + 1}</i><span>${text}</span></li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}</aside>`;
+}
+const screen = (id, app, side) => `<section class="screen" id="${id}"><div class="app">${rail()}${app}</div>${side}</section>`;
+const irisAv = (size = 28) => `<span class="av" style="width:${size}px;height:${size}px"><img src="${AV('07')}" alt=""></span>`;
+
+const railOn = on => rail().replace('<a class="on">', '<a class="">').replace(`<a class="">${I(on === 'Chat' ? 'chat' : 'bot')}${on}`, `<a class="on">${I(on === 'Chat' ? 'chat' : 'bot')}${on}`);
+const screenOn = (id, on, app, side) => `<section class="screen" id="${id}"><div class="app">${railOn(on)}${app}</div>${side}</section>`;
+const kind = key => `<span class="kind ${key}">${{ read: 'Reads', change: 'Changes', money: 'Money', out: 'Sends outside', del: 'Deletes' }[key]}</span>`;
+const STEP_NAMES = ['Name and picture', 'Tools', 'Skills', 'People', 'Controls'];
+const steps5 = cur => `<ol class="steps five" style="margin:0">${STEP_NAMES.map((name, index) =>
+  `${index ? '<li class="line"></li>' : ''}<li class="${index + 1 < cur ? 'done' : index + 1 === cur ? 'cur' : ''}"><span>${index + 1 < cur ? '✓' : index + 1}</span>${name}</li>`).join('')}</ol>`;
+const createHead = `<header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>`;
+const appRow = ({ name, sub, kinds, detail = '', on }) => `<div class="app-row"><span class="tile">${I('plug')}</span>
+  <span style="flex:1;min-width:0"><b>${name}</b><small>${sub}</small><span class="kinds">${kinds.map(kind).join('')}</span>${detail ? `<small class="detail">${detail}</small>` : ''}</span>
+  <span class="switch ${on ? 'on' : ''}"></span></div>`;
+const webRow = `<div class="app-row"><span class="tile web">${I('globe')}</span>
+  <span style="flex:1;min-width:0"><b>Web search</b><small>Search the web and read public pages to answer questions</small>
+  <span class="kinds">${kind('read')}<span class="kind">On for every new agent</span></span>
+  <small class="detail">Iris lists the pages it used under each answer · Counts toward Iris’s monthly budget</small></span>
+  <span class="switch on"></span></div>`;
+
+/* ---------- 1: Create · Tools ---------- */
+const s1 = screen('w1', `<div class="frame">${roster('new')}<div class="main">${createHead}${steps5(2)}
+  <div class="body">
+    <div class="col" style="gap:8px">
+      <div class="sec-head" style="position:relative;margin:0">${pin(1, 'left:-30px;top:0')}<h3>What can Iris use?</h3></div>
+      <div class="group-label" style="position:relative">${pin(2, 'left:-30px;top:-3px')}Built into Cuckoo <small>Nothing to set up</small></div>
+      <div style="border-top:1px solid var(--border);position:relative">${pin(3, 'right:46px;top:14px')}${webRow}</div>
+      <div class="group-label" style="margin-top:16px">Apps your admin added <small>Mehta Furnishings</small></div>
+      <div style="border-top:1px solid var(--border)">
+        ${appRow({ name: 'Zoho Books', sub: 'Accounts, orders and invoices · 5 actions', kinds: ['read', 'change', 'money', 'del'], on: true })}
+        ${appRow({ name: 'Delivery tracker', sub: 'MCP server · shipment tracking · 1 action', kinds: ['read'], on: true })}
+        ${appRow({ name: 'Google Workspace', sub: 'Gmail, Calendar and Drive · 6 actions', kinds: ['read', 'change', 'out'], on: false })}
+      </div>
+      <div class="sp-bar" style="margin-top:6px">${I('plus')}<span>Need another app or MCP server? Admins add them in Settings → Connections.</span><span class="right linkbtn">Ask an admin</span></div>
+    </div>
+    <div style="display:grid;gap:12px">
+      <section class="card" style="position:relative">${pin(4, 'left:-12px;top:-8px')}<h4>About web search</h4>
+        <ul><li>${I('check')}<span>Finds current prices, news, rules and public facts</span></li>
+        <li>${I('check')}<span>Reads the pages it finds and says which ones it used</span></li>
+        <li>${I('check')}<span>Only reads: it can’t sign in, buy or fill in forms</span></li></ul>
+        <p class="muted" style="margin:8px 0 0">Switch it off when Iris should answer only from your own apps and Library, for example a policy helper.</p></section>
+      <section class="card" style="position:relative">${pin(5, 'left:-12px;top:-8px')}<h4>What leaves Cuckoo</h4>
+        <p class="muted" style="margin:0">Only the words Iris searches for and the addresses of pages it opens. Iris is told never to put customer or company details in a search.</p></section>
+    </div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Skipping is fine. Tools can change later on the Tools tab.</p></footer>
+</div></div>`, notes('Create · 2 Tools', [
+  'Step 2 is renamed from <b>Connectors</b> to <b>Tools</b>: it now holds Cuckoo’s own tools and the admin’s apps, matching the Tools tab where both change later.',
+  '<b>Built into Cuckoo</b>: tools Cuckoo provides itself. No admin setup, no account, no provider name. Web search is the first; Browser, Email and Phone move here when they are built.',
+  '<b>On by default</b> for every new agent. The person creating it can switch it off now or later.',
+  'What it is good for and when to switch it off, in plain words.',
+  'What leaves Cuckoo, said honestly once.',
+], '<b>Step 5, Controls,</b> has nothing to set for web search: it only reads, so it never needs approval. Cuckoo still limits how much one request may search.'));
+
+/* ---------- 2: Agent page · Tools tab ---------- */
+const irisHead = `<header class="agent-head"><span class="av"><img src="${AV('07')}" alt=""></span>
+    <div><h2>Iris <span class="pill">Available</span></h2><small>Customer support · owned by Ravi Kumar</small></div>
+    <span style="margin-left:auto" class="btn primary">${I('chat')}Open in Chat</span></header>
+  <nav class="tabs"><span>Overview</span><span>Activity</span><span>Instructions</span><span class="on">Tools</span><span>Schedules</span><span>Environment</span></nav>`;
+const search = (q, who, read, when) => `<li><span>“${q}”<small>${who} · ${read}</small></span><span class="when">${when}</span></li>`;
+const s2 = screen('w2', `<div class="frame">${roster('iris')}<div class="main">${irisHead}
+  <div class="tools-body">
+    <div class="col" style="gap:10px">
+      <div class="group-label" style="position:relative;margin-top:0">${pin(1, 'left:-30px;top:-3px')}Built into Cuckoo</div>
+      <article class="tool-card">
+        <header><span class="tile web">${I('globe')}</span><span style="flex:1"><b>Web search</b><small>Iris can search the web and read public pages · on since it was created</small></span>
+          <span style="position:relative;display:flex">${pin(2, 'left:-34px;top:0')}<span class="switch on"></span></span></header>
+        <div class="stats" style="position:relative">${pin(3, 'left:-28px;top:14px')}
+          <div class="stat"><b>128</b><small>searches this month</small></div>
+          <div class="stat"><b>41</b><small>pages read</small></div>
+          <div class="stat"><b>$1.12</b><small>of Iris’s $25 monthly budget</small></div></div>
+        <div style="position:relative">${pin(4, 'left:-28px;top:4px')}
+          <div class="sec-head" style="margin:0 0 6px"><h3 style="font-size:13.5px">Recent searches</h3><span class="right linkbtn">See all in Activity</span></div>
+          <ul class="searches">
+            ${search('teak wood price India November 2026', 'Asked by Meena Shah in #sales', '2 pages read', '10 min ago')}
+            <li><span class="muted">A search in a private chat you can’t see<small>Words hidden · 1 page read</small></span><span class="when">2 h ago</span></li>
+            ${search('GST rate on wooden furniture 2026', 'Daily schedule: Price check', '3 pages read', 'Yesterday')}
+          </ul></div>
+      </article>
+      <div class="group-label" style="margin-top:12px">Apps your admin added</div>
+      <article class="tool-card" style="gap:0;padding-bottom:4px">
+        <header><span class="tile">${I('plug')}</span><span style="flex:1"><b>Zoho Books</b><small>accounts@mehtafurnishings.example · 5 actions</small></span><span class="switch on"></span></header>
+        <div class="mini-op" style="margin-top:10px"><span>Read orders and invoices</span>${'<span class="seg"><span class="allow">Allow</span><span>Ask first</span><span>Block</span></span>'}</div>
+        <div class="mini-op"><span>Create a credit note</span><span class="seg"><span>Allow</span><span class="ask">Ask first</span><span>Block</span></span></div>
+      </article>
+    </div>
+    <div style="display:grid;gap:12px">
+      <section class="card" style="position:relative">${pin(5, 'left:-12px;top:-8px')}<h4>Who can change this</h4>
+        <p class="muted" style="margin:0">Ravi Kumar (owner) and Iris’s managers. Everyone else sees it read-only. A change applies from the next message; work already running finishes as it started.</p></section>
+      <section class="card"><h4>When it is off</h4>
+        <p class="muted" style="margin:0">Iris says it can’t look things up on the web and answers from its apps and Library, or asks a manager to switch web search on.</p></section>
+    </div>
+  </div>
+</div></div>`, notes('Agent page · Tools tab', [
+  'The same <b>Built into Cuckoo</b> group, above the admin’s apps.',
+  'One switch. It is the agent’s own choice, not the workspace’s, so it sits with the agent.',
+  'This month’s use and cost. Web search counts in the agent’s and the workspace’s existing monthly budgets: no second bill, no second limit.',
+  'Recent searches with who asked and where, so managers can see what Iris looked for. Each opens the request in Activity. A search from a conversation the viewer can’t see keeps its words hidden, like everything else in Activity.',
+  'Who may change it, and what happens to running work. The service behind web search is never named.',
+]));
+
+/* ---------- 3: Chat answer with web sources ---------- */
+const s3 = screenOn('w3', 'Chat', `<div class="frame">
+  <aside class="convs"><h1>Chat</h1><div class="search">${I('search')}Search</div>
+    <div class="conv on"><b># sales</b><small>Iris: Teak is up about 6%…</small></div>
+    <div class="conv"><b># support</b><small>Atlas: Order 4417 shipped</small></div>
+    <div class="conv"><b>Iris</b><small>Private · yesterday</small></div></aside>
+  <div class="thread">
+    <div class="thread-head"><h2># sales</h2><small>6 members · Iris, Atlas</small></div>
+    <div class="thread-msgs">
+      <div class="m"><span class="initials" style="width:34px;height:34px">MS</span><div><div class="who">Meena Shah<small>11:02</small></div>
+        <div class="text">@Iris have teak prices gone up again? Should we change the Aranya dining set price?</div></div></div>
+      <div class="m">${irisAv(34)}<div style="min-width:0"><div class="who">Iris<small>11:03</small></div>
+        <div class="progress" style="position:relative">${pin(1, 'left:-32px;top:2px')}${I('globe')}Searched the web for “teak wood price India November 2026” · read 2 pages</div>
+        <div class="text"><p>Yes. Teak log prices are up about <b>6% since August</b>, mainly from lower imports. The trade estimate for the next quarter is another 2–4%.</p>
+          <p>The Aranya set’s margin falls from 34% to about 31% at today’s prices. Your price list allows up to 5% before a review, so a <b>4% rise (₹1,48,200 → ₹1,54,100)</b> keeps the margin above 33%.</p></div>
+        <div class="cites" style="position:relative">${pin(2, 'left:-32px;top:6px')}<h5>Web pages used for this answer</h5>
+          <a>${I('link')}Teak import prices, November update <small>timbermarket.example · read 8 Nov</small></a>
+          <a>${I('link')}Hardwood outlook for Q1 <small>woodtrade.example · read 8 Nov</small></a>
+          <h5 style="margin-top:6px">Library documents read for this answer</h5>
+          <a>${I('file')}Price list 2026 › Dining · revision 4</a></div></div></div>
+    </div>
+    <div class="composer" style="margin:8px 28px 20px">Message # sales<span style="margin-left:auto" class="send">${I('send')}</span></div>
+  </div>
+  <aside class="details">${pin(3, 'left:-12px;top:14px')}<h3>Request details</h3><small class="muted">Opened from Activity</small>
+    <div class="kv"><span>Asked by</span><span>Meena Shah</span><span>Agent</span><span>Iris</span><span>Model use</span><span>3 calls · 9,840 tokens in, 612 out</span>
+      <span>Web</span><span>1 search · 2 pages read</span><span>Cost</span><span>$0.031 (web $0.012)</span></div>
+    <div style="border-top:1px solid var(--border);padding-top:10px;position:relative">${pin(4, 'left:-34px;top:8px')}<b style="font-size:13px">Searched</b>
+      <ul class="searches" style="margin-top:6px;border-top:0">${search('teak wood price India November 2026', '8 results', '2 opened', '11:02')}</ul></div>
+    <div class="notice info" style="position:relative">${pin(5, 'left:-12px;top:-8px')}${I('info')}<span>No service name, key or price list appears here or anywhere in the workspace.</span></div>
+  </aside>
+</div>`, notes('Chat · an answer from the web', [
+  'While working, Iris shows one line saying what it searched for and how many pages it read.',
+  'Under the answer, Cuckoo lists the pages used, made from its own records, not from the model. Web pages and Library documents are listed separately.',
+  'Activity → request details shows the searches, pages and cost beside model use.',
+  'Each search is listed with how many results came back and which were opened.',
+  'People never see which service answered.',
+]));
+
+/* ---------- 4: Cuckoo Control · web search providers ---------- */
+const card = (name, hue, state, can, key, price, nums, sel = '') => `<div class="cc-card ${sel}"><div class="top"><b><span class="sw" style="background:${hue}"></span>${name}</b><span class="ok ${state === 'OK' ? '' : 'idle'}">${state}</span></div>
+  <div class="can">${can}</div><span class="num">${key} · ${price}</span><span class="num">${nums}</span></div>`;
+const yes = t => `<span class="yes">${t}</span>`, no = t => `<span class="no">${t}</span>`;
+const s4 = `<section class="screen" id="w4"><div class="app"><div class="cc">
+  <nav class="cc-side"><div class="brand"><img src="../../web/public/brand/cuckoo-symbol.svg" alt="">Cuckoo Control</div>
+    <a>Overview</a><a>Workspaces</a><h6>Models</h6><a>Providers</a><a>Routing</a>
+    <h6>Web search</h6><a class="on new">Providers</a><a>Routing</a>
+    <h6>Money</h6><a>Spend</a><h6>Platform</h6><a>Invite codes</a><a>Configuration</a><a>Change log</a><a>Reports</a></nav>
+  <div class="cc-main"><div><div class="crumb">Web search</div><h1>Providers</h1>
+    <p class="muted" style="margin:4px 0 0">Search services Cuckoo calls for agents. Workspaces never see these names.</p></div>
+    <div class="cc-cols">
+      <div style="display:grid;gap:12px;position:relative">${pin(1, 'left:-14px;top:-10px')}
+        <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">4 providers</b><span class="btn small">${I('plus')}Add provider</span></div>
+        <div class="cc-cards" style="position:relative">${pin(2, 'left:-14px;top:40px')}
+          ${card('Tavily', '#4f7be8', 'OK', yes('Search') + yes('Read pages'), 'key …a91f kept here', '$8.00 / 1k searches', '1,240 calls/h · 0.4% failed · p95 1.3 s', 'sel')}
+          ${card('Exa', '#2f9e77', 'OK', yes('Search') + yes('Read pages'), 'key …07bc kept here', '$7.00 / 1k · $1.00 / 1k pages', '310 calls/h · 0.2% failed · p95 1.1 s')}
+          ${card('Perplexity', '#8a63d2', 'OK', yes('Search') + no('Read pages'), 'key from key file', '$5.00 / 1k searches', '42 calls/h · 0.0% failed · p95 0.9 s')}
+          ${card('Parallel', '#d07a2d', 'NOT ROUTED', yes('Search') + yes('Read pages'), 'key …5e21 kept here', '$5.00 / 1k searches', 'Test call passed 2 h ago')}
+        </div>
+        <div class="panel" style="position:relative">${pin(5, 'left:-14px;top:-10px')}<h3>Limits for every request</h3>
+          <div class="kv" style="grid-template-columns:200px 1fr"><span>Searches per request</span><span>10</span><span>Pages read per request</span><span>10</span><span>Text per page read</span><span>6,000 characters at a time</span><span>Results per search</span><span>8</span></div></div>
+      </div>
+      <div style="display:grid;gap:12px">
+        <div class="panel" style="position:relative">${pin(3, 'left:-14px;top:-10px')}<h3>Routing</h3>
+          <small class="muted">If the first is down, slow or out of credit, Cuckoo tries the next. Agents never notice.</small>
+          <b style="font-size:13px">Searching</b>
+          <ol class="order"><li class="first"><i>1</i>Tavily<small>first choice</small></li><li><i>2</i>Exa<small>if Tavily fails</small></li><li><i>3</i>Perplexity<small>last</small></li></ol>
+          <b style="font-size:13px">Reading pages</b>
+          <ol class="order"><li class="first"><i>1</i>Exa<small>first choice</small></li><li><i>2</i>Tavily<small>if Exa fails</small></li></ol>
+          <small class="muted">Perplexity can’t read pages, so it isn’t offered here.</small></div>
+        <div class="panel" style="position:relative">${pin(4, 'left:-14px;top:-10px')}<h3>Emergency</h3>
+          <small class="muted">Agents keep working without web search and say so in their answers.</small>
+          <span class="btn danger" style="width:fit-content">Turn web search off everywhere</span></div>
+      </div>
+    </div></div></div></div>
+  ${notes('Cuckoo Control · Web search', [
+    'A new <b>Web search</b> group beside Models, for Cuckoo’s operators only. Workspaces never see it.',
+    'One card per provider: what it can do (search, read pages or both), its key, price, health and speed. <b>Add provider</b> lists every provider this Cuckoo version supports.',
+    '<b>Routing</b>: one order for searching and one for reading pages, with automatic fallback. A provider that can’t read pages is simply left out of that list.',
+    'An emergency switch like the one for model providers. Every change here goes in the change log.',
+    'Limits that keep one request from costing too much or flooding the model with text.',
+  ], '<b>Prices are examples.</b> Each provider’s real price is entered when its key is added, so workspace usage and budgets stay correct when routing changes.')}</section>`;
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4;
+</script>
+</body></html>

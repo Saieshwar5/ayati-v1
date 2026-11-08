@@ -1,20 +1,24 @@
 import type { ToolConnection } from '../control-model';
 import { connectorName } from '../tools-tab';
 import { meanings, type Meaning } from '../../settings/workspace-connections-model';
+import type { ReactNode } from 'react';
 import type { ToolChoices } from './controls-step';
 
 const order: Meaning[] = ['read', 'change', 'money', 'sends_outside', 'delete'];
 
-/** Create step 2: which apps the agent can use (designs/agent-built-skills 1).
- * Only connectors an admin added are listed, all off at first. Switching one on
- * makes it available; what the agent may do with it is chosen in Controls. */
-export function ConnectorsStep({ name, connections, choices, change }: {
-  name: string; connections?: ToolConnection[]; choices: ToolChoices; change: (next: ToolChoices) => void;
+/** Create step 2, Tools: Cuckoo's own tools (`builtIn`, designs/web-search) and the
+ * apps the agent can use (designs/agent-built-skills 1). Only connectors an admin
+ * added are listed, all off at first. Switching one on makes it available; what
+ * the agent may do with it is chosen in Controls. */
+export function ConnectorsStep({ name, connections, choices, change, builtIn }: {
+  name: string; connections?: ToolConnection[]; choices: ToolChoices; change: (next: ToolChoices) => void; builtIn?: ReactNode;
 }) {
   const display = name.trim() || 'this agent';
   return <div className="agent-create-instructions">
     <div className="agent-create-main">
-      <h3 className="agent-create-heading">What can {display} use? <small>Apps your admin added</small></h3>
+      <h3 className="agent-create-heading">What can {display} use?</h3>
+      {builtIn}
+      <h4 className="agent-group-label">Apps your admin added</h4>
       {!connections && <p role="status">Loading connectors…</p>}
       {connections && !connections.length && <p className="ui-empty">No connectors yet. An admin adds them in Settings → Connections; you can switch them on for {display} later.</p>}
       {connections && connections.length > 0 && <ul className="agent-apps">{connections.map(connection => {
@@ -38,7 +42,7 @@ export function ConnectorsStep({ name, connections, choices, change }: {
       <section className="agent-rules" aria-label="How setup works">
         <h3>How {display} gets set up</h3>
         <ol className="agent-setup-steps">
-          <li><strong>Connectors</strong> What {display} can use.</li>
+          <li><strong>Tools</strong> What {display} can use.</li>
           <li><strong>Skills</strong> How it does the job, with these apps.</li>
           <li><strong>People</strong> Who talks to it and who approves.</li>
           <li><strong>Controls</strong> What it may do with each app. Cuckoo enforces it.</li>

@@ -40,6 +40,9 @@ Main product contracts:
 - [Home attention](runtime/workspace-attention.md),
   [general Home panels](runtime/general-home-panels.md) and
   [panel maintenance](runtime/home-panel-maintenance.md).
+- [Web search](runtime/web-search.md): agents search the web and read pages through
+  Cuckoo's own tools, answered by interchangeable search services and cited under
+  the answer.
 - [Workspace Library](runtime/library.md),
   [shared schedules](runtime/shared-agent-schedules.md) and
   [shared events](runtime/shared-agent-events.md).

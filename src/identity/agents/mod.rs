@@ -108,7 +108,7 @@ async fn list(
     let role = workspaces::membership(&app, &user, &w).await?;
     let (models, default_model) = app.store.workspace_models(&user, &w).await?;
     Ok(Json(
-        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":super::models::default_model(&app, default_model),"models":models,"catalog":super::models::offered(&app)?}),
+        json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":super::models::default_model(&app, default_model),"models":models,"catalog":super::models::offered(&app)?,"web_search":app.store.web_search.is_some()}),
     ))
 }
 async fn save(
@@ -175,6 +175,8 @@ async fn prompt(
             business_actions: input.apps,
             executor: app.store.pooled,
             library: false,
+            // A new agent has web search unless its creator switches it off.
+            web_search: app.store.web_search.is_some(),
             skills: input
                 .skills
                 .into_iter()
