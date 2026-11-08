@@ -343,6 +343,10 @@ body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);backgroun
 .cardstate{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 22px;display:flex;flex-direction:column;gap:12px;position:relative}
 .cardstate .state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
 .queue{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.seg.ctl span{padding:5px 12px;font-size:12.5px}
+.seg.ctl .off{opacity:.4}
+.seg.ctl .allow{background:#e3f3ea;color:var(--success);font-weight:600}.seg.ctl .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}.seg.ctl .block{background:#fdeeee;color:var(--danger);font-weight:600}
+.cond{display:flex;gap:8px;align-items:center;border:1px dashed var(--border-panel);border-radius:9px;padding:6px 10px;font-size:12.5px;margin:2px 0 6px}
 /* live view */
 .modal{position:absolute;left:104px;top:28px;right:16px;bottom:28px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.22)}
 .modal-head{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--border)}
@@ -654,6 +658,147 @@ const s6 = screen('s6', `<div class="cc"><div class="band"></div>
   'Every computer, where it lives, and when its disk was last copied to Cuckoo’s own storage. <b>Move to…</b> restores that copy on another provider; a failed wake can restore it elsewhere automatically.',
 ], '<b>Operators see</b> counts, states and money, never the screens or files of a workspace.'), 'none');
 
-document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6;
+
+/* ---------- Creation flow: shared bits ---------- */
+const STEP_NAMES = ['Name and picture', 'Connectors', 'Skills', 'People', 'Controls'];
+const steps5 = cur => `<ol class="steps five" style="margin:0">${STEP_NAMES.map((name, index) =>
+  `${index ? '<li class="line"></li>' : ''}<li class="${index + 1 < cur ? 'done' : index + 1 === cur ? 'cur' : ''}"><span>${index + 1 < cur ? '✓' : index + 1}</span>${name}</li>`).join('')}</ol>`;
+const createHead = `<header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>`;
+const KINDS = { read: 'Reads', change: 'Changes', money: 'Money', out: 'Sends outside', del: 'Deletes' };
+const kind = key => `<span class="kind ${key}">${KINDS[key]}</span>`;
+function rosterNew() {
+  const rows = [['new', '07', 'New agent', 'Not created yet'], ['atlas', '01', 'Atlas', 'Orders assistant'], ['ledger', '05', 'Ledger', 'Accounts helper'], ['nova', '09', 'Nova', 'Sales follow-up']];
+  return `<aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div>
+    <div class="search">${I('search')}Search agents</div>
+    ${rows.map(([id, av, name, sub]) => `<div class="agent-row ${id === 'new' ? 'on' : ''}"><span class="av"><img src="${AV(av)}" alt=""></span>
+      <span><b>${name}</b><small>${sub}</small></span></div>`).join('')}</aside>`;
+}
+const appRow = ({ name, sub, kinds, detail = '', on }) => `<div class="app-row"><span class="tile">${I('plug')}</span>
+  <span style="flex:1;min-width:0"><b>${name}</b><small>${sub}</small><span class="kinds">${kinds.map(kind).join('')}</span>${detail ? `<small class="detail">${detail}</small>` : ''}</span>
+  <span class="switch ${on ? 'on' : ''}"></span></div>`;
+const mini = (name, spec, price, on) => `<div class="size ${on ? 'on' : ''}" style="padding:${on ? '9px 11px' : '10px 12px'}"><b style="font-size:13.5px">${name}<span class="radio ${on ? 'on' : ''}"></span></b><span class="spec" style="font-size:12.5px">${spec}</span><span class="price" style="font-size:12.5px;margin-top:2px">${price}</span></div>`;
+
+/* ---------- 7. Create · 2 Connectors, with the computer ---------- */
+const s7 = screen('s7', `<div class="frame">${rosterNew()}<div class="main">${createHead}${steps5(2)}
+  <div class="body" style="padding-top:14px">
+    <div class="col" style="gap:8px">
+      <div class="sec-head" style="margin:0"><h3>What can Iris use?</h3><small>Apps your admin added to Mehta Furnishings</small></div>
+      <div style="border-top:1px solid var(--border)">
+        ${appRow({ name: 'Zoho Books', sub: 'Accounts, orders and invoices · 5 actions', kinds: ['read', 'change', 'money', 'del'], on: true })}
+        ${appRow({ name: 'Delivery tracker', sub: 'MCP server · shipment tracking · 1 action', kinds: ['read'], on: true })}
+        ${appRow({ name: 'Google Workspace', sub: 'Gmail, Calendar and Drive · 6 actions', kinds: ['read', 'change', 'out'], on: false })}
+      </div>
+      <div class="panel" style="margin-top:10px;padding:14px 16px;gap:12px">
+        <div class="panel-head" style="position:relative">${pin(1, 'left:-46px;top:6px')}<span class="ico">${I('monitor')}</span><span style="flex:1"><b style="font-size:14.5px">A computer for Iris</b><small>For websites without an app here, downloading and filling in files, and running programs. Linux.</small></span>
+          <span style="position:relative">${pin(2, 'left:-30px;top:0')}<span class="switch on"></span></span></div>
+        <div style="display:flex;gap:12px;align-items:center;position:relative">${pin(3, 'left:-46px;top:6px')}<span class="seg"><span class="on">${I('monitor')}Cuckoo computer</span><span>${I('server')}Office server</span></span>
+          <span class="muted" style="font-size:12.5px">Office server is your company’s own computer.</span></div>
+        <div class="sizes" style="position:relative">${pin(4, 'left:-46px;top:10px')}
+          ${mini('Small', '1 CPU · 2 GB · 10 GB', '₹7 an hour while working', false)}
+          ${mini('Standard', '2 CPU · 4 GB · 20 GB', '₹14 an hour while working', true)}
+          <div class="size" style="padding:10px 12px;opacity:.45"><b style="font-size:13.5px">Large<span class="radio"></span></b><span class="spec" style="font-size:12.5px">4 CPU · 8 GB · 40 GB</span><span class="price" style="font-size:12.5px;margin-top:2px">Not allowed by your admin</span></div>
+        </div>
+        <div class="notice info" style="position:relative;align-items:center">${pin(5, 'left:-46px;top:8px')}${I('shield')}<span>What Iris may do on its computer, including whether it may browse websites, is decided in step 5, <b>Controls</b>. Not sure? Leave it off: if a skill in step 3 needs a website that has no app here, Iris will ask to turn it on.</span></div>
+      </div>
+    </div>
+    <div style="position:relative">${pin(6, 'left:-12px;top:-8px')}
+      <section class="card"><h4>How Iris gets set up</h4>
+        <ol class="setup-steps">
+          <li class="cur"><i>2</i><span><b>Connectors</b><small>Apps and a computer Iris can use. You are here.</small></span></li>
+          <li><i>3</i><span><b>Skills</b><small>Iris writes how it does the job, using these.</small></span></li>
+          <li><i>4</i><span><b>People</b><small>Who talks to Iris and who approves.</small></span></li>
+          <li><i>5</i><span><b>Controls</b><small>What Iris may do with each app and on its computer.</small></span></li>
+        </ol>
+        <p class="muted" style="margin:10px 0 0">Nothing runs and nothing is charged until Iris is created and uses the computer. It sleeps, at no charge, whenever Iris isn’t using it.</p>
+      </section>
+    </div>
+  </div>
+  <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Skipping is fine. The computer can be turned on later on the Environment tab.</p></footer>
+</div></div>`, notes('Create · 2 Connectors, with a computer', [
+  'The computer sits with the apps in step 2: it is one more thing Iris can use. It is not a separate step.',
+  '<b>Off by default.</b> Switching it on makes a computer available; like apps, it grants nothing yet.',
+  'Cuckoo computer, or one of the company’s own computers if an admin connected any. Never a provider name.',
+  'Only the sizes the admin allows; Standard is preselected. The hourly price shows while choosing.',
+  'Browsing is decided in Controls, not by a separate computer. If it’s left off and a skill written in step 3 needs a website with no app, Iris asks there: “Supplier invoices uses portal.sharmatraders.in. Turn on a computer for Iris?”',
+  'The setup card says the computer costs nothing until Iris is created and actually uses it.',
+], '<b>Created agent:</b> the computer is made on first use, not when Iris is created, so agents that never use it never cost anything.'), 'Agents');
+
+/* ---------- 8. Create · 5 Controls, with the computer ---------- */
+const segC = mode => `<span class="seg ctl">${['allow', 'ask', 'block'].map(m => `<span class="${m === mode ? m : ''}">${{ allow: 'Allow', ask: 'Ask first', block: 'Block' }[m]}</span>`).join('')}</span>`;
+const segCAdmin = mode => segC(mode).replace(/<span class="(allow|ask)?">/g, '<span class="off">');
+const ctl = (title, key, why, mode, extra = '') => `<div class="op"><span><b>${title}</b><small class="why-line">${kind(key)}<span>${why}</span></small></span>${mode}</div>${extra}`;
+const s8 = screen('s8', `<div class="frame">${rosterNew()}<div class="main">${createHead}${steps5(5)}
+  <div style="flex:1;min-height:0;padding:12px 32px;display:flex;flex-direction:column;gap:4px">
+    <div class="notice info" style="align-items:center">${I('shield')}<span style="flex:1">Iris suggested these from <b>2 apps, a computer, 3 skills, what you said and who can talk to it</b>. Suggestions only make things stricter.</span><span class="btn small" style="background:#fff">Reset to suggestions</span></div>
+    <div class="conn"><div class="conn-head"><span class="tile">${I('monitor')}</span><span style="flex:1;min-width:0"><b>Iris’s computer</b><small>Cuckoo computer · Standard · Linux</small></span></div>
+      <div class="op" style="position:relative">${pin(1, 'left:20px;top:10px')}<span><b>Internet</b><small class="why-line">${kind('out')}<span>Supplier invoices uses portal.sharmatraders.in · <b>your admin allows only listed websites</b></span></small></span>
+        <span class="seg ctl"><span>No internet</span><span class="allow">Only these websites</span><span class="off">Any website</span></span></div>
+      <div style="padding:0 0 6px 50px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="chipx">portal.sharmatraders.in</span><span class="chipx">gst.gov.in</span><span class="chipx">${I('plus')}Add a website</span><span class="muted" style="font-size:12px">Programs on the computer can reach only these websites too.</span></div>
+      <div style="position:relative">${pin(2, 'left:20px;top:10px')}${ctl('Open and read websites (browser)', 'read', 'Supplier invoices reads the invoices page', segC('allow'))}</div>
+      <div style="position:relative">${pin(3, 'left:20px;top:10px')}${ctl('Fill in forms and press buttons on websites', 'change', 'Supplier invoices downloads invoices; anything that submits asks you first', segC('ask'))}</div>
+      ${ctl('Pay or confirm money on a website', 'money', 'You said: “never pay anything without Meera”', segC('ask'), `<div class="cond" style="margin-left:50px">${I('shield')}<span>Asks <b>Meera</b>, whatever the amount</span></div>`)}
+      <div style="position:relative">${pin(4, 'left:20px;top:10px')}${ctl('Save, read and change files on the computer', 'change', 'Supplier invoices saves the invoices it downloads', segC('allow'))}</div>
+      ${ctl('Run programs and commands', 'change', 'No skill needs programs', segC('block'))}
+      <div style="position:relative">${pin(5, 'left:20px;top:10px')}${ctl('Install programs', 'change', 'Blocked by your admin', segCAdmin('block'))}</div>
+    </div>
+    <div class="conn"><div class="conn-head"><span class="tile">${I('plug')}</span><span style="flex:1;min-width:0"><b>Zoho Books</b><small>5 actions · 3 allowed, 1 ask first, 1 blocked</small></span><span class="linkbtn">Show</span></div></div>
+    <div class="conn"><div class="conn-head"><span class="tile">${I('plug')}</span><span style="flex:1;min-width:0"><b>Delivery tracker</b><small>1 action · allowed</small></span><span class="linkbtn">Show</span></div></div>
+  </div>
+  <footer class="foot" style="position:relative">${pin(6, 'left:8px;top:-12px')}<span class="btn">Back</span><span class="btn primary">${I('check')}Create agent</span><p>Cuckoo checks these before every action on the computer too. Change them later on the Tools tab.</p></footer>
+</div></div>`, notes('Create · 5 Controls, with the computer', [
+  '<b>Internet</b> is the real switch for browsing: no internet, only listed websites, or any website. Cuckoo enforces it on the computer’s network, so programs can’t reach the web either. The admin’s limit wins.',
+  '<b>Browser off</b> is just Block here: same computer, no browser tools, and no browser started. No second computer is needed.',
+  'Clicks are actions like app actions: reading is suggested Allow, anything that submits is Ask first, money asks the manager.',
+  'Files, programs and installs are separate controls, so a browser-only agent can’t run programs, and a programs-only agent can’t browse.',
+  'Admin limits from Settings → Computers win; stricter only.',
+  'Create agent saves the controls. The computer itself is made the first time Iris uses it.',
+], '<b>Enforced twice:</b> blocked tools are never given to Iris, and the computer’s network only lets through what Internet allows.'), 'Agents');
+
+/* ---------- 9. Where the browser lives: the options ---------- */
+const opt = (letter, title, verdict, cls, rows) => `<div class="cardstate" style="gap:10px"><span class="state-title">Option ${letter}</span>
+  <b style="font-size:17px">${title}</b><span class="pill" style="align-self:flex-start;${cls}">${verdict}</span>
+  <ul style="margin:0;padding-left:18px;line-height:1.55;font-size:13.5px;color:#33383e">${rows.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+const box9 = (title, sub, style = '') => `<div style="border:1px solid var(--border-panel);border-radius:12px;padding:12px 14px;background:#fff;${style}"><b style="display:block;font-size:14px">${title}</b><small style="color:var(--muted);font-size:12.5px;line-height:1.45;display:block;margin-top:3px">${sub}</small></div>`;
+const arrow9 = label => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:11.5px;min-width:86px;text-align:center">${label}<span style="font-size:20px;line-height:1">→</span></div>`;
+const diagram9 = `<div class="cardstate" style="grid-column:1 / 4;gap:14px">${pin(4, 'left:-11px;top:-11px')}<span class="state-title">Option A: how “browser off” is enforced</span>
+  <div style="display:flex;align-items:stretch;gap:6px">
+    ${box9('Iris (on Cuckoo’s executors)', 'Thinks and decides. Holds no keys on the computer. Only gets the tools its Controls allow.', 'flex:1.1')}
+    ${arrow9('wants to act')}
+    ${box9('Controls and company rules', 'Allow, Ask first or Block for every click, file and command. Browser blocked = no browser tools at all.', 'flex:1.1;border-color:#bfe0d1;background:#f2faf6')}
+    ${arrow9('if allowed')}
+    <div style="flex:1.6;border:2px solid var(--accent);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px"><b style="font-size:14px">Iris’s one computer</b>
+      <div style="display:flex;gap:6px">${['globe|Browser|only if allowed', 'folder|Files|one disk', 'terminal|Programs|only if allowed'].map(x => { const [i, t, n] = x.split('|'); return `<span style="flex:1;border:1px solid var(--border);border-radius:9px;padding:7px 8px;font-size:12.5px;background:var(--soft)">${I(i)} ${t}<small style="display:block;color:var(--muted);font-size:11.5px">${n}</small></span>`; }).join('')}</div></div>
+    ${arrow9('network gate')}
+    ${box9('Internet', 'No internet, only listed websites, or any website: set per agent, limited by the admin, enforced on the computer’s network.', 'flex:1.1;border-color:#f0d3a8;background:#fffaf2')}
+  </div></div>`;
+const s9 = screen('s9', `<div style="position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr auto;gap:14px">
+  ${opt('A', 'One computer, browser as a control', 'Recommended', 'background:#e6f4ec;color:var(--success)', [
+    'One disk: a file Iris downloads in the browser is right there for its programs and for the person.',
+    'Browser off = Block in Controls <b>and</b> no internet on the computer’s network. Nothing to sync.',
+    'Browser on, programs off = a browser-only agent on the same computer.',
+    'One thing to wake, one charge, one live view.',
+    'The real risk, a web page telling Iris what to do, is stopped by Controls and approvals, which work the same here.',
+  ])}
+  ${opt('B', 'Two computers per agent, with and without a browser', 'Not recommended', 'background:#fdeeee;color:var(--danger)', [
+    'Two disks to keep: a downloaded invoice is on the browsing computer, the spreadsheet on the other.',
+    'Files must be copied across, and every copy is a new way for data to leak.',
+    'Double storage, two wakes, two places for logins.',
+    'The same agent controls both, so a page that misleads Iris can still make it act on the other computer: little safety gained.',
+  ])}
+  ${opt('C', 'Browser on a separate shared browser service', 'Later, as an option', 'background:#fff3e2;color:var(--warning)', [
+    'Good for agents that only browse: cloud browsers are cheap and good at hard websites.',
+    'Untrusted web pages never touch the agent’s files.',
+    'But files downloaded there must still reach the agent’s computer, and logins live in another provider.',
+    'Fits the same provider interface later, as a fourth route for a “Browser only” size.',
+  ])}
+  ${diagram9}
+</div>`, notes('Where the browser lives', [
+  'Every agent has at most <b>one</b> computer. The browser is a program on it, used only if Controls allow it.',
+  'Turning the browser off doesn’t need another computer: Cuckoo removes the browser tools and closes the computer’s internet, or limits it to listed websites.',
+  'Admins can block browsing for the whole workspace in Settings → Computers; agent owners can only be stricter.',
+  'Two locks, so “no browser” really means no web: the tools are never given to Iris, and the computer’s network stops anything else, such as a program, from reaching websites.',
+], '<b>Why not separate computers:</b> isolating the browser protects files from the browser process, but the danger is the agent being misled, and the agent drives both computers anyway.'), 'none');
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9;
 </script>
 </body></html>

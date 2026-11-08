@@ -35,6 +35,40 @@ people); keeping data in India matters but is not designed now.
 | `4-connect-your-own-computer.png` | Name it, run one command with a one-time code, Cuckoo checks the computer, and choose what the agent may do there (its own user and folder; administrator rights off by default). The Connector dials out, so nothing is opened to the internet. |
 | `5-admin-computers.png` | Settings → **Computers** (new, admins): allow Cuckoo computers and which sizes; the company's own computers; sleep after, longest stretch and how many may be awake at once; allowed websites; each agent's computer this month. |
 | `6-operator-computers.png` | Cuckoo Control → **Computers** (operators only): provider health, wake times, failures, cost and margin with an emergency switch; sizes routed to providers like the model catalog; every computer, its provider and its last disk copy, with Move to… |
+| `7-create-connectors-computer.png` | Agent creation, step 2 **Connectors**: the computer sits with the apps as one more thing the agent can use. (1–2) Off by default; switching it on grants nothing yet. (3) Cuckoo computer or a company computer. (4) Only the sizes the admin allows. (5) Browsing is decided in Controls; if it's left off and a skill in step 3 needs a website with no app, the agent asks there. (6) Nothing is made or charged until the agent is created and uses it. |
+| `8-create-controls-computer.png` | Agent creation, step 5 **Controls**: a group for the computer beside the apps. (1) **Internet**: no internet, only listed websites, or any website, limited by the admin and enforced on the computer's network. (2) Browser: Allow / Ask first / Block. (3) Clicks that submit are Ask first and money asks the manager. (4) Files, programs and installs are separate controls. (5) Admin limits win. (6) The computer is made on first use. |
+| `9-where-the-browser-lives.png` | The three options for the browser (one computer with browsing as a control; two computers per agent; a separate browser service) and how option A enforces "browser off" with two locks: no browser tools, and no internet on the computer's network. |
+
+## Turning it on while creating an agent
+
+The computer is part of step 2, **Connectors**, next to the apps; there is no
+extra step. It is off by default. What the agent may do on it is decided in
+step 5, **Controls**, like any app's actions, and suggested from the skills. The
+computer itself is made the first time the agent uses it, so an agent that never
+needs it never costs anything. Later changes happen on the Environment tab
+(computer, size) and the Tools tab (controls).
+
+## Where the browser lives (owner question, 2026-11-08)
+
+Some companies won't let a particular agent browse. The proposal: **one computer
+per agent, with browsing as a control**, not two computers and not a separate
+browser computer.
+
+- **Browser off** means two locks: the browser tools are never given to the
+  agent, and the computer's network allows no websites (or only listed ones). The
+  second lock matters because programs on the computer could otherwise reach the
+  web without the browser.
+- **Why not two computers per agent:** files would live in two places (an invoice
+  downloaded in the browser, the spreadsheet on the other computer) and would have
+  to be copied across; storage, wake-ups and logins double. Little safety is
+  gained, because the same agent drives both.
+- **Why not a separate browser computer now:** isolating the browser keeps web
+  pages away from the agent's files, but the real danger is a page misleading the
+  agent, and Controls and approvals stop that in either design. Cloud browser
+  services can be added later as another route behind the same provider
+  interface, for a possible "browser only" size.
+- Admins can block browsing for the whole workspace in Settings → Computers; agent
+  owners can only be stricter.
 
 ## Rules that keep it safe
 
