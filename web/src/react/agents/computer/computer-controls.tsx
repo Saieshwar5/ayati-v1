@@ -47,6 +47,19 @@ export function ComputerControls({ name, value, change, disabled }: {
       <ModePicker label="Run programs and commands" value={value.programs} disabled={disabled} change={next => change({ ...value, programs: next })} />
     </div>
     <div className="agent-tool-action">
+      <span><strong>Open and read websites (browser)</strong>
+        <small>{value.browser === 'ask' ? 'Each new website asks the person who asked first.'
+          : value.browser === 'block' ? `${name} has no browser.` : `${name} reads websites its Internet setting allows.`}</small></span>
+      <ModePicker label="Open and read websites" value={value.browser} disabled={disabled} change={next => change({ ...value, browser: next })} />
+    </div>
+    {value.browser !== 'block' && <div className="agent-tool-action">
+      <span><strong>Press buttons and send forms on websites</strong>
+        <small>{value.submit === 'ask' ? `${name} asks before pressing a button, sending a form or pressing Enter.`
+          : value.submit === 'block' ? `${name} only reads, follows links and fills in fields.` : `${name} presses buttons and sends forms without asking.`}
+          {' '}Passwords and one-time codes are always typed by a person.</small></span>
+      <ModePicker label="Press buttons and send forms" value={value.submit} disabled={disabled} change={next => change({ ...value, submit: next })} />
+    </div>}
+    <div className="agent-tool-action">
       <span><strong>Save, read and change files on the computer</strong><small>Always allowed while the computer is on.</small></span>
     </div>
   </div>;

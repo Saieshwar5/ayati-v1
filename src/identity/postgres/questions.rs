@@ -63,6 +63,8 @@ impl PgStore {
         result["source_scope"] = json!(super::event_access::scope(&tx, w, &job.reply).await?);
         result["reply"] = json!(job.reply);
         result["chat"] = json!(job.chat);
+        // A browser hand-over opens this agent's browser.
+        result["agent"] = json!(job.agent);
         result["answered_by"] = data["answered_by"].clone();
         result["answered_ms"] = data["answered_ms"].clone();
         tx.commit().await?;

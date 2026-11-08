@@ -37,6 +37,16 @@
 .agent-computer-step pre { margin: 6px 0 0; max-height: 240px; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--soft); border: 1px solid var(--border); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-computer-step code { font-size: 12px; overflow-wrap: anywhere; }
 .agent-computer-step details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 4px; }
+/* The live browser (designs/agent-computers 3 and 12), in a dialog wide enough to use it. */
+.ui-dialog:has(.computer-live) { width: min(1100px, calc(100vw - 32px)); }
+.computer-live { display: grid; gap: 10px; }
+.computer-live-address { margin: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); font-size: 13px; overflow-wrap: anywhere; }
+.computer-live-picture { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; user-select: none; }
+.computer-live-picture.controlled { cursor: pointer; outline: 2px solid var(--working); outline-offset: 2px; }
+.computer-live-keys { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 6px 8px; }
+.computer-live-keys .ui-field { flex: 1 1 240px; margin: 0; }
+.computer-live-keys .ui-help { width: 100%; margin: 0; }
+.question-hand-over { display: grid; gap: 6px; justify-items: start; margin: 8px 0 12px; }
 @media (max-width: 560px) {
   .agent-computer { padding: 14px; }
   .ui-button.agent-computer-reset { margin-left: 0; }

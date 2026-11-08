@@ -4,6 +4,7 @@ import { useMutation, useResource } from '../../requests';
 import { saveAgent, type Agent } from '../model';
 import { computerOf, loadComputer, perHour, resetComputer, sizeFacts, sizeNames, sizeUses, workingTime, type ComputerOffer, type ComputerSettings, type ComputerStatus } from './model';
 import { dollars } from '../../usage/usage-model';
+import { LiveView } from './live-view';
 import './computer.css';
 
 /** Environment → Computer (designs/agent-computers 1): on or off, its state in plain
@@ -14,6 +15,7 @@ export function ComputerCard({ agent, offer, saved }: { agent: Agent; offer: Com
   const status = useResource(load);
   const mutation = useMutation();
   const [confirming, setConfirming] = useState(false);
+  const [watching, setWatching] = useState(false);
   const settings = computerOf(agent.settings);
   const editable = Boolean(agent.editable);
   const save = (next: ComputerSettings, done: string) => void mutation.run(async () => {
@@ -55,8 +57,8 @@ export function ComputerCard({ agent, offer, saved }: { agent: Agent; offer: Com
       </fieldset>
       {computer && computer.size !== settings.size && <p className="ui-help" role="note">
         {agent.name}’s computer is {sizeNames[computer.size] ?? computer.size}. The new size applies after Reset computer; reset wipes its files.</p>}
-      <p className="agent-computer-comes">Comes with <span>Files</span><span>Programs</span>
-        <small>The browser and watching it live come later.</small></p>
+      <p className="agent-computer-comes">Comes with <span>Files</span><span>Programs</span><span>Browser</span><span>Live view</span>
+        {editable && computer?.state === 'awake' && <Button onClick={() => setWatching(true)}>Watch live</Button>}</p>
       <p className="agent-computer-shared">Everyone who can talk to {agent.name} shares this computer. Each request gets its own folder, and one request uses it at a time.</p>
     </>}
     {status.data && (settings.on || computer) && <footer className="agent-computer-month">
@@ -66,6 +68,7 @@ export function ComputerCard({ agent, offer, saved }: { agent: Agent; offer: Com
     </footer>}
     <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
     {!editable && <p className="ui-help">Only {agent.name}’s owner and admins can change its computer.</p>}
+    {watching && <LiveView agent={agent.id} name={agent.name} close={() => setWatching(false)} />}
     {confirming && <Dialog title={`Reset ${agent.name}’s computer?`} close={() => setConfirming(false)} busy={mutation.busy} status={mutation.status}
       footer={<><Button disabled={mutation.busy} onClick={() => setConfirming(false)}>Keep it</Button>
         <Button primary disabled={mutation.busy} onClick={reset}>Reset computer</Button></>}>
