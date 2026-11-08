@@ -1,8 +1,11 @@
-# Web search for agents (proposal, design only)
+# Web search for agents
 
-Proposed 2026-11-08. Nothing here is built. Agents today have no web access:
-executors only reach the model providers, and the Environment tab lists Browser as
-"Coming later". Editable source: [mockups.html](mockups.html), opened in a browser
+Proposed 2026-11-08; the owner asked to start building it the same day. First slice
+([runtime/web-search.md](../../runtime/web-search.md)): the provider contract with
+Tavily, Exa, Perplexity and Parallel, the agent tools, cited pages, limits, the create
+step (screen 1) and the switch on the Tools tab (screen 2 without use, cost and recent
+searches). Not built yet: use and recent searches on the Tools tab, Activity details
+(screen 3, right) and the Cuckoo Control page (screen 4). Editable source: [mockups.html](mockups.html), opened in a browser
 from this folder. The example company and web pages are fictional; provider prices
 are examples.
 

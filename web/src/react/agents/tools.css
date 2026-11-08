@@ -42,3 +42,9 @@
 .agent-tool-action small.agent-tool-note { color: var(--text); }
 .agent-create-tools .agent-tools-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .agent-create-tools .agent-tools-note .ui-button { margin-left: auto; }
+/* Built into Cuckoo: tools Cuckoo provides itself, above the admin's apps (designs/web-search). */
+.agent-group-label, .agent-workspace-panel .agent-group-label { margin: 18px 0 8px; line-height: 1.4; font-size: 12px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: baseline; }
+.agent-group-label small { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px; }
+.agent-built-in .agent-group-label:first-child { margin-top: 4px; }
+.agent-built-in .agent-tool { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.agent-built-in .agent-tool .ui-status:empty { display: none; }
