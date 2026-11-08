@@ -12,6 +12,10 @@ pub struct ComputerSettings {
     pub size: String,
     /// Running programs and commands: allow, ask (first) or block.
     pub programs: String,
+    /// Opening and reading websites in its browser: allow, ask (first, per website) or block.
+    pub browser: String,
+    /// Pressing buttons and sending forms on websites: allow, ask (first) or block.
+    pub submit: String,
     /// The computer's internet: none, listed (only `websites`) or any.
     pub internet: String,
     /// Host names the computer may reach when `internet` is listed.
@@ -23,6 +27,8 @@ impl Default for ComputerSettings {
             on: false,
             size: "standard".into(),
             programs: "allow".into(),
+            browser: "allow".into(),
+            submit: "ask".into(),
             internet: "none".into(),
             websites: vec![],
         }
@@ -30,7 +36,7 @@ impl Default for ComputerSettings {
 }
 
 /// A host name such as `portal.sharmatraders.in`, or a whole domain as `*.zoho.in`.
-fn host(name: &str) -> bool {
+pub(super) fn host(name: &str) -> bool {
     let name = name.strip_prefix("*.").unwrap_or(name);
     !name.is_empty()
         && name.len() <= 253
@@ -52,10 +58,16 @@ impl ComputerSettings {
             crate::identity::computers::SIZES.contains(&self.size.as_str()),
             "Choose a small, standard or large computer"
         );
-        ensure!(
-            ["allow", "ask", "block"].contains(&self.programs.as_str()),
-            "Programs are allowed, asked first or blocked"
-        );
+        for (control, name) in [
+            (&self.programs, "Programs"),
+            (&self.browser, "Browsing"),
+            (&self.submit, "Pressing buttons on websites"),
+        ] {
+            ensure!(
+                ["allow", "ask", "block"].contains(&control.as_str()),
+                "{name} is allowed, asked first or blocked"
+            );
+        }
         ensure!(
             ["none", "listed", "any"].contains(&self.internet.as_str()),
             "The computer's internet is none, listed websites or any website"
@@ -104,12 +116,16 @@ mod tests {
         for (field, value) in [
             ("size", "huge"),
             ("programs", "sometimes"),
+            ("browser", "maybe"),
+            ("submit", "often"),
             ("internet", "some"),
         ] {
             let mut bad = ComputerSettings::default();
             match field {
                 "size" => bad.size = value.into(),
                 "programs" => bad.programs = value.into(),
+                "browser" => bad.browser = value.into(),
+                "submit" => bad.submit = value.into(),
                 _ => bad.internet = value.into(),
             }
             assert!(bad.validate().is_err(), "{field}={value}");

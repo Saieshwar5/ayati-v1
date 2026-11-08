@@ -2,10 +2,10 @@ import { identityRequest } from '../../../workspace-context';
 import { base } from '../model';
 
 /** An agent's computer as its owner sets it (runtime/agent-computers.md). */
-export type ComputerSettings = { on: boolean; size: string; programs: Programs; internet: Internet; websites: string[] };
+export type ComputerSettings = { on: boolean; size: string; programs: Programs; browser: Programs; submit: Programs; internet: Internet; websites: string[] };
 export type Programs = 'allow' | 'ask' | 'block';
 export type Internet = 'none' | 'listed' | 'any';
-export const computerDefaults: ComputerSettings = { on: false, size: 'standard', programs: 'allow', internet: 'none', websites: [] };
+export const computerDefaults: ComputerSettings = { on: false, size: 'standard', programs: 'allow', browser: 'allow', submit: 'ask', internet: 'none', websites: [] };
 /** Agents saved before computers existed have no setting: off. */
 export const computerOf = (settings: { computer?: Partial<ComputerSettings> }): ComputerSettings => ({ ...computerDefaults, ...settings.computer });
 
@@ -16,6 +16,8 @@ export type ComputerOffer = { sleep_after_minutes: number; sizes: ComputerSize[]
 export type ComputerStatus = {
   configured: boolean;
   settings: ComputerSettings;
+  /** The workspace's limits (Settings → Computers). */
+  policy?: { allowed: boolean; sizes: string[] };
   computer: null | { size: string; state: 'asleep' | 'awake' | 'deleting'; awake_since: number | null; last_used: number; created_at: number; problem: string | null; in_use: boolean };
   month: { seconds: number; charge_usd: number };
   sleep_after_minutes: number | null;
@@ -23,6 +25,9 @@ export type ComputerStatus = {
 
 export const loadComputer = (agent: string) => identityRequest<ComputerStatus>(`${base}/${agent}/computer`);
 export const resetComputer = (agent: string) => identityRequest<ComputerStatus>(`${base}/${agent}/computer/reset`, {});
+/** One thing a person does in the agent's browser during a hand-over. */
+export type LiveInput = { mouse: { type: 'mousePressed' | 'mouseReleased' | 'mouseMoved'; x: number; y: number } } | { wheel: { x: number; y: number; delta_y: number } } | { text: string } | { key: string };
+export const sendLiveInput = (agent: string, input: LiveInput) => identityRequest<{ sent: boolean }>(`${base}/${encodeURIComponent(agent)}/computer/live/input`, input);
 
 export const sizeNames: Record<string, string> = { small: 'Small', standard: 'Standard', large: 'Large' };
 export const sizeUses: Record<string, string> = { small: 'Simple files and scripts', standard: 'Most agents', large: 'Big spreadsheets and data work' };

@@ -16,7 +16,7 @@ const offer = { sleep_after_minutes: 5, sizes: [
   { size: 'standard', cpu: 2, memory_gb: 4, disk_gb: 20, usd_per_hour: 0.17 },
 ] };
 const agent = { id: 'atlas', name: 'Atlas', role: 'Orders', model: 'm', audience: 'everyone', revision: 3, settings: { avatar: 'spark', paused: false }, editable: true };
-const asleep = { configured: true, settings: { on: true, size: 'standard', programs: 'allow', internet: 'none', websites: [] },
+const asleep = { configured: true, settings: { on: true, size: 'standard', programs: 'allow', browser: 'allow', submit: 'ask', internet: 'none', websites: [] },
   computer: { size: 'standard', state: 'asleep', awake_since: null, last_used: 1762600000, created_at: 1762500000, problem: null, in_use: false },
   month: { seconds: 22800, charge_usd: 1.08 }, sleep_after_minutes: 5 };
 const computerSwitch = () => [...document.querySelectorAll('label')].find(node => node.textContent === 'Use a computer')?.querySelector('input');
@@ -36,7 +36,7 @@ test('the owner turns the computer on once, sees its state and sizes, and a fail
     await update(() => { computerSwitch().click(); computerSwitch().click(); });
     assert.equal(saves.length, 2, 'a second click while saving sends nothing');
     await update(() => release());
-    assert.deepEqual(saves[1].settings.computer, { on: true, size: 'standard', programs: 'allow', internet: 'none', websites: [] });
+    assert.deepEqual(saves[1].settings.computer, { on: true, size: 'standard', programs: 'allow', browser: 'allow', submit: 'ask', internet: 'none', websites: [] });
     assert.equal(saves[1].people, undefined, 'turning it on never changes who can talk to it');
     assert.match(document.body.textContent, /Atlas can use its computer\. It is made the first time Atlas needs it/);
   }, { url, fetch: async (path, options = {}) => {
@@ -108,9 +108,14 @@ test('the Tools tab saves internet and program controls together, with websites 
     await click(button('Add'));
     await click(radio('Run programs and commands', 'Ask first'));
     assert.match(document.body.textContent, /Each new command asks the person who asked first/);
+    assert.match(document.body.textContent, /Atlas asks before pressing a button, sending a form or pressing Enter/);
+    await click(radio('Press buttons and send forms', 'Allow'));
+    await click(radio('Open and read websites', 'Block'));
+    assert.equal(document.querySelector('[aria-label="Press buttons and send forms"]'), null, 'no button control without a browser');
+    await click(radio('Open and read websites', 'Ask first'));
     await click(button('Save computer controls'));
     assert.equal(saves.length, 1);
-    assert.deepEqual(saves[0].settings.computer, { on: true, size: 'standard', programs: 'ask', internet: 'listed', websites: ['portal.sharmatraders.in', '*.zoho.in'] });
+    assert.deepEqual(saves[0].settings.computer, { on: true, size: 'standard', programs: 'ask', browser: 'ask', submit: 'allow', internet: 'listed', websites: ['portal.sharmatraders.in', '*.zoho.in'] });
     assert.match(document.body.textContent, /Computer controls saved/);
   }, { url, fetch: async (path, options = {}) => {
     if (!options.body) return response({ can_manage: true, connections: [], actions: [], execution_available: true });
@@ -147,7 +152,7 @@ test('a new agent gets a computer only when its creator switches it on, with its
       await click(button('Create agent'));
       assert.equal(writes.length, 1);
       assert.deepEqual(writes[0].settings.computer, turnOn
-        ? { on: true, size: 'small', programs: 'allow', internet: 'any', websites: [] }
+        ? { on: true, size: 'small', programs: 'allow', browser: 'allow', submit: 'ask', internet: 'any', websites: [] }
         : undefined);
     }, { url, fetch: async (path, options = {}) => {
       if (path.endsWith('/session')) return response(session);
@@ -176,7 +181,7 @@ test('Activity shows each command with its result, and asking first is not an ap
     assert.equal(items[0].querySelector('pre').textContent, 'Total 41,300');
     assert.match(items[1].textContent, /Finished with exit code 1/);
     assert.equal(items[1].className.includes('problem'), true);
-    assert.match(items[2].textContent, /Asked the person first/);
+    assert.match(items[2].textContent, /Waiting for the person/);
     assert.equal(items[2].querySelector('button'), null, 'no approval review for a computer step');
     assert.match(items[3].textContent, /Saved shared\/prices\.csv/);
   }, { url });
@@ -196,4 +201,112 @@ test('Usage adds computer time and charges beside model use, by agent', async ()
     assert.match(table.textContent, /Atlas2 h 5 min\$0\.35/);
     assert.doesNotMatch(text, /No model or computer use/);
   }, { url, fetch: async () => response(report) });
+});
+
+/** A stand-in for the browser's server-sent events. */
+class FakeEvents {
+  static last;
+  constructor(url) { this.url = url; this.listeners = {}; FakeEvents.last = this; }
+  addEventListener(name, listen) { this.listeners[name] = listen; }
+  close() { this.closed = true; }
+  emit(data) { this.onmessage?.({ data: JSON.stringify(data) }); }
+}
+const withEvents = async run => {
+  const previous = globalThis.EventSource;
+  globalThis.EventSource = FakeEvents;
+  try { await run(); } finally { globalThis.EventSource = previous; }
+};
+
+test('the live view is view-only until a hand-over, then sends a person’s clicks and typing', async () => {
+  const inputs = [];
+  await withEvents(() => reactFixture(async ({ render, button, click, change, update, dom }) => {
+    dom.window.HTMLImageElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 640, height: 400 });
+    const { LiveView } = await import('../src/react/agents/computer/live-view.tsx');
+    await render(LiveView, { agent: 'atlas', name: 'Atlas', close() {} });
+    assert.match(FakeEvents.last.url, /agent-profiles\/atlas\/computer\/live$/);
+    await update(() => FakeEvents.last.emit({ watching: { control: false, reply: 'r1' } }));
+    await update(() => FakeEvents.last.emit({ url: 'https://portal.sharmatraders.in/login' }));
+    await update(() => FakeEvents.last.emit({ frame: 'AAAA', width: 1280, height: 800 }));
+    const picture = document.querySelector('img.computer-live-picture');
+    assert.equal(picture.getAttribute('src'), 'data:image/jpeg;base64,AAAA');
+    assert.match(document.body.textContent, /View only\. Atlas is working/);
+    await update(() => picture.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, clientX: 320, clientY: 200 })));
+    assert.equal(inputs.length, 0, 'watching sends nothing');
+
+    await update(() => FakeEvents.last.emit({ watching: { control: true, reply: 'r1' } }));
+    assert.match(document.body.textContent, /You’re using Atlas’s browser/);
+    await update(() => picture.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, clientX: 320, clientY: 200 })));
+    await update(() => picture.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true, clientX: 320, clientY: 200 })));
+    const field = [...document.querySelectorAll('label')].find(node => node.textContent.startsWith('Type into the page')).querySelector('input');
+    await change(field, 'ravi@sharmatraders.in');
+    await click(button('Type'));
+    await click(button('Tab'));
+    assert.deepEqual(inputs, [
+      { mouse: { type: 'mousePressed', x: 640, y: 400 } },
+      { mouse: { type: 'mouseReleased', x: 640, y: 400 } },
+      { text: 'ravi@sharmatraders.in' },
+      { key: 'Tab' },
+    ]);
+    assert.match(document.body.textContent, /Atlas sees nothing while you are in control/);
+  }, { url, fetch: async (path, options = {}) => { inputs.push(JSON.parse(options.body)); return response({ sent: true }); } }));
+});
+
+test('a hand-over question opens the browser and Done gives it back as the answer', async () => {
+  const answers = [];
+  const question = { id: 'q1', key: 'browser-hand-over-1a2b3c', revision: 1, state: 'pending', values: null, respondent: 'owner', respondent_name: 'Ravi Kumar', can_respond: true,
+    reply: 'r1', chat: 'c1', agent: 'atlas',
+    specification: { version: 1, kind: 'single_choice', title: 'Atlas needs you in its browser: sign in', description: 'Sign in to the Sharma Traders portal',
+      fallback: '', options: [{ id: 'yes', label: 'Done, give back' }, { id: 'no', label: 'I can’t do it' }], fields: [], allow_other: false } };
+  await withEvents(() => reactFixture(async ({ render, button, click, update }) => {
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { QuestionDialog } = await import('../src/react/questions/dialog.tsx');
+    await render(QuestionDialog, { id: 'q1', close() {} });
+    await click(button('Take over the browser'));
+    assert.match(FakeEvents.last.url, /atlas\/computer\/live$/);
+    await update(() => FakeEvents.last.emit({ watching: { control: true, reply: 'r1' } }));
+    assert.match(document.body.textContent, /You’re using Atlas’s browser/);
+    const done = [...document.querySelectorAll('dialog')].at(-1).querySelectorAll('button');
+    await click([...done].find(node => node.textContent === 'Done, give back'));
+    assert.equal(answers.length, 1);
+    assert.deepEqual(answers[0].values, { choices: ['yes'] });
+    assert.equal(answers[0].decision, 'answer');
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.includes('/questions/q1') && options.body) { const body = JSON.parse(options.body); answers.push(body); return response({ ...question, state: 'answered', values: body.values }); }
+    if (path.includes('/questions/q1')) return response(question);
+    return response({});
+  } }));
+});
+
+test('a hand-over shows the page it needs help with', async () => {
+  const question = { id: 'q2', key: 'browser-hand-over-9f', revision: 1, state: 'pending', values: null, respondent: 'owner', respondent_name: 'Ravi Kumar', can_respond: true,
+    reply: 'r1', chat: 'c1', agent: 'atlas', screenshot: 'data:image/jpeg;base64,/9j/AAAA',
+    specification: { version: 1, kind: 'single_choice', title: 'Atlas needs you in its browser: type a one-time code', description: 'Type the code sent to your phone',
+      fallback: '', options: [{ id: 'yes', label: 'Done, give back' }, { id: 'no', label: 'I can’t do it' }], fields: [], allow_other: false } };
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { QuestionDialog } = await import('../src/react/questions/dialog.tsx');
+    await render(QuestionDialog, { id: 'q2', close() {} });
+    const picture = document.querySelector('img.question-screenshot');
+    assert.equal(picture.getAttribute('src'), 'data:image/jpeg;base64,/9j/AAAA');
+    assert.equal(picture.getAttribute('alt'), 'The page Atlas needs help with');
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response(question) });
+});
+
+test('Needs me lists browser hand-overs apart from questions, to take over', async () => {
+  const base = { version: 'pending', at: Date.now(), agent: 'atlas', agent_name: 'Atlas', chat: 'c1', thread: null, conversation_name: 'Orders', archived: false, read: false, reviewed: false };
+  const items = [
+    { ...base, kind: 'question', id: 'q1', reply: 'r1', title: 'Atlas needs you in its browser: sign in', status: 'browser' },
+    { ...base, kind: 'question', id: 'q2', reply: 'r2', title: 'Which supplier?', status: 'pending' },
+  ];
+  await reactFixture(async ({ render }) => {
+    const { NeedsMe } = await import('../src/react/activity/needs-me.tsx');
+    await render(NeedsMe, { first: { data: { items, available: true, next_before: null }, error: '', loading: false, refresh: async () => {} }, search: '' });
+    const headings = [...document.querySelectorAll('h2.activity-group')].map(node => node.textContent);
+    assert.deepEqual(headings, ['In the browser · 1', 'Questions · 1']);
+    const browser = document.querySelector('[aria-label="In the browser"]');
+    assert.ok([...browser.querySelectorAll('button')].some(node => node.textContent === 'Take over'));
+  }, { url });
 });

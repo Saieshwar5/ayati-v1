@@ -1,4 +1,5 @@
 mod app_schema;
+mod browser_schema;
 mod computer_schema;
 pub mod control_mcp;
 mod history_schema;

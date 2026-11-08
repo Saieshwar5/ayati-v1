@@ -9,6 +9,7 @@ use super::*;
 use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaManager};
 use serde_json::json;
 
+pub(crate) mod computers;
 pub(crate) mod log;
 pub(crate) mod overview;
 pub(crate) mod providers;

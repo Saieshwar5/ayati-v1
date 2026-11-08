@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { identityRequest, workspaceId } from '../../workspace-context';
 import { useMutation, useResource } from '../requests';
 import { Button, Dialog } from '../ui';
 import { subscribeChanges } from '../chat/live';
 import { QuestionForm } from './form';
 import { answerLabels, questionState, type Question } from './model';
+import { LiveView } from '../agents/computer/live-view';
 
 export function QuestionDialog({ id, close }: { id: string; close: () => void }) {
   const path = `/workspaces/${workspaceId}/questions/${encodeURIComponent(id)}`;
@@ -42,9 +43,27 @@ function QuestionReview({ path, close }: { path: string; close: () => void }) {
     {data && <div className="question-review"><p className="question-state" role="status">{questionState(data.state)}</p>
       <p className="ui-help">For {data.respondent_name}. An answer supplies facts; business actions retain their own permissions.</p>
       {data.specification.description && <p className="question-description">{data.specification.description}</p>}
+      {data.agent && data.key.startsWith('browser-hand-over-') && data.state === 'pending' && data.can_respond
+        && <HandOver agent={data.agent} name={data.specification.title.split(' needs you')[0]} busy={mutation.busy} respond={respond} />}
+      {data.screenshot && data.state === 'pending' && <img className="question-screenshot" src={data.screenshot}
+        alt={`The page ${data.specification.title.split(' needs you')[0]} needs help with`} />}
       <QuestionContent key={`${path}:${data.revision}`} question={data} busy={mutation.busy} respond={respond} />
     </div>}
   </Dialog>;
+}
+
+/** A browser hand-over (designs/agent-computers 11 and 12): the person takes over the
+ * agent's browser, then gives it back or says they couldn't. */
+function HandOver({ agent, name, busy, respond }: { agent: string; name: string; busy: boolean; respond: (decision: 'answer' | 'decline', values: Record<string, unknown>) => void }) {
+  const [using, setUsing] = useState(false);
+  const answer = (choice: 'yes' | 'no') => { setUsing(false); respond('answer', { choices: [choice] }); };
+  return <div className="question-hand-over">
+    <Button primary disabled={busy} onClick={() => setUsing(true)}>Take over the browser</Button>
+    <p className="ui-help">Waiting costs nothing. You have 15 minutes from your last action in the browser.</p>
+    {using && <LiveView agent={agent} name={name} close={() => setUsing(false)}
+      actions={<><Button disabled={busy} onClick={() => answer('no')}>I can’t do it</Button>
+        <Button primary disabled={busy} onClick={() => answer('yes')}>Done, give back</Button></>} />}
+  </div>;
 }
 
 function QuestionContent({ question, busy, respond }: {
