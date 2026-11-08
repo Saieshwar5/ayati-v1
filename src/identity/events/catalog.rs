@@ -1,7 +1,10 @@
-//! Provider identity and explicit projections come from protected operator input.
+//! Event sources: operator profiles from the protected sources file, and
+//! controller-owned provider subscriptions (schema 109). Both carry the provider
+//! identity an event must match and the explicit fields it may pass on.
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +23,23 @@ pub(crate) struct Source {
     pub read_operation: String,
     pub fields: Vec<String>,
     pub secret_file: String,
+    /// Set only for a provider subscription the controller made; the operator
+    /// file can never set it. Its provider identity is then `user_id` (may be
+    /// empty when the provider sends none), `connected_account_id`,
+    /// `trigger_id` (the provider's subscription id) and `trigger_slug`.
+    #[serde(skip)]
+    pub subscribed: Option<Subscribed>,
+}
+/// What a provider subscription adds to a source.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Subscribed {
+    /// The catalog event, such as `gmail.new_email`.
+    pub event: String,
+    /// Cuckoo field name to the provider's payload field name.
+    pub map: BTreeMap<String, String>,
+    /// Whether the subscription is active; a broken or removed one keeps its
+    /// history readable but starts nothing new.
+    pub active: bool,
 }
 impl Source {
     pub(crate) fn validate(&self) -> Result<()> {
@@ -27,7 +47,14 @@ impl Source {
             crate::identity::automations::model::uuid(id)?;
         }
         ensure!(
-            self.provider == "composio_v3" && self.connection_fingerprint.len() == 43,
+            self.connection_fingerprint.len() == 43
+                && match &self.subscribed {
+                    None => self.provider == "composio_v3",
+                    Some(s) => {
+                        crate::identity::identifier(&self.provider).is_ok()
+                            && s.map.keys().eq(self.fields.iter())
+                    }
+                },
             "Unsupported event provider"
         );
         ensure!(
@@ -36,16 +63,20 @@ impl Source {
                 && !self.name.chars().any(char::is_control),
             "Invalid event-source name"
         );
-        for value in [
-            &self.user_id,
-            &self.connected_account_id,
-            &self.auth_config_id,
-            &self.trigger_id,
-            &self.trigger_slug,
-            &self.read_operation,
+        // A subscription's provider may not name a user, account or auth config.
+        let optional = self.subscribed.is_some();
+        for (value, required) in [
+            (&self.user_id, !optional),
+            (&self.connected_account_id, !optional),
+            (&self.auth_config_id, !optional),
+            (&self.trigger_id, true),
+            (&self.trigger_slug, true),
+            (&self.read_operation, true),
         ] {
             ensure!(
-                !value.is_empty() && value.len() <= 200 && !value.chars().any(char::is_control),
+                (!required || !value.is_empty())
+                    && value.len() <= 200
+                    && !value.chars().any(char::is_control),
                 "Invalid provider event identity"
             );
         }
@@ -61,7 +92,13 @@ impl Source {
         Ok(())
     }
     pub(crate) fn binding(&self) -> Value {
-        json!({"id":self.id,"workspace":self.workspace,"connection":self.connection,"connection_fingerprint":self.connection_fingerprint,"name":self.name,"provider":self.provider,"user_id":self.user_id,"connected_account_id":self.connected_account_id,"auth_config_id":self.auth_config_id,"trigger_id":self.trigger_id,"trigger_slug":self.trigger_slug,"read_operation":self.read_operation,"fields":self.fields})
+        let mut value = json!({"id":self.id,"workspace":self.workspace,"connection":self.connection,"connection_fingerprint":self.connection_fingerprint,"name":self.name,"provider":self.provider,"user_id":self.user_id,"connected_account_id":self.connected_account_id,"auth_config_id":self.auth_config_id,"trigger_id":self.trigger_id,"trigger_slug":self.trigger_slug,"read_operation":self.read_operation,"fields":self.fields});
+        // Operator bindings keep their schema-28 shape, so saved triggers still match.
+        if let Some(s) = &self.subscribed {
+            value["event"] = json!(s.event);
+            value["map"] = json!(s.map);
+        }
+        value
     }
     pub(crate) fn fingerprint(&self) -> Result<String> {
         let mut value = self.binding();
@@ -70,8 +107,25 @@ impl Source {
             &value,
         )?))
     }
+    /// What people see. A subscription shows Cuckoo's event name, never the
+    /// provider's trigger name.
     pub(crate) fn public(&self) -> Value {
-        json!({"id":self.id,"name":self.name,"event_type":self.trigger_slug,"fields":self.fields,"binding":self.fingerprint().ok()})
+        let event_type = match &self.subscribed {
+            Some(s) => &s.event,
+            None => &self.trigger_slug,
+        };
+        json!({"id":self.id,"name":self.name,"event_type":event_type,"fields":self.fields,"binding":self.fingerprint().ok()})
+    }
+    /// Whether new triggers may use this source and old ones resume: an
+    /// operator source needs its signing secret, a subscription must be active.
+    pub(crate) fn available(&self) -> Result<()> {
+        match &self.subscribed {
+            Some(s) => {
+                ensure!(s.active, "This app event is no longer subscribed");
+                Ok(())
+            }
+            None => self.secret().map(|_| ()),
+        }
     }
     pub(crate) fn secret(&self) -> Result<String> {
         let secret =
@@ -85,6 +139,9 @@ impl Source {
         Ok(secret)
     }
     pub(crate) fn project(&self, id: &str, event: &Value) -> Result<Value> {
+        if let Some(subscribed) = &self.subscribed {
+            return super::provider_events::project(self, subscribed, id, event);
+        }
         ensure!(
             event["id"] == id && event["type"] == "composio.trigger.message",
             "Unsupported event envelope"

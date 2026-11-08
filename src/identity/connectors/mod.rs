@@ -12,6 +12,7 @@
 //! provider, or to a connector Cuckoo builds itself, without touching the others.
 mod composio;
 mod composio_api;
+pub(crate) mod composio_triggers;
 #[cfg(test)]
 mod conformance_tests;
 pub(crate) mod curated;
@@ -21,6 +22,9 @@ pub(crate) mod fake_composio;
 mod fake_mcp;
 mod mcp_servers;
 pub(crate) mod routes;
+pub(crate) mod triggers;
+#[cfg(test)]
+mod triggers_conformance_tests;
 
 use crate::identity::control::model::Operation;
 use anyhow::{Context, Result, ensure};

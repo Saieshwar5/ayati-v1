@@ -51,6 +51,7 @@ pub(super) async fn setup() -> Setup {
         read_operation: "order.read".into(),
         fields: vec!["order_id".into(), "status".into()],
         secret_file: String::new(),
+        subscribed: None,
     })
     .unwrap();
     let tx = db.read_tx(&w).await.unwrap();

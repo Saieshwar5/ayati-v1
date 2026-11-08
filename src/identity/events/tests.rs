@@ -16,6 +16,7 @@ fn source() -> catalog::Source {
         read_operation: "order.read".into(),
         fields: vec!["order_id".into()],
         secret_file: "/private/source.secret".into(),
+        subscribed: None,
     }
 }
 fn event() -> serde_json::Value {

@@ -2,8 +2,10 @@ use anyhow::{Result, ensure};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use ring::hmac;
 
-/// Composio V3 signs the exact bytes with the literal webhook secret. Verify
-/// before decoding JSON; bounded timestamp tolerance also rejects future replays.
+/// Standard Webhooks signatures, as Composio V3 sends them: HMAC-SHA256 with
+/// the literal secret over `{id}.{timestamp}.{raw body}`, base64, `v1,` prefix.
+/// Verify before decoding JSON; the ±300 s window also rejects future replays.
+/// The comparison is constant-time (`ring::hmac::verify`).
 pub fn verify(
     secret: &str,
     id: &str,
