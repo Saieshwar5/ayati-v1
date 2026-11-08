@@ -267,3 +267,73 @@ async fn the_real_e2b_runs_the_same_lifecycle() {
     provider.delete(&call, &computer.id).await.unwrap();
     result.unwrap();
 }
+
+/// The browser helper on a real E2B computer: one action, then the live picture streamed
+/// out with a person's input sent in by tag, as the controller does it.
+#[tokio::test]
+#[ignore = "needs E2B_API_KEY and spends a little E2B time"]
+async fn the_real_e2b_runs_the_browser_helper_and_its_live_picture() {
+    let key = std::env::var("E2B_API_KEY").expect("E2B_API_KEY");
+    let image =
+        std::env::var("AYATI_COMPUTER_TEST_IMAGE").unwrap_or_else(|_| "cuckoo-computer-dev".into());
+    let provider = adapter("e2b").unwrap();
+    let call = Call {
+        api: provider.api_url(),
+        computers: provider.computer_url(),
+        key: &key,
+    };
+    let spec = Spec {
+        image: &image,
+        awake_seconds: 300,
+        internet: &Internet::Only(vec!["example.com".into()]),
+        label: "cuckoo-provider-check",
+    };
+    let computer = provider.create(&call, &spec).await.unwrap();
+    let result = async {
+        provider
+            .write(
+                &call,
+                &computer,
+                super::BROWSER_HELPER_PATH,
+                super::BROWSER_HELPER.as_bytes().to_vec(),
+            )
+            .await?;
+        let open = format!(
+            "node {} open '{{\"url\":\"https://example.com\"}}'",
+            super::BROWSER_HELPER_PATH
+        );
+        let page = provider
+            .run(&call, &computer, &open, HOME, Duration::from_secs(60))
+            .await?;
+        anyhow::ensure!(
+            page.stdout.contains("\"title\":\"Example Domain\""),
+            "{page:?}"
+        );
+        let tag = super::live::tag();
+        let live = format!("node {} live '{{}}'", super::BROWSER_HELPER_PATH);
+        let mut output = provider.stream(&call, &computer, &live, &tag).await?;
+        let mut seen = String::new();
+        while !seen.contains("\"frame\"") {
+            let Some(chunk) = tokio::time::timeout(Duration::from_secs(20), output.recv()).await?
+            else {
+                anyhow::bail!("the live picture ended early: {seen}");
+            };
+            seen.push_str(&String::from_utf8_lossy(&chunk));
+        }
+        provider
+            .send(&call, &computer, &tag, b"{\"key\":\"PageDown\"}\n")
+            .await?;
+        provider
+            .send(&call, &computer, &tag, b"{\"stop\":true}\n")
+            .await?;
+        // The program ends after `stop`, closing the stream.
+        while tokio::time::timeout(Duration::from_secs(20), output.recv())
+            .await?
+            .is_some()
+        {}
+        Ok(())
+    }
+    .await;
+    provider.delete(&call, &computer.id).await.unwrap();
+    result.unwrap();
+}

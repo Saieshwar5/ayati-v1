@@ -7,7 +7,7 @@ export type QuestionReference = { id: string; title: string; state: string; resp
 export type Question = {
   source_scope?: string | null; id: string; key: string; revision: number; state: string; values: Record<string, unknown> | null;
   specification: QuestionSpecification; respondent: string; respondent_name: string; can_respond: boolean;
-  reply: string; chat: string; answered_by?: string; answered_ms?: number };
+  reply: string; chat: string; agent?: string; answered_by?: string; answered_ms?: number };
 export const questionState = (state: string) => ({ pending: 'Waiting for an answer', answered: 'Answer saved', declined: 'Question declined', invalidated: 'Question no longer active' }[state] ?? 'Unavailable');
 export function answerLabels(question: Question): { id: string; label: string; value: string }[] {
   const spec = question.specification, values = question.values ?? {};
