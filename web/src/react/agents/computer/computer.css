@@ -39,7 +39,10 @@
 .agent-computer-step details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 4px; }
 /* Settings → Computers. */
 .settings-computers .ui-fieldset { display: grid; gap: 4px; }
+.settings-computers .usage-table-wrap { margin-top: 28px; }
 .settings-computer-sizes { border: 0; margin: 4px 0 0 16px; padding: 0; display: flex; gap: 8px 18px; flex-wrap: wrap; }
+.settings-computer-awake { max-width: 280px; margin: 10px 0 4px 16px; }
+.settings-computer-awake small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 .settings-computer-sizes legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 6px; }
 /* The live browser (designs/agent-computers 3 and 12), in a dialog wide enough to use it. */
 .ui-dialog:has(.computer-live) { width: min(1100px, calc(100vw - 32px)); }
@@ -50,6 +53,7 @@
 .computer-live-keys { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 6px 8px; }
 .computer-live-keys .ui-field { flex: 1 1 240px; margin: 0; }
 .computer-live-keys .ui-help { width: 100%; margin: 0; }
+.question-screenshot { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; object-position: top; border: 1px solid var(--border); border-radius: 8px; margin: 0 0 12px; background: #fff; }
 .question-hand-over { display: grid; gap: 6px; justify-items: start; margin: 8px 0 12px; }
 @media (max-width: 560px) {
   .agent-computer { padding: 14px; }

@@ -258,6 +258,21 @@ async fn a_person_takes_over_the_browser_in_a_hand_over_and_others_cannot() {
         "Done, give back"
     );
     let asked = tool(&s, &job, "ask_question", waiting["question"].clone()).await;
+    // The person sees the page they are asked to help with.
+    let question_id = asked["question"]["id"]
+        .as_str()
+        .or(asked["id"].as_str())
+        .unwrap()
+        .to_owned();
+    let shown = s.db.question(&s.owner, &s.w, &question_id).await.unwrap();
+    assert!(
+        shown["screenshot"]
+            .as_str()
+            .is_some_and(|src| src.starts_with("data:image/jpeg;base64,/9j/")),
+        "{}",
+        shown["screenshot"]
+    );
+    assert_eq!(shown["agent"], json!(s.agent));
     // Finishing the attempt keeps the computer for this request while the person works.
     PgStore::computer_release(&s.db.db, &s.w, &job.reply)
         .await

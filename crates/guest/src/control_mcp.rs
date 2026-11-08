@@ -146,6 +146,7 @@ impl ServerHandler for ControlTools {
         _: RequestContext<RoleServer>,
     ) -> std::result::Result<CallToolResponse, ErrorData> {
         let arguments = json!(request.arguments.unwrap_or_default());
+        let wait = crate::computer_schema::seconds(&request.name, &arguments) + 3;
         let exchange = async {
             ensure!(
                 observed(&format!("{PREFIX}{}", request.name), &arguments),
@@ -176,7 +177,8 @@ impl ServerHandler for ControlTools {
             );
             Ok::<_, anyhow::Error>(value["result"].clone())
         };
-        let value = match tokio::time::timeout(std::time::Duration::from_secs(48), exchange).await {
+        let value = match tokio::time::timeout(std::time::Duration::from_secs(wait), exchange).await
+        {
             Ok(Ok(value)) => value,
             _ => {
                 json!({"state":"unavailable","message":"Operation denied or unavailable. Inspect saved actions before retrying."})

@@ -20,6 +20,8 @@ pub struct ComputerPolicy {
     pub programs: String,
     pub browser: String,
     pub submit: String,
+    /// How many of the workspace's computers may be awake at once; 0 is no limit.
+    pub max_awake: u32,
 }
 impl Default for ComputerPolicy {
     fn default() -> Self {
@@ -34,6 +36,7 @@ impl Default for ComputerPolicy {
             programs: "allow".into(),
             browser: "allow".into(),
             submit: "allow".into(),
+            max_awake: 0,
         }
     }
 }
@@ -72,6 +75,10 @@ impl ComputerPolicy {
         ensure!(
             self.websites.len() <= 100 && self.websites.iter().all(|w| host(w)),
             "List up to 100 websites as host names, such as portal.example.in or *.example.in"
+        );
+        ensure!(
+            self.max_awake <= 1000,
+            "Allow at most 1,000 computers awake at once"
         );
         for rule in [&self.programs, &self.browser, &self.submit] {
             ensure!(

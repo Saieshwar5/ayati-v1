@@ -32,6 +32,57 @@ pub(crate) struct Write {
     pub content: String,
 }
 
+/// "Used its computer: 3 commands and 4 steps in the browser", linking to the steps in
+/// Activity, under a reply that used the computer (designs/agent-computers 10). Made by
+/// Cuckoo from its records, not by the model.
+pub(super) async fn used_line(db: &impl ConnectionTrait, job: &Job) -> Result<String> {
+    if !super::model_budgets::present(db, "relay_computer_steps").await? {
+        return Ok(String::new());
+    }
+    let row = query(
+        db,
+        "SELECT count(*) FILTER (WHERE kind='command')::bigint AS commands,
+          count(*) FILTER (WHERE kind='browser')::bigint AS pages,
+          count(*) FILTER (WHERE kind IN ('list','read','write'))::bigint AS files
+        FROM relay_computer_steps WHERE workspace=$1 AND reply=$2 AND state<>'pending'",
+        vec![job.workspace.clone().into(), job.reply.clone().into()],
+    )
+    .await?
+    .context("Steps unavailable")?;
+    let count = |name: &str| row.try_get::<i64>("", name);
+    let mut parts = vec![];
+    for (n, one, many) in [
+        (count("commands")?, "1 command", "commands"),
+        (
+            count("pages")?,
+            "1 step in the browser",
+            "steps in the browser",
+        ),
+        (count("files")?, "1 file step", "file steps"),
+    ] {
+        if n == 1 {
+            parts.push(one.to_owned());
+        } else if n > 1 {
+            parts.push(format!("{n} {many}"));
+        }
+    }
+    if parts.is_empty() {
+        return Ok(String::new());
+    }
+    let listed = match parts.len() {
+        1 => parts[0].clone(),
+        _ => format!(
+            "{} and {}",
+            parts[..parts.len() - 1].join(", "),
+            parts[parts.len() - 1]
+        ),
+    };
+    Ok(format!(
+        "\n\nUsed its computer: {listed}. [See the steps](/w/{}/?view=activity&tab=history&run={})",
+        job.workspace, job.reply
+    ))
+}
+
 /// This request's own folder, relative to the agent's home.
 fn folder(job: &Job) -> String {
     format!("requests/{}", job.reply)
@@ -101,10 +152,13 @@ impl PgStore {
             Ok(ready) => ready,
             Err(refusal) => return Ok(refusal),
         };
-        let seconds = input
+        let asked = input
             .seconds
-            .unwrap_or(120)
+            .unwrap_or(60)
             .clamp(1, LONGEST_COMMAND.as_secs());
+        // A command never outlasts the request it runs for.
+        let left = self.request_seconds_left(job).await?;
+        let seconds = left.map_or(asked, |left| asked.min(left.saturating_sub(20).max(5)));
         let started = std::time::Instant::now();
         let cwd = format!("{HOME}/{}", folder(job));
         let ran = ready
@@ -160,10 +214,17 @@ impl PgStore {
             milliseconds,
         )
         .await?;
+        let mut stopped = Value::Null;
+        if ran.timed_out && seconds < asked {
+            stopped = json!(
+                "This request's time was nearly up, so the command was stopped early. Save work to files and continue in smaller steps."
+            );
+        }
         Ok(json!({
             "state": "completed",
             "exit_code": ran.exit_code,
             "timed_out": ran.timed_out,
+            "note": stopped,
             "stdout": clip(&ran.stdout, SHOWN_CHARS),
             "stderr": clip(&ran.stderr, 2_000),
             "folder": folder(job),
@@ -302,6 +363,20 @@ impl PgStore {
             ("command", command),
         )
         .await
+    }
+
+    /// Seconds before this request's attempt must end, when it runs on an executor.
+    async fn request_seconds_left(&self, job: &Job) -> Result<Option<u64>> {
+        let Some(claim) = &job.claim else {
+            return Ok(None);
+        };
+        let row = query(&self.db, "SELECT (a.started_ms/1000 + j.run_seconds - extract(epoch FROM clock_timestamp())::bigint)::bigint AS left_seconds
+            FROM relay_worker_assignments a JOIN relay_chat_jobs j ON j.workspace=a.workspace AND j.reply=a.reply
+            WHERE a.id=$1 AND a.started_ms IS NOT NULL", vec![claim.clone().into()]).await?;
+        Ok(row
+            .map(|r| r.try_get::<i64>("", "left_seconds"))
+            .transpose()?
+            .map(|left| left.max(0) as u64))
     }
 
     pub(super) async fn computer_agent_name(&self, job: &Job) -> Result<String> {

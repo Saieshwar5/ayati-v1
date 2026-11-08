@@ -45,6 +45,8 @@ function QuestionReview({ path, close }: { path: string; close: () => void }) {
       {data.specification.description && <p className="question-description">{data.specification.description}</p>}
       {data.agent && data.key.startsWith('browser-hand-over-') && data.state === 'pending' && data.can_respond
         && <HandOver agent={data.agent} name={data.specification.title.split(' needs you')[0]} busy={mutation.busy} respond={respond} />}
+      {data.screenshot && data.state === 'pending' && <img className="question-screenshot" src={data.screenshot}
+        alt={`The page ${data.specification.title.split(' needs you')[0]} needs help with`} />}
       <QuestionContent key={`${path}:${data.revision}`} question={data} busy={mutation.busy} respond={respond} />
     </div>}
   </Dialog>;

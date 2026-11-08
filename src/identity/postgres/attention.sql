@@ -1,6 +1,8 @@
 WITH candidates AS (
  SELECT 'question'::text AS kind,q.id,q.reply,'pending'::text AS version,
-  q.created_ms AS at,left(q.specification->>'title',180) AS title,'pending'::text AS status
+  q.created_ms AS at,left(q.specification->>'title',180) AS title,
+  -- A browser hand-over is shown apart from other questions (designs/agent-computers 11).
+  CASE WHEN q.request_key LIKE 'browser-hand-over-%' THEN 'browser' ELSE 'pending' END AS status
  FROM relay_task_questions q JOIN relay_chat_jobs j ON j.workspace=q.workspace AND j.reply=q.reply
  WHERE q.workspace=$1 AND q.state='pending' AND j.state<>'finished' AND j.payload->>'requester'=$2
  UNION ALL

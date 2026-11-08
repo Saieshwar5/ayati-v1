@@ -13,14 +13,16 @@ const Codes = lazy(() => import('./codes').then(m => ({ default: m.CodesScreen }
 const Configuration = lazy(() => import('./configuration').then(m => ({ default: m.ConfigurationScreen })));
 const ChangeLog = lazy(() => import('./change-log').then(m => ({ default: m.ChangeLogScreen })));
 const Reports = lazy(() => import('./reports').then(m => ({ default: m.ReportsScreen })));
+const Computers = lazy(() => import('./computers').then(m => ({ default: m.ComputersScreen })));
 
-export type Section = 'overview' | 'workspaces' | 'providers' | 'routing' | 'spend' | 'codes' | 'config' | 'log' | 'reports';
+export type Section = 'overview' | 'workspaces' | 'providers' | 'routing' | 'spend' | 'computers' | 'codes' | 'config' | 'log' | 'reports';
 export type Go = (section: Section, params?: Record<string, string>) => void;
 
 const GROUPS: { name: string; items: [Section, string][] }[] = [
   { name: 'Monitor', items: [['overview', 'Overview'], ['spend', 'Spend'], ['reports', 'Problem reports']] },
   { name: 'Customers', items: [['workspaces', 'Workspaces'], ['codes', 'Invite codes']] },
   { name: 'Models', items: [['providers', 'Providers'], ['routing', 'Routing']] },
+  { name: 'Agents', items: [['computers', 'Computers']] },
   { name: 'Platform', items: [['config', 'Configuration'], ['log', 'Change log']] },
 ];
 const TITLES: Record<Section, [string, string]> = {
@@ -28,6 +30,7 @@ const TITLES: Record<Section, [string, string]> = {
   reports: ['Problem reports', 'Sent from Settings → Help in any workspace'], workspaces: ['Workspaces', 'Every company using Cuckoo'],
   codes: ['Invite codes', 'Each code creates one workspace'], providers: ['Providers', 'Model services Cuckoo calls, their keys and models'],
   routing: ['Routing', 'The model catalog’s routes, live: order, cost, margin and provider state'],
+  computers: ['Computers', 'Every agent’s computer, its provider and cost, and the switch that pauses them'],
   config: ['Configuration', 'Platform settings and where each comes from'], log: ['Change log', 'Every operator change, from the web or the CLI'],
 };
 
@@ -115,6 +118,7 @@ function Console({ session }: { session: Session }) {
           {section === 'providers' && <ProvidersScreen providers={providers} canStoreKeys={session.can_store_keys} selected={params.get('id')} go={go} />}
           {section === 'routing' && <Routing providers={providers.data} go={go} />}
           {section === 'spend' && <SpendScreen go={go} />}
+          {section === 'computers' && <Computers />}
           {section === 'codes' && <Codes />}
           {section === 'config' && <Configuration />}
           {section === 'log' && <ChangeLog />}

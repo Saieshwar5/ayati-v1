@@ -359,7 +359,19 @@ impl PgStore {
         } else {
             content
         };
-        execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{content}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
+        // In Cuckoo the reply also says what it did on its computer; messages sent
+        // elsewhere (email, WhatsApp) don't, since the link works only here.
+        let shown;
+        let in_chat = if allowed && state != "cancelled" {
+            shown = format!(
+                "{content}{}",
+                super::computer_tools::used_line(tx, job).await?
+            );
+            shown.as_str()
+        } else {
+            content
+        };
+        execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{in_chat}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         if allowed && state == "complete" {
             super::communications::outbox::complete(tx, job, content).await?;
             super::work_rooms::post_result(tx, job, content).await?;

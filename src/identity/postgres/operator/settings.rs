@@ -5,6 +5,7 @@ use super::*;
 
 pub(crate) const SIGNUP_PAUSED: &str = "signup.paused";
 pub(crate) const DAILY_CEILING: &str = "platform.daily_ceiling_usd";
+pub(crate) const COMPUTERS_PAUSED: &str = "computers.paused";
 
 struct Definition {
     key: &'static str,
@@ -18,6 +19,12 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         key: SIGNUP_PAUSED,
         about: "Stop new workspaces, even with an invite code. Existing workspaces keep working; operators can still create one.",
+        kind: "bool",
+        default: || json!(false),
+    },
+    Definition {
+        key: COMPUTERS_PAUSED,
+        about: "Stop agents' computers everywhere: none wakes or starts, and awake ones go to sleep within a minute. Files are kept.",
         kind: "bool",
         default: || json!(false),
     },

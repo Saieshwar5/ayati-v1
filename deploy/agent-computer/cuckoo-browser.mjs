@@ -198,6 +198,11 @@ async function once(cdp) {
       await settle(cdp, 10_000);
       return evaluate(cdp, READ);
     case 'screenshot': {
+      // A small JPEG for Cuckoo itself (a hand-over's picture), or a PNG file for the agent.
+      if (input.jpeg) {
+        const shot = await cdp.call('Page.captureScreenshot', { format: 'jpeg', quality: 60 });
+        return { jpeg: shot.data, url: await evaluate(cdp, 'location.href') };
+      }
       const shot = await cdp.call('Page.captureScreenshot', { format: 'png' });
       const bytes = Buffer.from(shot.data, 'base64');
       mkdirSync(dirname(String(input.path)), { recursive: true });

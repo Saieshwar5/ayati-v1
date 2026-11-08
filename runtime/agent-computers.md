@@ -1,4 +1,4 @@
-# Agent computers (schemas 103–105)
+# Agent computers (schemas 103–106)
 
 An agent can have its own Linux computer for work with files and programs: reading a
 PDF or spreadsheet, converting a file, working through data or running a script. It
@@ -48,7 +48,7 @@ First slice (server and screens) built 2026-11-08.
 1. **Release.** Deploy the controller and the executors from the same release. The
    computer and browser tools agents see come from the guest in the executor image;
    the controller does the work.
-2. **Schema.** Run `ayati workspace-db migrate`. The controller needs schema 105.
+2. **Schema.** Run `ayati workspace-db migrate`. The controller needs schema 106.
 3. **Images.** Build one E2B template per size from
    [deploy/agent-computer/Dockerfile](../deploy/agent-computer/Dockerfile), with an E2B
    key in `E2B_API_KEY`:
@@ -119,14 +119,37 @@ only be stricter: wherever the computer is used, Cuckoo applies the stricter of 
   keeps only its websites inside it, so `books.zoho.in` stays under `*.zoho.in`);
   `none` cuts every computer off.
 - The loosest **programs**, **browsing** and **pressing buttons** rules.
+- **Computers awake at once** (`max_awake`, 0 for no limit): when that many are
+  working, other agents' computers wait in line to wake.
 
-Changes are audited and apply from each computer's next use.
+Changes are audited and apply from each computer's next use. Admins also see each agent's computer:
+its size, state, requests waiting, and this month's working time and charge.
+
+## Operating computers
+
+**Cuckoo Control → Computers** (operators only, `GET /api/identity/admin/computers`):
+computers awake now, working time, charge, cost and margin this month, each provider
+with its computers and problems, the sizes and their routes from the providers file,
+and every computer with its workspace, state, provider id and this month's cost.
+
+**Pause all computers** sets the platform setting `computers.paused` (with a reason,
+in the change log; also `ayati admin setting set computers.paused true --reason "…"`).
+While paused, no computer wakes or starts, the sweep puts awake ones to sleep within
+a minute even while held, and agents are told computers are paused. Files are kept.
 
 ## Rules Cuckoo enforces
 
 - **One computer per agent, shared by everyone who uses the agent.** One request
   holds it at a time; a hold lapses three minutes after its last use, and ends when
-  the request finishes. Another request is told the computer is busy.
+  the request finishes. Other requests wait in line, oldest first (schema 106): a
+  tool call waits up to 30 seconds for its turn, then the agent is told its place
+  and keeps it while it asks again within two minutes.
+- **Time.** A tool call for the computer may take a command's own `seconds` (default
+  60, at most 600) plus 30 seconds, and 90 seconds for browser and file work; the
+  executor's relay and the guest use the same limits. A command never runs past
+  the time its request has left (`AYATI_ASSIGNMENT_RUN_SECONDS`, 180 by default):
+  it is stopped 20 seconds before, and the agent is told to continue in smaller
+  steps. Raise that setting for agents that do long work.
 - **Programs:** `allow` (default), `ask` or `block`. With `ask`, each new command is
   put to the person who asked, as a yes/no question; only their yes to that exact
   command lets it run. With `block`, only the file tools work.
@@ -138,6 +161,10 @@ Changes are audited and apply from each computer's next use.
 - **Passwords and one-time codes** are never typed by the agent: the helper refuses
   password fields, and the agent hands the browser over instead. Typed text is not
   kept in steps.
+- **Hand-over picture:** when the agent hands over, Cuckoo keeps a JPEG of the page
+  (`relay_computer_shots`, deleted with the reply) and shows it in the question, so
+  the person sees what they are asked to do. Activity's Needs me lists hand-overs
+  under **In the browser**, with **Take over**.
 - **Hand-over:** while its question is open, the computer stays with that request for
   up to 15 minutes after the person's last input, even after the agent's attempt ends.
   Only the person who asked controls the browser, and only then; the agent sees nothing
@@ -183,6 +210,13 @@ it when the last one leaves. Watching never wakes a computer.
 | `relay_computers` | One row per agent: size, provider, image, the provider's id, `asleep`/`awake`/`deleting`, the internet rule applied, who holds it and until when, and the last problem. |
 | `relay_computer_sessions` | Each awake stretch: agent, request, person, size, seconds, charge and cost. |
 | `relay_computer_steps` | What the agent did for a request: each command with its exit code and output (up to 140,000 characters), and each file listed, read or saved. Deleted with the reply. |
+
+## What replies say
+
+A reply that used the computer ends with one line Cuckoo writes from its records,
+not the model: "Used its computer: 2 commands and 4 steps in the browser. See the
+steps", linking to the request in Activity. Messages sent outside Cuckoo (email,
+WhatsApp) don't get the line, since the link works only in Cuckoo.
 
 ## Where it shows
 
@@ -244,6 +278,10 @@ Screens (designs/agent-computers 1, 7 and 8):
   controls and website checks; the create flow on and off; Activity steps; Usage.
 - `cargo test the_real_e2b_runs_the_browser_helper -- --ignored`: the helper opening a
   page on E2B, then the live picture streamed and stopped through the Rust adapter.
+- PostgreSQL turn tests (`postgres::computer_turn_tests`): a second request told its
+  place, then getting the computer when the first finishes; the reply's computer
+  line; a command cut short before its request's time ends; the awake-at-once limit
+  and admins' per-agent view; operators' view and the pause switch.
 - PostgreSQL policy test (`postgres::computer_policy_tests`): members can't change the
   limits; a disallowed size refused; programs asked first; any website narrowed to the
   workspace's list on the computer's network; switched off; audited.
@@ -262,10 +300,10 @@ Screens (designs/agent-computers 1, 7 and 8):
 
 ## Not yet
 
-- Chat's one line ("Used its computer for 3 min") and a last screenshot in the
-  hand-over card; a phone-sized hand-over view.
+- A live "working on its computer" line with Watch and Stop in Chat while it works,
+  and a phone-sized hand-over view.
 - Money on websites asking a manager; "Keep signed in" choices per website.
-- Moving a computer to another size or provider with its files, Daytona and AWS,
-  the Cuckoo Control computers page and the own-computer connector.
-- Each agent's computer this month on Settings → Computers, and a limit on how many may
-  be awake at once.
+- Moving a computer to another size or provider with its files (needs disk copies in
+  object storage), Daytona (waiting on Daytona's account settings) and AWS, and the
+  own-computer connector.
+

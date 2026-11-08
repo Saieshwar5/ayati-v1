@@ -54,8 +54,27 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let policy = workspace_policy(&tx, w).await?;
+        // Admins also see each agent's computer and this month's use.
+        let computers = if admin && super::model_budgets::present(&tx, "relay_computers").await? {
+            json_rows(&tx, "WITH zone AS (SELECT COALESCE(to_jsonb(w)->>'timezone','UTC') AS z FROM relay_workspaces w WHERE w.id=$1),
+                  start AS (SELECT extract(epoch FROM (date_trunc('month', now() AT TIME ZONE z) AT TIME ZONE z))::bigint AS s FROM zone)
+                SELECT jsonb_build_object('agent',c.agent,'name',COALESCE(a.name,'Removed agent'),'size',c.size,'state',c.state,
+                  'in_use',c.held_by IS NOT NULL AND c.held_until>extract(epoch FROM now())::bigint,'last_used',c.last_used,
+                  'waiting',(SELECT count(*) FROM relay_computer_waits q WHERE q.workspace=c.workspace AND q.agent=c.agent),
+                  'seconds',COALESCE(m.seconds,0),'charge_usd',COALESCE(m.charge,0)/1e6) AS data
+                FROM relay_computers c CROSS JOIN start
+                LEFT JOIN relay_shared_agents a ON a.workspace=c.workspace AND a.id=c.agent
+                LEFT JOIN LATERAL (SELECT sum(CASE WHEN slept_at IS NULL THEN extract(epoch FROM now())::bigint-woke_at ELSE seconds END)::bigint AS seconds,
+                    sum(charge_micro)::bigint AS charge FROM relay_computer_sessions s
+                  WHERE s.workspace=c.workspace AND s.agent=c.agent AND s.woke_at>=start.s) m ON TRUE
+                WHERE c.workspace=$1 ORDER BY COALESCE(m.charge,0) DESC, c.agent LIMIT 200", vec![w.into()]).await?
+        } else {
+            vec![]
+        };
         tx.commit().await?;
-        Ok(json!({"policy": policy, "can_change": admin, "configured": self.computers.is_some()}))
+        Ok(
+            json!({"policy": policy, "can_change": admin, "configured": self.computers.is_some(), "computers": computers}),
+        )
     }
 
     pub(crate) async fn save_computer_policy(

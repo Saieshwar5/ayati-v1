@@ -222,6 +222,7 @@ impl PgStore {
             "The person couldn't do it in the browser. Tell them what you'll do instead.").await?;
         if let Some(waiting) = waiting {
             if waiting["state"] == "needs_confirmation" {
+                self.hand_over_picture(job, &key).await;
                 // The computer stays with this request while the person uses it.
                 let at = now();
                 execute(&self.db, "UPDATE relay_computers SET held_until=GREATEST(held_until,$4),last_used=$5 WHERE workspace=$1 AND agent=$2 AND held_by=$3",
@@ -232,6 +233,40 @@ impl PgStore {
         Ok(
             json!({"state": "completed", "message": "The person finished in the browser and gave it back. Read the page to continue."}),
         )
+    }
+
+    /// A picture of the page for the person asked to help; the hand-over works without it.
+    async fn hand_over_picture(&self, job: &Job, key: &str) {
+        let picture = async {
+            let ready = match self.computer_ready(job).await? {
+                Ok(ready) => ready,
+                Err(_) => return anyhow::Ok(()),
+            };
+            let ran = ready
+                .routed
+                .provider
+                .run(
+                    &ready.call(),
+                    &ready.awake,
+                    &format!("node {BROWSER_HELPER_PATH} screenshot '{{\"jpeg\":true}}'"),
+                    HOME,
+                    Duration::from_secs(30),
+                )
+                .await?;
+            let shot: Value = serde_json::from_str(ran.stdout.trim()).unwrap_or(Value::Null);
+            if let Some(data) = shot["jpeg"].as_str() {
+                use base64::Engine as _;
+                let image = base64::engine::general_purpose::STANDARD.decode(data)?;
+                if image.len() <= 600_000 {
+                    self.computer_shot(job, key, &image).await?;
+                }
+            }
+            anyhow::Ok(())
+        }
+        .await;
+        if let Err(error) = picture {
+            tracing::warn!("A hand-over's picture couldn't be taken: {error}");
+        }
     }
 
     /// The owner's browsing control: blocked, asked first per website, or allowed.

@@ -37,6 +37,7 @@ pub(in crate::identity) fn routes() -> Router<Shared> {
             post(remove_provider),
         )
         .route("/api/identity/admin/spend", get(spend))
+        .route("/api/identity/admin/computers", get(computers))
         .route(
             "/api/identity/admin/settings",
             get(settings).post(set_setting),
@@ -253,6 +254,12 @@ struct Days {
 fn thirty() -> i64 {
     30
 }
+/// Every agent computer, its provider and this month's cost (designs/agent-computers 6).
+async fn computers(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
+    operator(&app, &headers).await?;
+    Ok(Json(app.store.operator_computers().await?))
+}
+
 async fn spend(
     State(app): State<Shared>,
     headers: HeaderMap,
