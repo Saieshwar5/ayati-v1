@@ -23,6 +23,21 @@ were read from the environment and are not stored in the repository.
 | Browser closed properly (`Browser.close`), then restarted | Login cookie kept |
 | Overnight sleep | Started 11:14 UTC; result to be added on 2026-11-09 |
 
+### Cuckoo's image on E2B
+
+[deploy/agent-computer/Dockerfile](../deploy/agent-computer/Dockerfile) (Debian 12, Chromium,
+Noto fonts including Devanagari, Python with openpyxl, PDF tools, Node with `ws`), built as the
+E2B template `cuckoo-computer-dev` with 1 CPU and 2 GB by `e2b_template.py`. The template's
+start command sets `vm.overcommit_memory=1`, so every computer starts with it.
+
+| Check | Result |
+| --- | --- |
+| Build the template | 111 s |
+| Start a computer from it | 0.9 s; 2 GB memory; overcommit already set |
+| Browser ready (Chromium started, CDP answering) | 2.9 s, nothing to install |
+| CDP page, screenshot, screencast, a person's typing, page text | All work; about 26 KB a frame |
+| Chromium memory with 2 GB available | About 970 MB across its processes |
+
 ### Daytona: not usable for agent computers on this account yet
 
 | Check | Result |
@@ -75,6 +90,5 @@ were read from the environment and are not stored in the repository.
 ## Not yet checked
 
 - Overnight and multi-day sleep (overnight result due 2026-11-09).
-- Building a custom E2B template with the browser baked in, and its memory sizes.
 - Real costs per wake from E2B's billing, against the price assumptions.
 - AWS Lambda MicroVMs (later, as decided).

@@ -17,6 +17,7 @@ Keys come from the environment and are never printed or saved:
 | `e2b_basics.py` | Create, command, file, website allow list, sleep with memory, wake, file and running program kept |
 | `e2b_browser.py` | Chromium with CDP: page, screenshot, screencast, a person's click and typing, page text; sleep and wake on the same page; a properly closed browser keeps its cookies (uses `inside_cdp.mjs` inside the computer) |
 | `e2b_overnight.py` | `start` sleeps a computer with a file and a running counter; `check ID` a day later wakes it, reports and deletes it |
+| `e2b_template.py` | Builds Cuckoo's image ([deploy/agent-computer/Dockerfile](../../deploy/agent-computer/Dockerfile)) as an E2B template with 1 CPU and 2 GB (`--no-build` reuses it), then starts a computer from it and checks the browser, fonts, memory and CDP |
 | `daytona_basics.py` | The same lifecycle on Daytona: create, command, file, pause, stop and start, websites reachable |
 
 Run with the venv's Python in isolated mode, for example `.venv/bin/python -I e2b_basics.py`.
