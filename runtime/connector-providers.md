@@ -71,6 +71,10 @@ action is simply not offered.
 
 ## Admin journey
 
+> Since 2026-11-08 admins start from Apps → Add app and connect in one step
+> ([Apps page](apps-page.md#what-admins-do)); the sign-in page and its return below
+> are unchanged.
+
 Settings, Connections lists catalog apps beside operator MCP servers.
 
 1. **Approve system** makes the app available, as before.
