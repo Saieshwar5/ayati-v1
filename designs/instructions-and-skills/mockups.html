@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Instructions and skills mockups</title>
+<style>
+:root{--surface:#fff;--canvas:#f3f4f5;--text:#22252a;--muted:#697079;--border:#e5e7ea;--border-panel:#d1d6dd;--border-control:#aeb8c5;--soft:#f7f8f9;--selection:#eef0f2;--accent:#22252a;--on-accent:#fff;--danger:#a42f35;--warning:#945b10;--warning-bg:#fff3e2;--success:#26745c;--working:#6257cf;--link:#3d55c9;--pin:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{width:1820px;height:900px;display:flex;position:relative;overflow:hidden;background:#fff;margin-bottom:40px}
+.app{width:1440px;height:900px;background:var(--canvas);position:relative;flex:0 0 auto}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;vertical-align:middle}
+/* rail */
+.rail{position:absolute;left:0;top:0;bottom:0;width:88px;display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:8px}
+.rail .logo{width:36px;height:26px;margin-bottom:30px;object-fit:contain}
+.rail a{width:64px;height:54px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--muted);text-decoration:none}
+.rail a .i{width:20px;height:20px;color:#3a3f46}
+.rail a.on{background:var(--accent);color:#fff}.rail a.on .i{color:#fff}
+.rail .me{position:absolute;bottom:34px;width:34px;height:34px;border-radius:50%;background:#e3efe3;display:grid;place-items:center;font-size:12px;font-weight:600;color:#2f5b3a}
+/* frame */
+.frame{position:absolute;left:88px;top:12px;width:1340px;height:876px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.roster{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.roster-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roster-head h1{font-size:22px;margin:0;font-weight:650}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-control);background:#fff;font:inherit;font-size:13.5px;font-weight:550;color:var(--text);white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.quiet{border-color:transparent;background:transparent}
+.btn.small{min-height:30px;padding:0 10px;font-size:13px}
+.btn .i{width:16px;height:16px}
+.search{display:flex;align-items:center;gap:8px;height:40px;border-radius:10px;border:1px solid var(--border-control);padding:0 12px;color:var(--muted);font-size:14px;margin-bottom:14px}
+.agent-row{display:flex;gap:12px;padding:10px;border-radius:12px;align-items:flex-start;margin-bottom:2px}
+.agent-row.on{background:var(--selection)}
+.av{width:40px;height:40px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.av img{width:100%;height:100%;display:block}
+.agent-row b{display:block;font-weight:550;font-size:14.5px}
+.agent-row small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;margin-top:5px;background:var(--selection);color:var(--text)}
+.tag.warn{background:var(--warning-bg);color:var(--warning)}
+/* main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.create-head{display:flex;justify-content:space-between;align-items:center;padding:30px 32px 10px}
+.create-head h2{margin:0;font-size:26px;font-weight:650}
+.steps{display:flex;gap:28px;align-items:center;padding:8px 32px 18px;border-bottom:1px solid var(--border);font-size:14px;color:var(--muted)}
+.steps li{display:flex;align-items:center;gap:10px;list-style:none}
+.steps li span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:12px;font-weight:600}
+.steps li.cur{color:var(--text);font-weight:600}.steps li.cur span{background:var(--accent);color:#fff}
+.steps li.done span{background:var(--success);color:#fff}
+.steps .line{width:40px;height:1px;background:var(--border-panel)}
+.body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
+.foot{display:flex;align-items:center;gap:12px;padding:16px 32px 20px;border-top:1px solid var(--border)}
+.foot p{margin:0;color:var(--muted);font-size:13px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0;position:relative}
+.starters{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.starters > span{font-size:13px;margin-right:4px;white-space:nowrap}
+.chip{border:1px solid var(--border-panel);border-radius:999px;padding:6px 12px;font-size:13px;background:#fff;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.write-for-me{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#eef1fd;color:var(--link);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:550;white-space:nowrap}
+.write-for-me .i{width:15px;height:15px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.sec-head h3{margin:0;font-size:15px;font-weight:650;white-space:nowrap}
+.sec-head small{color:var(--muted);font-size:13px}
+.sec-head .right{margin-left:auto;white-space:nowrap}
+.box{border:1px solid var(--border-control);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.55;background:#fff;white-space:pre-wrap}
+.box.rich{white-space:normal;overflow:hidden}.box .h{font-weight:600;margin-top:7px}
+.meter{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px;margin-top:-4px}
+.skills{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.skill{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.tile{width:36px;height:36px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.skill b{font-weight:600;font-size:14px}
+.skill .when{display:block;font-size:13px;margin-top:1px}
+.skill small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.skill .acts{display:flex;gap:4px;align-items:center}
+.skill.suggest{border:1px dashed var(--border-panel);border-radius:10px;padding:10px 12px;margin:10px 0 2px;background:var(--soft)}
+.skill.suggest .tile{background:#eef1fd;color:var(--link)}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.row-actions{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row-actions .count{margin-left:auto;color:var(--muted);font-size:12.5px}
+/* side cards */
+.card{border:1px solid var(--border);border-radius:12px;padding:15px 17px;background:var(--soft);font-size:13px;line-height:1.55}
+.card h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h4 small{font-weight:500;font-size:11px;color:var(--muted);background:var(--selection);padding:2px 8px;border-radius:6px}
+.card ul{margin:0;padding-left:0;list-style:none}
+.card li{display:flex;gap:8px;margin:4px 0}
+.card li .i{width:15px;height:15px;color:var(--success);margin-top:2px}
+.card .link{color:var(--link);font-weight:550;display:inline-flex;gap:6px;align-items:center;margin-top:6px}
+.flow{display:grid;gap:8px}
+.flow .lane{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.flow .lane b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.flow .lane.when{border-style:dashed}
+.flow .arrow{text-align:center;color:var(--muted);font-size:12px;line-height:1}
+.muted{color:var(--muted)}
+/* pins */
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.25);z-index:20}
+/* notes */
+.notes{flex:1;padding:4px 26px 0 30px;background:#fff}
+.notes h2{font-size:19px;font-weight:600;margin:0 0 18px}
+.notes ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.notes li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13.5px;line-height:1.48;color:#33383e}
+.notes li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.notes .sub{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--muted)}
+.notes .sub b{color:var(--text)}
+/* drawer */
+.scrim{position:absolute;inset:0;background:rgb(34 37 42/.42);z-index:5}
+.drawer{position:absolute;right:12px;top:12px;bottom:12px;width:500px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.18)}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:22px 24px 6px}
+.drawer-head h3{margin:0;font-size:20px;font-weight:650;flex:1}
+.drawer-head .x{width:34px;height:34px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.drawer-body{flex:1;min-height:0;overflow:visible;padding:4px 24px 12px;display:flex;flex-direction:column;gap:14px;position:relative}
+.drawer-foot{display:flex;align-items:center;gap:10px;padding:14px 24px 18px;border-top:1px solid var(--border)}
+.field label,.field .lab{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:13.5px;margin-bottom:6px}
+.field .lab .right{margin-left:auto;font-weight:500}
+.input{border:1px solid var(--border-control);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.5;background:#fff}
+.input.area{white-space:pre-wrap;line-height:1.55}
+.help{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45;display:flex;gap:8px}
+.help .right{margin-left:auto;white-space:nowrap}
+.help code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);padding:1px 5px;border-radius:5px;color:var(--text)}
+.files{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.files li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.files li small{color:var(--muted);font-size:12px}
+.files li .acts{margin-left:auto;display:flex;gap:2px}
+.linkbtn{color:var(--link);font-weight:550;font-size:13px;padding:4px 6px;border-radius:6px;display:inline-flex;gap:5px;align-items:center}
+.linkbtn .i{width:15px;height:15px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+.check .box2{width:18px;height:18px;border:1.5px solid var(--border-control);border-radius:4px;margin-top:1px;flex:0 0 auto}
+.check small{display:block;color:var(--muted);font-size:12.5px}
+.notice{display:flex;gap:10px;background:var(--warning-bg);color:var(--warning);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5}
+.notice .i{width:17px;height:17px;margin-top:1px}
+.notice.info{background:#eef1fd;color:#2e3f8f}
+.notice.err{background:#fdeeee;color:var(--danger)}
+.meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hl{background:#fff7d6;border-radius:3px}
+/* agent page */
+.agent-head{display:flex;gap:16px;align-items:center;padding:28px 32px 6px}
+.agent-head .av{width:56px;height:56px;border-radius:14px}
+.agent-head h2{margin:0;font-size:24px;font-weight:650;display:flex;gap:10px;align-items:center}
+.agent-head small{color:var(--muted);font-size:14px}
+.pill{font-size:12px;font-weight:550;background:#e6f4ec;color:var(--success);padding:3px 9px;border-radius:6px}
+.tabs{display:flex;gap:30px;padding:12px 32px 0;border-bottom:1px solid var(--border);font-size:14.5px;color:#4b5058}
+.tabs span{padding-bottom:12px}.tabs .on{color:var(--text);font-weight:600;border-bottom:2px solid var(--accent)}
+/* states grid */
+.grid4{position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.state{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 24px;position:relative;display:flex;flex-direction:column;gap:12px}
+.state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+/* phone */
+.phones{position:absolute;left:271px;top:24px;display:flex;gap:70px}
+.phone{width:390px;height:844px;border-radius:44px;background:#1b1d21;padding:12px;box-shadow:0 10px 30px rgb(0 0 0/.18);position:relative}
+.phone-screen{width:100%;height:100%;border-radius:34px;background:var(--canvas);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status-bar{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600}
+.phone-frame{flex:1;margin:0 6px 6px;background:#fff;border-radius:14px;box-shadow:0 4px 12px rgb(23 33 43/10%);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.ph-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.ph-head h2{margin:0;font-size:20px;font-weight:650}
+.ph-steps{display:flex;gap:6px;align-items:center;padding:4px 16px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)}
+.ph-steps i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:11px;font-weight:600}
+.ph-steps i.done{background:var(--success);color:#fff}.ph-steps i.cur{background:var(--accent);color:#fff}
+.ph-body{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.ph-foot{display:flex;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--border)}
+.ph-foot .btn{flex:1;min-height:44px}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="warning" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13v1M15 13v1M2 14h2M20 14h2"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+</svg>
+<div id="root"></div>
+<script>
+const AV = n => `../../web/public/agent-avatars/robot-${n}.svg`;
+const I = (id, cls = '') => `<svg class="i ${cls}"><use href="#${id}"/></svg>`;
+const pin = (n, style) => `<span class="pin" style="${style}">${n}</span>`;
+
+function rail() {
+  const items = [['home','Home'],['chat','Chat'],['activity','Activity'],['bot','Agents'],['library','Library'],['sliders','Settings']];
+  return `<nav class="rail"><img class="logo" src="../../web/public/brand/cuckoo-symbol.svg" alt="">
+    ${items.map(([icon, label]) => `<a class="${label === 'Agents' ? 'on' : ''}">${I(icon)}${label}</a>`).join('')}
+    <span class="me">RK</span></nav>`;
+}
+
+function roster(selected) {
+  const rows = [
+    ['new', '07', 'New agent', 'Not created yet', ''],
+    ['atlas', '01', 'Atlas', 'Orders assistant', '<span class="tag warn">1 waiting for approval</span>'],
+    ['ledger', '05', 'Ledger', 'Accounts helper', ''],
+    ['nova', '09', 'Nova', 'Sales follow-up', ''],
+    ['scout', '13', 'Scout', 'Stock checker', '<span class="tag">Paused</span>'],
+  ].filter(row => selected === 'new' || row[0] !== 'new');
+  return `<aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div>
+    <div class="search">${I('search')}Search agents</div>
+    ${rows.map(([id, av, name, sub, tag]) => `<div class="agent-row ${id === selected ? 'on' : ''}"><span class="av"><img src="${AV(av)}" alt=""></span>
+      <span><b>${name}</b><small>${sub}</small>${tag}</span></div>`).join('')}</aside>`;
+}
+
+const stepsBar = () => `<ol class="steps" style="margin:0">
+  <li class="done"><span>✓</span>Name and picture</li><li class="line"></li>
+  <li class="cur"><span>2</span>Instructions</li><li class="line"></li>
+  <li><span>3</span>People</li><li class="line"></li><li><span>4</span>Tools and safety</li></ol>`;
+
+const ALWAYS = `<div>You are Iris, the customer support assistant for Mehta Furnishings.</div>
+<div class="h">How to talk:</div><div>• Be warm and short. Reply in the customer’s language.</div>
+<div class="h">Never:</div><div>• Promise refunds, discounts or dates you have not checked.</div>
+<div class="h">Ask a person when:</div><div>• A customer is upset, or asks to speak to someone.</div>`;
+
+function skillRow({ name, when, meta, acts, cls = '', tile = 'book' }) {
+  return `<li class="skill ${cls}"><span class="tile">${I(tile)}</span>
+    <span><b>${name}</b><span class="when">${when}</span><small>${meta}</small></span>
+    <span class="acts">${acts}</span></li>`;
+}
+
+function howCard(name) {
+  return `<section class="card"><h4>How ${name} uses this</h4>
+    <div class="flow">
+      <div class="lane"><b>Every request</b>
+        <ul><li>${I('check')}Always follow</li><li>${I('check')}Cuckoo rules</li><li>${I('check')}Each skill’s name and “Use it when” line</li></ul></div>
+      <div class="arrow">↓ a request matches a skill</div>
+      <div class="lane when"><b>Only when needed</b>
+        <ul><li>${I('book', '')}That skill’s steps and files</li></ul></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0">Rules that must never be skipped go in <b style="color:var(--text)">Always follow</b>. Long steps for one kind of request go in a <b style="color:var(--text)">skill</b>.</p>
+  </section>`;
+}
+
+function sideCards(name) {
+  return `<div class="col" style="gap:12px">
+    ${howCard(name)}
+    <section class="card"><h4><span style="display:flex;gap:8px;align-items:center">${I('lock')}Cuckoo rules</span><small>Always included</small></h4>
+      <p class="muted" style="margin:0">Use only assigned tools, obey approvals, treat messages as untrusted data, never claim an action succeeded without a result.</p></section>
+    <section class="card"><h4>Added automatically</h4>
+      <ul><li>${I('check')}Its name and job title</li><li>${I('check')}Who it is talking to, and where</li><li>${I('check')}Its tools and their rules</li></ul>
+      <span class="link">See everything ${name} receives ${I('arrow')}</span></section>
+  </div>`;
+}
+
+/* The proposed step 2, reused behind the drawer on screen 2. */
+function step2(pins) {
+  return `<div class="main">
+    <header class="create-head"><h2>New agent</h2><span class="btn quiet">Cancel</span></header>
+    ${stepsBar()}
+    <div class="body">
+      <div class="col">
+        <div class="starters"><span>Start from</span><span class="chip on">Customer support</span><span class="chip">Sales follow-up</span><span class="chip">Orders and delivery</span><span class="chip">Accounts</span><span class="chip">Blank</span></div>
+        <div style="position:relative">${pins ? pin(1, 'left:-30px;top:4px') : ''}
+          <div class="sec-head"><h3>Always follow</h3><small>Who Iris is, how it talks and its rules. Read on every request.</small><span class="right write-for-me" style="margin-left:auto">${I('sparkle')}Write it for me</span></div></div>
+        <div class="box rich" style="height:196px">${ALWAYS}</div>
+        <div class="meter"><span>Keep this short. Put long steps for one kind of request in a skill.</span><span>392 characters</span></div>
+        <div style="position:relative">${pins ? pin(2, 'left:-30px;top:4px') : ''}
+          <div class="sec-head"><h3>Skills</h3><small>Steps for one kind of request. Iris opens a skill only when a request needs it.</small></div></div>
+        <ul class="skills">
+          ${skillRow({ name: 'Refund check', when: 'Use it when a customer asks for a refund, a return or their money back.', meta: 'Written by you · 6 steps · 1 file',
+            acts: `<span class="btn small">${I('pencil')}Edit</span><span class="icon-btn">${I('more')}</span>` })}
+          ${skillRow({ name: 'Complaint reply', when: 'Use it when a customer is unhappy or writes a complaint.', meta: 'Workspace skill · Priya Shah · version 2',
+            acts: `<span class="btn small">View</span><span class="icon-btn">${I('more')}</span>` })}
+        </ul>
+        <div style="position:relative">${pins ? pin(4, 'left:-30px;top:20px') : ''}
+        <ul class="skills" style="border:0">
+          ${skillRow({ name: 'Delivery date question', cls: 'suggest', tile: 'sparkle', when: 'Use it when a customer asks when an order will arrive.', meta: 'Suggested by the Customer support starter · not added yet',
+            acts: `<span class="btn small">${I('plus')}Add</span><span class="icon-btn">${I('x')}</span>` })}
+        </ul></div>
+        <div class="row-actions" style="position:relative">${pins ? pin(3, 'left:-30px;top:7px') : ''}
+          <span class="btn">${I('pencil')}Write a skill</span><span class="btn">${I('library')}Add from library</span><span class="count">2 of 20 skills</span></div>
+      </div>
+      <div style="position:relative">${pins ? pin(5, 'left:-12px;top:16px') : ''}${sideCards('Iris')}</div>
+    </div>
+    <footer class="foot"><span class="btn">Back</span><span class="btn primary">${I('arrow')}Continue</span><p>Instructions and skills can be changed at any time.</p></footer>
+  </div>`;
+}
+
+function notes(title, items, sub = '') {
+  return `<aside class="notes"><h2>${title}</h2><ol>${items.map((text, index) => `<li><i>${index + 1}</i><span>${text}</span></li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}</aside>`;
+}
+
+function screen(id, app, side, withRail = true) {
+  return `<section class="screen" id="${id}"><div class="app">${withRail ? rail() : ''}${app}</div>${side}</section>`;
+}
+
+/* ---------- Screen 1: create step 2 ---------- */
+const s1 = screen('s1', `<div class="frame">${roster('new')}${step2(true)}</div>`, notes('Create · 2 Instructions (proposed)', [
+  '<b>Always follow</b> is today’s instructions box with a clearer job: who the agent is, how it talks, hard rules and when to ask a person. It is read on every request, so rules stay guaranteed.',
+  '<b>Skills</b> sit in the same step as equals, not as chips under the box. Each row shows the name and its “Use it when” line, the only part read on every request.',
+  '<b>Write a skill</b> is the main way to add one: a short form, no file. <b>Add from library</b> reuses existing skills; importing a .zip moves inside it.',
+  'Starters fill Always follow <em>and</em> suggest skills. A suggestion is added only with Add, and × dismisses it.',
+  '“How Iris uses this” explains the difference in one card, so people know what goes where. See everything Iris receives now lists the skills too.',
+], '<b>Changed from today:</b> “Instructions” box → Always follow; Skills chip strip → a list with Edit and View; Upload a skill → Import, inside Add from library. Continue still needs Always follow (a starter fills it).'));
+
+/* ---------- Screen 2: write a skill ---------- */
+const STEPS = `1. Find the order in Zoho Books, or ask for the order number.
+2. Returns are accepted within 7 days of delivery.
+3. Check <span class="mono">refund-policy.md</span> for items that can’t be returned.
+4. Over ₹5,000: promise nothing and hand over to Meera.
+5. Otherwise say the refund takes 5–7 working days.
+6. Never say a refund is done: Accounts approves it.`;
+
+const writeDrawer = `<div class="scrim"></div><div class="drawer">
+  ${pin(1, 'left:-11px;top:14px')}
+  <div class="drawer-head"><h3>Write a skill</h3><span class="x">${I('x')}</span></div>
+  <div class="drawer-body">
+    <p class="muted" style="margin:0;font-size:13.5px">Steps Iris follows for one kind of request, opened only when needed.</p>
+    <div class="field" style="position:relative">${pin(2, 'left:-35px;top:0')}
+      <label>Name</label><div class="input">Refund check</div>
+      <div class="help"><span>${I('check', '')} Free. Saved as <code>refund-check</code>. Agents find a skill by this name, so it can’t change later.</span></div></div>
+    <div class="field"><label>Use it when</label><div class="input">A customer asks for a refund, a return or their money back.</div>
+      <div class="help"><span>Iris reads this line on every request to decide whether to open the skill.</span><span class="right">58 / 1,024</span></div></div>
+    <div class="field" style="position:relative">${pin(3, 'left:-35px;top:0')}
+      <div class="lab">Steps<span class="right linkbtn">${I('sparkle')}Write it for me</span></div>
+      <div class="input area" style="height:158px;font-size:13.5px">${STEPS}</div>
+      <div class="help"><span>Plain words or Markdown, up to 500 lines.</span></div></div>
+    <div class="field" style="position:relative">${pin(4, 'left:-35px;top:0')}
+      <div class="lab">Files Iris can read <small class="muted" style="font-weight:400">optional</small></div>
+      <ul class="files"><li>${I('file')}refund-policy.md <small>1.2 KB</small><span class="acts"><span class="linkbtn">Edit</span><span class="linkbtn">Remove</span></span></li></ul>
+      <div style="display:flex;gap:6px;margin-top:6px"><span class="linkbtn">${I('plus')}New file</span><span class="linkbtn">${I('upload')}Upload a file</span></div></div>
+    <label class="check"><span class="box2"></span><span>Share with the workspace<small>Any agent can use it. Admins only.</small></span></label>
+  </div>
+  <div class="drawer-foot" style="position:relative">${pin(5, 'left:14px;top:-12px')}${pin(6, 'right:150px;top:-12px')}
+    <span class="linkbtn" style="margin-right:auto">${I('upload')}Import a skill file</span>
+    <span class="btn">Cancel</span><span class="btn primary">Save and add to Iris</span></div>
+</div>`;
+
+const s2 = screen('s2', `<div class="frame">${roster('new')}${step2(false)}${writeDrawer}</div>`, notes('Write a skill', [
+  'Opens from <b>Write a skill</b> in step 2 and on the Instructions tab, in the same panel as Add skills. The instructions stay visible behind it.',
+  'Plain fields replace SKILL.md. People type a normal name; Cuckoo shows the saved name, <code class="mono">refund-check</code>, and checks it is free while they type.',
+  '“Use it when” is the line that decides when the skill is used, so it gets its own field and hint. <b>Write it for me</b> drafts the steps from one sentence (optional, uses the workspace model).',
+  'Files the steps can point to, such as a policy or a price list: written here or uploaded as text. Scripts stay text only.',
+  '<b>Import a skill file</b> keeps today’s upload (.zip, folder or pasted SKILL.md) for people who already have one.',
+  '<b>Save and add</b> saves it to Yours right away, so the writing is never lost, and adds it to Iris when Iris is created. A failed save keeps every field.',
+], '<b>Behind the scenes</b> Cuckoo writes a standard SKILL.md (name, description, steps) plus the files, so Download .zip still works in Claude, Goose and other tools. Nobody sees the file format unless they import or download.'));
+
+/* ---------- Screen 3: edit on the Instructions tab ---------- */
+const QUOTE = `1. Read <span class="mono">price-list-2026.csv</span> for each item asked about.
+2. Add delivery: ₹800 within the city, ₹1,500 outside it.
+3. Add 18% GST and show it on its own line.
+<span class="hl">4. Quotes are valid for 15 days. Say so in the reply.</span>
+5. A discount above 5% needs a person: hand over to Arjun.`;
+
+const atlasPage = `<div class="main">
+  <header class="agent-head"><span class="av"><img src="${AV('01')}" alt=""></span>
+    <div><h2>Atlas <span class="pill">Available</span></h2><small>Orders assistant · owned by Ravi Kumar</small></div>
+    <span style="margin-left:auto" class="btn primary">${I('chat')}Open in Chat</span></header>
+  <nav class="tabs"><span>Overview</span><span>Activity</span><span class="on">Instructions</span><span>Tools</span><span>Schedules</span><span>Environment</span></nav>
+  <div class="body" style="padding-top:18px">
+    <div class="col">
+      <div class="sec-head"><h3>Always follow</h3><small>Last changed by Ravi Kumar, 2 days ago</small></div>
+      <div class="box" style="height:150px">You are Atlas, the orders assistant for Mehta Furnishings.
+
+<b>Never:</b> cancel an order or change a price.
+<b>Ask a person when:</b> a delivery is more than 2 days late.</div>
+      <div class="row-actions"><span class="btn" style="opacity:.55">Save changes</span><span class="linkbtn" style="color:var(--text)">${I('history')}History</span></div>
+      <div class="sec-head"><h3>Skills</h3><span class="right"><span class="btn small">${I('pencil')}Write a skill</span> <span class="btn small">${I('library')}Add from library</span></span></div>
+      <ul class="skills">
+        ${skillRow({ name: 'Quote builder', when: 'Use it when a customer asks for a price or a quote.', meta: 'Workspace skill · version 3 · used 12 times this week', acts: `<span class="btn small">${I('pencil')}Edit</span><span class="icon-btn">${I('more')}</span>` })}
+        ${skillRow({ name: 'Delivery update', when: 'Use it when a delivery date changes.', meta: 'Written by Ravi Kumar · version 1', acts: `<span class="btn small">${I('pencil')}Edit</span><span class="icon-btn">${I('more')}</span>` })}
+      </ul>
+    </div>
+    ${sideCards('Atlas')}
+  </div></div>`;
+
+const editDrawer = `<div class="scrim"></div><div class="drawer">
+  <div class="drawer-head"><h3>Quote builder <small class="mono" style="font-weight:400;margin-left:6px">quote-builder</small></h3><span class="x">${I('x')}</span></div>
+  <div class="drawer-body">
+    <div class="meta" style="position:relative">${pin(1, 'left:-35px;top:-2px')}Workspace skill · version 3 · Arjun Mehta, 4 days ago
+      <span class="linkbtn">${I('history')}History</span></div>
+    <div class="notice" style="position:relative">${pin(2, 'left:-35px;top:8px')}${I('info')}<span><b>Used by 3 agents:</b> Atlas, Nova and Iris. Saving changes it for all of them. Requests already running keep version 3.</span></div>
+    <div class="field"><label>Use it when</label><div class="input">A customer asks for a price or a quote.</div></div>
+    <div class="field" style="position:relative">${pin(3, 'left:-35px;top:0')}<div class="lab">Steps<span class="right muted" style="font-size:12.5px">1 line changed</span></div>
+      <div class="input area" style="height:150px;font-size:13.5px">${QUOTE}</div></div>
+    <div class="field" style="position:relative">${pin(4, 'left:-35px;top:0')}<div class="lab">Files Atlas can read</div>
+      <ul class="files">
+        <li>${I('file')}price-list-2026.csv <small>18.4 KB</small><span class="acts"><span class="linkbtn">Edit</span><span class="linkbtn">Replace</span><span class="linkbtn">Remove</span></span></li>
+        <li>${I('file')}delivery-zones.md <small>2.1 KB</small><span class="acts"><span class="linkbtn">Edit</span><span class="linkbtn">Replace</span><span class="linkbtn">Remove</span></span></li></ul>
+      <div style="display:flex;gap:6px;margin-top:6px"><span class="linkbtn">${I('plus')}New file</span><span class="linkbtn">${I('upload')}Upload a file</span></div></div>
+  </div>
+  <div class="drawer-foot" style="position:relative">${pin(5, 'right:150px;top:-12px')}
+    <span class="muted" style="margin-right:auto;font-size:13px">Unsaved changes</span>
+    <span class="btn">Cancel</span><span class="btn primary">Save as version 4</span></div>
+</div>`;
+
+const s3 = screen('s3', `<div class="frame">${roster('atlas')}${atlasPage}${editDrawer}</div>`, notes('Agent · Instructions · Edit a skill', [
+  'Every skill row has <b>Edit</b> for people allowed to change it: the owner of a personal skill, or an admin for a workspace skill. Edit opens the same form as Write a skill, filled in. The name stays fixed.',
+  'Before saving, it says who the change affects: every agent that uses the skill. Requests already running keep the version they started with (as today).',
+  'Changed lines are counted, so a quick review is possible before saving.',
+  'Files are edited in place, replaced or removed. Each save stores the whole skill as one new version.',
+  '<b>Save as version 4</b> creates the next version. History lists every version with who changed it; older versions stay readable. If someone else saved first, Cuckoo asks to reload instead of overwriting.',
+], '<b>Same tab, same words as create:</b> Always follow, then Skills, then What Atlas knows (unchanged, below the fold).'));
+
+/* ---------- Screen 4: states ---------- */
+const s4 = screen('s4', `<div class="grid4">
+  <div class="state">${pin(1, 'left:-9px;top:-9px')}<span class="state-title">A member opens a workspace skill</span>
+    <div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0;font-size:19px;flex:1">Complaint reply</h3><span class="x" style="width:32px;height:32px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)">${I('x')}</span></div>
+    <div class="meta"><span class="mono">complaint-reply</span>· Workspace skill · Priya Shah · version 2</div>
+    <div class="notice info">${I('lock')}<span>Only admins change workspace skills. Make your own copy to change it for your agents.</span></div>
+    <div><b style="font-size:13px">Use it when</b><p style="margin:4px 0 0;font-size:13.5px">A customer is unhappy or writes a complaint.</p></div>
+    <div class="input area" style="font-size:13px;background:var(--soft);border-color:var(--border)">1. Thank them and say sorry once, without blaming anyone.
+2. Repeat back what went wrong in one line.
+3. Say what happens next and by when.</div>
+    <div style="display:flex;gap:10px;margin-top:auto"><span class="btn primary">${I('copy')}Make my own copy</span><span class="btn">${I('download')}Download .zip</span></div>
+  </div>
+  <div class="state">${pin(2, 'left:-9px;top:-9px')}<span class="state-title">Make my own copy</span>
+    <h3 style="margin:0;font-size:19px">Copy Complaint reply</h3>
+    <div class="field"><label>Name of your copy</label><div class="input">Complaint reply for Iris</div>
+      <div class="help"><span>${I('check')} Free. Saved as <code>complaint-reply-for-iris</code>.</span></div></div>
+    <label class="check"><span class="box2" style="background:var(--accent);border-color:var(--accent);display:grid;place-items:center;color:#fff">${I('check')}</span><span>Use my copy on Iris instead<small>Removes the workspace skill from Iris and adds your copy.</small></span></label>
+    <div class="notice">${I('warning')}<span>Your copy won’t get Priya’s future changes.</span></div>
+    <div style="display:flex;gap:10px;margin-top:auto;justify-content:flex-end"><span class="btn">Cancel</span><span class="btn primary">Make copy</span></div>
+  </div>
+  <div class="state">${pin(3, 'left:-9px;top:-9px')}<span class="state-title">Name already used · failed save</span>
+    <div class="field"><label>Name</label><div class="input" style="border-color:var(--danger)">Quote builder</div>
+      <div class="help" style="color:var(--danger)"><span>${I('warning')} A skill called <code>quote-builder</code> already exists in this workspace.</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><span class="btn small">${I('plus')}Add that skill instead</span><span class="btn small quiet">Choose another name</span></div></div>
+    <div class="field"><label>Use it when</label><div class="input">A customer asks for a price for a custom sofa.</div></div>
+    <div style="margin-top:auto;border-top:1px solid var(--border);padding-top:12px">
+      <div class="notice err" style="margin-bottom:10px">${I('warning')}<span>Couldn’t save the skill: the connection dropped. Everything you wrote is kept.</span></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><span class="btn">Cancel</span><span class="btn primary">Try again</span></div></div>
+  </div>
+  <div class="state">${pin(4, 'left:-9px;top:-9px')}<span class="state-title">Long steps in Always follow</span>
+    <div class="sec-head" style="margin:0"><h3>Always follow</h3><small>2,940 characters</small></div>
+    <div class="box" style="font-size:13px;height:178px;overflow:hidden">You are Iris, the customer support assistant for Mehta Furnishings.
+<b>Never:</b> promise refunds you have not checked.
+<span class="hl"><b>How to handle a refund:</b>
+1. Find the order in Zoho Books. 2. Check the delivery date; returns are accepted within 7 days.
+3. Check which items can’t be returned. 4. Over ₹5,000, hand over to Meera.
+5. Explain that the refund takes 5–7 working days…</span></div>
+    <div class="notice info" style="align-items:center">${I('sparkle')}<span style="flex:1">“How to handle a refund” reads like steps for one kind of request. A skill keeps Always follow short.</span>
+      <span class="btn small" style="background:#fff">Move to a skill</span><span class="btn small quiet">Keep here</span></div>
+  </div>
+</div>`, notes('States', [
+  'A workspace skill opened by a member is read-only, with the reason in plain text. <b>Make my own copy</b> is the way to change it for their own agents; Download .zip stays.',
+  'A copy needs a new name (names are unique). It can replace the workspace skill on the current agent in the same step, and says it won’t follow the original.',
+  'The name is checked while typing; a taken name offers the existing skill instead. A failed save keeps every field and offers Try again; retries reuse the same key, so they never make two skills.',
+  'When Always follow grows a step-by-step section, Cuckoo offers <b>Move to a skill</b>: Write a skill opens with that section in Steps and a suggested name and “Use it when”. The text leaves the box only after Save. (Later phase.)',
+]));
+
+/* ---------- Screen 5: phone ---------- */
+const s5 = screen('s5', `<div class="phones">
+  <div class="phone">${pin(1, 'left:-12px;top:120px')}<div class="phone-screen"><div class="status-bar"><span>9:41</span><span>●●● ▮</span></div>
+    <div class="phone-frame">
+      <div class="ph-head"><h2>New agent</h2><span class="btn quiet small">Cancel</span></div>
+      <div class="ph-steps"><i class="done">✓</i><i class="cur">2</i><b style="color:var(--text)">Instructions</b><span style="margin-left:auto">2 of 4</span></div>
+      <div class="ph-body">
+        <div style="display:flex;gap:6px;overflow:hidden"><span class="chip on">Customer support</span><span class="chip">Sales follow-up</span><span class="chip">Orders</span></div>
+        <div><b style="font-size:14.5px">Always follow</b><div class="muted" style="font-size:12.5px;margin-top:2px">Read on every request.</div></div>
+        <div class="box rich" style="font-size:13px;height:178px;padding:10px 12px">${ALWAYS}</div>
+        <div><b style="font-size:14.5px">Skills</b><div class="muted" style="font-size:12.5px;margin-top:2px">Opened only when a request needs one.</div></div>
+        <ul class="skills">
+          ${skillRow({ name: 'Refund check', when: 'Use it when a customer asks for a refund…', meta: 'Written by you', acts: `<span class="icon-btn">${I('more')}</span>` })}
+          ${skillRow({ name: 'Complaint reply', when: 'Use it when a customer is unhappy…', meta: 'Workspace skill', acts: `<span class="icon-btn">${I('more')}</span>` })}
+        </ul>
+        <div style="display:flex;gap:8px"><span class="btn" style="flex:1;min-height:44px">${I('pencil')}Write a skill</span><span class="btn" style="flex:1;min-height:44px">${I('library')}Library</span></div>
+      </div>
+      <div class="ph-foot"><span class="btn">Back</span><span class="btn primary">Continue</span></div>
+    </div></div></div>
+  <div class="phone">${pin(2, 'left:-12px;top:120px')}<div class="phone-screen"><div class="status-bar"><span>9:41</span><span>●●● ▮</span></div>
+    <div class="phone-frame">
+      <div class="ph-head"><span style="display:flex;gap:8px;align-items:center"><span class="icon-btn" style="color:var(--text)">${I('back')}</span><h2 style="font-size:18px">Write a skill</h2></span></div>
+      <div class="ph-body" style="gap:12px">
+        <div class="field"><label>Name</label><div class="input">Refund check</div><div class="help"><span>Saved as <code>refund-check</code></span></div></div>
+        <div class="field"><label>Use it when</label><div class="input area" style="font-size:13.5px">A customer asks for a refund, a return or their money back.</div></div>
+        <div class="field"><div class="lab">Steps<span class="right linkbtn">${I('sparkle')}Write it for me</span></div>
+          <div class="input area" style="font-size:13px;height:200px;overflow:hidden">1. Find the order in Zoho Books. If you can’t, ask for the order number.
+2. Check the delivery date. Returns are accepted within 7 days of delivery.
+3. Check refund-policy.md for items that can’t be returned.
+4. If the refund is over ₹5,000, promise nothing: hand over to Meera.</div></div>
+        <div class="field"><div class="lab">Files <small class="muted" style="font-weight:400">optional</small></div>
+          <ul class="files"><li>${I('file')}refund-policy.md <small>1.2 KB</small></li></ul></div>
+      </div>
+      <div class="ph-foot"><span class="btn">Cancel</span><span class="btn primary">Save and add</span></div>
+    </div></div></div>
+</div>`, notes('Phone', [
+  'Step 2 stacks: starters scroll sideways, then Always follow, then Skills with full-width buttons (44 px touch targets). The “How Iris uses this” card moves under the skills.',
+  'Write a skill becomes a full-screen sheet with a back arrow and a fixed footer. Only the sheet scrolls; drafts survive leaving and coming back while the create flow is open.',
+], '<b>Checks for building:</b> 400 px and 320 px widths, short windows, long skill names and “Use it when” lines, keyboard order, focus returned to the Write a skill button on close, light and dark themes.'), false);
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5;
+</script>
+</body></html>
