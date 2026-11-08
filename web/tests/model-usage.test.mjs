@@ -44,11 +44,11 @@ test('Members see their own use without a breakdown by person; an empty period s
     const { UsagePage } = await import('../src/react/settings/usage-page.tsx');
     await render(UsagePage);
     assert.match(document.body.textContent, /Model use and charges for your requests/);
-    assert.match(document.body.textContent, /The model use made for your requests/);
+    assert.match(document.body.textContent, /The model and computer use made for your requests/);
     assert.equal([...document.querySelectorAll('caption')].some(c => c.textContent === 'By person'), false);
     empty = true;
     await change(document.querySelector('select'), '90');
-    assert.match(document.body.textContent, /No model use in the last 90 days/);
+    assert.match(document.body.textContent, /No model or computer use in the last 90 days/);
   }, { url: `http://localhost/w/${w}/?view=settings&section=usage`, fetch: async path => {
     if (path.endsWith('/session')) return response(session('Member'));
     const days = Number(new URL(path, 'http://x').searchParams.get('days'));

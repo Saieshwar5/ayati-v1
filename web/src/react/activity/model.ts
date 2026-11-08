@@ -4,7 +4,9 @@ import { identityRequest, storageScope, workspaceId, workspaceUrl } from '../../
 /** Whose agents: `mine` (agents you manage and your own requests) or `all` (everything you may see). */
 export type Scope = 'mine' | 'all';
 export type Filters = { agent?: string; person?: string; chat?: string; status?: string; kind?: string; from?: number; to?: number; q?: string; scope?: Scope };
-export type Step = { id: string; title: string; effect: string; state: string; automatic: boolean; decision: string | null; decided_by: string | null; account: string | null; arguments: Record<string, unknown>; at: number };
+export type Step = { id: string; title: string; effect: string; state: string; automatic: boolean; decision: string | null; decided_by: string | null; account: string | null; arguments: Record<string, unknown>; at: number;
+  /** A step on the agent's computer: what ran and the start of its output. */
+  computer?: { kind: 'command' | 'list' | 'read' | 'write'; detail: string; exit_code: number | null; output: string; output_bytes: number; milliseconds: number } };
 export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
   agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
