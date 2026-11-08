@@ -13,11 +13,11 @@ const messages=[
   {id:'theirs',chat:'orders',author:'ravi',name:'Ravi Kumar',kind:'user',content:'Truck is ready',state:'sent',at:2,edited_at:3},
   {id:'gone',chat:'orders',author:'ravi',name:'Ravi Kumar',kind:'user',content:'',state:'deleted',at:4}];
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
-async function show(render,list=messages){
+async function show(render,list=messages,people=directory){
   globalThis.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};
   await(await import('../src/workspace-context.ts')).enterWorkspace();
   const {ChatMessage}=await import('../src/react/chat/message.tsx');
-  await render(()=>createElement(Fragment,null,list.map(message=>createElement(ChatMessage,{key:message.id,message,directory,openThread(){}}))));
+  await render(()=>createElement(Fragment,null,list.map(message=>createElement(ChatMessage,{key:message.id,message,directory:people,openThread(){}}))));
 }
 function server(writes,{hold}={}){
   return async(path,options={})=>{
@@ -83,4 +83,25 @@ test('reaction chips toggle your own reaction and quick reactions add one',async
     assert.deepEqual(writes.map(write=>write.body),[{emoji:'👍',on:false},{emoji:'✅',on:true}]);
     assert.ok(writes.every(write=>write.path.endsWith('/reactions')),'reactions never send messages or start work');
   },{url,fetch:server(writes)});
+});
+
+test('agent reactions show each agent by name and face, while people keep their own chips and picker',async()=>{
+  const writes=[];
+  const people={...directory,agents:[{id:'atlas',name:'Atlas',avatar:'robot-07'}]};
+  // An emoji-only message: Atlas is in the directory, Vega only named by the server.
+  const nod={id:'nod',chat:'orders',author:'meera',name:'Meera Iyer',kind:'user',content:'👍',state:'sent',at:5,delivered:2,seen:2,
+    reactions:[{emoji:'🎉',count:1,mine:false}],agent_reactions:[{agent:'atlas',emoji:'👍',name:'Atlas'},{agent:'vega',emoji:'🙏',name:'Vega'}]};
+  await reactFixture(async({render,click})=>{
+    await show(render,[nod],people);
+    const chips=[...article('nod').querySelectorAll('.chat-agent-reaction')];
+    assert.deepEqual(chips.map(chip=>chip.textContent),['Atlas reacted 👍','Vega reacted 🙏']);
+    assert.deepEqual(chips.map(chip=>chip.getAttribute('title')),['Atlas reacted 👍','Vega reacted 🙏']);
+    assert.equal(chips[0].querySelector('img').getAttribute('src'),'/agent-avatars/robot-07.svg','the agent\'s own face');
+    assert.match(chips[1].querySelector('img').getAttribute('src'),/^\/agent-avatars\/robot-\d\d\.svg$/);
+    assert.equal(chips.some(chip=>chip.closest('button')!==null),false,'an agent\'s reaction is not a toggle');
+    assert.equal(article('nod').querySelectorAll('button.chat-reaction').length,1,'people\'s chips are unchanged');
+    await click(inside(article('nod'),'Add reaction'));
+    assert.equal(article('nod').querySelectorAll('[aria-label="Choose a reaction"] button').length,12);
+  },{url,fetch:server(writes)});
+  assert.equal(writes.length,0,'showing agent reactions writes nothing');
 });

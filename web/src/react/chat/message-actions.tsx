@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { Button, Dialog } from '../ui';
-import { chatRequest, type Message } from './model';
+import { AgentFace } from '../faces';
+import { chatRequest, type AgentReaction, type Directory, type Message } from './model';
 import type { useCancelReply } from './reply-progress';
 import './message-actions.css';
 
@@ -22,16 +23,28 @@ export function useReactions(message: Message) {
   return { ...mutation, toggle };
 }
 
-export function ReactionBar({ message, reactions }: { message: Message; reactions: ReturnType<typeof useReactions> }) {
+export function ReactionBar({ message, reactions, directory }: { message: Message; reactions: ReturnType<typeof useReactions>; directory: Directory }) {
   const [picking, setPicking] = useState(false);
-  if (!message.reactions?.length) return null;
+  if (!message.reactions?.length && !message.agent_reactions?.length) return null;
   return <div className="chat-reactions" aria-label="Reactions">
-    {message.reactions.map(reaction => <button type="button" key={reaction.emoji} className="chat-reaction" aria-pressed={reaction.mine}
+    {message.reactions?.map(reaction => <button type="button" key={reaction.emoji} className="chat-reaction" aria-pressed={reaction.mine}
       disabled={reactions.busy} aria-label={`${reaction.emoji} ${reaction.count}${reaction.mine ? ', including you' : ''}`}
       onClick={() => reactions.toggle(reaction.emoji)}><span aria-hidden="true">{reaction.emoji}</span> {reaction.count}</button>)}
+    {message.agent_reactions?.map(reaction => <AgentReactionChip key={reaction.agent} reaction={reaction} directory={directory} />)}
     <ReactionPicker open={picking} setOpen={setPicking} choose={reactions.toggle} busy={reactions.busy} />
     {reactions.status && <span className="chat-help" role="alert">{reactions.status}</span>}
   </div>;
+}
+
+/** An agent's acknowledgement of an emoji-only message, with its name and face.
+ * It is not a toggle: people add their own reactions with the chips and picker. */
+function AgentReactionChip({ reaction, directory }: { reaction: AgentReaction; directory: Directory }) {
+  const agent = directory.agents.find(item => item.id === reaction.agent);
+  const name = agent?.name ?? reaction.name ?? 'Agent';
+  return <span className="chat-agent-reaction" title={`${name} reacted ${reaction.emoji}`}>
+    <AgentFace agent={agent ?? { id: reaction.agent, name }} className="chat-agent-reaction-face" />
+    <span className="chat-agent-reaction-name">{name}</span> <span>reacted {reaction.emoji}</span>
+  </span>;
 }
 
 function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpen: (open: boolean) => void; choose: (emoji: string) => void; busy: boolean }) {

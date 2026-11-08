@@ -43,6 +43,10 @@ tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4"] }
+# D246 (2026-11-07): an emoji-only message is told apart by grapheme clusters
+# (UAX #29). unicode-segmentation (MIT/Apache-2.0) is already in the tree via
+# convert_case; tested with 1.13.3.
+unicode-segmentation = "1.13"
 object_store = { version = "=0.14.2", default-features = false, features = ["aws"] }
 # Archive files are gzip JSON Lines; flate2 is already in the tree via image.
 flate2 = "1"

@@ -102,3 +102,29 @@ test('a fourth agent is refused before sending, and the draft stays', async () =
     assert.equal(input.value, '@Atlas @Nova @Orion @Vega check the count');
   }, draft);
 });
+
+test('an emoji-only message to two agents shows their reactions instead of replies that wait or type', async () => {
+  const posts = [];
+  // The server stores the message and each agent reacts to it in the same step;
+  // no reply is created, so nothing waits or types (D246).
+  await withChannel(body => {
+    posts.push(body);
+    return response({ ok: true, message: { ...body, author: 'owner', kind: 'user', state: 'sent', at: 1, sequence: 1, chat: 'ops', revision: 1, thread: null,
+      delivered: 2, seen: 2, reactions: [], agent_reactions: body.agents.map(agent => ({ agent, emoji: '👍', name: names[agent] })) } });
+  }, async ({ input, change, click, submit, box, until }) => {
+    for (const agent of ['atlas', 'nova']) {
+      await change(input, `${input.value}@${names[agent].slice(0, 2)}`);
+      await click(document.querySelector('[role=option]'));
+    }
+    await change(input, `${input.value}👍`);
+    await submit(document.querySelector('form.message-composer'));
+    await until(() => box.outboxSnapshot().length === 0);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].content, `${mention('atlas')} ${mention('nova')} 👍`);
+    const chips = () => [...document.querySelectorAll('.chat-message-own .chat-agent-reaction')].map(chip => chip.textContent);
+    await until(() => chips().length === 2);
+    assert.deepEqual(chips(), ['Atlas reacted 👍', 'Nova reacted 👍']);
+    assert.equal(document.querySelectorAll('.chat-reply-progress, .chat-typing').length, 0, 'no reply waits or types');
+    assert.doesNotMatch(document.querySelector('#root').textContent, /is typing|Waiting to start/);
+  });
+});

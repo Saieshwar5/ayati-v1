@@ -76,6 +76,12 @@ impl PgStore {
             &row.try_get::<String>("", "content")?,
             |kind, id| kind != "agent" || id == agent,
         );
+        // Sent again, an emoji-only request (one that ran before schema 101) would
+        // get a reaction and no answer (D246), so it is not retried.
+        ensure!(
+            super::message_actions::agent_reactions::reaction(&content).is_none(),
+            "An emoji-only message now gets the agent's reaction, not an answer. Ask again in words."
+        );
         let message = NewMessage {
             id: retry_message_id(w, reply, &user.id),
             content,

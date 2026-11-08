@@ -1,5 +1,5 @@
 //! Server-owned request classification; shared authorization and idempotent intake.
-use super::{chat::access, *};
+use super::{chat::access, message_actions::agent_reactions, *};
 use crate::identity::chat::model::{Job, NewMessage};
 use serde_json::json;
 
@@ -35,6 +35,7 @@ impl WorkClass<'_> {
 }
 impl PgStore {
     /// A person's message, with one job for each agent it asks (at most three).
+    /// An emoji-only message gets each agent's reaction instead, and no jobs.
     pub async fn chat_send_all(
         &self,
         user: &User,
@@ -218,6 +219,15 @@ impl PgStore {
         };
         // The message keeps its first agent as `target`; the jobs hold every one.
         let target = asked.first().cloned();
+        // A person's emoji-only message to agents gets each one's reaction
+        // instead of a model run (D246, agent_reactions.rs).
+        let reaction =
+            if class == WorkClass::Interactive && !asked.is_empty() && input.attachments.is_empty()
+            {
+                agent_reactions::reaction(&input.content)
+            } else {
+                None
+            };
         if let Some(row) = query(
             tx,
             "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments FROM relay_chat_messages m WHERE id=$1",
@@ -236,7 +246,15 @@ impl PgStore {
                     && row.try_get::<Value>("", "attachments")? == json!(input.attachments),
                 "Message ID already used"
             );
-            several_agents::replayed(tx, workspace, &input.id, &asked, class.as_str()).await?;
+            several_agents::replayed(
+                tx,
+                workspace,
+                &input.id,
+                &asked,
+                class.as_str(),
+                reaction.is_some(),
+            )
+            .await?;
             return Ok(vec![]);
         }
         super::channel_lifecycle::accepting(tx, workspace, chat).await?;
@@ -272,7 +290,13 @@ impl PgStore {
                 vec![workspace.into(),chat.into(),quoted.clone().into(),input.thread.clone().into()]).await?.is_some(),"Quoted message is not in this conversation");
         }
         // Every asked agent takes the message, or none does (several_agents.rs).
-        several_agents::admit(tx, user, workspace, chat, &asked, class.background()).await?;
+        let asking = match reaction {
+            Some(_) => several_agents::Asking::Reaction,
+            None => several_agents::Asking::Work {
+                background: class.background(),
+            },
+        };
+        several_agents::admit(tx, user, workspace, chat, &asked, asking).await?;
         // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.
         let (columns, values) = if input.reply_to.is_some() {
             (",reply_to", ",$11")
@@ -297,6 +321,10 @@ impl PgStore {
         execute(tx,&format!("INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments{columns}) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9{values})"),args).await?;
         let mut jobs = Vec::with_capacity(asked.len());
         for agent in &asked {
+            if let Some(emoji) = reaction {
+                agent_reactions::acknowledge(tx, workspace, chat, &input.id, agent, emoji).await?;
+                continue;
+            }
             jobs.push(
                 self.queue_reply(tx, user, workspace, chat, input, agent, class)
                     .await?,

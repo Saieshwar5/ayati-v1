@@ -61,7 +61,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
       {!own && edited}
-      <ReactionBar message={message} reactions={reactions} />
+      <ReactionBar message={message} reactions={reactions} directory={directory} />
       </>}
       {own && <div className="chat-message-meta">{edited}{time}<MessageReceipt message={message} /></div>}
     </div>

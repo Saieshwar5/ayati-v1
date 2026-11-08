@@ -54,6 +54,22 @@ pub(crate) fn ensure_target(mentions: &[(String, String)], targets: &[String]) -
 /// `text` with its mentions turned into plain names, except those `keep`
 /// accepts by kind and identity. A plain name asks and notifies nobody.
 pub(crate) fn plain(text: &str, keep: impl Fn(&str, &str) -> bool) -> String {
+    rewrite(text, |identity, link, name| {
+        let kept = identity
+            .split_once(':')
+            .is_some_and(|(kind, id)| keep(kind, id));
+        if kept { link } else { name }
+    })
+}
+
+/// `text` without its mentions, to see what else it says.
+pub(crate) fn without(text: &str) -> String {
+    rewrite(text, |_, _, _| "")
+}
+
+/// `text` with each mention link replaced by what `with` returns for its
+/// identity ("agent:a1"), the whole link and its name ("@Atlas").
+fn rewrite<'a>(text: &'a str, with: impl Fn(&'a str, &'a str, &'a str) -> &'a str) -> String {
     let mut out = String::new();
     let mut rest = text;
     while let Some(start) = rest.find("](mention:") {
@@ -64,15 +80,12 @@ pub(crate) fn plain(text: &str, keep: impl Fn(&str, &str) -> bool) -> String {
             break;
         };
         let identity = &rest[start + "](mention:".len()..start + close];
-        let kept = identity
-            .split_once(':')
-            .is_some_and(|(kind, id)| keep(kind, id));
         out.push_str(&rest[..open]);
-        out.push_str(if kept {
-            &rest[open..start + close + 1]
-        } else {
-            &rest[open + 1..start]
-        });
+        out.push_str(with(
+            identity,
+            &rest[open..start + close + 1],
+            &rest[open + 1..start],
+        ));
         rest = &rest[start + close + 1..];
     }
     out.push_str(rest);
