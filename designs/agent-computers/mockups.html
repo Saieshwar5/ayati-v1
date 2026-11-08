@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Agent computers mockups</title>
+<style>
+:root{--surface:#fff;--canvas:#f3f4f5;--text:#22252a;--muted:#697079;--border:#e5e7ea;--border-panel:#d1d6dd;--border-control:#aeb8c5;--soft:#f7f8f9;--selection:#eef0f2;--accent:#22252a;--on-accent:#fff;--danger:#a42f35;--warning:#945b10;--warning-bg:#fff3e2;--success:#26745c;--working:#6257cf;--link:#3d55c9;--pin:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{width:1820px;height:900px;display:flex;position:relative;overflow:hidden;background:#fff;margin-bottom:40px}
+.app{width:1440px;height:900px;background:var(--canvas);position:relative;flex:0 0 auto}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;vertical-align:middle}
+/* rail */
+.rail{position:absolute;left:0;top:0;bottom:0;width:88px;display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:8px}
+.rail .logo{width:36px;height:26px;margin-bottom:30px;object-fit:contain}
+.rail a{width:64px;height:54px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--muted);text-decoration:none}
+.rail a .i{width:20px;height:20px;color:#3a3f46}
+.rail a.on{background:var(--accent);color:#fff}.rail a.on .i{color:#fff}
+.rail .me{position:absolute;bottom:34px;width:34px;height:34px;border-radius:50%;background:#e3efe3;display:grid;place-items:center;font-size:12px;font-weight:600;color:#2f5b3a}
+/* frame */
+.frame{position:absolute;left:88px;top:12px;width:1340px;height:876px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.roster{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.roster-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roster-head h1{font-size:22px;margin:0;font-weight:650}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-control);background:#fff;font:inherit;font-size:13.5px;font-weight:550;color:var(--text);white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.quiet{border-color:transparent;background:transparent}
+.btn.small{min-height:30px;padding:0 10px;font-size:13px}
+.btn .i{width:16px;height:16px}
+.search{display:flex;align-items:center;gap:8px;height:40px;border-radius:10px;border:1px solid var(--border-control);padding:0 12px;color:var(--muted);font-size:14px;margin-bottom:14px}
+.agent-row{display:flex;gap:12px;padding:10px;border-radius:12px;align-items:flex-start;margin-bottom:2px}
+.agent-row.on{background:var(--selection)}
+.av{width:40px;height:40px;border-radius:50%;overflow:hidden;flex:0 0 auto}
+.av img{width:100%;height:100%;display:block}
+.agent-row b{display:block;font-weight:550;font-size:14.5px}
+.agent-row small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;margin-top:5px;background:var(--selection);color:var(--text)}
+.tag.warn{background:var(--warning-bg);color:var(--warning)}
+/* main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.create-head{display:flex;justify-content:space-between;align-items:center;padding:30px 32px 10px}
+.create-head h2{margin:0;font-size:26px;font-weight:650}
+.steps{display:flex;gap:28px;align-items:center;padding:8px 32px 18px;border-bottom:1px solid var(--border);font-size:14px;color:var(--muted)}
+.steps li{display:flex;align-items:center;gap:10px;list-style:none}
+.steps li span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:12px;font-weight:600}
+.steps li.cur{color:var(--text);font-weight:600}.steps li.cur span{background:var(--accent);color:#fff}
+.steps li.done span{background:var(--success);color:#fff}
+.steps .line{width:40px;height:1px;background:var(--border-panel)}
+.body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
+.foot{display:flex;align-items:center;gap:12px;padding:16px 32px 20px;border-top:1px solid var(--border)}
+.foot p{margin:0;color:var(--muted);font-size:13px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0;position:relative}
+.starters{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.starters > span{font-size:13px;margin-right:4px;white-space:nowrap}
+.chip{border:1px solid var(--border-panel);border-radius:999px;padding:6px 12px;font-size:13px;background:#fff;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.write-for-me{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#eef1fd;color:var(--link);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:550;white-space:nowrap}
+.write-for-me .i{width:15px;height:15px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.sec-head h3{margin:0;font-size:15px;font-weight:650;white-space:nowrap}
+.sec-head small{color:var(--muted);font-size:13px}
+.sec-head .right{margin-left:auto;white-space:nowrap}
+.box{border:1px solid var(--border-control);border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.55;background:#fff;white-space:pre-wrap}
+.box.rich{white-space:normal;overflow:hidden}.box .h{font-weight:600;margin-top:7px}
+.meter{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px;margin-top:-4px}
+.skills{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.skill{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.tile{width:36px;height:36px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.skill b{font-weight:600;font-size:14px}
+.skill .when{display:block;font-size:13px;margin-top:1px}
+.skill small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.skill .acts{display:flex;gap:4px;align-items:center}
+.skill.suggest{border:1px dashed var(--border-panel);border-radius:10px;padding:10px 12px;margin:10px 0 2px;background:var(--soft)}
+.skill.suggest .tile{background:#eef1fd;color:var(--link)}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.row-actions{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row-actions .count{margin-left:auto;color:var(--muted);font-size:12.5px}
+/* side cards */
+.card{border:1px solid var(--border);border-radius:12px;padding:15px 17px;background:var(--soft);font-size:13px;line-height:1.55}
+.card h4{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h4 small{font-weight:500;font-size:11px;color:var(--muted);background:var(--selection);padding:2px 8px;border-radius:6px}
+.card ul{margin:0;padding-left:0;list-style:none}
+.card li{display:flex;gap:8px;margin:4px 0}
+.card li .i{width:15px;height:15px;color:var(--success);margin-top:2px}
+.card .link{color:var(--link);font-weight:550;display:inline-flex;gap:6px;align-items:center;margin-top:6px}
+.flow{display:grid;gap:8px}
+.flow .lane{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.flow .lane b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.flow .lane.when{border-style:dashed}
+.flow .arrow{text-align:center;color:var(--muted);font-size:12px;line-height:1}
+.muted{color:var(--muted)}
+/* pins */
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.25);z-index:20}
+/* notes */
+.notes{flex:1;padding:4px 26px 0 30px;background:#fff}
+.notes h2{font-size:19px;font-weight:600;margin:0 0 18px}
+.notes ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.notes li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13.5px;line-height:1.48;color:#33383e}
+.notes li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.notes .sub{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--muted)}
+.notes .sub b{color:var(--text)}
+/* drawer */
+.scrim{position:absolute;inset:0;background:rgb(34 37 42/.42);z-index:5}
+.drawer{position:absolute;right:12px;top:12px;bottom:12px;width:500px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.18)}
+.drawer-head{display:flex;align-items:center;gap:10px;padding:22px 24px 6px}
+.drawer-head h3{margin:0;font-size:20px;font-weight:650;flex:1}
+.drawer-head .x{width:34px;height:34px;border-radius:9px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.drawer-body{flex:1;min-height:0;overflow:visible;padding:4px 24px 12px;display:flex;flex-direction:column;gap:14px;position:relative}
+.drawer-foot{display:flex;align-items:center;gap:10px;padding:14px 24px 18px;border-top:1px solid var(--border)}
+.field label,.field .lab{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:13.5px;margin-bottom:6px}
+.field .lab .right{margin-left:auto;font-weight:500}
+.input{border:1px solid var(--border-control);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.5;background:#fff}
+.input.area{white-space:pre-wrap;line-height:1.55}
+.help{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45;display:flex;gap:8px}
+.help .right{margin-left:auto;white-space:nowrap}
+.help code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--soft);padding:1px 5px;border-radius:5px;color:var(--text)}
+.files{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.files li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.files li small{color:var(--muted);font-size:12px}
+.files li .acts{margin-left:auto;display:flex;gap:2px}
+.linkbtn{color:var(--link);font-weight:550;font-size:13px;padding:4px 6px;border-radius:6px;display:inline-flex;gap:5px;align-items:center}
+.linkbtn .i{width:15px;height:15px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+.check .box2{width:18px;height:18px;border:1.5px solid var(--border-control);border-radius:4px;margin-top:1px;flex:0 0 auto}
+.check small{display:block;color:var(--muted);font-size:12.5px}
+.notice{display:flex;gap:10px;background:var(--warning-bg);color:var(--warning);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5}
+.notice .i{width:17px;height:17px;margin-top:1px}
+.notice.info{background:#eef1fd;color:#2e3f8f}
+.notice.err{background:#fdeeee;color:var(--danger)}
+.meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hl{background:#fff7d6;border-radius:3px}
+/* agent page */
+.agent-head{display:flex;gap:16px;align-items:center;padding:28px 32px 6px}
+.agent-head .av{width:56px;height:56px;border-radius:14px}
+.agent-head h2{margin:0;font-size:24px;font-weight:650;display:flex;gap:10px;align-items:center}
+.agent-head small{color:var(--muted);font-size:14px}
+.pill{font-size:12px;font-weight:550;background:#e6f4ec;color:var(--success);padding:3px 9px;border-radius:6px}
+.tabs{display:flex;gap:30px;padding:12px 32px 0;border-bottom:1px solid var(--border);font-size:14.5px;color:#4b5058}
+.tabs span{padding-bottom:12px}.tabs .on{color:var(--text);font-weight:600;border-bottom:2px solid var(--accent)}
+/* states grid */
+.grid4{position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.state{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 24px;position:relative;display:flex;flex-direction:column;gap:12px}
+.state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+/* phone */
+.phones{position:absolute;left:271px;top:24px;display:flex;gap:70px}
+.phone{width:390px;height:844px;border-radius:44px;background:#1b1d21;padding:12px;box-shadow:0 10px 30px rgb(0 0 0/.18);position:relative}
+.phone-screen{width:100%;height:100%;border-radius:34px;background:var(--canvas);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status-bar{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600}
+.phone-frame{flex:1;margin:0 6px 6px;background:#fff;border-radius:14px;box-shadow:0 4px 12px rgb(23 33 43/10%);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.ph-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.ph-head h2{margin:0;font-size:20px;font-weight:650}
+.ph-steps{display:flex;gap:6px;align-items:center;padding:4px 16px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)}
+.ph-steps i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:11px;font-weight:600}
+.ph-steps i.done{background:var(--success);color:#fff}.ph-steps i.cur{background:var(--accent);color:#fff}
+.ph-body{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.ph-foot{display:flex;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--border)}
+.ph-foot .btn{flex:1;min-height:44px}
+
+.sp-bar{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:13px}
+.sp-bar .right{margin-left:auto;white-space:nowrap}
+.chat{border:1px solid var(--border-panel);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;background:#fff;min-height:0;position:relative}
+.chat-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13.5px}
+.chat-head .av{width:28px;height:28px}
+.chat-head small{color:var(--muted);font-size:12px;display:block}
+.msgs{flex:1;padding:12px 14px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;overflow:hidden;font-size:13.5px;line-height:1.48}
+.msg{max-width:90%;padding:8px 12px;border-radius:12px}
+.msg.agent{background:var(--soft);border:1px solid var(--border);align-self:flex-start;border-top-left-radius:4px}
+.msg.me{background:#e9edf3;align-self:flex-end;border-top-right-radius:4px}
+.msg ol{margin:4px 0 0;padding-left:18px}
+.msg .voice{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-bottom:4px}
+.quick{display:flex;gap:6px;padding:0 12px;flex-wrap:nowrap;overflow:hidden}
+.quick .chip{font-size:12px;padding:4px 10px}
+.composer{margin:8px 12px 12px;border:1px solid var(--border-control);border-radius:18px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px}
+.composer .send{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center}
+.composer .send .i{width:15px;height:15px}
+.drafts{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
+.drafts-head{display:flex;align-items:baseline;gap:10px}
+.drafts-head h3{margin:0;font-size:15px}
+.drafts-head small{color:var(--muted);font-size:13px}
+.draft{border:1px solid var(--border-panel);border-radius:12px;padding:8px 14px;display:grid;gap:2px;background:#fff}
+.draft.always{border-color:var(--accent)}
+.draft-top{display:flex;align-items:center;gap:8px}
+.draft-top b{font-size:14px}
+.draft .when{font-size:13px}
+.draft small{color:var(--muted);font-size:12px}
+.draft .acts{display:flex;gap:4px;margin-top:1px;margin-left:-6px}
+.badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.badge.always{background:var(--accent);color:#fff}
+.badge.new{background:#eef1fd;color:var(--link)}
+.badge.ws{background:var(--selection);color:var(--text)}
+.badge.changed{background:var(--warning-bg);color:var(--warning)}
+.diff{border:1px solid var(--border-control);border-radius:10px;padding:8px 6px;font-size:13px;line-height:1.5;display:grid;gap:2px}
+.diff div{padding:2px 8px;border-radius:5px}
+.diff .del{background:#fdeeee;color:#8a2c31;text-decoration:line-through}
+.diff .add{background:#e3f3ea;color:#1d5c47}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.list li{padding:10px 10px;border-bottom:1px solid var(--border);display:grid;gap:2px;font-size:13px;border-radius:0}
+.list li.on{background:var(--selection);border-radius:8px;border-bottom-color:transparent}
+.list li b{font-size:13.5px;display:flex;gap:6px;align-items:center}
+.list li small{color:var(--muted);font-size:12px}
+.psec{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);align-items:start;font-size:13.5px}
+.psec .st{font-size:12px;color:var(--muted);white-space:nowrap}
+.psec .ok{color:var(--success)}
+.psec .no{color:var(--muted)}
+.psec small{display:block;color:var(--muted);font-size:12px}
+.ptext{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;background:var(--soft);border-radius:8px;padding:10px 12px;margin-top:6px;color:#33383e;white-space:pre-wrap}
+.layer{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--border)}
+.layer-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.layer-title .badge{margin-left:auto}
+.layer p{margin:0;font-size:13px;color:var(--muted)}
+.layer.locked .layer-title .i{color:var(--muted)}
+
+.seg{display:inline-flex;border:1px solid var(--border-panel);border-radius:10px;padding:3px;gap:2px;background:#fff}
+.seg span{padding:5px 13px;border-radius:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.seg .allow{background:#e3f3ea;color:var(--success);font-weight:600}
+.seg .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}
+.seg .block{background:#fdeeee;color:var(--danger);font-weight:600}
+.seg .off{opacity:.4}
+.switch{width:38px;height:22px;border-radius:999px;background:var(--border-panel);position:relative;flex:0 0 auto}
+.switch.on{background:var(--accent)}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.switch.on::after{left:19px}
+.conn{border-bottom:1px solid var(--border);padding:10px 0;position:relative}
+.conn-head{display:flex;align-items:center;gap:12px}
+.conn-head b{font-size:14.5px;display:block}
+.conn-head small{color:var(--muted);font-size:12.5px}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:6px 0 6px 50px;align-items:center}
+.op b{font-size:13.5px;font-weight:550;display:block}
+.op small{color:var(--muted);font-size:12px;display:block}
+.op small.why{color:var(--link)}
+.review{display:flex;gap:8px;background:var(--soft);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45;margin-top:4px}
+.review .i{width:15px;height:15px;margin-top:1px;color:var(--muted)}
+
+.steps.five{gap:16px}.steps.five .line{width:22px}
+.kind{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;white-space:nowrap;background:var(--selection);color:var(--text)}
+.kind.read{background:#e3f3ea;color:#1d5c47}.kind.money{background:var(--warning-bg);color:var(--warning)}
+.kind.out{background:#eef1fd;color:var(--link)}.kind.del{background:#fdeeee;color:var(--danger)}
+.app-row{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--border)}
+.app-row b{font-size:14.5px;display:block}
+.app-row small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.app-row .switch{margin-top:6px}
+.kinds{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.app-row small.detail{margin-top:6px}
+.card .setup-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.card .setup-steps li{display:flex;gap:10px;margin:0;align-items:flex-start}
+.setup-steps i{font-style:normal;width:22px;height:22px;flex:0 0 auto;border-radius:50%;background:var(--selection);display:grid;place-items:center;font-size:11.5px;font-weight:600}
+.setup-steps li.cur i{background:var(--accent);color:#fff}
+.setup-steps b{font-size:13.5px;display:block;color:var(--text)}.setup-steps small{display:block;color:var(--muted);font-size:12.5px;line-height:1.4}
+.choice{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border:1px solid var(--border);border-radius:10px}
+.choice.on{border-color:#9aa6d8;background:#f6f7fe}
+.choice b{display:block;font-size:14px;font-weight:550}.choice small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-control);margin-top:2px;flex:0 0 auto;position:relative}
+.radio.on{border-color:var(--accent)}.radio.on::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.person{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.person b{display:block;font-size:14px;font-weight:550}.person small{color:var(--muted);font-size:12.5px}
+.initials{width:32px;height:32px;border-radius:50%;background:#e3efe3;color:#2f5b3a;display:grid;place-items:center;font-size:12px;font-weight:600}
+.why-line{display:flex !important;gap:8px;align-items:center;margin-top:2px}
+.why-line span:last-child{color:var(--muted)}
+.why-line b{display:inline;font-size:inherit;font-weight:600;color:var(--text)}
+.cond{margin:0 0 6px 50px;display:flex;gap:8px;align-items:center;font-size:12.5px;background:var(--soft);border:1px dashed var(--border-panel);border-radius:8px;padding:6px 10px}
+.cond .i{width:15px;height:15px;color:var(--muted)}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15v4M17 17h4"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="warning" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13v1M15 13v1M2 14h2M20 14h2"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="monitor" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+<symbol id="moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+<symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+<symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="hand" viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L3.5 15a1.6 1.6 0 0 1 2.4-2.1L8 15"/></symbol>
+<symbol id="stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+<symbol id="refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+<symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="cursor" viewBox="0 0 24 24"><path d="m4 3 7 17 2.5-7.5L21 10z"/></symbol>
+</svg>
+<style>
+/* Agent computers (design only) */
+.toggle{width:40px;height:22px;border-radius:999px;background:var(--border-control);position:relative;flex:0 0 auto}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.toggle.on{background:var(--success)}.toggle.on::after{left:21px}
+.panel{border:1px solid var(--border-panel);border-radius:14px;background:#fff;padding:18px 20px;display:flex;flex-direction:column;gap:14px;position:relative}
+.panel-head{display:flex;gap:12px;align-items:center}
+.panel-head .ico{width:38px;height:38px;border-radius:10px;background:var(--soft);display:grid;place-items:center;color:#3a3f46}
+.panel-head b{font-size:16px;font-weight:650;display:block}
+.panel-head small{color:var(--muted);font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--border-control);border-radius:10px;padding:3px;gap:3px;background:#fff}
+.seg span{padding:7px 14px;border-radius:7px;font-size:13.5px;color:#4b5058;display:inline-flex;gap:7px;align-items:center}
+.seg span.on{background:var(--accent);color:#fff;font-weight:600}
+.state-strip{display:flex;align-items:center;gap:12px;background:var(--soft);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.state-strip .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.dot.sleep{background:#9aa3ad}.dot.work{background:var(--working)}.dot.wake{background:#d9a21b}.dot.off{background:transparent;border:2px solid var(--border-control)}.dot.bad{background:var(--danger)}.dot.ok{background:var(--success)}
+.state-strip b{font-weight:600}.state-strip small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.state-strip .right{margin-left:auto;display:flex;gap:8px}
+.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.size{border:1px solid var(--border-panel);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative}
+.size.on{border:2px solid var(--accent);padding:11px 13px}
+.size b{font-size:14.5px;font-weight:650;display:flex;justify-content:space-between;align-items:center}
+.size .spec{font-size:13px;color:#3a3f46}
+.size small{color:var(--muted);font-size:12.5px}
+.size .price{font-size:13px;font-weight:600;margin-top:4px}
+.radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-control);display:inline-block}
+.radio.on{border:5px solid var(--accent)}
+.comes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px}
+.comes .c{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:5px 10px;background:var(--soft)}
+.comes .c .i{width:15px;height:15px}
+.foot-line{display:flex;gap:16px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.foot-line b{color:var(--text);font-weight:600}
+.danger-link{color:var(--danger);font-weight:550;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.model-row{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+.model-row .ico{width:32px;height:32px;border-radius:9px;background:#eef1fd;color:var(--link);display:grid;place-items:center}
+.later-row{display:flex;gap:10px}
+.later{flex:1;border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;font-size:13.5px}
+.later small{margin-left:auto;font-size:11.5px;color:var(--warning);background:var(--warning-bg);padding:2px 8px;border-radius:6px;white-space:nowrap}
+.cardstate{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 22px;display:flex;flex-direction:column;gap:12px;position:relative}
+.cardstate .state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.queue{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+/* live view */
+.modal{position:absolute;left:104px;top:28px;right:16px;bottom:28px;background:#fff;border-radius:18px;z-index:6;display:flex;flex-direction:column;box-shadow:0 12px 40px rgb(0 0 0/.22)}
+.modal-head{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--border)}
+.modal-head h3{margin:0;font-size:18px;font-weight:650}
+.modal-head small{color:var(--muted);font-size:13px;display:block}
+.pill.work{background:#eeecfb;color:var(--working)}
+.badge-plain{font-size:12px;background:var(--selection);border-radius:6px;padding:3px 8px;color:#4b5058;display:inline-flex;gap:5px;align-items:center}
+.modal-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:0}
+.screenarea{padding:18px 20px;background:#2b2f36;display:flex;flex-direction:column;gap:10px;position:relative}
+.desk{flex:1;background:#e9ecf0;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.bwin{margin:18px;flex:1;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgb(0 0 0/.18);display:flex;flex-direction:column;overflow:hidden}
+.btabs{display:flex;gap:6px;background:#dfe3e8;padding:8px 10px 0}
+.btabs span{background:#fff;border-radius:8px 8px 0 0;padding:6px 14px;font-size:12px}
+.burl{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12.5px}
+.burl .u{flex:1;background:var(--soft);border-radius:999px;padding:5px 12px;color:#3a3f46}
+.portal{padding:16px 20px;font-size:13px;display:flex;flex-direction:column;gap:10px}
+.portal h4{margin:0;font-size:16px}
+.ptable{border-collapse:collapse;width:100%;font-size:12.5px}
+.ptable th,.ptable td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)}
+.ptable th{color:var(--muted);font-weight:500}
+.paybtn{display:inline-flex;align-items:center;background:#1f6f43;color:#fff;border-radius:7px;padding:7px 14px;font-weight:600;font-size:13px;outline:3px solid #f2b705;outline-offset:2px;position:relative}
+.held{position:absolute;left:38px;right:38px;top:28px;background:var(--warning-bg);color:var(--warning);border:1px solid #f0d3a8;border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:center;font-size:13px;z-index:3;box-shadow:0 4px 14px rgb(0 0 0/.12)}
+.held b{color:#6b3f05}
+.screen-foot{display:flex;gap:10px;align-items:center;color:#c9ced6;font-size:12.5px}
+.steps-col{padding:16px 18px;display:flex;flex-direction:column;gap:10px;border-left:1px solid var(--border);overflow:visible}
+.steps-col h4{margin:0;font-size:14px}
+.step{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:start;font-size:13px}
+.thumb{width:64px;height:40px;border-radius:5px;background:linear-gradient(#dfe3e8 0 9px,#fff 9px);border:1px solid var(--border-panel)}
+.step small{display:block;color:var(--muted);font-size:12px}
+.step.heldstep b{color:var(--warning)}
+/* drawer (own computer) */
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:#22252a;color:#e8eaee;border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:center}
+.code span{flex:1}
+.code .i{color:#aeb6c2}
+.num{width:24px;height:24px;border-radius:50%;background:var(--selection);display:grid;place-items:center;font-size:12px;font-weight:600;flex:0 0 auto}
+.num.done{background:var(--success);color:#fff}
+.dstep{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px}
+.dstep h5{margin:2px 0 8px;font-size:14px}
+.okbox{border:1px solid #bfe0d1;background:#eef8f3;border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.okbox b{color:var(--success)}
+/* settings */
+.set-nav{width:255px;border-right:1px solid var(--border);padding:28px 18px;flex:0 0 auto}
+.set-nav h1{font-size:22px;margin:0 0 4px;font-weight:650}
+.set-nav .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.set-nav .cap{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:16px 10px 6px}
+.set-nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:14px;color:var(--text)}
+.set-nav a.on{background:var(--selection);font-weight:600}
+.set-nav a .i{width:17px;height:17px;color:#4b5058}
+.set-main{flex:1;min-width:0;padding:30px 40px;display:flex;flex-direction:column;gap:18px;overflow:hidden}
+.set-main h2{margin:0;font-size:24px;font-weight:650}
+.set-row{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;padding:14px 0;border-top:1px solid var(--border);align-items:start;position:relative}
+.set-row > div:first-of-type b{display:block;font-size:14px;font-weight:600}
+.set-row > div:first-of-type small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.select{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border-control);border-radius:9px;padding:7px 12px;font-size:13.5px;background:#fff}
+.boxes{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px}
+.boxes span{display:inline-flex;gap:7px;align-items:center}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border-control);display:inline-grid;place-items:center}
+.cb.on{background:var(--accent);border-color:var(--accent)}
+.cb.on::after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.bar{height:8px;border-radius:5px;background:var(--selection);overflow:hidden;width:320px}
+.bar span{display:block;height:100%;background:var(--success)}
+.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
+.tbl th,.tbl td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
+.tbl th{color:var(--muted);font-weight:500;font-size:12.5px}
+.chipx{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border-panel);border-radius:999px;padding:3px 10px;font-size:12.5px;margin:0 4px 4px 0}
+/* control (operator, dark) */
+.cc{position:absolute;left:0;top:0;width:1440px;height:900px;background:#0b0d11;color:#e6e9ef;font-size:13px;display:flex;flex-direction:column}
+.cc .band{height:3px;background:#f85149}
+.cc .top{display:flex;align-items:center;gap:14px;height:52px;padding:0 16px;background:#0e1116;border-bottom:1px solid #1d222b}
+.cc .mark{width:24px;height:24px;border:1.5px solid #8b9cff;border-radius:6px;color:#8b9cff;display:grid;place-items:center;font-weight:700}
+.cc .envb{font-size:11px;font-weight:700;color:#ff8e88;background:#2d1517;border-radius:5px;padding:2px 7px}
+.cc .srch{width:380px;height:32px;border:1px solid #2e3542;border-radius:6px;display:flex;align-items:center;padding:0 10px;color:#959eae}
+.cc .body{flex:1;display:flex;min-height:0}
+.cc .side{width:210px;background:#0e1116;border-right:1px solid #1d222b;padding:14px 10px}
+.cc .side .cap{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#959eae;padding:0 10px 6px;margin-top:10px}
+.cc .side a{display:flex;align-items:center;height:32px;padding:0 10px;border-radius:6px;color:#c3c9d4}
+.cc .side a.on{background:#1b2029;color:#fff;font-weight:600;box-shadow:inset 2px 0 0 #8b9cff}
+.cc .main{flex:1;min-width:0;padding:18px 20px;display:flex;flex-direction:column;gap:14px;position:relative}
+.cc h1{font-size:20px;margin:0;font-weight:600}
+.cc .dim{color:#959eae}
+.cc .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cc .card{background:#12161d;border:1px solid #232934;border-radius:8px}
+.cc .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #232934}
+.cc .card-body{padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.cc .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#959eae}
+.cc .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
+.cc .st{font-size:11.5px;font-weight:600;border-radius:5px;padding:2px 8px}
+.cc .st.ok{color:#6fdc8c;background:#12261a}.cc .st.warn{color:#e3b341;background:#2b220e}.cc .st.bad{color:#ff8e88;background:#2d1517}
+.cc .ccbtn{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border:1px solid #2e3542;border-radius:6px;background:#181d26;font-size:12px}
+.cc table{border-collapse:collapse;width:100%}
+.cc th,.cc td{text-align:left;padding:7px 10px;border-bottom:1px solid #1d222b;font-size:12.5px}
+.cc th{color:#959eae;font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+.cc .ccm{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+<div id="root"></div>
+<script>
+const AV = n => `../../web/public/agent-avatars/robot-${n}.svg`;
+const I = (id, cls = '') => `<svg class="i ${cls}"><use href="#${id}"/></svg>`;
+const pin = (n, style) => `<span class="pin" style="${style}">${n}</span>`;
+function rail(on = 'Agents') {
+  const items = [['home','Home'],['chat','Chat'],['activity','Activity'],['bot','Agents'],['library','Library'],['sliders','Settings']];
+  return `<nav class="rail"><img class="logo" src="../../web/public/brand/cuckoo-symbol.svg" alt="">
+    ${items.map(([icon, label]) => `<a class="${label === on ? 'on' : ''}">${I(icon)}${label}</a>`).join('')}
+    <span class="me">RK</span></nav>`;
+}
+function roster() {
+  const rows = [['atlas','01','Atlas','Orders assistant','<span class="tag">Computer asleep</span>'],['ledger','05','Ledger','Accounts helper','<span class="tag" style="background:#eeecfb;color:var(--working)">Using its computer</span>'],['nova','09','Nova','Sales follow-up',''],['scout','12','Scout','Stock checker','']];
+  return `<aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div>
+    <div class="search">${I('search')}Search agents</div>
+    ${rows.map(([id, av, name, sub, tag]) => `<div class="agent-row ${id === 'atlas' ? 'on' : ''}"><span class="av"><img src="${AV(av)}" alt=""></span>
+      <span><b>${name}</b><small>${sub}</small>${tag}</span></div>`).join('')}</aside>`;
+}
+function notes(title, items, sub = '') {
+  return `<aside class="notes"><h2>${title}</h2><ol>${items.map((text, index) => `<li><i>${index + 1}</i><span>${text}</span></li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}</aside>`;
+}
+const screen = (id, app, side, on) => `<section class="screen" id="${id}"><div class="app">${on === 'none' ? '' : rail(on)}${app}</div>${side}</section>`;
+const atlasHead = `<header class="agent-head"><span class="av"><img src="${AV('01')}" alt=""></span>
+    <div><h2>Atlas <span class="pill">Available</span></h2><small>Orders assistant · owned by Ravi Kumar</small></div>
+    <span style="margin-left:auto" class="btn primary">${I('chat')}Open in Chat</span></header>
+  <nav class="tabs"><span>Overview</span><span>Activity</span><span>Instructions</span><span>Tools</span><span>Schedules</span><span class="on">Environment</span></nav>`;
+const sizeCard = (name, spec, use, price, on) => `<div class="size ${on ? 'on' : ''}"><b>${name}<span class="radio ${on ? 'on' : ''}"></span></b>
+  <span class="spec">${spec}</span><small>${use}</small><span class="price">${price}</span></div>`;
+
+/* ---------- 1. Environment → Computer ---------- */
+const s1 = screen('s1', `<div class="frame">${roster()}<div class="main">${atlasHead}
+  <div style="flex:1;min-height:0;padding:18px 32px;display:flex;flex-direction:column;gap:14px">
+    <div class="model-row"><span class="ico">${I('sparkle')}</span><span><b>Model</b> <span class="muted">· GLM 5.3 Flash, the workspace default</span></span><span class="linkbtn" style="margin-left:auto">Change</span></div>
+    <div class="panel">
+      <div class="panel-head"><span class="ico">${I('monitor')}</span><span><b>Computer</b><small>Atlas’s own Linux computer for websites, files and programs</small></span>
+        <span style="margin-left:auto;display:flex;gap:10px;align-items:center;position:relative">${pin(1, 'left:-32px;top:0')}<span class="muted" style="font-size:13px">On</span><span class="toggle on"></span></span></div>
+      <div style="display:flex;gap:14px;align-items:center;position:relative">${pin(2, 'left:-32px;top:6px')}<span class="seg"><span class="on">${I('monitor')}Cuckoo computer</span><span>${I('server')}Your own computer</span></span>
+        <span class="muted" style="font-size:13px">Cuckoo runs it for you. Nothing to install.</span></div>
+      <div class="state-strip" style="position:relative">${pin(3, 'left:-32px;top:14px')}<span class="dot sleep"></span><span><b>Asleep</b> · costs nothing while asleep<small>Wakes by itself when Atlas needs it, in about 2 seconds. Last worked at 10:42 on “Download May invoices from Sharma Traders”.</small></span>
+        <span class="right"><span class="btn small">${I('eye')}Open computer</span></span></div>
+      <div style="position:relative">${pin(4, 'left:-32px;top:2px')}<div class="sizes">
+        ${sizeCard('Small', '1 CPU · 2 GB memory · 10 GB storage', 'Websites and simple files', '₹7 an hour while working')}
+        ${sizeCard('Standard', '2 CPU · 4 GB memory · 20 GB storage', 'Most agents', '₹14 an hour while working', true)}
+        ${sizeCard('Large', '4 CPU · 8 GB memory · 40 GB storage', 'Big spreadsheets and data work', '₹28 an hour while working')}
+      </div></div>
+      <div class="comes" style="position:relative">${pin(5, 'left:-32px;top:4px')}<span class="muted">Comes with</span><span class="c">${I('globe')}Browser</span><span class="c">${I('folder')}Files</span><span class="c">${I('terminal')}Programs</span><span class="c">${I('eye')}Live view</span>
+        <span class="muted" style="margin-left:6px">Atlas keeps its logins, files and installed programs between tasks.</span></div>
+      <div class="notice info" style="position:relative">${pin(6, 'left:-32px;top:8px')}${I('info')}<span>Everyone who can talk to Atlas shares this computer. Each request gets its own folder, and one request uses the screen at a time.</span></div>
+      <div class="foot-line" style="position:relative">${pin(7, 'left:-32px;top:-2px')}<span>This month <b>6 h 20 min working</b> · <b>₹89</b></span><span>Storage <b>3.2 GB</b> of 20 GB</span><span>Sleeps 5 minutes after Atlas stops (set by your admin)</span>
+        <span class="danger-link" style="margin-left:auto">${I('refresh')}Reset computer</span></div>
+    </div>
+    <div class="later-row"><div class="later">${I('chat')}Email<small>Coming later</small></div><div class="later">${I('chat')}WhatsApp<small>Coming later</small></div><div class="later">${I('chat')}Phone<small>Coming later</small></div></div>
+  </div></div></div>`, notes('Agent · Environment · Computer', [
+  '<b>On or off per agent, off by default.</b> When off, Atlas has no computer tools at all. Owners and admins switch it; an admin can turn computers off for the whole workspace.',
+  '<b>Cuckoo computer</b> or <b>Your own computer</b>. Never a provider name: which service runs it is Cuckoo’s choice and can change without Atlas noticing.',
+  'State in plain words: <b>Asleep</b> costs nothing; it wakes by itself when Atlas uses a computer tool and sleeps again soon after. <b>Open computer</b> shows the live view.',
+  'Three fixed sizes with the hourly price while working. A new size applies at the next wake; files, logins and programs are kept.',
+  'The Browser card from the approved design becomes part of the computer: one machine for websites, files and programs, watched live.',
+  'The sharing rule, said once: the computer belongs to the agent, so everyone who talks to Atlas shares it. Requests get separate folders and take turns on the screen.',
+  'This month’s working time and charge, storage used, and when it sleeps. <b>Reset computer</b> wipes it back to new after a confirm; deleting Atlas deletes its computer.',
+], '<b>Compute is temporary, the computer is permanent:</b> Cuckoo keeps the disk (files, logins, programs) and rents CPU and memory only while Atlas works.'));
+
+/* ---------- 2. States ---------- */
+const stateCard = (title, n, body) => `<div class="cardstate">${pin(n, 'left:-11px;top:-11px')}<span class="state-title">${title}</span>${body}</div>`;
+const s2 = screen('s2', `<div class="grid4">
+  ${stateCard('Off (every new agent)', 1, `<div class="panel-head"><span class="ico">${I('monitor')}</span><span><b>Computer</b><small>Off · Atlas can’t open websites, files or programs</small></span><span style="margin-left:auto" class="toggle"></span></div>
+    <p style="margin:0;color:#4b5058;line-height:1.55">Turn it on when Atlas needs to use websites that have no app in Cuckoo, download or fill in files, or run programs. You pay only while it works.</p>
+    <div style="display:flex;gap:10px"><span class="btn primary">${I('monitor')}Turn on a Cuckoo computer</span><span class="btn">${I('server')}Connect your own computer</span></div>
+    <div class="notice" style="margin-top:auto">${I('info')}<span>Your admin allows Small and Standard computers in this workspace.</span></div>`)}
+  ${stateCard('Waking, then working', 2, `<div class="state-strip"><span class="dot wake"></span><span><b>Waking up…</b><small>Usually about 2 seconds. Atlas’s files and logins are as it left them.</small></span></div>
+    <div class="state-strip" style="background:#f6f5fe;border-color:#e2dff8"><span class="dot work"></span><span><b>Working</b> · 4 min<small>On “Download May invoices from Sharma Traders” for Meera</small></span>
+      <span class="right"><span class="btn small">${I('eye')}Watch</span><span class="btn small">${I('stop')}Stop</span></span></div>
+    <div class="queue">${I('clock')}1 more request is waiting for the computer: “Check stock at the Pune warehouse” for Ravi</div>
+    <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Requests take turns on the screen. A request that doesn’t need the computer never waits.</p>`)}
+  ${stateCard('Stopped by a limit', 3, `<div class="state-strip" style="background:#fdf7ee;border-color:#f0dcbc"><span class="dot wake"></span><span><b>Asleep: monthly computer budget used</b><small>Atlas can still answer and use apps, but not its computer, until 1 December or until an admin raises the budget.</small></span>
+      <span class="right"><span class="btn small">Raise budget</span></span></div>
+    <div class="state-strip"><span class="dot sleep"></span><span><b>Put to sleep after 2 hours of work in one go</b><small>The longest single stretch your admin allows. Atlas tells the person and continues if they ask.</small></span></div>
+    <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Budgets cover models and computers together, in Settings → Usage.</p>`)}
+  ${stateCard('Your own computer', 4, `<div class="panel-head"><span class="ico">${I('server')}</span><span><b>Office server</b><small>Your own computer · Ubuntu 24.04 · 4 CPU · 8 GB</small></span><span class="pill" style="margin-left:auto;background:#fdeeee;color:var(--danger)">Offline</span></div>
+    <div class="state-strip"><span class="dot bad"></span><span><b>Offline since 09:12</b><small>Atlas waits up to 10 minutes for it to come back, then tells the person the computer is unavailable.</small></span></div>
+    <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Your own computer is always yours: Cuckoo never sleeps or deletes it, and there is no Cuckoo charge for its time. Disconnect it here or on the computer.</p>
+    <div style="display:flex;gap:10px;margin-top:auto"><span class="btn small">How to bring it back</span><span class="btn small">Disconnect</span></div>`)}
+</div>`, notes('Computer states', [
+  '<b>Off</b> is the default for every agent. Two ways to turn it on: a Cuckoo computer, or one you already have.',
+  'Waking takes about 2 seconds and is automatic. <b>Working</b> names the request and person; <b>Watch</b> opens the live view; requests queue for the screen.',
+  'Limits put it to sleep with the reason: the monthly budget (models and computers together) or the longest stretch of work an admin allows.',
+  'Your own computer: online or offline, never slept or deleted by Cuckoo, and no Cuckoo charge for its time.',
+], '<b>States on the server:</b> off, asleep, waking, working, sleeping, resetting, failed; plus online and offline for your own computer.'), 'Agents');
+
+/* ---------- 3. Live view ---------- */
+const s3 = screen('s3', `<div class="frame">${roster()}<div class="main">${atlasHead}</div></div>
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="modal-head"><span class="av" style="width:36px;height:36px"><img src="${AV('01')}" alt=""></span>
+      <span><h3>Atlas’s computer <span class="pill work" style="font-size:12px;margin-left:6px">Working · 6 min</span></h3><small>On “Download May invoices from Sharma Traders and pay the overdue one” for Meera</small></span>
+      <span style="margin-left:auto;display:flex;gap:10px;align-items:center;position:relative">${pin(1, 'left:-30px;top:6px')}<span class="badge-plain">${I('eye')}View only</span><span class="btn">${I('hand')}Take control</span><span class="btn">${I('stop')}Stop</span><span class="icon-btn" style="background:var(--soft)">${I('x')}</span></span></div>
+    <div class="modal-body">
+      <div class="screenarea">
+        <div class="desk">
+          <div class="held">${pin(3, 'left:-34px;top:8px')}${I('shield')}<span style="flex:1"><b>Atlas wants to press “Pay ₹48,200”.</b> Payments need Meera’s approval (Controls). Atlas is waiting; nothing was paid.</span><span class="btn small" style="background:#fff">Approval sent to Meera</span></div>
+          <div class="bwin" style="margin-top:84px">
+            <div class="btabs"><span>Sharma Traders · Invoices</span></div>
+            <div class="burl">${I('lock')}<span class="u">portal.sharmatraders.in/invoices</span></div>
+            <div class="portal"><h4>Invoices · Mehta Furnishings</h4>
+              <table class="ptable"><tr><th>Invoice</th><th>Date</th><th>Amount</th><th>Status</th><th></th></tr>
+                <tr><td>ST-2026-0412</td><td>2 May</td><td>₹18,450</td><td>Paid</td><td>Downloaded</td></tr>
+                <tr><td>ST-2026-0447</td><td>14 May</td><td>₹32,900</td><td>Paid</td><td>Downloaded</td></tr>
+                <tr><td>ST-2026-0461</td><td>21 May</td><td>₹48,200</td><td style="color:var(--danger);font-weight:600">Overdue</td><td><span class="paybtn">Pay ₹48,200<svg class="i" style="position:absolute;right:-16px;bottom:-14px;width:22px;height:22px;fill:#fff;stroke:#111"><use href="#cursor"/></svg></span></td></tr>
+              </table></div>
+          </div>
+        </div>
+        <div class="screen-foot" style="position:relative">${pin(2, 'left:-30px;top:-3px')}${I('hand')}<span><b style="color:#fff">Take control</b> pauses Atlas so you can use the mouse and keyboard, for example to type a password or a one-time code. <b style="color:#fff">Give back</b> lets Atlas continue.</span></div>
+      </div>
+      <div class="steps-col" style="position:relative"><h4 style="position:relative">${pin(4, 'left:-30px;top:-2px')}Steps</h4>
+        <div class="step"><span class="thumb"></span><span><b>Opened portal.sharmatraders.in</b><small>10:38 · Browser</small></span></div>
+        <div class="step"><span class="thumb"></span><span><b>Signed in with the saved login</b><small>10:38 · saved on this computer last week</small></span></div>
+        <div class="step"><span class="thumb"></span><span><b>Downloaded 2 invoices</b><small>10:41 · Files → requests/May invoices</small></span></div>
+        <div class="step"><span class="thumb"></span><span><b>Read the overdue invoice</b><small>10:43</small></span></div>
+        <div class="step heldstep"><span class="thumb" style="border-color:#f0c37a"></span><span><b>Wants to press “Pay ₹48,200”</b><small>10:44 · waiting for Meera</small></span></div>
+        <div style="margin-top:auto;position:relative;font-size:12.5px;color:var(--muted);line-height:1.5">${pin(5, 'left:-30px;top:0')}These steps and their screenshots stay with the request in Activity. The live picture isn’t recorded as video.</div>
+      </div>
+    </div>
+  </div>`, notes('Live view', [
+  'Opens from <b>Open computer</b>, <b>Watch</b>, a request in Activity or an approval card. View only by default; <b>Stop</b> ends the request and lets the computer sleep.',
+  '<b>Take control</b> pauses Atlas and gives the mouse and keyboard to the person, for passwords, one-time codes or a stuck page. <b>Give back</b> resumes, telling Atlas what changed.',
+  'Risky clicks are actions like any other: Controls and company rules hold them. Here a payment waits for Meera, and nothing is pressed until she approves.',
+  'Every step is listed with a small screenshot, so the person sees exactly what Atlas did.',
+  'Steps and screenshots are kept with the request in Activity, under the workspace’s keeping rules.',
+], '<b>Built on</b> the provider’s screen stream, shown through Cuckoo so the provider stays hidden; control is handed over by Cuckoo, never by sharing a link.'));
+
+/* ---------- 4. Connect your own computer ---------- */
+const s4 = screen('s4', `<div class="frame">${roster()}<div class="main">${atlasHead}</div></div>
+  <div class="scrim"></div>
+  <div class="drawer" style="width:560px">
+    <div class="drawer-head"><h3>Connect your own computer</h3><span class="x">${I('x')}</span></div>
+    <div class="drawer-body" style="gap:18px">
+      <p style="margin:0;color:#4b5058;line-height:1.55;font-size:13.5px">Use a Linux computer you already have, such as an office server or a cloud machine, instead of a Cuckoo computer.</p>
+      <div class="dstep" style="position:relative">${pin(1, 'left:-34px;top:0')}<span class="num done">✓</span><div><h5>Name it</h5><div class="input">Office server</div></div></div>
+      <div class="dstep" style="position:relative">${pin(2, 'left:-34px;top:0')}<span class="num done">✓</span><div><h5>Run this on the computer</h5>
+        <div class="code"><span>curl -fsSL https://get.cuckoo.onl/connect | sudo sh -s -- 7KQ-4PZ</span>${I('copy')}</div>
+        <div class="help">Installs the Cuckoo Connector. It connects out to Cuckoo, so there are no ports to open. Ubuntu 22.04 or later, or Debian 12. The code works once, for 30 minutes.</div></div></div>
+      <div class="dstep" style="position:relative">${pin(3, 'left:-34px;top:0')}<span class="num done">✓</span><div><h5>Check it works</h5>
+        <div class="okbox"><b>${I('check')} Office server is connected</b><span>Ubuntu 24.04 · 4 CPU · 8 GB memory · 120 GB free</span><span class="muted">Test passed: opened a website, wrote and read a file, ran a program.</span></div></div></div>
+      <div class="dstep" style="position:relative">${pin(4, 'left:-34px;top:0')}<span class="num">4</span><div><h5>What Atlas may do there</h5>
+        <div class="check"><span class="box2" style="background:var(--accent);border-color:var(--accent)"></span><span>Work as the user <span class="mono">cuckoo</span> in <span class="mono">/home/cuckoo</span><small>Atlas can’t read other users’ files.</small></span></div>
+        <div class="check" style="margin-top:8px"><span class="box2"></span><span>Let Atlas install programs<small>Gives Atlas administrator rights (sudo) on this computer.</small></span></div></div></div>
+    </div>
+    <div class="drawer-foot" style="position:relative">${pin(5, 'left:-34px;top:18px')}<span class="btn primary">Use for Atlas</span><span class="muted" style="font-size:12.5px">Stop any time: Disconnect here, or <span class="mono">sudo cuckoo-connector stop</span> on the computer.</span></div>
+  </div>`, notes('Connect your own computer', [
+  'A name people will recognise in Cuckoo.',
+  'One command with a one-time code. The Connector dials out to Cuckoo over an encrypted link, like Cuckoo’s own workers do, so nothing is opened to the internet.',
+  'Cuckoo checks the computer before using it: a website, a file and a program, and shows what it found.',
+  'Atlas works as a separate user in its own folder. Administrator rights are off unless you tick them.',
+  'Saving gives Atlas the same tools as on a Cuckoo computer, and the same Controls and live view. Admins can turn off own computers for the workspace.',
+], '<b>Linux only</b>, like Cuckoo computers: agents need a browser, files and programs, not a desktop made for people.'));
+
+/* ---------- 5. Settings → Computers (admins) ---------- */
+const setNav = `<aside class="set-nav"><h1>Settings</h1><div class="sub">Mehta Furnishings · Admin</div>
+  <div class="cap">You</div><a>Profile</a><a>Preferences</a><a>Help</a>
+  <div class="cap">Workspace</div><a>Workspace</a><a>People</a><a>Company rules</a><a class="on">${I('monitor')}Computers</a><a>Usage</a><a>Billing</a><a>Audit log</a></aside>`;
+const s5 = screen('s5', `<div class="frame">${setNav}<div class="set-main">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h2>Computers</h2><p class="muted" style="margin:6px 0 0">Which agents may have a computer, how big, and for how long.</p></div><span class="tag" style="background:#eef1fd;color:#2e3f8f">Admins only</span></div>
+  <div class="set-row">${pin(1, 'left:-30px;top:14px')}<div><b>Cuckoo computers</b><small>Agents’ owners can turn one on.</small></div><div style="display:flex;flex-direction:column;gap:10px"><span style="display:flex;gap:10px;align-items:center"><span class="toggle on"></span>Allowed</span>
+    <div class="boxes"><span><span class="cb on"></span>Small</span><span><span class="cb on"></span>Standard</span><span><span class="cb"></span>Large</span></div></div></div>
+  <div class="set-row">${pin(2, 'left:-30px;top:14px')}<div><b>Your own computers</b><small>Linux computers connected with the Cuckoo Connector.</small></div><div style="display:flex;flex-direction:column;gap:8px">
+    <table class="tbl"><tr><th>Computer</th><th>Status</th><th>Used by</th><th></th></tr>
+      <tr><td>${I('server')} Office server</td><td><span class="dot ok" style="display:inline-block;margin-right:6px"></span>Online</td><td>Scout</td><td style="text-align:right"><span class="linkbtn">Disconnect</span></td></tr></table>
+    <span class="btn small" style="align-self:flex-start">${I('plus')}Connect a computer</span></div></div>
+  <div class="set-row">${pin(3, 'left:-30px;top:14px')}<div><b>Sleep and limits</b><small>Shorter is cheaper.</small></div><div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center;font-size:13.5px">
+    <span>Sleep after <span class="select">5 minutes ${I('chev')}</span></span><span>Longest stretch of work <span class="select">2 hours ${I('chev')}</span></span><span>Awake at once <span class="select">3 computers ${I('chev')}</span></span></div></div>
+  <div class="set-row">${pin(4, 'left:-30px;top:14px')}<div><b>Websites</b><small>Where agents’ computers may go.</small></div><div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px">
+    <span style="display:flex;gap:18px"><span><span class="radio"></span> Any website</span><span><span class="radio on"></span> Only these</span></span>
+    <div><span class="chipx">portal.sharmatraders.in</span><span class="chipx">gst.gov.in</span><span class="chipx">*.zoho.in</span><span class="chipx">${I('plus')}Add</span></div></div></div>
+  <div class="set-row">${pin(5, 'left:-30px;top:14px')}<div><b>This month</b><small>Charges count towards the workspace budget in Usage.</small></div><div style="display:flex;flex-direction:column;gap:6px">
+    <table class="tbl"><tr><th>Agent</th><th>Computer</th><th>Now</th><th>Working time</th><th>Storage</th><th>Charge</th></tr>
+      <tr><td>Atlas</td><td>Cuckoo · Standard</td><td>Asleep</td><td>6 h 20 min</td><td>3.2 GB</td><td>₹89</td></tr>
+      <tr><td>Ledger</td><td>Cuckoo · Small</td><td style="color:var(--working)">Working</td><td>11 h 05 min</td><td>1.1 GB</td><td>₹78</td></tr>
+      <tr><td>Scout</td><td>Office server</td><td>Online</td><td>9 h 40 min</td><td>—</td><td>₹0</td></tr></table></div></div>
+</div></div>`, notes('Settings · Computers (admins)', [
+  'Admins allow Cuckoo computers and choose the sizes agents may use. Turning it off puts every Cuckoo computer to sleep and hides the choice; files stay until an owner resets.',
+  'Linux computers the company connected, who uses them, and Disconnect.',
+  'How fast computers sleep, the longest stretch in one go, and how many may be awake at once: the levers that keep cost predictable.',
+  'Websites agents’ computers may open: anything, or a list. Opening anything else fails with the reason.',
+  'Each agent’s computer this month: working time, storage and charge. Charges join model charges in Usage and the same budgets.',
+], '<b>New nav item</b> under Workspace, beside Company rules, because computers are a policy like rules, not a single setting.'), 'Settings');
+
+/* ---------- 6. Cuckoo Control → Computers (operators) ---------- */
+const provCard = (name, st, stCls, awake, wake, fail, cost, margin, extra = '') => `<div class="card"><div class="card-head"><b>${name}</b><span class="st ${stCls}">${st}</span></div>
+  <div class="card-body"><div><div class="k">Awake now</div><div class="v">${awake}</div></div><div><div class="k">Wake p50 / p95</div><div class="v">${wake}</div></div>
+  <div><div class="k">Failed wakes 24h</div><div class="v">${fail}</div></div><div><div class="k">Cost / margin 30d</div><div class="v">${cost} / ${margin}</div></div></div>
+  <div style="display:flex;gap:8px;padding:0 14px 12px">${extra}</div></div>`;
+const s6 = screen('s6', `<div class="cc"><div class="band"></div>
+  <div class="top"><span class="mark">c</span><b>cuckoo</b><span class="dim">control</span><span class="envb">PRODUCTION</span><span class="srch">Find a workspace, or run a command</span><span style="margin-left:auto" class="dim">Ravi Kumar</span></div>
+  <div class="body"><nav class="side"><div class="cap">Monitor</div><a>Overview</a><a>Spend</a><a>Problem reports</a><div class="cap">Customers</div><a>Workspaces</a><a>Invite codes</a>
+    <div class="cap">Models</div><a>Providers</a><a>Routing</a><div class="cap">Computers</div><a class="on">Computer providers</a><a>Placement</a><div class="cap">Platform</div><a>Configuration</a><a>Change log</a></nav>
+  <div class="main"><div><div class="dim" style="font-size:12px">Computers</div><h1>Computer providers</h1></div>
+    <div class="cards" style="position:relative">${pin(1, 'left:-14px;top:-10px')}
+      ${provCard('E2B', 'Healthy', 'ok', '41', '0.9 s / 2.1 s', '0.2%', '$412', '$268', '<span class="ccbtn">Stop placing new computers</span>')}
+      ${provCard('Daytona', 'Healthy', 'ok', '17', '1.4 s / 3.0 s', '0.4%', '$163', '$121', '<span class="ccbtn">Stop placing new computers</span>')}
+      ${provCard('AWS Lambda MicroVMs', 'Slow wakes', 'warn', '9', '1.2 s / 7.8 s', '3.1%', '$96', '$57', '<span class="ccbtn">Stop placing new computers</span>')}
+    </div>
+    <div class="card" style="position:relative">${pin(2, 'left:-14px;top:-10px')}<div class="card-head"><b>Sizes and routes</b><span class="dim">From the computer sizes file · reviewed, not edited here</span></div>
+      <table><tr><th>Size</th><th>Price to customers</th><th>Route</th><th>Priority / weight</th><th>Our cost</th><th>Margin</th><th>New computers 7d</th></tr>
+        <tr><td>Standard · 2 CPU, 4 GB, 20 GB</td><td class="ccm">$0.17/h</td><td>E2B</td><td class="ccm">1 / 70</td><td class="ccm">$0.10/h</td><td class="ccm">41%</td><td class="ccm">58</td></tr>
+        <tr><td></td><td></td><td>Daytona</td><td class="ccm">1 / 30</td><td class="ccm">$0.10/h</td><td class="ccm">41%</td><td class="ccm">24</td></tr>
+        <tr><td></td><td></td><td>AWS Lambda MicroVMs</td><td class="ccm">2 / 100</td><td class="ccm">$0.12/h</td><td class="ccm">29%</td><td class="ccm">3</td></tr></table></div>
+    <div class="card" style="position:relative">${pin(3, 'left:-14px;top:-10px')}<div class="card-head"><b>Computers</b><span class="dim">412 total · 67 awake · storage 1.3 TB</span></div>
+      <table><tr><th>Workspace</th><th>Agent</th><th>Size</th><th>Provider</th><th>State</th><th>Disk copy</th><th></th></tr>
+        <tr><td>Mehta Furnishings</td><td>Atlas</td><td>Standard</td><td>E2B</td><td>Asleep 2 h</td><td>Saved 10:44</td><td><span class="ccbtn">Move to…</span></td></tr>
+        <tr><td>Mehta Furnishings</td><td>Ledger</td><td>Small</td><td>Daytona</td><td style="color:#6fdc8c">Working 12 min</td><td>Saved 09:30</td><td><span class="ccbtn">Move to…</span></td></tr>
+        <tr><td>Kaveri Exports</td><td>Ops</td><td>Large</td><td>AWS Lambda MicroVMs</td><td style="color:#e3b341">Wake failed, retried on E2B</td><td>Saved 08:02</td><td><span class="ccbtn">Move to…</span></td></tr></table></div>
+  </div></div></div>`, notes('Cuckoo Control · Computers (operators only)', [
+  'The only place provider names appear. Per provider: computers awake, wake time, failed wakes, cost and margin, and an emergency switch that stops placing new computers there.',
+  'Sizes route to providers with priority and weight, like the model catalog. A cheaper provider later is one adapter and one route.',
+  'Every computer, where it lives, and when its disk was last copied to Cuckoo’s own storage. <b>Move to…</b> restores that copy on another provider; a failed wake can restore it elsewhere automatically.',
+], '<b>Operators see</b> counts, states and money, never the screens or files of a workspace.'), 'none');
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6;
+</script>
+</body></html>
