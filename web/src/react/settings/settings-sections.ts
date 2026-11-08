@@ -2,14 +2,14 @@
 // (apps-page plan); `section=connections` links open Apps (navigation.ts). One sidebar replaced the two rows of
 // tabs on 2026-10-30 (D232); links from that layout still open the right page.
 export type Section = 'profile' | 'preferences' | 'help' | 'this-workspace'
-  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'usage' | 'billing' | 'audit-log';
+  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'computers' | 'usage' | 'billing' | 'audit-log';
 
 export const labels: Record<Section, string> = {
   profile: 'Profile', preferences: 'Preferences', help: 'Help', 'this-workspace': 'This workspace',
-  workspace: 'Workspace', people: 'People', connections: 'Connections', 'company-rules': 'Company rules', usage: 'Usage', billing: 'Billing', 'audit-log': 'Audit log',
+  workspace: 'Workspace', people: 'People', connections: 'Connections', 'company-rules': 'Company rules', computers: 'Computers', usage: 'Usage', billing: 'Billing', 'audit-log': 'Audit log',
 };
 export const personal: Section[] = ['profile', 'preferences', 'help'];
-export const adminWorkspace: Section[] = ['workspace', 'people', 'company-rules', 'usage', 'billing', 'audit-log'];
+export const adminWorkspace: Section[] = ['workspace', 'people', 'company-rules', 'computers', 'usage', 'billing', 'audit-log'];
 // Members see the model use made for them on Usage (MG2); admins see the workspace's.
 export const memberWorkspace: Section[] = ['this-workspace', 'company-rules', 'usage'];
 export const comingLater: ReadonlySet<Section> = new Set(['billing']);

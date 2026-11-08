@@ -96,7 +96,7 @@ test('A refused leave keeps the dialog open with the reason',async()=>{
 
 test('Admins see the workspace pages and Usage; Billing is marked as coming later',async()=>{
   await fixture('Admin',async({render,click,dom,reads})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Company rules','Usage','BillingComing later','Audit log']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Company rules','Computers','Usage','BillingComing later','Audit log']]]);
     await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
     assert.match(dom.window.location.search,/view=settings&section=people/);
     await render(base+'&section=usage');

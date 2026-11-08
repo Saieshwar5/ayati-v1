@@ -66,11 +66,12 @@ pub(super) async fn agent_computer(
         return Ok(None);
     };
     let value: Option<Value> = row.try_get("", "computer")?;
-    Ok(Some(
-        value
-            .and_then(|v| serde_json::from_value(v).ok())
-            .unwrap_or_default(),
-    ))
+    let own: ComputerSettings = value
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    // The workspace's limits win (Settings → Computers).
+    let policy = super::computer_policy::workspace_policy(db, w).await?;
+    Ok(Some(policy.apply(&own)))
 }
 
 /// Millionths of a dollar for `seconds` at a price per hour.
@@ -131,14 +132,25 @@ impl PgStore {
             return Ok(Err(refused("Agent unavailable")));
         };
         if !settings.on {
-            return Ok(Err(refused(
-                "Your computer is switched off. Tell the person its owner can turn it on in your Environment tab.",
-            )));
+            let policy = super::computer_policy::workspace_policy(&self.db, &job.workspace).await?;
+            return Ok(Err(refused(if policy.allowed {
+                "Your computer is switched off. Tell the person its owner can turn it on in your Environment tab."
+            } else {
+                "An admin switched off computers in this workspace. Answer without one."
+            })));
         }
         if let Some(reason) =
             super::model_budgets::budget_reached(&self.db, &job.workspace, &job.agent).await?
         {
             return Ok(Err(refused(&reason)));
+        }
+        if !super::computer_policy::workspace_policy(&self.db, &job.workspace)
+            .await?
+            .size_allowed(&settings.size)
+        {
+            return Ok(Err(refused(
+                "Your computer's size isn't allowed in this workspace now. Tell the person its owner can choose another size in your Environment tab.",
+            )));
         }
         let file = computers.file()?;
         let Some(size) = file.size(&settings.size) else {
@@ -356,6 +368,7 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         super::agent_profiles::managed_access(&tx, &user.id, w, agent, false).await?;
         let settings = agent_computer(&tx, w, agent).await?.unwrap_or_default();
+        let policy = super::computer_policy::workspace_policy(&tx, w).await?;
         let computer = query(&tx, "SELECT size,state,awake_since,last_used,created_at,problem,held_by FROM relay_computers WHERE workspace=$1 AND agent=$2", vec![w.into(), agent.into()]).await?;
         let month = query(&tx, "WITH zone AS (SELECT COALESCE(to_jsonb(w)->>'timezone','UTC') AS z FROM relay_workspaces w WHERE w.id=$1),
               start AS (SELECT extract(epoch FROM (date_trunc('month', now() AT TIME ZONE z) AT TIME ZONE z))::bigint AS s FROM zone)
@@ -379,6 +392,7 @@ impl PgStore {
         Ok(json!({
             "configured": file.is_some(),
             "settings": settings,
+            "policy": policy,
             "computer": computer,
             "month": {"seconds": month.try_get::<i64>("", "seconds")?, "charge_usd": month.try_get::<i64>("", "charge")? as f64 / 1e6},
             "sleep_after_minutes": file.as_ref().map(|f| f.sleep_after_minutes),

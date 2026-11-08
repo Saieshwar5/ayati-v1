@@ -23,6 +23,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(live),
         )
         .route(
+            "/api/identity/workspaces/{w}/computer-policy",
+            get(policy).post(save_policy),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/computer/live/input",
             post(input),
         )
@@ -71,12 +75,7 @@ async fn live(
         }
         while open {
             match lines.recv().await {
-                Ok(line) => {
-                    open = send
-                        .send(Ok(Event::default().data(&*line)))
-                        .await
-                        .is_ok()
-                }
+                Ok(line) => open = send.send(Ok(Event::default().data(&*line))).await.is_ok(),
                 // A slow viewer skips frames rather than holding others back.
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
@@ -112,5 +111,28 @@ async fn input(
         app.store
             .computer_live_input(&user, &w, &id, &event)
             .await?,
+    ))
+}
+
+/// Settings → Computers: the workspace's limits, for every member to read.
+async fn policy(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.computer_policy(&user, &w).await?))
+}
+
+/// Admins change the limits; they apply from each computer's next use.
+async fn save_policy(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<super::computer_policy::ComputerPolicy>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store.save_computer_policy(&user, &w, &input).await?,
     ))
 }

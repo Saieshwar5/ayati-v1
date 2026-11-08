@@ -36,7 +36,7 @@ impl Default for ComputerSettings {
 }
 
 /// A host name such as `portal.sharmatraders.in`, or a whole domain as `*.zoho.in`.
-fn host(name: &str) -> bool {
+pub(super) fn host(name: &str) -> bool {
     let name = name.strip_prefix("*.").unwrap_or(name);
     !name.is_empty()
         && name.len() <= 253

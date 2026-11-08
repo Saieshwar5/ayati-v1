@@ -14,13 +14,6 @@ const internets: Internet[] = ['none', 'listed', 'any'];
 export function ComputerControls({ name, value, change, disabled }: {
   name: string; value: ComputerSettings; change: (next: ComputerSettings) => void; disabled: boolean;
 }) {
-  const [adding, setAdding] = useState('');
-  const added = website(adding);
-  const add = () => {
-    if (!added || value.websites.includes(added)) return;
-    change({ ...value, websites: [...value.websites, added] });
-    setAdding('');
-  };
   return <div className="agent-computer-controls">
     <div className="agent-tool-action">
       <span><strong id={`internet-${name}`}>Internet</strong>
@@ -29,17 +22,8 @@ export function ComputerControls({ name, value, change, disabled }: {
           : 'Programs on the computer can reach only these websites.'}</small></span>
       <InternetPicker value={value.internet} disabled={disabled} change={internet => change({ ...value, internet })} />
     </div>
-    {value.internet === 'listed' && <div className="agent-computer-sites">
-      <ul aria-label="Allowed websites">{value.websites.map(site => <li key={site}>{site}
-        <button type="button" aria-label={`Remove ${site}`} disabled={disabled}
-          onClick={() => change({ ...value, websites: value.websites.filter(s => s !== site) })}>×</button></li>)}</ul>
-      {!value.websites.length && <p className="ui-help">No websites yet, so it reaches none.</p>}
-      <label className="ui-field">Add a website<input value={adding} maxLength={253} disabled={disabled || value.websites.length >= 30}
-        placeholder="portal.example.in or *.example.in" onChange={event => setAdding(event.target.value)}
-        onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }} /></label>
-      <Button disabled={disabled || !added || value.websites.includes(added)} onClick={add}>Add</Button>
-      {adding.trim() && !added && <p className="ui-help" role="note">Enter a host name such as portal.example.in.</p>}
-    </div>}
+    {value.internet === 'listed' && <Websites sites={value.websites} limit={30} disabled={disabled}
+      change={websites => change({ ...value, websites })} />}
     <div className="agent-tool-action">
       <span><strong>Run programs and commands</strong>
         <small>{value.programs === 'ask' ? 'Each new command asks the person who asked first.'
@@ -65,8 +49,30 @@ export function ComputerControls({ name, value, change, disabled }: {
   </div>;
 }
 
+/** Websites as host names, added one at a time and checked as they are typed. */
+export function Websites({ sites, limit, disabled, change }: { sites: string[]; limit: number; disabled: boolean; change: (next: string[]) => void }) {
+  const [adding, setAdding] = useState('');
+  const added = website(adding);
+  const add = () => {
+    if (!added || sites.includes(added)) return;
+    change([...sites, added]);
+    setAdding('');
+  };
+  return <div className="agent-computer-sites">
+    <ul aria-label="Allowed websites">{sites.map(site => <li key={site}>{site}
+      <button type="button" aria-label={`Remove ${site}`} disabled={disabled}
+        onClick={() => change(sites.filter(s => s !== site))}>×</button></li>)}</ul>
+    {!sites.length && <p className="ui-help">No websites yet, so it reaches none.</p>}
+    <label className="ui-field">Add a website<input value={adding} maxLength={253} disabled={disabled || sites.length >= limit}
+      placeholder="portal.example.in or *.example.in" onChange={event => setAdding(event.target.value)}
+      onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); add(); } }} /></label>
+    <Button disabled={disabled || !added || sites.includes(added)} onClick={add}>Add</Button>
+    {adding.trim() && !added && <p className="ui-help" role="note">Enter a host name such as portal.example.in.</p>}
+  </div>;
+}
+
 /** Internet in the same Allow / Ask first / Block style as other controls. */
-function InternetPicker({ value, disabled, change }: { value: Internet; disabled: boolean; change: (next: Internet) => void }) {
+export function InternetPicker({ value, disabled, change }: { value: Internet; disabled: boolean; change: (next: Internet) => void }) {
   return <div className="mode-picker" role="radiogroup" aria-label="Internet">
     {internets.map(option => <label key={option} className={`mode-option${value === option ? ' chosen' : ''}`}>
       <input type="radio" name="computer-internet" value={option} checked={value === option} disabled={disabled} onChange={() => change(option)} />

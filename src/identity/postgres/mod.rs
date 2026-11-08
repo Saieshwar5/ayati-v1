@@ -152,6 +152,9 @@ mod computer_browser_migration;
 #[cfg(test)]
 mod computer_browser_tests;
 mod computer_live;
+mod computer_policy;
+#[cfg(test)]
+mod computer_policy_tests;
 pub(crate) use computer_live::LiveInput;
 #[cfg(test)]
 mod computer_tests;
