@@ -182,6 +182,7 @@ impl PgStore {
         // Skills it loaded, in time order with its tool steps (D234).
         steps.extend(super::super::skills::runtime::steps(&tx, w, reply).await?);
         steps.extend(super::super::chat::updates::steps(&tx, w, reply).await?);
+        steps.extend(super::super::computers::steps(&tx, w, reply).await?);
         steps.sort_by_key(|s| s["at"].as_i64().unwrap_or(0));
         let state = item["state"].as_str().unwrap_or_default().to_string();
         let fix = match state.as_str() {

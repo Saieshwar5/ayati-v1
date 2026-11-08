@@ -1,4 +1,5 @@
 import './tools.css';
+import type { ReactNode } from 'react';
 import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Settings } from './model';
 
@@ -9,19 +10,24 @@ export const searchesWeb = (settings: Settings) => settings.web_search !== false
 const about = 'Search the web and read public pages to answer questions';
 
 /** Create step 2: the tools Cuckoo provides itself, above the admin's apps. */
-export function BuiltInTools({ name, on, change }: { name: string; on: boolean; change: (on: boolean) => void }) {
+export function BuiltInTools({ children }: { children: ReactNode }) {
   return <section className="agent-built-in" aria-labelledby="agent-built-in-title">
     <h4 id="agent-built-in-title" className="agent-group-label">Built into Cuckoo <small>Nothing to set up</small></h4>
-    <ul className="agent-apps"><li>
-      <span className="agent-app-text"><strong>Web search</strong>
-        <small>{about}</small>
-        <span className="agent-app-kinds"><span className="agent-kind read">Reads</span><span className="agent-kind">On for every new agent</span></span>
-        <small>{name} lists the pages it used under each answer. It only reads: it can’t sign in, buy or fill in forms.</small>
-      </span>
-      <label className="ui-switch"><input type="checkbox" role="switch" checked={on} onChange={event => change(event.target.checked)} />
-        <span>Use web search</span></label>
-    </li></ul>
+    <ul className="agent-apps">{children}</ul>
   </section>;
+}
+
+/** Create step 2: web search, on for every new agent. */
+export function WebSearchChoice({ name, on, change }: { name: string; on: boolean; change: (on: boolean) => void }) {
+  return <li>
+    <span className="agent-app-text"><strong>Web search</strong>
+      <small>{about}</small>
+      <span className="agent-app-kinds"><span className="agent-kind read">Reads</span><span className="agent-kind">On for every new agent</span></span>
+      <small>{name} lists the pages it used under each answer. It only reads: it can’t sign in, buy or fill in forms.</small>
+    </span>
+    <label className="ui-switch"><input type="checkbox" role="switch" checked={on} onChange={event => change(event.target.checked)} />
+      <span>Use web search</span></label>
+  </li>;
 }
 
 /** Tools tab: the agent's web search switch, for its owner and managers. */

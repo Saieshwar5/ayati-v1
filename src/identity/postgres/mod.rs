@@ -147,6 +147,10 @@ mod task_progress;
 mod task_progress_tests;
 pub(crate) mod workspace_connections;
 pub(crate) use executor_dispatch::PoolLimits;
+#[cfg(test)]
+mod computer_tests;
+mod computer_tools;
+mod computers;
 mod context_attempts;
 mod context_migration;
 mod context_preview;
@@ -298,7 +302,7 @@ use super::user::{User, now};
 use anyhow::{Context, Result, ensure};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction,
-    QueryResult, Statement, TransactionTrait, Value as SqlValue,
+    QueryResult, TransactionTrait, Value as SqlValue,
 };
 use serde_json::Value;
 use std::time::Duration;
@@ -320,6 +324,8 @@ pub struct PgStore {
     pub(crate) model_catalog: Option<crate::identity::models::catalog::Files>,
     /// Web search services for agents (schema 102), when configured.
     pub(crate) web_search: Option<crate::identity::web_search::WebSearch>,
+    /// Agent computers (schema 103), when configured.
+    pub(crate) computers: Option<crate::identity::computers::Computers>,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -340,6 +346,7 @@ impl PgStore {
             library_models: None,
             model_catalog: None,
             web_search: None,
+            computers: None,
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -351,6 +358,7 @@ impl PgStore {
         store.library_models = crate::identity::library::models::Configured::from(config);
         store.model_catalog = crate::identity::models::catalog::Files::from(config);
         store.web_search = crate::identity::web_search::WebSearch::from(config)?;
+        store.computers = crate::identity::computers::Computers::from(config)?;
         store.verify_schema().await?;
         Ok(store)
     }
@@ -405,40 +413,6 @@ impl PgStore {
         role(&self.db, workspace, actor).await
     }
 }
-fn statement(sql: &str, values: Vec<SqlValue>) -> Statement {
-    Statement::from_sql_and_values(sea_orm::DbBackend::Postgres, sql, values)
-}
-async fn execute(db: &impl ConnectionTrait, sql: &str, values: Vec<SqlValue>) -> Result<u64> {
-    Ok(db
-        .execute_raw(statement(sql, values))
-        .await?
-        .rows_affected())
-}
-async fn query(
-    db: &impl ConnectionTrait,
-    sql: &str,
-    values: Vec<SqlValue>,
-) -> Result<Option<QueryResult>> {
-    Ok(db.query_one_raw(statement(sql, values)).await?)
-}
-async fn rows(
-    db: &impl ConnectionTrait,
-    sql: &str,
-    values: Vec<SqlValue>,
-) -> Result<Vec<QueryResult>> {
-    Ok(db.query_all_raw(statement(sql, values)).await?)
-}
-async fn json_rows(
-    db: &impl ConnectionTrait,
-    sql: &str,
-    values: Vec<SqlValue>,
-) -> Result<Vec<Value>> {
-    rows(db, sql, values)
-        .await?
-        .into_iter()
-        .map(|r| Ok(r.try_get("", "data")?))
-        .collect()
-}
 async fn role(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Result<String> {
     query(
         db,
@@ -460,6 +434,8 @@ async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Res
 }
 mod audit_write;
 mod built_apps;
+mod statements;
+use statements::{execute, json_rows, query, rows};
 mod company_apps;
 use audit_write::{audit, audit_with_summary};
 pub(crate) use built_apps::{

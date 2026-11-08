@@ -63,6 +63,8 @@ pub struct Settings {
     pub browser: bool,
     /// Web search, on unless its owner or a manager switched it off (schema 102).
     pub web_search: bool,
+    /// The agent's computer (schema 103): off until its owner or an admin turns it on.
+    pub computer: super::computer_settings::ComputerSettings,
     pub history: String,
     pub paused: bool,
 }
@@ -78,6 +80,7 @@ impl Default for Settings {
             memory: false,
             browser: false,
             web_search: true,
+            computer: Default::default(),
             history: "all".into(),
             paused: false,
         }
@@ -85,6 +88,7 @@ impl Default for Settings {
 }
 impl Settings {
     pub fn validate(&self) -> Result<()> {
+        self.computer.validate()?;
         ensure!(
             !self.browser,
             "Browser access requires an isolated browser runtime; it is not available for this agent yet"

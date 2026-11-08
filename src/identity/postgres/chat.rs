@@ -317,6 +317,8 @@ impl PgStore {
         if query(tx,"SELECT reply FROM relay_chat_jobs WHERE reply=$1 AND claim=$2 AND state='running' AND lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint AND workspace=$3 FOR UPDATE",vec![job.reply.clone().into(),claim.clone().into(),job.workspace.clone().into()]).await?.is_none() {
             return Ok(false);
         }
+        // The agent's computer is free for its other requests as soon as this one ends.
+        Self::computer_release(tx, &job.workspace, &job.reply).await?;
         let user = User {
             id: job.requester.clone(),
             email: String::new(),

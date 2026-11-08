@@ -110,6 +110,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::handoff_migration::VisibleHandoffs),
             Box::new(super::message_actions::agent_reactions::AgentReactions),
             Box::new(super::web_reads::WebReads),
+            Box::new(super::computers::ComputersMigration),
         ]
     }
 }

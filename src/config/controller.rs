@@ -73,6 +73,8 @@ pub struct Controller {
     pub skill_writer_model: Option<(String, String)>,
     /// Web search services for agents, their keys, prices and order (runtime/web-search.md).
     pub web_search_providers_file: Option<PathBuf>,
+    /// Agent computers' sizes and providers (runtime/agent-computers.md).
+    pub computer_providers_file: Option<PathBuf>,
     /// Composio's project API key (a private 0600 file); no file, no Composio.
     pub composio_key_file: Option<PathBuf>,
     /// A loopback fixture for tests; the official API otherwise.
@@ -233,6 +235,7 @@ impl Controller {
             transcription_model: provider_model(env, "AYATI_TRANSCRIPTION_MODEL"),
             skill_writer_model: provider_model(env, "AYATI_SKILL_WRITER_MODEL"),
             web_search_providers_file: absolute(env, "AYATI_WEB_SEARCH_PROVIDERS_FILE"),
+            computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),

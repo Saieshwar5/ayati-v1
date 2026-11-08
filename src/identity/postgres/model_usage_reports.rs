@@ -90,6 +90,12 @@ impl PgStore {
             }
             report[name] = json!(list);
         }
+        report["computers"] =
+            computer_usage(&tx, w, since / 1000, scope.agent, person.as_deref()).await?;
+        report["total_charge_usd"] = json!(
+            report["totals"]["charge_usd"].as_f64().unwrap_or(0.0)
+                + report["computers"]["charge_usd"].as_f64().unwrap_or(0.0)
+        );
         // Names for agents and people, read in the same snapshot.
         let names = rows(&tx, "SELECT 'agent' AS kind, a.id, a.name FROM relay_shared_agents a WHERE a.workspace=$1
             UNION ALL SELECT 'person', u.id, COALESCE(u.display_name,u.email,'Former member') FROM relay_users u
@@ -116,6 +122,14 @@ impl PgStore {
                 agents.get(key).cloned().unwrap_or(json!("Removed agent"))
             };
         }
+        for item in report["computers"]["by_agent"]
+            .as_array_mut()
+            .into_iter()
+            .flatten()
+        {
+            let key = item["key"].as_str().unwrap_or_default();
+            item["name"] = agents.get(key).cloned().unwrap_or(json!("Removed agent"));
+        }
         for item in report["by_person"].as_array_mut().into_iter().flatten() {
             let key = item["key"].as_str().unwrap_or_default();
             item["name"] = if key.is_empty() {
@@ -126,4 +140,42 @@ impl PgStore {
         }
         Ok(report)
     }
+}
+
+/// Agent computers' awake time and charges over the same period (schema 103), by agent.
+/// A stretch still awake counts once it ends.
+async fn computer_usage(
+    tx: &DatabaseTransaction,
+    w: &str,
+    since: i64,
+    agent: Option<&str>,
+    person: Option<&str>,
+) -> Result<Value> {
+    if !super::model_budgets::present(tx, "relay_computer_sessions").await? {
+        return Ok(json!({"seconds": 0, "charge_usd": 0.0, "by_agent": []}));
+    }
+    let list = rows(
+        tx,
+        "SELECT agent AS key, COALESCE(sum(seconds),0)::bigint AS seconds, COALESCE(sum(charge_micro),0)::bigint AS charge
+         FROM relay_computer_sessions WHERE workspace=$1 AND woke_at>=$2 AND slept_at IS NOT NULL
+           AND ($3::text IS NULL OR agent=$3) AND ($4::text IS NULL OR person=$4)
+         GROUP BY agent ORDER BY charge DESC, seconds DESC, agent LIMIT 100",
+        vec![
+            w.into(),
+            since.into(),
+            agent.map(str::to_owned).into(),
+            person.map(str::to_owned).into(),
+        ],
+    )
+    .await?;
+    let (mut seconds, mut charge) = (0, 0);
+    let mut by_agent = vec![];
+    for row in list {
+        let s: i64 = row.try_get("", "seconds")?;
+        let c: i64 = row.try_get("", "charge")?;
+        seconds += s;
+        charge += c;
+        by_agent.push(json!({"key": row.try_get::<String>("", "key")?, "seconds": s, "charge_usd": c as f64 / 1e6}));
+    }
+    Ok(json!({"seconds": seconds, "charge_usd": charge as f64 / 1e6, "by_agent": by_agent}))
 }

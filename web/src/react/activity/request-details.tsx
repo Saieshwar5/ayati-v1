@@ -9,6 +9,7 @@ import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, 
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
 import { dollars } from '../usage/usage-model';
+import { ComputerStep } from './computer-step';
 
 /** One request, step by step from Cuckoo's own records (designs/activity 4).
  * Work that is still running can be stopped here, as from the conversation. */
@@ -75,7 +76,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       <h3>What {data.agent_name} did</h3>
       <ol className="activity-steps">
         <li className="done"><strong>Read the message</strong>{data.message && <blockquote>{data.message}</blockquote>}</li>
-        {data.steps.map(step => <li key={step.id} className={step.state === 'completed' ? 'done' : ['denied', 'rejected', 'invalidated', 'uncertain'].includes(step.state) ? 'problem' : 'waiting'}>
+        {data.steps.map(step => step.effect === 'computer' ? <ComputerStep key={step.id} step={step} /> : <li key={step.id} className={step.state === 'completed' ? 'done' : ['denied', 'rejected', 'invalidated', 'uncertain'].includes(step.state) ? 'problem' : 'waiting'}>
           <strong>{step.account ? `${step.account}: ` : ''}{step.title}</strong>
           <small>{step.state === 'denied' ? 'Blocked by its rules' : step.state === 'uncertain' ? 'Outcome unconfirmed: check the business system'
             : step.automatic ? 'Allowed automatically' : step.decided_by ? `${step.decision === 'approve' ? 'Approved' : 'Decided'} by ${step.decided_by}` : 'Waiting for approval'}</small>

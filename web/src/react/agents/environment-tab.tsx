@@ -5,6 +5,7 @@ import { saveAgent, type Agent, type Directory } from './model';
 import { CatalogModelPicker } from './catalog-model-picker';
 import { UsageReportView } from '../usage/usage-report';
 import { AgentBudgets } from '../usage/budgets';
+import { ComputerCard } from './computer/computer-card';
 
 const later = [
   { title: 'Computer', text: 'A computer it can use for files and programs.' },
@@ -14,7 +15,8 @@ const later = [
   { title: 'Phone', text: 'Its own phone number for calls.' },
 ];
 
-/** Environment: the model it uses, and what it will be able to use later
+/** Environment: the model it uses, its computer when this Cuckoo offers computers
+ * (designs/agent-computers 1), and what it will be able to use later
  * (designs/agents-simplified 11). When the admin lists allowed models
  * (Settings → Workspace), the model is picked from that list; otherwise typed.
  * With Cuckoo's model catalog, people pick a catalog model and never a provider. */
@@ -26,9 +28,10 @@ export function EnvironmentTab({ agent, directory, saved }: { agent: Agent; dire
         : directory.catalog?.catalog_on ? <CatalogModelPicker agent={agent} directory={directory} catalog={directory.catalog} saved={saved} />
           : <ProviderModelForm agent={agent} directory={directory} saved={saved} />}
     </section>
+    {directory.computers && <section aria-label="Computer"><ComputerCard key={agent.id} agent={agent} offer={directory.computers} saved={saved} /></section>}
     {agent.editable && <section aria-label="Usage"><UsageReportView key={agent.id} agent={agent.id} title="Usage" /><AgentBudgets key={`budgets-${agent.id}`} agent={agent.id} /></section>}
     <section aria-label="Coming later"><h3>Coming later</h3>
-      <div className="agent-later-cards">{later.map(card => <article key={card.title} className="agent-later-card">
+      <div className="agent-later-cards">{later.filter(card => !directory.computers || card.title !== 'Computer').map(card => <article key={card.title} className="agent-later-card">
         <h4>{card.title}</h4><p>{card.text}</p><span>Coming later</span>
       </article>)}</div>
     </section>
