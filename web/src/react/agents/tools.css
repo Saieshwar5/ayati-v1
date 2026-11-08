@@ -40,3 +40,9 @@
 .agent-built-in .agent-group-label:first-child { margin-top: 4px; }
 .agent-built-in .agent-tool { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
 .agent-built-in .agent-tool .ui-status:empty { display: none; }
+/* Connection health on the Tools tab (designs/connector-screens 6). */
+.agent-tool .agent-app-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.agent-tool small.agent-tool-health { color: var(--text); margin-top: 4px; }
+.agent-tool-link { padding: 0; border: 0; background: none; color: var(--receipt-seen); font: inherit; cursor: pointer; text-decoration: none; }
+.agent-tool-link:hover { text-decoration: underline; }
+.agent-tool-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
