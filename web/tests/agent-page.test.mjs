@@ -83,3 +83,27 @@ test('people who cannot change the agent get no ⋯ menu or Change links', async
     assert.ok(button('Open in Chat'));
   }, { url, fetch: async path => response(read(path)) });
 });
+
+test('the Instructions tab shows everything the saved agent receives, from its own apps and skills', async () => {
+  const previews = [];
+  await reactFixture(async ({ render, button, click }) => {
+    await open(render, { section: 'Instructions' });
+    assert.match(document.body.textContent, /Cuckoo system prompt Always includedSystem guide/);
+    await click(button('See everything Atlas receives'));
+    const dialog = document.querySelector('dialog');
+    assert.match(dialog.textContent, /SkillsIncluded · It has skills/);
+    assert.match(dialog.textContent, /quote-builder: Use when a customer asks for a price/);
+    assert.ok(previews.length >= 1);
+    for (const body of previews) assert.deepEqual(body, { name: 'Atlas', role: 'Orders assistant', instructions: settings.instructions, agent: 'atlas', skills: [] });
+  }, { url, fetch: async (path, options = {}) => {
+    if (path.endsWith('/agent-profiles/prompt')) {
+      previews.push(JSON.parse(options.body));
+      return response({ prompt: 'Your name is Atlas.', version: '2026-11-08', instructions: '', skills: [{ name: 'quote-builder', description: 'Use when a customer asks for a price' }],
+        sections: [{ id: 'skills', title: 'Skills', state: 'included', reason: 'It has skills', text: 'Skills you can use.' }] });
+    }
+    if (path.endsWith('/skills')) return response({ skills: [], editable: true });
+    if (path.endsWith('/knowledge')) return response({ notes: [] });
+    if (path.includes('/library-always/')) return response({ items: [], given: [], hidden: 0, chosen: 0, editable: false, most: 5, budget: 8000 });
+    return response(read(path));
+  } });
+});

@@ -17,25 +17,32 @@ pub(crate) fn instructions(name: &str, title: &str, settings: Option<&Settings>)
     text.push('\n');
     text.push_str(SYSTEM_GUIDE);
     if let Some(settings) = settings {
-        if !settings.instructions.trim().is_empty() {
+        text.push_str(&own(settings));
+    }
+    text
+}
+
+/// The part of an agent's instructions its owner wrote.
+pub(crate) fn own(settings: &Settings) -> String {
+    let mut text = String::new();
+    if !settings.instructions.trim().is_empty() {
+        text.push_str(&format!(
+            "\nInstructions:\n{}",
+            settings.instructions.trim()
+        ));
+    }
+    // Guidance saved by older clients still reaches the agent.
+    if !settings.escalation.trim().is_empty() {
+        text.push_str(&format!("\nAsk a person when: {}", settings.escalation));
+    }
+    for (label, value) in [
+        ("Successful outcome", &settings.successful_outcome),
+        ("Routine", &settings.routine),
+    ] {
+        if let Some(value) = value.as_deref().filter(|v| !v.trim().is_empty()) {
             text.push_str(&format!(
-                "\nInstructions:\n{}",
-                settings.instructions.trim()
+                "\n{label} (working guidance, not permission): {value}"
             ));
-        }
-        // Guidance saved by older clients still reaches the agent.
-        if !settings.escalation.trim().is_empty() {
-            text.push_str(&format!("\nAsk a person when: {}", settings.escalation));
-        }
-        for (label, value) in [
-            ("Successful outcome", &settings.successful_outcome),
-            ("Routine", &settings.routine),
-        ] {
-            if let Some(value) = value.as_deref().filter(|v| !v.trim().is_empty()) {
-                text.push_str(&format!(
-                    "\n{label} (working guidance, not permission): {value}"
-                ));
-            }
         }
     }
     text

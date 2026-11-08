@@ -26,7 +26,12 @@ export async function saveAgentWithPicture(draft: Agent, file: File | undefined,
   keep(next);
   return next;
 }
-/** Exactly what an agent with this draft receives, including the Cuckoo rules. */
-export const previewPrompt = (draft: { name: string; role: string; instructions: string }, signal?: AbortSignal) =>
-  identityRequest<{ prompt: string }>(`${base}/prompt`, draft, signal);
+/** What decides the preview: a saved `agent`, or for a new one its chosen apps and skills. */
+export type PromptDraft = { name: string; role: string; instructions: string; agent?: string; apps?: boolean; skills?: { name: string; description: string }[] };
+export type PromptSection = { id: string; title: string; state: 'included' | 'not_included' | 'conversation'; reason: string; text: string };
+export type PromptPreview = { prompt: string; version: string; sections: PromptSection[]; instructions: string; skills: { name: string; description: string }[] };
+/** Everything an agent with this draft receives: the Cuckoo system prompt in
+ * sections, and the exact text of a direct request. */
+export const previewPrompt = (draft: PromptDraft, signal?: AbortSignal) =>
+  identityRequest<PromptPreview>(`${base}/prompt`, draft, signal);
 export const symbols: Record<string, string> = { spark: '✦', diamond: '◈', flower: '✿', sun: '☀' };

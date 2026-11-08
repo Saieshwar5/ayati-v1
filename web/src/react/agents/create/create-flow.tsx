@@ -85,6 +85,7 @@ export function AgentCreate({ start, directory, close, created }: {
         choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <InstructionsStep name={draft.name} title={draft.role} text={draft.settings.instructions} rules={directory.system_prompt}
+        apps={Object.values(tools).some(choice => choice.on)} skills={skills.map(({ name, description }) => ({ name, description }))}
         change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))}>
         <section className="agent-create-skills" aria-label="Skills">
           <h3>Skills <small>How-to steps loaded only when needed</small></h3>

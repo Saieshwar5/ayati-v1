@@ -84,23 +84,37 @@ test('starters only fill an empty box, and selected people and managers are sent
   } });
 });
 
-test('"See everything it receives" shows the server text for the current draft', async () => {
+test('"See everything it receives" shows the Cuckoo system prompt in sections for the current draft', async () => {
   const previews = [];
+  const sections = [
+    { id: 'identity', title: 'Who it is and safety', state: 'included', reason: 'Always', text: 'Your name is Iris.\nUse only assigned capabilities.' },
+    { id: 'business_actions', title: 'Business actions and approvals', state: 'not_included', reason: 'Added when an app is switched on', text: 'Use Cuckoo control tools.' },
+    { id: 'shared', title: 'Shared conversations', state: 'conversation', reason: 'Added in channels and groups', text: 'This conversation is shared.' },
+  ];
   await reactFixture(async ({ render, button, click, change }) => {
     await open(render);
     await change(field('Name'), 'Iris'); await click(button('Continue'));
     await change(field('Instructions'), 'Be brief.');
     await click(button('See everything Iris receives'));
-    assert.match(document.querySelector('dialog').textContent, /Your name is Iris\.\nUse only assigned capabilities\.\nInstructions:\nBe brief\./);
+    const dialog = document.querySelector('dialog');
+    assert.match(dialog.textContent, /1 · Cuckoo system promptSame for every agent · 2026-11-08/);
+    assert.match(dialog.textContent, /Who it is and safetyIncluded · Always/);
+    assert.match(dialog.textContent, /Business actions and approvalsNot included · Added when an app is switched on/);
+    assert.match(dialog.textContent, /Shared conversationsIn some conversations · Added in channels and groups/);
+    assert.match(dialog.textContent, /2 · Iris’s instructionsInstructions:\nBe brief\./);
+    assert.match(dialog.textContent, /No skills yet\./);
     // Strict Mode mounts twice; the first read is aborted. Every read is for this draft.
     assert.ok(previews.length >= 1);
-    for (const body of previews) assert.deepEqual(body, { name: 'Iris', role: '', instructions: 'Be brief.' });
+    for (const body of previews) assert.deepEqual(body, { name: 'Iris', role: '', instructions: 'Be brief.', apps: false, skills: [] });
+    await click(button('Copy as text'));
+    assert.match(dialog.textContent, /Copy isn’t available here/);
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
     if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
     const body = JSON.parse(options.body); previews.push(body);
-    return response({ prompt: `Your name is ${body.name}.\nUse only assigned capabilities.\nInstructions:\n${body.instructions}` });
+    return response({ prompt: `Your name is ${body.name}.\nInstructions:\n${body.instructions}`, version: '2026-11-08', sections,
+      instructions: `\nInstructions:\n${body.instructions}`, skills: [] });
   } });
 });
 

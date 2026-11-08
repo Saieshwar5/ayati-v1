@@ -1,4 +1,5 @@
 pub(crate) mod config;
+pub(crate) mod system_prompt;
 use super::*;
 use axum::{
     Json,
@@ -125,9 +126,23 @@ struct PromptDraft {
     name: String,
     role: String,
     instructions: String,
+    /// A saved agent: its apps, skills and Library decide the sections.
+    #[serde(default)]
+    agent: Option<String>,
+    /// For a new agent: whether any app is chosen, and its skills.
+    #[serde(default)]
+    apps: bool,
+    #[serde(default)]
+    skills: Vec<SkillLine>,
 }
-/// "See everything it receives": the exact text an agent with this draft gets,
-/// including the locked Cuckoo rules. Nothing is saved.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SkillLine {
+    name: String,
+    description: String,
+}
+/// "Everything it receives": the Cuckoo system prompt as sections, marked included
+/// or not for this agent, and the exact text of a direct request. Nothing is saved.
 async fn prompt(
     State(app): State<Shared>,
     RoutePath(w): RoutePath<String>,
@@ -139,16 +154,48 @@ async fn prompt(
     check(
         input.name.len() <= 80
             && input.role.chars().count() <= 80
-            && input.instructions.len() <= config::INSTRUCTIONS_LIMIT,
+            && input.instructions.len() <= config::INSTRUCTIONS_LIMIT
+            && input.skills.len() <= 20
+            && input
+                .skills
+                .iter()
+                .all(|s| s.name.len() <= 64 && s.description.len() <= 1024),
         "Draft is too long",
     )?;
-    let settings = config::Settings {
-        instructions: input.instructions,
-        ..Default::default()
+    let mut settings = config::Settings::default();
+    let features = match &input.agent {
+        Some(id) => {
+            app.store.managed_agent(&user, &w, id, false).await?;
+            if let Some(saved) = app.store.agent_settings(&w, id).await? {
+                settings = saved;
+            }
+            app.store.prompt_features(&w, id).await?
+        }
+        None => system_prompt::Features {
+            business_actions: input.apps,
+            executor: app.store.pooled,
+            library: false,
+            skills: input
+                .skills
+                .into_iter()
+                .map(|s| (s.name, s.description))
+                .collect(),
+        },
     };
-    Ok(Json(
-        json!({"prompt":config::instructions(input.name.trim(), &input.role, Some(&settings))}),
-    ))
+    settings.instructions = input.instructions;
+    let name = input.name.trim();
+    let skills: Vec<Value> = features
+        .skills
+        .iter()
+        .map(|(name, description)| json!({"name": name, "description": description}))
+        .collect();
+    Ok(Json(json!({
+        "prompt": system_prompt::prompt(name, &input.role, &settings, &features),
+        "version": system_prompt::VERSION,
+        "sections": system_prompt::sections(name, &input.role, &features),
+        "instructions": config::own(&settings),
+        "skills": skills,
+    })))
 }
 async fn transfer(
     State(app): State<Shared>,

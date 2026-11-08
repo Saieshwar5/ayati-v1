@@ -38,10 +38,33 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
   successful outcome and routine under `## ` headings, in the order the agent read
   them. A responsibility of 60 characters or fewer became the job title. Revisions
   were raised so stale editors reload.
-- The agent receives its name, job title, the locked Cuckoo rules and its
+- The agent receives its name, job title, the locked Cuckoo system prompt and its
   instructions. Guidance saved by an older client in the old fields still reaches it.
-- `POST …/agent-profiles/prompt` with `{name, role, instructions}` returns exactly
-  that text for a draft ("See everything it receives"); nothing is saved.
+- See [the Cuckoo system prompt](#the-cuckoo-system-prompt) for what anyone who
+  can see an agent can read ("See everything it receives"); nothing is saved.
+
+## The Cuckoo system prompt
+
+Every agent gets the same fixed text, which nobody in a workspace can change.
+`src/identity/agents/system_prompt.rs` holds it as 17 named sections (who it is
+and safety, business actions, skills, Library, working voice and tasks, history,
+handoffs, shared conversations…). Requests (`chat/execution.rs`) add each section
+from the same constants and under the same conditions, so the preview is what
+agents get.
+
+- A section is **included** (for example "Runs on Cuckoo's executors"), **not
+  included** with the reason ("Added when an app is switched on"), or added only in
+  **some conversations** (channels, a message asking several agents).
+- `POST …/agent-profiles/prompt` takes `{name, role, instructions}` plus either
+  `agent` (a saved agent anyone who can talk to it may read: its apps, skills and
+  Library decide the sections; the draft instructions replace its saved ones) or,
+  for a new agent, `apps` and `skills` (`[{name, description}]`, at most 20). It
+  returns `sections`, `version`, the agent's own `instructions`, its `skills` and
+  `prompt`, the exact instructions of a direct request from a person.
+- `VERSION` is the date shown with the text. A unit test hashes every section, so a
+  wording change fails until the date and the hash are updated.
+- Check: `system_prompt_tests` prepares a real direct request, with and without a
+  skill, and compares it with the preview byte for byte.
 - Every save writes a readable audit sentence, such as "Arjun changed Atlas:
   instructions; who can talk (Selected people → Everyone)". It names what changed,
   never the instructions themselves.

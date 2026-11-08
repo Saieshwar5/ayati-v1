@@ -5,13 +5,13 @@ import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Settings } from './model';
 import { Knowledge } from './knowledge';
 import { AlwaysRead } from '../library/always-read';
-import { PromptPreview } from './create/instructions-step';
+import { EverythingItReceives, SystemPromptCard } from './system-prompt';
 
 type Draft = Pick<Settings, 'instructions' | 'memory' | 'history'>;
 const pick = (settings: Settings): Draft => ({ instructions: settings.instructions, memory: settings.memory, history: settings.history });
 
 /** Instructions: the owner and admins edit them in place; others read them. The
- * locked Cuckoo rules, what it knows and channel history sit beside them
+ * Cuckoo system prompt, what it knows and channel history sit beside them
  * (designs/agents-simplified 8). Skills arrive with M6. */
 export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: string; saved: () => Promise<void> }) {
   // The draft keeps the revision it started from, so a save never overwrites
@@ -58,16 +58,8 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
       </details>
     </div>
     <aside className="agent-create-side">
-      <section className="agent-rules" aria-label="Cuckoo rules">
-        <h3>Cuckoo rules <small>Always included</small></h3><p>{rules}</p>
-        <p className="ui-help">Set by Cuckoo. Nobody in the workspace can change these.</p>
-      </section>
-      <section className="agent-rules" aria-label="Added automatically">
-        <h3>Added automatically</h3>
-        <ul><li>Its name and job title</li><li>Who it is talking to, and where</li><li>Its tools and their rules</li></ul>
-        <Button className="ui-link" onClick={() => setPreviewing(true)}>See everything {agent.name} receives</Button>
-      </section>
+      <SystemPromptCard name={agent.name} rules={rules} open={() => setPreviewing(true)} />
     </aside>
-    {previewing && <PromptPreview draft={{ name: agent.name, role: agent.role, instructions: draft.instructions }} close={() => setPreviewing(false)} />}
+    {previewing && <EverythingItReceives draft={{ name: agent.name, role: agent.role, instructions: draft.instructions, agent: agent.id }} close={() => setPreviewing(false)} />}
   </div>;
 }

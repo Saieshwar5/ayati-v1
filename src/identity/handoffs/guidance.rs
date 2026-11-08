@@ -44,6 +44,17 @@ impl Helpers {
     }
 }
 
+/// The guidance with one placeholder helper, for showing the Cuckoo system prompt.
+pub(crate) fn example() -> String {
+    Helpers {
+        agents: vec![
+            serde_json::json!({"id": "<agent ID>", "name": "<agent name>", "role": "<job title>"}),
+        ],
+        others: 1,
+    }
+    .instructions()
+}
+
 /// Profile text stays on its own list line.
 fn one_line(value: &Value) -> String {
     value
