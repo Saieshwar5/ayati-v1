@@ -8,7 +8,7 @@ import { NameStep } from './name-step';
 import { SkillsStep } from './skills-step';
 import { loadMembers, PeopleStep } from './people-step';
 import { ConnectorsStep } from './connectors-step';
-import { ControlsStep, type ToolChoices } from './controls-step';
+import { ControlsStep, type Suggested, type ToolChoices } from './controls-step';
 import { loadAvailable, saveRule, switchTool } from '../control-model';
 import { assignSkill, createSkill } from '../skills/model';
 import { useSkillWriting } from '../skills/setup-chat';
@@ -53,6 +53,7 @@ export function AgentCreate({ start, close, created }: {
   const members = useResource(loadMembers);
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
+  const [suggested, setSuggested] = useState<Suggested>();
   const [skills, setSkills] = useState<LibraryPick[]>([]);
   const [drafts, setDrafts] = useState<DraftSkill[]>([]);
   const writing = useSkillWriting();
@@ -109,7 +110,9 @@ export function AgentCreate({ start, close, created }: {
       {step === 3 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
         members={members.data?.users} audience={audience} people={people} managers={managers}
         setAudience={setAudience} setPeople={setPeople} setManagers={setManagers} />}
-      {step === 4 && <ControlsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools} />}
+      {step === 4 && <ControlsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
+        suggested={suggested} setSuggested={setSuggested} request={{ name: draft.name.trim(), role: draft.role, audience, ground_rules: draft.settings.instructions,
+          skills: [...drafts, ...skills.map(skill => ({ ...skill, steps: '' }))].map(({ name, description, steps }) => ({ name, description, steps })) }} />}
     </fieldset>
     {pickingSkills && <SkillPicker agent={draft.name} owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
       choose={({ id, name, description }) => addSkills([{ id, name, description }])} />}

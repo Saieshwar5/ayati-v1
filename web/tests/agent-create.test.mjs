@@ -159,6 +159,8 @@ test('Connectors switches apps on; Controls, last, saves only the stricter choic
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/chat-directory')) return response({ users, agents: [], role: 'Member' });
     if (path.endsWith('/control/available')) return response({ connections: [connection], execution_available: true });
+    if (path.endsWith('/skill-writer') && !options.body) return response({ available: false, guide: '' });
+    if (path.endsWith('/skill-writer/controls')) return response({ suggestions: [], by: 'rules' });
     const body = JSON.parse(options.body); writes.push({ path, body });
     return response(path.endsWith('/agent-profiles') ? { ...body, revision: 1 } : { saved: true });
   } });

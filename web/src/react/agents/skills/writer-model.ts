@@ -15,6 +15,12 @@ export type WriterRequest = { name: string; role: string; agent?: string; connec
   skills: { name: string; description: string; steps: string; saved?: boolean }[]; messages: ChatMessage[]; focus?: string };
 
 const path = `/workspaces/${workspaceId}/skill-writer`;
+export type ControlSuggestion = { connection: string; operation: string; mode: 'allow' | 'ask' | 'block'; reason: string };
+export type ControlsRequest = { name: string; role: string; audience: string; agent?: string; connections?: string[]; ground_rules: string;
+  skills: { name: string; description: string; steps: string }[] };
+/** Suggested controls: never looser than safe defaults or the admin's rules. */
+export const suggestControls = (request: ControlsRequest, signal?: AbortSignal) =>
+  identityRequest<{ suggestions: ControlSuggestion[]; by: 'writer' | 'rules' }>(`${path}/controls`, request, signal);
 export const loadWriter = () => identityRequest<{ available: boolean; guide: string }>(path);
 export const askWriter = (request: WriterRequest) => identityRequest<WriterAnswer>(path, request);
 export const saveSkillVersion = (id: string, version: number, files: SkillFile[]) =>

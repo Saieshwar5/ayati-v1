@@ -1,10 +1,11 @@
 # Agent setup: connectors, skills written by the agent, and controls (proposal)
 
 Approved by the owner on 2026-11-08. Built: the visible system prompt (screen 6),
-the five-step flow (screens 1 and 3), skills written in chat in step 3 (screen 2)
-and changes by chat on the agent's Instructions tab (screen 5; the tab keeps its
-name). Not built yet: suggested controls (screen 4 shows today's per-action rules)
-and the agent's review of uploaded skills. Replaces the earlier
+the five-step flow (screens 1 and 3), skills written in chat in step 3 (screen 2),
+changes by chat on the agent's Instructions tab (screen 5; the tab keeps its
+name) and suggested controls with reasons in step 5 (screen 4). Not built yet:
+conditions for one agent ("if amount is over 5,000, ask first"), the agent's
+review of uploaded skills, and later reviews when skills or apps change. Replaces the earlier
 "instructions and skills in one place" proposal (same branch). It changes the
 create flow and the Instructions tab from the approved
 [Agents](../agents-simplified/README.md) designs and builds on skills (D234),

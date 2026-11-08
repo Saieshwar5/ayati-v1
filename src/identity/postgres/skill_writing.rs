@@ -2,8 +2,38 @@
 //! person's own access: library skills they can add, every skill name (so new
 //! names never collide) and the agent's apps with each action's kind.
 use super::*;
-use crate::identity::skill_writer::{LibrarySkill, WriterContext};
+use crate::identity::skill_writer::{LibrarySkill, WriterContext, controls::Action};
 use serde_json::json;
+
+/// The agent's apps as the Tools tab lists them: a saved agent's switched-on
+/// connectors, or those `chosen` for a new agent.
+async fn apps(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: Option<&str>,
+    chosen: &[String],
+) -> Result<Vec<Value>> {
+    let connections = json_rows(
+        tx,
+        include_str!("agent_tools.sql"),
+        vec![w.into(), agent.unwrap_or("").into()],
+    )
+    .await?;
+    Ok(connections
+        .into_iter()
+        .filter(|c| match agent {
+            Some(_) => c["on"] == true,
+            None => chosen.iter().any(|id| c["id"] == id.as_str()),
+        })
+        .collect())
+}
+fn app_name(c: &Value) -> String {
+    c["name"]
+        .as_str()
+        .filter(|n| !n.is_empty())
+        .unwrap_or(c["server"].as_str().unwrap_or_default())
+        .to_owned()
+}
 
 impl PgStore {
     /// `agent`: a saved agent, whose switched-on apps count; otherwise the
@@ -26,19 +56,10 @@ impl PgStore {
         .into_iter()
         .map(|r| r.try_get("", "name"))
         .collect::<Result<Vec<String>, _>>()?;
-        let connections = json_rows(
-            &tx,
-            include_str!("agent_tools.sql"),
-            vec![w.into(), agent.unwrap_or("").into()],
-        )
-        .await?;
+        let connections = apps(&tx, w, agent, chosen).await?;
         tx.commit().await?;
         let apps = connections
-            .into_iter()
-            .filter(|c| match agent {
-                Some(_) => c["on"] == true,
-                None => chosen.iter().any(|id| c["id"] == id.as_str()),
-            })
+            .iter()
             .map(|c| {
                 let actions: Vec<Value> = c["operations"]
                     .as_array()
@@ -46,11 +67,7 @@ impl PgStore {
                     .flatten()
                     .map(|op| json!({"title": op["title"], "kind": op["meaning"]}))
                     .collect();
-                let name = c["name"]
-                    .as_str()
-                    .filter(|n| !n.is_empty())
-                    .unwrap_or(c["server"].as_str().unwrap_or_default());
-                json!({"name": name, "actions": actions})
+                json!({"name": app_name(c), "actions": actions})
             })
             .collect();
         let library = ["workspace", "mine"]
@@ -67,5 +84,38 @@ impl PgStore {
             library,
             apps,
         })
+    }
+
+    /// Every action of the agent's apps, for suggested controls.
+    pub(crate) async fn writer_actions(
+        &self,
+        user: &User,
+        w: &str,
+        agent: Option<&str>,
+        chosen: &[String],
+    ) -> Result<Vec<Action>> {
+        let tx = self.read_tx(w).await?;
+        role(&tx, w, &user.id).await?;
+        let connections = apps(&tx, w, agent, chosen).await?;
+        tx.commit().await?;
+        let text = |v: &Value| v.as_str().unwrap_or_default().to_owned();
+        Ok(connections
+            .iter()
+            .flat_map(|c| {
+                c["operations"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(move |op| Action {
+                        connection: text(&c["id"]),
+                        operation: text(&op["id"]),
+                        app: app_name(c),
+                        title: text(&op["title"]),
+                        meaning: text(&op["meaning"]),
+                        admin: text(&op["workspace_mode"]),
+                    })
+            })
+            .collect())
     }
 }

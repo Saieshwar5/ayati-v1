@@ -45,13 +45,14 @@ export function ToolsTab({ agent }: { agent: Agent }) {
   </section>;
 }
 
-export function ToolAction({ operation, value = operation.mode, disabled, change }: {
-  operation: ToolOperation; value?: Mode; disabled: boolean; change: (mode: Mode) => void;
+export function ToolAction({ operation, value = operation.mode, disabled, change, note }: {
+  operation: ToolOperation; value?: Mode; disabled: boolean; change: (mode: Mode) => void; note?: string;
 }) {
   const limit = operation.workspace_mode === 'block' ? 'blocked by your admin' : `admin limit: ${modes[operation.workspace_mode]}`;
   return <div className="agent-tool-action">
     <span><strong>{operation.title}</strong>
-      <small>{operation.meaning ? meanings[operation.meaning] : effectLabel(operation.effect)} · {limit}{operation.needs_other ? ' · someone other than the requester approves' : ''}</small></span>
+      <small>{operation.meaning ? meanings[operation.meaning] : effectLabel(operation.effect)} · {limit}{operation.needs_other ? ' · someone other than the requester approves' : ''}</small>
+      {note && <small className="agent-tool-note">{note}</small>}</span>
     <ModePicker label={`${operation.title} rule`} value={value} ceiling={operation.workspace_mode} disabled={disabled} change={change} />
   </div>;
 }

@@ -6,6 +6,9 @@
 mod answer;
 #[cfg(test)]
 mod answer_tests;
+pub(crate) mod controls;
+#[cfg(test)]
+mod controls_tests;
 pub(crate) mod guide;
 #[cfg(test)]
 mod request_tests;
@@ -24,10 +27,15 @@ const NOT_REACHED: &str =
 const NOT_SET_UP: &str = "Writing skills in chat isn't set up here. Write the ground rules and skills yourself, or ask your operator to set AYATI_SKILL_WRITER_MODEL.";
 
 pub(super) fn routes() -> Router<Shared> {
-    Router::new().route(
-        "/api/identity/workspaces/{w}/skill-writer",
-        get(status).post(write),
-    )
+    Router::new()
+        .route(
+            "/api/identity/workspaces/{w}/skill-writer",
+            get(status).post(write),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/skill-writer/controls",
+            post(controls::suggest),
+        )
 }
 
 /// One message of the setup chat: the person's or the writer's.

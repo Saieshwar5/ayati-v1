@@ -115,6 +115,17 @@ instructions) and skills as drafts (designs/agent-built-skills 2 and 5).
   route checks it). Each turn is recorded as model usage (`skill_writer`).
 - **Limits:** the model only drafts; quality depends on it. A refused or failed
   turn keeps what was typed.
+- **Suggested controls** (create step 5, `POST …/skill-writer/controls`): a mode and
+  a reason for every action of the agent's apps, from its apps, skills, ground
+  rules and who can talk to it. With the writer the model suggests them; without
+  it, or when it fails, plain rules do: an action no skill names is blocked, a
+  "never …" line blocks matching actions that change something (never reads),
+  deletes are blocked, and other actions a skill uses ask first. Every suggestion
+  is clamped to Cuckoo's safe defaults (read Allow, delete Block, otherwise Ask
+  first) and the admin's rule; looser choices are the person's own. Suggestions
+  fill only actions the person hasn't changed, are asked again only when the
+  setup changes, and "Reset to suggestions" restores them. Only modes stricter
+  than the admin's are saved, as today's agent rules.
 
 ## API
 
