@@ -18,9 +18,36 @@ the same day (schema 75), and [built apps](built-apps.md) after them (schema 78)
 - Members read all of this and can't change it. The server applies the same boundary.
 
 `GET /api/identity/workspaces/{w}/apps` returns `{apps, can_manage}`; each app has
-`id, server, name, kind ("service"), provider, account (admins only), status
+`id, server, name, kind ("service"), account (admins only), status
 ("connected" | "reconnect"), actions [{id, title, meaning, mode}], agents [{id, name,
-avatar}], rules`.
+avatar}], rules`. Since schema 108 each also has `state` (`ok`, `reconnect`,
+`writes_paused`, or `paused` while Cuckoo switched its provider off),
+`paused_action` (the unconfirmed write's id when `writes_paused`), `connected`
+(`{at, by_name}`, or `null`), `capabilities` (the provider's flags) and, for admins
+only, `provider` and `via` ("Composio", "Pipedream" or "MCP server").
+
+## Add app catalog and one-step connect (schema 108, server)
+
+- `GET …/apps/catalog?query=&category=&cursor=` (any member): the catalog apps this
+  workspace can connect, each through its routed provider. Search is on name and
+  description; `category` is one of the catalog's eight. Connected apps come first,
+  then by name, 30 a page with `next_cursor`. Each app has `id, name, description,
+  category, kinds` (what its actions do, in Controls' meanings), `actions`, `state`
+  (`connected`, `available`, or `requested` when the viewer asked for it) and
+  `connection`. `categories` counts the matching apps per category.
+- Members ask for a catalog app with the existing app requests:
+  `POST …/apps/requests` with `{id, connector, reason}`; it reaches admins as a
+  suggestion naming the app, once per member while it waits.
+- `POST …/apps/connect` (admins) with `{app, request}`: approves the app and starts
+  connecting it with Cuckoo's safe defaults (reads allowed, deletes blocked,
+  everything else asks first). Answers `{redirect_url}` for the app's sign-in page or
+  `{connection}` when verified at once; the same `request` returns the same answer,
+  and a failed attempt can be retried with it. An abandoned sign-in leaves the app
+  approved but not connected, which grants nothing.
+- `GET …/control/available` and `GET …/agent-profiles/{a}/control`: each connection
+  also has `state`.
+
+The screens for these are separate work ([connector screens](../designs/connector-screens/README.md)).
 
 ## Your systems: company apps (schema 75)
 

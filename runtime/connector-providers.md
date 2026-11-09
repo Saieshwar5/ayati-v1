@@ -1,10 +1,11 @@
-# Connector providers (schema 53)
+# Connector providers (schema 53, routing schema 108)
 
 Connectors are modular: Cuckoo owns what people see and decide, and a provider
 only signs accounts in, keeps their tokens and makes the calls. Composio is the
 first provider; operator-configured MCP servers are another. A provider can be
 replaced, or an app moved to a connector Cuckoo builds itself, without changing
-rules, approvals or receipts. Built 2026-11-01.
+rules, approvals or receipts. Built 2026-11-01; providers file, routes per
+workspace, account identity and list fields added 2026-11-08 (schema 108).
 
 ## Who owns what
 
@@ -38,7 +39,11 @@ fields), then the provider's prepare, then current authority right before
 sending, then the call.
 
 Adding a provider is one module implementing the contract, one line in
-`connectors::configure`, and a `providers` entry per action in the catalog.
+`connectors::providers()`, an entry in the providers file, and a `providers`
+entry per action in the catalog. `capabilities()` says what it supports
+(sign-in pages, revoking, list fields, idempotency keys, finding outcomes,
+events); screens read these flags, never a provider's name. Composio signs in,
+revokes and takes list fields; operator MCP servers do none of these.
 `connectors/conformance_tests.rs` is the suite every provider must pass:
 listing, connecting, a read, a write, an unconfirmed write, a changed action,
 a broken account and revoking. Both current providers pass it against local
@@ -60,10 +65,23 @@ ever offered to an agent.
 
 When an account connects, Cuckoo reads each provider tool's input schema,
 keeps only the reviewed fields, renames them to Cuckoo's names and keeps plain
-values only: text, numbers and true or false. Lists and nested objects are
-left out. An action whose provider requires a field Cuckoo doesn't offer is
-left out too. The tool version is pinned. Before every call the pinned tool is
-checked again; any difference refuses the call as `Changed`.
+values (text, numbers and true or false) and lists of plain values, at most 20
+(Gmail's cc and bcc, Calendar's attendees). Where a list's items may be text or
+an object, only text is offered. Nested objects and lists of objects are left
+out. An action whose provider requires a field Cuckoo doesn't offer is left out
+too. The tool version is pinned. Before every call the pinned tool is checked
+again; any difference refuses the call as `Changed`. Company rules never match
+a list: a text or amount condition on a list field simply doesn't apply.
+
+**Account identity.** An app may name, per provider, a read that proves which
+account signed in (`identity` in `catalog.json`). After a sign-in Composio runs
+it and keeps one field: Gmail `GMAIL_GET_PROFILE` → `emailAddress`; Google
+Calendar `GOOGLECALENDAR_GET_CALENDAR` (`calendar_id: primary`) → `id`; Google
+Drive `GOOGLEDRIVE_GET_ABOUT` (`fields: user`) → `user.emailAddress`. The value
+labels the account ("Connected as orders@…") and its digest is saved. The tool
+slugs and Gmail's field are from Composio's toolkit pages; the Calendar and
+Drive fields follow Google's APIs and are unconfirmed against a live account.
+A read that fails saves the account without an identity.
 
 Tool and field names were checked against Composio's published toolkit pages
 on 2026-11-01, not against a live account. A wrong name fails safe: the
@@ -90,9 +108,12 @@ Settings, Connections lists catalog apps beside operator MCP servers.
 5. **Disconnect** or removing approval stops using the account and asks the
    provider to revoke it. If the provider doesn't confirm, Settings says so.
 
-As with any reconnect today, a reconnected account's agent switches and rules
-start over from the safe defaults, because Cuckoo cannot prove it is the same
-upstream account.
+Reconnecting the same proven account (the same identity digest) whose
+reviewed definition and provider are unchanged keeps agents' switches,
+workspace rules, agents' own rules and action meanings. Its revision still
+moves, so waiting approvals ask again and running work is fenced. Any other
+reconnect, including an account without a proven identity, starts over from
+the safe defaults.
 
 ## Cuckoo's switch per provider
 
@@ -108,14 +129,56 @@ While a provider is off, its actions disappear from agents and anything
 requested or approved is refused with the note. Nothing reaches the provider.
 Running replies continue. Switching it back on needs no other change.
 
+## Providers file and routes (schema 108)
+
+`AYATI_CONNECTOR_PROVIDERS_FILE`: an absolute path to an owned 0600 JSON file,
+read on every use like the web search and computer providers files. The
+controller checks it, and every key file it names, at start and refuses to
+start when anything is wrong, naming every problem. Executors refuse it.
+
+```json
+{
+  "providers": [
+    {"provider": "composio", "key_file": "/run/secrets/composio",
+     "webhook_secret_file": "/run/secrets/composio-webhook",
+     "auth_configs": {"gmail": "ac_123"}, "usd_per_1k_calls": 0.5},
+    {"provider": "pipedream", "client_id_file": "/run/secrets/pd-id",
+     "client_secret_file": "/run/secrets/pd-secret", "project_id": "proj_…",
+     "environment": "production", "usd_per_1k_calls": 0}
+  ],
+  "routes": {"gmail": ["composio", "pipedream"]}
+}
+```
+
+- Unknown providers or fields, a provider listed twice, relative paths, a
+  price outside 0–1,000 dollars per 1,000 calls, a route naming an app not in
+  the catalog or a provider not in `providers` are refused.
+- The Pipedream entry is checked and read (`connectors::pipedream()`); its
+  provider is not built yet, so routes skip it.
+- Which provider serves a catalog app for a workspace: the workspace's own
+  route, then the file's `routes` (the first configured provider that maps the
+  app), then the catalog default (Composio, else the first configured provider
+  that maps the app). Saved connections keep the provider they were made with;
+  dispatch uses it. One app is offered once, beside operator MCP servers.
+
+Cuckoo's platform administrators set a workspace's route:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/identity/admin/connector-routes` | Workspace routes, each catalog app's providers and default, configured providers with prices |
+| `POST /api/identity/admin/connector-routes` | `{workspace, app, provider \| null, note, reason?}`; `null` returns to the defaults. Recorded in the change log |
+
 ## Composio setup
 
-- `AYATI_COMPOSIO_KEY_FILE`: an owned 0600 file holding a Composio project API
-  key. It is read on every request, so it can be rotated without a restart.
-  Personal user keys (`uak_`) are refused. Executors refuse this setting.
-- `AYATI_COMPOSIO_AUTH_CONFIGS`: optional `gmail=ac_123,...`, for apps that
-  sign in with your own OAuth app at Composio. Otherwise Cuckoo uses the
-  toolkit's single enabled auth config, or creates a Composio-managed one.
+- In the providers file: `key_file` (a project API key; personal `uak_` keys
+  are refused), optional `auth_configs`, `webhook_secret_file` and price.
+- Without the providers file, the older settings keep working:
+  `AYATI_COMPOSIO_KEY_FILE` (an owned 0600 key file) and
+  `AYATI_COMPOSIO_AUTH_CONFIGS` (`gmail=ac_123,...`). Setting them beside the
+  providers file is refused. Key files are read on every request, so keys can
+  be rotated without a restart. Executors refuse these settings.
+- Without an auth config for a toolkit, Cuckoo uses its single enabled auth
+  config, or creates a Composio-managed one.
 - `AYATI_COMPOSIO_BASE_URL`: tests only; a loopback fixture.
 - Each workspace is one Composio user, `cuckoo-<workspace id>`. An account from
   one workspace is refused in another.
@@ -131,11 +194,29 @@ Running replies continue. Switching it back on needs no other change.
 - `relay_connector_sign_ins`: sign-ins in progress.
 - `relay_connector_providers`: Cuckoo's switch per provider.
 
+## Schema 108
+
+- `relay_connector_routes`: a workspace's provider per catalog app.
+- `relay_control_connections.identity` (a digest of the proven account
+  identity), `connected_by` and `connected_at`, backfilled from the audit log
+  for existing connections without fencing work.
+- `relay_connector_connects`: one-step connect requests and their answers.
+- `relay_app_requests.connector`: a member's request for a catalog app.
+- `relay_connection_state()` and `relay_paused_write()`: a connection's
+  `ok`, `reconnect`, `writes_paused` or `paused` state for screens.
+
 ## Checks
 
-- Unit: catalog validity and field reduction (`connectors::curated`); the
-  provider suite for MCP and Composio, plus Composio-specific cases
-  (`connectors::conformance_tests`).
+- Unit: catalog validity, field reduction, list fields and identity reads
+  (`connectors::curated`); the providers file (`connectors::providers_file`);
+  route resolution (`connectors::routing`); list arguments
+  (`control::model`); the provider suite for MCP and Composio, plus
+  Composio-specific cases (`connectors::conformance_tests`).
+- PostgreSQL (schema 108): `connector_routes::tests` (routes, saved
+  connections keeping their provider, same-account reconnect keeping rules,
+  other accounts starting over, the upgrade) and `connector_catalog::tests`
+  (Apps states and `via`, the catalog, one-step connect, states on Tools,
+  company rules and lists).
 - PostgreSQL: `connector_providers::tests`. They cover a full sign-in, a
   gateway call, the switch, an expired account and reconnecting, and failed,
   expired and once-only sign-ins.
@@ -151,7 +232,9 @@ Running replies continue. Switching it back on needs no other change.
 
 - One account per app per workspace.
 - Composio event triggers still come from the operator's event-source file.
-- List and nested fields, such as cc or attendees, are not offered.
+- Nested fields and lists of objects are not offered.
+- Operator MCP servers are not in the Add app catalog; they still connect from
+  the Connections controls.
 - An abandoned sign-in that never returns stays at Composio until removed.
 - A second provider and a connector Cuckoo builds itself: the contract and
   suite are ready for them.

@@ -1,5 +1,8 @@
 # Workspace connections and delegated agent setup
 
+> **Updated 2026-11-08 (schema 108):** reconnecting the same proven account with
+> an unchanged review keeps its rules; see [connector providers](connector-providers.md).
+>
 > **Updated 2026-11-01 (schema 53):** apps such as Gmail now connect through a
 > provider's sign-in page from this screen; see [connector providers](connector-providers.md).
 >
@@ -78,7 +81,11 @@ Requester, conversation, Library source and job/lease checks remain in the gatew
 
 Changing a delegation blocks that member's affected agent rules until reviewed
 again, including when increasing the limit. Reconnecting/reviewing an account
-blocks all its old rules and delegations. Membership removal or role change fences
+blocks all its old rules and delegations, unless the provider proves the same
+account identity and the reviewed definition is unchanged (schema 108): then
+agents' switches, workspace and agent rules and action meanings stay, while
+the connection's revision still moves, invalidating waiting approvals and
+fencing running work. Membership removal or role change fences
 related rules/delegations and pending actions; later rejoining/promotion cannot
 revive those grants. Revocation cannot undo an already dispatched external effect.
 
