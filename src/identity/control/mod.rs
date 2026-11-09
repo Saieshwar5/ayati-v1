@@ -8,6 +8,8 @@ mod guard;
 pub(crate) mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
+pub(crate) mod outcome_checks;
+pub(crate) mod outcomes;
 use super::*;
 use anyhow::ensure;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};
@@ -20,6 +22,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(connections::routes())
         .merge(approvals::routes())
         .merge(guard::routes())
+        .merge(outcomes::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{agent}/control",
             get(snapshot),

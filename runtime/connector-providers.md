@@ -31,7 +31,8 @@ Every provider implements `ConnectorProvider` in `src/identity/connectors/`:
 
 A refusal says why: `NeedsReconnect` (expired, revoked or disabled) or
 `Changed` (the account or action no longer matches the review). A result the
-provider doesn't confirm is `Uncertain` and is never retried.
+provider doesn't confirm is `Uncertain` and is never retried; see
+[unconfirmed writes](#unconfirmed-writes-schema-107).
 
 The gateway order is unchanged: Cuckoo's checks first (provider switch, exact
 fields), then the provider's prepare, then current authority right before
@@ -94,6 +95,45 @@ As with any reconnect today, a reconnected account's agent switches and rules
 start over from the safe defaults, because Cuckoo cannot prove it is the same
 upstream account.
 
+## Unconfirmed writes (schema 107)
+
+A write the provider didn't confirm, or one still executing after 60 seconds,
+is **unconfirmed**: it may or may not have happened. Until it is settled, every
+other write on that account is refused, Activity lists it under Needs review,
+and a task waiting for it stays waiting. Reconnecting keeps the account's
+connection, so it does not clear the hold.
+
+- **A person settles it.** The agent's current managers and workspace admins
+  who can see the request answer whether it happened. The person who asked
+  can't when the action needed someone else's approval.
+  - `POST /api/identity/workspaces/{w}/control/actions/{id}/outcome` with
+    `{"happened": bool, "note": string}` (note at most 500 characters).
+  - The answer is final: the same answer again returns the saved one, the
+    opposite answer is `409`. The response is the action with `state`
+    `completed` or `not_sent` and `settled: {by, by_name, at, happened, note}`.
+  - `GET …/control/actions/{id}` (the approval dialog's details) adds
+    `settle: {can_settle, checks: [{at, result}]}` while it is unconfirmed, and
+    `settled` once answered. Each answer is in the Audit log under Approvals.
+- **Cuckoo checks the provider.** Each controller asks
+  `ConnectorProvider::find_outcome` (key: the action id) about 1, 5 and 30
+  minutes after the write became unconfirmed. A check is leased first, so two
+  controllers never ask at once, and nothing is sent again. `Happened` settles
+  it as completed (`settled_as` `checked`, shown as Cuckoo); `NotHappened` and
+  `Unknown` are recorded for the person who answers. Providers switched off are
+  skipped until switched on. Providers without the `find_outcome` capability
+  are not asked: Composio and operator MCP servers keep the contract's default
+  answer, `Unknown`, so their unconfirmed writes wait for a person.
+- **Settling** releases the hold, clears Needs review and wakes open tabs. A
+  waiting task continues as after a confirmed outcome
+  ([durable approval waits](durable-approval-waits.md)). "Not sent" is saved as
+  state `not_sent`: the agent is told it did not happen, and to send it again
+  only if someone asks (a new request; the same request returns its receipt).
+
+Schema 107 adds the `not_sent` state, `settled_by`, `settled_at`,
+`settled_as` and `settled_note` on `relay_control_actions`, and
+`relay_control_outcome_checks` (schedule, lease and up to three checks per
+action). The screens that answer it come with the connector screens.
+
 ## Cuckoo's switch per provider
 
 Platform administrators (`AYATI_PLATFORM_ADMINS`) can switch a provider off
@@ -136,7 +176,9 @@ Running replies continue. Switching it back on needs no other change.
 - Unit: catalog validity and field reduction (`connectors::curated`); the
   provider suite for MCP and Composio, plus Composio-specific cases
   (`connectors::conformance_tests`).
-- PostgreSQL: `connector_providers::tests`. They cover a full sign-in, a
+- PostgreSQL: `control_actions::outcomes` (settling, who may answer, the
+  hold across reconnects, the waiting task and the checks loop with a scripted
+  provider) and `connector_providers::tests`. They cover a full sign-in, a
   gateway call, the switch, an expired account and reconnecting, and failed,
   expired and once-only sign-ins.
 - Web: `tests/workspace-connections.test.mjs` covers opening the sign-in

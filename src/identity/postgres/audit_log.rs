@@ -28,7 +28,7 @@ fn actions(kind: &str) -> Result<Option<&'static [&'static str]>> {
             "control_agent_connection_on",
             "workspace_connection_saved",
         ]),
-        "approvals" => Some(&["control_action_decided"]),
+        "approvals" => Some(&["control_action_decided", "control_action_settled"]),
         "admin_views" => Some(&["activity_private_viewed"]),
         _ => anyhow::bail!("Invalid audit filter"),
     })
@@ -58,6 +58,7 @@ fn phrase(action: &str) -> &'static str {
         "workspace_connection_saved" => "changed the connection {}",
         "control_action_decided" => "decided an approval request",
         "control_action_requested" => "asked for approval",
+        "control_action_settled" => "said whether an unconfirmed action happened",
         "activity_private_viewed" => {
             "viewed a request from a conversation they are not in (admin view)"
         }
