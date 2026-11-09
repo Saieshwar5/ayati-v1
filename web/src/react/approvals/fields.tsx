@@ -1,9 +1,15 @@
 import type { Guard } from '../agents/control-model';
 
+/** An action's exact fields as [label, value] pairs, in the words people read. */
+export function fieldEntries(fields: unknown): [string, string][] {
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return [];
+  return Object.entries(fields).map(([field, value]) => [field.replaceAll('_', ' '), typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)]);
+}
+
 export function ApprovalFields({ fields }: { fields: unknown }) {
   if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null;
-  return <dl className="control-fields">{Object.entries(fields).map(([field, value]) => <div key={field}>
-    <dt>{field.replaceAll('_', ' ')}</dt><dd>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</dd>
+  return <dl className="control-fields">{fieldEntries(fields).map(([field, value]) => <div key={field}>
+    <dt>{field}</dt><dd>{value}</dd>
   </div>)}</dl>;
 }
 

@@ -16,6 +16,7 @@ fn source() -> catalog::Source {
         read_operation: "order.read".into(),
         fields: vec!["order_id".into()],
         secret_file: "/private/source.secret".into(),
+        subscribed: None,
     }
 }
 fn event() -> serde_json::Value {
@@ -80,7 +81,16 @@ fn event_csrf_exemption_is_only_the_exact_signed_uuid_hook_route() {
     assert!(routes::webhook_path(
         "/hooks/composio/workspaces/22222222-2222-4222-8222-222222222222/11111111-1111-4111-8111-111111111111"
     ));
+    // One project hook for Composio, one hook per subscription for Pipedream.
+    assert!(routes::webhook_path("/hooks/composio"));
+    assert!(routes::webhook_path(
+        "/hooks/pipedream/11111111-1111-4111-8111-111111111111"
+    ));
     for p in [
+        "/hooks/composio/",
+        "/hooks/pipedream/not-a-subscription",
+        "/hooks/pipedream/11111111-1111-4111-8111-111111111111/x",
+        "/hooks/other/11111111-1111-4111-8111-111111111111",
         "/hooks/composio/workspaces/invalid/source",
         "/hooks/composio/workspaces",
         "/api/identity/workspaces/22222222-2222-4222-8222-222222222222/11111111-1111-4111-8111-111111111111",

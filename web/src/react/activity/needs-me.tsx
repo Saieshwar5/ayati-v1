@@ -4,6 +4,7 @@ import { AgentFace } from '../faces';
 import { useMutation } from '../requests';
 import { QuestionDialog } from '../questions/dialog';
 import { ApprovalDialog } from '../approvals/approval-dialog';
+import { OutcomeDialog } from '../approvals/outcome-dialog';
 import { useAttention } from '../attention/use-attention';
 import { acknowledgeAttention, attentionKey, type AttentionItem } from '../attention/model';
 import { ago } from './model';
@@ -89,7 +90,7 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
         <span className={`activity-mark ${item.kind}`} aria-hidden="true">{item.kind === 'question' ? '?' : item.kind === 'approval' && item.status !== 'uncertain' ? '◇' : '!'}</span>
         <span className="activity-main"><strong>{clean(item.title)}</strong>
           <small><AgentFace agent={{ id: item.agent, name: item.agent_name }} className="activity-face" />{item.agent_name} · {item.conversation_name} · {ago(item.created_at ?? item.at)}{item.read ? '' : ' · new'}{item.kind === 'approval' ? waitLine(item) : ''}</small>
-          {item.status === 'uncertain' && <small>Check the business system. This entry cannot repeat or confirm the action.</small>}</span>
+          {item.status === 'uncertain' && <small>The app didn’t confirm it, so its writes are paused. Check whether it went out.</small>}</span>
         {item.kind === 'outcome' && item.status !== 'complete' && !item.reviewed
           && <Button disabled={mutation.busy} onClick={() => reviewed(item)}>Mark reviewed</Button>}
         <Button primary={item.kind === 'approval' && item.status !== 'uncertain'} disabled={mutation.busy} onClick={() => select(item)}>{action(item)}</Button>
@@ -100,7 +101,8 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
       {data?.next_before && <Button disabled={loading} onClick={() => setCursors(old => [...old, data.next_before as string])}>Older</Button>}
     </nav>}
     {together && <ReviewTogether items={together} close={() => { setTogether(undefined); void refresh(); }} />}
-    {open?.kind === 'approval' && <ApprovalDialog key={open.id} id={open.id} close={close} />}
+    {open?.kind === 'approval' && open.status !== 'uncertain' && <ApprovalDialog key={open.id} id={open.id} close={close} />}
+    {open?.kind === 'approval' && open.status === 'uncertain' && <OutcomeDialog key={open.id} id={open.id} close={close} />}
     {open?.kind === 'question' && <QuestionDialog key={open.id} id={open.id} close={close} />}
     {open?.kind === 'outcome' && <RequestDetails key={open.id} reply={open.reply} close={close} />}
   </section>;

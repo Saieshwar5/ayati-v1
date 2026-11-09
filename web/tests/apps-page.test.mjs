@@ -21,9 +21,10 @@ test('Members see every connected app, what agents may do and who uses it, read-
     assert.deepEqual([...document.querySelectorAll('.app-name')].map(n => n.textContent), ['Zoho Books', 'Gmail']);
     const panel = document.querySelector('.app-panel');
     assert.match(panel.textContent, /Zoho Books.*Read invoices.*Reads.*Allow.*Create an invoice.*Money.*Ask first.*Delete an invoice.*Deletes.*Block/);
-    assert.match(panel.textContent, /Used by.*Atlas, Ledger/);
-    assert.match(panel.textContent, /2 rules cover this app/);
-    assert.equal([...document.querySelectorAll('button')].some(b => ['Add app', 'Manage', 'Reconnect'].includes(b.textContent)), false);
+    assert.match(panel.textContent, /Used by.*Atlas and Ledger/);
+    assert.match(panel.textContent, /2 company rules/);
+    assert.equal(panel.querySelector('.mode-picker, .service-kind-button'), null, 'rules are read, not changed');
+    assert.equal([...document.querySelectorAll('button')].some(b => ['Add app', 'Manage', 'Reconnect'].includes(b.textContent) || b.textContent.startsWith('Disconnect')), false);
     // The "need you" pill shows only apps with a problem.
     await click(document.querySelector('.apps-needs'));
     assert.deepEqual([...document.querySelectorAll('.app-name')].map(n => n.textContent), ['Gmail']);
@@ -31,20 +32,32 @@ test('Members see every connected app, what agents may do and who uses it, read-
   }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member') : response({ apps: [{ ...zoho, account: null }, gmail], systems: [], can_manage: false, requests_waiting: 0 }) });
 });
 
-test('Admins add and manage apps from Apps, and old Connections links open it there', async () => {
-  await reactFixture(async ({ render, click }) => {
+const catalogPage = { categories: [{ id: 'email_calendar', name: 'Email and calendar', count: 2 }], can_manage: true, next_cursor: null,
+  apps: [{ id: 'gmail', name: 'Gmail', description: 'Email', category: 'email_calendar', kinds: ['read', 'sends_outside'], actions: 4, state: 'connected', connection: 'c2' },
+    { id: 'outlook', name: 'Outlook', description: 'Email and calendar', category: 'email_calendar', kinds: ['read', 'change'], actions: 6, state: 'available', connection: null }] };
+
+test('Old Connections links open Apps on the app that needs attention; Add app opens the catalog', async () => {
+  await reactFixture(async ({ render, click, button }) => {
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { AppsPage } = await import('../src/react/apps/apps-page.tsx');
     await render(AppsPage, { href: `http://localhost/w/${w}/?view=settings&section=connections` });
-    assert.ok(document.querySelector('dialog[open]')?.textContent.includes('Add and manage apps'), 'an old link opens the manage drawer');
-    await click([...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Close'));
+    assert.equal(document.querySelector('dialog[open]'), null, 'no drawer any more');
+    assert.equal(document.querySelector('.app-panel h2').textContent, 'Gmail', 'the app that needs reconnecting is shown first');
     assert.match(document.querySelector('.app-line').textContent, /accounts@mehta\.test/);
-    await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Add app'));
-    await click([...document.querySelectorAll('dialog[open] button')].find(b => b.textContent.startsWith('Connect a service')));
-    assert.ok(document.querySelector('dialog[open] [aria-label="Workspace connections"]'));
+    await click(button('Add app'));
+    const dialog = document.querySelector('dialog[open]');
+    assert.equal(dialog.querySelector('h2').textContent, 'Add app');
+    assert.deepEqual([...dialog.querySelectorAll('.catalog-tile strong')].map(n => n.textContent), ['Gmail', 'Outlook']);
+    assert.match(dialog.querySelector('.catalog-nav').textContent, /MCP serverNext/);
+    assert.equal([...dialog.querySelectorAll('button')].some(b => b.textContent.includes('MCP server')), false, 'MCP servers come next and cannot be chosen yet');
+    // A connected tile opens its panel.
+    await click(dialog.querySelector('[aria-label="Gmail is connected. Open its panel"]'));
+    assert.equal(document.querySelector('dialog[open]'), null);
+    assert.equal(document.querySelector('.app-panel h2').textContent, 'Gmail');
   }, { url: `http://localhost/w/${w}/?view=apps`, fetch: async path => path.endsWith('/session') ? session('Admin')
     : path.endsWith('/control/connections') ? response({ servers: [], systems: [], connections: [], safety: [], people: [], viewer: 'me', execution_available: true })
-    : response({ apps: [zoho], systems: [], can_manage: true, requests_waiting: 0 }) });
+    : path.includes('/apps/catalog') ? response(catalogPage)
+    : response({ apps: [zoho, gmail], systems: [], can_manage: true, requests_waiting: 0 }) });
 });
 
 const portal = { id: 'p1', kind: 'link', name: 'Order portal', description: 'Orders and deliveries', audience: 'selected', revision: 2, can_open: false, url: null, owner: 'o', owner_name: 'Ravi', can_decide: false, people: null, requested: false };
@@ -68,7 +81,9 @@ test('A member sees a company app they cannot open, asks once for access and can
     assert.equal(sent.length, 1, 'one request per click burst');
     assert.deepEqual({ ...sent[0], id: undefined }, { id: undefined, app: 'p1', reason: 'For deliveries' });
     assert.match(document.querySelector('.app-panel').textContent, /You asked for access\. Ravi decides\./);
-    await click(button('Suggest an app'));
+    await click(button('Request an app'));
+    assert.equal(document.querySelector('dialog[open] h2').textContent, 'Request an app');
+    await click(button('Suggest another app'));
     await change(document.querySelector('[aria-label="App name"]'), 'Delivery tracker');
     await click(button('Send suggestion'));
     assert.equal(sent[1].name, 'Delivery tracker');
@@ -76,6 +91,7 @@ test('A member sees a company app they cannot open, asks once for access and can
   }, { url: base, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return session('Member');
     if (path.endsWith('/apps/requests')) { sent.push(JSON.parse(options.body)); requested = !sent[0].name; return response({ id: 'r', state: 'pending' }); }
+    if (path.includes('/apps/catalog')) return response({ ...catalogPage, can_manage: false });
     return response({ apps: [{ ...zoho, account: null }], systems: [{ ...portal, requested }], can_manage: false, requests_waiting: 0 });
   } });
 });
@@ -96,7 +112,7 @@ test('People allowed open a company app through Cuckoo; admins add one and decid
     assert.deepEqual(decided, [{ path: 'r1', action: 'approve' }]);
     await click([...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Close'));
     await click(button('Add app'));
-    await click([...document.querySelectorAll('dialog[open] button')].find(b => b.textContent.startsWith("Add your company's app")));
+    await click([...document.querySelectorAll('dialog[open] button')].find(b => b.textContent === "Your company's app"));
     const add = () => [...document.querySelectorAll('dialog[open] button')].find(b => b.textContent === 'Add app');
     assert.equal(add().disabled, true, 'needs a name');
     await change(document.querySelector('[aria-label="Name"]'), 'Delivery tracker');
@@ -109,6 +125,8 @@ test('People allowed open a company app through Cuckoo; admins add one and decid
     if (path.endsWith('/apps/requests') && !options.body) return response({ requests: decided.length ? [] : [{ id: 'r1', kind: 'access', app: 'p1', app_name: 'Order portal', name: '', url: '', reason: '', created: 1, requester: 'Mina' }] });
     if (path.includes('/apps/requests/')) { decided.push({ path: path.split('/').at(-1), action: JSON.parse(options.body).action }); return response({ state: 'approved' }); }
     if (path.endsWith('/apps/systems')) { saved.push(JSON.parse(options.body)); return response({ id: 'x' }); }
+    if (path.endsWith('/control/connections')) return response({ servers: [], systems: [], connections: [], safety: [], people: [], viewer: 'me', execution_available: true });
+    if (path.includes('/apps/catalog')) return response(catalogPage);
     return response({ apps: [], systems: [{ ...portal, can_open: true, url: 'https://orders.example.test', can_decide: true, people: [] }], can_manage: true, requests_waiting: decided.length ? 0 : 1 });
   } });
 });

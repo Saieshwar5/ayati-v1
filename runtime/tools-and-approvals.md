@@ -7,8 +7,8 @@ built in M3).
 ## Who sets what
 
 - **Admins** set the workspace rule for each action of each connected account in
-  **Settings → Connections**: Allow, Ask first or Block, plus "Someone other than
-  the requester must approve".
+  its panel on **Apps** ([Apps page](apps-page.md#what-admins-do)): Allow, Ask first
+  or Block, plus "Someone other than the requester must approve".
   - A missing rule is the safe default from what the action does (schema 65,
     [company rules](guard-rules.md#what-actions-do)): reading Allow, deleting Block,
     everything else Ask first.
@@ -56,6 +56,13 @@ only make an action stricter.
 - **Removing a manager** leaves their requests with the other managers.
 - **Changing a conversation's members while work waits** still fences that work
   (versioned context).
+
+## Who says what happened
+
+A write the provider didn't confirm holds the account's other writes until one of
+the agent's managers or an admin who can see it answers whether it happened (not
+the requester when it needed someone else), or Cuckoo finds it at the provider.
+See [unconfirmed writes](connector-providers.md#unconfirmed-writes-schema-107).
 
 ## Retired
 

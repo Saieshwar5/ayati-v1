@@ -30,6 +30,7 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
         read_operation: "order.read".into(),
         fields: vec!["order_id".into(), "status".into()],
         secret_file: String::new(),
+        subscribed: None,
     })
     .unwrap();
     let authority =

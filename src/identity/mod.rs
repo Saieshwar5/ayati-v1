@@ -104,7 +104,9 @@ impl<E: Into<anyhow::Error>> From<E> for Error {
         let error = value.into();
         let status = if error.is::<library::model::Denied>() {
             StatusCode::NOT_FOUND
-        } else if error.is::<library::model::Conflict>() || error.is::<chat::model::AgentsPaused>()
+        } else if error.is::<library::model::Conflict>()
+            || error.is::<chat::model::AgentsPaused>()
+            || error.is::<control::outcomes::AnswerConflict>()
         {
             StatusCode::CONFLICT
         } else if error.is::<chat::model::QueueFull>()
@@ -200,12 +202,13 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
 }
 /// Process-wide settings read by code that has no `App`: start tracing and the
 /// operator-owned connector and event-source catalogs.
-fn configure_process(config: &crate::config::Controller) {
+fn configure_process(config: &crate::config::Controller) -> Result<()> {
     start_trace::enable(config.trace_start);
     control::catalog::configure(config.mcp_servers_file.clone());
-    connectors::configure(connectors::settings(config));
+    connectors::configure(connectors::settings(config)?);
     events::catalog::configure(config.event_sources_file.clone());
     communications::adapters::configure(communications::adapters::settings(config));
+    Ok(())
 }
 
 pub async fn serve(config: crate::config::Controller) -> Result<()> {
@@ -229,7 +232,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
         .context("Another identity server uses this data directory")?;
     let store = postgres::PgStore::open(&config).await?;
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
-    configure_process(&config);
+    configure_process(&config)?;
     let app = Arc::new(App {
         library: library::Storage::from_settings(&config.library)?,
         provider,
@@ -243,8 +246,10 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
     communications::gateway::start(app.clone());
+    control::outcome_checks::start(app.clone());
     metrics::start(app.clone());
     data_cleanup::start(app.clone());
+    connectors::drift::start(app.clone());
     library::indexer::start(app.clone());
     library::keeping::start(app.clone());
     computers::sleeper::start(app.clone());

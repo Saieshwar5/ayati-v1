@@ -13,6 +13,9 @@ pub struct Admin {
     pub model_providers_file: Option<PathBuf>,
     pub model_catalog_file: Option<PathBuf>,
     pub secrets_key_file: Option<PathBuf>,
+    /// Connector providers, as for the controller: `ayati admin connectors verify`.
+    pub mcp_servers_file: Option<PathBuf>,
+    pub connectors: super::connectors::Connectors,
 }
 
 impl Admin {
@@ -25,6 +28,8 @@ impl Admin {
             model_providers_file: absolute(&mut env, "AYATI_MODEL_PROVIDERS_FILE"),
             model_catalog_file: absolute(&mut env, "AYATI_MODEL_CATALOG_FILE"),
             secrets_key_file: absolute(&mut env, "AYATI_SECRETS_KEY_FILE"),
+            mcp_servers_file: absolute(&mut env, "AYATI_MCP_SERVERS_FILE"),
+            connectors: super::connectors::Connectors::read(&mut env),
         };
         env.finish("admin")?;
         Ok(config)

@@ -8,6 +8,8 @@ use serde_json::json;
 
 #[path = "guard.rs"]
 pub(crate) mod guard;
+#[path = "control_outcomes.rs"]
+pub(crate) mod outcomes;
 
 pub(crate) struct Dispatch {
     pub id: String,

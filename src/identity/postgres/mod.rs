@@ -77,9 +77,12 @@ mod cloud_executor_tests;
 mod cloud_executors;
 mod collaboration;
 mod communications;
+mod connection;
 #[cfg(test)]
 mod connection_migration_tests;
+pub(crate) mod connector_calls;
 pub(crate) mod connector_providers;
+pub(crate) mod connector_routing;
 mod connector_rules;
 #[cfg(test)]
 mod connector_rules_tests;
@@ -189,6 +192,7 @@ mod event_migration;
 mod event_migration_tests;
 #[cfg(test)]
 mod event_scope_tests;
+pub(crate) mod event_subscriptions;
 #[cfg(test)]
 mod event_tests;
 mod event_triggers;
@@ -313,8 +317,8 @@ pub(crate) mod workspace_codes;
 use super::user::{User, now};
 use anyhow::{Context, Result, ensure};
 use sea_orm::{
-    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction,
-    QueryResult, TransactionTrait, Value as SqlValue,
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, QueryResult, TransactionTrait,
+    Value as SqlValue,
 };
 use serde_json::Value;
 use std::time::Duration;
@@ -374,25 +378,6 @@ impl PgStore {
         store.verify_schema().await?;
         Ok(store)
     }
-    pub async fn connect(url: &str) -> Result<Self> {
-        ensure!(
-            url.starts_with("postgres://") || url.starts_with("postgresql://"),
-            "Use a PostgreSQL database URL"
-        );
-        let mut options = ConnectOptions::new(url);
-        options
-            .max_connections(10)
-            .min_connections(1)
-            .connect_timeout(Duration::from_secs(10))
-            .acquire_timeout(Duration::from_secs(10))
-            .sqlx_logging(false);
-        // Driver errors may contain connection details. Do not propagate them to logs/UI.
-        let db = Database::connect(options)
-            .await
-            .map_err(|_| anyhow::anyhow!("Cannot connect to Cuckoo PostgreSQL"))?;
-        Ok(Self::with(db))
-    }
-
     /// Serialize mutations only within a workspace. Independent businesses use other connections.
     async fn workspace_tx(&self, workspace: &str) -> Result<DatabaseTransaction> {
         let tx = self.db.begin().await?;

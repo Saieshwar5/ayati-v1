@@ -143,3 +143,61 @@ test('suspending a workspace states what happens and refreshes the detail', asyn
     assert.ok(button('Lift the suspension'));
   }, { url: 'http://localhost/control.html?section=workspaces&id=w1', fetch });
 });
+
+const connectors = {
+  providers: [{ provider: 'composio', enabled: true, note: '' }], configured: ['mcp', 'composio'],
+  drift_run: { at: Date.now() - 3 * 3_600_000, via: 'nightly', accounts: 4, skipped: 1 },
+  health: [
+    { provider: 'mcp', month: { calls: 0, errors: 0, refused: 0, usd: 0 }, breaker: { state: 'closed', failures: 0, until_ms: null, opened_ms: null },
+      drift: { ok: 2, missing: 0, changed: 0, new_version: 0, failed: 0 } },
+    { provider: 'composio', month: { calls: 1240, errors: 7, refused: 3, usd: 0.62 },
+      breaker: { state: 'open', failures: 5, until_ms: Date.now() + 120_000, opened_ms: Date.now() - 60_000 },
+      drift: { ok: 9, missing: 1, changed: 2, new_version: 1, failed: 0 } },
+  ],
+};
+const card = name => document.querySelector(`[aria-label="${name} health"]`).textContent;
+
+test('connected-app providers show this month, the circuit breaker and the last drift check', async () => {
+  const { writes, fetch } = server({ get: path => path.endsWith('/admin/connector-providers') ? ok(connectors) : null });
+  await reactFixture(async ({ render }) => {
+    const { ControlApp } = await import('../src/control/app.tsx'); await render(ControlApp);
+    const composio = card('composio');
+    assert.match(composio, /1,240 calls · 7 errors · 3 refused · \$0\.62 est\./);
+    assert.match(composio, /PAUSED/);
+    assert.match(composio, /Calls paused after repeated failures, until .*Nothing is sent meanwhile/);
+    assert.match(composio, /CHANGED/);
+    assert.match(composio, /Drift check 3 h ago: 9 ok · 2 changed · 1 missing · 1 new version/);
+    const mcp = card('mcp');
+    assert.match(mcp, /0 calls · 0 errors · \$0\.00 est\./);
+    assert.match(mcp, /No recent failures/);
+    assert.match(mcp, /Drift check 3 h ago: 2 ok/);
+    assert.doesNotMatch(mcp, /PAUSED|TESTING|CHANGED/);
+    assert.match(document.body.textContent, /ayati admin connectors verify/);
+    assert.equal(writes.length, 0, 'showing health changes nothing');
+  }, { url: 'http://localhost/control.html?section=providers', fetch });
+});
+
+test('a provider being tested, or never checked for drift, says so; the switch still sends once with its reason', async () => {
+  const testing = { ...connectors, drift_run: null, health: [{ ...connectors.health[1], drift: null,
+    breaker: { state: 'testing', failures: 5, until_ms: null, opened_ms: Date.now() - 300_000 } }] };
+  const { writes, fetch } = server({
+    get: path => path.endsWith('/admin/connector-providers') ? ok(testing) : null,
+    post: (_, body) => ok({ ...testing, providers: [{ provider: 'composio', enabled: body.enabled, note: body.note }] }),
+  });
+  await reactFixture(async ({ render, button, click, change, submit }) => {
+    const { ControlApp } = await import('../src/control/app.tsx'); await render(ControlApp);
+    const composio = card('composio');
+    assert.match(composio, /TESTING/);
+    assert.match(composio, /Trying one call to see whether it recovered/);
+    assert.match(composio, /No drift check yet/);
+    await click(button('Turn off composio'));
+    await change(textarea(), 'Composio incident');
+    const form = document.querySelector('dialog[open] form');
+    await submit(form); await submit(form);
+    assert.equal(writes.length, 1, 'a double submit sends once');
+    assert.deepEqual(writes[0], { path: '/api/identity/admin/connector-providers',
+      body: { provider: 'composio', enabled: false, note: 'Composio incident', reason: 'Composio incident' } });
+    assert.match(card('composio'), /OFF/);
+    assert.match(card('composio'), /Off: “Composio incident”/);
+  }, { url: 'http://localhost/control.html?section=providers', fetch });
+});

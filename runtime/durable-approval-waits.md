@@ -27,7 +27,8 @@ original task's message menu.
   effect. A changed proposal must pass the gateway and obtain fresh approval.
 - **Needs attention · External outcome not yet confirmed** holds continuation
   when an action is executing or uncertain. It never repeats the action to find
-  out what happened. Existing uncertain-outcome receipts/write holds remain.
+  out what happened. Once a manager or admin says what happened, or Cuckoo finds
+  it at the provider, the task continues ([unconfirmed writes](connector-providers.md#unconfirmed-writes-schema-107)).
 - Stop permanently cancels this task and invalidates its pending actions. It
   retains the receipts of effects already dispatched, including uncertain ones.
 
@@ -100,8 +101,9 @@ sources. Revocation cannot undo an external effect already dispatched.
 If a worker disappears before checkpointing, normal bounded claim recovery can
 recover the same proposal identity. If a resumed worker disappears, its replacement
 uses the same saved checkpoint and receipts. An executing/uncertain action holds
-continuation across restart; no automatic reconciliation or external retry is
-introduced. Inspect the remote system before resolving an unknown outcome.
+continuation across restart and is never retried. Inspect the remote system
+before answering what happened; since schema 107 Cuckoo also asks providers that
+can find outcomes.
 
 ## Upgrade and verification
 
@@ -122,7 +124,6 @@ cover desktop, phone and dark mode; source evidence is retained under `.tmp/`.
 
 This proves the local approval-wait slice of L2. Ordinary choice/form waits now
 compose with it through [agent questions](agent-questions.md). Broader event waits,
-every-agent/local compatibility, arbitrary artifact reconstruction, automatic
-uncertain-outcome reconciliation, progress inquiries with cross-task context,
-commercial model/provider quality, multi-day soak, usage/billing and cloud
-capacity/recovery acceptance remain separate work.
+every-agent/local compatibility, arbitrary artifact reconstruction, progress
+inquiries with cross-task context, commercial model/provider quality, multi-day
+soak, usage/billing and cloud capacity/recovery acceptance remain separate work.

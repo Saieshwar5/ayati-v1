@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Connector screens mockups</title>
+<style>
+:root{--surface:#fff;--canvas:#f3f4f5;--text:#22252a;--muted:#697079;--border:#e5e7ea;--border-panel:#d1d6dd;--border-control:#aeb8c5;--soft:#f5f6f7;--selection:#eef0f2;--accent:#22252a;--danger:#a42f35;--danger-bg:#fdeeee;--warning:#945b10;--warning-bg:#fff3e2;--success:#26745c;--success-bg:#e3f3ea;--link:#3d55c9;--info-bg:#eef1fd;--pin:#e0a800}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+.screen{width:1820px;height:900px;display:flex;position:relative;overflow:hidden;background:#fff;margin-bottom:40px}
+.app{width:1440px;height:900px;background:var(--canvas);position:relative;flex:0 0 auto}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;vertical-align:middle}
+.rail{position:absolute;left:0;top:0;bottom:0;width:88px;display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:10px}
+.rail .logo{width:36px;height:26px;margin-bottom:26px}
+.rail a{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#3a3f46}
+.rail a.on{background:var(--accent);color:#fff}
+.rail .bottom{position:absolute;bottom:30px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.rail .me{width:34px;height:34px;border-radius:50%;background:#efe9d9;display:grid;place-items:center;font-size:12px;font-weight:600;color:#5b4a1f}
+.frame{position:absolute;left:88px;top:12px;width:1340px;height:876px;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);display:flex;overflow:hidden}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border-control);background:#fff;font:inherit;font-size:13.5px;font-weight:550;color:var(--text);white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{min-height:30px;padding:0 10px;font-size:13px}
+.btn.quiet{border-color:transparent;background:var(--soft)}
+.btn.done{border-color:transparent;background:var(--success-bg);color:var(--success)}
+.btn .i{width:16px;height:16px}
+.muted{color:var(--muted)}
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 3px rgb(0 0 0/.25);z-index:30}
+.notes{flex:1;padding:4px 26px 0 30px;background:#fff}
+.notes h2{font-size:19px;font-weight:600;margin:0 0 18px}
+.notes ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.notes li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13.5px;line-height:1.48;color:#33383e}
+.notes li i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.notes .sub{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;line-height:1.5;color:var(--muted)}
+.notes .sub b{color:var(--text)}
+/* Apps page */
+.apps-main{flex:1;min-width:0;padding:28px 32px;position:relative}
+.apps-header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.apps-header h1{margin:0;font-size:28px;letter-spacing:-.02em;font-weight:650}
+.tools{display:flex;gap:10px;align-items:center}
+.search{display:flex;align-items:center;gap:8px;width:240px;height:40px;border-radius:12px;background:var(--soft);padding:0 14px;color:var(--muted)}
+.filters{margin-top:18px;display:flex;gap:8px;align-items:center}
+.filters span{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--border-panel);display:inline-flex;align-items:center;gap:8px}
+.filters .on{background:var(--text);color:#fff;border-color:var(--text)}
+.filters .needs::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--warning)}
+.grid{margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{border:1px solid var(--border-panel);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:4px;position:relative;background:#fff}
+.card.sel{border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.logo-tile{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:18px;flex:0 0 auto}
+.logo-tile.big{width:56px;height:56px;border-radius:15px;font-size:23px}
+.logo-tile.sm{width:36px;height:36px;border-radius:10px;font-size:15px}
+.status{padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.status.warn{background:var(--warning-bg);color:var(--warning)}
+.status.bad{background:var(--danger-bg);color:var(--danger)}
+.status.ok{background:var(--success-bg);color:var(--success)}
+.status.quiet{background:var(--selection);color:var(--muted)}
+.card b.name{font-size:15px;font-weight:600}
+.card .line{color:var(--muted);font-size:13.5px}
+.card-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:12.5px;min-height:26px}
+.faces{display:flex}.faces img{width:24px;height:24px;border-radius:50%;margin-right:-5px;box-shadow:0 0 0 2px #fff;background:#fff}
+.panel{width:440px;flex:0 0 auto;border-left:1px solid var(--border);padding:26px 28px;display:flex;flex-direction:column;gap:16px;position:relative}
+.panel h2{margin:0;font-size:21px;font-weight:650}
+.panel h3{margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.panel h3 span{text-transform:none;letter-spacing:0;font-weight:500}
+.callout{padding:12px 14px;border-radius:12px;background:var(--warning-bg);color:#5d3b0a;font-size:13.5px;line-height:1.45;display:flex;flex-direction:column;gap:8px}
+.callout .row{display:flex;gap:8px}
+.actions{list-style:none;margin:0;padding:0}
+.actions li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)}
+.actions li b{font-weight:550;font-size:13.5px;display:block}
+.actions small{color:var(--muted);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--border-panel);border-radius:9px;padding:2px;gap:2px;background:#fff;flex:0 0 auto}
+.seg span{padding:4px 9px;border-radius:7px;font-size:12px;color:var(--muted);white-space:nowrap}
+.seg .allow{background:var(--success-bg);color:var(--success);font-weight:600}
+.seg .ask{background:var(--warning-bg);color:var(--warning);font-weight:600}
+.seg .block{background:var(--selection);color:var(--text);font-weight:600}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 10px;font-size:13.5px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.kv .via{color:var(--muted);font-size:12.5px}
+.danger-link{color:var(--danger);font-weight:550;font-size:13.5px}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{font-size:11.5px;padding:2px 7px;border-radius:6px;background:var(--selection);font-weight:550}
+.chip.read{background:var(--success-bg);color:var(--success)}
+.chip.money{background:#fbefdc;color:#8a5a12}
+.chip.out{background:var(--info-bg);color:var(--link)}
+.chip.del{background:var(--danger-bg);color:var(--danger)}
+/* dialogs */
+.scrim{position:absolute;left:88px;top:12px;width:1340px;height:876px;border-radius:18px;background:rgb(34 37 42/.42);z-index:5}
+.dialog{position:absolute;background:#fff;border-radius:18px;z-index:6;box-shadow:0 12px 40px rgb(0 0 0/.2);display:flex;flex-direction:column}
+.d-head{display:flex;align-items:center;gap:12px;padding:20px 24px 14px;border-bottom:1px solid var(--border)}
+.d-head h3{margin:0;font-size:20px;font-weight:650;flex:1}
+.x{width:34px;height:34px;border-radius:9px;border:1px solid var(--border-control);display:grid;place-items:center}
+.d-body{flex:1;min-height:0;padding:18px 24px;display:flex;flex-direction:column;gap:14px;position:relative}
+.d-foot{display:flex;align-items:center;gap:10px;padding:14px 24px 18px;border-top:1px solid var(--border)}
+.d-foot .right{margin-left:auto;display:flex;gap:10px}
+.notice{display:flex;gap:10px;border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;background:var(--info-bg);color:#2e3f8f}
+.notice.warn{background:var(--warning-bg);color:#6b4209}
+.notice.ok{background:var(--success-bg);color:#1d5a47}
+.notice .i{width:17px;height:17px;margin-top:1px}
+/* catalog */
+.cat{display:flex;flex:1;min-height:0}
+.cat-nav{width:250px;border-right:1px solid var(--border);padding:16px 14px;display:flex;flex-direction:column;gap:2px;font-size:14px;flex:0 0 auto;position:relative}
+.cat-nav .h{font-size:11.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 10px 6px}
+.cat-nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;color:var(--text)}
+.cat-nav a.on{background:var(--selection);font-weight:600}
+.cat-nav a small{color:var(--muted);font-size:12.5px}
+.cat-nav a .next{font-size:11px;background:var(--info-bg);color:var(--link);padding:1px 7px;border-radius:6px;font-weight:600}
+.cat-main{flex:1;min-width:0;padding:16px 22px;display:flex;flex-direction:column;gap:14px;position:relative}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tile{border:1px solid var(--border-panel);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;position:relative}
+.tile-top{display:flex;gap:12px;align-items:center}
+.tile-top b{font-size:14.5px;font-weight:600;display:block}
+.tile-top small{color:var(--muted);font-size:12.5px}
+.tfoot{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.tfoot small{color:var(--muted);font-size:12.5px}
+/* agent pages */
+.roster{width:286px;border-right:1px solid var(--border);padding:28px 16px;flex:0 0 auto}
+.roster h1{font-size:22px;margin:0;font-weight:650}
+.roster-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roster .s{display:flex;align-items:center;gap:8px;height:40px;border-radius:10px;border:1px solid var(--border-control);padding:0 12px;color:var(--muted);margin-bottom:14px}
+.agent-row{display:flex;gap:12px;padding:10px;border-radius:12px;align-items:center;margin-bottom:2px}
+.agent-row.on{background:var(--selection)}
+.agent-row img{width:40px;height:40px;border-radius:50%}
+.agent-row b{display:block;font-weight:550;font-size:14.5px}
+.agent-row small{display:block;color:var(--muted);font-size:13px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.create-head{display:flex;justify-content:space-between;align-items:center;padding:30px 32px 10px}
+.create-head h2{margin:0;font-size:26px;font-weight:650}
+.steps{display:flex;gap:26px;align-items:center;padding:8px 32px 18px;border-bottom:1px solid var(--border);color:var(--muted)}
+.steps span{display:flex;align-items:center;gap:10px}
+.steps i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--selection);font-size:12px;font-weight:600}
+.steps .cur{color:var(--text);font-weight:600}.steps .cur i{background:var(--accent);color:#fff}
+.steps .done i{background:var(--success);color:#fff}
+.body{flex:1;min-height:0;padding:20px 32px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
+.foot{display:flex;align-items:center;gap:12px;padding:16px 32px 20px;border-top:1px solid var(--border)}
+.group{font-size:12px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:8px 0 0}
+.app-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:start;padding:13px 0;border-top:1px solid var(--border);position:relative}
+.app-row b{font-weight:600;font-size:14.5px}
+.app-row small{display:block;color:var(--muted);font-size:13px;margin:2px 0 5px}
+.switch{width:40px;height:22px;border-radius:999px;background:var(--border-control);position:relative;margin-top:4px}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.switch.on{background:var(--accent)}.switch.on::after{left:21px}
+.side-card{border:1px solid var(--border);border-radius:12px;padding:16px 18px;background:var(--soft);font-size:13.5px;line-height:1.55}
+.side-card h4{margin:0 0 8px;font-size:14.5px}
+.ask-row{display:flex;align-items:center;gap:12px;border:1px dashed var(--border-panel);border-radius:12px;padding:12px 14px;margin-top:14px;position:relative}
+/* states */
+.grid4{position:absolute;left:88px;top:12px;width:1340px;height:876px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.state{background:#fff;border-radius:18px;box-shadow:0 8px 24px rgb(23 33 43/10%);padding:20px 24px;position:relative;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.state-title{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:650}
+.mini{border:1px solid var(--border-panel);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center}
+.mini b{font-size:13.5px;font-weight:600;display:block}.mini small{color:var(--muted);font-size:12px}
+.field label{display:block;font-weight:600;font-size:13.5px;margin-bottom:6px}
+.input{border:1px solid var(--border-control);border-radius:10px;padding:9px 12px;font-size:13.5px;color:var(--muted)}
+.radio-row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border-panel);border-radius:12px;padding:12px 14px}
+.radio-row.on{border:2px solid var(--accent);padding:11px 13px}
+.radio{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border-control);flex:0 0 auto;margin-top:1px}
+.radio.on{border:5px solid var(--accent)}
+.radio-row b{display:block;font-size:14px;font-weight:600}.radio-row small{color:var(--muted);font-size:12.5px}
+.sent{border:1px solid var(--border);border-radius:12px;background:var(--soft);padding:12px 14px;font-size:13.5px;display:grid;grid-template-columns:80px 1fr;gap:5px 10px}
+.sent dt{color:var(--muted)}.sent dd{margin:0}
+.timeline{list-style:none;margin:0;padding:0;font-size:13px;display:grid;gap:6px}
+.timeline li{display:flex;gap:8px;align-items:center}
+.timeline .dot{width:8px;height:8px;border-radius:50%;background:var(--border-control)}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 13v1M15 13v1M2 14h2M20 14h2"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+<symbol id="apps" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+<symbol id="refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+<symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+<symbol id="hammer" viewBox="0 0 24 24"><path d="m15 12-8.5 8.5a2.1 2.1 0 0 1-3-3L12 9"/><path d="M17.6 15 22 10.6 13.4 2 9 6.4z"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="out" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</svg>
+<div id="root"></div>
+<script>
+const AV = n => `../../web/public/agent-avatars/robot-${n}.svg`;
+const I = (id) => `<svg class="i"><use href="#${id}"/></svg>`;
+const pin = (n, style) => `<span class="pin" style="${style}">${n}</span>`;
+const hues = { Gmail: '#c5402f', 'Google Calendar': '#2f6fd1', 'Google Drive': '#1f8a5b', 'Google Sheets': '#21894f', Outlook: '#1d5fb8', 'Delivery tracker': '#7a4fd0', 'Zoho Books': '#c9581f', HubSpot: '#d8572a', QuickBooks: '#2b8a3e', Slack: '#5b2c6f', Notion: '#33363b', Jira: '#2361c6', Razorpay: '#1f4fbf', Shopify: '#4f8a2b', Freshdesk: '#2a8a7a', 'Zoho CRM': '#b33f3f' };
+const logo = (name, size = '') => `<span class="logo-tile ${size}" style="background:${hues[name] || '#55606c'}">${name === 'Delivery tracker' ? I('server') : name[0]}</span>`;
+function rail(on = 'Apps') {
+  const items = [['home','Home'],['chat','Chat'],['activity','Activity'],['bot','Agents'],['library','Library'],['apps','Apps']];
+  return `<nav class="rail"><img class="logo" src="../../web/public/brand/cuckoo-symbol.svg" alt="">
+    ${items.map(([icon, label]) => `<a class="${label === on ? 'on' : ''}" title="${label}">${I(icon)}</a>`).join('')}
+    <div class="bottom"><a>${I('sliders')}</a><span class="me">RK</span></div></nav>`;
+}
+function notes(title, items, sub = '') {
+  return `<aside class="notes"><h2>${title}</h2><ol>${items.map((text, index) => `<li><i>${index + 1}</i><span>${text}</span></li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}</aside>`;
+}
+const screen = (id, app, side, on) => `<section class="screen" id="${id}"><div class="app">${rail(on)}${app}</div>${side}</section>`;
+const seg = mode => `<span class="seg"><span class="${mode === 'allow' ? 'allow' : ''}">Allow</span><span class="${mode === 'ask' ? 'ask' : ''}">Ask first</span><span class="${mode === 'block' ? 'block' : ''}">Block</span></span>`;
+const kind = k => ({ read: '<span class="chip read">Reads</span>', change: '<span class="chip">Changes</span>', money: '<span class="chip money">Money</span>', out: '<span class="chip out">Sends outside</span>', del: '<span class="chip del">Deletes</span>' }[k]);
+const faces = list => `<span class="faces">${list.map(n => `<img src="${AV(n)}" alt="">`).join('')}</span>`;
+function card(name, line, status, foot, agentsList, sel) {
+  return `<div class="card ${sel ? 'sel' : ''}"><div class="card-top">${logo(name)}${status}</div><b class="name">${name}</b><span class="line">${line}</span>
+    <div class="card-foot">${agentsList.length ? faces(agentsList) : '<span>No agents yet</span>'}<span>${foot}</span></div></div>`;
+}
+const appsHeader = `<header class="apps-header"><h1>Apps</h1><div class="tools"><span class="search">${I('search')}Search apps</span><span class="btn">Build an app</span><span class="btn primary">${I('plus')}Add app</span></div></header>
+  <div class="filters"><span class="on">All</span><span>Built here</span><span>Your systems</span><span>Services</span><span class="needs">2 need you</span></div>`;
+const appsGrid = sel => `<div class="grid">
+  ${card('Gmail', 'orders@mehtafurnishings.in', '<span class="status warn">'+I('pause')+'Writes paused</span>', 'Used 10 min ago', ['09', '01'], sel === 'Gmail')}
+  ${card('Google Calendar', 'riya@mehtafurnishings.in', '', 'Used 1 hour ago', ['01'], sel === 'Google Calendar')}
+  ${card('Delivery tracker', 'Mehta Furnishings · shipments', '', 'Used today', ['01', '05'], false)}
+  ${card('Zoho Books', 'accounts@mehtafurnishings.in', '<span class="status warn">'+I('refresh')+'Reconnect</span>', 'Used yesterday', ['05'], false)}
+  ${card('HubSpot', 'sales@mehtafurnishings.in', '<span class="status quiet">Not used yet</span>', 'Connected today', [], false)}
+</div>`;
+
+/* ---------- 1. Apps: one place per service ---------- */
+const s1 = screen('s1', `<div class="frame"><div class="apps-main">${appsHeader}<div style="position:relative">${pin(1, 'left:-14px;top:30px')}${appsGrid('Gmail')}</div></div>
+  <aside class="panel">${pin(2, 'left:6px;top:26px')}
+    <div style="display:flex;gap:14px;align-items:center">${logo('Gmail', 'big')}<div><h2>Gmail</h2><span class="muted">Connected as orders@mehtafurnishings.in</span></div></div>
+    <div class="callout" style="position:relative">${pin(3, 'left:-34px;top:12px')}<div class="row">${I('pause')}<span><b>Writes are paused.</b> Gmail didn’t confirm one email Atlas sent at 10:42. Reading still works.</span></div>
+      <span><span class="btn small">Check what happened</span></span></div>
+    <div><h3>What agents may do <span>You can change these</span></h3>
+      <ul class="actions">
+        <li><span><b>Find emails</b><small>Reads ▾</small></span>${seg('allow')}</li>
+        <li><span><b>Draft an email</b><small>Changes ▾</small></span>${seg('ask')}</li>
+        <li><span><b>Send an email</b><small>Sends outside ▾ · someone else approves</small></span>${seg('ask')}</li>
+        <li><span><b>Reply in a thread</b><small>Sends outside ▾ · suggested</small></span>${seg('ask')}</li>
+      </ul></div>
+    <div><h3>Used by</h3><div style="display:flex;gap:10px;align-items:center">${faces(['09', '01'])}<span style="margin-left:6px">Nova and Atlas</span><span class="muted" style="margin-left:auto">1 company rule</span></div></div>
+    <div style="position:relative">${pin(4, 'left:-34px;top:0')}<h3>Account</h3>
+      <dl class="kv"><dt>Connected by</dt><dd>Riya Kapoor, 2 Nov</dd><dt>Last used</dt><dd>10 min ago, by Atlas</dd><dt>Sign-in</dt><dd>Works <span class="via">· through Composio</span></dd></dl></div>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:14px;position:relative">${pin(5, 'left:-34px;top:16px')}<span class="btn">${I('refresh')}Reconnect</span><span class="danger-link" style="margin-left:auto">Disconnect Gmail…</span></div>
+  </aside></div>`, notes('Apps · one place per service (changed)', [
+  'Each card says the one thing that needs attention, in words: <b>Writes paused</b>, <b>Reconnect</b> or <b>Not used yet</b>. The foot says when it was last used.',
+  'The side panel becomes the only place to manage a service. Admins change each action’s rule right here; members see the same panel read-only. The kind under each action (▾) opens a small menu to correct it and to require someone other than the requester to approve, as the drawer allows today. The separate “Add and manage apps” drawer is removed.',
+  'A paused account explains itself and offers <b>Check what happened</b> (screen 4). Today one unconfirmed write blocks every later write with no way out.',
+  'Account facts: who connected it, when, when it was last used, and whether sign-in works. Admins see the connection service in small text. Members and agents never see it.',
+  'Reconnect stays easy to reach. Disconnect moves to the bottom, in red, and asks to confirm.',
+], '<b>Why:</b> today admins see rules here read-only, then edit them in a drawer that lists every app with three buttons each. One panel per app is simpler and does not depend on how the app is connected.'), 'Apps');
+
+/* ---------- 2. Add app: the catalog ---------- */
+const tile = (name, desc, kinds, btn) => `<div class="tile"><div class="tile-top">${logo(name, 'sm')}<span><b>${name}</b><small>${desc}</small></span></div>
+  <div class="chips">${kinds.map(kind).join('')}</div><div class="tfoot">${btn}</div></div>`;
+const connectBtn = '<span class="btn small">Connect</span>';
+const connected = '<span class="status ok">'+I('check')+'Connected</span>';
+const s2 = screen('s2', `<div class="frame"><div class="apps-main">${appsHeader}${appsGrid('')}</div></div><div class="scrim"></div>
+  <div class="dialog" style="left:150px;top:100px;width:1216px;height:700px">
+    <div class="d-head"><h3>Add app</h3><span class="x">${I('x')}</span></div>
+    <div class="cat">
+      <nav class="cat-nav">${pin(1, 'right:-12px;top:372px')}
+        <div class="h">Services</div>
+        <a class="on">All services <small>48</small></a><a>Email and calendar <small>6</small></a><a>Files and documents <small>7</small></a><a>Sales and customers <small>8</small></a><a>Accounting and payments <small>9</small></a><a>Messaging <small>4</small></a><a>Projects and tasks <small>8</small></a><a>Support <small>3</small></a><a>Shops <small>3</small></a>
+        <div class="h" style="margin-top:8px">Other ways to add</div>
+        <a>${I('server')}<span style="flex:1;margin-left:8px">MCP server</span><span class="next">Next</span></a>
+        <a>${I('link')}<span style="flex:1;margin-left:8px">Your company’s app</span></a>
+        <a>${I('hammer')}<span style="flex:1;margin-left:8px">Build an app</span></a>
+      </nav>
+      <div class="cat-main">
+        <div style="display:flex;gap:12px;align-items:center;position:relative">${pin(2, 'left:-14px;top:8px')}<span class="search" style="width:420px">${I('search')}Search 48 services</span><span class="muted" style="font-size:13px">Connected apps are listed first.</span></div>
+        <div class="tiles" style="position:relative">${pin(3, 'left:-14px;top:70px')}
+          ${tile('Gmail', 'Email', ['read', 'change', 'out'], connected + '<small>4 actions</small>')}
+          ${tile('Google Calendar', 'Calendar', ['read', 'change'], connected + '<small>2 actions</small>')}
+          ${tile('HubSpot', 'Contacts, deals and notes', ['read', 'change'], connected + '<small>5 actions</small>')}
+          ${tile('Google Drive', 'Files and folders', ['read', 'change', 'del'], connectBtn + '<small>4 actions</small>')}
+          ${tile('Google Sheets', 'Spreadsheets', ['read', 'change'], connectBtn + '<small>4 actions</small>')}
+          ${tile('Outlook', 'Email and calendar', ['read', 'change', 'out'], connectBtn + '<small>6 actions</small>')}
+          ${tile('QuickBooks', 'Invoices, bills and payments', ['read', 'money', 'out'], connectBtn + '<small>7 actions</small>')}
+          ${tile('Slack', 'Channels and messages', ['read', 'out'], connectBtn + '<small>4 actions</small>')}
+          ${tile('Razorpay', 'Payment links and refunds', ['read', 'money'], connectBtn + '<small>4 actions</small>')}
+        </div>
+        <div style="position:relative">${pin(4, 'left:-14px;top:10px')}<div class="notice">${I('info')}<span>Can’t find an app? If it offers an MCP server, add it under <b>MCP server</b>. Otherwise ask Cuckoo to add it to the list.</span></div></div>
+      </div>
+    </div>
+  </div>`, notes('Add app · one catalog for every way to connect (new)', [
+  'One <b>Add app</b> for every kind of connection. Services come from Cuckoo’s list. The other kinds sit below them: MCP servers next, company links and built apps as today. A new kind, such as a custom API, is one more entry here.',
+  'Search and categories are answered by the server a page at a time, so the list can grow to hundreds of apps without loading them all.',
+  'Each tile says what agents could do with it, in the same words as Controls: reads, changes, money, sends outside, deletes. No app shows which service connects it.',
+  'Connected apps say so and open their panel. <b>Connect</b> opens screen 3. The help line covers apps that aren’t listed.',
+], '<b>Replaces</b> “Add app → Connect a service”, which opened the old Connections list with Approve system, Connect account and Remove approval on every row.'), 'Apps');
+
+/* ---------- 3. Connect one service ---------- */
+const s3 = screen('s3', `<div class="frame"><div class="apps-main">${appsHeader}${appsGrid('')}</div></div><div class="scrim"></div>
+  <div class="dialog" style="left:130px;top:110px;width:620px;height:660px">
+    <div class="d-head">${logo('Google Drive', 'sm')}<h3>Connect Google Drive</h3><span class="x">${I('x')}</span></div>
+    <div class="d-body">
+      <div style="position:relative">${pin(1, 'left:-34px;top:0')}<h4 style="margin:0 0 4px;font-size:15px">What agents could do</h4><span class="muted" style="font-size:13px">These start with safe rules. You can change any of them after connecting.</span></div>
+      <ul class="actions" style="position:relative">${pin(2, 'left:-34px;top:12px')}
+        <li><span><b>Find files</b><small>Reads</small></span>${seg('allow')}</li>
+        <li><span><b>Read a file</b><small>Reads</small></span>${seg('allow')}</li>
+        <li><span><b>Upload a file</b><small>Changes</small></span>${seg('ask')}</li>
+        <li><span><b>Delete a file</b><small>Deletes</small></span>${seg('block')}</li>
+      </ul>
+      <div style="position:relative">${pin(3, 'left:-34px;top:0')}<h4 style="margin:6px 0 4px;font-size:15px">Sign in</h4>
+        <span style="font-size:13.5px;line-height:1.5">Next you’ll sign in on Google’s own page. Use the account agents should work in. A shared company account is best, so it keeps working when people change roles.</span></div>
+      <div class="notice">${I('lock')}<span>No agent can use Google Drive until its owner switches it on. Cuckoo checks every action against these rules before it runs.</span></div>
+    </div>
+    <div class="d-foot"><span class="muted" style="font-size:13px">Opens Google in this tab</span><span class="right"><span class="btn">Cancel</span><span class="btn primary">Continue to Google ${I('arrow')}</span></span></div>
+  </div>
+  <div class="dialog" style="left:790px;top:250px;width:600px;height:300px">
+    <div class="d-head">${logo('Google Drive', 'sm')}<h3>Google Drive is connected</h3><span class="x">${I('x')}</span></div>
+    <div class="d-body" style="position:relative">${pin(4, 'left:-14px;top:24px')}
+      <div class="notice ok">${I('check')}<span>Connected as <b>files@mehtafurnishings.in</b>. Reading is allowed; uploading asks first; deleting is blocked.</span></div>
+      <span style="font-size:13.5px;line-height:1.5">Next, switch it on for the agents that need it. Their owners can make the rules stricter, never looser.</span>
+      <div style="display:flex;gap:10px"><span class="btn primary">Choose agents</span><span class="btn">Change rules</span><span class="btn" style="border-color:transparent">Done</span></div>
+    </div>
+  </div>
+  ${pin(5, 'left:812px;top:592px')}<div style="position:absolute;left:840px;top:590px;width:550px;z-index:6;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 6px 20px rgb(0 0 0/.15)"><div class="notice warn" style="margin:0">${I('alert')}<span>The sign-in didn’t finish, so nothing was connected. <b>Try again</b></span></div></div>
+  `, notes('Connect · one step with the rules up front (new)', [
+  'Approving and connecting become one step. Today an admin presses <b>Approve system</b>, then <b>Connect account</b>, and only then sees any rules.',
+  'The starting rules are shown before sign-in: reading allowed, deleting blocked, everything else asks first. These are Cuckoo’s existing safe defaults.',
+  'Sign-in happens on the app’s own page. Today that page comes through Composio. Later it can be Cuckoo’s own connector, and this screen stays the same.',
+  'After the sign-in returns, the dialog names the exact account and suggests the next step: choose agents, or change rules.',
+  'A cancelled or failed sign-in saves nothing and says so, as today.',
+], '<b>Server change:</b> one “connect” request that approves the app, starts sign-in and applies safe rules. The existing approve and connect requests stay for old links.'), 'Apps');
+
+/* ---------- 4. Check an unconfirmed write ---------- */
+const s4 = screen('s4', `<div class="frame"><div class="apps-main">${appsHeader}${appsGrid('Gmail')}</div></div><div class="scrim"></div>
+  <div class="dialog" style="left:330px;top:70px;width:780px;height:740px">
+    <div class="d-head">${logo('Gmail', 'sm')}<h3>Did this email go out?</h3><span class="x">${I('x')}</span></div>
+    <div class="d-body">
+      <div class="notice warn" style="position:relative">${pin(1, 'left:-34px;top:10px')}${I('pause')}<span>Gmail didn’t confirm this email within 45 seconds. Cuckoo has not sent it again. Gmail writes are paused until someone answers, so it is never sent twice.</span></div>
+      <div style="position:relative">${pin(2, 'left:-34px;top:16px')}<dl class="sent"><dt>Action</dt><dd><b>Send an email</b> · Gmail · orders@mehtafurnishings.in</dd><dt>To</dt><dd>priya@sharmatraders.in</dd><dt>Subject</dt><dd>May invoice INV-2214</dd><dt>Message</dt><dd>Hello Priya, please find the May invoice attached. The total is ₹48,600, due on 15 June…</dd><dt>Asked by</dt><dd>Arjun Mehta in #orders, 10:41 · approved by Riya Kapoor, 10:42</dd><dt>Agent</dt><dd>Atlas</dd></dl></div>
+      <div style="position:relative">${pin(3, 'left:-34px;top:0')}<b style="font-size:13.5px">What Cuckoo already checked</b>
+        <ul class="timeline" style="margin-top:6px"><li><span class="dot"></span>10:44 · Looked in Sent for this email: Gmail didn’t answer</li><li><span class="dot"></span>10:48 · Looked again: still no answer</li><li><span class="dot"></span>Look in Sent yourself, then answer below.</li></ul></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative">${pin(4, 'left:-34px;top:14px')}
+        <div class="radio-row on"><span class="radio on"></span><span><b>It was sent</b><small>I can see it in Sent.</small></span></div>
+        <div class="radio-row"><span class="radio"></span><span><b>It was not sent</b><small>Atlas will be told, and can try again if asked.</small></span></div></div>
+      <div class="field"><label>Note <span class="muted" style="font-weight:400">(optional)</span></label><div class="input">Found in Sent at 10:42.</div></div>
+    </div>
+    <div class="d-foot" style="position:relative">${pin(5, 'left:4px;top:-10px')}<span class="muted" style="font-size:13px">Saving lets Gmail writes run again. Activity shows who answered.</span><span class="right"><span class="btn">Cancel</span><span class="btn primary">Save answer</span></span></div>
+  </div>`, notes('Check what happened · unblock writes (new)', [
+  'Why it is paused, in plain words, and that nothing was sent twice.',
+  'The exact action and fields that were sent, who asked, who approved and which agent.',
+  'What Cuckoo already tried. Where an app can answer, Cuckoo settles it by itself and this dialog never appears.',
+  'Two answers. The agent’s managers and admins can answer, the same people who decide “Ask first”.',
+  'Saving releases the pause. The same dialog opens from <b>Check</b> in Activity, Needs review.',
+], '<b>Fixes a real gap:</b> today an unconfirmed write stays unconfirmed forever, and every later write on that account is refused.'), 'Apps');
+
+/* ---------- 5. Agent setup: Tools step ---------- */
+const appRow = (name, sub, kinds, acts, on, warn) => `<div class="app-row">${logo(name, 'sm')}<span><b>${name}</b>${warn || ''}<small>${sub}</small><span class="chips">${kinds.map(kind).join('')}</span><small style="margin-top:5px">${acts}</small></span><span class="switch ${on ? 'on' : ''}"></span></div>`;
+const s5 = screen('s5', `<div class="frame"><aside class="roster"><div class="roster-head"><h1>Agents</h1><span class="btn primary">${I('plus')}New agent</span></div><div class="s">${I('search')}Search agents</div>
+    <div class="agent-row on"><img src="${AV('03')}" alt=""><span><b>New agent</b><small>Not created yet</small></span></div>
+    <div class="agent-row"><img src="${AV('01')}" alt=""><span><b>Atlas</b><small>Orders assistant</small></span></div>
+    <div class="agent-row"><img src="${AV('05')}" alt=""><span><b>Ledger</b><small>Accounts helper</small></span></div>
+    <div class="agent-row"><img src="${AV('09')}" alt=""><span><b>Nova</b><small>Sales follow-up</small></span></div></aside>
+  <div class="main"><div class="create-head"><h2>New agent</h2><span>Cancel</span></div>
+    <div class="steps"><span class="done"><i>✓</i>Name and picture</span><span class="cur"><i>2</i>Tools</span><span><i>3</i>Skills</span><span><i>4</i>People</span><span><i>5</i>Controls</span></div>
+    <div class="body"><div>
+      <h3 style="margin:0 0 6px;font-size:16px">What can Iris use?</h3>
+      <p class="group">Built into Cuckoo</p>
+      <div class="app-row"><span class="logo-tile sm" style="background:#55606c">W</span><span><b>Web search</b><small>Search the web and read public pages</small></span><span class="switch on"></span></div>
+      <p class="group" style="margin-top:14px">Apps your admin added</p>
+      <div style="position:relative">${pin(1, 'left:-34px;top:14px')}${appRow('Gmail', 'orders@mehtafurnishings.in · 4 actions', ['read', 'change', 'out'], 'Find emails · Draft · Send · Reply in a thread', true, ' <span class="status warn" style="margin-left:6px">Writes paused</span>')}</div>
+      ${appRow('Google Calendar', 'riya@mehtafurnishings.in · 2 actions', ['read', 'change'], 'Find events · Create an event', false)}
+      ${appRow('Zoho Books', 'accounts@mehtafurnishings.in · 5 actions', ['read', 'money', 'del'], 'Read invoices · Create an invoice · Credit note · …', false, ' <span class="status warn" style="margin-left:6px">Needs reconnecting</span>')}
+      <div class="ask-row">${pin(2, 'left:-34px;top:12px')}${I('plus')}<span style="flex:1"><b style="font-size:14px">Need another app?</b><small class="muted" style="display:block;font-size:13px">Your admin gets the request on the Apps page.</small></span><span class="btn">Ask an admin</span></div>
+    </div>
+    <aside class="side-card" style="position:relative">${pin(3, 'left:-12px;top:-10px')}<h4>About these apps</h4>
+      Switching an app on gives Iris no permission by itself. What Iris may do is chosen in step 5, Controls.<br><br>
+      <b>Writes paused</b> means one earlier email needs checking. Iris can still read.<br><br>
+      <span class="muted">You’re an admin: you can also <a style="color:var(--link);font-weight:550">connect an app</a> here without losing this draft.</span></aside></div>
+    <div class="foot"><span class="btn">Back</span><span class="btn primary">Continue</span><span class="muted" style="font-size:13px">Skipping is fine. Tools can change later on the Tools tab.</span></div>
+  </div></div>`, notes('Agent setup · Tools step (small changes)', [
+  'Each app shows its health where people choose it. Today a paused or expired account looks the same as a working one.',
+  '<b>Ask an admin</b> sends a request that reaches admins on the Apps page, using the existing app requests. Today the text points to “Settings → Connections”, which moved to Apps.',
+  'Admins can connect an app from here in the Add app dialog (screen 2). The draft agent is kept.',
+], '<b>The same health tags</b> appear on the agent’s Tools tab (screen 6). Nothing else in the five-step setup changes.'), 'Agents');
+
+/* ---------- 6. States ---------- */
+const s6 = screen('s6', `<div class="grid4">
+  <div class=\"state\">${pin(1, 'right:14px;top:14px')}<span class="state-title">Card states on Apps</span>
+    <div class="mini">${logo('Google Calendar', 'sm')}<span style="flex:1"><b>Google Calendar</b><small>Works · used 1 hour ago</small></span></div>
+    <div class="mini">${logo('Zoho Books', 'sm')}<span style="flex:1"><b>Zoho Books</b><small>Sign-in expired. Agents can’t use it.</small></span><span class="status warn">Reconnect</span></div>
+    <div class="mini">${logo('Gmail', 'sm')}<span style="flex:1"><b>Gmail</b><small>Reading works. One email needs checking.</small></span><span class="status warn">Writes paused</span></div>
+    <div class="mini">${logo('Slack', 'sm')}<span style="flex:1"><b>Slack</b><small>Paused by Cuckoo for a short while. Nothing is sent.</small></span><span class="status quiet">Paused by Cuckoo</span></div>
+    <div class="mini">${logo('HubSpot', 'sm')}<span style="flex:1"><b>HubSpot</b><small>Connected today. No agent uses it yet.</small></span><span class="status quiet">Not used yet</span></div>
+  </div>
+  <div class=\"state\">${pin(2, 'right:14px;top:14px')}<span class="state-title">Members see the same catalog</span>
+    <span class="search" style="width:100%">${I('search')}Search 48 services</span>
+    <div class="tiles" style="grid-template-columns:1fr 1fr">
+      ${tile('Gmail', 'Email', ['read', 'change', 'out'], connected + '<small>Used by 2 agents</small>')}
+      ${tile('Google Drive', 'Files and folders', ['read', 'change', 'del'], '<span class="btn small">Request</span><small>Admins decide</small>')}
+      ${tile('Slack', 'Channels and messages', ['read', 'out'], '<span class="status quiet">Requested</span><small>You asked today</small>')}
+      ${tile('Outlook', 'Email and calendar', ['read', 'change', 'out'], '<span class="btn small">Request</span><small>Admins decide</small>')}
+    </div></div>
+  <div class=\"state\">${pin(3, 'right:14px;top:14px')}<span class="state-title">Agent → Tools tab</span>
+    <div class="app-row" style="border-top:0">${logo('Gmail', 'sm')}<span><b>Gmail</b> <span class="status warn" style="margin-left:6px">Writes paused</span><small>orders@mehtafurnishings.in · 4 actions</small><small>Atlas can read. Sending waits until someone checks one email. <a style="color:var(--link);font-weight:550">Check it</a></small></span><span class="switch on"></span></div>
+    <div class="app-row">${logo('Zoho Books', 'sm')}<span><b>Zoho Books</b> <span class="status warn" style="margin-left:6px">Needs reconnecting</span><small>accounts@mehtafurnishings.in · 5 actions</small><small>Your admin was told. Atlas’s rules are kept.</small></span><span class="switch on"></span></div>
+  </div>
+  <div class=\"state\">${pin(4, 'right:14px;top:14px')}<span class="state-title">Activity → Needs review</span>
+    <div class="mini" style="border-color:#f0d3a8">${logo('Gmail', 'sm')}<span style="flex:1"><b>Send an email to priya@sharmatraders.in</b><small>Atlas · asked by Arjun Mehta · Gmail didn’t confirm it</small></span><span class="btn small primary">Check</span></div>
+    <div class="mini">${logo('Zoho Books', 'sm')}<span style="flex:1"><b>Zoho Books needs reconnecting</b><small>Ledger can’t create invoices until an admin signs in again</small></span><span class="btn small">Reconnect</span></div>
+    <span class="muted" style="font-size:13px">Check opens screen 4. Reconnect opens the app’s sign-in page and comes back here.</span>
+  </div>
+</div>`, notes('States everyone sees', [
+  'Five states, each with its words and its fix. <b>Paused by Cuckoo</b> appears when an operator switches a connection service off during an incident; the app’s name stays the same.',
+  'Members browse the same catalog. They see <b>Request</b> instead of Connect, and their requests reach admins through the existing app requests.',
+  'The agent’s Tools tab shows the same tags, with the fix where the person can act. Reconnecting the same account keeps the agent’s rules once that server change lands.',
+  'Activity’s Needs review uses the same words and opens the same dialogs.',
+], '<b>Phones:</b> the Apps panel and both dialogs open full screen with Back, as Apps does today. <b>Dark mode</b> uses the existing tokens.'), 'Apps');
+
+document.getElementById('root').innerHTML = s1 + s2 + s3 + s4 + s5 + s6;
+</script>
+</body></html>

@@ -3,12 +3,15 @@ import { Button } from '../../ui';
 import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { CreateEvent } from './event-create';
+import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
 import { loadEvents, type EventTrigger } from './event-model';
 export function EventTriggers({ agent }: { agent: string }) {
   const load = useCallback(() => loadEvents(agent), [agent]);
   const r = useResource(load);
-  const [open, setOpen] = useState<{ kind: 'create' } | { kind: 'review'; trigger: EventTrigger }>();
+  const [open, setOpen] = useState<
+    { kind: 'create' } | { kind: 'app' } | { kind: 'review'; trigger: EventTrigger }
+  >();
   const button = useRef<HTMLButtonElement>(null),
     opener = useRef<HTMLElement | null>(null),
     timer = useRef<number | undefined>(undefined);
@@ -46,17 +49,41 @@ export function EventTriggers({ agent }: { agent: string }) {
           <h3>Event triggers</h3>
           <p>Start work when a reviewed connected system reports a change.</p>
         </div>
-        <Button
-          ref={button}
-          disabled={!r.data?.execution_available || !r.data.choices.length || Boolean(r.error)}
-          onClick={() => show({ kind: 'create' })}
-        >
-          Create event trigger
-        </Button>
+        <div>
+          <Button
+            ref={button}
+            disabled={!r.data?.execution_available || Boolean(r.error)}
+            onClick={() => show({ kind: 'app' })}
+          >
+            When something happens in an app
+          </Button>
+          <Button
+            disabled={!r.data?.execution_available || !r.data.choices.length || Boolean(r.error)}
+            onClick={() => show({ kind: 'create' })}
+          >
+            Create event trigger
+          </Button>
+        </div>
       </header>
       {r.error && <p role="alert">{r.error}</p>}
       {r.data?.catalog_error && <p role="status">{r.data.catalog_error}</p>}
       {!r.data && !r.error && <p role="status">Loading connected events…</p>}
+      {r.data && !r.data.execution_available && (
+        <p role="status">Event triggers need controller-managed background work, which this server doesn’t run.</p>
+      )}
+      {r.data && !r.data.apps?.length && (
+        <p className="ui-help">
+          No connected app offers events for this agent yet. Once an admin connects Gmail or Google Calendar, its new
+          emails or events can start work here.
+        </p>
+      )}
+      {r.data?.apps
+        ?.filter((a) => a.state !== 'ready')
+        .map((a) => (
+          <p key={a.connection} role="status">
+            {a.name}: {a.detail}
+          </p>
+        ))}
       {r.data && !r.data.choices.length && (
         <p className="ui-help">
           No reviewed event source is available to you. An operator must configure the provider source; an admin must
@@ -88,6 +115,9 @@ export function EventTriggers({ agent }: { agent: string }) {
         Source data belongs to its original task. Each tool action keeps its own Allow, Ask or Block rule. Provider
         delivery and background workers must be configured separately.
       </p>
+      {open?.kind === 'app' && r.data && (
+        <CreateAppEvent agent={agent} directory={r.data} close={close} saved={r.refresh} />
+      )}
       {open?.kind === 'create' && r.data && (
         <CreateEvent agent={agent} directory={r.data} close={close} saved={r.refresh} />
       )}

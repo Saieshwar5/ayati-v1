@@ -57,6 +57,56 @@ impl Trigger {
         Ok(())
     }
 }
+/// A trigger started by a connected app's event (schema 109). In place of a
+/// source the person names the connection and a catalog event; the controller
+/// finds or creates the provider subscription that becomes the source.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FromApp {
+    pub id: String,
+    pub connection: String,
+    pub event: String,
+    pub chat: String,
+    pub name: String,
+    pub instructions: String,
+    pub connection_revision: i64,
+    pub read_revision: i64,
+    pub delegation_revision: Option<i64>,
+    pub filter: Value,
+}
+impl FromApp {
+    /// The trigger saved for the subscription `source` with fingerprint `binding`.
+    pub(crate) fn trigger(&self, source: &str, binding: &str) -> Trigger {
+        Trigger {
+            id: self.id.clone(),
+            source: source.to_owned(),
+            binding: binding.to_owned(),
+            chat: self.chat.clone(),
+            name: self.name.clone(),
+            instructions: self.instructions.clone(),
+            connection_revision: self.connection_revision,
+            read_revision: self.read_revision,
+            delegation_revision: self.delegation_revision,
+            filter: self.filter.clone(),
+        }
+    }
+    pub(crate) fn validate(&self) -> Result<()> {
+        crate::identity::automations::model::uuid(&self.connection)?;
+        ensure!(
+            self.event.len() <= 129
+                && self.event.split_once('.').is_some_and(|(app, name)| {
+                    [app, name].iter().all(|part| {
+                        !part.is_empty()
+                            && part
+                                .bytes()
+                                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                    })
+                }),
+            "Choose one of the app's events"
+        );
+        self.trigger(&self.connection, &"a".repeat(43)).validate()
+    }
+}
 pub(crate) fn fingerprint(value: &impl Serialize) -> Result<String> {
     let mut value = serde_json::to_value(value)?;
     value.sort_all_objects();
@@ -78,6 +128,10 @@ pub(crate) struct Change {
     pub connection_revision: Option<i64>,
     pub read_revision: Option<i64>,
     pub delegation_revision: Option<i64>,
+    /// Remove the trigger for good (schema 109); `enabled` must be false.
+    /// Left out when false, so requests saved before schema 109 still match.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub remove: bool,
 }
 impl Change {
     pub(crate) fn validate(&self) -> Result<()> {

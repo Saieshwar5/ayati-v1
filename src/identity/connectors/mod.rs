@@ -7,25 +7,53 @@
 //! jobs ([`ConnectorProvider`]); adding one is a module that implements them plus
 //! one line in [`configure`]. Agents never see a provider, its links or its keys.
 //!
-//! Providers today: operator-configured remote MCP servers (`mcp`) and Composio
-//! (`composio`). The provider is chosen per app, so one app can move to another
-//! provider, or to a connector Cuckoo builds itself, without touching the others.
+//! Providers today: operator-configured remote MCP servers (`mcp`), Composio
+//! (`composio`) and Pipedream Connect (`pipedream`). The provider is chosen per
+//! app and workspace ([`routing`]), so one app can move to another provider, or
+//! to a connector Cuckoo builds itself, without touching the others.
 mod composio;
 mod composio_api;
+mod composio_call;
+pub(crate) mod composio_triggers;
 #[cfg(test)]
 mod conformance_tests;
+pub(crate) mod connect;
 pub(crate) mod curated;
+pub(crate) mod drift;
 #[cfg(test)]
 pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
+#[cfg(test)]
+pub(crate) mod fake_pipedream;
 mod mcp_servers;
+mod pipedream;
+mod pipedream_accounts;
+mod pipedream_api;
+mod pipedream_events;
+mod pipedream_props;
+#[cfg(test)]
+mod pipedream_sign_in_tests;
+#[cfg(test)]
+mod pipedream_tests;
+pub(crate) mod pricing;
+pub(crate) mod providers_file;
+mod registry;
 pub(crate) mod routes;
+pub(crate) mod routing;
+pub(crate) mod triggers;
+#[cfg(test)]
+mod triggers_conformance_tests;
 
 use crate::identity::control::model::Operation;
-use anyhow::{Context, Result, ensure};
+use crate::identity::postgres::PgStore;
+use anyhow::{Context, Result};
+use providers_file::ProvidersFile;
 use serde_json::{Value, json};
-use std::sync::{Arc, OnceLock};
+use std::path::PathBuf;
+use std::sync::Arc;
+
+pub(crate) use registry::*;
 
 /// An app people can allow and connect, as Cuckoo shows it.
 pub(crate) struct App {
@@ -51,6 +79,10 @@ pub(crate) struct Account {
     pub definition: Value,
     pub binding: Option<Value>,
     pub fingerprint: String,
+    /// The app's own stable identity for the account (a mailbox, a Slack team
+    /// and user), when the provider can prove it. Reconnecting the same
+    /// identity keeps the account's rules; `None` always starts over.
+    pub identity: Option<String>,
 }
 
 /// The first step of connecting an app.
@@ -103,7 +135,75 @@ impl std::error::Error for Refusal {}
 /// An action checked and ready to send.
 #[async_trait::async_trait]
 pub(crate) trait Call: Send {
-    async fn run(self: Box<Self>, arguments: &Value) -> Outcome;
+    /// `key` is the same for every attempt at one action (its id): providers
+    /// that support idempotency pass it on so the app never acts twice.
+    async fn run(self: Box<Self>, arguments: &Value, key: &str) -> Outcome;
+}
+
+/// What a provider supports. Screens and the gateway read these flags, never a
+/// provider's name, so a new provider or connector kind needs no screen changes.
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub(crate) struct Capabilities {
+    /// Accounts connect through a sign-in page.
+    pub sign_in: bool,
+    /// Disconnecting revokes access at the provider.
+    pub revoke: bool,
+    /// Actions may take lists of plain values (cc, attendees).
+    pub list_fields: bool,
+    /// The call's key reaches the app, so a repeated call can't act twice.
+    pub idempotency_key: bool,
+    /// [`ConnectorProvider::find_outcome`] can answer for some actions.
+    pub find_outcome: bool,
+    /// Events can be subscribed to (see the trigger methods).
+    pub triggers: bool,
+}
+
+/// Whether an unconfirmed write happened, as far as the provider can tell.
+#[derive(Debug, PartialEq)]
+pub(crate) enum Found {
+    // No production provider can look outcomes up yet; the test providers do.
+    #[cfg_attr(not(test), allow(dead_code))]
+    Happened(Value),
+    #[cfg_attr(not(test), allow(dead_code))]
+    NotHappened,
+    Unknown,
+}
+
+/// A provider subscription for one event type on one account.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Subscription {
+    /// The provider's id for it (a Composio `ti_…`, a Pipedream `dc_…`).
+    pub id: String,
+    /// A per-subscription signing key, when the provider issues one. The caller
+    /// seals it before saving; it is never logged or sent to a client.
+    pub signing_key: Option<String>,
+}
+
+/// One verified delivery, in Cuckoo's terms. Signature and time window are
+/// checked before this exists; the caller still matches it to a saved
+/// subscription and workspace before trusting any field.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Delivery {
+    /// The provider's event id: the receipt key, so a retry is a duplicate.
+    pub event_id: String,
+    /// The provider's identity for the workspace (Composio's user id), if sent.
+    pub user: Option<String>,
+    /// The provider's account id, if the event names one.
+    pub account: Option<String>,
+    pub kind: DeliveryKind,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum DeliveryKind {
+    /// An app event for the subscription `subscription`.
+    Event {
+        subscription: String,
+        trigger: String,
+        data: Value,
+    },
+    /// The account's sign-in stopped working at the provider.
+    AccountExpired,
+    /// Something the provider sends that Cuckoo doesn't use; acknowledged only.
+    Ignored,
 }
 
 /// The jobs every connector provider does.
@@ -123,78 +223,52 @@ pub(crate) trait ConnectorProvider: Send + Sync {
     /// Check the saved account still works and `operation` still means what was
     /// reviewed. Nothing is sent to the app. A [`Refusal`] explains a refusal.
     async fn prepare(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Box<dyn Call>>;
-}
 
-/// Process-wide provider settings, read once at controller start.
-pub(crate) struct Settings {
-    pub mcp_servers_file: Option<std::path::PathBuf>,
-    pub composio: Option<composio::Settings>,
-}
-static PROVIDERS: OnceLock<Vec<Arc<dyn ConnectorProvider>>> = OnceLock::new();
-
-/// Registers the providers this controller offers. The operator MCP file is
-/// always a provider; Composio only when its key is configured.
-pub(crate) fn configure(settings: Settings) {
-    let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![Arc::new(
-        mcp_servers::McpServers::new(settings.mcp_servers_file),
-    )];
-    if let Some(composio) = settings.composio {
-        match composio::Composio::new(composio) {
-            Ok(provider) => providers.push(Arc::new(provider)),
-            Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
-        }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::default()
     }
-    let _ = PROVIDERS.set(providers);
-}
-
-/// Reads the Composio settings from the controller configuration.
-pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
-    Settings {
-        mcp_servers_file: config.mcp_servers_file.clone(),
-        composio: composio::Settings::from_config(config),
+    /// The provider's current input schema for a reviewed operation, for the
+    /// drift check. Nothing is sent to the app.
+    async fn describe(&self, _saved: &Saved<'_>, _operation: &Operation) -> Result<Value> {
+        anyhow::bail!("This connector provider can't describe its actions")
     }
-}
-
-fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
-    PROVIDERS.get().cloned().unwrap_or_else(|| {
-        vec![Arc::new(mcp_servers::McpServers::new(
-            crate::identity::control::catalog::file(),
-        ))]
-    })
-}
-
-pub(crate) fn named(name: &str) -> Result<Arc<dyn ConnectorProvider>> {
-    providers()
-        .into_iter()
-        .find(|p| p.name() == name)
-        .context("This connector provider is not configured on this server")
-}
-
-/// Every app offered to the workspace, across providers. One app id never
-/// belongs to two providers at once.
-pub(crate) fn apps(workspace: &str) -> Result<Vec<App>> {
-    let mut apps: Vec<App> = vec![];
-    for provider in providers() {
-        for app in provider.apps(workspace)? {
-            ensure!(
-                apps.iter().all(|a| a.id != app.id),
-                "Two connector providers offer {}",
-                app.id
-            );
-            apps.push(app);
-        }
+    /// After an unconfirmed write: did it happen? Only reads the app.
+    async fn find_outcome(
+        &self,
+        _saved: &Saved<'_>,
+        _operation: &Operation,
+        _key: &str,
+        _arguments: &Value,
+    ) -> Result<Found> {
+        Ok(Found::Unknown)
     }
-    Ok(apps)
-}
-
-/// The provider serving `app` for this workspace.
-pub(crate) fn provider_for(workspace: &str, app: &str) -> Result<Arc<dyn ConnectorProvider>> {
-    for provider in providers() {
-        if provider.apps(workspace)?.iter().any(|a| a.id == app) {
-            return Ok(provider);
-        }
+    /// Subscribe the account to the provider event `trigger` (the provider's own
+    /// name, from the catalog) with `config`; events go to `webhook`.
+    async fn subscribe(
+        &self,
+        _saved: &Saved<'_>,
+        _trigger: &str,
+        _config: &Value,
+        _webhook: &str,
+    ) -> Result<Subscription> {
+        anyhow::bail!("This connector provider has no events")
     }
-    anyhow::bail!("This connector is not offered on this server")
+    /// Remove a subscription at the provider. Removing one that is already
+    /// gone succeeds.
+    async fn unsubscribe(&self, _saved: &Saved<'_>, _subscription: &str) -> Result<()> {
+        anyhow::bail!("This connector provider has no events")
+    }
+    /// Verify a delivery's signature and time window on the raw body with
+    /// `secret` (the project's or the subscription's), then read it.
+    fn parse_delivery(
+        &self,
+        _headers: &axum::http::HeaderMap,
+        _body: &[u8],
+        _secret: &str,
+        _now: i64,
+    ) -> Result<Vec<Delivery>> {
+        anyhow::bail!("This connector provider has no events")
+    }
 }
 
 /// A Composio provider against a local fake, for tests outside this module.
@@ -208,6 +282,14 @@ pub(crate) fn composio_for_tests(fake: &fake_composio::FakeComposio) -> Arc<dyn 
         })
         .unwrap(),
     )
+}
+
+/// A Pipedream provider against a local fake, for tests outside this module.
+#[cfg(test)]
+pub(crate) fn pipedream_for_tests(
+    fake: &fake_pipedream::FakePipedream,
+) -> Arc<dyn ConnectorProvider> {
+    Arc::new(pipedream::Pipedream::new(fake.settings()).unwrap())
 }
 
 /// A fingerprint of everything that defines a saved account.

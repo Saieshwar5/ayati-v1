@@ -31,21 +31,21 @@ test('an admin connects Gmail through its provider, an agent sends an email, and
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   t.after(async () => { if (!t.passed) await page.screenshot({ path: join(app.data, 'failure.png') }).catch(() => {}); await browser.close(); });
 
-  // Settings, Connections: approve Gmail, then connect through the sign-in page.
-  await page.goto(`${app.base}/w/${w}/?view=settings&section=connections`);
-  const gmail = page.getByRole('article', { name: 'Gmail' });
-  await gmail.getByText('Signs in through a secure page').waitFor();
-  await gmail.getByRole('button', { name: 'Approve system' }).click();
-  await gmail.getByRole('button', { name: 'Connect account' }).click();
+  // Apps, Add app: connect Gmail in one step through the sign-in page.
+  await page.goto(`${app.base}/w/${w}/?view=apps`);
+  await page.getByRole('button', { name: 'Add app' }).click();
+  await page.getByRole('button', { name: 'Connect Gmail' }).click();
+  await page.getByRole('button', { name: /^Continue to Gmail/ }).click();
   await page.waitForURL(/connected=1/);
-  await page.getByText('Account connected.', { exact: false }).waitFor();
-  await gmail.getByText(/Approved · Connected/).waitFor();
+  await page.getByRole('heading', { name: /Gmail is connected|Account connected/ }).waitFor();
+  await page.getByRole('button', { name: 'Done', exact: true }).last().click();
+  const gmail = page.getByRole('complementary', { name: 'Gmail' });
   await page.screenshot({ path: join(app.data, 'gmail-connected.png') });
   const snapshot = async () => (await app.request(`${app.path}/control/connections`, app.cookie)).value;
   let connection = (await snapshot()).connections.find(c => c.server === 'gmail');
   assert.equal(connection.provider, 'composio');
   assert.deepEqual(connection.definition.operations.map(o => o.id), ['gmail.find_emails', 'gmail.draft_email', 'gmail.send_email', 'gmail.reply_to_thread']);
-  app.pass('Settings lists Gmail from the provider; approving and signing in through its page connects it and comes back to Settings');
+  app.pass('Add app lists Gmail; connecting in one step through its sign-in page comes back to Apps');
 
   // The admin lets this connector send without asking; an agent switches it on.
   const rule = async (mode) => {
@@ -87,17 +87,18 @@ test('an admin connects Gmail through its provider, an agent sends an email, and
   assert.equal(expired.state, 'invalidated');
   assert.equal(composio.executed.length, 1);
   const old = connection;
-  await page.goto(`${app.base}/w/${w}/?view=settings&section=connections`);
-  await gmail.getByText(/Needs reconnecting/).waitFor();
+  await page.goto(`${app.base}/w/${w}/?view=apps`);
+  await page.getByRole('button', { name: /Gmail/ }).first().click();
+  await gmail.getByText(/Needs reconnecting|Reconnect/).first().waitFor();
   await page.screenshot({ path: join(app.data, 'gmail-needs-reconnect.png') });
   await gmail.getByRole('button', { name: 'Reconnect', exact: true }).click();
   await page.waitForURL(/connected=1/);
-  await gmail.getByText(/Approved · Connected/).waitFor();
+  await until(async () => (await snapshot()).connections.find(c => c.server === 'gmail')?.needs_reconnect === false, 'Reconnect did not finish');
   connection = (await snapshot()).connections.find(c => c.server === 'gmail');
   assert.equal(connection.needs_reconnect, false);
   assert.equal(composio.removed.length, 1, 'the replaced account was revoked at the provider');
   assert.equal(connection.id, old.id);
-  app.pass('An expired account sent nothing, Settings showed "Needs reconnecting", and reconnecting replaced and revoked the old account');
+  app.pass('An expired account sent nothing, Apps showed it needs reconnecting, and reconnecting replaced and revoked the old account');
 
   // Disconnecting revokes at the provider. No token reached the model, logs or database.
   await gmail.getByRole('button', { name: 'Disconnect', exact: true }).click();

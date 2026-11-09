@@ -18,9 +18,55 @@ pub(crate) struct Catalog {
 pub(crate) struct CatalogApp {
     pub id: String,
     pub name: String,
+    /// One of [`CATEGORIES`]: how the Add app catalog groups apps.
+    pub category: String,
+    /// A few words on what the app is, shown under its name.
+    pub description: String,
     /// Provider name to the provider's own app identity (Composio's toolkit).
     pub providers: BTreeMap<String, String>,
     pub actions: Vec<Action>,
+    /// Events agents can be started by, under Cuckoo's names.
+    #[serde(default)]
+    pub triggers: Vec<Trigger>,
+    /// Per provider, the read that proves which account signed in.
+    #[serde(default)]
+    pub identity: BTreeMap<String, IdentityRead>,
+}
+/// A read that proves which account signed in: a provider tool run with fixed
+/// `arguments` only, and the field of its answer that holds the account's stable
+/// identity, such as the mailbox address. Reconnecting the same identity keeps
+/// the account's rules.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct IdentityRead {
+    pub tool: String,
+    #[serde(default)]
+    pub arguments: Map<String, Value>,
+    /// A dotted path, such as `user.emailAddress`.
+    pub field: String,
+}
+/// The categories of the Add app catalog, in screen order: (id, name).
+pub(crate) const CATEGORIES: [(&str, &str); 9] = [
+    ("email_calendar", "Email and calendar"),
+    ("files", "Files and documents"),
+    ("sales", "Sales and customers"),
+    ("accounting", "Accounting and payments"),
+    ("messaging", "Messaging"),
+    ("projects", "Projects and tasks"),
+    ("support", "Support"),
+    ("shops", "Shops"),
+    // Systems the company runs, reached through operator-configured MCP servers.
+    ("company", "Your company's systems"),
+];
+/// An app event, such as "New email". Like an action, each provider maps it to
+/// its own trigger and field names; only the mapped scalar fields (at most
+/// eight) ever reach an agent.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Trigger {
+    pub id: String,
+    pub title: String,
+    pub providers: BTreeMap<String, Binding>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -65,6 +111,46 @@ fn validate(catalog: &Catalog) -> Result<()> {
         crate::identity::identifier(&app.id)?;
         ensure!(apps.insert(&app.id), "Duplicate connector app {}", app.id);
         ensure!(!app.name.trim().is_empty() && !app.actions.is_empty() && app.actions.len() <= 20);
+        ensure!(
+            CATEGORIES.iter().any(|(id, _)| *id == app.category)
+                && !app.description.trim().is_empty()
+                && app.description.len() <= 80,
+            "{} needs a known category and a short description",
+            app.id
+        );
+        ensure!(app.triggers.len() <= 20, "Too many triggers for {}", app.id);
+        for (provider, read) in &app.identity {
+            ensure!(
+                app.providers.contains_key(provider)
+                    && !read.tool.is_empty()
+                    && read.arguments.len() <= 5
+                    && read
+                        .field
+                        .split('.')
+                        .all(|part| crate::identity::identifier(part).is_ok()),
+                "{} has an invalid {provider} identity read",
+                app.id
+            );
+        }
+        for trigger in &app.triggers {
+            ensure!(
+                trigger.id.starts_with(&format!("{}.", app.id)) && actions.insert(&trigger.id),
+                "Trigger {} must be unique and named after its app",
+                trigger.id
+            );
+            for (provider, binding) in &trigger.providers {
+                ensure!(
+                    app.providers.contains_key(provider),
+                    "{} has no {provider} app",
+                    app.id
+                );
+                ensure!(
+                    !binding.fields.is_empty() && binding.fields.len() <= 8,
+                    "{} must map one to eight event fields",
+                    trigger.id
+                );
+            }
+        }
         for action in &app.actions {
             ensure!(
                 action.id.starts_with(&format!("{}.", app.id)) && actions.insert(&action.id),
@@ -112,7 +198,10 @@ pub(crate) fn project(action: &Action, binding: &Binding, provider: &Value) -> O
     required.dedup();
     let mut fields = Map::new();
     for (cuckoo, name) in &binding.fields {
-        match properties.get(name).and_then(plain) {
+        match properties
+            .get(name)
+            .and_then(|f| plain(f).or_else(|| listed(f)))
+        {
             Some(field) => {
                 fields.insert(cuckoo.clone(), field);
             }
@@ -156,6 +245,58 @@ fn plain(field: &Value) -> Option<Value> {
         out["enum"] = choices.clone();
     }
     Some(out)
+}
+
+/// A provider field that takes a list of plain values (cc, attendees), as a
+/// bounded list of one plain type. Items the provider also accepts as objects
+/// are offered as their plain alternative only. Anything else is left out.
+fn listed(field: &Value) -> Option<Value> {
+    if field["type"] != "array" {
+        return None;
+    }
+    let items = &field["items"];
+    let item = plain(items).or_else(|| {
+        ["anyOf", "oneOf"]
+            .iter()
+            .filter_map(|k| items[*k].as_array())
+            .flatten()
+            .find_map(plain)
+    })?;
+    let mut item = item.as_object()?.clone();
+    item.remove("description");
+    let most = field["maxItems"]
+        .as_u64()
+        .filter(|n| (1..=MAX_ITEMS).contains(n))
+        .unwrap_or(MAX_ITEMS);
+    let mut out = json!({"type":"array","items":item,"maxItems":most});
+    if let Some(text) = field["description"]
+        .as_str()
+        .filter(|t| !t.trim().is_empty())
+    {
+        out["description"] = json!(text.chars().take(500).collect::<String>());
+    }
+    Some(out)
+}
+/// The most values a list field takes.
+pub(crate) const MAX_ITEMS: u64 = 20;
+
+/// The account identity an identity read's answer holds: the field at the top of
+/// the answer, or inside the `data` or `response_data` some tools wrap it in.
+pub(crate) fn identity_value(answer: &Value, field: &str) -> Option<String> {
+    let at = |root: &Value| {
+        field
+            .split('.')
+            .try_fold(root, |value, part| value.get(part))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|v| {
+                !v.is_empty() && v.chars().count() <= 320 && !v.chars().any(char::is_control)
+            })
+            .map(str::to_owned)
+    };
+    at(answer)
+        .or_else(|| at(&answer["data"]))
+        .or_else(|| at(&answer["response_data"]))
 }
 
 /// Cuckoo's argument names translated to the provider's.
@@ -204,10 +345,11 @@ mod tests {
             schema["properties"]["to"],
             json!({"type":"string","description":"Who gets it"})
         );
-        assert!(
-            schema["properties"].get("cc").is_none()
-                && schema["properties"].get("user_id").is_none()
+        assert_eq!(
+            schema["properties"]["cc"],
+            json!({"type":"array","items":{"type":"string"},"maxItems":20})
         );
+        assert!(schema["properties"].get("user_id").is_none());
         let operation = crate::identity::control::model::Operation {
             id: send.id.clone(),
             title: send.title.clone(),
@@ -231,5 +373,87 @@ mod tests {
         let mut nested = provider;
         nested["properties"]["recipient_email"] = json!({"type":"array"});
         assert!(project(send, binding, &nested).is_none());
+    }
+
+    #[test]
+    fn list_fields_are_bounded_lists_of_plain_values_and_anything_else_is_left_out() {
+        let attendees = |items: Value| json!({"type":"array","items":items,"description":"Guests"});
+        let string =
+            json!({"type":"array","items":{"type":"string"},"maxItems":20,"description":"Guests"});
+        // Items given as an email or an object are offered as emails.
+        let either = attendees(json!({"anyOf":[{"type":"string"},{"type":"object"}]}));
+        assert_eq!(listed(&either), Some(string.clone()));
+        assert_eq!(
+            listed(&attendees(json!({"type":"string","description":"x"}))),
+            Some(string)
+        );
+        let mut few = attendees(json!({"type":"integer","enum":[1,2]}));
+        few["maxItems"] = json!(5);
+        assert_eq!(
+            listed(&few).unwrap(),
+            json!({"type":"array","items":{"type":"integer","enum":[1,2]},"maxItems":5,"description":"Guests"})
+        );
+        for field in [
+            attendees(json!({"type":"object"})),
+            attendees(json!({"type":"array","items":{"type":"string"}})),
+            json!({"type":"array"}),
+            json!({"type":"object"}),
+        ] {
+            assert!(listed(&field).is_none(), "{field}");
+        }
+        // The calendar's attendees reach the agent as a list it can fill.
+        let create = app("google_calendar")
+            .unwrap()
+            .actions
+            .iter()
+            .find(|a| a.id == "google_calendar.create_event")
+            .unwrap();
+        let provider = json!({"type":"object","properties":{"summary":{"type":"string"},
+            "start_datetime":{"type":"string"},"attendees":either},"required":[]});
+        let schema = project(create, &create.providers["composio"], &provider).unwrap();
+        assert_eq!(schema["properties"]["attendees"]["maxItems"], 20);
+        let operation = crate::identity::control::model::Operation {
+            id: create.id.clone(),
+            title: create.title.clone(),
+            tool: "GOOGLECALENDAR_CREATE_EVENT".into(),
+            effect: "write".into(),
+            schema,
+            version: None,
+        };
+        operation
+            .arguments(
+                &json!({"title":"Review","start":"2026-11-09T10:00:00","attendees":["a@x.test"]}),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn identity_reads_keep_one_plain_field_wherever_the_tool_wraps_it() {
+        let answer = json!({"emailAddress":" orders@shop.test ","messagesTotal":4});
+        assert_eq!(
+            identity_value(&answer, "emailAddress").as_deref(),
+            Some("orders@shop.test")
+        );
+        let wrapped = json!({"response_data":{"user":{"emailAddress":"a@x.test"}}});
+        assert_eq!(
+            identity_value(&wrapped, "user.emailAddress").as_deref(),
+            Some("a@x.test")
+        );
+        assert_eq!(
+            identity_value(&json!({"data":{"id":"b@x.test"}}), "id").as_deref(),
+            Some("b@x.test")
+        );
+        for answer in [
+            json!({}),
+            json!({"emailAddress":""}),
+            json!({"emailAddress":7}),
+            json!({"emailAddress":"a\nb"}),
+        ] {
+            assert!(
+                identity_value(&answer, "emailAddress").is_none(),
+                "{answer}"
+            );
+        }
+        assert!(app("gmail").unwrap().identity.contains_key("composio"));
     }
 }

@@ -2,15 +2,19 @@
 //! settings, reports every problem together and refuses other processes' secrets.
 mod admin;
 mod archive;
+mod connectors;
 mod controller;
 mod executor;
 mod operators;
+pub(crate) mod pipedream;
 mod reader;
 
 pub use admin::Admin;
 pub use archive::Archive;
+pub use connectors::Connectors;
 pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
 pub use executor::{Executor, Identity};
+pub use pipedream::Pipedream;
 pub(crate) use reader::Reader;
 
 use anyhow::Result;

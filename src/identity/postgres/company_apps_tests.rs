@@ -26,6 +26,7 @@ fn ask(app: Option<&str>, name: &str) -> AppRequest {
     AppRequest {
         id: uuid::Uuid::new_v4().to_string(),
         app: app.map(str::to_owned),
+        connector: None,
         name: name.into(),
         url: String::new(),
         reason: "For deliveries".into(),

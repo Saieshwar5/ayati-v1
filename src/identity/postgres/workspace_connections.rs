@@ -13,6 +13,17 @@ pub(crate) struct Verified {
     pub fingerprint: String,
     pub provider: String,
     pub binding: Option<Value>,
+    /// The app's own account identity, when the provider proved it.
+    pub identity: Option<String>,
+}
+
+/// What is stored of an account identity: a digest, per app, of the identity
+/// as the app compares it.
+pub(super) fn identity_digest(app: &str, identity: &str) -> String {
+    crate::identity::provider::digest(&format!(
+        "connector-identity\n{app}\n{}",
+        identity.trim().to_lowercase()
+    ))
 }
 
 /// A provider account Cuckoo stopped using; its provider should revoke it.
@@ -50,6 +61,8 @@ pub(super) async fn approved(db: &impl ConnectionTrait, w: &str, server: &str) -
 /// A re-reviewed, reconnected or disconnected account starts over: its actions may
 /// mean something new, so every rule for it and every agent's switch is removed.
 /// Old permissions never authorize changed credentials or operation meanings.
+/// The one exception is [`PgStore::workspace_connection_bind`] reconnecting the
+/// same proven identity with an unchanged reviewed definition.
 pub(super) async fn reset_connection(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
     execute(
         db,
@@ -72,12 +85,41 @@ pub(super) async fn reset_connection(db: &impl ConnectionTrait, w: &str, id: &st
     super::control_rules::invalidate(db, w, id, None, None).await
 }
 
+/// Whether a reconnect is the same account, reviewed the same, so its rules stay:
+/// the provider proved the same identity, and the provider and reviewed
+/// definition (actions, fields, versions and account label) are unchanged.
+fn same_account(
+    old: &sea_orm::QueryResult,
+    verified: &Verified,
+    identity: Option<&str>,
+) -> Result<bool> {
+    Ok(identity.is_some()
+        && old.try_get::<Option<String>>("", "identity")?.as_deref() == identity
+        && old.try_get::<String>("", "provider")? == verified.provider
+        && old.try_get::<Value>("", "definition")? == verified.definition)
+}
+
 impl PgStore {
     /// The Apps page: connected services everyone may see, with what agents may do.
     pub(crate) async fn workspace_apps(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
-        let apps = json_rows(&tx, include_str!("apps.sql"), vec![w.into(), admin.into()]).await?;
+        let mut apps =
+            json_rows(&tx, include_str!("apps.sql"), vec![w.into(), admin.into()]).await?;
+        let mut capabilities = std::collections::HashMap::new();
+        for app in &mut apps {
+            let provider = app["provider"].as_str().unwrap_or_default().to_owned();
+            app["capabilities"] = capabilities
+                .entry(provider.clone())
+                .or_insert_with(|| json!(crate::identity::connectors::capabilities_of(&provider)))
+                .clone();
+            // The connection service is named for admins only.
+            if admin {
+                app["via"] = json!(crate::identity::connectors::label(&provider));
+            } else if let Some(fields) = app.as_object_mut() {
+                fields.remove("provider");
+            }
+        }
         let systems = self.company_apps_view(&tx, user, w, admin).await?;
         let built = self.built_apps_view(&tx, user, w, admin).await?;
         tx.commit().await?;
@@ -162,6 +204,7 @@ impl PgStore {
             fingerprint: fingerprint.into(),
             provider: "mcp".into(),
             binding: None,
+            identity: None,
         });
         self.workspace_connection_bind(user, w, input, verified.as_ref())
             .await
@@ -183,7 +226,7 @@ impl PgStore {
         if input.enabled {
             approved(&tx, w, &input.server).await?;
         }
-        let old=query(&tx,"SELECT id,server,fingerprint,enabled,revision,provider,binding FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR server=$3)",vec![w.into(),input.id.clone().into(),input.server.clone().into()]).await?;
+        let old=query(&tx,"SELECT id,server,fingerprint,enabled,revision,provider,binding,definition,identity FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR server=$3)",vec![w.into(),input.id.clone().into(),input.server.clone().into()]).await?;
         if let Some(row) = &old {
             ensure!(
                 row.try_get::<String>("", "id")? == input.id
@@ -216,14 +259,23 @@ impl PgStore {
             }),
             None => None,
         };
+        let mut keep = false;
         if input.enabled {
             let verified = verified.context("Verified connection required")?;
             ensure!(
                 verified.definition["id"] == input.server,
                 "Connection identity changed"
             );
-            execute(&tx,"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint,provider,binding) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(workspace,id) DO UPDATE SET definition=excluded.definition,fingerprint=excluded.fingerprint,provider=excluded.provider,binding=excluded.binding,enabled=true,revision=relay_control_connections.revision+1",
-                vec![w.into(),input.id.clone().into(),input.server.clone().into(),verified.definition.clone().into(),verified.fingerprint.clone().into(),verified.provider.clone().into(),verified.binding.clone().into()]).await?;
+            let identity = verified
+                .identity
+                .as_deref()
+                .map(|i| identity_digest(&input.server, i));
+            keep = match &old {
+                Some(row) => same_account(row, verified, identity.as_deref())?,
+                None => false,
+            };
+            execute(&tx,"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint,provider,binding,identity,connected_by,connected_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(workspace,id) DO UPDATE SET definition=excluded.definition,fingerprint=excluded.fingerprint,provider=excluded.provider,binding=excluded.binding,identity=excluded.identity,connected_by=excluded.connected_by,connected_at=excluded.connected_at,enabled=true,revision=relay_control_connections.revision+1",
+                vec![w.into(),input.id.clone().into(),input.server.clone().into(),verified.definition.clone().into(),verified.fingerprint.clone().into(),verified.provider.clone().into(),verified.binding.clone().into(),identity.into(),user.id.clone().into(),now().into()]).await?;
             execute(
                 &tx,
                 "DELETE FROM relay_connector_reconnects WHERE workspace=$1 AND connection=$2",
@@ -234,14 +286,23 @@ impl PgStore {
             ensure!(old.is_some(), "Connection unavailable");
             execute(&tx,"UPDATE relay_control_connections SET enabled=false,revision=revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),input.id.clone().into()]).await?;
         }
-        if old.is_some() {
+        if keep {
+            // The same account, reviewed the same: its switches and rules stay.
+            // The revision still moved, so waiting approvals ask again and running
+            // work is fenced.
+            super::control_rules::invalidate(&tx, w, &input.id, None, None).await?;
+        } else if old.is_some() {
             reset_connection(&tx, w, &input.id).await?;
         }
         audit(
             &tx,
             &user.id,
             Some(w),
-            "workspace_connection_saved",
+            if keep {
+                "workspace_connection_reconnected"
+            } else {
+                "workspace_connection_saved"
+            },
             &input.id,
         )
         .await?;

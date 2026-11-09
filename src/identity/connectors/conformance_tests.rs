@@ -2,6 +2,7 @@
 //! provider?" has a yes-or-no answer. Each provider runs it against a local fake.
 use super::fake_composio::{self, FakeComposio};
 use super::fake_mcp::{FakeMcp, WORKSPACE};
+use super::fake_pipedream::{self, FakePipedream};
 use super::*;
 
 /// What the suite needs from each provider's fake.
@@ -23,7 +24,7 @@ trait Fixture {
     fn revoked(&self, binding: Option<&Value>) -> bool;
 }
 
-fn operation(account: &Account, id: &str) -> Operation {
+pub(super) fn operation(account: &Account, id: &str) -> Operation {
     let found = account.definition["operations"]
         .as_array()
         .unwrap()
@@ -52,7 +53,7 @@ async fn run(
     args: &Value,
 ) -> Outcome {
     let call = provider.prepare(saved, op).await.expect("prepared");
-    call.run(args).await
+    call.run(args, "conformance-key").await
 }
 
 async fn conformance(fixture: &dyn Fixture) {
@@ -221,7 +222,7 @@ impl Fixture for Composio {
     fn write(&self) -> (&'static str, Value) {
         (
             "gmail.send_email",
-            json!({"to":"sharma@example.test","subject":"Balance","body":"₹1.48L due"}),
+            json!({"to":"sharma@example.test","cc":["accounts@example.test"],"subject":"Balance","body":"₹1.48L due"}),
         )
     }
     fn sign_in(&self, binding: &Value) {
@@ -260,6 +261,53 @@ impl Fixture for Composio {
     }
 }
 
+struct Pipedream(FakePipedream);
+impl Fixture for Pipedream {
+    fn provider(&self) -> Arc<dyn ConnectorProvider> {
+        Arc::new(pipedream::Pipedream::new(self.0.settings()).unwrap())
+    }
+    fn app(&self) -> &'static str {
+        "gmail"
+    }
+    fn read(&self) -> (&'static str, Value) {
+        ("gmail.find_emails", json!({"query":"from:sharma"}))
+    }
+    fn write(&self) -> (&'static str, Value) {
+        (
+            "gmail.send_email",
+            json!({"to":"sharma@example.test","subject":"Balance","body":"₹1.48L due"}),
+        )
+    }
+    fn sign_in(&self, binding: &Value) {
+        self.0.sign_in(binding);
+    }
+    fn break_account(&self, broken: bool) {
+        self.0.set_healthy(!broken);
+    }
+    fn change_action(&self, changed: bool) {
+        self.0.state.lock().unwrap().changed = changed;
+    }
+    fn fail_calls(&self, fail: bool) {
+        self.0.state.lock().unwrap().run_reply = fail.then(|| {
+            (
+                200,
+                json!({"error":{"name":"Error","message":"Upstream refused",
+                "attribution":{"origin":"upstream_api"}}}),
+            )
+        });
+    }
+    fn calls(&self) -> usize {
+        self.0.state.lock().unwrap().executed.len()
+    }
+    fn broken(&self) -> &'static str {
+        "needs_reconnect"
+    }
+    fn revoked(&self, binding: Option<&Value>) -> bool {
+        let account = binding.unwrap()["account"].as_str().unwrap().to_owned();
+        self.0.state.lock().unwrap().removed.contains(&account)
+    }
+}
+
 #[tokio::test]
 async fn operator_mcp_servers_pass_the_provider_suite() {
     conformance(&Mcp(FakeMcp::start().await)).await;
@@ -280,8 +328,10 @@ async fn composio_passes_the_provider_suite() {
     assert_eq!(tool, "GMAIL_SEND_EMAIL");
     assert_eq!(
         sent,
-        &json!({"recipient_email":"sharma@example.test","subject":"Balance","body":"₹1.48L due"})
+        &json!({"recipient_email":"sharma@example.test","cc":["accounts@example.test"],"subject":"Balance","body":"₹1.48L due"})
     );
+    // The identity read is not one of the agent's calls.
+    assert!(state.identity_reads >= 1);
 }
 
 #[tokio::test]
@@ -318,10 +368,35 @@ async fn composio_offers_only_actions_it_can_run_with_reviewed_plain_fields() {
     );
     let send = operation(&account, "gmail.send_email");
     assert_eq!(send.version.as_deref(), Some(fake_composio::VERSION));
+    // A list of plain values is offered, bounded; a list of objects is not.
+    assert_eq!(
+        send.schema["properties"]["cc"],
+        json!({"type":"array","items":{"type":"string"},"maxItems":20,"description":"Copies"})
+    );
     assert!(
-        send.schema["properties"].get("cc").is_none()
+        send.schema["properties"].get("bcc").is_none()
             && send.schema["properties"].get("user_id").is_none()
     );
+    // The identity read proved the mailbox: it names the account.
+    assert_eq!(account.identity.as_deref(), Some(fake_composio::MAILBOX));
+    assert_eq!(account.definition["account"], fake_composio::MAILBOX);
+    assert!(provider.capabilities().list_fields && provider.capabilities().sign_in);
+    // A read that fails proves nothing: the account has no identity.
+    fake.0.state.lock().unwrap().mailbox = None;
+    let Connect::SignIn { binding, .. } = provider
+        .connect(
+            WORKSPACE,
+            "gmail",
+            "http://127.0.0.1:1/api/identity/connectors/return/z",
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("Composio signs in through its page");
+    };
+    fake.sign_in(&binding);
+    let unproven = provider.finish(WORKSPACE, "gmail", &binding).await.unwrap();
+    assert!(unproven.identity.is_none() && unproven.definition["account"].is_null());
     // Another workspace can't use this account.
     let other = Saved {
         workspace: "00000000-0000-4000-8000-000000000054",
@@ -352,5 +427,32 @@ async fn composio_offers_only_actions_it_can_run_with_reviewed_plain_fields() {
             auth_configs: Default::default()
         })
         .is_err()
+    );
+}
+
+#[tokio::test]
+async fn pipedream_passes_the_provider_suite() {
+    let fake = Pipedream(FakePipedream::start().await);
+    conformance(&fake).await;
+    let state = fake.0.state.lock().unwrap();
+    assert_eq!(state.bad_auth, 0);
+    assert_eq!(
+        state.issued.len(),
+        1,
+        "one access token serves every request"
+    );
+    // Cuckoo's field names were sent under the component's prop names, with the
+    // workspace's own account and the reviewed version, and nothing else.
+    let (_, sent) = state
+        .executed
+        .iter()
+        .find(|(component, _)| component == "gmail-send-email")
+        .unwrap();
+    assert_eq!(
+        sent,
+        &json!({"id":"gmail-send-email","version":fake_pipedream::VERSION,
+            "external_user_id":format!("cuckoo-{WORKSPACE}"),
+            "configured_props":{"gmail":{"authProvisionId":"apn_1"},
+                "to":["sharma@example.test"],"subject":"Balance","body":"₹1.48L due"}})
     );
 }

@@ -1,4 +1,9 @@
-.apps-page { display: flex; flex-wrap: wrap; min-height: 100%; box-sizing: border-box; }
+.apps-page { display: flex; flex-wrap: wrap; align-content: flex-start; flex: 1; min-height: 0; overflow-y: auto; box-sizing: border-box; }
+/* Side by side, the list and the panel each scroll on their own (designs/connector-screens 1). */
+@media (min-width: 1100px) {
+  .apps-page { flex-wrap: nowrap; overflow: hidden; }
+  .apps-main, .apps-page > .app-panel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
 .apps-main { flex: 999 1 560px; min-width: 0; padding: 28px 32px 32px; box-sizing: border-box; }
 .apps-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
 .apps-header h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
@@ -16,7 +21,7 @@
 .app-icon svg { width: 22px; height: 22px; }
 .app-icon.big { width: 60px; height: 60px; border-radius: 16px; }
 .app-icon.big svg { width: 30px; height: 30px; }
-.app-status { padding: 3px 8px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 12px; font-weight: 600; }
+.app-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .app-name { font-size: 15px; font-weight: 600; }
 .app-line { color: var(--muted); font-size: 13.5px; margin: 0; overflow-wrap: anywhere; }
 .app-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); font-size: 12.5px; min-height: 26px; }
@@ -40,10 +45,8 @@
 .apps-filters .apps-needs { margin-top: 0; }
 .app-status.quiet { background: var(--soft); color: var(--muted); }
 .apps-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.apps-choices { display: grid; gap: 10px; }
-.apps-choices button { display: grid; gap: 4px; text-align: left; padding: 16px; border-radius: 14px; border: 1px solid var(--border-panel); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-.apps-choices button:hover { background: var(--soft); }
-.apps-choices span { color: var(--muted); font-size: 13.5px; }
+.apps-notice { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 12px; background: var(--warning-bg); font-size: 14px; }
+.apps-status { margin-top: 12px; font-size: 13.5px; }
 .apps-people { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 6px; max-height: 220px; overflow: auto; }
 .apps-people legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .apps-requests { list-style: none; margin: 0; padding: 0; }

@@ -103,7 +103,7 @@ struct ControlTools;
 impl ServerHandler for ControlTools {
     fn get_info(&self) -> ServerConfig {
         let mut info = ServerConfig::new(ServerCapabilities::builder().enable_tools().build());
-        info.instructions=Some("Discover assigned operations, then request exact actions through Cuckoo. The controller enforces Allow/Ask first/Block. A pending action needs human approval in Cuckoo; report its ID and wait without repeating it. An uncertain action must be reconciled before new writes. Never claim pending or denied work succeeded. The same exact operation and fields within this task reuse the saved receipt, including after recovery.".into());
+        info.instructions=Some("Discover assigned operations, then request exact actions through Cuckoo. The controller enforces Allow/Ask first/Block. A pending action needs human approval in Cuckoo; report its ID and wait without repeating it. An uncertain action holds new writes on its account until a person says what happened; not_sent means it did not happen: say so and request it again only if someone asks. Never claim pending or denied work succeeded. The same exact operation and fields within this task reuse the saved receipt, including after recovery.".into());
         info
     }
     async fn list_tools(
@@ -191,6 +191,7 @@ impl ServerHandler for ControlTools {
                 "rejected",
                 "invalidated",
                 "uncertain",
+                "not_sent",
                 "unavailable",
             ]
             .contains(&s)

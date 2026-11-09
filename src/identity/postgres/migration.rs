@@ -114,6 +114,10 @@ impl MigratorTrait for Migrator {
             Box::new(super::computer_browser_migration::ComputerBrowserMigration),
             Box::new(super::computer_policy::ComputerPolicyMigration),
             Box::new(super::computer_turns::ComputerTurnsMigration),
+            Box::new(super::control_actions::outcomes::migration::UnconfirmedWrites),
+            Box::new(super::connector_routing::ConnectorRouting),
+            Box::new(super::event_subscriptions::ProviderEvents),
+            Box::new(super::connector_calls::ConnectorOperations),
         ]
     }
 }

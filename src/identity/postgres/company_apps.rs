@@ -52,6 +52,9 @@ pub(crate) struct AppRequest {
     pub id: String,
     #[serde(default)]
     pub app: Option<String>,
+    /// A catalog app the member asks admins to connect (Add app's Request).
+    #[serde(default)]
+    pub connector: Option<String>,
     #[serde(default)]
     pub name: String,
     #[serde(default)]
@@ -244,6 +247,10 @@ impl PgStore {
             input.reason.chars().count() <= 500,
             "Keep the reason under 500 characters"
         );
+        ensure!(
+            input.app.is_none() || input.connector.is_none(),
+            "Ask for one app at a time"
+        );
         let tx = self.workspace_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
         if let Some(row) = query(
@@ -267,6 +274,14 @@ impl PgStore {
                 execute(&tx, "INSERT INTO relay_app_requests(workspace,id,kind,app,reason,requester,created) VALUES($1,$2,'access',$3,$4,$5,$6)", vec![w.into(), input.id.clone().into(), app.clone().into(), input.reason.trim().into(), user.id.clone().into(), now().into()]).await?;
                 format!("Asked to open \"{}\"", row.try_get::<String>("", "name")?)
             }
+            None if input.connector.is_some() => {
+                let id = input.connector.as_deref().unwrap_or_default();
+                let catalog =
+                    crate::identity::connectors::curated::app(id).context("App unavailable")?;
+                ensure!(query(&tx, "SELECT 1 AS waiting FROM relay_app_requests WHERE workspace=$1 AND connector=$2 AND requester=$3 AND state='pending'", vec![w.into(), id.into(), user.id.clone().into()]).await?.is_none(), "You already asked; an admin decides");
+                execute(&tx, "INSERT INTO relay_app_requests(workspace,id,kind,name,connector,reason,requester,created) VALUES($1,$2,'suggestion',$3,$4,$5,$6,$7)", vec![w.into(), input.id.clone().into(), catalog.name.clone().into(), id.into(), input.reason.trim().into(), user.id.clone().into(), now().into()]).await?;
+                format!("Asked to connect \"{}\"", catalog.name)
+            }
             None => {
                 let name = input.name.trim();
                 ensure!(
@@ -289,7 +304,7 @@ impl PgStore {
     pub(crate) async fn app_requests(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
-        let requests = json_rows(&tx, "SELECT jsonb_build_object('id',r.id,'kind',r.kind,'app',r.app,'app_name',a.name,'name',r.name,'url',r.url,'reason',r.reason,'created',r.created,'requester',COALESCE(u.display_name,u.email)) AS data FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester WHERE r.workspace=$1 AND r.state='pending' AND ($3 OR (r.kind='access' AND a.owner=$2)) ORDER BY r.created,r.id LIMIT 200", vec![w.into(), user.id.clone().into(), admin.into()]).await?;
+        let requests = json_rows(&tx, "SELECT jsonb_build_object('id',r.id,'kind',r.kind,'app',r.app,'connector',r.connector,'app_name',a.name,'name',r.name,'url',r.url,'reason',r.reason,'created',r.created,'requester',COALESCE(u.display_name,u.email)) AS data FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester WHERE r.workspace=$1 AND r.state='pending' AND ($3 OR (r.kind='access' AND a.owner=$2)) ORDER BY r.created,r.id LIMIT 200", vec![w.into(), user.id.clone().into(), admin.into()]).await?;
         tx.commit().await?;
         Ok(json!({"requests":requests}))
     }

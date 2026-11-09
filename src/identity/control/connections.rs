@@ -50,7 +50,7 @@ async fn snapshot(
     let user = identity(&app, &headers).await?;
     let mut value = app.store.workspace_connections(&user, &w).await?;
     // Broken operator configuration must not hide the controls for revoking access.
-    value["servers"] = match crate::identity::connectors::apps(&w) {
+    value["servers"] = match crate::identity::connectors::apps(&app.store, &w).await {
         Ok(apps) => json!(apps.iter().map(|a| a.public()).collect::<Vec<_>>()),
         Err(_) => {
             value["catalog_error"] = json!(
@@ -74,7 +74,7 @@ async fn approve(
         "Only workspace admins can approve systems",
     )?;
     if input.approved {
-        crate::identity::connectors::provider_for(&w, &input.server)?;
+        crate::identity::connectors::provider_for(&app.store, &w, &input.server).await?;
     }
     let released = app.store.control_system(&user, &w, &input).await?;
     let revoked = crate::identity::connectors::routes::release(&w, released).await;
@@ -89,10 +89,7 @@ async fn connect(
     headers: HeaderMap,
     Json(input): Json<WorkspaceConnection>,
 ) -> ApiResult<Json<Value>> {
-    use crate::identity::connectors::{self, Connect};
-    use crate::identity::postgres::{
-        connector_providers::StartSignIn, workspace_connections::Verified,
-    };
+    use crate::identity::connectors;
     let user = identity(&app, &headers).await?;
     if !input.enabled {
         let released = app
@@ -108,62 +105,20 @@ async fn connect(
     )?;
     crate::identity::worker_control::model::uuid(&input.id)?;
     app.store.connection_preflight(&user, &w, &input).await?;
-    let provider = connectors::provider_for(&w, &input.server)?;
-    check(
-        app.store
-            .connector_provider_paused(provider.name())
-            .await?
-            .is_none(),
-        "Cuckoo paused this connector provider; try again later",
-    )?;
-    let sign_in = uuid::Uuid::new_v4().to_string();
-    let callback = format!(
-        "{}/api/identity/connectors/return/{sign_in}",
-        app.config.origin
-    );
-    let started = tokio::time::timeout(
-        std::time::Duration::from_secs(45),
-        provider.connect(&w, &input.server, &callback),
+    let provider = connectors::provider_for(&app.store, &w, &input.server).await?;
+    let started = connectors::connect::start(
+        &app.store,
+        &app.config.origin,
+        &user,
+        &w,
+        &input,
+        provider.as_ref(),
     )
-    .await
-    .map_err(|_| anyhow::anyhow!("Connecting timed out. Try again."))??;
-    match started {
-        Connect::Ready(account) => {
-            let verified = Verified {
-                definition: account.definition,
-                fingerprint: account.fingerprint,
-                provider: provider.name().into(),
-                binding: account.binding,
-            };
-            let released = app
-                .store
-                .workspace_connection_bind(&user, &w, &input, Some(&verified))
-                .await?;
-            connectors::routes::release(&w, released).await;
-            Ok(Json(json!({"saved":true})))
-        }
-        Connect::SignIn {
-            binding,
-            url,
-            expires,
-        } => {
-            let start = StartSignIn {
-                id: &sign_in,
-                provider: provider.name(),
-                binding: &binding,
-                expires,
-            };
-            if let Err(error) = app
-                .store
-                .connector_sign_in_start(&user, &w, &input, &start)
-                .await
-            {
-                let _ = provider.disconnect(&w, &input.server, Some(&binding)).await;
-                return Err(error.into());
-            }
-            Ok(Json(json!({"redirect_url":url})))
-        }
-    }
+    .await?;
+    Ok(Json(match started {
+        connectors::connect::Started::Connected => json!({"saved":true}),
+        connectors::connect::Started::SignIn(url) => json!({"redirect_url":url}),
+    }))
 }
 async fn connector_rule(
     State(app): State<Shared>,

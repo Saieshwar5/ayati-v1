@@ -2,7 +2,9 @@
 //! reviewed operations and bearer files. Accounts are verified at once (no
 //! sign-in page), and the operator holds the credentials, so disconnecting
 //! here only stops Cuckoo from using them.
-use super::{Account, App, Call, Connect, ConnectorProvider, Outcome, Refusal, Saved};
+use super::{
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Outcome, Refusal, Saved,
+};
 use crate::identity::control::{
     catalog::{self, Server},
     mcp::Remote,
@@ -32,6 +34,10 @@ impl McpServers {
 impl ConnectorProvider for McpServers {
     fn name(&self) -> &'static str {
         "mcp"
+    }
+    /// Verified at once with the operator's credentials, which Cuckoo can't revoke.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::default()
     }
     fn apps(&self, workspace: &str) -> Result<Vec<App>> {
         Ok(catalog::servers_in(self.file.as_deref(), workspace)?
@@ -65,6 +71,7 @@ impl ConnectorProvider for McpServers {
             definition: server.public(),
             binding: None,
             fingerprint,
+            identity: None,
         }))
     }
     async fn finish(&self, _: &str, _: &str, _: &Value) -> Result<Account> {
@@ -93,6 +100,20 @@ impl ConnectorProvider for McpServers {
             operation: operation.clone(),
         }))
     }
+    /// The tool's input schema as the server lists it now (`schema` is null
+    /// when it no longer lists the tool). MCP servers don't version tools.
+    async fn describe(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Value> {
+        let server = self.server(saved.workspace, saved.server)?;
+        let fingerprint = server.fingerprint()?;
+        let mut remote = Remote::connect(server, &fingerprint).await?;
+        let schema = remote
+            .tools()
+            .await?
+            .into_iter()
+            .find(|tool| tool["name"] == operation.tool.as_str())
+            .map(|tool| tool["inputSchema"].clone());
+        Ok(serde_json::json!({"version":null,"schema":schema,"latest":null}))
+    }
 }
 
 struct McpCall {
@@ -101,7 +122,7 @@ struct McpCall {
 }
 #[async_trait::async_trait]
 impl Call for McpCall {
-    async fn run(mut self: Box<Self>, arguments: &Value) -> Outcome {
+    async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
         match self.remote.call(&self.operation, arguments).await {
             Ok(value) => Outcome::Completed(value),
             Err(_) => Outcome::Uncertain,

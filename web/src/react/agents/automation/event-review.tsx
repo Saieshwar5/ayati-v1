@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { identityRequest, workspaceUrl } from '../../../workspace-context';
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
@@ -49,7 +49,8 @@ export function EventReview({
     };
   }, [r.refresh, r.setData, trigger.source]);
   const t = r.data?.current;
-  const change = (enabled: boolean) =>
+  const [removing, setRemoving] = useState(false);
+  const change = (enabled: boolean, remove = false) =>
     void m.run(async () => {
       if (!t) throw new Error('Refresh this trigger before changing it.');
       const input = {
@@ -58,11 +59,18 @@ export function EventReview({
         connection_revision: enabled ? t.choice?.authority.connection_revision : null,
         read_revision: enabled ? t.choice?.authority.read_revision : null,
         delegation_revision: enabled ? t.choice?.authority.delegation_revision : null,
+        ...(remove ? { remove: true } : {}),
       };
       const payload = JSON.stringify(input);
       if (exact.current?.payload !== payload) exact.current = { payload, request: crypto.randomUUID() };
       await identityRequest(`${path}/state`, { ...input, request: exact.current.request });
-      if (alive.current) await Promise.all([r.refresh(), saved()]);
+      if (!alive.current) return;
+      if (remove) {
+        await saved();
+        if (alive.current) close();
+        return;
+      }
+      await Promise.all([r.refresh(), saved()]);
     });
   return (
     <Dialog
@@ -122,6 +130,24 @@ export function EventReview({
             Pause cancels pending and unstarted tasks. Running work and saved continuations keep a separate task Stop.
             To change this source, task or filters, pause and create a new trigger.
           </p>
+          {removing ? (
+            <div role="group" aria-label="Remove event trigger">
+              <p>
+                Remove this trigger for good? Pending work is cancelled. If no other trigger uses this app event, the
+                app stops sending it.
+              </p>
+              <Button disabled={m.busy} onClick={() => setRemoving(false)}>
+                Keep trigger
+              </Button>
+              <Button primary disabled={m.busy} onClick={() => change(false, true)}>
+                Remove for good
+              </Button>
+            </div>
+          ) : (
+            <Button disabled={m.busy} onClick={() => setRemoving(true)}>
+              Remove event trigger
+            </Button>
+          )}
           <h3>Recent deliveries</h3>
           {!r.data?.runs.length && <p>No matched deliveries saved yet.</p>}
           {r.data?.runs.map((run) => (

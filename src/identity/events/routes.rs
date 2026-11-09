@@ -1,7 +1,7 @@
 use super::super::*;
 use super::{
     catalog,
-    model::{Change, InboxFull, Trigger},
+    model::{Change, FromApp, InboxFull, Trigger},
 };
 use axum::{
     Json,
@@ -33,14 +33,20 @@ pub(super) fn routes() -> Router<Shared> {
             post(receive).layer(DefaultBodyLimit::max(64000)),
         )
 }
+/// The signed provider intakes: the only routes exempt from the browser's
+/// Origin and request-header checks. No cookie authorizes them.
 pub(crate) fn webhook_path(path: &str) -> bool {
     let parts: Vec<_> = path.split('/').collect();
-    parts.len() == 6
-        && parts[0].is_empty()
-        && parts[1..4] == ["hooks", "composio", "workspaces"]
-        && parts[4..]
-            .iter()
-            .all(|id| uuid::Uuid::parse_str(id).is_ok())
+    let uuids = |ids: &[&str]| ids.iter().all(|id| uuid::Uuid::parse_str(id).is_ok());
+    path == "/hooks/composio"
+        || (parts.len() == 4
+            && parts[0].is_empty()
+            && parts[1..3] == ["hooks", "pipedream"]
+            && uuids(&parts[3..]))
+        || (parts.len() == 6
+            && parts[0].is_empty()
+            && parts[1..4] == ["hooks", "composio", "workspaces"]
+            && uuids(&parts[4..]))
 }
 fn sources(w: &str) -> (Vec<catalog::Source>, Option<&'static str>) {
     match catalog::sources(w) {
@@ -62,15 +68,38 @@ async fn list(
     let (sources, error) = sources(&w);
     let mut data = app.store.event_triggers(&user, &w, &a, &sources).await?;
     data["catalog_error"] = json!(error);
+    let cx = super::provider_routes::context(&app).await;
+    let unavailable = |provider: &str| cx.unavailable.get(provider).cloned();
+    data["apps"] = json!(
+        app.store
+            .app_event_choices(&user, &w, &a, &unavailable)
+            .await?
+    );
     Ok(Json(data))
 }
+/// Creates a trigger from an operator source (`source`), or from a connected
+/// app's event (`connection` and `event`, schema 109).
 async fn create(
     State(app): State<Shared>,
     RoutePath((w, a)): RoutePath<(String, String)>,
     headers: HeaderMap,
-    Json(input): Json<Trigger>,
+    Json(input): Json<Value>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    let invalid = |_| {
+        Error(
+            anyhow::anyhow!("Invalid event trigger"),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        )
+    };
+    if input.get("connection").is_some() {
+        let input: FromApp = serde_json::from_value(input).map_err(invalid)?;
+        let cx = super::provider_routes::context(&app).await;
+        return Ok(Json(
+            super::subscriptions::create_from_app(&cx, &user, &w, &a, &input).await?,
+        ));
+    }
+    let input: Trigger = serde_json::from_value(input).map_err(invalid)?;
     let source = catalog::source(&w, &input.source).ok();
     Ok(Json(
         app.store
@@ -99,11 +128,17 @@ async fn change(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let (sources, _) = sources(&w);
-    Ok(Json(
-        app.store
-            .change_event_trigger(&user, &w, &a, &id, &input, &sources)
-            .await?,
-    ))
+    let changed = app
+        .store
+        .change_event_trigger(&user, &w, &a, &id, &input, &sources)
+        .await?;
+    if input.remove {
+        // Stop a subscription its last trigger left unused; the admission loop
+        // retries if the provider doesn't answer now.
+        super::subscriptions::release(&app.store, Some(&w), &crate::identity::connectors::named)
+            .await;
+    }
+    Ok(Json(changed))
 }
 async fn runs(
     State(app): State<Shared>,

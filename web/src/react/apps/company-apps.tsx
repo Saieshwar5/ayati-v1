@@ -55,11 +55,12 @@ export function SystemPanel({ app, canManage, changed, edit }: { app: CompanySys
   );
 }
 
-/** Ask for access to an app, or (no app) suggest one the company should add. */
-export function RequestDialog({ app, close, sent }: { app?: CompanySystem; close: () => void; sent: () => void }) {
+/** Ask for access to an app, or (no app) suggest one the company should add. A
+ * catalog service (`suggest`) is requested as a suggestion under its own name. */
+export function RequestDialog({ app, suggest, close, sent }: { app?: CompanySystem; suggest?: string; close: () => void; sent: () => void }) {
   const mutation = useMutation();
   const attempt = useAttemptId();
-  const [name, setName] = useState(''), [url, setUrl] = useState(''), [reason, setReason] = useState('');
+  const [name, setName] = useState(suggest ?? ''), [url, setUrl] = useState(''), [reason, setReason] = useState('');
   const send = () => void mutation.run(async () => {
     const body = app ? { app: app.id, reason } : { name, url, reason };
     await appsRequest('/requests', { id: attempt(JSON.stringify(body)), ...body });
@@ -67,11 +68,12 @@ export function RequestDialog({ app, close, sent }: { app?: CompanySystem; close
     close();
   });
   return (
-    <Dialog title={app ? `Request access to ${app.name}` : 'Suggest an app'} close={close} busy={mutation.busy} status={mutation.status}
+    <Dialog title={app ? `Request access to ${app.name}` : suggest ? `Request ${suggest}` : 'Suggest an app'} close={close} busy={mutation.busy} status={mutation.status}
       footer={<><Button disabled={mutation.busy} onClick={close}>Cancel</Button>
-        <Button primary disabled={mutation.busy || (!app && !name.trim())} onClick={send}>{app ? 'Send request' : 'Send suggestion'}</Button></>}>
-      <p>{app ? `${app.owner_name ?? 'An admin'} decides. You'll be able to open it from Apps once approved.` : 'Admins see your suggestion and decide whether to add it.'}</p>
-      {!app && <>
+        <Button primary disabled={mutation.busy || (!app && !name.trim())} onClick={send}>{app || suggest ? 'Send request' : 'Send suggestion'}</Button></>}>
+      <p>{app ? `${app.owner_name ?? 'An admin'} decides. You'll be able to open it from Apps once approved.`
+        : suggest ? `Admins see your request on the Apps page and decide whether to connect ${suggest}.` : 'Admins see your suggestion and decide whether to add it.'}</p>
+      {!app && !suggest && <>
         <label className="ui-field">App name<input aria-label="App name" maxLength={80} value={name} onChange={e => setName(e.target.value)} /></label>
         <label className="ui-field">Address <small>Optional, starting with https://</small><input aria-label="Address" maxLength={2000} value={url} onChange={e => setUrl(e.target.value)} /></label>
       </>}

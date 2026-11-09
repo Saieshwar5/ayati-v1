@@ -31,6 +31,23 @@ fn a_complete_local_controller_uses_loopback_and_pooled_defaults() {
 }
 
 #[test]
+fn the_connector_providers_file_replaces_the_legacy_composio_settings() {
+    let file = ("AYATI_CONNECTOR_PROVIDERS_FILE", "/private/connectors.json");
+    let config = controller(&[file]).unwrap();
+    assert!(config.connectors.providers_file.is_some());
+    let legacy = controller(&[("AYATI_COMPOSIO_AUTH_CONFIGS", "gmail=ac_1")]).unwrap();
+    assert_eq!(legacy.connectors.composio_auth_configs["gmail"], "ac_1");
+    for both in [
+        ("AYATI_COMPOSIO_KEY_FILE", "/private/composio"),
+        ("AYATI_COMPOSIO_AUTH_CONFIGS", "gmail=ac_1"),
+    ] {
+        let error = controller(&[file, both]).err().unwrap().to_string();
+        assert!(error.contains("AYATI_CONNECTOR_PROVIDERS_FILE"), "{error}");
+    }
+    assert!(controller(&[("AYATI_CONNECTOR_PROVIDERS_FILE", "relative.json")]).is_err());
+}
+
+#[test]
 fn every_problem_is_reported_together() {
     let error = Controller::read(
         &mut Reader::from_pairs(&[
@@ -136,6 +153,7 @@ fn executors_refuse_controller_secrets_and_need_worker_control() {
         "RELAY_DATABASE_URL",
         "WORKOS_API_KEY",
         "AYATI_MCP_SERVERS_FILE",
+        "AYATI_CONNECTOR_PROVIDERS_FILE",
     ] {
         let pairs: Vec<_> = base.iter().copied().chain([(secret, "x")]).collect();
         let error = Executor::read(&mut Reader::from_pairs(&pairs))

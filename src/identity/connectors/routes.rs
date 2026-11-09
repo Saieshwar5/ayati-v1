@@ -26,6 +26,10 @@ pub(in crate::identity) fn routes() -> Router<Shared> {
             "/api/identity/admin/connector-providers",
             get(providers).post(switch),
         )
+        .route(
+            "/api/identity/admin/connector-routes",
+            get(routes_list).post(route_set),
+        )
 }
 
 /// The admin is back from the provider's sign-in page. The query string the
@@ -90,6 +94,7 @@ pub(crate) async fn finish_sign_in(
             fingerprint: account.fingerprint,
             provider: provider.name().into(),
             binding: account.binding,
+            identity: account.identity,
         };
         store
             .workspace_connection_bind(user, &w, &input, Some(&verified))
@@ -155,14 +160,20 @@ pub(crate) async fn release(w: &str, released: Option<Released>) -> bool {
 
 async fn providers(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     platform(&app, &headers).await?;
-    let mut value = app.store.connector_providers().await?;
-    value["configured"] = json!(
-        super::providers()
-            .iter()
-            .map(|p| p.name())
-            .collect::<Vec<_>>()
-    );
-    Ok(Json(value))
+    Ok(Json(listing(&app.store).await?))
+}
+
+/// Switch states, the providers this server configured, and each one's health
+/// (schema 110): calls, errors and cost this month, breaker and last drift check.
+async fn listing(store: &PgStore) -> anyhow::Result<Value> {
+    let mut value = store.connector_providers().await?;
+    let configured: Vec<&str> = super::providers().iter().map(|p| p.name()).collect();
+    let health = store.connector_health(&configured).await?;
+    value["configured"] = json!(configured);
+    for key in ["health", "month_start_ms", "drift_run"] {
+        value[key] = health[key].clone();
+    }
+    Ok(value)
 }
 
 #[derive(Deserialize)]
@@ -215,13 +226,128 @@ async fn switch(
             &why,
         )
         .await?;
-    let mut value = app.store.connector_providers().await?;
-    value["configured"] = json!(
-        super::providers()
-            .iter()
-            .map(|p| p.name())
-            .collect::<Vec<_>>()
-    );
+    let mut value = listing(&app.store).await?;
+    value["saved"] = json!(true);
+    Ok(Json(value))
+}
+
+/// Every workspace route, and for each catalog app the providers that can serve
+/// it here with the one new connections use without a workspace route.
+async fn routes_list(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
+    platform(&app, &headers).await?;
+    Ok(Json(route_answer(&app).await?))
+}
+
+async fn route_answer(app: &App) -> anyhow::Result<Value> {
+    let configured = super::configured();
+    let defaults = super::routing::Routes {
+        workspace: Default::default(),
+        file: super::routes_file(),
+    };
+    let apps: Vec<Value> = super::curated::catalog()
+        .apps
+        .iter()
+        .map(|a| {
+            let serving: Vec<&str> = configured
+                .iter()
+                .copied()
+                .filter(|p| a.providers.contains_key(*p))
+                .collect();
+            json!({"id":a.id,"name":a.name,"providers":serving,
+                "default":super::routing::resolve(a, &defaults, &configured)})
+        })
+        .collect();
+    let providers: Vec<Value> = configured
+        .iter()
+        .map(
+            |p| json!({"provider":p,"via":super::label(p),"usd_per_call":super::price_per_call(p)}),
+        )
+        .collect();
+    let pipedream =
+        super::pipedream().map(|p| json!({"project_id":p.project_id,"environment":p.environment}));
+    Ok(json!({
+        "routes": app.store.connector_routes().await?,
+        "apps": apps,
+        "providers": providers,
+        "composio_events": super::composio_webhook_secret_file().is_some(),
+        "pipedream": pipedream,
+    }))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RouteChange {
+    workspace: String,
+    app: String,
+    /// `null` returns the app to the providers file's route and the catalog default.
+    provider: Option<String>,
+    #[serde(default)]
+    note: String,
+    /// Cuckoo Control's change-log reason; the note when absent.
+    #[serde(default)]
+    reason: String,
+}
+/// Routes one workspace's app to a provider for its new connections. Existing
+/// connections keep the provider they were made with.
+async fn route_set(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    Json(input): Json<RouteChange>,
+) -> ApiResult<Json<Value>> {
+    let user = platform(&app, &headers).await?;
+    let catalog = super::curated::app(&input.app)
+        .ok_or_else(|| anyhow::anyhow!("This app is not in Cuckoo's catalog"))?;
+    if let Some(provider) = &input.provider {
+        check(
+            catalog.providers.contains_key(provider),
+            "That provider does not serve this app",
+        )?;
+        check(
+            super::configured().contains(&provider.as_str()),
+            "This connector provider is not configured on this server",
+        )?;
+    }
+    let why = if input.reason.trim().is_empty() {
+        input.note.trim()
+    } else {
+        input.reason.trim()
+    };
+    let why = crate::identity::postgres::operator::reason(why)?;
+    app.store
+        .connector_route_set(
+            &user,
+            &input.workspace,
+            &input.app,
+            input.provider.as_deref(),
+            &input.note,
+        )
+        .await?;
+    let by = crate::identity::postgres::operator::Operator {
+        user,
+        via: crate::identity::postgres::operator::Via::Web,
+    };
+    let summary = match &input.provider {
+        Some(p) => format!(
+            "routed new {} connections to {}",
+            catalog.name,
+            super::label(p)
+        ),
+        None => format!(
+            "returned new {} connections to the default route",
+            catalog.name
+        ),
+    };
+    app.store
+        .operator_record(
+            &by,
+            "providers",
+            "connector_route_set",
+            &format!("{}/{}", input.workspace, input.app),
+            &summary,
+            &why,
+        )
+        .await?;
+    let mut value = route_answer(&app).await?;
     value["saved"] = json!(true);
     Ok(Json(value))
 }

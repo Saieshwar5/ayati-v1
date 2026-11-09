@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { workspaceUrl } from '../../workspace-context';
 import { ApprovalFields, GuardNote } from './fields';
+import { OutcomeDialog } from './outcome-dialog';
 import { decideApproval, either, loadApproval, type Approval, type Decision } from './model';
 import { states } from '../agents/control-model';
 import './approvals.css';
@@ -13,6 +14,7 @@ export function ApprovalDialog({ id, close }: { id: string; close: () => void })
   const { data, error, refresh, setData } = useResource(load);
   const mutation = useMutation();
   const identities = useRef(new Map<string, string>());
+  const [checking, setChecking] = useState(false);
   useEffect(() => { const timer = window.setInterval(() => { if (!document.hidden) void refresh().catch(() => {}); }, 3000); return () => clearInterval(timer); }, [refresh]);
   useEffect(() => subscribeChanges(change => {
     if (['access','reset'].includes(change.kind) || (change.kind==='event_access' && (!data || (change.chat===data.chat && data.source_scope===change.source)))) {
@@ -41,12 +43,16 @@ export function ApprovalDialog({ id, close }: { id: string; close: () => void })
       </div>}
       {data.decision === 'request_changes' && <p>Ask for a revised proposal in the work conversation. The previous fields have not been approved.</p>}
       {data.state === 'invalidated' && <p>Permissions or routing changed. A new action request is required.</p>}
-      {data.state === 'uncertain' && <p>The external outcome is unconfirmed. Check the business system before another write.</p>}
+      {data.state === 'uncertain' && <div className="approval-unconfirmed">
+        <p>The app didn’t confirm this action, so later writes to {data.account_name} are paused until someone says whether it happened.</p>
+        <Button onClick={() => setChecking(true)}>Check what happened</Button>
+      </div>}
       {data.state === 'completed' && <details><summary>Confirmed result</summary><pre>{JSON.stringify(data.result, null, 2)}</pre></details>}
       <a href={workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(data.chat)}${data.thread ? `&thread=${encodeURIComponent(data.thread)}` : ''}`)}>Open work conversation</a>
       <details><summary>Request receipt</summary><small>{data.id}</small></details>
     </section>}
     <Button disabled={mutation.busy} onClick={() => void refresh().catch(() => {})}>Refresh request</Button>
+    {checking && <OutcomeDialog id={id} close={() => { setChecking(false); void refresh().catch(() => {}); }} />}
   </Dialog>;
 }
 
