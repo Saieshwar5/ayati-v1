@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button } from '../../ui';
+import { Button, Dialog } from '../../ui';
+import { TriggerKind } from './new-automation';
 import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { CreateEvent } from './event-create';
@@ -7,12 +8,19 @@ import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
 import { loadEvents, type AppTrigger, type EventTrigger } from './event-model';
 import { workspaceUrl } from '../../../workspace-context';
-export function EventTriggers({ agent }: { agent: string }) {
+/** "When something happens": the agent's triggers. `start` opens a new one from
+ * "New automation"; `finished` is told when that dialog closes. */
+export function EventTriggers({ agent, start = false, finished }: { agent: string; start?: boolean; finished?: () => void }) {
   const load = useCallback(() => loadEvents(agent), [agent]);
   const r = useResource(load);
-  const [open, setOpen] = useState<
+  const [chosen, setOpen] = useState<
     { kind: 'create' } | { kind: 'app' } | { kind: 'review'; trigger: EventTrigger }
   >();
+  // A new trigger: straight to apps, or first ask which kind when sources exist too.
+  const starting = start && r.data
+    ? !r.data.execution_available ? 'unavailable' as const : r.data.choices.length ? 'pick' as const : 'app' as const
+    : undefined;
+  const open = chosen ?? (starting === 'app' ? { kind: 'app' as const } : undefined);
   const button = useRef<HTMLButtonElement>(null),
     opener = useRef<HTMLElement | null>(null),
     timer = useRef<number | undefined>(undefined);
@@ -22,6 +30,7 @@ export function EventTriggers({ agent }: { agent: string }) {
   };
   const close = () => {
     setOpen(undefined);
+    finished?.();
     timer.current = window.setTimeout(() => {
       if (!opener.current?.isConnected) button.current?.focus();
     }, 0);
@@ -49,21 +58,6 @@ export function EventTriggers({ agent }: { agent: string }) {
         <div>
           <h4>When something happens</h4>
           <p>Triggers start work when something changes in a connected app.</p>
-        </div>
-        <div>
-          <Button
-            ref={button}
-            disabled={!r.data?.execution_available || Boolean(r.error)}
-            onClick={() => show({ kind: 'app' })}
-          >
-            When something happens in an app
-          </Button>
-          <Button
-            disabled={!r.data?.execution_available || !r.data.choices.length || Boolean(r.error)}
-            onClick={() => show({ kind: 'create' })}
-          >
-            Create event trigger
-          </Button>
         </div>
       </header>
       {r.error && <p role="alert">{r.error}</p>}
@@ -113,12 +107,20 @@ export function EventTriggers({ agent }: { agent: string }) {
       {r.data?.app_triggers?.map((t) => <AppTriggerRow key={`${t.app}/${t.collection}/${t.kind}`} trigger={t} />)}
       {r.data && !r.data.triggers.length && !r.data.app_triggers?.length && <p className="ui-help">No triggers yet.</p>}
       <div className="automation-tools">
-        <Button onClick={() => void r.refresh().catch(() => {})}>Refresh triggers</Button>
+        <Button ref={button} onClick={() => void r.refresh().catch(() => {})}>Refresh triggers</Button>
       </div>
       <p className="ui-help">
         Source data belongs to its original task. Each tool action keeps its own Allow, Ask or Block rule. Provider
         delivery and background workers must be configured separately.
       </p>
+      {!chosen && starting === 'pick' && (
+        <TriggerKind close={close} choose={(kind) => setOpen({ kind })} />
+      )}
+      {!chosen && starting === 'unavailable' && (
+        <Dialog title="When something happens" close={close} footer={<Button onClick={close}>Done</Button>}>
+          <p>Triggers need background work that this server doesn’t run, so none can be made here.</p>
+        </Dialog>
+      )}
       {open?.kind === 'app' && r.data && (
         <CreateAppEvent agent={agent} directory={r.data} close={close} saved={r.refresh} />
       )}

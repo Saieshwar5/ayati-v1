@@ -184,7 +184,7 @@ test('a link to a scheduled run opens it: its schedule, where the result went, P
   await reactFixture(async ({ render, button, click }) => {
     await render(await page(), { href: `${url}&run=${run}` });
     const drawer = document.querySelector('dialog');
-    assert.match(drawer.textContent, /Started bySchedule · Monday invoice chase · Every 7 24-hour periods/);
+    assert.match(drawer.textContent, /Started bySchedule · Monday invoice chase · Every week/);
     assert.match(drawer.textContent, /ResultsActivity, and a summary in finance · Posted/);
     assert.equal(drawer.querySelector('a[href*="view=chat"]'), null, 'a work room is not a conversation');
     await click(button('Pause schedule'));

@@ -10,8 +10,9 @@ import { ScheduleRuns } from './runs-dialog';
 import { cadence, date, deviceClock, loadSchedules, results, stateLabels, type Routine } from './model';
 import './schedules.css';
 import { EventTriggers } from './events';
+import { NewAutomation } from './new-automation';
 
-type Open = { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
+type Open = { kind: 'choose' } | { kind: 'event' } | { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
 export function AutomationPane({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
   return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <MemberAutomations agent={agent} openChat={openChat} />;
 }
@@ -63,11 +64,10 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
   return <section className="shared-schedules" aria-label={`${agent.name} automations`}>
     <header className="agent-section-heading"><div><h3>Automations</h3>
       <p>Work {agent.name} does on its own. Every run follows its tool rules, and Ask-first actions still wait for a person. Runs and anything that needs you appear in Activity.</p></div>
+      <Button primary className="automation-new" disabled={!ready} onClick={() => show({ kind: 'choose' })}>New automation</Button>
     </header>
     <section className="automation-group" aria-labelledby={`${agent.id}-on-schedule`}>
-      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4><p>At a time, once or repeating.</p></div>
-        <Button disabled={!ready || !resource.data?.execution_available} onClick={() => show({ kind: 'create' })}>New schedule</Button>
-      </header>
+      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4><p>At a time, once or repeating.</p></div></header>
       {resource.error && <p role="alert">{resource.error}</p>}
       {!resource.data && !resource.error && <p role="status">Loading schedules…</p>}
       {resource.data?.execution_available === false && <p role="status">Schedules need pooled background work, which this server doesn’t run. Saved schedules stay readable; they can’t run here.</p>}
@@ -89,8 +89,10 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
       {Boolean(resource.data?.elsewhere) && <p className="ui-help">{resource.data?.elsewhere === 1 ? '1 more schedule posts' : `${resource.data?.elsewhere} more schedules post`} in conversations you’re not in, so {resource.data?.elsewhere === 1 ? 'it stays' : 'they stay'} private. Pausing {agent.name} pauses every schedule.</p>}
       <div className="automation-tools"><Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button></div>
     </section>
-    <EventTriggers agent={agent.id}/>
-    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
+    <EventTriggers agent={agent.id} start={open?.kind === 'event'} finished={close} />
+    {open?.kind === 'choose' && <NewAutomation agent={agent.name} schedules={Boolean(resource.data?.execution_available)} close={close}
+      choose={kind => setOpen(kind === 'time' ? { kind: 'create' } : { kind: 'event' })} />}
+    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} agentName={agent.name} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
     {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
     {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={resource.refresh} />}
   </section>;

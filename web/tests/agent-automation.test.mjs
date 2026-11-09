@@ -14,7 +14,7 @@ const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 async function setup(){const context=await import('../src/workspace-context.ts');await context.enterWorkspace();return import('../src/react/agents/automation/create-dialog.tsx');}
 function base(path){if(path.includes('/event-triggers'))return response({triggers:[],choices:[],execution_available:true});if(path.endsWith('/session'))return response(session);if(path.includes('/home/preferences'))return response({preferences:clock});if(path.endsWith('/runs'))return response({runs:[]});if(path.includes('/schedules/'))return response(routine);return response(directory);}
 const field=label=>[...document.querySelectorAll('label')].find(node=>node.textContent.startsWith(label))?.querySelector('input,textarea,select');
-async function fill(change){await change(field('Routine name'),'Delivery review');await change(field('Task instructions'),'Prepare the delivery summary. Ask separately before changing an order.');}
+async function fill(change){await change(field('Name'),'Delivery review');await change(field('What should'),'Prepare the delivery summary. Ask separately before changing an order.');}
 
 test('schedule context review starts no work and concurrent explicit saves retain one exact payload',async()=>{
  const writes=[];let finish;
@@ -25,7 +25,7 @@ test('schedule context review starts no work and concurrent explicit saves retai
   const [activityOnly,postTo]=document.querySelectorAll('input[type=radio]');assert.equal(activityOnly.checked,true);assert.equal(field('Conversation'),undefined);
   await click(postTo);assert.equal(field('Conversation').value,'channel');
   await click(button('Review schedule'));assert.equal(writes.length,0);assert.match(document.body.textContent,/Activity, and a summary in PRIVATE_DELIVERY_CHANNEL/);assert.match(document.body.textContent,/grants no new permissions/);
-  await update(()=>{button('Create schedule').click();button('Create schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].chat,'channel');assert.equal(writes[0].timezone,'Asia/Kolkata');assert.equal(writes[0].interval_seconds,null);
+  await update(()=>{button('Save schedule').click();button('Save schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].chat,'channel');assert.equal(writes[0].timezone,'Asia/Kolkata');assert.equal(writes[0].interval_seconds,null);
   await update(()=>finish(response(routine)));assert.match(document.body.textContent,/Schedule saved/);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return new Promise(resolve=>{finish=resolve;});}return base(path);}});
 });
@@ -34,11 +34,11 @@ test('unacknowledged routine saves keep their exact ID across reopen and editing
  const writes=[];
  await reactFixture(async({render,button,change,click})=>{
   const {CreateSchedule}=await setup();const props={agent:'agent',data:directory,clock,close:()=>{},saved:async()=>{}};
-  await render(CreateSchedule,props);await fill(change);await click(button('Review schedule'));assert.match(document.body.textContent,/ResultsActivity only/);await click(button('Create schedule'));assert.match(document.body.textContent,/Save result unavailable/);assert.equal(writes[0].chat,null);
+  await render(CreateSchedule,props);await fill(change);await click(button('Review schedule'));assert.match(document.body.textContent,/ResultsActivity only/);await click(button('Save schedule'));assert.match(document.body.textContent,/Save result unavailable/);assert.equal(writes[0].chat,null);
   await render(()=>createElement('p',null,'Closed'));await render(CreateSchedule,props);assert.match(document.body.textContent,/A save was not acknowledged/);
   await click(button('Retry same save'));assert.deepEqual(writes[1],writes[0]);
-  await click(button('Edit as a new schedule'));assert.equal(field('Routine name').value,'Delivery review');assert.equal(field('Task instructions').value,writes[0].content);
-  await change(field('Routine name'),'Different explicit routine');await click(button('Review schedule'));await click(button('Create schedule'));assert.notEqual(writes[2].id,writes[0].id);
+  await click(button('Edit as a new schedule'));assert.equal(field('Name').value,'Delivery review');assert.equal(field('What should').value,writes[0].content);
+  await change(field('Name'),'Different explicit routine');await click(button('Review schedule'));await click(button('Save schedule'));assert.notEqual(writes[2].id,writes[0].id);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({error:'Save result unavailable'},503);}return base(path);}});
 });
 
@@ -46,8 +46,8 @@ test('ambiguous or missing local times and unsupported intervals cannot reach th
  const writes=[];
  await reactFixture(async({render,button,change,click})=>{
   const {CreateSchedule}=await setup();await render(CreateSchedule,{agent:'agent',data:directory,clock:{...clock,timezone:'America/New_York'},close:()=>{},saved:async()=>{}});
-  await fill(change);await change(field('First run'),'2036-11-02T01:30');await click(button('Review schedule'));assert.match(document.body.textContent,/missing or repeated/);assert.equal(button('Create schedule'),undefined);
-  await change(field('First run'),'2036-11-03T09:00');await change(field('Repeat'),'interval');await change(field('Every'),'0');await click(button('Review schedule'));assert.match(document.body.textContent,/at most 365/);assert.deepEqual(writes,[]);
+  await fill(change);await change(field('First run'),'2036-11-02T01:30');await click(button('Review schedule'));assert.match(document.body.textContent,/missing or repeated/);assert.equal(button('Save schedule'),undefined);
+  await change(field('First run'),'2036-11-03T09:00');await click(document.querySelector('input[name=repeat][value=interval]'));await change(document.querySelector('input[type=number]'),'0');await click(button('Review schedule'));assert.match(document.body.textContent,/at most 365/);assert.deepEqual(writes,[]);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST')writes.push(path);return base(path);}});
 });
 
@@ -57,7 +57,7 @@ test('pause and resume are explicit versioned changes while run reading and role
   await setup();const {ScheduleState}=await import('../src/react/agents/automation/state-dialog.tsx');
   await render(ScheduleState,{agent:'agent',routine,enabled:false,close:()=>{},saved:async()=>{}});assert.equal(writes.length,0);
   await update(()=>{button('Pause schedule').click();button('Pause schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].revision,2);assert.equal(writes[0].enabled,false);
-  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only Nova’s owner or an admin can add schedules and triggers here.*ask Nova in Chat/);assert.equal(button('Create schedule'),undefined);assert.equal(writes.length,1);
+  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only Nova’s owner or an admin can add schedules and triggers here.*ask Nova in Chat/);assert.equal(button('Save schedule'),undefined);assert.equal(writes.length,1);
   await render(AutomationPane,{agent});await click(button('View runs'));assert.match(document.body.textContent,/No occurrences/);assert.equal(writes.length,1);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({id:'routine',revision:3,state:'paused'});}return base(path);}});
 });
@@ -66,7 +66,7 @@ test('a late creation acknowledgment after unmount cannot refresh or reopen the 
  let finish,refreshes=0;
  await reactFixture(async({render,button,change,click,update})=>{
   const {CreateSchedule}=await setup();await render(CreateSchedule,{agent:'agent',data:directory,clock,close:()=>{},saved:async()=>{refreshes++;}});
-  await fill(change);await click(button('Review schedule'));await click(button('Create schedule'));await render(()=>createElement('p',null,'Other agent'));
+  await fill(change);await click(button('Review schedule'));await click(button('Save schedule'));await render(()=>createElement('p',null,'Other agent'));
   await update(()=>finish(response(routine)));assert.equal(refreshes,0);assert.equal(document.querySelector('dialog'),null);
  },{url,fetch:async(path,init={})=>init.method==='POST'?new Promise(resolve=>{finish=resolve;}):base(path)});
 });

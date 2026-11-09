@@ -122,7 +122,7 @@ export function CreateEvent({
   return (
     <Dialog
       drawer
-      title="Create event trigger"
+      title="New trigger from a reviewed source"
       close={close}
       busy={m.busy}
       status={m.status}
