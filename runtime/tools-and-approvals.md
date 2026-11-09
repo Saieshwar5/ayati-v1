@@ -57,6 +57,13 @@ only make an action stricter.
 - **Changing a conversation's members while work waits** still fences that work
   (versioned context).
 
+## Who says what happened
+
+A write the provider didn't confirm holds the account's other writes until one of
+the agent's managers or an admin who can see it answers whether it happened (not
+the requester when it needed someone else), or Cuckoo finds it at the provider.
+See [unconfirmed writes](connector-providers.md#unconfirmed-writes-schema-107).
+
 ## Retired
 
 - The guided setup: its routes, drafts and suggestion tasks. Saved suggestion
