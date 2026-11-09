@@ -17,8 +17,10 @@ provider stand-ins only:
   Composio events, P5 Pipedream: built and tested.
 - Checks: clippy with warnings denied, 216 unit tests, 505 of 510 PostgreSQL
   tests (the 5 need live E2B, a sandbox, S3 or pgvector), 427 web tests, build.
-- Not yet run: the three real-Goose journeys moved to the new Apps flow, and
-  any live call to Composio or Pipedream (`tools/connector-provider-check`).
+- Live check (2026-11-09): Pipedream credentials and every mapped app and
+  component verified against the real API. Composio refused the supplied key
+  as invalid, so its names are still unchecked.
+- Not yet run: the three real-Goose journeys moved to the new Apps flow.
 - P0 live checks and P6 production setup (public `/hooks`, secret store,
   alerts) remain.
 

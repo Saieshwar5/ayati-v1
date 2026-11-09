@@ -18,9 +18,18 @@ PIPEDREAM_CLIENT_ID=… PIPEDREAM_CLIENT_SECRETS=… PIPEDREAM_PROJECT_ID=proj_�
 
 Both exit 0 when everything matches and 1 on any problem.
 
-**Status:** tested against local fakes only (`tests/`). They await a first live
-run with the deployment's keys; record what it finds in the runtime document
-and fix the catalog where a name is wrong.
+**Status:** first live run on 2026-11-09:
+
+- **Pipedream** (development environment): the client credentials were
+  accepted, and all 4 apps and 7 action components that Cuckoo's catalog maps
+  were found. Every mapped prop is accepted and every required prop is mapped.
+  Versions: gmail-find-email 0.5.0, gmail-create-draft 0.2.4, gmail-send-email
+  0.3.4, google_calendar-list-events 0.1.3, google_calendar-create-event 1.2.1,
+  google_sheets-get-spreadsheet-info 0.0.5, google_drive-search-files 1.0.4.
+- **Composio**: the key in the environment was refused as invalid (HTTP 401,
+  `APIKey_InvalidAPIKey`). Its prefix isn't that of a project API key. The tool
+  names and fields therefore remain unchecked until a valid project key is
+  supplied.
 
 ## composio_basics.py
 
