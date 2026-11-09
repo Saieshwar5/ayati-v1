@@ -4,7 +4,7 @@
 //! Every call first checks that the account is still active and the pinned tool
 //! still means the same thing; the agent never sees Composio.
 use super::{
-    Account, App, Call, Connect, ConnectorProvider, Outcome, Refusal, Saved,
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Outcome, Refusal, Saved,
     composio_api::{self, ComposioApi, Reply},
     curated::{self, CatalogApp},
     fingerprint,
@@ -227,6 +227,23 @@ impl Composio {
     }
 }
 
+impl Composio {
+    /// The account's own identity from the app's identity read, such as the
+    /// mailbox address. Only that one field is kept from the answer. A read that
+    /// fails proves nothing, so the account is saved without an identity.
+    async fn identity(&self, binding: &Binding, app: &CatalogApp) -> Option<String> {
+        let read = app.identity.get(NAME)?;
+        let path = format!("tools/execute/{}", composio_api::id(&read.tool).ok()?);
+        let body = json!({"connected_account_id":binding.account,"user_id":binding.user,"arguments":read.arguments});
+        match self.api.send(Method::POST, &path, Some(&body)).await {
+            Ok(Reply::Ok(reply)) if reply["successful"] == true && reply["error"].is_null() => {
+                curated::identity_value(&reply["data"], &read.field)
+            }
+            _ => None,
+        }
+    }
+}
+
 fn slug_is(value: &Value, toolkit: &str) -> bool {
     value
         .as_str()
@@ -237,6 +254,14 @@ fn slug_is(value: &Value, toolkit: &str) -> bool {
 impl ConnectorProvider for Composio {
     fn name(&self) -> &'static str {
         NAME
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            sign_in: true,
+            revoke: true,
+            list_fields: true,
+            ..Capabilities::default()
+        }
     }
     fn apps(&self, _workspace: &str) -> Result<Vec<App>> {
         Ok(curated::catalog()
@@ -319,13 +344,14 @@ impl ConnectorProvider for Composio {
             "Composio offers none of Cuckoo's reviewed actions for {}",
             catalog.name
         );
+        let identity = self.identity(&binding, catalog).await;
         let definition =
-            json!({"id":catalog.id,"name":catalog.name,"account":null,"operations":operations});
+            json!({"id":catalog.id,"name":catalog.name,"account":identity,"operations":operations});
         Ok(Account {
             fingerprint: fingerprint(NAME, &definition, Some(value)),
             definition,
             binding: Some(value.clone()),
-            identity: None,
+            identity,
         })
     }
 

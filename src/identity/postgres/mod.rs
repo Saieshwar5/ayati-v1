@@ -80,6 +80,7 @@ mod communications;
 #[cfg(test)]
 mod connection_migration_tests;
 pub(crate) mod connector_providers;
+pub(crate) mod connector_routing;
 mod connector_rules;
 #[cfg(test)]
 mod connector_rules_tests;

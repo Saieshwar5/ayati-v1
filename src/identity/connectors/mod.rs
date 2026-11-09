@@ -8,12 +8,14 @@
 //! one line in [`configure`]. Agents never see a provider, its links or its keys.
 //!
 //! Providers today: operator-configured remote MCP servers (`mcp`) and Composio
-//! (`composio`). The provider is chosen per app, so one app can move to another
-//! provider, or to a connector Cuckoo builds itself, without touching the others.
+//! (`composio`). The provider is chosen per app and workspace ([`routing`]), so
+//! one app can move to another provider, or to a connector Cuckoo builds itself,
+//! without touching the others.
 mod composio;
 mod composio_api;
 #[cfg(test)]
 mod conformance_tests;
+pub(crate) mod connect;
 pub(crate) mod curated;
 #[cfg(test)]
 pub(crate) mod fake_composio;
@@ -22,9 +24,11 @@ mod fake_mcp;
 mod mcp_servers;
 pub(crate) mod providers_file;
 pub(crate) mod routes;
+pub(crate) mod routing;
 
 use crate::identity::control::model::Operation;
-use anyhow::{Context, Result, ensure};
+use crate::identity::postgres::PgStore;
+use anyhow::{Context, Result};
 use providers_file::ProvidersFile;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -351,6 +355,11 @@ fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
     providers
 }
 
+/// The names of the providers configured now.
+pub(crate) fn configured() -> Vec<&'static str> {
+    providers().iter().map(|p| p.name()).collect()
+}
+
 pub(crate) fn named(name: &str) -> Result<Arc<dyn ConnectorProvider>> {
     providers()
         .into_iter()
@@ -358,31 +367,49 @@ pub(crate) fn named(name: &str) -> Result<Arc<dyn ConnectorProvider>> {
         .context("This connector provider is not configured on this server")
 }
 
-/// Every app offered to the workspace, across providers. One app id never
-/// belongs to two providers at once.
-pub(crate) fn apps(workspace: &str) -> Result<Vec<App>> {
-    let mut apps: Vec<App> = vec![];
-    for provider in providers() {
-        for app in provider.apps(workspace)? {
-            ensure!(
-                apps.iter().all(|a| a.id != app.id),
-                "Two connector providers offer {}",
-                app.id
-            );
-            apps.push(app);
-        }
-    }
-    Ok(apps)
+/// What a saved connection's provider supports; nothing when it isn't configured.
+pub(crate) fn capabilities_of(provider: &str) -> Capabilities {
+    named(provider).map_or_else(|_| Capabilities::default(), |p| p.capabilities())
 }
 
-/// The provider serving `app` for this workspace.
-pub(crate) fn provider_for(workspace: &str, app: &str) -> Result<Arc<dyn ConnectorProvider>> {
-    for provider in providers() {
-        if provider.apps(workspace)?.iter().any(|a| a.id == app) {
-            return Ok(provider);
-        }
+/// The provider's name as admins see it; agents and members never do.
+pub(crate) fn label(provider: &str) -> &'static str {
+    match provider {
+        "composio" => "Composio",
+        "pipedream" => "Pipedream",
+        "mcp" => "MCP server",
+        _ => "Another provider",
     }
-    anyhow::bail!("This connector is not offered on this server")
+}
+
+/// The providers file's routes: app to providers, first choice first.
+fn routes_file() -> std::collections::BTreeMap<String, Vec<String>> {
+    file().map(|f| f.routes).unwrap_or_default()
+}
+
+/// This workspace's routes: its own, then the providers file's.
+pub(crate) async fn routes_for(store: &PgStore, workspace: &str) -> Result<routing::Routes> {
+    Ok(routing::Routes {
+        workspace: store.connector_workspace_routes(workspace).await?,
+        file: routes_file(),
+    })
+}
+
+/// Every app offered to the workspace: one per catalog app through its routed
+/// provider, plus the operator's MCP servers.
+pub(crate) async fn apps(store: &PgStore, workspace: &str) -> Result<Vec<App>> {
+    let routes = routes_for(store, workspace).await?;
+    routing::apps_with(&providers(), workspace, &routes)
+}
+
+/// The provider that connects `app` for this workspace now.
+pub(crate) async fn provider_for(
+    store: &PgStore,
+    workspace: &str,
+    app: &str,
+) -> Result<Arc<dyn ConnectorProvider>> {
+    let routes = routes_for(store, workspace).await?;
+    routing::provider_with(&providers(), workspace, app, &routes)
 }
 
 /// A Composio provider against a local fake, for tests outside this module.

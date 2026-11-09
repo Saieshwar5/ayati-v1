@@ -282,6 +282,8 @@ async fn composio_passes_the_provider_suite() {
         sent,
         &json!({"recipient_email":"sharma@example.test","cc":["accounts@example.test"],"subject":"Balance","body":"₹1.48L due"})
     );
+    // The identity read is not one of the agent's calls.
+    assert!(state.identity_reads >= 1);
 }
 
 #[tokio::test]
@@ -327,6 +329,26 @@ async fn composio_offers_only_actions_it_can_run_with_reviewed_plain_fields() {
         send.schema["properties"].get("bcc").is_none()
             && send.schema["properties"].get("user_id").is_none()
     );
+    // The identity read proved the mailbox: it names the account.
+    assert_eq!(account.identity.as_deref(), Some(fake_composio::MAILBOX));
+    assert_eq!(account.definition["account"], fake_composio::MAILBOX);
+    assert!(provider.capabilities().list_fields && provider.capabilities().sign_in);
+    // A read that fails proves nothing: the account has no identity.
+    fake.0.state.lock().unwrap().mailbox = None;
+    let Connect::SignIn { binding, .. } = provider
+        .connect(
+            WORKSPACE,
+            "gmail",
+            "http://127.0.0.1:1/api/identity/connectors/return/z",
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("Composio signs in through its page");
+    };
+    fake.sign_in(&binding);
+    let unproven = provider.finish(WORKSPACE, "gmail", &binding).await.unwrap();
+    assert!(unproven.identity.is_none() && unproven.definition["account"].is_null());
     // Another workspace can't use this account.
     let other = Saved {
         workspace: "00000000-0000-4000-8000-000000000054",

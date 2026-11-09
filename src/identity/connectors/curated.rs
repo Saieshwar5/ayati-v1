@@ -28,6 +28,22 @@ pub(crate) struct CatalogApp {
     /// Events agents can be started by, under Cuckoo's names.
     #[serde(default)]
     pub triggers: Vec<Trigger>,
+    /// Per provider, the read that proves which account signed in.
+    #[serde(default)]
+    pub identity: BTreeMap<String, IdentityRead>,
+}
+/// A read that proves which account signed in: a provider tool run with fixed
+/// `arguments` only, and the field of its answer that holds the account's stable
+/// identity, such as the mailbox address. Reconnecting the same identity keeps
+/// the account's rules.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct IdentityRead {
+    pub tool: String,
+    #[serde(default)]
+    pub arguments: Map<String, Value>,
+    /// A dotted path, such as `user.emailAddress`.
+    pub field: String,
 }
 /// The categories of the Add app catalog, in screen order: (id, name).
 pub(crate) const CATEGORIES: [(&str, &str); 8] = [
@@ -101,6 +117,19 @@ fn validate(catalog: &Catalog) -> Result<()> {
             app.id
         );
         ensure!(app.triggers.len() <= 20, "Too many triggers for {}", app.id);
+        for (provider, read) in &app.identity {
+            ensure!(
+                app.providers.contains_key(provider)
+                    && !read.tool.is_empty()
+                    && read.arguments.len() <= 5
+                    && read
+                        .field
+                        .split('.')
+                        .all(|part| crate::identity::identifier(part).is_ok()),
+                "{} has an invalid {provider} identity read",
+                app.id
+            );
+        }
         for trigger in &app.triggers {
             ensure!(
                 trigger.id.starts_with(&format!("{}.", app.id)) && actions.insert(&trigger.id),
@@ -249,6 +278,25 @@ fn listed(field: &Value) -> Option<Value> {
 /// The most values a list field takes.
 pub(crate) const MAX_ITEMS: u64 = 20;
 
+/// The account identity an identity read's answer holds: the field at the top of
+/// the answer, or inside the `data` or `response_data` some tools wrap it in.
+pub(crate) fn identity_value(answer: &Value, field: &str) -> Option<String> {
+    let at = |root: &Value| {
+        field
+            .split('.')
+            .try_fold(root, |value, part| value.get(part))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|v| {
+                !v.is_empty() && v.chars().count() <= 320 && !v.chars().any(char::is_control)
+            })
+            .map(str::to_owned)
+    };
+    at(answer)
+        .or_else(|| at(&answer["data"]))
+        .or_else(|| at(&answer["response_data"]))
+}
+
 /// Cuckoo's argument names translated to the provider's.
 pub(crate) fn provider_arguments(
     fields: &BTreeMap<String, String>,
@@ -375,5 +423,35 @@ mod tests {
                 &json!({"title":"Review","start":"2026-11-09T10:00:00","attendees":["a@x.test"]}),
             )
             .unwrap();
+    }
+
+    #[test]
+    fn identity_reads_keep_one_plain_field_wherever_the_tool_wraps_it() {
+        let answer = json!({"emailAddress":" orders@shop.test ","messagesTotal":4});
+        assert_eq!(
+            identity_value(&answer, "emailAddress").as_deref(),
+            Some("orders@shop.test")
+        );
+        let wrapped = json!({"response_data":{"user":{"emailAddress":"a@x.test"}}});
+        assert_eq!(
+            identity_value(&wrapped, "user.emailAddress").as_deref(),
+            Some("a@x.test")
+        );
+        assert_eq!(
+            identity_value(&json!({"data":{"id":"b@x.test"}}), "id").as_deref(),
+            Some("b@x.test")
+        );
+        for answer in [
+            json!({}),
+            json!({"emailAddress":""}),
+            json!({"emailAddress":7}),
+            json!({"emailAddress":"a\nb"}),
+        ] {
+            assert!(
+                identity_value(&answer, "emailAddress").is_none(),
+                "{answer}"
+            );
+        }
+        assert!(app("gmail").unwrap().identity.contains_key("composio"));
     }
 }

@@ -1,10 +1,16 @@
 -- The Apps page (apps-page plan, AP1): every approved, connected service with what
 -- agents may do with each action, which agents use it and how many company rules
--- cover it. $2 is true for admins, who also see the account name.
+-- cover it. $2 is true for admins, who also see the account name. Schema 108 adds
+-- each service's state, who connected it and when; the provider is removed for
+-- members in code, after its capabilities are read.
 SELECT jsonb_build_object(
  'id',c.id,'server',c.server,'name',c.definition->>'name','kind','service','provider',c.provider,
  'account',CASE WHEN $2 THEN c.definition->>'account' END,
  'status',CASE WHEN EXISTS(SELECT 1 FROM relay_connector_reconnects n WHERE n.workspace=c.workspace AND n.connection=c.id) THEN 'reconnect' ELSE 'connected' END,
+ 'state',relay_connection_state(c.workspace,c.id,c.provider),
+ 'paused_action',CASE WHEN relay_connection_state(c.workspace,c.id,c.provider)='writes_paused' THEN relay_paused_write(c.workspace,c.id) END,
+ 'connected',CASE WHEN c.connected_at IS NOT NULL THEN jsonb_build_object('at',c.connected_at,
+   'by_name',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=c.connected_by)) END,
  'actions',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',o.op->>'id','title',o.op->>'title',
    'meaning',relay_action_meaning(c.workspace,c.id,o.op),'mode',COALESCE(w.mode,relay_default_mode(c.workspace,c.id,o.op))) ORDER BY o.ord),'[]'::jsonb)
   FROM jsonb_array_elements(c.definition->'operations') WITH ORDINALITY AS o(op,ord)
