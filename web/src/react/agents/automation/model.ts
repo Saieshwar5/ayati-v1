@@ -19,7 +19,7 @@ export function date(ms: number, timezone: string) {
   try { return new Date(ms).toLocaleString(undefined, { timeZone: timezone, dateStyle: 'medium', timeStyle: 'short' }); }
   catch { return `${new Date(ms).toISOString()} (UTC)`; }
 }
-export const cadence = (seconds: number | null) => seconds === null ? 'Run once' : seconds % 86400 === 0 ? `Every ${seconds / 86400} 24-hour period${seconds === 86400 ? '' : 's'}` : seconds % 3600 === 0 ? `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}` : seconds % 60 === 0 ? `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `Every ${seconds} seconds`;
+export const cadence = (seconds: number | null) => seconds === null ? 'Run once' : seconds === 86400 ? 'Every day' : seconds === 604800 ? 'Every week' : seconds % 86400 === 0 ? `Every ${seconds / 86400} 24-hour period${seconds === 86400 ? '' : 's'}` : seconds % 3600 === 0 ? `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}` : seconds % 60 === 0 ? `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `Every ${seconds} seconds`;
 /** A run opens in Activity: runs happen in the schedule's own room, not in Chat. */
 export const runUrl = (run: Run) => workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(run.reply)}`);
 /** A schedule's state in words. */

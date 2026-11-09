@@ -134,7 +134,7 @@ export function CreateAppEvent({
   return (
     <Dialog
       drawer
-      title="When something happens in an app"
+      title="New trigger: when something happens in an app"
       close={close}
       busy={m.busy}
       status={m.status}
