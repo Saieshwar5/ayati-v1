@@ -2,6 +2,7 @@
 //! provider?" has a yes-or-no answer. Each provider runs it against a local fake.
 use super::fake_composio::{self, FakeComposio};
 use super::fake_mcp::{FakeMcp, WORKSPACE};
+use super::fake_pipedream::{self, FakePipedream};
 use super::*;
 
 /// What the suite needs from each provider's fake.
@@ -23,7 +24,7 @@ trait Fixture {
     fn revoked(&self, binding: Option<&Value>) -> bool;
 }
 
-fn operation(account: &Account, id: &str) -> Operation {
+pub(super) fn operation(account: &Account, id: &str) -> Operation {
     let found = account.definition["operations"]
         .as_array()
         .unwrap()
@@ -260,6 +261,53 @@ impl Fixture for Composio {
     }
 }
 
+struct Pipedream(FakePipedream);
+impl Fixture for Pipedream {
+    fn provider(&self) -> Arc<dyn ConnectorProvider> {
+        Arc::new(pipedream::Pipedream::new(self.0.settings()).unwrap())
+    }
+    fn app(&self) -> &'static str {
+        "gmail"
+    }
+    fn read(&self) -> (&'static str, Value) {
+        ("gmail.find_emails", json!({"query":"from:sharma"}))
+    }
+    fn write(&self) -> (&'static str, Value) {
+        (
+            "gmail.send_email",
+            json!({"to":"sharma@example.test","subject":"Balance","body":"₹1.48L due"}),
+        )
+    }
+    fn sign_in(&self, binding: &Value) {
+        self.0.sign_in(binding);
+    }
+    fn break_account(&self, broken: bool) {
+        self.0.set_healthy(!broken);
+    }
+    fn change_action(&self, changed: bool) {
+        self.0.state.lock().unwrap().changed = changed;
+    }
+    fn fail_calls(&self, fail: bool) {
+        self.0.state.lock().unwrap().run_reply = fail.then(|| {
+            (
+                200,
+                json!({"error":{"name":"Error","message":"Upstream refused",
+                "attribution":{"origin":"upstream_api"}}}),
+            )
+        });
+    }
+    fn calls(&self) -> usize {
+        self.0.state.lock().unwrap().executed.len()
+    }
+    fn broken(&self) -> &'static str {
+        "needs_reconnect"
+    }
+    fn revoked(&self, binding: Option<&Value>) -> bool {
+        let account = binding.unwrap()["account"].as_str().unwrap().to_owned();
+        self.0.state.lock().unwrap().removed.contains(&account)
+    }
+}
+
 #[tokio::test]
 async fn operator_mcp_servers_pass_the_provider_suite() {
     conformance(&Mcp(FakeMcp::start().await)).await;
@@ -379,5 +427,32 @@ async fn composio_offers_only_actions_it_can_run_with_reviewed_plain_fields() {
             auth_configs: Default::default()
         })
         .is_err()
+    );
+}
+
+#[tokio::test]
+async fn pipedream_passes_the_provider_suite() {
+    let fake = Pipedream(FakePipedream::start().await);
+    conformance(&fake).await;
+    let state = fake.0.state.lock().unwrap();
+    assert_eq!(state.bad_auth, 0);
+    assert_eq!(
+        state.issued.len(),
+        1,
+        "one access token serves every request"
+    );
+    // Cuckoo's field names were sent under the component's prop names, with the
+    // workspace's own account and the reviewed version, and nothing else.
+    let (_, sent) = state
+        .executed
+        .iter()
+        .find(|(component, _)| component == "gmail-send-email")
+        .unwrap();
+    assert_eq!(
+        sent,
+        &json!({"id":"gmail-send-email","version":fake_pipedream::VERSION,
+            "external_user_id":format!("cuckoo-{WORKSPACE}"),
+            "configured_props":{"gmail":{"authProvisionId":"apn_1"},
+                "to":["sharma@example.test"],"subject":"Balance","body":"₹1.48L due"}})
     );
 }

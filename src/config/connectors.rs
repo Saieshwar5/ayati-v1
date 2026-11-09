@@ -15,6 +15,8 @@ pub struct Connectors {
     pub composio_base_url: Option<String>,
     /// Toolkit to Composio auth config, for apps that sign in with your own OAuth app.
     pub composio_auth_configs: BTreeMap<String, String>,
+    /// Pipedream from `AYATI_PIPEDREAM_*`, used only without the providers file.
+    pub pipedream: Option<super::Pipedream>,
 }
 
 impl Connectors {
@@ -24,13 +26,15 @@ impl Connectors {
             composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
             composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
             composio_auth_configs: composio_auth_configs(env),
+            pipedream: super::Pipedream::read(env),
         };
         if connectors.providers_file.is_some()
             && (connectors.composio_key_file.is_some()
-                || !connectors.composio_auth_configs.is_empty())
+                || !connectors.composio_auth_configs.is_empty()
+                || connectors.pipedream.is_some())
         {
             env.problem(
-                "Set Composio in AYATI_CONNECTOR_PROVIDERS_FILE, without AYATI_COMPOSIO_KEY_FILE or AYATI_COMPOSIO_AUTH_CONFIGS",
+                "Set Composio and Pipedream in AYATI_CONNECTOR_PROVIDERS_FILE, without AYATI_COMPOSIO_* or AYATI_PIPEDREAM_* settings",
             );
         }
         connectors

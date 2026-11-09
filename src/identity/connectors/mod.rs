@@ -7,10 +7,10 @@
 //! jobs ([`ConnectorProvider`]); adding one is a module that implements them plus
 //! one line in [`configure`]. Agents never see a provider, its links or its keys.
 //!
-//! Providers today: operator-configured remote MCP servers (`mcp`) and Composio
-//! (`composio`). The provider is chosen per app and workspace ([`routing`]), so
-//! one app can move to another provider, or to a connector Cuckoo builds itself,
-//! without touching the others.
+//! Providers today: operator-configured remote MCP servers (`mcp`), Composio
+//! (`composio`) and Pipedream Connect (`pipedream`). The provider is chosen per
+//! app and workspace ([`routing`]), so one app can move to another provider, or
+//! to a connector Cuckoo builds itself, without touching the others.
 mod composio;
 mod composio_api;
 #[cfg(test)]
@@ -22,7 +22,18 @@ pub(crate) mod drift;
 pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
+#[cfg(test)]
+pub(crate) mod fake_pipedream;
 mod mcp_servers;
+mod pipedream;
+mod pipedream_accounts;
+mod pipedream_api;
+mod pipedream_events;
+mod pipedream_props;
+#[cfg(test)]
+mod pipedream_sign_in_tests;
+#[cfg(test)]
+mod pipedream_tests;
 pub(crate) mod pricing;
 pub(crate) mod providers_file;
 pub(crate) mod routes;
@@ -258,6 +269,8 @@ pub(crate) struct Settings {
     pub composio: Option<composio::Settings>,
     /// Composio's API: the official one, or a loopback fixture for tests.
     pub composio_base: String,
+    /// Pipedream from `AYATI_PIPEDREAM_*`, used only without the providers file.
+    pub pipedream: Option<pipedream::Settings>,
 }
 static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
@@ -305,6 +318,7 @@ pub(crate) fn settings_from(
     }
     Ok(Settings {
         mcp_servers_file,
+        pipedream: pipedream::Settings::from_config(connectors),
         providers_file: connectors.providers_file.clone(),
         composio,
         composio_base,
@@ -362,7 +376,36 @@ fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
             Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
         }
     }
+    let pipedream = match &settings.providers_file {
+        Some(_) => file().and_then(|f| {
+            f.pipedream()
+                .map(|e| pipedream::Settings::from_file(e, pipedream_api::OFFICIAL))
+        }),
+        None => settings.pipedream.clone(),
+    };
+    if let Some(pipedream) = pipedream {
+        match shared_pipedream(pipedream) {
+            Ok(provider) => providers.push(provider),
+            Err(error) => tracing::warn!("Pipedream connectors are unavailable: {error}"),
+        }
+    }
     providers
+}
+
+/// One Pipedream provider per settings, kept between uses so its access token
+/// is reused until it expires instead of fetched again for every call.
+fn shared_pipedream(settings: pipedream::Settings) -> Result<Arc<dyn ConnectorProvider>> {
+    static SHARED: std::sync::Mutex<Option<(pipedream::Settings, Arc<pipedream::Pipedream>)>> =
+        std::sync::Mutex::new(None);
+    let mut shared = SHARED.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some((saved, provider)) = shared.as_ref()
+        && *saved == settings
+    {
+        return Ok(provider.clone());
+    }
+    let provider = Arc::new(pipedream::Pipedream::new(settings.clone())?);
+    *shared = Some((settings, provider.clone()));
+    Ok(provider)
 }
 
 /// The names of the providers configured now.
@@ -433,6 +476,14 @@ pub(crate) fn composio_for_tests(fake: &fake_composio::FakeComposio) -> Arc<dyn 
         })
         .unwrap(),
     )
+}
+
+/// A Pipedream provider against a local fake, for tests outside this module.
+#[cfg(test)]
+pub(crate) fn pipedream_for_tests(
+    fake: &fake_pipedream::FakePipedream,
+) -> Arc<dyn ConnectorProvider> {
+    Arc::new(pipedream::Pipedream::new(fake.settings()).unwrap())
 }
 
 /// A fingerprint of everything that defines a saved account.

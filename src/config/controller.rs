@@ -75,7 +75,8 @@ pub struct Controller {
     pub web_search_providers_file: Option<PathBuf>,
     /// Agent computers' sizes and providers (runtime/agent-computers.md).
     pub computer_providers_file: Option<PathBuf>,
-    /// Connector providers: the providers file, or the legacy Composio settings.
+    /// Connector providers: the providers file, or the legacy Composio and
+    /// Pipedream settings.
     pub connectors: super::Connectors,
     pub event_sources_file: Option<PathBuf>,
     /// Developer transport servers (Communication MCP), a private 0600 file.

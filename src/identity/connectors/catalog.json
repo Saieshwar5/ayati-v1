@@ -5,7 +5,7 @@
       "category": "email_calendar",
       "description": "Email",
       "name": "Gmail",
-      "providers": { "composio": "gmail" },
+      "providers": { "composio": "gmail", "pipedream": "gmail" },
       "identity": { "composio": { "tool": "GMAIL_GET_PROFILE", "field": "emailAddress" } },
       "actions": [
         {
@@ -16,6 +16,10 @@
             "composio": {
               "tool": "GMAIL_FETCH_EMAILS",
               "fields": { "query": "query", "max_results": "max_results", "page_token": "page_token" }
+            },
+            "pipedream": {
+              "tool": "gmail-find-email",
+              "fields": { "query": "q", "max_results": "maxResults" }
             }
           }
         },
@@ -28,6 +32,10 @@
             "composio": {
               "tool": "GMAIL_CREATE_EMAIL_DRAFT",
               "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
+            },
+            "pipedream": {
+              "tool": "gmail-create-draft",
+              "fields": { "to": "to", "subject": "subject", "body": "body" }
             }
           }
         },
@@ -40,6 +48,10 @@
             "composio": {
               "tool": "GMAIL_SEND_EMAIL",
               "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html" }
+            },
+            "pipedream": {
+              "tool": "gmail-send-email",
+              "fields": { "to": "to", "subject": "subject", "body": "body" }
             }
           }
         },
@@ -62,7 +74,7 @@
       "category": "email_calendar",
       "description": "Calendar",
       "name": "Google Calendar",
-      "providers": { "composio": "googlecalendar" },
+      "providers": { "composio": "googlecalendar", "pipedream": "google_calendar" },
       "identity": { "composio": { "tool": "GOOGLECALENDAR_GET_CALENDAR", "arguments": { "calendar_id": "primary" }, "field": "id" } },
       "actions": [
         {
@@ -73,6 +85,10 @@
             "composio": {
               "tool": "GOOGLECALENDAR_FIND_EVENT",
               "fields": { "query": "query", "from": "time_min", "until": "time_max", "max_results": "max_results", "calendar_id": "calendar_id", "page_token": "page_token" }
+            },
+            "pipedream": {
+              "tool": "google_calendar-list-events",
+              "fields": { "query": "q", "from": "timeMin", "until": "timeMax", "max_results": "maxResults", "calendar_id": "calendarId" }
             }
           }
         },
@@ -85,6 +101,10 @@
             "composio": {
               "tool": "GOOGLECALENDAR_CREATE_EVENT",
               "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates", "attendees": "attendees" }
+            },
+            "pipedream": {
+              "tool": "google_calendar-create-event",
+              "fields": { "title": "summary", "description": "description", "location": "location", "start": "eventStartDate", "end": "eventEndDate", "timezone": "timeZone", "calendar_id": "calendarId" }
             }
           }
         }
@@ -95,7 +115,7 @@
       "category": "files",
       "description": "Spreadsheets",
       "name": "Google Sheets",
-      "providers": { "composio": "googlesheets" },
+      "providers": { "composio": "googlesheets", "pipedream": "google_sheets" },
       "actions": [
         {
           "id": "google_sheets.find_row",
@@ -117,6 +137,10 @@
             "composio": {
               "tool": "GOOGLESHEETS_GET_SPREADSHEET_INFO",
               "fields": { "spreadsheet_id": "spreadsheet_id" }
+            },
+            "pipedream": {
+              "tool": "google_sheets-get-spreadsheet-info",
+              "fields": { "spreadsheet_id": "spreadsheetId" }
             }
           }
         }
@@ -127,7 +151,7 @@
       "category": "files",
       "description": "Files and folders",
       "name": "Google Drive",
-      "providers": { "composio": "googledrive" },
+      "providers": { "composio": "googledrive", "pipedream": "google_drive" },
       "identity": { "composio": { "tool": "GOOGLEDRIVE_GET_ABOUT", "arguments": { "fields": "user" }, "field": "user.emailAddress" } },
       "actions": [
         {
@@ -138,6 +162,10 @@
             "composio": {
               "tool": "GOOGLEDRIVE_FIND_FILE",
               "fields": { "query": "q", "folder_id": "folder_id", "page_size": "pageSize", "page_token": "pageToken", "order_by": "orderBy" }
+            },
+            "pipedream": {
+              "tool": "google_drive-search-files",
+              "fields": { "query": "query", "page_size": "maxResults", "page_token": "pageToken" }
             }
           }
         }
