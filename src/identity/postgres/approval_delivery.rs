@@ -83,6 +83,8 @@ pub(super) async fn details(
     };
     value["can_decide"] =
         json!(a["state"] == "pending" && decision_authority(db, user, w, a).await.is_ok());
+    // Unconfirmed writes: who may say what happened, and what Cuckoo checked.
+    super::control_actions::outcomes::attach(db, user, w, a, &mut value).await?;
     Ok(value)
 }
 pub(super) async fn deliver(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
