@@ -22,6 +22,7 @@ const MAX_RESULT: usize = 64 * 1024;
 /// Seconds a sign-in page stays usable from Cuckoo's side.
 const SIGN_IN_SECONDS: i64 = 15 * 60;
 
+#[derive(Clone)]
 pub(crate) struct Settings {
     pub base: String,
     pub key_file: PathBuf,
@@ -31,15 +32,13 @@ pub(crate) struct Settings {
     pub auth_configs: BTreeMap<String, String>,
 }
 impl Settings {
-    pub(crate) fn from_config(config: &crate::config::Controller) -> Option<Self> {
-        Some(Self {
-            key_file: config.composio_key_file.clone()?,
-            base: config
-                .composio_base_url
-                .clone()
-                .unwrap_or_else(|| composio_api::OFFICIAL.into()),
-            auth_configs: config.composio_auth_configs.clone(),
-        })
+    /// Composio's entry in the connector providers file.
+    pub(crate) fn from_entry(entry: &super::providers_file::Composio, base: &str) -> Self {
+        Self {
+            base: base.into(),
+            key_file: entry.key_file.clone(),
+            auth_configs: entry.auth_configs.clone(),
+        }
     }
 }
 

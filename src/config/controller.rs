@@ -75,12 +75,8 @@ pub struct Controller {
     pub web_search_providers_file: Option<PathBuf>,
     /// Agent computers' sizes and providers (runtime/agent-computers.md).
     pub computer_providers_file: Option<PathBuf>,
-    /// Composio's project API key (a private 0600 file); no file, no Composio.
-    pub composio_key_file: Option<PathBuf>,
-    /// A loopback fixture for tests; the official API otherwise.
-    pub composio_base_url: Option<String>,
-    /// Toolkit to Composio auth config, for apps that sign in with your own OAuth app.
-    pub composio_auth_configs: std::collections::BTreeMap<String, String>,
+    /// Connector providers: the providers file, or the legacy Composio settings.
+    pub connectors: super::Connectors,
     pub event_sources_file: Option<PathBuf>,
     /// Developer transport servers (Communication MCP), a private 0600 file.
     pub transport_servers_file: Option<PathBuf>,
@@ -236,9 +232,7 @@ impl Controller {
             skill_writer_model: provider_model(env, "AYATI_SKILL_WRITER_MODEL"),
             web_search_providers_file: absolute(env, "AYATI_WEB_SEARCH_PROVIDERS_FILE"),
             computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
-            composio_key_file: absolute(env, "AYATI_COMPOSIO_KEY_FILE"),
-            composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
-            composio_auth_configs: composio_auth_configs(env),
+            connectors: super::Connectors::read(env),
             transport_servers_file: absolute(env, "AYATI_TRANSPORT_SERVERS_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
@@ -349,7 +343,6 @@ impl CloudWorkers {
     }
 }
 
-/// `gmail=ac_1,googlecalendar=ac_2`: which Composio auth config each toolkit uses.
 /// "provider:model", such as "openai:text-embedding-3-small".
 fn provider_model(env: &mut Reader, name: &str) -> Option<(String, String)> {
     let value = env.text(name)?;
@@ -363,27 +356,6 @@ fn provider_model(env: &mut Reader, name: &str) -> Option<(String, String)> {
         }
     }
 }
-fn composio_auth_configs(env: &mut Reader) -> std::collections::BTreeMap<String, String> {
-    let mut configs = std::collections::BTreeMap::new();
-    for pair in env
-        .text("AYATI_COMPOSIO_AUTH_CONFIGS")
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .filter(|p| !p.is_empty())
-    {
-        match pair.split_once('=') {
-            Some((toolkit, config)) if !toolkit.trim().is_empty() && !config.trim().is_empty() => {
-                configs.insert(toolkit.trim().to_lowercase(), config.trim().to_owned());
-            }
-            _ => env.problem(
-                "AYATI_COMPOSIO_AUTH_CONFIGS must look like gmail=ac_123,googlecalendar=ac_456",
-            ),
-        }
-    }
-    configs
-}
-
 fn test_endpoint(env: &mut Reader) -> Option<String> {
     let value = env.text("AYATI_AWS_TEST_ENDPOINT")?;
     let loopback = reqwest::Url::parse(&value).is_ok_and(|url| {

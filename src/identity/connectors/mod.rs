@@ -20,11 +20,14 @@ pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
 mod mcp_servers;
+pub(crate) mod providers_file;
 pub(crate) mod routes;
 
 use crate::identity::control::model::Operation;
 use anyhow::{Context, Result, ensure};
+use providers_file::ProvidersFile;
 use serde_json::{Value, json};
+use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 /// An app people can allow and connect, as Cuckoo shows it.
@@ -240,42 +243,112 @@ pub(crate) trait ConnectorProvider: Send + Sync {
     }
 }
 
-/// Process-wide provider settings, read once at controller start.
+/// Process-wide provider settings, set once at controller start. The providers
+/// file they name is read again on every use.
 pub(crate) struct Settings {
-    pub mcp_servers_file: Option<std::path::PathBuf>,
+    pub mcp_servers_file: Option<PathBuf>,
+    pub providers_file: Option<PathBuf>,
+    /// Composio from `AYATI_COMPOSIO_KEY_FILE`, used only without the providers file.
     pub composio: Option<composio::Settings>,
+    /// Composio's API: the official one, or a loopback fixture for tests.
+    pub composio_base: String,
 }
-static PROVIDERS: OnceLock<Vec<Arc<dyn ConnectorProvider>>> = OnceLock::new();
+static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
-/// Registers the providers this controller offers. The operator MCP file is
-/// always a provider; Composio only when its key is configured.
+/// Registers this controller's connector settings.
 pub(crate) fn configure(settings: Settings) {
+    let _ = SETTINGS.set(settings);
+}
+
+/// Reads the connector settings from the controller configuration and checks
+/// the providers file, so a broken one stops the controller at start.
+pub(crate) fn settings(config: &crate::config::Controller) -> Result<Settings> {
+    let connectors = &config.connectors;
+    let composio_base = connectors
+        .composio_base_url
+        .clone()
+        .unwrap_or_else(|| composio_api::OFFICIAL.into());
+    if let Some(file) = &connectors.providers_file {
+        let parsed = ProvidersFile::read(file)?;
+        parsed.check_files()?;
+        if let Some(entry) = parsed.composio() {
+            composio::Composio::new(composio::Settings::from_entry(entry, &composio_base))
+                .context("Composio in the connector providers file")?;
+        }
+    }
+    let composio = connectors
+        .composio_key_file
+        .clone()
+        .map(|key_file| composio::Settings {
+            base: composio_base.clone(),
+            key_file,
+            auth_configs: connectors.composio_auth_configs.clone(),
+        });
+    if let Some(legacy) = &composio
+        && let Err(error) = composio::Composio::new(legacy.clone())
+    {
+        tracing::warn!("Composio connectors are unavailable: {error}");
+    }
+    Ok(Settings {
+        mcp_servers_file: config.mcp_servers_file.clone(),
+        providers_file: connectors.providers_file.clone(),
+        composio,
+        composio_base,
+    })
+}
+
+/// The providers file, read now; `None` without one, or when it can't be read.
+fn file() -> Option<ProvidersFile> {
+    let path = SETTINGS.get()?.providers_file.as_ref()?;
+    match ProvidersFile::read(path) {
+        Ok(file) => Some(file),
+        Err(error) => {
+            tracing::warn!("The connector providers file can't be read: {error:#}");
+            None
+        }
+    }
+}
+
+/// The private file with Composio's project webhook secret, from the providers file.
+pub(crate) fn composio_webhook_secret_file() -> Option<PathBuf> {
+    file()?.composio()?.webhook_secret_file.clone()
+}
+
+/// US dollars for one call through `provider`, from the providers file.
+pub(crate) fn price_per_call(provider: &str) -> f64 {
+    file().map_or(0.0, |f| f.price_per_call(provider))
+}
+
+/// Pipedream's project from the providers file, for its provider to register.
+pub(crate) fn pipedream() -> Option<providers_file::Pipedream> {
+    file()?.pipedream().cloned()
+}
+
+/// The providers this controller offers now: the operator MCP file always, and
+/// Composio when its key is configured.
+fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
+    let Some(settings) = SETTINGS.get() else {
+        return vec![Arc::new(mcp_servers::McpServers::new(
+            crate::identity::control::catalog::file(),
+        ))];
+    };
     let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![Arc::new(
-        mcp_servers::McpServers::new(settings.mcp_servers_file),
+        mcp_servers::McpServers::new(settings.mcp_servers_file.clone()),
     )];
-    if let Some(composio) = settings.composio {
+    let composio = match &settings.providers_file {
+        Some(_) => file().and_then(|f| {
+            f.composio()
+                .map(|e| composio::Settings::from_entry(e, &settings.composio_base))
+        }),
+        None => settings.composio.clone(),
+    };
+    if let Some(composio) = composio {
         match composio::Composio::new(composio) {
             Ok(provider) => providers.push(Arc::new(provider)),
             Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
         }
     }
-    let _ = PROVIDERS.set(providers);
-}
-
-/// Reads the Composio settings from the controller configuration.
-pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
-    Settings {
-        mcp_servers_file: config.mcp_servers_file.clone(),
-        composio: composio::Settings::from_config(config),
-    }
-}
-
-fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
-    PROVIDERS.get().cloned().unwrap_or_else(|| {
-        vec![Arc::new(mcp_servers::McpServers::new(
-            crate::identity::control::catalog::file(),
-        ))]
-    })
+    providers
 }
 
 pub(crate) fn named(name: &str) -> Result<Arc<dyn ConnectorProvider>> {

@@ -57,7 +57,7 @@ pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()>
         )?;
     }
     let store = postgres::PgStore::open(&config).await?;
-    super::configure_process(&config);
+    super::configure_process(&config)?;
     std::fs::write(&marker, database_name)?;
     let simulation = seed::prepare(&root, &store).await?;
     let app = Arc::new(App {
