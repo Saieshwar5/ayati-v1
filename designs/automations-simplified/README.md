@@ -46,3 +46,15 @@ and offer quick actions that can be undone (Pause / Resume), always with a link 
 
 Server rules don't change: resuming still needs the person who set a schedule up (or a fresh
 review of access for triggers), and an app's builder or an admin changes its triggers in the app.
+
+## Notes from building (2026-11-09)
+
+- **Members' own schedules.** The owner approved letting a member save the schedule an
+  agent proposes to them in Chat. It runs as them, with their access. A schedule that
+  posts into a conversation stays private to the people in it, so managers see a count
+  ("N more … stay private") instead of the row; pausing the agent still stops it.
+- **Resuming a trigger** needs its access reviewed again, so Upcoming pauses triggers in
+  place but resumes them on the agent ("Review and resume in <agent>").
+- **Tasks** keeps its "Follow-up set" group: those are open tasks. Upcoming lists the
+  follow-up itself; "Coming up" on Now is replaced by a link to Upcoming.
+- The Review table's weekly-review switch stays where it is for now.
