@@ -1,0 +1,5 @@
+/* Need another app? in agent setup and the Tools tab (designs/connector-screens 5). */
+.need-app { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding: 12px 16px; border: 1px dashed var(--border-control); border-radius: 12px; }
+.need-app-plus { display: inline-flex; color: var(--muted); }
+.need-app-text { display: grid; gap: 2px; flex: 1; min-width: 180px; font-size: 14px; }
+.need-app-text small { color: var(--muted); font-size: 12.5px; }

@@ -1,6 +1,8 @@
-# Connector screens (proposal)
+# Connector screens
 
-Drawn 2026-11-08 for owner review. **Not approved and not built.** It changes how
+Drawn 2026-11-08 for owner review, approved, and **built in the client the same day**
+(see [Built](#built) below; the server endpoints follow the
+[contracts](../connector-layer/contracts.md)). It changes how
 admins add and manage connected services on Apps, and adds health states where
 people meet those services. It follows the connector plan in
 [connector layer](../connector-layer/README.md): Composio now, Cuckoo's own
@@ -80,3 +82,32 @@ Server (each is in the connector plan):
 3. Approve "Did this go out?" and who may answer it (managers and admins).
 4. Approve showing the connection service to admins only, in small text.
 5. Approve "MCP server" appearing in Add app as the next kind, before it is built.
+
+## Built
+
+Built 2026-11-08 in the React client (`web/src/react/apps/`, `approvals/outcome-dialog.tsx`,
+agent setup step 2 and the Tools tab); the "Add and manage apps" drawer and its
+components are removed. Details, requests and checks: [Apps page](../../runtime/apps-page.md).
+The screenshots are the real client rendered with Vite and sample answers to its
+requests, including the schema 107–108 fields that the server does not send yet, at
+1440 × 900 (the phone shots at 390 × 844), in light and dark (`-dark`).
+
+| File | Screen |
+| --- | --- |
+| `built-1-apps-service-panel.png` | Apps with five card states and Gmail's panel: Writes paused with Check what happened, rules and kinds editable, Used by, Account with "through Composio", Reconnect and Disconnect Gmail…. |
+| `built-1-apps-service-panel-phone.png` | The same panel stacked under the cards at 390 px, without horizontal scrolling. |
+| `built-2-add-app-catalog.png` | Add app: categories, server search, tiles with kinds and state, Load more, Other ways to add with MCP server as next. |
+| `built-3-connect-a-service.png` | Connect Google Drive: starting rules first, sign-in on the app's page. |
+| `built-3-connected.png` | Back from sign-in: the account, its starting rules, Choose agents, Change rules, Done. |
+| `built-3-connect-failed.png` | Back from a failed sign-in: nothing was connected, Try again. |
+| `built-4-check-unconfirmed-write.png` | Did this go out?: why writes are paused, the exact fields, what Cuckoo checked, two answers and a note. |
+| `built-5-agent-setup-tools.png` | New agent step 2 with health tags, About these apps, and Need another app for an admin. |
+| `built-6-agent-tools-tab.png` | The Tools tab with the same tags, Check it and Reconnect on Apps. |
+| `built-6-member-catalog.png` | A member's catalog with Request, Requested and Suggest another app. |
+| `built-6-activity-needs-review.png` | Activity's Needs review; Check opens Did this go out?. |
+
+Differences from the drawings: the dialog titles carry no app tile; "Did this go out?"
+uses "It went through / It did not go through" for every kind of action; the starting
+rules show one row per kind when this Cuckoo does not list the app's actions; members
+open the catalog from **Request an app**; agent setup opens sign-in in a new tab so the
+draft is kept.

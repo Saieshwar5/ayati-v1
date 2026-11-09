@@ -11,3 +11,26 @@
 .approval-guard.block { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
 .approval-guard strong { display: block; margin-bottom: 4px; }
 .approval-guard p { margin: 0; }
+/* Did this go out? (designs/connector-screens 4) */
+.ui-dialog:has(.outcome-view) { width: min(720px, calc(100vw - 32px)); }
+.outcome-view { display: grid; gap: 16px; overflow-wrap: anywhere; font-size: 14px; }
+.outcome-view p { margin: 0; }
+.outcome-callout { display: flex; gap: 8px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--warning-bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+.outcome-callout .mark-icon { margin-top: 3px; color: var(--warning); }
+.outcome-sent { display: grid; gap: 4px; margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); font-size: 14px; }
+.outcome-sent > div { display: grid; grid-template-columns: minmax(80px, 110px) 1fr; gap: 12px; }
+.outcome-sent dt { color: var(--muted); text-transform: capitalize; }
+.outcome-sent dd { margin: 0; white-space: pre-wrap; }
+.outcome-checks h3 { margin: 0 0 6px; font-size: 14px; }
+.outcome-checks ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
+.outcome-checks li::marker { color: var(--muted); }
+.outcome-answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; border: 0; padding: 0; margin: 0; }
+.outcome-answers legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+.outcome-answers label { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border-control); border-radius: 12px; cursor: pointer; }
+.outcome-answers label.chosen { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.outcome-answers input { margin: 3px 0 0; accent-color: var(--accent); }
+.outcome-answers span { display: grid; gap: 2px; font-size: 14px; }
+.outcome-answers small { color: var(--muted); font-size: 12.5px; }
+.outcome-answered { padding: 12px 14px; border-radius: 12px; background: var(--soft); display: grid; gap: 4px; }
+.outcome-foot-note { margin-right: auto; }
+@media (max-width: 600px) { .outcome-sent > div { grid-template-columns: 1fr; gap: 0; } }

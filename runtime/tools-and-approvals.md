@@ -7,8 +7,8 @@ built in M3).
 ## Who sets what
 
 - **Admins** set the workspace rule for each action of each connected account in
-  **Settings → Connections**: Allow, Ask first or Block, plus "Someone other than
-  the requester must approve".
+  its panel on **Apps** ([Apps page](apps-page.md#what-admins-do)): Allow, Ask first
+  or Block, plus "Someone other than the requester must approve".
   - A missing rule is the safe default from what the action does (schema 65,
     [company rules](guard-rules.md#what-actions-do)): reading Allow, deleting Block,
     everything else Ask first.

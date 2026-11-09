@@ -105,6 +105,7 @@ export function AgentCreate({ start, close, created, webSearch = false, computer
         choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
+        refresh={() => void available.refresh().catch(() => {})}
         builtIn={(webSearch || computers) && <BuiltInTools>
           {webSearch && <WebSearchChoice name={draft.name.trim() || 'This agent'} on={searchesWeb(draft.settings)}
             change={on => setDraft(old => ({ ...old, settings: { ...old.settings, web_search: on } }))} />}

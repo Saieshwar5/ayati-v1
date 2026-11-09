@@ -1,5 +1,10 @@
 # Workspace connections and delegated agent setup
 
+> **Updated 2026-11-08:** the Connections screen is gone. Admins manage each service
+> in its panel on [Apps](apps-page.md#what-admins-do) and connect new ones from Add app
+> in one step. The approval and connection requests described here remain; the panel
+> uses them to reconnect and to disconnect.
+>
 > **Updated 2026-11-08 (schema 108):** reconnecting the same proven account with
 > an unchanged review keeps its rules; see [connector providers](connector-providers.md).
 >

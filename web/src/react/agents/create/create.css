@@ -80,8 +80,9 @@
 .agent-kind.money { background: var(--warning-bg); color: var(--warning); }
 .agent-kind.sends_outside { color: var(--receipt-seen); }
 .agent-kind.delete { color: var(--danger); }
-.agent-setup-steps { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 6px; }
-.agent-setup-steps strong { display: block; }
+.agent-app-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.agent-apps-about p { margin: 0 0 10px; }
+.agent-apps-about p:last-child { margin-bottom: 0; }
 .agent-system-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 16px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--soft); font-size: 13px; }
 .agent-system-bar > span { flex: 1; min-width: 200px; }
 .agent-system-bar .ui-button { border: 0; background: transparent; padding: 4px 0; min-height: 32px; text-decoration: underline; }

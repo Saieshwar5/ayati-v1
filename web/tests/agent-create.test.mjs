@@ -30,7 +30,7 @@ test('a failed create keeps the whole draft and a double click sends one request
     await click(button('Continue'));
     assert.deepEqual([...document.querySelectorAll('.agent-create-steps li')].map(step => step.textContent.slice(1)),
       ['Name and picture', 'Tools', 'Skills', 'People', 'Controls']);
-    assert.match(document.body.textContent, /No connectors yet/);
+    assert.match(document.body.textContent, /No apps yet/);
     await click(button('Continue'));
     await click(button('Customer support'));
     assert.match(field('Ground rules').value, /You are Iris, our customer support assistant/);
