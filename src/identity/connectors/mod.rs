@@ -7,8 +7,8 @@
 //! jobs ([`ConnectorProvider`]); adding one is a module that implements them plus
 //! one line in [`configure`]. Agents never see a provider, its links or its keys.
 //!
-//! Providers today: operator-configured remote MCP servers (`mcp`) and Composio
-//! (`composio`). The provider is chosen per app, so one app can move to another
+//! Providers today: operator-configured remote MCP servers (`mcp`), Composio
+//! (`composio`) and Pipedream Connect (`pipedream`). The provider is chosen per app, so one app can move to another
 //! provider, or to a connector Cuckoo builds itself, without touching the others.
 mod composio;
 mod composio_api;
@@ -19,7 +19,18 @@ pub(crate) mod curated;
 pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
+#[cfg(test)]
+pub(crate) mod fake_pipedream;
 mod mcp_servers;
+mod pipedream;
+mod pipedream_accounts;
+mod pipedream_api;
+mod pipedream_events;
+mod pipedream_props;
+#[cfg(test)]
+mod pipedream_sign_in_tests;
+#[cfg(test)]
+mod pipedream_tests;
 pub(crate) mod routes;
 
 use crate::identity::control::model::Operation;
@@ -244,11 +255,12 @@ pub(crate) trait ConnectorProvider: Send + Sync {
 pub(crate) struct Settings {
     pub mcp_servers_file: Option<std::path::PathBuf>,
     pub composio: Option<composio::Settings>,
+    pub pipedream: Option<pipedream::Settings>,
 }
 static PROVIDERS: OnceLock<Vec<Arc<dyn ConnectorProvider>>> = OnceLock::new();
 
 /// Registers the providers this controller offers. The operator MCP file is
-/// always a provider; Composio only when its key is configured.
+/// always a provider; Composio and Pipedream only when they are configured.
 pub(crate) fn configure(settings: Settings) {
     let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![Arc::new(
         mcp_servers::McpServers::new(settings.mcp_servers_file),
@@ -259,14 +271,21 @@ pub(crate) fn configure(settings: Settings) {
             Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
         }
     }
+    if let Some(pipedream) = settings.pipedream {
+        match pipedream::Pipedream::new(pipedream) {
+            Ok(provider) => providers.push(Arc::new(provider)),
+            Err(error) => tracing::warn!("Pipedream connectors are unavailable: {error}"),
+        }
+    }
     let _ = PROVIDERS.set(providers);
 }
 
-/// Reads the Composio settings from the controller configuration.
+/// Reads the provider settings from the controller configuration.
 pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
     Settings {
         mcp_servers_file: config.mcp_servers_file.clone(),
         composio: composio::Settings::from_config(config),
+        pipedream: pipedream::Settings::from_config(config),
     }
 }
 
@@ -323,6 +342,14 @@ pub(crate) fn composio_for_tests(fake: &fake_composio::FakeComposio) -> Arc<dyn 
         })
         .unwrap(),
     )
+}
+
+/// A Pipedream provider against a local fake, for tests outside this module.
+#[cfg(test)]
+pub(crate) fn pipedream_for_tests(
+    fake: &fake_pipedream::FakePipedream,
+) -> Arc<dyn ConnectorProvider> {
+    Arc::new(pipedream::Pipedream::new(fake.settings()).unwrap())
 }
 
 /// A fingerprint of everything that defines a saved account.
