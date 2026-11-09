@@ -59,29 +59,50 @@ impl Operation {
             let field = properties
                 .get(name)
                 .ok_or_else(|| anyhow::anyhow!("Unknown operation field"))?;
-            let valid = match field["type"].as_str().unwrap() {
-                "string" => value
-                    .as_str()
-                    .is_some_and(|s| s.len() <= 2000 && !s.contains('\0')),
-                "integer" => value
-                    .as_i64()
-                    .is_some_and(|n| n.unsigned_abs() <= 9_007_199_254_740_991),
-                "number" => value
-                    .as_f64()
-                    .is_some_and(|n| n.is_finite() && n.abs() <= 9_007_199_254_740_991.0),
-                "boolean" => value.is_boolean(),
-                _ => false,
-            };
-            ensure!(valid, "Operation field type or size is invalid");
-            if let Some(values) = field.get("enum") {
-                ensure!(
-                    values.as_array().unwrap().contains(value),
-                    "Operation field is outside the supported choices"
-                );
+            if field["type"] == "array" {
+                let items = value
+                    .as_array()
+                    .filter(|v| v.len() as u64 <= field["maxItems"].as_u64().unwrap())
+                    .ok_or_else(|| anyhow::anyhow!("Operation list is invalid or too long"))?;
+                for item in items {
+                    plain_value(&field["items"], item)?;
+                }
+            } else {
+                plain_value(field, value)?;
             }
         }
         Ok(())
     }
+    /// Whether any field takes a list (only providers with list fields offer one).
+    pub fn has_list_fields(&self) -> bool {
+        self.schema["properties"]
+            .as_object()
+            .is_some_and(|p| p.values().any(|f| f["type"] == "array"))
+    }
+}
+/// One plain value of a reviewed field: its type, size and choices.
+fn plain_value(field: &Value, value: &Value) -> Result<()> {
+    let valid = match field["type"].as_str().unwrap() {
+        "string" => value
+            .as_str()
+            .is_some_and(|s| s.len() <= 2000 && !s.contains('\0')),
+        "integer" => value
+            .as_i64()
+            .is_some_and(|n| n.unsigned_abs() <= 9_007_199_254_740_991),
+        "number" => value
+            .as_f64()
+            .is_some_and(|n| n.is_finite() && n.abs() <= 9_007_199_254_740_991.0),
+        "boolean" => value.is_boolean(),
+        _ => false,
+    };
+    ensure!(valid, "Operation field type or size is invalid");
+    if let Some(values) = field.get("enum") {
+        ensure!(
+            values.as_array().unwrap().contains(value),
+            "Operation field is outside the supported choices"
+        );
+    }
+    Ok(())
 }
 fn schema(value: &Value) -> Result<()> {
     let object = value
@@ -124,31 +145,57 @@ fn schema(value: &Value) -> Result<()> {
                     "type",
                     "description",
                     "title",
-                    "enum"
+                    "enum",
+                    "items",
+                    "maxItems"
                 ]
                 .contains(&k.as_str()))),
             "Unsupported operation field schema"
         );
-        ensure!(
-            field["type"]
-                .as_str()
-                .is_some_and(|s| ["string", "integer", "number", "boolean"].contains(&s)),
-            "Nested or dynamic operation schemas are not supported yet"
-        );
-        if let Some(values) = field.get("enum") {
+        if field["type"] == "array" {
+            // A bounded list of one plain type, such as cc or attendees.
             ensure!(
-                values.as_array().is_some_and(|a| !a.is_empty()
-                    && a.len() <= 30
-                    && a.iter().all(|v| match field["type"].as_str() {
-                        Some("string") => v.is_string(),
-                        Some("integer") => v.as_i64().is_some(),
-                        Some("number") => v.is_number(),
-                        Some("boolean") => v.is_boolean(),
-                        _ => false,
-                    })),
-                "Unsupported operation choices"
+                field.get("enum").is_none()
+                    && field["maxItems"]
+                        .as_u64()
+                        .is_some_and(|n| (1..=20).contains(&n))
+                    && field["items"]
+                        .as_object()
+                        .is_some_and(|v| v.keys().all(|k| ["type", "enum"].contains(&k.as_str()))),
+                "Operation lists need one plain item type and at most 20 items"
             );
+            plain_field(&field["items"])?;
+            continue;
         }
+        ensure!(
+            field.get("items").is_none() && field.get("maxItems").is_none(),
+            "Unsupported operation field schema"
+        );
+        plain_field(field)?;
+    }
+    Ok(())
+}
+/// A field of one plain type, with valid choices if it lists them.
+fn plain_field(field: &Value) -> Result<()> {
+    ensure!(
+        field["type"]
+            .as_str()
+            .is_some_and(|s| ["string", "integer", "number", "boolean"].contains(&s)),
+        "Nested or dynamic operation schemas are not supported yet"
+    );
+    if let Some(values) = field.get("enum") {
+        ensure!(
+            values.as_array().is_some_and(|a| !a.is_empty()
+                && a.len() <= 30
+                && a.iter().all(|v| match field["type"].as_str() {
+                    Some("string") => v.is_string(),
+                    Some("integer") => v.as_i64().is_some(),
+                    Some("number") => v.is_number(),
+                    Some("boolean") => v.is_boolean(),
+                    _ => false,
+                })),
+            "Unsupported operation choices"
+        );
     }
     Ok(())
 }
@@ -207,5 +254,46 @@ mod tests {
         }
         op.schema["properties"]["id"]["pattern"] = json!("[a-z]+");
         assert!(op.validate().is_err());
+    }
+
+    #[test]
+    fn list_fields_take_bounded_lists_of_one_plain_type() {
+        let mut op = Operation {
+            id: "gmail.send_email".into(),
+            title: "Send an email".into(),
+            tool: "GMAIL_SEND_EMAIL".into(),
+            effect: "write".into(),
+            schema: json!({"type":"object","properties":{
+                "to":{"type":"string"},
+                "cc":{"type":"array","items":{"type":"string"},"maxItems":3,"description":"Copies"},
+                "days":{"type":"array","items":{"type":"integer","enum":[1,2]},"maxItems":2}},
+                "required":["to"],"additionalProperties":false}),
+            version: None,
+        };
+        assert!(op.has_list_fields());
+        op.arguments(&json!({"to":"a@x.test","cc":["b@x.test","c@x.test"],"days":[2]}))
+            .unwrap();
+        op.arguments(&json!({"to":"a@x.test","cc":[]})).unwrap();
+        for input in [
+            json!({"to":"a@x.test","cc":"b@x.test"}),
+            json!({"to":"a@x.test","cc":["a","b","c","d"]}),
+            json!({"to":"a@x.test","cc":[1]}),
+            json!({"to":"a@x.test","cc":[["nested"]]}),
+            json!({"to":"a@x.test","days":[3]}),
+            json!({"to":["a@x.test"]}),
+        ] {
+            assert!(op.arguments(&input).is_err(), "{input}");
+        }
+        // Lists must be bounded, of one plain type, and nothing else.
+        for field in [
+            json!({"type":"array","items":{"type":"string"}}),
+            json!({"type":"array","items":{"type":"string"},"maxItems":21}),
+            json!({"type":"array","items":{"type":"object"},"maxItems":2}),
+            json!({"type":"array","items":{"type":"string","pattern":"x"},"maxItems":2}),
+            json!({"type":"string","maxItems":2}),
+        ] {
+            op.schema["properties"]["cc"] = field.clone();
+            assert!(op.validate().is_err(), "{field}");
+        }
     }
 }

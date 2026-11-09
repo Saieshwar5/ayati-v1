@@ -221,7 +221,7 @@ impl Fixture for Composio {
     fn write(&self) -> (&'static str, Value) {
         (
             "gmail.send_email",
-            json!({"to":"sharma@example.test","subject":"Balance","body":"₹1.48L due"}),
+            json!({"to":"sharma@example.test","cc":["accounts@example.test"],"subject":"Balance","body":"₹1.48L due"}),
         )
     }
     fn sign_in(&self, binding: &Value) {
@@ -280,7 +280,7 @@ async fn composio_passes_the_provider_suite() {
     assert_eq!(tool, "GMAIL_SEND_EMAIL");
     assert_eq!(
         sent,
-        &json!({"recipient_email":"sharma@example.test","subject":"Balance","body":"₹1.48L due"})
+        &json!({"recipient_email":"sharma@example.test","cc":["accounts@example.test"],"subject":"Balance","body":"₹1.48L due"})
     );
 }
 
@@ -318,8 +318,13 @@ async fn composio_offers_only_actions_it_can_run_with_reviewed_plain_fields() {
     );
     let send = operation(&account, "gmail.send_email");
     assert_eq!(send.version.as_deref(), Some(fake_composio::VERSION));
+    // A list of plain values is offered, bounded; a list of objects is not.
+    assert_eq!(
+        send.schema["properties"]["cc"],
+        json!({"type":"array","items":{"type":"string"},"maxItems":20,"description":"Copies"})
+    );
     assert!(
-        send.schema["properties"].get("cc").is_none()
+        send.schema["properties"].get("bcc").is_none()
             && send.schema["properties"].get("user_id").is_none()
     );
     // Another workspace can't use this account.

@@ -167,7 +167,10 @@ pub(crate) fn project(action: &Action, binding: &Binding, provider: &Value) -> O
     required.dedup();
     let mut fields = Map::new();
     for (cuckoo, name) in &binding.fields {
-        match properties.get(name).and_then(plain) {
+        match properties
+            .get(name)
+            .and_then(|f| plain(f).or_else(|| listed(f)))
+        {
             Some(field) => {
                 fields.insert(cuckoo.clone(), field);
             }
@@ -212,6 +215,39 @@ fn plain(field: &Value) -> Option<Value> {
     }
     Some(out)
 }
+
+/// A provider field that takes a list of plain values (cc, attendees), as a
+/// bounded list of one plain type. Items the provider also accepts as objects
+/// are offered as their plain alternative only. Anything else is left out.
+fn listed(field: &Value) -> Option<Value> {
+    if field["type"] != "array" {
+        return None;
+    }
+    let items = &field["items"];
+    let item = plain(items).or_else(|| {
+        ["anyOf", "oneOf"]
+            .iter()
+            .filter_map(|k| items[*k].as_array())
+            .flatten()
+            .find_map(plain)
+    })?;
+    let mut item = item.as_object()?.clone();
+    item.remove("description");
+    let most = field["maxItems"]
+        .as_u64()
+        .filter(|n| (1..=MAX_ITEMS).contains(n))
+        .unwrap_or(MAX_ITEMS);
+    let mut out = json!({"type":"array","items":item,"maxItems":most});
+    if let Some(text) = field["description"]
+        .as_str()
+        .filter(|t| !t.trim().is_empty())
+    {
+        out["description"] = json!(text.chars().take(500).collect::<String>());
+    }
+    Some(out)
+}
+/// The most values a list field takes.
+pub(crate) const MAX_ITEMS: u64 = 20;
 
 /// Cuckoo's argument names translated to the provider's.
 pub(crate) fn provider_arguments(
@@ -259,10 +295,11 @@ mod tests {
             schema["properties"]["to"],
             json!({"type":"string","description":"Who gets it"})
         );
-        assert!(
-            schema["properties"].get("cc").is_none()
-                && schema["properties"].get("user_id").is_none()
+        assert_eq!(
+            schema["properties"]["cc"],
+            json!({"type":"array","items":{"type":"string"},"maxItems":20})
         );
+        assert!(schema["properties"].get("user_id").is_none());
         let operation = crate::identity::control::model::Operation {
             id: send.id.clone(),
             title: send.title.clone(),
@@ -286,5 +323,57 @@ mod tests {
         let mut nested = provider;
         nested["properties"]["recipient_email"] = json!({"type":"array"});
         assert!(project(send, binding, &nested).is_none());
+    }
+
+    #[test]
+    fn list_fields_are_bounded_lists_of_plain_values_and_anything_else_is_left_out() {
+        let attendees = |items: Value| json!({"type":"array","items":items,"description":"Guests"});
+        let string =
+            json!({"type":"array","items":{"type":"string"},"maxItems":20,"description":"Guests"});
+        // Items given as an email or an object are offered as emails.
+        let either = attendees(json!({"anyOf":[{"type":"string"},{"type":"object"}]}));
+        assert_eq!(listed(&either), Some(string.clone()));
+        assert_eq!(
+            listed(&attendees(json!({"type":"string","description":"x"}))),
+            Some(string)
+        );
+        let mut few = attendees(json!({"type":"integer","enum":[1,2]}));
+        few["maxItems"] = json!(5);
+        assert_eq!(
+            listed(&few).unwrap(),
+            json!({"type":"array","items":{"type":"integer","enum":[1,2]},"maxItems":5,"description":"Guests"})
+        );
+        for field in [
+            attendees(json!({"type":"object"})),
+            attendees(json!({"type":"array","items":{"type":"string"}})),
+            json!({"type":"array"}),
+            json!({"type":"object"}),
+        ] {
+            assert!(listed(&field).is_none(), "{field}");
+        }
+        // The calendar's attendees reach the agent as a list it can fill.
+        let create = app("google_calendar")
+            .unwrap()
+            .actions
+            .iter()
+            .find(|a| a.id == "google_calendar.create_event")
+            .unwrap();
+        let provider = json!({"type":"object","properties":{"summary":{"type":"string"},
+            "start_datetime":{"type":"string"},"attendees":either},"required":[]});
+        let schema = project(create, &create.providers["composio"], &provider).unwrap();
+        assert_eq!(schema["properties"]["attendees"]["maxItems"], 20);
+        let operation = crate::identity::control::model::Operation {
+            id: create.id.clone(),
+            title: create.title.clone(),
+            tool: "GOOGLECALENDAR_CREATE_EVENT".into(),
+            effect: "write".into(),
+            schema,
+            version: None,
+        };
+        operation
+            .arguments(
+                &json!({"title":"Review","start":"2026-11-09T10:00:00","attendees":["a@x.test"]}),
+            )
+            .unwrap();
     }
 }

@@ -198,7 +198,8 @@ fn schema(slug: &str, changed: bool) -> Option<Value> {
             json!({"type":"object","properties":{"query":text("Gmail search"),"max_results":{"type":"integer"},"page_token":{"type":"string"},"label_ids":{"type":"array","items":{"type":"string"}},"user_id":{"type":"string","default":"me"}},"required":[]})
         }
         "GMAIL_SEND_EMAIL" => {
-            json!({"type":"object","properties":{"recipient_email":text("Who gets it"),"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},"cc":{"type":"array"},"user_id":{"type":"string"}},"required":[]})
+            json!({"type":"object","properties":{"recipient_email":text("Who gets it"),"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},
+                "cc":{"type":"array","items":{"type":"string"},"description":"Copies"},"bcc":{"type":"array","items":{"type":"object"}},"user_id":{"type":"string"}},"required":[]})
         }
         "GMAIL_CREATE_EMAIL_DRAFT" => {
             json!({"type":"object","properties":{"recipient_email":{"type":"string"},"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},"thread_id":{"type":"string"}},"required":[]})

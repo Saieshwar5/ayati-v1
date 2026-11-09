@@ -26,7 +26,7 @@
           "providers": {
             "composio": {
               "tool": "GMAIL_CREATE_EMAIL_DRAFT",
-              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
+              "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
             }
           }
         },
@@ -38,7 +38,7 @@
           "providers": {
             "composio": {
               "tool": "GMAIL_SEND_EMAIL",
-              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html" }
+              "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html" }
             }
           }
         },
@@ -82,7 +82,7 @@
           "providers": {
             "composio": {
               "tool": "GOOGLECALENDAR_CREATE_EVENT",
-              "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates" }
+              "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates", "attendees": "attendees" }
             }
           }
         }

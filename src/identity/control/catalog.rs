@@ -97,6 +97,11 @@ pub(crate) fn servers_in(path: Option<&Path>, workspace: &str) -> Result<Vec<Ser
         let mut names = std::collections::HashSet::new();
         for op in &server.operations {
             op.validate()?;
+            // Operator MCP servers offer plain fields only (no list fields).
+            ensure!(
+                !op.has_list_fields(),
+                "MCP operations take plain fields only"
+            );
             ensure!(names.insert(&op.id), "Duplicate operation identity");
         }
     }

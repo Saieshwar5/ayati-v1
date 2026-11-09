@@ -145,7 +145,11 @@ pub(crate) fn summary(rule: &Value, action: &str) -> String {
 }
 
 /// `None` when the facts can't decide, for example a missing or wrongly typed field.
+/// A list (cc, attendees) never matches a text or amount condition.
 pub(super) fn holds(actual: &Value, comparator: &str, expected: &Value) -> Option<bool> {
+    if actual.is_array() {
+        return Some(false);
+    }
     if let (Some(a), Some(b)) = (actual.as_f64(), expected.as_f64()) {
         return Some(match comparator {
             ">" => a > b,
@@ -341,6 +345,7 @@ pub(super) async fn check(
             let before: f64 = query(db, &format!("SELECT COALESCE(sum((a.arguments->>$4)::numeric),0)::float8 AS total FROM relay_control_actions a WHERE a.workspace=$1 AND {scope} AND a.state IN {COUNTED} AND jsonb_typeof(a.arguments->$4)='number' AND a.created >= $5"),
                 vec![w.into(), target.into(), rule["connection"].as_str().map(str::to_owned).into(), field.into(), day_start.into()]).await?.context("Workspace unavailable")?.try_get("", "total")?;
             match actual.as_f64() {
+                None if actual.is_array() => (Some(false), json!({"field":field})),
                 Some(amount) => (
                     holds(&json!(before + amount), comparator, &rule["value"]),
                     json!({"field":field,"amount":amount,"today_before":before,"today_after":before + amount,"limit":rule["value"]}),
@@ -456,6 +461,17 @@ mod pure {
             summary(&looked, "Refund an order"),
             "Refund an order: if total from Find an order is over 2000, ask first."
         );
+    }
+    #[test]
+    fn lists_never_match_text_or_amount_conditions() {
+        let cc = json!(["owner@example.test"]);
+        for (comparator, value) in [
+            ("=", json!("owner@example.test")),
+            ("!=", json!("x")),
+            (">", json!(1)),
+        ] {
+            assert_eq!(holds(&cc, comparator, &value), Some(false), "{comparator}");
+        }
     }
     #[test]
     fn windows_wrap_midnight_and_respect_days() {
