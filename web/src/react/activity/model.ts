@@ -163,7 +163,7 @@ export type TaskItem = TaskRef & {
 };
 export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
 export const taskLabels: Record<TaskStatus, string> = {
-  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Scheduled', late: 'Late',
+  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late',
   done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',
 };
 export const taskTone = (status: TaskStatus) => status === 'needs_fixing' || status === 'late' || status === 'failed' ? 'problem'

@@ -32,7 +32,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   const pause = (item: Details) => void mutation.run(async () => {
     const schedule = item.schedule!;
     await changeSchedule(schedule.agent, schedule.id, { request: crypto.randomUUID(), revision: schedule.revision, enabled: false });
-    mutation.setStatus('Schedule paused. Resume it from the agent\'s Schedules.'); setVersion(v => v + 1);
+    mutation.setStatus('Schedule paused. Resume it on the agent\'s Automations tab.'); setVersion(v => v + 1);
   });
   // A run in its schedule's own room has no conversation to open.
   const room = Boolean(data?.schedule?.room);

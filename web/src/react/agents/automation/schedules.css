@@ -21,3 +21,13 @@
 .routine-choice:has(input:checked) { border-color: var(--text); }
 .routine-choice span { display: grid; gap: 4px; }
 .routine-choice small { color: var(--muted); }
+/* Automations tab: two groups, On a schedule and When something happens. */
+.automation-group { margin-top: 22px; }
+.automation-group > .agent-section-heading { align-items: start; gap: 18px; flex-wrap: wrap; }
+.automation-group > .agent-section-heading h4 { margin: 0; font-size: 16px; }
+.automation-group > .agent-section-heading p { margin: 4px 0 0; color: var(--muted); }
+.automation-tools { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+/* The panel's small uppercase h4 is for labels; names and group titles read as text. */
+.agent-workspace-panel .automation-group > .agent-section-heading h4 { margin: 0; font-size: 16px; color: var(--text); text-transform: none; }
+.agent-workspace-panel .routine-row h4 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); text-transform: none; }
+.routine-row header .ui-badge { text-transform: none; }

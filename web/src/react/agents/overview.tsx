@@ -41,7 +41,7 @@ export function AgentOverview({ agent, open, people }: {
         {fact('Managers', names.join(', ') || 'None', agent.editable ? people : undefined)}
         {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}
         {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
-        {fact('Schedules', 'Routines and triggers', () => open('Schedules'), 'View')}
+        {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}
         {fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
       </dl>
     </aside>

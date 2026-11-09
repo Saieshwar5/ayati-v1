@@ -5,7 +5,7 @@ import { TaskDetails } from './task-details';
 import { clock, dayLabel, loadTasks, taskLabels, taskTone, waitingLabels, type Scope, type TaskItem, type TaskStatus } from './model';
 
 const groups: [TaskStatus, string][] = [['needs_fixing', 'Needs fixing'], ['late', 'Late'], ['waiting', 'Waiting'],
-  ['working', 'Working'], ['open', 'Open'], ['scheduled', 'Scheduled']];
+  ['working', 'Working'], ['open', 'Open'], ['scheduled', 'Follow-up set']];
 
 /** Activity → Tasks: everything the agents have taken on and not finished, what
  * needs a person first (people-and-agents-first, Phase 2). */

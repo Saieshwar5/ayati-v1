@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automations Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rail: #f1f2f4; --surface: #ffffff; --line: #e6e7ea; --text: #17181b; --muted: #6b6f76; --soft: #f5f6f8;
+  --primary: #1d1e22; --on-primary: #fff; --ok: #2f7a3e; --ok-soft: #e7f3ea; --warn: #8a5a00; --warn-soft: #fff3e2;
+  --accent: #4b55c8; --accent-soft: #eef0ff; --tag: #eef0f3; --note: #e3b008; --danger: #b42318; --shade: rgba(20,20,25,.38);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --rail: #111215; --surface: #1b1c20; --line: #2c2e33; --text: #ececee; --muted: #9a9ea6; --soft: #222328;
+  --primary: #ececee; --on-primary: #121316; --ok: #6cc07d; --ok-soft: #1f3324; --warn: #efbc77; --warn-soft: #3a2f1c;
+  --accent: #9da0ff; --accent-soft: #262a48; --tag: #2a2c31; --danger: #ff8a7a; --shade: rgba(0,0,0,.6);
+} }
+:root[data-theme="dark"] {
+  --rail: #111215; --surface: #1b1c20; --line: #2c2e33; --text: #ececee; --muted: #9a9ea6; --soft: #222328;
+  --primary: #ececee; --on-primary: #121316; --ok: #6cc07d; --ok-soft: #1f3324; --warn: #efbc77; --warn-soft: #3a2f1c;
+  --accent: #9da0ff; --accent-soft: #262a48; --tag: #2a2c31; --danger: #ff8a7a; --shade: rgba(0,0,0,.6);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--rail); color: var(--text); font: 14px/1.45 Inter, system-ui, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Prototype bar (not part of the product) */
+.proto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px dashed var(--line); }
+.proto strong { margin-right: 6px; font-size: 13px; }
+.proto button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; }
+.proto button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.proto .spacer { flex: 1; }
+
+.stage { display: flex; gap: 0; min-height: calc(100vh - 50px); }
+.app { flex: 1; display: flex; padding: 12px 12px 12px 0; min-width: 0; }
+.rail { width: 84px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 22px; flex-shrink: 0; }
+.rail .logo { font-weight: 700; font-size: 22px; margin-bottom: 20px; }
+.rail span { width: 62px; padding: 8px 0; border-radius: 10px; text-align: center; font-size: 11px; color: var(--muted); }
+.rail span svg { display: block; margin: 0 auto 2px; }
+.rail span.on { background: var(--primary); color: var(--on-primary); }
+.frame { flex: 1; display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; min-width: 0; position: relative; }
+.notes { width: 320px; padding: 18px 20px; flex-shrink: 0; }
+.notes h2 { font-size: 17px; margin: 0 0 12px; }
+.notes ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.notes li { display: flex; gap: 10px; font-size: 13px; }
+.notes li b { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--note); color: #fff; font-size: 11px; display: grid; place-items: center; }
+.notes .sub { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 0; }
+.notes .sub button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; font-size: 12px; }
+.notes .sub button[aria-pressed="true"] { border-color: var(--text); font-weight: 600; }
+
+/* Shared product pieces */
+.list { width: 270px; border-right: 1px solid var(--line); padding: 24px 14px; flex-shrink: 0; }
+.list h1 { font-size: 22px; margin: 0; }
+.list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.row-agent { display: flex; gap: 12px; padding: 9px 10px; border-radius: 10px; align-items: center; }
+.row-agent.on { background: var(--soft); }
+.row-agent small { display: block; color: var(--muted); }
+.face { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+.face.sm { width: 24px; height: 24px; border-radius: 7px; font-size: 10px; }
+.main { flex: 1; padding: 24px 34px; overflow: auto; min-width: 0; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; font-weight: 500; white-space: nowrap; }
+.btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-weight: 600; }
+.btn.small { padding: 4px 10px; font-size: 12.5px; }
+.btn.link { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 500; }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--tag); color: var(--muted); white-space: nowrap; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.accent { background: var(--accent-soft); color: var(--accent); }
+.muted { color: var(--muted); }
+.agent-head { display: flex; align-items: center; gap: 14px; }
+.agent-head h2 { margin: 0; font-size: 24px; }
+.agent-head .face { width: 52px; height: 52px; border-radius: 12px; font-size: 18px; }
+.agent-head .grow { flex: 1; }
+.tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); margin: 16px 0 6px; overflow-x: auto; }
+.tabs span { padding: 10px 0; color: var(--muted); white-space: nowrap; border-bottom: 2px solid transparent; }
+.tabs span.on { color: var(--text); font-weight: 600; border-color: var(--text); }
+.tabs span.new::after { content: "renamed"; font-size: 10px; font-weight: 600; margin-left: 6px; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+.sec-head { display: flex; justify-content: space-between; align-items: center; margin: 22px 0 6px; gap: 12px; }
+.sec-head h3 { margin: 0; font-size: 15px; }
+.sec-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.item { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.item:first-of-type { border-top: 1px solid var(--line); }
+.ico { width: 36px; height: 36px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex-shrink: 0; }
+.ico.event { background: var(--warn-soft); color: var(--warn); }
+.ico.follow { background: var(--tag); color: var(--muted); }
+.item .what { flex: 1; min-width: 0; }
+.item .what small { display: block; color: var(--muted); }
+.item .when { width: 190px; color: var(--muted); font-size: 13px; }
+.switch { width: 38px; height: 22px; border-radius: 999px; border: 0; background: var(--line); position: relative; flex-shrink: 0; padding: 0; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch[aria-checked="true"] { background: var(--primary); }
+.switch[aria-checked="true"]::after { left: 19px; background: var(--on-primary); }
+.foot { color: var(--muted); font-size: 13px; margin-top: 14px; }
+.callout { background: var(--accent-soft); border-radius: 10px; padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+/* Dialog */
+.shade { position: absolute; inset: 0; background: var(--shade); display: grid; place-items: center; padding: 20px; }
+.dialog { background: var(--surface); border-radius: 14px; width: min(620px, 100%); max-height: 100%; overflow: auto; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.dialog h3 { margin: 0; font-size: 18px; }
+.dialog header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.steps-mini { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
+.choice-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choice-card { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 16px; display: grid; gap: 8px; }
+.choice-card:hover { border-color: var(--text); }
+.choice-card strong { font-size: 15px; }
+.choice-card small { color: var(--muted); }
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label, .field .lab { font-weight: 600; font-size: 13px; }
+.field input, .field select, .field textarea { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; width: 100%; }
+.field textarea { min-height: 70px; resize: vertical; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; }
+.pills button[aria-pressed="true"] { border-color: var(--text); background: var(--soft); font-weight: 600; }
+.inline { display: flex; gap: 8px; flex-wrap: wrap; }
+.inline > * { flex: 1; min-width: 120px; }
+.summary { background: var(--soft); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.summary p { margin: 0 0 6px; }
+.dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+/* Activity */
+.page-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.page-head h1 { margin: 0; font-size: 26px; }
+.search { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; width: 240px; background: var(--surface); }
+.atabs { display: flex; gap: 4px; margin: 16px 0 14px; flex-wrap: wrap; align-items: center; }
+.atabs span { padding: 7px 14px; border-radius: 8px; color: var(--muted); }
+.atabs span.on { background: var(--soft); color: var(--text); font-weight: 600; }
+.atabs span .count { background: var(--danger); color: #fff; font-size: 11px; border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
+.atabs span.new::after { content: "new"; font-size: 10px; font-weight: 600; margin-left: 6px; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+.atabs span.ren::after { content: "renamed"; font-size: 10px; font-weight: 600; margin-left: 6px; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+.atabs .grow { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg button { border: 0; background: none; padding: 4px 10px; border-radius: 6px; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--text); font-weight: 600; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.filters button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; }
+.filters button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.day { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; text-transform: uppercase; }
+.up { display: grid; grid-template-columns: 64px 120px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.up .time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.up .who { display: flex; gap: 8px; align-items: center; }
+.up .what small { display: block; color: var(--muted); }
+.up .acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.up.paused .time, .up.paused .what strong { color: var(--muted); text-decoration: line-through; }
+.toast { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--primary); color: var(--on-primary); padding: 9px 16px; border-radius: 9px; font-size: 13px; display: flex; gap: 12px; align-items: center; }
+.toast button { background: none; border: 0; color: inherit; text-decoration: underline; font-weight: 600; }
+
+/* Chat */
+.convs { width: 250px; border-right: 1px solid var(--line); padding: 22px 12px; flex-shrink: 0; }
+.convs h1 { font-size: 22px; margin: 0 0 12px 6px; }
+.chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chat-head { padding: 16px 26px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
+.msgs { flex: 1; padding: 22px 26px; display: flex; flex-direction: column; gap: 16px; overflow: auto; }
+.msg { display: flex; gap: 10px; max-width: 640px; }
+.msg.me { align-self: flex-end; }
+.msg.me .bubble { background: var(--primary); color: var(--on-primary); }
+.bubble { background: var(--soft); border-radius: 12px; padding: 10px 14px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 10px; background: var(--surface); color: var(--text); display: grid; gap: 8px; }
+.card .top { display: flex; gap: 10px; align-items: center; }
+.card dl { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; margin: 0; font-size: 13px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; }
+.composer { border-top: 1px solid var(--line); padding: 14px 26px; }
+.composer div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); }
+.empty { border: 1px dashed var(--line); border-radius: 12px; padding: 26px; text-align: center; margin-top: 18px; display: grid; gap: 10px; justify-items: center; }
+.empty p { margin: 0; max-width: 520px; }
+.example { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-style: italic; }
+
+/* Map */
+.map { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.place { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.place h3 { margin: 0; font-size: 15px; }
+.place .job { color: var(--muted); font-size: 13px; }
+.place ul { margin: 2px 0 0; padding-left: 18px; font-size: 13px; }
+.place .lab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 6px; }
+table.vocab { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13.5px; }
+table.vocab th, table.vocab td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.vocab th { color: var(--muted); font-weight: 600; font-size: 12px; }
+s { color: var(--muted); }
+
+@media (max-width: 1180px) { .notes { width: 260px; } .list { display: none; } }
+@media (max-width: 900px) {
+  .stage { flex-direction: column; } .notes { width: auto; padding: 12px 16px 24px; }
+  .app { padding: 0; } .rail, .convs { display: none; } .frame { border-radius: 0; border-left: 0; border-right: 0; min-height: 80vh; }
+  .main { padding: 18px 16px; } .item .when { display: none; } .choice-cards { grid-template-columns: 1fr; }
+  .up { grid-template-columns: 54px 1fr; } .up .who { display: none; } .up .acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .search { display: none; } .msgs, .chat-head, .composer { padding-left: 16px; padding-right: 16px; }
+}
+</style>
+</head>
+<body>
+<nav class="proto" aria-label="Prototype screens">
+  <strong>Design proposal</strong>
+  <button data-screen="map">Map</button>
+  <button data-screen="tab">1 · Automations tab</button>
+  <button data-screen="create">2 · New automation</button>
+  <button data-screen="upcoming">3 · Activity › Upcoming</button>
+  <button data-screen="chat">4 · Ask in Chat</button>
+  <button data-screen="home">5 · One home per thing</button>
+  <span class="spacer"></span>
+  <button id="theme">Dark / light</button>
+</nav>
+<div class="stage">
+  <div class="app">
+    <nav class="rail" aria-label="Main" id="rail"></nav>
+    <div class="frame" id="frame"></div>
+  </div>
+  <aside class="notes" id="notes" aria-label="Design notes"></aside>
+</div>
+<script>
+const icon = {
+  home: '<path d="M3 10.5 12 4l9 6.5V20h-6v-6H9v6H3z"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  agents: '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/>',
+  library: '<path d="M5 4v16M9 4v16M13 5l4 15"/>',
+  apps: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  settings: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  bolt: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+  clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+};
+const svg = (name, size = 18) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon[name]}</svg>`;
+const faces = { Atlas: '#7cb342', Ledger: '#e0b400', Nova: '#6d6f75', Scout: '#3949ab', Iris: '#e8502a' };
+const face = (name, cls = '') => `<span class="face ${cls}" style="background:${faces[name]}" aria-hidden="true">${name[0]}</span>`;
+
+const state = {
+  screen: 'map', dialog: 'choose', kind: null, repeat: 'week', role: 'manager', chatSaved: false,
+  homeView: 'review', filter: 'all', scope: 'mine', toast: '',
+  automations: [
+    { id: 'a1', kind: 'time', name: 'Morning stock check', detail: 'Every day at 9:00 · posts in #warehouse · by Ravi Kumar', next: 'Next: tomorrow 9:00', on: true },
+    { id: 'a2', kind: 'time', name: 'Weekly delivery summary', detail: 'Mondays at 10:00 · posts in #orders · by Meera Iyer', next: 'Next: Mon 17 Nov, 10:00', on: true },
+    { id: 'a3', kind: 'time', name: 'Month-end order report', detail: '1st of each month at 8:00 · direct chat with Meera Iyer', next: 'Paused', on: false },
+    { id: 'a4', kind: 'event', name: 'New order in Zoho Books', detail: 'Check stock and post in #orders · by Ravi Kumar', next: 'Ran 6 times this week', on: true },
+    { id: 'a5', kind: 'event', name: 'New return in Returns app', detail: 'Check the order and reply to the customer · by Kavya Nair', next: 'Ran 2 times this week', on: true, from: 'Added from Returns app' },
+  ],
+  upcoming: [
+    { id: 'u1', day: 'Today', time: '14:00', agent: 'Ledger', kind: 'Schedule', name: 'Bank reconciliation', detail: 'Every weekday · Activity only', on: true },
+    { id: 'u2', day: 'Today', time: '16:30', agent: 'Nova', kind: 'Follow-up', name: 'Check if Sharma Traders replied', detail: 'Set by Nova on task “Quote for Sharma Traders”', on: true },
+    { id: 'u3', day: 'Today', time: '18:00', agent: 'Iris', kind: 'Schedule', name: 'Post new arrivals', detail: 'Every day · posts in #marketing', on: true },
+    { id: 'u4', day: 'Tomorrow', time: '09:00', agent: 'Atlas', kind: 'Schedule', name: 'Morning stock check', detail: 'Every day · posts in #warehouse', on: true },
+    { id: 'u5', day: 'Mon 17 Nov', time: '10:00', agent: 'Atlas', kind: 'Schedule', name: 'Weekly delivery summary', detail: 'Mondays · posts in #orders', on: true },
+    { id: 'u6', day: 'Always on', time: '—', agent: 'Atlas', kind: 'Trigger', name: 'New order in Zoho Books', detail: 'Ran 6 times this week · last 11:42', on: true },
+    { id: 'u7', day: 'Always on', time: '—', agent: 'Atlas', kind: 'Trigger', name: 'New return in Returns app', detail: 'Ran 2 times this week · added from Returns app', on: true },
+  ],
+};
+
+const notes = {
+  map: { title: 'Where everything lives', items: [
+    'Each place has one job. A thing is created and edited in exactly one place, its home.',
+    'Other places may show it and offer quick, undoable actions (Pause / Resume), always with a link to its home.',
+    'One word per idea: Automation = runs on its own; Schedule = at a time; Trigger = when something happens; Follow-up = the agent checks back.',
+  ]},
+  tab: { title: 'Agent › Automations', items: [
+    'The tab “Schedules” becomes “Automations”: schedules and triggers both live here, so the name matches what is inside.',
+    'Two plain sections: On a schedule, When something happens. Same row layout, same switch, same ⋯ menu.',
+    'One button, “New automation”, instead of separate New schedule / New trigger buttons.',
+    'Triggers made from an app (Apps › Returns) are listed here too, marked “Added from Returns app”. Their home is the agent.',
+    'Click a switch to pause or resume. It does the same thing as Pause in Activity.',
+  ]},
+  create: { title: 'New automation', items: [
+    'Step 1 asks one question in plain words: When should Atlas start? At a time, or when something happens.',
+    'Step 2 is a short form: what to do, when, and where results go. Common repeats are one click (Every day / week / month).',
+    'Step 3 reads back the whole thing as a sentence before saving, and reminds that Ask-first rules still apply.',
+    'Today’s two separate forms and their wording (“deliveries”, “event source”, “authorized by”) stay underneath as details.',
+  ]},
+  upcoming: { title: 'Activity › Upcoming', items: [
+    'One new tab answers “What will my agents do on their own, and when?” for the whole workspace.',
+    'It replaces two scattered views: Now › Coming up (24 h only) and Tasks › Scheduled.',
+    'Pause and Resume happen in place, with Undo. No more “pause here, resume on another page”.',
+    '“Edit in Atlas ↗” opens the automation’s home, Agent › Automations. Follow-ups open their task.',
+    'Filters by kind, and My agents / All agents like the rest of Activity.',
+  ]},
+  chat: { title: 'Ask in Chat', items: [
+    'Anyone who can talk to an agent can ask for an automation in their own words.',
+    'The agent replies with a card that uses the same words as the Automations tab: Schedule, When, Results.',
+    'After saving, the card links to both places it now appears: Activity › Upcoming and Atlas › Automations.',
+    'Members who open Automations but can’t edit see how to get one, instead of a dead end.',
+  ]},
+  home: { title: 'One home per thing', items: [
+    '“Progress” becomes “Review”: how agents are doing. It suggests rule changes but no longer makes them.',
+    'A suggestion opens Atlas › Tools with that action highlighted, where every rule is changed.',
+    'An agent’s Activity tab says it is a filtered view and links to the full Activity page.',
+    'Result: settings change only on Agents; Activity is for watching, answering and pausing.',
+  ]},
+};
+
+function rail(active) {
+  const items = [['home', 'Home'], ['chat', 'Chat'], ['activity', 'Activity'], ['agents', 'Agents'], ['library', 'Library'], ['apps', 'Apps'], ['settings', 'Settings']];
+  return `<div class="logo" aria-hidden="true">~</div>` + items.map(([id, label]) => `<span class="${id === active ? 'on' : ''}">${svg(id)}${label}</span>`).join('');
+}
+function agentList() {
+  return `<aside class="list"><div class="list-head"><h1>Agents</h1><button class="btn primary small">＋ New agent</button></div>
+    ${['Atlas|Orders assistant', 'Ledger|Accounts helper', 'Nova|Sales follow-up', 'Scout|Stock checker'].map((s, i) => {
+      const [n, r] = s.split('|'); return `<div class="row-agent ${i === 0 ? 'on' : ''}">${face(n)}<div><strong>${n}</strong><small>${r}</small></div></div>`; }).join('')}</aside>`;
+}
+function agentHead(tab) {
+  const tabs = ['Overview', 'Activity', 'Instructions', 'Tools', 'Automations', 'Environment'];
+  return `<div class="agent-head">${face('Atlas')}<div class="grow"><h2>Atlas <span class="badge ok">Available</span></h2><div class="muted">Orders assistant · owned by Ravi Kumar</div></div><button class="btn primary">Open in Chat</button></div>
+    <div class="tabs" role="presentation">${tabs.map(t => `<span class="${t === tab ? 'on' : ''} ${t === 'Automations' ? 'new' : ''}">${t}</span>`).join('')}</div>`;
+}
+function autoRow(a) {
+  return `<div class="item"><span class="ico ${a.kind === 'event' ? 'event' : ''}">${svg(a.kind === 'event' ? 'bolt' : 'cal')}</span>
+    <div class="what"><strong>${a.name}</strong> ${a.from ? `<span class="badge accent">${a.from}</span>` : ''}<small>${a.detail}</small></div>
+    <div class="when">${a.on ? a.next : 'Paused'}</div>
+    <button class="switch" role="switch" aria-checked="${a.on}" aria-label="${a.name} on" data-auto="${a.id}"></button>
+    <button class="btn small" aria-label="More for ${a.name}">⋯</button></div>`;
+}
+function automationsTab(memberView) {
+  if (memberView) return `${agentHead('Automations')}
+    <div class="empty">${svg('clock', 28)}<p><strong>Atlas has 5 automations.</strong> Only Atlas’s managers (Ravi Kumar, Meera Iyer) can add or change them here.</p>
+      <p class="muted">You can still get one: ask Atlas in Chat, in your own words.</p>
+      <div class="example">“Every Friday at 5 pm, send me this week’s delayed orders.”</div>
+      <button class="btn primary" data-go="chat">Ask Atlas in Chat</button>
+      <button class="btn link" data-go="upcoming">See what runs when in Activity › Upcoming</button></div>`;
+  const time = state.automations.filter(a => a.kind === 'time'), events = state.automations.filter(a => a.kind === 'event');
+  return `${agentHead('Automations')}
+    <div class="sec-head"><div><h3>Automations</h3><p>Work Atlas does on its own. Every run follows Atlas’s tool rules; Ask-first actions still wait for a manager.</p></div>
+      <button class="btn primary" data-open-create>＋ New automation</button></div>
+    <div class="sec-head"><div><h3>${svg('cal', 15)} On a schedule</h3></div><span class="muted">${time.length}</span></div>
+    ${time.map(autoRow).join('')}
+    <div class="sec-head"><div><h3>${svg('bolt', 15)} When something happens</h3></div><span class="muted">${events.length}</span></div>
+    ${events.map(autoRow).join('')}
+    <p class="foot">Runs and anything that needs you appear in <button class="btn link" data-go="upcoming">Activity › Upcoming</button> and History.</p>`;
+}
+function createDialog() {
+  const d = state.dialog;
+  const stepLabel = { choose: 'Step 1 of 3 · When', time: 'Step 2 of 3 · Details', event: 'Step 2 of 3 · Details', review: 'Step 3 of 3 · Check and save' }[d];
+  let body = '';
+  if (d === 'choose') body = `<p style="margin:0 0 14px">When should Atlas start this work?</p>
+    <div class="choice-cards">
+      <button class="choice-card" data-kind="time"><span class="ico">${svg('cal')}</span><strong>At a time</strong><small>Once, or repeating: every day, every Monday, the 1st of each month.</small><small><em>e.g. “Every morning, check stock.”</em></small></button>
+      <button class="choice-card" data-kind="event"><span class="ico event">${svg('bolt')}</span><strong>When something happens</strong><small>In a connected app: a new order, a new invoice, a form sent, a record changed.</small><small><em>e.g. “When an order arrives, check stock.”</em></small></button>
+    </div>`;
+  if (d === 'time') body = `
+    <div class="field"><label for="n1">Name</label><input id="n1" value="Weekly delayed orders"></div>
+    <div class="field"><label for="w1">What should Atlas do?</label><textarea id="w1">List orders that are more than 3 days late and who is waiting on them.</textarea></div>
+    <div class="field"><span class="lab">Repeat</span><div class="pills" role="group" aria-label="Repeat">
+      ${[['once', 'Once'], ['day', 'Every day'], ['week', 'Every week'], ['month', 'Every month'], ['custom', 'Custom…']].map(([v, l]) => `<button data-repeat="${v}" aria-pressed="${state.repeat === v}">${l}</button>`).join('')}</div></div>
+    <div class="inline">
+      ${state.repeat === 'week' ? '<div class="field"><label for="d1">On</label><select id="d1"><option>Friday</option><option>Monday</option></select></div>' : ''}
+      ${state.repeat === 'month' ? '<div class="field"><label for="d2">Day</label><select id="d2"><option>1st</option><option>Last day</option></select></div>' : ''}
+      ${state.repeat === 'once' ? '<div class="field"><label for="d3">Date</label><input id="d3" value="Fri 14 Nov 2026"></div>' : ''}
+      <div class="field"><label for="t1">At</label><input id="t1" value="17:00"></div>
+      <div class="field"><label for="z1">Time zone</label><select id="z1"><option>India (IST)</option></select></div></div>
+    <div class="field"><label for="r1">Where results go</label><select id="r1"><option>My chat with Atlas</option><option>#orders</option><option>Activity only</option></select></div>`;
+  if (d === 'event') body = `
+    <div class="field"><label for="n2">Name</label><input id="n2" value="New order in Zoho Books"></div>
+    <div class="inline"><div class="field"><label for="a2">App</label><select id="a2"><option>Zoho Books</option><option>Returns app</option><option>Google Sheets</option></select></div>
+      <div class="field"><label for="e2">When</label><select id="e2"><option>An order is created</option><option>An invoice is paid</option></select></div></div>
+    <div class="field"><label for="f2">Only if <span class="muted" style="font-weight:400">(optional)</span></label><input id="f2" placeholder="e.g. Status is Confirmed"></div>
+    <div class="field"><label for="w2">What should Atlas do?</label><textarea id="w2">Check stock for each item and post any shortage in #orders.</textarea></div>
+    <div class="field"><label for="r2">Where results go</label><select id="r2"><option>#orders</option><option>Activity only</option></select></div>`;
+  if (d === 'review') body = state.kind === 'time'
+    ? `<div class="summary"><p><strong>Every Friday at 17:00 (IST)</strong>, Atlas will list orders that are more than 3 days late and who is waiting on them.</p><p class="muted">Results go to your chat with Atlas. First run: Fri 14 Nov, 17:00.</p></div>
+       <p class="muted">Each run follows Atlas’s tool rules. Ask-first actions still wait for a manager. You can pause it any time from here or Activity › Upcoming.</p>`
+    : `<div class="summary"><p><strong>When an order is created in Zoho Books</strong>, Atlas will check stock for each item and post any shortage in #orders.</p><p class="muted">Starts with the next new order. Earlier orders are not processed.</p></div>
+       <p class="muted">Each run follows Atlas’s tool rules. Ask-first actions still wait for a manager.</p>`;
+  const back = d === 'choose' ? '' : `<button class="btn" data-dlg-back>Back</button>`;
+  const next = d === 'choose' ? '' : d === 'review' ? `<button class="btn primary" data-save>Save automation</button>` : `<button class="btn primary" data-dlg="review">Continue</button>`;
+  return `<div class="shade"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+    <header><h3 id="dlg-title">New automation for Atlas</h3><button class="btn small" data-close aria-label="Close">✕</button></header>
+    <div class="steps-mini">${stepLabel}</div>${body}<footer>${back}${next}</footer></div></div>`;
+}
+function activityTabs(on) {
+  const tabs = [['needs', 'Needs me', '<span class="count">5</span>'], ['now', 'Now'], ['upcoming', 'Upcoming'], ['history', 'History'], ['review', 'Review']];
+  return `<div class="page-head"><h1>Activity</h1><input class="search" aria-label="Search activity" placeholder="Search activity"></div>
+    <div class="atabs">${tabs.map(([id, l, extra]) => `<span class="${id === on ? 'on' : ''} ${id === 'upcoming' ? 'new' : ''} ${id === 'review' ? 'ren' : ''}">${l}${extra ?? ''}</span>`).join('')}
+    <span class="grow"></span><div class="seg" role="group" aria-label="Whose agents">${[['mine', 'My agents'], ['all', 'All agents']].map(([v, l]) => `<button data-scope="${v}" aria-pressed="${state.scope === v}">${l}</button>`).join('')}</div></div>`;
+}
+function upcoming() {
+  const kinds = [['all', 'All'], ['Schedule', 'Schedules'], ['Trigger', 'Triggers'], ['Follow-up', 'Follow-ups']];
+  const list = state.upcoming.filter(u => state.filter === 'all' || u.kind === state.filter).filter(u => state.scope === 'all' || u.agent !== 'Iris');
+  const days = [...new Set(list.map(u => u.day))];
+  const badge = k => k === 'Trigger' ? 'warn' : k === 'Follow-up' ? '' : 'accent';
+  return `<main class="main">${activityTabs('upcoming')}
+    <div class="filters" role="group" aria-label="Kind">${kinds.map(([v, l]) => `<button data-filter="${v}" aria-pressed="${state.filter === v}">${l}</button>`).join('')}</div>
+    ${days.map(day => `<div class="day">${day}</div>${list.filter(u => u.day === day).map(u => `
+      <div class="up ${u.on ? '' : 'paused'}"><span class="time">${u.time}</span><span class="who">${face(u.agent, 'sm')}${u.agent}</span>
+        <span class="what"><strong>${u.name}</strong> <span class="badge ${badge(u.kind)}">${u.kind}</span><small>${u.on ? u.detail : 'Paused · ' + u.detail}</small></span>
+        <span class="acts">${u.kind === 'Follow-up'
+          ? `<button class="btn small" data-up="${u.id}">${u.on ? 'Cancel follow-up' : 'Restore'}</button><button class="btn link">Open task ↗</button>`
+          : `<button class="btn small" data-up="${u.id}">${u.on ? 'Pause' : 'Resume'}</button><button class="btn link" data-go="tab">Edit in ${u.agent} ↗</button>`}</span></div>`).join('')}`).join('')}
+    ${!list.length ? '<p class="muted">Nothing coming up.</p>' : ''}
+    <p class="foot">Times are in India (IST). New automations are added on an agent’s Automations tab or by asking in Chat.</p>
+    ${state.toast ? `<div class="toast" role="status">${state.toast}<button data-undo>Undo</button></div>` : ''}</main>`;
+}
+function chat() {
+  if (state.role === 'member') return `${agentList()}<main class="main">${automationsTab(true)}</main>`;
+  const card = state.chatSaved
+    ? `<div class="card"><div class="top"><span class="ico">${svg('cal')}</span><div><strong>Schedule saved · Weekly delayed orders</strong><br><small class="muted">Every Friday at 17:00 · results here in this chat</small></div></div>
+        <div class="inline" style="flex:none"><button class="btn small" data-go="upcoming">See in Activity › Upcoming</button><button class="btn small" data-go="tab">Manage in Atlas › Automations</button></div></div>`
+    : `<div class="card"><div class="top"><span class="ico">${svg('cal')}</span><div><strong>Schedule · Weekly delayed orders</strong><br><small class="muted">Atlas suggests this. Nothing runs until you save it.</small></div></div>
+        <dl><dt>When</dt><dd>Every Friday at 17:00 (IST), first on Fri 14 Nov</dd><dt>Atlas will</dt><dd>List orders more than 3 days late and who is waiting</dd><dt>Results</dt><dd>Here, in this chat</dd></dl>
+        <div class="inline" style="flex:none"><button class="btn primary small" data-chat-save>Save schedule</button><button class="btn small">Change time</button><button class="btn small">Not now</button></div></div>`;
+  return `<aside class="convs"><h1>Chat</h1>${['Atlas', 'Ledger', 'Nova'].map((n, i) => `<div class="row-agent ${i === 0 ? 'on' : ''}">${face(n)}<div><strong>${n}</strong><small>${i === 0 ? 'Schedule suggested' : 'Yesterday'}</small></div></div>`).join('')}</aside>
+    <section class="chat"><div class="chat-head">${face('Atlas')}<div><strong>Atlas</strong><br><small class="muted">Orders assistant</small></div></div>
+      <div class="msgs"><div class="msg me"><div class="bubble">Every Friday at 5 pm, send me this week’s delayed orders.</div></div>
+        <div class="msg">${face('Atlas')}<div><div class="bubble">Sure. Here is the schedule I’d set up. Save it and I’ll run it every Friday.</div>${card}</div></div></div>
+      <div class="composer"><div>Message Atlas…</div></div></section>`;
+}
+function oneHome() {
+  if (state.homeView === 'agentActivity') return `${agentList()}<main class="main">${agentHead('Activity')}
+    <div class="callout"><span>Showing <strong>Atlas</strong> only. This is the same list as Activity, filtered to one agent.</span><button class="btn small" data-go="upcoming">Open all activity ↗</button></div>
+    ${[['11:42', 'New order in Zoho Books', 'Trigger · checked stock, posted in #orders', 'ok', 'Done'], ['10:05', 'Update the Kapoor order address', 'Ravi Kumar · direct chat', 'ok', 'Done'], ['09:00', 'Morning stock check', 'Schedule · posted in #warehouse', 'ok', 'Done'], ['Yesterday', 'Refund for order #1031', 'Kavya Nair · waiting for approval', 'warn', 'Waiting']]
+      .map(([t, n, d, b, s]) => `<div class="item"><span class="when" style="width:90px">${t}</span><div class="what"><strong>${n}</strong><small>${d}</small></div><span class="badge ${b}">${s}</span></div>`).join('')}</main>`;
+  return `<main class="main">${activityTabs('review')}
+    <div class="sec-head"><div><h3>Suggestions</h3><p>Patterns from the last 30 days. Changes are made on the agent’s Tools tab, where every rule lives.</p></div></div>
+    <div class="item"><span class="ico">${face('Atlas', 'sm')}</span><div class="what"><strong>Atlas asked before “Read invoices” 14 times; you approved all 14.</strong><small>Suggestion: change this action from Ask first to Allow.</small></div>
+      <button class="btn small" data-go="tab">Review in Atlas › Tools ↗</button></div>
+    <div class="item"><span class="ico">${face('Nova', 'sm')}</span><div class="what"><strong>Nova’s “Send quote” was rejected 3 times this week.</strong><small>Suggestion: read the rejections and update Nova’s instructions.</small></div>
+      <button class="btn small">Review in Nova › Instructions ↗</button></div>
+    <div class="sec-head"><div><h3>How agents are doing · last 30 days</h3></div></div>
+    ${[['Atlas', '212', '3', '98%'], ['Ledger', '64', '0', '100%'], ['Nova', '41', '5', '88%']].map(([n, d, f, o]) => `<div class="item">${face(n, 'sm')}<div class="what"><strong>${n}</strong></div><span class="when" style="width:auto;white-space:nowrap">${d} done · ${f} failed · ${o} on time</span></div>`).join('')}
+  </main>`;
+}
+function map() {
+  const places = [
+    ['Chat', 'Ask agents for work, together with people.', ['Conversations'], ['Schedule cards the agent suggests (saved to the agent)']],
+    ['Activity', 'Watch and answer: what needs me, now, upcoming, what happened.', ['Answers to approvals and questions'], ['Every run, task and automation, with Pause / Resume / Stop']],
+    ['Agents', 'Set an agent up, including what it does on its own.', ['Instructions, Tools rules, Automations, Model'], ['Its own activity (filtered view of Activity)']],
+    ['Apps', 'Your apps and connections.', ['Apps, connections, app data'], ['“When something happens” shortcut, which creates the trigger on an agent']],
+    ['Settings', 'Rules for everyone.', ['People, allowed models, workspace rules'], []],
+  ];
+  return `<main class="main"><div class="page-head"><h1>Where things live</h1></div>
+    <p class="muted" style="margin:6px 0 0">Rule: create and edit in one place, the home. Other places show it and link back.</p>
+    <div class="map">${places.map(([n, job, home, win]) => `<div class="place"><h3>${n}</h3><div class="job">${job}</div>
+      <div class="lab">Home of</div><ul>${home.map(x => `<li>${x}</li>`).join('')}</ul>
+      ${win.length ? `<div class="lab">Shows (window)</div><ul>${win.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>
+    <h3 style="margin:26px 0 0;font-size:15px">One word per idea</h3>
+    <table class="vocab"><thead><tr><th>Use</th><th>Means</th><th>Replaces today</th></tr></thead><tbody>
+      <tr><td><strong>Automation</strong></td><td>Anything an agent does on its own</td><td><s>Schedules and triggers</s> · <s>routines</s> · <s>automation could not load</s></td></tr>
+      <tr><td><strong>Schedule</strong></td><td>Runs at a time, once or repeating</td><td><s>Routine</s> · <s>Routine name</s> · <s>Save routine</s></td></tr>
+      <tr><td><strong>Trigger</strong></td><td>Runs when something happens in an app</td><td><s>Event trigger</s> · <s>App events</s> · <s>event source / deliveries</s></td></tr>
+      <tr><td><strong>Follow-up</strong></td><td>The agent checks back on its own task</td><td><s>Scheduled</s> (task status) → “Follow-up set”</td></tr>
+      <tr><td><strong>Upcoming</strong></td><td>Everything that will run, workspace-wide</td><td><s>Coming up</s> (Now) · <s>Tasks › Scheduled</s></td></tr>
+      <tr><td><strong>Review</strong></td><td>How agents are doing, with suggestions</td><td><s>Progress</s></td></tr>
+    </tbody></table></main>`;
+}
+
+function render() {
+  const s = state.screen;
+  document.querySelectorAll('[data-screen]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.screen === s)));
+  const active = { map: '', tab: 'agents', create: 'agents', upcoming: 'activity', chat: state.role === 'member' ? 'agents' : 'chat', home: state.homeView === 'review' ? 'activity' : 'agents' }[s];
+  document.getElementById('rail').innerHTML = rail(active);
+  const f = document.getElementById('frame');
+  if (s === 'map') f.innerHTML = map();
+  if (s === 'tab') f.innerHTML = `${agentList()}<main class="main">${automationsTab(false)}</main>`;
+  if (s === 'create') f.innerHTML = `${agentList()}<main class="main">${automationsTab(false)}</main>${createDialog()}`;
+  if (s === 'upcoming') f.innerHTML = upcoming();
+  if (s === 'chat') f.innerHTML = chat();
+  if (s === 'home') f.innerHTML = oneHome();
+  const n = notes[s];
+  const sub = s === 'chat' ? subToggle('role', [['manager', 'Chat card'], ['member', 'Member opens Automations']])
+    : s === 'home' ? subToggle('homeView', [['review', 'Activity › Review'], ['agentActivity', 'Agent › Activity tab']]) : '';
+  document.getElementById('notes').innerHTML = `<h2>${n.title}</h2><ol>${n.items.map((t, i) => `<li><b>${i + 1}</b><span>${t}</span></li>`).join('')}</ol>${sub}`;
+}
+const subToggle = (key, opts) => `<div class="sub" role="group" aria-label="Show">${opts.map(([v, l]) => `<button data-sub="${key}" data-val="${v}" aria-pressed="${state[key] === v}">${l}</button>`).join('')}</div>`;
+
+let undo = null;
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.screen) { state.screen = t.dataset.screen; state.dialog = 'choose'; state.toast = ''; }
+  else if (t.id === 'theme') { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; }
+  else if (t.dataset.sub) state[t.dataset.sub] = t.dataset.val;
+  else if (t.dataset.go) { state.screen = t.dataset.go; state.toast = ''; }
+  else if (t.hasAttribute('data-open-create')) { state.screen = 'create'; state.dialog = 'choose'; }
+  else if (t.dataset.kind) { state.kind = t.dataset.kind; state.dialog = t.dataset.kind; }
+  else if (t.dataset.dlg) state.dialog = t.dataset.dlg;
+  else if (t.hasAttribute('data-dlg-back')) state.dialog = state.dialog === 'review' ? state.kind : 'choose';
+  else if (t.hasAttribute('data-close')) state.screen = 'tab';
+  else if (t.hasAttribute('data-save')) {
+    state.automations.push(state.kind === 'time'
+      ? { id: 'n' + Date.now(), kind: 'time', name: 'Weekly delayed orders', detail: 'Fridays at 17:00 · your chat with Atlas · by Ravi Kumar', next: 'Next: Fri 14 Nov, 17:00', on: true }
+      : { id: 'n' + Date.now(), kind: 'event', name: 'New order in Zoho Books (stock)', detail: 'Check stock, post shortages in #orders · by Ravi Kumar', next: 'Waiting for the next order', on: true });
+    state.screen = 'tab';
+  }
+  else if (t.dataset.repeat) state.repeat = t.dataset.repeat;
+  else if (t.dataset.auto) { const a = state.automations.find(x => x.id === t.dataset.auto); a.on = !a.on; }
+  else if (t.dataset.filter) state.filter = t.dataset.filter;
+  else if (t.dataset.scope) state.scope = t.dataset.scope;
+  else if (t.dataset.up) { const u = state.upcoming.find(x => x.id === t.dataset.up); u.on = !u.on; undo = u; state.toast = `${u.name} ${u.on ? (u.kind === 'Follow-up' ? 'restored' : 'resumed') : (u.kind === 'Follow-up' ? 'follow-up cancelled' : 'paused')}.`; }
+  else if (t.hasAttribute('data-undo')) { if (undo) undo.on = !undo.on; state.toast = ''; }
+  else if (t.hasAttribute('data-chat-save')) state.chatSaved = true;
+  else return;
+  render();
+});
+const start = new URLSearchParams(location.search);
+for (const k of ['screen', 'dialog', 'kind', 'role', 'homeView']) if (start.get(k)) state[k] = start.get(k);
+if (start.get('saved')) state.chatSaved = true;
+if (start.get('pause')) { const u = state.upcoming.find(x => x.id === 'u4'); u.on = false; undo = u; state.toast = 'Morning stock check paused.'; }
+render();
+</script>
+</body>
+</html>

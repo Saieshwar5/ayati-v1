@@ -38,7 +38,7 @@ test('selected team workspace keeps selection while searching and does not creat
     assert.ok(button('Open agent Meera'));
     assert.equal(writes.length, 0);
     // The six tabs of D233; the old "Not connected" placeholders are gone.
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Activity', 'Instructions', 'Tools', 'Schedules', 'Environment']);
+    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Activity', 'Instructions', 'Tools', 'Automations', 'Environment']);
     assert.equal(document.body.textContent.includes('Not connected'), false);
     await click(button('Instructions'));
     assert.match(document.querySelector('[role=tabpanel]').textContent, /What Tara knows/);

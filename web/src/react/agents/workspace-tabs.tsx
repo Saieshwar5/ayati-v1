@@ -1,8 +1,17 @@
 import { useId, useRef } from 'react';
 import { Button } from '../ui';
+import { workspaceUrl } from '../../workspace-context';
 
-export const workspaceSections = ['Overview', 'Activity', 'Instructions', 'Tools', 'Schedules', 'Environment'] as const;
+export const workspaceSections = ['Overview', 'Activity', 'Instructions', 'Tools', 'Automations', 'Environment'] as const;
 export type WorkspaceSection = typeof workspaceSections[number];
+/** A saved or linked section name; "Schedules" was the Automations tab's old name. */
+export function sectionNamed(value: string | null | undefined): WorkspaceSection | undefined {
+  const name = value?.toLowerCase() === 'schedules' ? 'automations' : value?.toLowerCase();
+  return workspaceSections.find(section => section.toLowerCase() === name);
+}
+/** A link that opens one agent on one tab, e.g. from Activity or Chat. */
+export const agentSectionUrl = (agent: string, section: WorkspaceSection) =>
+  workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}`);
 export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection; select: (section: WorkspaceSection) => void }) {
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);

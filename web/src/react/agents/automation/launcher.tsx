@@ -6,7 +6,7 @@ class AutomationBoundary extends Component<{ children: ReactNode }, { failed: bo
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
   render() {
-    return this.state.failed ? <><p role="alert">Automation could not load. Saved routines remain on the server.</p><Button onClick={() => location.reload()}>Reload application</Button></> : this.props.children;
+    return this.state.failed ? <><p role="alert">Automations couldn’t load. Saved schedules and triggers are safe on the server.</p><Button onClick={() => location.reload()}>Reload application</Button></> : this.props.children;
   }
 }
 export function AutomationLauncher({ agent }: { agent: Agent }) {

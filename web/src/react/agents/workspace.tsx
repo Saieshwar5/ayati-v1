@@ -41,7 +41,7 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
       {section === 'Activity' && <HistoryView key={agent.id} agent={agent.id} />}
       {section === 'Instructions' && <InstructionsTab key={agent.id} agent={agent} rules={directory.system_prompt} saved={saved} />}
       {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} webSearch={Boolean(directory.web_search)} computers={Boolean(directory.computers)} saved={saved} />}
-      {section === 'Schedules' && <AutomationLauncher agent={agent} />}
+      {section === 'Automations' && <AutomationLauncher agent={agent} />}
       {section === 'Environment' && <EnvironmentTab key={agent.id} agent={agent} directory={directory} saved={saved} />}
     </div>
     {dialog === 'people' && <PeopleDialog agent={agent} close={() => setDialog(undefined)} saved={done} />}

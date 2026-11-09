@@ -7,7 +7,7 @@ import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSess
 import type { Conversation } from '../chat/model';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspace } from './workspace';
-import { workspaceSections, type WorkspaceSection } from './workspace-tabs';
+import { sectionNamed, type WorkspaceSection } from './workspace-tabs';
 import { subscribeChanges } from '../chat/live';
 import './workspace.css';
 
@@ -17,6 +17,8 @@ export function AgentsPage() {
   const epoch = useRef(0);
   useEffect(() => () => { epoch.current++; }, []);
   const initial = new URLSearchParams(location.search).get('selected');
+  // A link may open one tab of the agent it selects (agentSectionUrl).
+  const linkedSection = initial ? sectionNamed(new URLSearchParams(location.search).get('section')) : undefined;
   const selectionKey = storageScope('relay.agents.selection');
   const [selectedKey, setSelected] = useState<string | undefined>(() => {
     if (initial) return `m:${initial}`;
@@ -24,9 +26,9 @@ export function AgentsPage() {
   });
   const [showProfile, setShowProfile] = useState(Boolean(selectedKey));
   const savedSection = (agentKey?: string): WorkspaceSection => {
-    try { const value = window.sessionStorage.getItem(`${selectionKey}.section.${agentKey}`); return workspaceSections.find(section => section === value) ?? 'Overview'; } catch { return 'Overview'; }
+    try { const value = window.sessionStorage.getItem(`${selectionKey}.section.${agentKey}`); return sectionNamed(value) ?? 'Overview'; } catch { return 'Overview'; }
   };
-  const [section, setSection] = useState<WorkspaceSection>(() => savedSection(selectedKey));
+  const [section, setSection] = useState<WorkspaceSection>(() => linkedSection ?? savedSection(selectedKey));
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState<Agent>();
   useEffect(() => subscribeChanges(change => {

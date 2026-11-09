@@ -22,5 +22,7 @@ export function date(ms: number, timezone: string) {
 export const cadence = (seconds: number | null) => seconds === null ? 'Run once' : seconds % 86400 === 0 ? `Every ${seconds / 86400} 24-hour period${seconds === 86400 ? '' : 's'}` : seconds % 3600 === 0 ? `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}` : seconds % 60 === 0 ? `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `Every ${seconds} seconds`;
 /** A run opens in Activity: runs happen in the schedule's own room, not in Chat. */
 export const runUrl = (run: Run) => workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(run.reply)}`);
+/** A schedule's state in words. */
+export const stateLabels: Record<Routine['state'], string> = { enabled: 'On', paused: 'Paused', blocked: 'Blocked', completed: 'Done' };
 /** Where a schedule's results go, in words. */
 export const results = (chat: string | null, name: string | null) => chat ? `Activity, and a summary in ${name ?? 'a conversation no longer available'}` : 'Activity only';

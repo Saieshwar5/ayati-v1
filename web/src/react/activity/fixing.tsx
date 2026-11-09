@@ -46,9 +46,9 @@ function NeedsDialog({ group, openRequest, close, changed }: { group: FixGroup; 
   </Dialog>;
 }
 
-const kinds: Record<ComingItem['kind'], string> = { routine: 'Routine', follow_up: 'Follow-up', due: 'Due' };
+const kinds: Record<ComingItem['kind'], string> = { routine: 'Schedule', follow_up: 'Follow-up', due: 'Due' };
 
-/** Coming up (AC7): the next 24 hours of routines, follow-ups and due tasks. */
+/** Coming up (AC7): the next 24 hours of schedules, follow-ups and due tasks. */
 export function ComingUp({ items, changed }: { items: ComingItem[]; changed: () => void }) {
   const m = useMutation();
   if (!items.length) return null;
