@@ -358,3 +358,80 @@ async fn a_changed_request_starts_work_with_what_changed() {
     let listed = db.built_app_watchers(&owner, &w, &id).await.unwrap();
     assert_eq!(listed["watchers"][0]["kind"], "changed");
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn an_agents_app_triggers_show_only_in_apps_the_viewer_may_open() {
+    let db = fixture().await;
+    let owner = user(&db, "app-triggers-owner").await;
+    let ravi = user(&db, "app-triggers-ravi").await;
+    let mina = user(&db, "app-triggers-mina").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &ravi, "Member").await;
+    join(&db, &owner, &w, &mina, "Member").await;
+    let (_, agent) = executor_slot_tests::agent(&db, &owner, &w).await;
+    db.chat_grant(&owner, &w, &ravi.id, &agent, true)
+        .await
+        .unwrap();
+    for (name, audience) in [("Leave", "everyone"), ("Salaries", "selected")] {
+        let id = uuid::Uuid::new_v4().to_string();
+        let app = NewApp {
+            id: id.clone(),
+            name: name.into(),
+            description: String::new(),
+            audience: audience.into(),
+            people: vec![],
+            template: "leave".into(),
+        };
+        db.built_app_create(&ravi, &w, &app).await.unwrap();
+        let release = AppRelease {
+            note: String::new(),
+            revision: 1,
+        };
+        db.built_app_publish(&ravi, &w, &id, &release)
+            .await
+            .unwrap();
+        let watch = AppWatch {
+            collection: "requests".into(),
+            kind: "added".into(),
+            agent: Some(agent.clone()),
+            instructions: "Tell me who asked.".into(),
+        };
+        db.built_app_watch_set(&ravi, &w, &id, &watch)
+            .await
+            .unwrap();
+    }
+    let seen = |who: &crate::identity::user::User| {
+        let (db, w, agent, who) = (&db, w.clone(), agent.clone(), who.clone());
+        async move {
+            let tx = db.read_tx(&w).await.unwrap();
+            let list = super::agent_app_triggers(&tx, &who, &w, &agent)
+                .await
+                .unwrap();
+            tx.commit().await.unwrap();
+            list.iter()
+                .map(|t| {
+                    (
+                        t["app_name"].as_str().unwrap().to_owned(),
+                        t["manages"] == true,
+                    )
+                })
+                .collect::<Vec<_>>()
+        }
+    };
+    assert_eq!(
+        seen(&ravi).await,
+        vec![("Leave".into(), true), ("Salaries".into(), true)],
+        "its builder sees both and may change them"
+    );
+    assert_eq!(
+        seen(&mina).await,
+        vec![("Leave".into(), false)],
+        "an app she can't open stays hidden"
+    );
+    // The agent's managers see them with its event triggers.
+    let listed = db.event_triggers(&owner, &w, &agent, &[]).await.unwrap();
+    assert_eq!(listed["app_triggers"].as_array().unwrap().len(), 2);
+    assert_eq!(listed["app_triggers"][0]["collection"], "requests");
+    assert!(listed["app_triggers"][0]["by"].is_string());
+}

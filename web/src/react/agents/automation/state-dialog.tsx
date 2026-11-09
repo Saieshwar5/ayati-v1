@@ -10,7 +10,7 @@ export function ScheduleState({ agent, routine, enabled, close, saved }: { agent
   const alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [confirmed, setConfirmed] = useState(false);
-  const label = enabled === undefined ? 'Routine instructions' : enabled ? 'Resume routine' : 'Pause routine';
+  const label = enabled === undefined ? 'Schedule instructions' : enabled ? 'Resume schedule' : 'Pause schedule';
   const data = resource.data;
   const footer = confirmed || enabled === undefined ? <Button onClick={close}>Done</Button> : <Button primary disabled={mutation.busy || !data || Boolean(resource.error) || (enabled && !data.can_resume)} onClick={() => void mutation.run(async () => {
     if (!data) return;
@@ -18,15 +18,15 @@ export function ScheduleState({ agent, routine, enabled, close, saved }: { agent
     await changeSchedule(agent, routine.id, attempt.current);
     if (!alive.current) return;
     setConfirmed(true);
-    try { await saved(); } catch { throw new Error('Routine state saved, but its list could not refresh. Close this review and refresh schedules.'); }
+    try { await saved(); } catch { throw new Error('Saved, but the list could not refresh. Close this and refresh schedules.'); }
   })}>{label}</Button>;
   return <Dialog title={label} close={close} busy={mutation.busy} status={mutation.status} footer={footer}>
-    {resource.error && <p role="alert">{resource.error}<Button onClick={() => void resource.refresh().catch(() => {})}>Retry routine details</Button></p>}
+    {resource.error && <p role="alert">{resource.error}<Button onClick={() => void resource.refresh().catch(() => {})}>Retry schedule details</Button></p>}
     {!data && !resource.error && <p role="status">Checking saved instructions and current access…</p>}
-    {confirmed ? <p role="status">Routine state saved. Refresh its runs to inspect individual task outcomes.</p> : data && <>
+    {confirmed ? <p role="status">Saved. View its runs to check individual tasks.</p> : data && <>
       <h3>{data.name}</h3><p className="routine-instructions">{data.content}</p>
       <p>{data.chat_name} · {cadence(data.interval_seconds)} · {data.timezone}</p>
-      <p>Authorized by {data.principal_name}.</p>
+      <p>Set up by {data.principal_name}.</p>
       {enabled === true && <><p>Review current agent and destination access before resuming. Missing intervals coalesce into one latest due run; a still-unfinished run prevents overlap.</p>
         {data.next_ms && <p>Saved next due time: {date(data.next_ms, data.timezone)}.</p>}
         <p className="ui-help">Future runs can use the configured model while you are offline. Normal business approvals still apply.</p></>}

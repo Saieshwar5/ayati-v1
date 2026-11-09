@@ -5,7 +5,8 @@ import { subscribeChanges } from '../../chat/live';
 import { CreateEvent } from './event-create';
 import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
-import { loadEvents, type EventTrigger } from './event-model';
+import { loadEvents, type AppTrigger, type EventTrigger } from './event-model';
+import { workspaceUrl } from '../../../workspace-context';
 export function EventTriggers({ agent }: { agent: string }) {
   const load = useCallback(() => loadEvents(agent), [agent]);
   const r = useResource(load);
@@ -43,11 +44,11 @@ export function EventTriggers({ agent }: { agent: string }) {
     };
   }, [r.refresh, r.setData]);
   return (
-    <section className="routine-triggers" aria-label="Connected event triggers">
+    <section className="routine-triggers automation-group" aria-label="When something happens">
       <header className="agent-section-heading">
         <div>
-          <h3>Event triggers</h3>
-          <p>Start work when a reviewed connected system reports a change.</p>
+          <h4>When something happens</h4>
+          <p>Triggers start work when something changes in a connected app.</p>
         </div>
         <div>
           <Button
@@ -91,12 +92,11 @@ export function EventTriggers({ agent }: { agent: string }) {
           calls.
         </p>
       )}
-      <Button onClick={() => void r.refresh().catch(() => {})}>Refresh event triggers</Button>
       {r.data?.triggers.map((t) => (
-        <article className="routine-row" key={t.id} aria-label={`Event trigger: ${t.name}`}>
+        <article className="routine-row" key={t.id} aria-label={`Trigger: ${t.name}`}>
           <header>
             <h4>{t.name}</h4>
-            <span>{t.state}</span>
+            <span>{t.state === 'enabled' ? 'On' : t.state}</span>
           </header>
           <p>
             {t.source_definition.name} · {t.chat_name}
@@ -105,12 +105,16 @@ export function EventTriggers({ agent }: { agent: string }) {
             {t.instructions}
             {t.instructions_long && '…'}
           </p>
-          <p>Authorized by {t.principal_name}</p>
+          <p>Set up by {t.principal_name}</p>
           {t.detail && <p role="status">{t.detail}</p>}
-          <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and deliveries</Button>
+          <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
         </article>
       ))}
-      {r.data && !r.data.triggers.length && <p>No saved event triggers you may view.</p>}
+      {r.data?.app_triggers?.map((t) => <AppTriggerRow key={`${t.app}/${t.collection}/${t.kind}`} trigger={t} />)}
+      {r.data && !r.data.triggers.length && !r.data.app_triggers?.length && <p className="ui-help">No triggers yet.</p>}
+      <div className="automation-tools">
+        <Button onClick={() => void r.refresh().catch(() => {})}>Refresh triggers</Button>
+      </div>
       <p className="ui-help">
         Source data belongs to its original task. Each tool action keeps its own Allow, Ask or Block rule. Provider
         delivery and background workers must be configured separately.
@@ -125,5 +129,25 @@ export function EventTriggers({ agent }: { agent: string }) {
         <EventReview key={open.trigger.id} agent={agent} trigger={open.trigger} close={close} saved={r.refresh} />
       )}
     </section>
+  );
+}
+
+/** A trigger set up from an app (Apps › When something happens). It is listed with the
+ * agent's other triggers, and its builder or an admin changes it in the app. */
+function AppTriggerRow({ trigger: t }: { trigger: AppTrigger }) {
+  const name = `${t.kind === 'added' ? 'New' : 'Changed'} ${t.collection} in ${t.app_name}`;
+  return (
+    <article className="routine-row" aria-label={`Trigger: ${name}`}>
+      <header>
+        <h4>{name}</h4>
+        <span className="ui-badge">Added from {t.app_name}</span>
+      </header>
+      <p className="routine-instructions">{t.instructions}</p>
+      {t.by && <p>Set up by {t.by}</p>}
+      <p className="ui-help">
+        {t.manages ? 'Change or stop it' : 'Its builder or an admin changes it'} on{' '}
+        <a href={workspaceUrl('/?view=apps')}>Apps › {t.app_name}</a>.
+      </p>
+    </article>
   );
 }

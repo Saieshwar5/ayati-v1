@@ -46,7 +46,7 @@ test('Now groups what needs fixing by cause with one fix each, and Coming up pau
     assert.ok(writes.some(w => w.path.endsWith('/activity/needs/n1/dismiss')));
     await click(button('Close'));
     const upcoming = document.querySelector('[aria-label="Coming up"]');
-    assert.match(upcoming.textContent, /Morning sales review.*Routine · Nova.*Call Acme back.*Follow-up · Nova/);
+    assert.match(upcoming.textContent, /Morning sales review.*Schedule · Nova.*Call Acme back.*Follow-up · Nova/);
     await click([...upcoming.querySelectorAll('button')].find(b => b.textContent === 'Pause'));
     const pause = writes.find(w => w.path.includes('/schedules/s1/state'));
     assert.deepEqual({ revision: pause.body.revision, enabled: pause.body.enabled }, { revision: 4, enabled: false });

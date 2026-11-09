@@ -56,8 +56,8 @@ test('pause and resume are explicit versioned changes while run reading and role
  await reactFixture(async({render,button,click,update})=>{
   await setup();const {ScheduleState}=await import('../src/react/agents/automation/state-dialog.tsx');
   await render(ScheduleState,{agent:'agent',routine,enabled:false,close:()=>{},saved:async()=>{}});assert.equal(writes.length,0);
-  await update(()=>{button('Pause routine').click();button('Pause routine').click();});assert.equal(writes.length,1);assert.equal(writes[0].revision,2);assert.equal(writes[0].enabled,false);
-  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only this agent's maintainers/);assert.equal(button('Create schedule'),undefined);assert.equal(writes.length,1);
+  await update(()=>{button('Pause schedule').click();button('Pause schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].revision,2);assert.equal(writes[0].enabled,false);
+  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only this agent's managers/);assert.equal(button('Create schedule'),undefined);assert.equal(writes.length,1);
   await render(AutomationPane,{agent});await click(button('View runs'));assert.match(document.body.textContent,/No occurrences/);assert.equal(writes.length,1);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({id:'routine',revision:3,state:'paused'});}return base(path);}});
 });
@@ -94,7 +94,7 @@ test('routine review fetches full instructions only when opened and failed state
   await render(AutomationPane,{agent});assert.equal(details,0);assert.equal(document.body.textContent.includes('PRIVATE_FULL_INSTRUCTIONS'),false);
   await click(button('View instructions'));assert.ok(details>0);assert.match(document.body.textContent,/PRIVATE_FULL_INSTRUCTIONS/);assert.equal(writes.length,0);
   await click(button('Done'));await click(button('Pause'));assert.match(document.body.textContent,/PRIVATE_FULL_INSTRUCTIONS/);
-  await click(button('Pause routine'));assert.match(document.body.textContent,/State result unavailable/);await click(button('Pause routine'));assert.deepEqual(writes[0],writes[1]);
+  await click(button('Pause schedule'));assert.match(document.body.textContent,/State result unavailable/);await click(button('Pause schedule'));assert.deepEqual(writes[0],writes[1]);
  },{url,fetch:async(path,init={})=>{
   if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({error:'State result unavailable'},503);}
   if(path.endsWith('/schedules/routine')){details++;return response({...routine,content:'PRIVATE_FULL_INSTRUCTIONS'});}

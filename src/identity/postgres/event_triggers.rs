@@ -143,8 +143,11 @@ impl PgStore {
         for data in json_rows(&tx,"SELECT to_jsonb(t)-'request_hash' AS data FROM relay_event_triggers t WHERE workspace=$1 AND agent=$2 AND state<>'removed' ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
             match present(&tx,user,w,agent,data,sources,false).await {Ok(data)=>triggers.push(data),Err(e) if e.is::<sea_orm::DbErr>()=>return Err(e),Err(_)=>{}}
         }
+        let app_triggers = super::built_apps::agent_app_triggers(&tx, user, w, agent).await?;
         tx.commit().await?;
-        Ok(json!({"triggers":triggers,"choices":choices,"execution_available":self.pooled}))
+        Ok(
+            json!({"triggers":triggers,"app_triggers":app_triggers,"choices":choices,"execution_available":self.pooled}),
+        )
     }
     pub(crate) async fn event_trigger_details(
         &self,

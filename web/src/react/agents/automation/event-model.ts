@@ -59,8 +59,19 @@ export type AppTriggerInput = Authority & {
   instructions: string;
   filter: Record<string, unknown>;
 };
+/** A built app's trigger for this agent; its builder or an admin changes it in the app. */
+export type AppTrigger = {
+  app: string;
+  app_name: string;
+  collection: string;
+  kind: 'added' | 'changed';
+  instructions: string;
+  by: string | null;
+  manages: boolean;
+};
 export type Events = {
   triggers: EventTrigger[];
+  app_triggers?: AppTrigger[];
   choices: EventChoice[];
   apps?: AppChoice[];
   execution_available: boolean;

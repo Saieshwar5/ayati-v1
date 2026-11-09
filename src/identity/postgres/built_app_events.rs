@@ -113,6 +113,29 @@ async fn skip(tx: DatabaseTransaction, key: &Key, detail: &str) -> Result<bool> 
     Ok(false)
 }
 
+/// The app triggers an agent acts on (Agent › Automations), in apps the viewer may
+/// open or manage; changing one stays with the app's builder or an admin, in the app.
+pub(crate) async fn agent_app_triggers(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+) -> Result<Vec<Value>> {
+    let present: bool = query(
+        tx,
+        "SELECT to_regclass('relay_built_app_watchers') IS NOT NULL AS present",
+        vec![],
+    )
+    .await?
+    .context("Schema check")?
+    .try_get("", "present")?;
+    if !present {
+        return Ok(vec![]);
+    }
+    let admin = role(tx, w, &user.id).await? == "Admin";
+    json_rows(tx, &format!("SELECT jsonb_build_object('app',a.id,'app_name',a.name,'collection',x.collection,'kind',x.kind,'instructions',x.instructions,'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=x.principal),'manages',a.builder=$2 OR $3) AS data FROM relay_built_app_watchers x JOIN relay_built_apps a ON a.workspace=x.workspace AND a.id=x.app WHERE x.workspace=$1 AND x.agent=$4 AND NOT a.removed AND ({OPENS} OR a.builder=$2 OR $3) ORDER BY a.name,x.collection,x.kind"), vec![w.into(), user.id.clone().into(), admin.into(), agent.into()]).await
+}
+
 impl PgStore {
     /// The app's collections and who acts on new records in each.
     pub(crate) async fn built_app_watchers(&self, user: &User, w: &str, id: &str) -> Result<Value> {
