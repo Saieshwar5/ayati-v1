@@ -8,6 +8,7 @@ mod guard;
 pub(crate) mod mcp;
 mod mcp_reply;
 pub(crate) mod model;
+pub(crate) mod outcome_checks;
 pub(crate) mod outcomes;
 use super::*;
 use anyhow::ensure;

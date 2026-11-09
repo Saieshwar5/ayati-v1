@@ -10,6 +10,11 @@ use serde_json::json;
 #[path = "control_outcome_migration.rs"]
 pub(in crate::identity::postgres) mod migration;
 #[cfg(test)]
+#[path = "control_recheck_tests.rs"]
+mod recheck_tests;
+#[path = "control_outcome_rechecks.rs"]
+pub(crate) mod rechecks;
+#[cfg(test)]
 #[path = "control_outcome_tests.rs"]
 mod tests;
 
@@ -20,6 +25,7 @@ const UNCONFIRMED: &str = "(a.state='uncertain' OR (a.state='executing' AND a.up
 /// What the agent reads in the action's result after it is settled.
 const HAPPENED: &str = "A person checked the app: this happened.";
 const NOT_SENT: &str = "A person checked the app: this was not sent, and nothing changed. Tell the person; send it again only if someone asks you to.";
+pub(super) const CHECKED: &str = "Cuckoo checked the app: this happened.";
 
 fn unconfirmed(a: &Value) -> bool {
     a["state"] == "uncertain"
