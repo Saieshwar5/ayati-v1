@@ -184,8 +184,9 @@ pub(crate) async fn dispatch(
 }
 
 /// Sends one claimed action through its provider. Cuckoo's own checks come
-/// first (provider switch, exact fields), then the provider's (account still
-/// works, action unchanged), then current authority right before sending.
+/// first (provider switch, exact fields, rate limit and circuit breaker), then
+/// the provider's (account still works, action unchanged), then current
+/// authority right before sending. Every call is recorded (schema 110).
 pub(crate) async fn dispatch_with(
     pg: &postgres::PgStore,
     w: &str,
@@ -193,6 +194,7 @@ pub(crate) async fn dispatch_with(
     provider: &dyn crate::identity::connectors::ConnectorProvider,
 ) -> Result<Value> {
     use crate::identity::connectors::{Outcome, Refusal, Saved};
+    use postgres::connector_calls::{Admission, Ended};
     if let Some(note) = pg.connector_provider_paused(provider.name()).await? {
         let reason = format!(
             "Cuckoo paused these connectors{}. Nothing was sent.",
@@ -202,6 +204,8 @@ pub(crate) async fn dispatch_with(
                 format!(": {note}")
             }
         );
+        pg.connector_call_paused(w, &dispatch, provider.name())
+            .await?;
         return pg
             .control_preflight_failed(w, &dispatch, Some(&reason))
             .await;
@@ -209,14 +213,25 @@ pub(crate) async fn dispatch_with(
     if dispatch.operation.arguments(&dispatch.arguments).is_err() {
         return pg.control_preflight_failed(w, &dispatch, None).await;
     }
+    let record = match pg.connector_admit(w, &dispatch, provider.name()).await? {
+        Admission::Admitted(record) => record,
+        Admission::Refused(reason) => {
+            return pg
+                .control_preflight_failed(w, &dispatch, Some(reason))
+                .await;
+        }
+    };
     let saved = Saved {
         workspace: w,
         server: &dispatch.server,
         binding: dispatch.binding.as_ref(),
         fingerprint: &dispatch.fingerprint,
     };
+    // Whether the provider answered its check: what fails after that is Cuckoo's.
+    let mut answered = false;
     let prepared = tokio::time::timeout(std::time::Duration::from_secs(30), async {
         let call = provider.prepare(&saved, &dispatch.operation).await?;
+        answered = true;
         pg.control_ready(w, &dispatch).await?;
         Ok::<_, anyhow::Error>(call)
     })
@@ -225,6 +240,8 @@ pub(crate) async fn dispatch_with(
         Ok(Ok(call)) => call,
         Ok(Err(error)) => {
             let refusal = error.downcast_ref::<Refusal>();
+            let provider_error = !answered && refusal.is_none();
+            ended(pg, &record, Ended::PreflightFailed { provider_error }).await;
             if matches!(refusal, Some(Refusal::NeedsReconnect)) {
                 pg.connector_needs_reconnect(w, &dispatch.connection)
                     .await?;
@@ -234,7 +251,11 @@ pub(crate) async fn dispatch_with(
                 .control_preflight_failed(w, &dispatch, reason.as_deref())
                 .await;
         }
-        Err(_) => return pg.control_preflight_failed(w, &dispatch, None).await,
+        Err(_) => {
+            let provider_error = !answered;
+            ended(pg, &record, Ended::PreflightFailed { provider_error }).await;
+            return pg.control_preflight_failed(w, &dispatch, None).await;
+        }
     };
     let outcome = tokio::time::timeout(
         std::time::Duration::from_secs(45),
@@ -248,7 +269,23 @@ pub(crate) async fn dispatch_with(
             false,
         ),
     };
+    let end = if success {
+        Ended::Completed
+    } else {
+        Ended::Uncertain
+    };
+    ended(pg, &record, end).await;
     pg.control_finish(w, &dispatch, value, success).await
+}
+/// Recording a call must never stop its outcome being saved.
+async fn ended(
+    pg: &postgres::PgStore,
+    record: &postgres::connector_calls::CallRecord,
+    end: postgres::connector_calls::Ended,
+) {
+    if let Err(error) = pg.connector_call_ended(record, end).await {
+        tracing::warn!("A connector call's metrics were not recorded: {error}");
+    }
 }
 pub(crate) fn endpoint(input: &str) -> Result<reqwest::Url> {
     let url = reqwest::Url::parse(input).context("Invalid MCP endpoint")?;

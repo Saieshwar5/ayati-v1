@@ -33,6 +33,7 @@ const HELP: &str = "Cuckoo Control from a terminal. Acts as AYATI_OPERATOR (or -
   ayati admin code revoke ID --reason TEXT
   ayati admin log [--area AREA]
   ayati admin reports
+  ayati admin connectors verify                            (each connected account's actions at its provider; fails on problems)
 
 Add --json to any command for the full answer.";
 
@@ -74,12 +75,24 @@ pub async fn run(raw: &[String]) -> Result<()> {
         via: Via::Cli,
     };
     let words: Vec<&str> = args.words.iter().map(String::as_str).collect();
+    let connectors = words.first() == Some(&"connectors");
+    if connectors {
+        use super::super::connectors::{configure, drift};
+        configure(drift::admin_settings(&config));
+    }
     let answer = command(&deps, &by, &args, &words).await?;
     if args.switch("json") {
         println!("{}", serde_json::to_string_pretty(&answer)?);
+    } else if connectors {
+        print!("{}", super::super::connectors::drift::report_text(&answer));
     } else {
         print_human(&words, &answer);
     }
+    let problems = answer["problems"].as_u64().unwrap_or(0);
+    ensure!(
+        !connectors || problems == 0,
+        "{problems} connector actions need attention"
+    );
     Ok(())
 }
 
@@ -216,6 +229,12 @@ async fn command(deps: &Deps<'_>, by: &Operator, args: &Args, words: &[&str]) ->
             store.operator_log(args.option("area"), None, 50).await?
         }
         ["reports"] => json!({"reports": store.problem_reports(100).await?}),
+        ["connectors", "verify"] => {
+            args.only(&[])?;
+            let run = store.connector_drift_begin().await?;
+            super::super::connectors::drift::check(store, &run, &super::super::connectors::named)
+                .await?
+        }
         _ => bail!("Unknown command. Run ayati admin help"),
     })
 }

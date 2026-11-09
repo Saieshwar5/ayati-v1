@@ -363,7 +363,9 @@ fn provider_model(env: &mut Reader, name: &str) -> Option<(String, String)> {
         }
     }
 }
-fn composio_auth_configs(env: &mut Reader) -> std::collections::BTreeMap<String, String> {
+pub(super) fn composio_auth_configs(
+    env: &mut Reader,
+) -> std::collections::BTreeMap<String, String> {
     let mut configs = std::collections::BTreeMap::new();
     for pair in env
         .text("AYATI_COMPOSIO_AUTH_CONFIGS")

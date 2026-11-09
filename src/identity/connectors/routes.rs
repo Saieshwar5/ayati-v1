@@ -155,14 +155,20 @@ pub(crate) async fn release(w: &str, released: Option<Released>) -> bool {
 
 async fn providers(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     platform(&app, &headers).await?;
-    let mut value = app.store.connector_providers().await?;
-    value["configured"] = json!(
-        super::providers()
-            .iter()
-            .map(|p| p.name())
-            .collect::<Vec<_>>()
-    );
-    Ok(Json(value))
+    Ok(Json(listing(&app.store).await?))
+}
+
+/// Switch states, the providers this server configured, and each one's health
+/// (schema 110): calls, errors and cost this month, breaker and last drift check.
+async fn listing(store: &PgStore) -> anyhow::Result<Value> {
+    let mut value = store.connector_providers().await?;
+    let configured: Vec<&str> = super::providers().iter().map(|p| p.name()).collect();
+    let health = store.connector_health(&configured).await?;
+    value["configured"] = json!(configured);
+    for key in ["health", "month_start_ms", "drift_run"] {
+        value[key] = health[key].clone();
+    }
+    Ok(value)
 }
 
 #[derive(Deserialize)]
@@ -215,13 +221,7 @@ async fn switch(
             &why,
         )
         .await?;
-    let mut value = app.store.connector_providers().await?;
-    value["configured"] = json!(
-        super::providers()
-            .iter()
-            .map(|p| p.name())
-            .collect::<Vec<_>>()
-    );
+    let mut value = listing(&app.store).await?;
     value["saved"] = json!(true);
     Ok(Json(value))
 }

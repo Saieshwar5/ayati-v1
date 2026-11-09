@@ -13,6 +13,11 @@ pub struct Admin {
     pub model_providers_file: Option<PathBuf>,
     pub model_catalog_file: Option<PathBuf>,
     pub secrets_key_file: Option<PathBuf>,
+    /// Connector providers, as for the controller: `ayati admin connectors verify`.
+    pub mcp_servers_file: Option<PathBuf>,
+    pub composio_key_file: Option<PathBuf>,
+    pub composio_base_url: Option<String>,
+    pub composio_auth_configs: std::collections::BTreeMap<String, String>,
 }
 
 impl Admin {
@@ -25,6 +30,10 @@ impl Admin {
             model_providers_file: absolute(&mut env, "AYATI_MODEL_PROVIDERS_FILE"),
             model_catalog_file: absolute(&mut env, "AYATI_MODEL_CATALOG_FILE"),
             secrets_key_file: absolute(&mut env, "AYATI_SECRETS_KEY_FILE"),
+            mcp_servers_file: absolute(&mut env, "AYATI_MCP_SERVERS_FILE"),
+            composio_key_file: absolute(&mut env, "AYATI_COMPOSIO_KEY_FILE"),
+            composio_base_url: env.text("AYATI_COMPOSIO_BASE_URL"),
+            composio_auth_configs: super::controller::composio_auth_configs(&mut env),
         };
         env.finish("admin")?;
         Ok(config)

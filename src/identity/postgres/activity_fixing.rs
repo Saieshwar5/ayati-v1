@@ -24,6 +24,15 @@ fn causes() -> Vec<(&'static str, String)> {
           FROM f JOIN relay_agent_connections ac ON ac.workspace=$1 AND ac.agent=f.id
           JOIN relay_connector_reconnects r ON r.workspace=$1 AND r.connection=ac.connection
           JOIN relay_control_connections c ON c.workspace=$1 AND c.id=r.connection".into()),
+        // The last drift check found the account's reviewed actions changed at
+        // the provider (schema 110); reconnecting reviews them again.
+        ("drift", "SELECT f.id,f.name,c.id,COALESCE(c.definition->>'name',c.server),r.started_ms FROM f
+          JOIN relay_agent_connections ac ON ac.workspace=$1 AND ac.agent=f.id
+          JOIN relay_control_connections c ON c.workspace=$1 AND c.id=ac.connection AND c.enabled
+          CROSS JOIN (SELECT id,started_ms FROM relay_connector_drift_runs WHERE finished_ms IS NOT NULL ORDER BY started_ms DESC LIMIT 1) r
+          WHERE EXISTS(SELECT 1 FROM relay_connector_drift d WHERE d.run=r.id AND d.workspace=$1 AND d.connection=c.id
+            AND d.fingerprint=c.fingerprint AND d.status IN ('missing','changed'))
+          AND NOT EXISTS(SELECT 1 FROM relay_connector_reconnects n WHERE n.workspace=$1 AND n.connection=c.id)".into()),
         ("unconfirmed", "SELECT f.id,f.name,a.job,left(a.title,140),a.updated*1000 FROM f
           JOIN relay_chat_jobs j ON j.workspace=$1 AND j.payload->>'agent'=f.id
           JOIN relay_control_actions a ON a.workspace=$1 AND a.job=j.reply
@@ -140,6 +149,13 @@ pub(in crate::identity::postgres) async fn groups(
                     let n = agents(&list);
                     out.push(group(cause, format!("{} needs reconnecting · {}", list[0]["detail"].as_str().unwrap_or("An account"), plural(n, "agent stopped", "agents stopped")),
                     json!({"kind": "settings", "label": if admin { "Reconnect" } else { "Ask an admin to reconnect" }, "ref": list[0]["ref"]}), list));
+                }
+            }
+            "drift" => {
+                for list in split("ref") {
+                    let n = agents(&list);
+                    out.push(group(cause, format!("{} changed since it was reviewed · {}", list[0]["detail"].as_str().unwrap_or("An app"), plural(n, "agent affected", "agents affected")),
+                    json!({"kind": "settings", "label": if admin { "Reconnect to review" } else { "Ask an admin to reconnect" }, "ref": list[0]["ref"]}), list));
                 }
             }
             "unconfirmed" => out.push(group(

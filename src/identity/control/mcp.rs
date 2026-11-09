@@ -78,7 +78,8 @@ impl Remote {
     pub async fn verify(&mut self, operations: &[Operation]) -> Result<()> {
         self.inventory(operations).await.map(|_| ())
     }
-    pub async fn inventory(&mut self, operations: &[Operation]) -> Result<Vec<String>> {
+    /// The server's tools as it lists them: one page of at most 200.
+    pub async fn tools(&mut self) -> Result<Vec<Value>> {
         let listed = self.rpc("tools/list", json!({}), Some(2)).await?;
         let tools = listed["tools"]
             .as_array()
@@ -88,6 +89,10 @@ impl Remote {
             listed.get("nextCursor").is_none_or(Value::is_null),
             "Paginated remote catalogs need additional support"
         );
+        Ok(tools.clone())
+    }
+    pub async fn inventory(&mut self, operations: &[Operation]) -> Result<Vec<String>> {
+        let tools = self.tools().await?;
         for op in operations {
             let matches: Vec<_> = tools
                 .iter()
@@ -99,7 +104,7 @@ impl Remote {
             );
         }
         let mut names = std::collections::BTreeSet::new();
-        for tool in tools {
+        for tool in &tools {
             let name = tool["name"]
                 .as_str()
                 .filter(|s| !s.is_empty() && s.len() <= 100 && !s.chars().any(char::is_control))

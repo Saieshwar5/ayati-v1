@@ -79,6 +79,7 @@ mod collaboration;
 mod communications;
 #[cfg(test)]
 mod connection_migration_tests;
+pub(crate) mod connector_calls;
 pub(crate) mod connector_providers;
 mod connector_rules;
 #[cfg(test)]

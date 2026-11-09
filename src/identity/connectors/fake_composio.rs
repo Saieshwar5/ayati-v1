@@ -24,6 +24,12 @@ pub(crate) struct Fake {
     pub executed: Vec<(String, Value)>,
     pub removed: Vec<String>,
     pub bad_keys: usize,
+    /// A newer version of every tool, and whether its fields differ.
+    pub latest: Option<(String, bool)>,
+    /// Tools Composio no longer has, at any version.
+    pub retired: Vec<String>,
+    /// Every request Composio received, answered or not.
+    pub requests: usize,
 }
 type Shared = Arc<Mutex<Fake>>;
 
@@ -81,6 +87,7 @@ impl FakeComposio {
 }
 
 fn keyed(state: &Shared, headers: &HeaderMap) -> Result<(), StatusCode> {
+    state.lock().unwrap().requests += 1;
     if headers.get("x-api-key").and_then(|v| v.to_str().ok()) == Some(KEY) {
         return Ok(());
     }
@@ -223,14 +230,34 @@ async fn tool(
     Query(q): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, StatusCode> {
     keyed(&s, &headers)?;
-    if q.get("version").is_some_and(|v| v != VERSION) {
+    let (changed, latest, retired) = {
+        let state = s.lock().unwrap();
+        (
+            state.changed,
+            state.latest.clone(),
+            state.retired.contains(&slug),
+        )
+    };
+    // Without a version Composio answers with its newest one.
+    let asked = q.get("version");
+    let (version, changed) = if retired {
         return Err(StatusCode::NOT_FOUND);
-    }
-    let changed = s.lock().unwrap().changed;
+    } else if asked.is_some_and(|v| v == VERSION) || (asked.is_none() && latest.is_none()) {
+        (VERSION.to_owned(), changed)
+    } else if let Some((newer, differs)) = latest
+        .clone()
+        .filter(|(newer, _)| asked.is_none_or(|v| v == newer))
+    {
+        (newer, differs)
+    } else {
+        return Err(StatusCode::NOT_FOUND);
+    };
     let input = schema(&slug, changed).ok_or(StatusCode::NOT_FOUND)?;
+    let mut versions = vec![VERSION.to_owned()];
+    versions.extend(latest.map(|(v, _)| v));
     Ok(Json(
         json!({"slug":slug,"name":slug,"description":"","toolkit":{"slug":"gmail","name":"Gmail","logo":""},
-        "input_parameters":input,"output_parameters":{},"no_auth":false,"available_versions":[VERSION],"version":VERSION,
+        "input_parameters":input,"output_parameters":{},"no_auth":false,"available_versions":versions,"version":version,
         "scopes":[],"scope_requirements":null,"tags":[],"is_deprecated":false}),
     ))
 }

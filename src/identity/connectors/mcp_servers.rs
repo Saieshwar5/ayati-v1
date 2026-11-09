@@ -94,6 +94,20 @@ impl ConnectorProvider for McpServers {
             operation: operation.clone(),
         }))
     }
+    /// The tool's input schema as the server lists it now (`schema` is null
+    /// when it no longer lists the tool). MCP servers don't version tools.
+    async fn describe(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Value> {
+        let server = self.server(saved.workspace, saved.server)?;
+        let fingerprint = server.fingerprint()?;
+        let mut remote = Remote::connect(server, &fingerprint).await?;
+        let schema = remote
+            .tools()
+            .await?
+            .into_iter()
+            .find(|tool| tool["name"] == operation.tool.as_str())
+            .map(|tool| tool["inputSchema"].clone());
+        Ok(serde_json::json!({"version":null,"schema":schema,"latest":null}))
+    }
 }
 
 struct McpCall {

@@ -15,11 +15,13 @@ mod composio_api;
 #[cfg(test)]
 mod conformance_tests;
 pub(crate) mod curated;
+pub(crate) mod drift;
 #[cfg(test)]
 pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
 mod mcp_servers;
+pub(crate) mod pricing;
 pub(crate) mod routes;
 
 use crate::identity::control::model::Operation;

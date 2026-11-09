@@ -16,6 +16,9 @@ const BEARER: &str = "fixture-mcp-bearer";
 pub(super) struct Fake {
     pub fail_call: bool,
     pub calls: Vec<(String, Value)>,
+    /// Tools the server now lists differently: a new input schema, or `None`
+    /// when it no longer lists the tool.
+    pub tool_changes: std::collections::HashMap<String, Option<Value>>,
 }
 type Shared = Arc<Mutex<Fake>>;
 
@@ -87,7 +90,15 @@ async fn rpc(
         }
         "notifications/initialized" => return StatusCode::ACCEPTED.into_response(),
         "tools/list" => {
-            json!({"tools":[{"name":"read_order","inputSchema":order_schema()},{"name":"update_order","inputSchema":order_schema()}]})
+            let changes = s.lock().unwrap().tool_changes.clone();
+            let tools: Vec<Value> = ["read_order", "update_order"]
+                .into_iter()
+                .filter_map(|name| {
+                    let schema = changes.get(name).cloned().unwrap_or(Some(order_schema()))?;
+                    Some(json!({"name":name,"inputSchema":schema}))
+                })
+                .collect();
+            json!({"tools":tools})
         }
         "tools/call" => {
             let mut state = s.lock().unwrap();
