@@ -122,6 +122,74 @@ Running replies continue. Switching it back on needs no other change.
 - Account answers from Composio can carry tokens. Cuckoo reads only the id,
   status, toolkit and auth config, and stores only those ids.
 
+## Pipedream setup
+
+Pipedream Connect is a second provider (`pipedream`, built 2026-11-08 against a
+local fake; not yet run against a live project). Settings, all controller-only
+(executors refuse them):
+
+| Setting | Meaning |
+| --- | --- |
+| `AYATI_PIPEDREAM_CLIENT_ID_FILE` | Owned 0600 file with the OAuth client ID |
+| `AYATI_PIPEDREAM_CLIENT_SECRET_FILE` | Owned 0600 file with its client secret |
+| `AYATI_PIPEDREAM_PROJECT_ID` | The Connect project, `proj_…` |
+| `AYATI_PIPEDREAM_ENVIRONMENT` | `development` or `production`; one per deployment |
+| `AYATI_PIPEDREAM_BASE_URL` | Tests only; a loopback fixture |
+
+The first four go together. The files are read on every request, so the secret
+can be rotated without a restart. Cuckoo exchanges them at
+`POST /v1/oauth/token` (client credentials, scope `connect:*`) and keeps the
+access token in memory until five minutes before it expires; a rotated secret
+or a refused token gets a new one. The token is never logged or stored. The
+`pipedream` entry of the providers file (designs/connector-layer/contracts.md)
+builds the same settings with `pipedream::Settings::from_entry`.
+
+- **External users.** Each workspace is Pipedream external user
+  `cuckoo-<workspace id>`. Cuckoo lists accounts only for that user and drops
+  any answer naming another user or app, so an account of one workspace is
+  refused in another.
+- **Connecting.** A Connect token for the user and app (15 minutes,
+  `success_redirect_uri` and `error_redirect_uri` set to Cuckoo's return page)
+  gives a Connect Link with `app=<slug>`. Before it, Cuckoo notes the user's
+  accounts and their update times; finishing takes the one healthy account
+  that is new, or else the one Pipedream updated in place. When Pipedream names
+  the account by its email address, that is its identity.
+- **Calls.** Cuckoo reads each action component and keeps only reviewed plain
+  props: text, numbers and true or false. A `string[]` prop, such as Gmail's
+  `to`, is offered as one value and sent as a one-item list. Secret, labelled,
+  dynamic (`reloadProps`), file and other props are left out, and an action
+  whose required prop isn't offered is not offered. The component version is
+  pinned; each call checks the account is healthy and the pinned version still
+  takes the same props, then runs `actions/run` with the account as the
+  component's app prop. Only a reply with no error is a result; a timeout, an
+  error, `202` or anything unclear is unconfirmed. Calls take no idempotency key.
+- **Disconnecting** deletes the account at Pipedream.
+- **Events.** Subscribing deploys the trigger component at its current version
+  with `webhook_url` and `emit_on_deploy: false`, and keeps Pipedream's
+  per-trigger signing key; without one the trigger is removed again.
+  Deliveries need `x-pd-signature` (HMAC-SHA256 of `{t}.{raw body}`) from that
+  key within ±300 seconds. Unsubscribing deletes the deployed trigger.
+
+Mapped for Pipedream: Gmail (find, draft, send), Google Calendar (find, create),
+Google Sheets (spreadsheet details) and Google Drive (find files), with
+component keys and prop names from Pipedream's component sources on GitHub.
+Gmail's reply needs a message id, not a thread, and Sheets' find row needs a
+worksheet and column, so those two are not mapped.
+
+Unverified until a live run:
+
+- Component keys, versions and prop types as the Connect API returns them.
+- That Connect Link honours `app_id` and `app`, and returns through the
+  redirect URIs; that account answers carry `external_id`, `updated_at`, and
+  the mailbox as `name`.
+- The run reply on failure (`error`, `os[].err`) and the status codes used.
+- The delivery body. Pipedream documents the signature only. Cuckoo reads
+  `{"event", "context"}` and takes `context.id` as the event id (else a
+  SHA-256 of the body) and `context.emitter_id` as the subscription (else
+  empty: the per-subscription key already binds the delivery). The intake must
+  refuse a delivery whose non-empty subscription differs from its URL's.
+- Whether deleting an account also stops triggers deployed with it.
+
 ## Schema 53
 
 - `relay_control_connections.provider` (`mcp` by default) and `binding`, the
@@ -134,9 +202,11 @@ Running replies continue. Switching it back on needs no other change.
 ## Checks
 
 - Unit: catalog validity and field reduction (`connectors::curated`); the
-  provider suite for MCP and Composio, plus Composio-specific cases
-  (`connectors::conformance_tests`).
-- PostgreSQL: `connector_providers::tests`. They cover a full sign-in, a
+  provider suite for MCP, Composio and Pipedream, plus Composio-specific cases
+  (`connectors::conformance_tests`); Pipedream props, sign-in, ownership, call
+  outcomes, the token cache, events and signatures (`connectors::pipedream_*`).
+- PostgreSQL: `connector_providers::tests` and
+  `connectors::pipedream_sign_in_tests`. They cover a full sign-in, a
   gateway call, the switch, an expired account and reconnecting, and failed,
   expired and once-only sign-ins.
 - Web: `tests/workspace-connections.test.mjs` covers opening the sign-in
@@ -153,7 +223,8 @@ Running replies continue. Switching it back on needs no other change.
 - Composio event triggers still come from the operator's event-source file.
 - List and nested fields, such as cc or attendees, are not offered.
 - An abandoned sign-in that never returns stays at Composio until removed.
-- A second provider and a connector Cuckoo builds itself: the contract and
-  suite are ready for them.
+- A connector Cuckoo builds itself: the contract and suite are ready for it.
+- Composio and Pipedream map the same apps, so both can't be configured on one
+  controller until routes per app choose between them.
 - The simpler admin model and the agent Tools step with search need approved
   designs first. In the simpler model, admins make one choice per connector.
