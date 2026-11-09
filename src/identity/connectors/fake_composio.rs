@@ -33,6 +33,12 @@ pub(crate) struct Fake {
     pub retired: Vec<String>,
     /// Every request Composio received, answered or not.
     pub requests: usize,
+    /// Trigger instances: id to (trigger slug, account, config).
+    pub triggers: HashMap<String, (String, String, Value)>,
+    pub deleted_triggers: Vec<String>,
+    pub upserts: usize,
+    /// The project's one webhook subscription.
+    pub webhook: Option<Value>,
 }
 /// The mailbox every fake account signs in as, unless a test changes it.
 pub(crate) const MAILBOX: &str = "orders@example.test";
@@ -62,6 +68,19 @@ impl FakeComposio {
             .route("/api/v3.1/connected_accounts/{id}/revoke", post(revoke))
             .route("/api/v3.1/tools/{slug}", get(tool))
             .route("/api/v3.1/tools/execute/{slug}", post(execute))
+            .route("/api/v3.1/trigger_instances/{slug}/upsert", post(upsert))
+            .route(
+                "/api/v3.1/trigger_instances/manage/{id}",
+                axum::routing::delete(delete_trigger),
+            )
+            .route(
+                "/api/v3.1/webhook_subscriptions",
+                get(webhooks).post(create_webhook),
+            )
+            .route(
+                "/api/v3.1/webhook_subscriptions/{id}",
+                axum::routing::patch(update_webhook),
+            )
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}/api/v3.1/", listener.local_addr().unwrap());
@@ -306,4 +325,128 @@ async fn execute(
     Ok(Json(
         json!({"data":{"echo":body["arguments"]},"error":null,"successful":true,"log_id":"log_1"}),
     ))
+}
+
+/// The signing secret the fake's project webhook uses.
+pub(crate) const WEBHOOK_SECRET: &str = "whsec_fixture_project_secret";
+
+/// Headers Composio sends with a delivery, signed with `secret`.
+pub(crate) fn signed(secret: &str, id: &str, timestamp: i64, body: &[u8]) -> HeaderMap {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    let key = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, secret.as_bytes());
+    let mut signed = format!("{id}.{timestamp}.").into_bytes();
+    signed.extend_from_slice(body);
+    let signature = STANDARD.encode(ring::hmac::sign(&key, &signed));
+    let mut headers = HeaderMap::new();
+    headers.insert("webhook-id", id.parse().unwrap());
+    headers.insert("webhook-timestamp", timestamp.to_string().parse().unwrap());
+    headers.insert(
+        "webhook-signature",
+        format!("v1,{signature}").parse().unwrap(),
+    );
+    headers
+}
+
+/// A V3 trigger message for `trigger`, as Composio delivers it.
+pub(crate) fn message(
+    id: &str,
+    workspace: &str,
+    account: &str,
+    trigger: &str,
+    data: Value,
+) -> Value {
+    json!({"id":id,"type":"composio.trigger.message","metadata":{"log_id":"log_1",
+        "trigger_slug":"GMAIL_NEW_GMAIL_MESSAGE","trigger_id":trigger,"connected_account_id":account,
+        "auth_config_id":"ac_1","user_id":format!("cuckoo-{workspace}")},"data":data,
+        "timestamp":"2026-11-08T10:30:00Z"})
+}
+
+/// Same account and trigger: the same instance, as Composio's upsert does.
+async fn upsert(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), StatusCode> {
+    keyed(&s, &headers)?;
+    let account = body["connected_account_id"].as_str().unwrap().to_owned();
+    assert!(body["user_id"].as_str().unwrap().starts_with("cuckoo-"));
+    let mut state = s.lock().unwrap();
+    state.upserts += 1;
+    let existing = state
+        .triggers
+        .iter()
+        .find(|(_, (t, a, _))| *t == slug && *a == account)
+        .map(|(id, _)| id.clone());
+    let (code, id) = match existing {
+        Some(id) => (StatusCode::OK, id),
+        None => (
+            StatusCode::CREATED,
+            format!("ti_{}", uuid::Uuid::new_v4().simple()),
+        ),
+    };
+    state
+        .triggers
+        .insert(id.clone(), (slug, account, body["trigger_config"].clone()));
+    Ok((
+        code,
+        Json(json!({"trigger_id":id,"type":"poll","fallback_reason":null,"polling_interval":2})),
+    ))
+}
+
+async fn delete_trigger(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, StatusCode> {
+    keyed(&s, &headers)?;
+    let mut state = s.lock().unwrap();
+    state.triggers.remove(&id).ok_or(StatusCode::NOT_FOUND)?;
+    state.deleted_triggers.push(id.clone());
+    Ok(Json(json!({"trigger_id":id})))
+}
+
+fn webhook(body: &Value, id: &str) -> Value {
+    json!({"id":id,"webhook_url":body["webhook_url"],"version":body["version"],
+        "enabled_events":body["enabled_events"],"secret":WEBHOOK_SECRET,
+        "created_at":"2026-11-08T00:00:00Z","updated_at":"2026-11-08T00:00:00Z"})
+}
+
+async fn create_webhook(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), StatusCode> {
+    keyed(&s, &headers)?;
+    let mut state = s.lock().unwrap();
+    if state.webhook.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
+    let saved = webhook(&body, "whs_1");
+    state.webhook = Some(saved.clone());
+    Ok((StatusCode::CREATED, Json(saved)))
+}
+
+async fn webhooks(State(s): State<Shared>, headers: HeaderMap) -> Result<Json<Value>, StatusCode> {
+    keyed(&s, &headers)?;
+    let items: Vec<Value> = s.lock().unwrap().webhook.iter().cloned().collect();
+    Ok(Json(
+        json!({"items":items,"next_cursor":null,"total_pages":1,"current_page":1,"total_items":items.len()}),
+    ))
+}
+
+async fn update_webhook(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, StatusCode> {
+    keyed(&s, &headers)?;
+    let mut state = s.lock().unwrap();
+    if state.webhook.as_ref().map(|w| w["id"].clone()) != Some(json!(id)) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let saved = webhook(&body, &id);
+    state.webhook = Some(saved.clone());
+    Ok(Json(saved))
 }

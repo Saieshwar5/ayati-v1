@@ -51,6 +51,7 @@ pub(super) async fn setup() -> Setup {
         read_operation: "order.read".into(),
         fields: vec!["order_id".into(), "status".into()],
         secret_file: String::new(),
+        subscribed: None,
     })
     .unwrap();
     let tx = db.read_tx(&w).await.unwrap();
@@ -130,6 +131,7 @@ impl Setup {
             connection_revision: Some(self.input.connection_revision),
             read_revision: Some(self.input.read_revision),
             delegation_revision: None,
+            remove: false,
         }
     }
     pub async fn state(&self, input: &Change) -> Value {

@@ -1,8 +1,5 @@
 use super::*;
-use crate::identity::events::{
-    catalog::{self, Source},
-    model::Trigger,
-};
+use crate::identity::events::{catalog::Source, model::Trigger};
 use serde_json::json;
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
@@ -77,7 +74,8 @@ pub(super) fn principal(data: &Value) -> Result<User> {
     })
 }
 pub(super) async fn current(db: &impl ConnectionTrait, w: &str, data: &Value) -> Result<Value> {
-    let source = catalog::source(w, data["source"].as_str().context("Missing event source")?)?;
+    let id = data["source"].as_str().context("Missing event source")?;
+    let source = super::event_subscriptions::any_source(db, w, id).await?;
     ensure!(
         source.fingerprint()? == data["binding"],
         "Event-source identity or projection changed; create a new trigger"

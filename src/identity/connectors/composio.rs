@@ -4,8 +4,10 @@
 //! Every call first checks that the account is still active and the pinned tool
 //! still means the same thing; the agent never sees Composio.
 use super::{
-    Account, App, Call, Capabilities, Connect, ConnectorProvider, Outcome, Refusal, Saved,
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Delivery, Outcome, Refusal,
+    Saved, Subscription,
     composio_api::{self, ComposioApi, Reply},
+    composio_triggers,
     curated::{self, CatalogApp},
     fingerprint,
 };
@@ -285,6 +287,7 @@ impl ConnectorProvider for Composio {
             sign_in: true,
             revoke: true,
             list_fields: true,
+            triggers: true,
             ..Capabilities::default()
         }
     }
@@ -447,6 +450,43 @@ impl ConnectorProvider for Composio {
             tool: operation.tool.clone(),
             fields: reviewed.fields.clone(),
         }))
+    }
+
+    /// Only a catalog event of this app, on an active account, is subscribed.
+    async fn subscribe(
+        &self,
+        saved: &Saved<'_>,
+        trigger: &str,
+        config: &Value,
+        _webhook: &str,
+    ) -> Result<Subscription> {
+        let binding = Binding::parse(saved.binding, saved.workspace)?;
+        let (app, toolkit) = Self::app(saved.server).map_err(|_| Refusal::Changed)?;
+        ensure!(
+            app.triggers
+                .iter()
+                .any(|t| t.providers.get(NAME).is_some_and(|b| b.tool == trigger)),
+            Refusal::Changed
+        );
+        match self.state(&binding, toolkit).await? {
+            State::Active => {}
+            _ => return Err(Refusal::NeedsReconnect.into()),
+        }
+        composio_triggers::subscribe(&self.api, &binding.account, &binding.user, trigger, config)
+            .await
+    }
+    async fn unsubscribe(&self, saved: &Saved<'_>, subscription: &str) -> Result<()> {
+        Binding::parse(saved.binding, saved.workspace)?;
+        composio_triggers::unsubscribe(&self.api, subscription).await
+    }
+    fn parse_delivery(
+        &self,
+        headers: &axum::http::HeaderMap,
+        body: &[u8],
+        secret: &str,
+        now: i64,
+    ) -> Result<Vec<Delivery>> {
+        composio_triggers::parse(headers, body, secret, now)
     }
 }
 

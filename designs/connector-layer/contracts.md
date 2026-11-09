@@ -101,6 +101,18 @@ connection gains `state` with the values above.
 controller finds or creates the provider subscription and its source, then
 creates the trigger with the existing rules.
 
+The trigger list (`GET /agent-profiles/{a}/event-triggers`) gains `apps`:
+`[{connection, app, name, account, state: "ready"|"reconnect"|"unavailable"|"no_read"|"needs_allow", detail, read_title, chat, chat_name, visibility, conversations, authority}]`,
+the destinations and versions a trigger from that app needs.
+`POST /agent-profiles/{a}/event-triggers/{id}/state` also accepts
+`"remove": true` (with `"enabled": false`): the trigger is removed for good, and
+removing the last trigger of a subscription stops it at the provider.
+
+Composio project webhook (platform admins):
+`GET|POST /api/identity/admin/connector-events/composio`. `POST` needs
+`AYATI_PUBLIC_ORIGIN` and `AYATI_SECRETS_KEY_FILE` and stores the secret sealed;
+`GET` returns `{set_up, setup: {webhook_url, events, changed, changed_by}, webhook_url, public_origin, secrets_key, configured}`.
+
 Provider intake: `POST /hooks/composio` (one per deployment, project secret)
 and `POST /hooks/pipedream/{subscription}` (per-subscription signing key). The
 existing `POST /hooks/composio/workspaces/{w}/{source}` keeps working for

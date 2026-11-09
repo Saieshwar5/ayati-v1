@@ -67,6 +67,18 @@
             }
           }
         }
+      ],
+      "triggers": [
+        {
+          "id": "gmail.new_email",
+          "title": "New email",
+          "providers": {
+            "composio": {
+              "tool": "GMAIL_NEW_GMAIL_MESSAGE",
+              "fields": { "message_id": "message_id", "thread_id": "thread_id", "from": "sender", "to": "to", "subject": "subject", "received_at": "message_timestamp", "text": "message_text" }
+            }
+          }
+        }
       ]
     },
     {
@@ -105,6 +117,18 @@
             "pipedream": {
               "tool": "google_calendar-create-event",
               "fields": { "title": "summary", "description": "description", "location": "location", "start": "eventStartDate", "end": "eventEndDate", "timezone": "timeZone", "calendar_id": "calendarId" }
+            }
+          }
+        }
+      ],
+      "triggers": [
+        {
+          "id": "google_calendar.new_event",
+          "title": "New calendar event",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER",
+              "fields": { "event_id": "event_id", "calendar_id": "calendar_id", "title": "summary", "start": "start_time", "end": "end_time", "organizer_email": "organizer_email", "organizer_name": "organizer_name" }
             }
           }
         }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity::{chat::model::Job, events::catalog};
+use crate::identity::chat::model::Job;
 use serde_json::json;
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
@@ -75,12 +75,14 @@ pub(super) async fn source_allowed(db: &impl ConnectionTrait, viewer: &Job) -> R
         }
         let s = &h["source"];
         let current = async {
-            let source = catalog::source(
+            let source = super::event_subscriptions::any_source(
+                db,
                 &viewer.workspace,
                 s["source"]
                     .as_str()
                     .context("Missing handoff event source")?,
-            )?;
+            )
+            .await?;
             ensure!(
                 source.fingerprint()? == s["binding"],
                 "Handoff source identity changed"
@@ -165,7 +167,8 @@ pub(super) async fn event_source(
     let root = root(db, task).await?;
     let row=query(db,"SELECT d.id,t.source,t.binding FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2 AND NOT d.revoked",vec![task.workspace.clone().into(),root.into()]).await?;
     let Some(row) = row else { return Ok(None) };
-    let source = catalog::source(&task.workspace, &row.try_get::<String>("", "source")?)?;
+    let id = row.try_get::<String>("", "source")?;
+    let source = super::event_subscriptions::any_source(db, &task.workspace, &id).await?;
     ensure!(
         source.fingerprint()? == row.try_get::<String>("", "binding")?,
         "Source identity changed"

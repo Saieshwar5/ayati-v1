@@ -34,7 +34,9 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/agents/automation/`: on-demand shared schedule list, explicit
   review/create, exact pause/resume and source-authorized run history. Reviewed
   connected-event triggers add signed source setup, filters, activation and bounded
-  delivery history; provider subscription registration remains an operator step.
+  delivery history. "When something happens in an app" picks a connected app,
+  its event and exact filters, and the controller subscribes at the provider;
+  a trigger can be removed for good.
 - `web/src/react/agents/rehearsals/`: on-demand draft-only sample dialog, saved job
   context/source review, guarded Start/Stop, personal history and shared reader.
   Ordinary agent guidance enters its normal prompt without granting tools.

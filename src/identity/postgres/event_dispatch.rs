@@ -45,7 +45,8 @@ pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -
         if read && starts {
             continue;
         }
-        if data["state"] != "blocked" {
+        // Removed is final: a removed trigger is never blocked again.
+        if data["state"] != "blocked" && data["state"] != "removed" {
             execute(db,"UPDATE relay_event_triggers SET state='blocked',revision=revision+1,detail='Current source or destination authority changed. Review before resuming.' WHERE workspace=$1 AND id=$2",vec![w.into(),data["id"].as_str().unwrap().into()]).await?;
             execute(db,"UPDATE relay_event_deliveries SET state='cancelled',detail='Future intake blocked because destination or request authority changed.' WHERE workspace=$1 AND trigger_id=$2 AND state='pending'",vec![w.into(),data["id"].as_str().unwrap().into()]).await?;
         }

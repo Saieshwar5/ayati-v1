@@ -13,6 +13,7 @@
 //! to a connector Cuckoo builds itself, without touching the others.
 mod composio;
 mod composio_api;
+pub(crate) mod composio_triggers;
 #[cfg(test)]
 mod conformance_tests;
 pub(crate) mod connect;
@@ -38,6 +39,9 @@ pub(crate) mod pricing;
 pub(crate) mod providers_file;
 pub(crate) mod routes;
 pub(crate) mod routing;
+pub(crate) mod triggers;
+#[cfg(test)]
+mod triggers_conformance_tests;
 
 use crate::identity::control::model::Operation;
 use crate::identity::postgres::PgStore;
@@ -363,14 +367,7 @@ fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
     let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![Arc::new(
         mcp_servers::McpServers::new(settings.mcp_servers_file.clone()),
     )];
-    let composio = match &settings.providers_file {
-        Some(_) => file().and_then(|f| {
-            f.composio()
-                .map(|e| composio::Settings::from_entry(e, &settings.composio_base))
-        }),
-        None => settings.composio.clone(),
-    };
-    if let Some(composio) = composio {
+    if let Some(composio) = composio_from(settings) {
         match composio::Composio::new(composio) {
             Ok(provider) => providers.push(Arc::new(provider)),
             Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
@@ -390,6 +387,23 @@ fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
         }
     }
     providers
+}
+
+/// Composio's settings now: from the providers file when there is one (read
+/// again here), else from `AYATI_COMPOSIO_*`.
+pub(crate) fn composio_from(settings: &Settings) -> Option<composio::Settings> {
+    match &settings.providers_file {
+        Some(path) => match ProvidersFile::read(path) {
+            Ok(file) => file
+                .composio()
+                .map(|e| composio::Settings::from_entry(e, &settings.composio_base)),
+            Err(error) => {
+                tracing::warn!("The connector providers file can't be read: {error:#}");
+                None
+            }
+        },
+        None => settings.composio.clone(),
+    }
 }
 
 /// One Pipedream provider per settings, kept between uses so its access token

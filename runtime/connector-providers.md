@@ -14,7 +14,8 @@ workspace, account identity and list fields added 2026-11-08 (schema 108).
 | The catalog people see and stable action names, such as `gmail.send_email` | Showing the app's sign-in page and storing the token |
 | Which apps admins approved | Refreshing expired tokens |
 | Connected accounts: who connected them and which agents use them | Making the actual call to the app |
-| Rules, approvals, receipts and Activity | Receiving the app's raw events (not moved yet) |
+| Rules, approvals, receipts and Activity | Watching the app for events and delivering them signed |
+| Which app events start agents, and their fields | |
 
 Agents see only Cuckoo's two business tools, `operations` and `request_action`.
 They never see a provider's name, link, tool names or keys.
@@ -49,6 +50,14 @@ revokes and takes list fields; operator MCP servers do none of these.
 listing, connecting, a read, a write, an unconfirmed write, a changed action,
 a broken account and revoking. Both current providers pass it against local
 fakes.
+
+Events (schema 109): a provider with `capabilities().triggers` also
+**subscribes** an account to a catalog event, **unsubscribes** it, and
+**parses** a signed delivery into Cuckoo's terms (an app event, an expired
+account, or something ignored). Composio implements them with trigger instances
+and its one project webhook; the suite in `connectors/triggers_conformance_tests.rs`
+covers subscribing, removing, and good, forged, changed, late and repeated
+deliveries. See [shared events](shared-agent-events.md#provider-events-schema-109).
 
 ## Cuckoo's catalog
 
@@ -397,7 +406,8 @@ Unverified until a live run:
 ## Not built yet
 
 - One account per app per workspace.
-- Composio event triggers still come from the operator's event-source file.
+- Composio app events are checked against fakes only; the operator's
+  event-source file still works for sources made by hand.
 - Nested fields and lists of objects are not offered.
 - Operator MCP servers are not in the Add app catalog; they still connect from
   the Connections controls.
