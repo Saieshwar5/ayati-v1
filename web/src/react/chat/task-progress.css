@@ -97,3 +97,7 @@
 .routine-card { display: grid; gap: 4px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: 10px; max-width: 420px; box-sizing: border-box; }
 .routine-card small { color: var(--muted); }
 .routine-card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.routine-card-facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 4px 0 0; font-size: 13px; }
+.routine-card-facts dt { color: var(--muted); }
+.routine-card-facts dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.routine-card a { color: inherit; }

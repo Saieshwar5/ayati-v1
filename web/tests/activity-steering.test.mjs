@@ -43,19 +43,20 @@ test('the person who asked adds to a running request once; others can\'t', async
   }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response(details({ requester: 'ravi', added: [] })) });
 });
 
-test('a proposed routine is saved only by the person who asked, once', async () => {
+test('a proposed schedule is saved only by the person who asked, once, and says what will run', async () => {
   const writes = [];
-  const routine = { id: 'd1', name: 'Monday sales summary', first_ms: now + 86400000, interval_seconds: 604800, state: 'pending', requester: 'kavya' };
+  const routine = { id: 'd1', name: 'Monday sales summary', content: 'Send last week’s sales summary.', first_ms: now + 86400000, interval_seconds: 604800, state: 'pending', requester: 'kavya' };
   await reactFixture(async ({ render, button, update }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { RoutineCard, every } = await import('../src/react/chat/routine-proposal.tsx');
     assert.equal(every(604800), 'Every week'); assert.equal(every(2 * 86400), 'Every 2 days'); assert.equal(every(3600), 'Every hour');
-    await render(() => createElement(RoutineCard, { routine }));
-    assert.match(document.body.textContent, /Routine: Monday sales summary.*Every week, first/);
-    await update(() => { const b = button('Save routine'); b.click(); b.click(); });
+    await render(() => createElement(RoutineCard, { routine, agent: 'Nova' }));
+    assert.match(document.body.textContent, /Schedule · Monday sales summaryNova suggests this\. Nothing runs until you save it\.WhenEvery week, first.*Nova willSend last week’s sales summary\./);
+    await update(() => { const b = button('Save schedule'); b.click(); b.click(); });
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].body, { save: true });
-    assert.match(document.body.textContent, /Saved\. It runs on the agent's Schedules/);
+    assert.match(document.body.textContent, /Schedule saved · Monday sales summary.*It runs as you, with your access/);
+    assert.ok(document.querySelector('a[href$="?view=activity&tab=now"]'));
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (options.method === 'POST') { writes.push({ path, body: JSON.parse(options.body) }); return response({ state: 'saved' }); }
@@ -64,8 +65,8 @@ test('a proposed routine is saved only by the person who asked, once', async () 
   await reactFixture(async ({ render, button }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { RoutineCard } = await import('../src/react/chat/routine-proposal.tsx');
-    await render(() => createElement(RoutineCard, { routine: { ...routine, requester: 'ravi' } }));
-    assert.equal(button('Save routine'), undefined);
+    await render(() => createElement(RoutineCard, { routine: { ...routine, requester: 'ravi' }, agent: 'Nova' }));
+    assert.equal(button('Save schedule'), undefined);
     assert.match(document.body.textContent, /Waiting for the person who asked to save it/);
   }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response({}) });
 });

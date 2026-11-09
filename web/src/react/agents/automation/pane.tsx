@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Agent } from '../model';
 import { Button } from '../../ui';
+import { workspaceUrl } from '../../../workspace-context';
 import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { CreateSchedule } from './create-dialog';
@@ -11,8 +12,23 @@ import './schedules.css';
 import { EventTriggers } from './events';
 
 type Open = { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
-export function AutomationPane({ agent }: { agent: Agent }) {
-  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <><h3>Automations</h3><p>Only this agent's managers can manage its schedules and triggers. Individual work remains visible through your authorized conversations.</p></>;
+export function AutomationPane({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
+  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <MemberAutomations agent={agent} openChat={openChat} />;
+}
+/** People who talk to the agent but don't look after it: they get a schedule by
+ * asking in Chat, and it runs as them (designs/automations-simplified 4). */
+function MemberAutomations({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
+  return <section className="automation-member" aria-label={`${agent.name} automations`}>
+    <h3>Automations</h3>
+    <p>Only {agent.name}’s owner or an admin can add schedules and triggers here.</p>
+    <p>You can still get one: ask {agent.name} in Chat, in your own words. It suggests a schedule, and you save it.</p>
+    <p className="automation-example">“Every Friday at 5 pm, send me this week’s delayed orders.”</p>
+    <div className="automation-tools">
+      {openChat && <Button primary onClick={openChat}>Ask {agent.name} in Chat</Button>}
+      <a className="ui-button" href={workspaceUrl('/?view=activity&tab=now')}>See what runs next in Activity</a>
+    </div>
+    <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity.</p>
+  </section>;
 }
 function ScheduleWorkspace({ agent }: { agent: Agent }) {
   const load = useCallback(() => loadSchedules(agent.id), [agent.id]);
@@ -69,7 +85,8 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
         </div>
         {!routine.can_resume && routine.state !== 'enabled' && routine.state !== 'completed' && <p className="ui-help">Only {routine.principal_name} can resume it, with their current access.</p>}
       </article>)}
-      {resource.data && !resource.data.schedules.length && <p className="ui-help">No schedules yet.</p>}
+      {resource.data && !resource.data.schedules.length && !resource.data.elsewhere && <p className="ui-help">No schedules yet.</p>}
+      {Boolean(resource.data?.elsewhere) && <p className="ui-help">{resource.data?.elsewhere === 1 ? '1 more schedule posts' : `${resource.data?.elsewhere} more schedules post`} in conversations you’re not in, so {resource.data?.elsewhere === 1 ? 'it stays' : 'they stay'} private. Pausing {agent.name} pauses every schedule.</p>}
       <div className="automation-tools"><Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button></div>
     </section>
     <EventTriggers agent={agent.id}/>

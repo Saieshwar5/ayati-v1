@@ -57,7 +57,7 @@ test('pause and resume are explicit versioned changes while run reading and role
   await setup();const {ScheduleState}=await import('../src/react/agents/automation/state-dialog.tsx');
   await render(ScheduleState,{agent:'agent',routine,enabled:false,close:()=>{},saved:async()=>{}});assert.equal(writes.length,0);
   await update(()=>{button('Pause schedule').click();button('Pause schedule').click();});assert.equal(writes.length,1);assert.equal(writes[0].revision,2);assert.equal(writes[0].enabled,false);
-  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only this agent's managers/);assert.equal(button('Create schedule'),undefined);assert.equal(writes.length,1);
+  const {AutomationPane}=await import('../src/react/agents/automation/pane.tsx');await render(AutomationPane,{agent:{...agent,editable:false}});assert.match(document.body.textContent,/Only Nova’s owner or an admin can add schedules and triggers here.*ask Nova in Chat/);assert.equal(button('Create schedule'),undefined);assert.equal(writes.length,1);
   await render(AutomationPane,{agent});await click(button('View runs'));assert.match(document.body.textContent,/No occurrences/);assert.equal(writes.length,1);
  },{url,fetch:async(path,init={})=>{if(init.method==='POST'){writes.push(JSON.parse(init.body));return response({id:'routine',revision:3,state:'paused'});}return base(path);}});
 });

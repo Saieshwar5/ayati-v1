@@ -15,7 +15,7 @@ pub(super) async fn visible(
     agent: &str,
     data: &Value,
 ) -> Result<()> {
-    super::agent_profiles::managed_access(tx, &user.id, w, agent, true).await?;
+    standing(tx, user, w, agent, data["id"].as_str()).await?;
     // A schedule that posts to a conversation is seen only by people in it.
     if let Some(chat) = data["chat"].as_str() {
         super::chat::access(tx, user, w, chat).await?;
@@ -25,14 +25,18 @@ pub(super) async fn visible(
 /// What a schedule needs from its person to run: they may still look after
 /// the agent and use it directly, and post where it posts, if anywhere. Runs
 /// happen in the schedule's own work room (schema 56), not in a conversation.
+///
+/// `own` names the schedule when it may be the person's own: one they saved from the
+/// agent's proposal in their chat (see `standing`).
 pub(super) async fn run_authority(
     tx: &DatabaseTransaction,
     user: &User,
     w: &str,
     agent: &str,
+    own: Option<&str>,
     post_to: Option<&str>,
 ) -> Result<()> {
-    let profile = super::agent_profiles::managed_access(tx, &user.id, w, agent, true).await?;
+    let profile = standing(tx, user, w, agent, own).await?;
     ensure!(
         profile["revision"].as_i64().is_some_and(|r| r > 0),
         "Use a managed agent for shared routines"
@@ -42,9 +46,50 @@ pub(super) async fn run_authority(
         "Current agent request permission is required"
     );
     match post_to {
-        Some(chat) => authority(tx, user, w, agent, chat).await,
+        Some(chat) => authority_for(tx, user, w, agent, own, chat).await,
         None => Ok(()),
     }
+}
+/// Whether `user` stands behind schedules on the agent: they look after it, or
+/// `own` is their own schedule, saved from the agent's proposal in their chat (the
+/// draft's id is the schedule's), and they may still talk to the agent. Members
+/// can't make one any other way.
+pub(super) async fn standing(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+    own: Option<&str>,
+) -> Result<Value> {
+    match super::agent_profiles::managed_access(tx, &user.id, w, agent, true).await {
+        Err(error) if !error.is::<sea_orm::DbErr>() => match own {
+            Some(id) if proposed_to(tx, w, agent, id, &user.id).await? => {
+                super::agent_profiles::managed_access(tx, &user.id, w, agent, false).await
+            }
+            _ => Err(error),
+        },
+        result => result,
+    }
+}
+/// The person saved (or is saving) this schedule from the agent's proposal to them.
+async fn proposed_to(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: &str,
+    id: &str,
+    user: &str,
+) -> Result<bool> {
+    let present: bool = query(
+        tx,
+        "SELECT to_regclass('relay_schedule_drafts') IS NOT NULL AS present",
+        vec![],
+    )
+    .await?
+    .context("Schema check")?
+    .try_get("", "present")?;
+    Ok(present
+        && query(tx, "SELECT 1 AS found FROM relay_schedule_drafts WHERE workspace=$1 AND id=$2 AND agent=$3 AND requester=$4 AND state IN ('pending','saved')",
+            vec![w.into(), id.into(), agent.into(), user.into()]).await?.is_some())
 }
 pub(super) async fn authority(
     tx: &DatabaseTransaction,
@@ -53,7 +98,18 @@ pub(super) async fn authority(
     agent: &str,
     chat: &str,
 ) -> Result<()> {
-    let profile = super::agent_profiles::managed_access(tx, &user.id, w, agent, true).await?;
+    authority_for(tx, user, w, agent, None, chat).await
+}
+/// May post the agent's work in `chat` as `user`; `own` as in `standing`.
+pub(super) async fn authority_for(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+    own: Option<&str>,
+    chat: &str,
+) -> Result<()> {
+    let profile = standing(tx, user, w, agent, own).await?;
     ensure!(
         profile["revision"].as_i64().is_some_and(|r| r > 0),
         "Use a managed agent for shared routines"
@@ -92,9 +148,16 @@ pub(super) async fn present(
     data["can_resume"] = json!(
         person.id == user.id
             && data["state"] != "completed"
-            && run_authority(tx, user, w, agent, data["chat"].as_str())
-                .await
-                .is_ok()
+            && run_authority(
+                tx,
+                user,
+                w,
+                agent,
+                data["id"].as_str(),
+                data["chat"].as_str()
+            )
+            .await
+            .is_ok()
     );
     Ok(data)
 }
@@ -105,7 +168,7 @@ pub(super) async fn invalidate_inaccessible(tx: &DatabaseTransaction, w: &str) -
         let person=principal(&data)?;
         let result=if super::home_update_access::panel_schedule(tx,w,data["id"].as_str().unwrap()).await? {
             super::home_update_runs::schedule_authority(tx,&person,w,data["id"].as_str().unwrap()).await
-        } else {run_authority(tx,&person,w,data["agent"].as_str().unwrap(),data["chat"].as_str()).await};
+        } else {run_authority(tx,&person,w,data["agent"].as_str().unwrap(),data["id"].as_str(),data["chat"].as_str()).await};
         if let Err(error)=result {
             if error.is::<sea_orm::DbErr>() { return Err(error); }
             execute(tx,"UPDATE relay_agent_schedules SET state='blocked',revision=revision+1,detail='Routine access or destination changed. The original person must review and resume.' WHERE workspace=$1 AND id=$2 AND state='enabled'",vec![w.into(),data["id"].as_str().unwrap().into()]).await?;

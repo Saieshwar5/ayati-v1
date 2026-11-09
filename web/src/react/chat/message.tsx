@@ -57,7 +57,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
       {message.approval && <ApprovalCard reference={message.approval} />}
       {message.task && <TaskChip task={message.task} />}
-      {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} />)}
+      {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
       {!own && edited}
