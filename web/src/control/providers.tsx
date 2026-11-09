@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useResource } from '../react/requests';
-import { ago, control, codesRequest, type Provider, type Providers } from './api';
+import { ago, control, type Provider, type Providers } from './api';
 import type { Go } from './app';
+import { ConnectorProviders } from './connector-providers';
 import { Loading, ReasonDialog, Tag, providerHue } from './shared';
 
 type Resource = { data?: Providers; error: string; setData: (data: Providers) => void; refresh: () => Promise<void> };
-type Connector = { providers: { provider: string; enabled: boolean; note: string }[]; configured: string[] };
-const loadConnectors = () => codesRequest<Connector>('/admin/connector-providers');
 
 export function ProvidersScreen({ providers, canStoreKeys, selected, go }: { providers: Resource; canStoreKeys: boolean; selected: string | null; go: Go }) {
   const [adding, setAdding] = useState(false);
@@ -134,32 +132,4 @@ function AddProvider({ onClose, onSaved }: { onClose: () => void; onSaved: (next
     <p className="cc-dim cc-small">For agents that name a provider themselves. The model catalog only routes to providers in the deployment’s
       providers file. The key is sealed before it is stored and is never shown again, here or in the CLI.</p>
   </ReasonDialog>;
-}
-
-/** Connected-app providers (Composio): the existing per-provider switch. */
-function ConnectorProviders() {
-  const { data, error, setData } = useResource(loadConnectors);
-  const [changing, setChanging] = useState<{ provider: string; enabled: boolean }>();
-  if (!data) return error ? <p className="cc-dim cc-small">Connected-app providers: {error}</p> : null;
-  const names = [...new Set([...data.configured, ...data.providers.map(p => p.provider)])];
-  if (!names.length) return null;
-  return <section aria-labelledby="cc-connectors">
-    <h2 id="cc-connectors" className="cc-cap">Connected-app providers</h2>
-    <div className="cc-cards">{names.map(name => {
-      const state = data.providers.find(p => p.provider === name);
-      const on = state?.enabled ?? true;
-      return <div key={name} className="cc-card cc-provider">
-        <span className="cc-between"><span className="cc-provider-name">{name}</span><Tag tone={on ? 'ok' : 'bad'}>{on ? 'ON' : 'OFF'}</Tag></span>
-        <span className="cc-dim cc-small">{on ? 'Agents can act in apps connected through it.' : `Off: “${state?.note}”`}</span>
-        <button type="button" className={`cc-btn ${on ? 'danger' : ''}`} onClick={() => setChanging({ provider: name, enabled: !on })}>{on ? 'Turn off…' : 'Turn back on'}</button>
-      </div>;
-    })}</div>
-    {changing && <ReasonDialog title={changing.enabled ? `Turn ${changing.provider} back on?` : `Turn off ${changing.provider} for every workspace?`}
-      confirm={changing.enabled ? 'Turn back on' : 'Turn off'} danger={!changing.enabled} onClose={() => setChanging(undefined)}
-      onConfirm={async reason => {
-        setData(await codesRequest<Connector>('/admin/connector-providers', { provider: changing.provider, enabled: changing.enabled, note: changing.enabled ? '' : reason, reason }));
-      }}>
-      <p className="cc-dim">{changing.enabled ? 'Agents can use its actions again.' : 'Its actions disappear from agents, and anything requested is refused with your reason, which people see.'}</p>
-    </ReasonDialog>}
-  </section>;
 }

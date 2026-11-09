@@ -208,6 +208,54 @@ Cuckoo's platform administrators set a workspace's route:
 | `GET /api/identity/admin/connector-routes` | Workspace routes, each catalog app's providers and default, configured providers with prices |
 | `POST /api/identity/admin/connector-routes` | `{workspace, app, provider \| null, note, reason?}`; `null` returns to the defaults. Recorded in the change log |
 
+## Health and limits (schema 110)
+
+Every call the gateway handles is recorded in `relay_connector_calls`: the
+workspace, action, agent, connection, app, provider and operation, when it
+started, its latency, its outcome (`completed`, `uncertain`, `refused` or
+`preflight_failed`), whether the provider failed while Cuckoo checked the
+account and action, and an estimated cost. Never arguments, results or tokens.
+The price per call comes from the providers file's `usd_per_1k_calls` once
+(`connectors::pricing`).
+
+Before anything reaches a provider, after the switch and the field check:
+
+- **Rate limit per workspace and app**: 60 calls a minute (`RATE_PER_MINUTE`),
+  counted over the calls table under a lock per workspace and app. Refusals
+  don't count. Refused with "This workspace made too many calls to this app in
+  the last minute. Nothing was sent; try again in a minute."
+- **Circuit breaker per provider**, in `relay_connector_breakers`, so every
+  controller agrees. Five provider failures in a row within two minutes
+  (`BREAKER_FAILURES`; uncertain outcomes, and errors or timeouts while the
+  provider checks the account) open it for three minutes
+  (`BREAKER_COOLDOWN_MS`): calls are refused with "Cuckoo paused calls to this
+  service for a few minutes after repeated failures. Nothing was sent." Then one
+  trial call goes; its success closes the breaker, its failure reopens it. A
+  refusal the provider explains (reconnect, changed) is not a failure, and a
+  pinned Composio version that is gone is refused as changed. Operator MCP
+  servers share one breaker under `mcp`.
+
+The Apps page shows each account's `last_used: {at, agent_name}` (`at` in Unix
+milliseconds): the latest call that reached the app.
+
+**Drift check.** `describe` reads, without using the account, what a provider
+defines now: for Composio the pinned tool version and the newest one, each
+reduced to the reviewed fields with `curated::project`; for operator MCP
+servers the `tools/list` schema. Each reviewed action is `ok`, `missing`,
+`changed` (with the Cuckoo field names), `new_version` (calls keep the pinned
+one) or not checked. A controller runs it nightly after 02:00 UTC under a
+lease in `relay_connector_drift_runs`; `ayati admin connectors verify` runs it
+on demand, prints a line per account and action and exits non-zero on missing,
+changed or unchecked actions. Results are kept 30 days. Agents using an account
+whose actions are missing or changed show in Needs fixing as "Gmail changed
+since it was reviewed", with Reconnect to review; reconnecting retires the
+result. Accounts that need reconnecting or whose provider is off are skipped.
+
+Cuckoo Control's connected-app providers show, per provider, calls, errors,
+refusals and estimated cost this month, the breaker's state and the last drift
+check's counts. Live checks of the provider accounts themselves are in
+[tools/connector-provider-check](../tools/connector-provider-check/README.md).
+
 ## Composio setup
 
 - In the providers file: `key_file` (a project API key; personal `uak_` keys
@@ -260,6 +308,11 @@ Cuckoo's platform administrators set a workspace's route:
   other accounts starting over, the upgrade) and `connector_catalog::tests`
   (Apps states and `via`, the catalog, one-step connect, states on Tools,
   company rules and lists).
+- Provider operations: `connectors::drift::tests` (describe and drift
+  findings, verify output); PostgreSQL `connector_calls::tests` and
+  `connector_calls::drift_tests` (a metric per outcome, the breaker shared by two
+  stores, the rate limit, drift results and their Needs fixing cause,
+  `last_used`).
 - PostgreSQL: `connector_providers::tests`. They cover a full sign-in, a
   gateway call, the switch, an expired account and reconnecting, and failed,
   expired and once-only sign-ins.

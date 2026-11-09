@@ -180,6 +180,14 @@ impl Composio {
     }
 
     async fn tool(&self, slug: &str, version: Option<&str>) -> Result<Value> {
+        self.find_tool(slug, version)
+            .await?
+            .context("Composio has no such tool")
+    }
+
+    /// The tool at `version` (its newest without one), or `None` when Composio
+    /// no longer has it.
+    async fn find_tool(&self, slug: &str, version: Option<&str>) -> Result<Option<Value>> {
         let path = match version {
             Some(v) => format!(
                 "tools/{}?version={}",
@@ -188,9 +196,26 @@ impl Composio {
             ),
             None => format!("tools/{}", composio_api::id(slug)?),
         };
-        let tool = self.api.request(Method::GET, &path, None).await?;
-        ensure!(tool["slug"] == slug, "Composio returned a different tool");
-        Ok(tool)
+        match self.api.send(Method::GET, &path, None).await? {
+            Reply::Ok(tool) => {
+                ensure!(tool["slug"] == slug, "Composio returned a different tool");
+                Ok(Some(tool))
+            }
+            Reply::Status(404) => Ok(None),
+            Reply::Status(code) => anyhow::bail!("Composio refused the request (HTTP {code})"),
+        }
+    }
+
+    /// The catalog's action and Composio binding `operation` was reviewed
+    /// against, while this release still maps it to the same tool.
+    fn reviewed(
+        app: &str,
+        operation: &Operation,
+    ) -> Option<(&'static curated::Action, &'static curated::Binding)> {
+        let (app, _) = Self::app(app).ok()?;
+        let action = app.actions.iter().find(|a| a.id == operation.id)?;
+        let binding = action.providers.get(NAME)?;
+        (binding.tool == operation.tool).then_some((action, binding))
     }
 
     /// Cuckoo's actions for `app`, each reviewed against Composio's current tool.
@@ -355,6 +380,30 @@ impl ConnectorProvider for Composio {
         })
     }
 
+    /// The pinned tool and Composio's newest version of it, each reduced to the
+    /// reviewed fields as at connecting (`schema` is null when the action can't
+    /// be offered any more). Reads tools only; the account is not used.
+    async fn describe(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Value> {
+        let Some((action, reviewed)) = Self::reviewed(saved.server, operation) else {
+            return Ok(json!({"version":operation.version,"schema":null,"latest":null}));
+        };
+        let reduce = |tool: &Value| curated::project(action, reviewed, &tool["input_parameters"]);
+        let pinned = match operation.version.as_deref() {
+            Some(version) => self.find_tool(&operation.tool, Some(version)).await?,
+            None => None,
+        };
+        // A tool Composio no longer lists is gone, even while it serves old versions.
+        let latest = self.find_tool(&operation.tool, None).await?;
+        Ok(json!({
+            "version": operation.version,
+            "schema": latest.as_ref().and(pinned.as_ref()).and_then(reduce),
+            "latest": latest.as_ref().map(|tool| json!({
+                "version": tool["version"],
+                "schema": if tool["is_deprecated"] == true { None } else { reduce(tool) },
+            })),
+        }))
+    }
+
     async fn disconnect(&self, workspace: &str, _app: &str, value: Option<&Value>) -> Result<()> {
         let binding = Binding::parse(value, workspace)?;
         let path = format!("connected_accounts/{}", binding.account);
@@ -374,21 +423,19 @@ impl ConnectorProvider for Composio {
 
     async fn prepare(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Box<dyn Call>> {
         let binding = Binding::parse(saved.binding, saved.workspace)?;
-        let (app, toolkit) = Self::app(saved.server).map_err(|_| Refusal::Changed)?;
-        let action = app
-            .actions
-            .iter()
-            .find(|a| a.id == operation.id)
-            .context(Refusal::Changed)?;
-        let reviewed = action.providers.get(NAME).context(Refusal::Changed)?;
-        ensure!(reviewed.tool == operation.tool, Refusal::Changed);
+        let (_, toolkit) = Self::app(saved.server).map_err(|_| Refusal::Changed)?;
+        let (action, reviewed) =
+            Self::reviewed(saved.server, operation).context(Refusal::Changed)?;
         match self.state(&binding, toolkit).await? {
             State::Active => {}
             _ => return Err(Refusal::NeedsReconnect.into()),
         }
+        // A pinned version Composio no longer serves is a changed action, not
+        // a provider failure: it must not count toward the circuit breaker.
         let tool = self
-            .tool(&operation.tool, operation.version.as_deref())
-            .await?;
+            .find_tool(&operation.tool, operation.version.as_deref())
+            .await?
+            .context(Refusal::Changed)?;
         ensure!(
             curated::project(action, reviewed, &tool["input_parameters"]).as_ref()
                 == Some(&operation.schema),

@@ -17,11 +17,13 @@ mod composio_api;
 mod conformance_tests;
 pub(crate) mod connect;
 pub(crate) mod curated;
+pub(crate) mod drift;
 #[cfg(test)]
 pub(crate) mod fake_composio;
 #[cfg(test)]
 mod fake_mcp;
 mod mcp_servers;
+pub(crate) mod pricing;
 pub(crate) mod providers_file;
 pub(crate) mod routes;
 pub(crate) mod routing;
@@ -267,7 +269,15 @@ pub(crate) fn configure(settings: Settings) {
 /// Reads the connector settings from the controller configuration and checks
 /// the providers file, so a broken one stops the controller at start.
 pub(crate) fn settings(config: &crate::config::Controller) -> Result<Settings> {
-    let connectors = &config.connectors;
+    settings_from(&config.connectors, config.mcp_servers_file.clone())
+}
+
+/// The same settings from any process's connector configuration (`ayati admin`
+/// uses the controller's environment).
+pub(crate) fn settings_from(
+    connectors: &crate::config::Connectors,
+    mcp_servers_file: Option<PathBuf>,
+) -> Result<Settings> {
     let composio_base = connectors
         .composio_base_url
         .clone()
@@ -294,7 +304,7 @@ pub(crate) fn settings(config: &crate::config::Controller) -> Result<Settings> {
         tracing::warn!("Composio connectors are unavailable: {error}");
     }
     Ok(Settings {
-        mcp_servers_file: config.mcp_servers_file.clone(),
+        mcp_servers_file,
         providers_file: connectors.providers_file.clone(),
         composio,
         composio_base,

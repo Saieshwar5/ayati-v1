@@ -43,7 +43,7 @@ Problem reports are the exception: people write them for the Cuckoo team.
 | Problem reports | Reports from Settings → Help | — |
 | Workspaces | Owner, people, agents, 7-day calls, charged against budget, failure rate, status. Detail: counts, models, Library size, operator history | Suspend, lift suspension |
 | Invite codes | The invite codes | Issue, revoke |
-| Providers | Every provider: source, where its key is, last-hour health, the catalog models it serves; connected-app providers | Keep a provider's key here or replace it, add a provider outside the file, remove, emergency switch |
+| Providers | Every provider: source, where its key is, last-hour health, the catalog models it serves; connected-app providers with this month's calls, errors and estimated cost, circuit breaker and last drift check | Keep a provider's key here or replace it, add a provider outside the file, remove, emergency switch |
 | Routing | The catalog's models and routes: priority, weight, cost, margin (losses in red), switched-off and resting providers, failures | — (the catalog is a reviewed file) |
 | Configuration | Console settings with history; deployment settings read-only with their variable names | Console settings |
 | Change log | Every change: who, what, why, web or CLI | — |
@@ -145,6 +145,7 @@ ayati admin models --hours 24
 ayati admin spend
 ayati admin setting set platform.daily_ceiling_usd 100 --reason "Budget"
 ayati admin log --area providers
+ayati admin connectors verify   # each connected account's actions at its provider; non-zero exit on problems
 ```
 
 Keys are read from standard input, never from arguments, so they stay out of
@@ -167,7 +168,8 @@ shell history and process lists. `--json` prints the full answer for scripts.
 - Live messaging: summaries (`src/identity/live_metrics.rs`); the listener waking
   every stream when it connects (`src/identity/postgres/messaging_tests.rs`); the
   stream's wake and send rules (`src/identity/chat/sync.rs`).
-- Web (`web/tests/control.test.mjs`): non-operators see why; the environment band and
+- Web (`web/tests/control.test.mjs`): connected-app provider health (month,
+  breaker, drift) and its switch; non-operators see why; the environment band and
   status strip; the switch dialog shows what serves each catalog model next, needs a
   reason and sends once; a failed save keeps the reason; Routing shows the catalog
   with losses, switched-off and resting providers and changes nothing; suspension.
@@ -177,6 +179,8 @@ shell history and process lists. `--json` prints the full answer for scripts.
 ## Not yet
 
 - Editing the catalog from the console: it stays a reviewed file.
-- Per-provider rate limits; billing and invoices.
+- Per-provider rate limits for model providers; billing and invoices. (Connected
+  apps have a breaker per provider and a rate limit per workspace and app:
+  [connector providers](connector-providers.md#health-and-limits-schema-110).)
 - Operator roles and step-up authentication.
 - People search across workspaces, and a reports inbox with "handled" states.
