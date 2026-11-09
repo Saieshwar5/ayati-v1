@@ -43,7 +43,7 @@ export function RoutineCard({ routine, agent }: { routine: RoutineProposal; agen
       <Button disabled={m.busy} onClick={() => decide(false)}>Not now</Button></span>}
     {state === 'pending' && !mine && <small>Waiting for the person who asked to save it.</small>}
     {state === 'saved' && <small>It runs as {mine ? 'you' : 'the person who saved it'}, with {mine ? 'your' : 'their'} access; Ask-first actions still wait for approval.{' '}
-      <a href={workspaceUrl('/?view=activity&tab=now')}>See what runs next in Activity</a></small>}
+      <a href={workspaceUrl('/?view=activity&tab=upcoming')}>See it in Activity › Upcoming</a></small>}
     {state === 'dismissed' && <small>Not saved.</small>}
     {m.status && <small role="alert">{m.status}</small>}
   </section>;

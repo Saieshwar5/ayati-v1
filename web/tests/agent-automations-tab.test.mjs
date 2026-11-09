@@ -62,7 +62,7 @@ test('people who only talk to the agent are pointed to Chat, and a manager sees 
     assert.match(document.body.textContent, /Only Nova’s owner or an admin can add schedules and triggers here\..*ask Nova in Chat, in your own words/);
     await click(button('Ask Nova in Chat'));
     assert.equal(opened, 1);
-    assert.equal(document.querySelector('a.ui-button').getAttribute('href'), `/w/${w}/?view=activity&tab=now`);
+    assert.equal(document.querySelector('a.ui-button').getAttribute('href'), `/w/${w}/?view=activity&tab=upcoming`);
   }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response({}) });
   await reactFixture(async ({ render, update }) => {
     await openPane(render);

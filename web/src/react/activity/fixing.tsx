@@ -3,8 +3,7 @@ import { Button, Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { AgentFace } from '../faces';
 import { workspaceUrl } from '../../workspace-context';
-import { changeSchedule } from '../agents/automation/model';
-import { cancelFollowUp, clock, dayLabel, dismissNeed, taskUrl, type ComingItem, type FixGroup } from './model';
+import { dismissNeed, type FixGroup } from './model';
 
 const fixUrl = (fix: FixGroup['fix']) => fix.kind === 'needs' ? workspaceUrl('/?view=activity&tab=needs')
   : fix.kind === 'tasks' ? workspaceUrl('/?view=activity&tab=open')
@@ -44,29 +43,4 @@ function NeedsDialog({ group, openRequest, close, changed }: { group: FixGroup; 
       <Button disabled={m.busy} onClick={() => void m.run(async () => { await dismissNeed(item.ref); setGone(list => [...list, item.ref]); changed(); m.setStatus('Dismissed.'); })}>Dismiss</Button>
     </li>)}</ul>
   </Dialog>;
-}
-
-const kinds: Record<ComingItem['kind'], string> = { routine: 'Schedule', follow_up: 'Follow-up', due: 'Due' };
-
-/** Coming up (AC7): the next 24 hours of schedules, follow-ups and due tasks. */
-export function ComingUp({ items, changed }: { items: ComingItem[]; changed: () => void }) {
-  const m = useMutation();
-  if (!items.length) return null;
-  const stop = (item: ComingItem) => void m.run(async () => {
-    if (item.kind === 'routine') await changeSchedule(item.agent, item.id, { request: crypto.randomUUID(), revision: item.revision ?? 0, enabled: false });
-    else await cancelFollowUp(item.id);
-    changed();
-    m.setStatus(item.kind === 'routine' ? `${item.title} is paused.` : `Follow-up for ${item.title} cancelled; the task stays open.`);
-  });
-  return <section className="activity-coming" aria-label="Coming up">
-    <h2 className="activity-group">Coming up · next 24 hours</h2>
-    <ul className="activity-list">{items.map(item => <li key={`${item.kind}.${item.id}`}>
-      <time>{dayLabel(item.at) === 'Today' ? '' : `${dayLabel(item.at)} `}{clock(item.at)}</time>
-      <AgentFace agent={{ id: item.agent, name: item.agent_name }} className="activity-face" />
-      <span className="activity-main"><strong>{item.title}</strong><small>{kinds[item.kind]} · {item.agent_name}</small></span>
-      {item.kind !== 'routine' && <a href={taskUrl(item.id)}>Open task</a>}
-      {item.can_pause && item.kind !== 'due' && <Button disabled={m.busy} onClick={() => stop(item)}>{item.kind === 'routine' ? 'Pause' : 'Cancel follow-up'}</Button>}
-    </li>)}</ul>
-    <p className="ui-status" role="status">{m.status}</p>
-  </section>;
 }

@@ -30,6 +30,8 @@ pub(in crate::identity::postgres) mod better;
 pub(in crate::identity::postgres) mod fixing;
 #[path = "steering.rs"]
 pub(in crate::identity::postgres) mod steering;
+#[path = "activity_upcoming.rs"]
+mod upcoming;
 
 impl PgStore {
     /// Records that the person has caught up: "while you were away" then starts

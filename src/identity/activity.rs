@@ -24,6 +24,10 @@ pub(super) fn routes() -> Router<Shared> {
             get(changes),
         )
         .route("/api/identity/workspaces/{w}/activity/now", get(now_view))
+        .route(
+            "/api/identity/workspaces/{w}/activity/upcoming",
+            get(upcoming),
+        )
         .route("/api/identity/workspaces/{w}/activity/seen", post(seen))
         .route(
             "/api/identity/workspaces/{w}/activity/requests/{reply}",
@@ -329,6 +333,25 @@ async fn now_view(
     Ok(Json(
         app.store
             .activity_now(&user, &w, page.today, page.scope.as_deref())
+            .await?,
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpcomingPage {
+    /// `mine` (agents the person manages and what they set up) or `all`.
+    scope: Option<String>,
+}
+async fn upcoming(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Query(page): Query<UpcomingPage>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .activity_upcoming(&user, &w, page.scope.as_deref())
             .await?,
     ))
 }

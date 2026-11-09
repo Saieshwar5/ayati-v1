@@ -121,6 +121,16 @@ pub(crate) async fn agent_app_triggers(
     w: &str,
     agent: &str,
 ) -> Result<Vec<Value>> {
+    app_triggers_for(tx, user, w, &[agent.to_owned()]).await
+}
+
+/// The app triggers of these agents (Activity › Upcoming), as `agent_app_triggers`.
+pub(crate) async fn app_triggers_for(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agents: &[String],
+) -> Result<Vec<Value>> {
     let present: bool = query(
         tx,
         "SELECT to_regclass('relay_built_app_watchers') IS NOT NULL AS present",
@@ -129,11 +139,11 @@ pub(crate) async fn agent_app_triggers(
     .await?
     .context("Schema check")?
     .try_get("", "present")?;
-    if !present {
+    if !present || agents.is_empty() {
         return Ok(vec![]);
     }
     let admin = role(tx, w, &user.id).await? == "Admin";
-    json_rows(tx, &format!("SELECT jsonb_build_object('app',a.id,'app_name',a.name,'collection',x.collection,'kind',x.kind,'instructions',x.instructions,'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=x.principal),'manages',a.builder=$2 OR $3) AS data FROM relay_built_app_watchers x JOIN relay_built_apps a ON a.workspace=x.workspace AND a.id=x.app WHERE x.workspace=$1 AND x.agent=$4 AND NOT a.removed AND ({OPENS} OR a.builder=$2 OR $3) ORDER BY a.name,x.collection,x.kind"), vec![w.into(), user.id.clone().into(), admin.into(), agent.into()]).await
+    json_rows(tx, &format!("SELECT jsonb_build_object('agent',x.agent,'agent_name',g.name,'app',a.id,'app_name',a.name,'collection',x.collection,'kind',x.kind,'instructions',x.instructions,'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=x.principal),'manages',a.builder=$2 OR $3) AS data FROM relay_built_app_watchers x JOIN relay_built_apps a ON a.workspace=x.workspace AND a.id=x.app JOIN relay_shared_agents g ON g.workspace=x.workspace AND g.id=x.agent WHERE x.workspace=$1 AND x.agent IN (SELECT jsonb_array_elements_text($4::jsonb)) AND NOT a.removed AND ({OPENS} OR a.builder=$2 OR $3) ORDER BY a.name,x.collection,x.kind"), vec![w.into(), user.id.clone().into(), admin.into(), serde_json::json!(agents).into()]).await
 }
 
 impl PgStore {

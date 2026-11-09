@@ -56,7 +56,7 @@ test('a proposed schedule is saved only by the person who asked, once, and says 
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].body, { save: true });
     assert.match(document.body.textContent, /Schedule saved · Monday sales summary.*It runs as you, with your access/);
-    assert.ok(document.querySelector('a[href$="?view=activity&tab=now"]'));
+    assert.ok(document.querySelector('a[href$="?view=activity&tab=upcoming"]'));
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (options.method === 'POST') { writes.push({ path, body: JSON.parse(options.body) }); return response({ state: 'saved' }); }
