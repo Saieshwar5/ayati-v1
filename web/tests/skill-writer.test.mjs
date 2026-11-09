@@ -23,7 +23,7 @@ async function openCreate(render) {
   await context.enterWorkspace();
   const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
   const created = [];
-  await render(AgentCreate, { start: newAgent(directory), close() {}, created: async id => { created.push(id); } });
+  await render(AgentCreate, { start: newAgent(directory), directory, close() {}, created: async id => { created.push(id); } });
   return created;
 }
 

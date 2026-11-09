@@ -134,7 +134,7 @@ test('a new agent gets a computer only when its creator switches it on, with its
       const context = await import('../src/workspace-context.ts');
       await context.enterWorkspace();
       const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
-      await render(AgentCreate, { start: newAgent(directory), computers: offer, close() {}, created: async () => {} });
+      await render(AgentCreate, { start: newAgent(directory), directory, computers: offer, close() {}, created: async () => {} });
       await change(field('Name'), 'Iris');
       await click(button('Continue'));
       assert.match(document.body.textContent, /Iris’s own Linux computer for files and programs/);

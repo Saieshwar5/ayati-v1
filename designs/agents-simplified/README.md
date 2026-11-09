@@ -34,6 +34,12 @@ Everyone, Selected people, or Only me.
 Updated 2026-10-30: the skills additions above, and the main menu in the new
 order: Home · Chat · Activity · Agents · Library · Settings.
 
+Updated 2026-11-09: the last create step shows the model as one collapsed line,
+the workspace default unless changed. "Change" opens the same list as the
+Environment tab, limited to the models the admin allows; it is hidden when only
+one is allowed. Choosing a model that can't use tools after picking apps or tools
+shows a warning with a one-click switch back. It is optional, not a separate step.
+
 ## Removed
 
 - Private and Workspace agent types.

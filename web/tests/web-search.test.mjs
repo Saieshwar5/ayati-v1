@@ -18,7 +18,7 @@ async function create({ render, button, click, change }, webSearch, switchOff) {
   const context = await import('../src/workspace-context.ts');
   await context.enterWorkspace();
   const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
-  await render(AgentCreate, { start: newAgent(directory), webSearch, close() {}, created: async () => {} });
+  await render(AgentCreate, { start: newAgent(directory), directory, webSearch, close() {}, created: async () => {} });
   await change(field('Name'), 'Iris');
   await click(button('Continue'));
   if (switchOff) await click(webSwitch());
@@ -50,7 +50,7 @@ test('a new agent searches the web unless its creator switches it off in Tools',
     const context = await import('../src/workspace-context.ts');
     await context.enterWorkspace();
     const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
-    await render(AgentCreate, { start: newAgent(directory), webSearch: true, close() {}, created: async () => {} });
+    await render(AgentCreate, { start: newAgent(directory), directory, webSearch: true, close() {}, created: async () => {} });
     await change(field('Name'), 'Iris');
     await click(button('Continue'));
     const built = document.querySelector('[aria-labelledby="agent-built-in-title"]');
