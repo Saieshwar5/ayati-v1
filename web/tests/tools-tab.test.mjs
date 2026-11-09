@@ -61,3 +61,17 @@ test('connectors start off and say when tools are not enabled', async () => {
     assert.match(document.body.textContent, /Business tools are not enabled/);
   }, { url, fetch: async () => response(controls({ connections: [connection(false)], execution_available: false })) });
 });
+
+test('a suggestion from Activity › Review opens the agent’s Tools on that one rule, marked', async () => {
+  await reactFixture(async ({ render, update }) => {
+    const { ToolsTab } = await import('../src/react/agents/tools-tab.tsx');
+    let scrolled = '';
+    window.HTMLElement.prototype.scrollIntoView = function () { scrolled = this.dataset.action; };
+    await render(ToolsTab, { agent, focus: 'books/order.update' });
+    await update(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    const marked = [...document.querySelectorAll('.agent-tool-action-suggested')];
+    assert.equal(marked.length, 1);
+    assert.match(marked[0].textContent, /Update an order.*Suggested in Activity › Review/);
+    assert.equal(scrolled, 'books/order.update');
+  }, { url, fetch: async () => response(controls()) });
+});

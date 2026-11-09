@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
@@ -21,10 +21,18 @@ export const connectorName = (c: ToolConnection) => c.name || c.server;
  * connectors an admin added with their health (designs/connector-screens 6), a
  * switch per connector and a rule per action that can only be stricter than the
  * admin's (designs/agents-simplified 9). Rules belong to the agent, not to one
- * conversation. */
-export function ToolsTab({ agent, webSearch = false, computers = false, saved }: { agent: Agent; webSearch?: boolean; computers?: boolean; saved?: () => Promise<void> }) {
+ * conversation. `focus` ("connection/operation", from a suggestion in Activity ›
+ * Review) marks one action and brings it into view. */
+export function ToolsTab({ agent, webSearch = false, computers = false, saved, focus }: { agent: Agent; webSearch?: boolean; computers?: boolean; saved?: () => Promise<void>; focus?: string }) {
   const load = useCallback(() => loadControls(agent.id), [agent.id]);
   const { data, error, refresh } = useResource(load);
+  const section = useRef<HTMLElement>(null);
+  const loaded = Boolean(data);
+  useEffect(() => {
+    if (!loaded || !focus) return;
+    const target = [...(section.current?.querySelectorAll<HTMLElement>('[data-action]') ?? [])].find(node => node.dataset.action === focus);
+    target?.scrollIntoView?.({ block: 'center' });
+  }, [loaded, focus]);
   const mutation = useMutation();
   const [reviewing, review] = useState<string>();
   const [checking, check] = useState<string>();
@@ -32,7 +40,7 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved }:
   const change = (work: () => Promise<unknown>, done: string) => void mutation.run(async () => {
     await work(); await refresh(); mutation.setStatus(done);
   });
-  return <section className="agent-tools" aria-label="Tools">
+  return <section ref={section} className="agent-tools" aria-label="Tools">
     {webSearch && saved && <WebSearchCard agent={agent} saved={saved} />}
     {computers && saved && <ComputerToolsCard agent={agent} saved={saved} />}
     {(webSearch || computers) && <h3 className="agent-group-label">Apps your admin added</h3>}
@@ -52,7 +60,8 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved }:
           <span>Use {connectorName(connection)}</span></label>
       </header>
       {connection.on && connection.operations.map(operation => <ToolAction key={operation.id} operation={operation}
-        disabled={!editable || mutation.busy}
+        disabled={!editable || mutation.busy} action={`${connection.id}/${operation.id}`} highlighted={focus === `${connection.id}/${operation.id}`}
+        note={focus === `${connection.id}/${operation.id}` ? 'Suggested in Activity › Review: approved every time it asked.' : undefined}
         change={mode => change(() => saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision: operation.revision }), `${operation.title}: ${modes[mode]}.`)} />)}
     </article>)}
     {data && !data.connections.length && <><p className="ui-empty">No apps yet. Once an admin connects one, it can be switched on here.</p>
@@ -63,11 +72,11 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved }:
   </section>;
 }
 
-export function ToolAction({ operation, value = operation.mode, disabled, change, note }: {
-  operation: ToolOperation; value?: Mode; disabled: boolean; change: (mode: Mode) => void; note?: string;
+export function ToolAction({ operation, value = operation.mode, disabled, change, note, action, highlighted = false }: {
+  operation: ToolOperation; value?: Mode; disabled: boolean; change: (mode: Mode) => void; note?: string; action?: string; highlighted?: boolean;
 }) {
   const limit = operation.workspace_mode === 'block' ? 'blocked by your admin' : `admin limit: ${modes[operation.workspace_mode]}`;
-  return <div className="agent-tool-action">
+  return <div className={`agent-tool-action${highlighted ? ' agent-tool-action-suggested' : ''}`} data-action={action}>
     <span><strong>{operation.title}</strong>
       <small>{operation.meaning ? meanings[operation.meaning] : effectLabel(operation.effect)} · {limit}{operation.needs_other ? ' · someone other than the requester approves' : ''}</small>
       {note && <small className="agent-tool-note">{note}</small>}</span>

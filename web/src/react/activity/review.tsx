@@ -4,6 +4,7 @@ import { useMutation } from '../requests';
 import { identityRequest, workspaceId } from '../../workspace-context';
 import { dayLabel, type Scope } from './model';
 import { useLive } from './use-live';
+import { agentSectionUrl } from '../agents/workspace-tabs';
 
 // Activity → Review (people-and-agents-first, Phase 5): "Can I trust agents with
 // more?" — measures, rules from repeated decisions, goals and weekly reviews, for
@@ -30,11 +31,12 @@ export function ReviewView({ scope }: { scope: Scope }) {
   const weekly = (agent: string) => data.weekly?.find(w => w.agent === agent);
   return <section className="activity-review" aria-label="Review">
     <p className="ui-status" role="status">{m.status}</p>
-    {Boolean(data.suggestions?.length) && <section aria-label="Suggested rules"><h2 className="activity-group">Let agents do more</h2>
+    {Boolean(data.suggestions?.length) && <section aria-label="Suggested rules"><h2 className="activity-group">Suggestions</h2>
+      <p className="ui-help">Patterns from the last 30 days. Rules change on the agent’s Tools tab, where every rule lives.</p>
       <ul className="activity-list">{data.suggestions!.map(s => <li key={`${s.agent}.${s.connection}.${s.operation}`}>
         <span className="activity-main"><strong>{s.agent_name} asked {s.approved} times to {s.title.toLowerCase()}, and each was approved.</strong>
-          <small>Let {s.agent_name} do it without asking? You can change it back on its Tools tab. It can never go beyond your admin's rule.</small></span>
-        <Button primary disabled={m.busy} onClick={() => act('/rule-suggestions', { agent: s.agent, connection: s.connection, operation: s.operation, accept: true }, `${s.agent_name} no longer asks for this.`)}>Let it</Button>
+          <small>Suggestion: let {s.agent_name} do it without asking. It can never go beyond your admin’s rule.</small></span>
+        <a className="ui-button primary" href={agentSectionUrl(s.agent, 'Tools', `${s.connection}/${s.operation}`)}>Review in {s.agent_name} › Tools</a>
         <Button disabled={m.busy} onClick={() => act('/rule-suggestions', { agent: s.agent, connection: s.connection, operation: s.operation, accept: false }, 'It keeps asking.')}>Keep asking</Button>
       </li>)}</ul></section>}
     <section aria-label="How agents are doing"><h2 className="activity-group">Last 30 days</h2>

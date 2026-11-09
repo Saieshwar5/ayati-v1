@@ -19,6 +19,7 @@ export function AgentsPage() {
   const initial = new URLSearchParams(location.search).get('selected');
   // A link may open one tab of the agent it selects (agentSectionUrl).
   const linkedSection = initial ? sectionNamed(new URLSearchParams(location.search).get('section')) : undefined;
+  const [linkedAction] = useState(() => (initial && new URLSearchParams(location.search).get('action')) || undefined);
   const selectionKey = storageScope('relay.agents.selection');
   const [selectedKey, setSelected] = useState<string | undefined>(() => {
     if (initial) return `m:${initial}`;
@@ -91,7 +92,7 @@ export function AgentsPage() {
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
       {creating && data && <AgentCreate key={creating.id} start={creating} directory={data} close={() => setCreating(undefined)} webSearch={Boolean(data.web_search)} computers={data.computers}
         created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); }} />}
-      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
+      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} focus={`m:${selected.id}` === `m:${initial}` ? linkedAction : undefined} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
   </div>;

@@ -10,7 +10,7 @@ import { saveScope, savedScope, type Scope } from './model';
 import './activity.css';
 
 type Tab = 'needs' | 'now' | 'open' | 'history' | 'review';
-const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['open', 'Tasks'], ['history', 'History'], ['review', 'Progress']];
+const tabs: [Tab, string][] = [['needs', 'Needs me'], ['now', 'Now'], ['open', 'Tasks'], ['history', 'History'], ['review', 'Review']];
 const chosen = (href: string): Tab | undefined => {
   const tab = new URL(href).searchParams.get('tab');
   return tab === 'needs' || tab === 'now' || tab === 'open' || tab === 'history' || tab === 'review' ? tab : undefined;

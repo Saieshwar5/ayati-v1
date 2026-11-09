@@ -56,7 +56,7 @@ test('a failed read receipt shows the error and opens nothing',async()=>{
   await reactFixture(async fixture=>{
     const {button,click,navigation}=fixture;
     await render(fixture,await setup());
-    await click(button('Review'));
+    await click([...document.querySelectorAll('button:not([role=tab])')].find(node=>node.textContent==='Review'));
     assert.deepEqual(writes,[{kind:'approval',id:'q',version:'pending',reviewed:false}]);
     assert.match(document.body.textContent,/Source no longer available/);
     assert.equal(document.body.textContent.includes('Choose the customer group'),false);
