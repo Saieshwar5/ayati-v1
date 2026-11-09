@@ -78,7 +78,7 @@ impl PgStore {
         if let Err(error) = if panel {
             Ok(())
         } else {
-            run_authority(&tx, &person, w, agent, data["chat"].as_str()).await
+            run_authority(&tx, &person, w, agent, Some(id), data["chat"].as_str()).await
         } {
             if error.is::<sea_orm::DbErr>() {
                 return Err(error);

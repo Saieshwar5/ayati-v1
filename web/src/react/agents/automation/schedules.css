@@ -31,3 +31,6 @@
 .agent-workspace-panel .automation-group > .agent-section-heading h4 { margin: 0; font-size: 16px; color: var(--text); text-transform: none; }
 .agent-workspace-panel .routine-row h4 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); text-transform: none; }
 .routine-row header .ui-badge { text-transform: none; }
+.automation-member { max-width: 640px; display: grid; gap: 4px; }
+.automation-member p { margin: 4px 0; }
+.automation-example { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-style: italic; }

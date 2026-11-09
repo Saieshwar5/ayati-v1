@@ -51,3 +51,28 @@ test('old and linked tab names open Automations', async () => {
   assert.equal(sectionNamed('nonsense'), undefined);
   assert.match(agentSectionUrl('a b', 'Automations'), /\?view=agents&selected=a%20b&section=automations$/);
 });
+
+test('people who only talk to the agent are pointed to Chat, and a manager sees how many schedules stay private', async () => {
+  let opened = 0;
+  await reactFixture(async ({ render, button, click }) => {
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { AutomationPane } = await import('../src/react/agents/automation/pane.tsx');
+    await render(AutomationPane, { agent: { ...agent, editable: false }, openChat: () => { opened++; } });
+    assert.match(document.body.textContent, /Only Nova’s owner or an admin can add schedules and triggers here\..*ask Nova in Chat, in your own words/);
+    await click(button('Ask Nova in Chat'));
+    assert.equal(opened, 1);
+    assert.equal(document.querySelector('a.ui-button').getAttribute('href'), `/w/${w}/?view=activity&tab=now`);
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : response({}) });
+  await reactFixture(async ({ render, update }) => {
+    await openPane(render);
+    await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.match(document.body.textContent, /2 more schedules post in conversations you’re not in, so they stay private\. Pausing Nova pauses every schedule\./);
+    assert.doesNotMatch(document.body.textContent, /No schedules yet/);
+  }, { url, fetch: async path => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.includes('/event-triggers')) return response({ triggers: [], choices: [], apps: [], execution_available: true });
+    if (path.includes('/schedules')) return response({ schedules: [], elsewhere: 2, conversations: [], more_conversations: false, execution_available: true });
+    return response({});
+  } });
+});

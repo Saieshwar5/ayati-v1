@@ -9,6 +9,6 @@ class AutomationBoundary extends Component<{ children: ReactNode }, { failed: bo
     return this.state.failed ? <><p role="alert">Automations couldn’t load. Saved schedules and triggers are safe on the server.</p><Button onClick={() => location.reload()}>Reload application</Button></> : this.props.children;
   }
 }
-export function AutomationLauncher({ agent }: { agent: Agent }) {
-  return <AutomationBoundary key={agent.id}><Suspense fallback={<p role="status">Opening automation…</p>}><Pane agent={agent} /></Suspense></AutomationBoundary>;
+export function AutomationLauncher({ agent, openChat }: { agent: Agent; openChat: () => void }) {
+  return <AutomationBoundary key={agent.id}><Suspense fallback={<p role="status">Opening automations…</p>}><Pane agent={agent} openChat={openChat} /></Suspense></AutomationBoundary>;
 }

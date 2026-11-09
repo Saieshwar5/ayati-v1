@@ -6,7 +6,7 @@
 //!   (`person_added`), instead of waiting behind it as a new request. Anything the
 //!   agent never saw is carried into a new request when it finishes.
 //! - **Routines from Chat:** `propose_schedule` saves a draft on the agent's reply; it
-//!   becomes a routine only when the person who asked confirms it ("Save routine"),
+//!   becomes a routine only when the person who asked confirms it ("Save schedule"),
 //!   with the ordinary routine checks.
 use super::super::super::*;
 use crate::identity::chat::model::{Job, NewMessage};
@@ -246,7 +246,7 @@ impl PgStore {
                 name.into(), instructions.into(), input.first_in_minutes.into(), input.every_minutes.map(|m| m * 60).into()]).await?;
         tx.commit().await?;
         Ok(
-            json!({"draft": id, "state": "proposed", "message": "Proposed. The person sees it under your reply and saves it with Save routine; nothing runs until they do. Say so in one line."}),
+            json!({"draft": id, "state": "proposed", "message": "Proposed. The person sees it under your reply and saves it with Save schedule; nothing runs until they do. Say so in one line."}),
         )
     }
 
@@ -298,7 +298,7 @@ impl PgStore {
                 interval_seconds: draft["interval_seconds"].as_i64(),
                 timezone: zone,
             };
-            self.save_schedule(
+            self.save_proposed_schedule(
                 user,
                 w,
                 draft["agent"].as_str().unwrap_or_default(),
@@ -339,7 +339,7 @@ pub(in crate::identity::postgres) async fn hydrate(
     if ids.is_empty() || !available(tx).await? {
         return Ok(());
     }
-    for row in rows(tx, "SELECT job,jsonb_build_object('id',id,'name',name,'first_ms',first_ms,'interval_seconds',interval_seconds,'state',state,'requester',requester) AS d
+    for row in rows(tx, "SELECT job,jsonb_build_object('id',id,'name',name,'content',content,'first_ms',first_ms,'interval_seconds',interval_seconds,'state',state,'requester',requester) AS d
         FROM relay_schedule_drafts WHERE workspace=$1 AND job IN (SELECT jsonb_array_elements_text($2::jsonb)) ORDER BY created_ms", vec![w.into(), json!(ids).into()]).await? {
         let job: String = row.try_get("", "job")?;
         if let Some(m) = messages.iter_mut().find(|m| m["id"] == job.as_str()) {
