@@ -189,6 +189,7 @@ mod event_migration;
 mod event_migration_tests;
 #[cfg(test)]
 mod event_scope_tests;
+pub(crate) mod event_subscriptions;
 #[cfg(test)]
 mod event_tests;
 mod event_triggers;

@@ -1,12 +1,17 @@
 pub(crate) mod catalog;
 pub(crate) mod model;
 pub(crate) mod provider_events;
+pub(crate) mod provider_intake;
+mod provider_routes;
+#[cfg(test)]
+mod provider_routes_tests;
 pub(super) mod routes;
+pub(crate) mod subscriptions;
 #[cfg(test)]
 pub(crate) mod test_catalog;
 pub(crate) mod webhook;
 pub(super) fn routes() -> axum::Router<super::Shared> {
-    routes::routes()
+    routes::routes().merge(provider_routes::routes())
 }
 
 #[cfg(test)]

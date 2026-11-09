@@ -9,15 +9,35 @@ use serde_json::json;
 /// Where an event source's work may be posted for this person: the agent's
 /// conversations where it may read the source and the person may post. Rules
 /// belong to the agent (schema 47), so the destination is chosen, not derived.
-async fn choice(
+pub(super) async fn choice(
     db: &DatabaseTransaction,
     user: &User,
     w: &str,
     agent: &str,
     source: &Source,
 ) -> Result<Value> {
-    source.secret()?;
+    source.available()?;
     let account=query(db,"SELECT c.definition->>'account' AS account,c.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("The agent needs this read action set to Allow on its Tools tab first")?;
+    let (conversations, authority) = destinations(db, user, w, agent, source).await?;
+    let first = conversations
+        .first()
+        .context("Add the agent to a conversation you can post in first")?
+        .clone();
+    Ok(
+        json!({"source":source.public(),"chat":first["id"],"chat_name":first["name"],"visibility":first["visibility"],
+        "conversations":conversations,"account":account.try_get::<Option<String>>("","account")?,
+        "account_name":account.try_get::<Option<String>>("","account_name")?,"authority":authority}),
+    )
+}
+/// The agent's conversations where this person may post and the agent may read
+/// the source, with the current read authority.
+pub(super) async fn destinations(
+    db: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+    source: &Source,
+) -> Result<(Vec<Value>, Value)> {
     let candidates=json_rows(db,"SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived ORDER BY c.name,c.id LIMIT 50",vec![w.into(),agent.into()]).await?;
     let mut conversations = vec![];
     let mut authority = Value::Null;
@@ -38,17 +58,22 @@ async fn choice(
             Err(_) => {}
         }
     }
-    let first = conversations
-        .first()
-        .context("Add the agent to a conversation you can post in first")?
-        .clone();
-    Ok(
-        json!({"source":source.public(),"chat":first["id"],"chat_name":first["name"],"visibility":first["visibility"],
-        "conversations":conversations,"account":account.try_get::<Option<String>>("","account")?,
-        "account_name":account.try_get::<Option<String>>("","account_name")?,"authority":authority}),
-    )
+    Ok((conversations, authority))
 }
-async fn present(
+/// The source a saved trigger names: one passed in (operator profiles) or its
+/// provider subscription (schema 109).
+async fn saved_source(
+    db: &DatabaseTransaction,
+    w: &str,
+    data: &Value,
+    sources: &[Source],
+) -> Result<Option<Source>> {
+    if let Some(source) = sources.iter().find(|s| s.id == data["source"]) {
+        return Ok(Some(source.clone()));
+    }
+    super::event_subscriptions::source(db, w, data["source"].as_str().unwrap_or_default()).await
+}
+pub(super) async fn present(
     db: &DatabaseTransaction,
     user: &User,
     w: &str,
@@ -73,10 +98,10 @@ async fn present(
     data["instructions"] = json!(text);
     data["instructions_long"] = json!(long);
     data.as_object_mut().unwrap().remove("input");
-    let source = sources.iter().find(|s| {
-        s.id == data["source"] && s.fingerprint().ok().as_deref() == data["binding"].as_str()
-    });
-    let current = if let Some(source) = source {
+    let source = saved_source(db, w, &data, sources)
+        .await?
+        .filter(|s| s.fingerprint().ok().as_deref() == data["binding"].as_str());
+    let current = if let Some(source) = &source {
         match choice(db, user, w, agent, source).await {
             Ok(v) => Some(v),
             Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
@@ -106,7 +131,7 @@ impl PgStore {
         super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
         let mut choices = vec![];
         for source in sources {
-            if source.secret().is_ok() {
+            if source.available().is_ok() {
                 match choice(&tx, user, w, agent, source).await {
                     Ok(c) => choices.push(c),
                     Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
@@ -115,7 +140,7 @@ impl PgStore {
             }
         }
         let mut triggers = vec![];
-        for data in json_rows(&tx,"SELECT to_jsonb(t)-'request_hash' AS data FROM relay_event_triggers t WHERE workspace=$1 AND agent=$2 ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
+        for data in json_rows(&tx,"SELECT to_jsonb(t)-'request_hash' AS data FROM relay_event_triggers t WHERE workspace=$1 AND agent=$2 AND state<>'removed' ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
             match present(&tx,user,w,agent,data,sources,false).await {Ok(data)=>triggers.push(data),Err(e) if e.is::<sea_orm::DbErr>()=>return Err(e),Err(_)=>{}}
         }
         tx.commit().await?;
@@ -169,43 +194,7 @@ impl PgStore {
                 && source.fingerprint()? == input.binding,
             "Source changed; review it again"
         );
-        source.secret()?;
-        super::automation_access::authority(&tx, user, w, agent, &input.chat).await?;
-        ensure!(
-            versions(&tx, user, w, agent, &input.chat, source).await?
-                == super::event_access::expected(input),
-            "Source read/delegation authority changed; refresh before activation"
-        );
-        ensure!(
-            input
-                .filter
-                .as_object()
-                .unwrap()
-                .keys()
-                .all(|key| source.fields.contains(key)),
-            "Filter only the reviewed included fields"
-        );
-        let count: i64 = query(
-            &tx,
-            "SELECT count(*) AS n FROM relay_event_triggers WHERE workspace=$1 AND agent=$2",
-            vec![w.into(), agent.into()],
-        )
-        .await?
-        .unwrap()
-        .try_get("", "n")?;
-        ensure!(
-            count < 100,
-            "The current operational limit is 100 saved event triggers per agent"
-        );
-        execute(&tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),input.chat.clone().into(),serde_json::to_value(input)?.into(),fingerprint(input)?.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
-        audit(
-            &tx,
-            &user.id,
-            Some(w),
-            "agent_event_trigger_created",
-            &input.id,
-        )
-        .await?;
+        insert(&tx, user, w, agent, input, source, &fingerprint(input)?).await?;
         let data = present(
             &tx,
             user,
@@ -219,6 +208,9 @@ impl PgStore {
         tx.commit().await?;
         Ok(data)
     }
+    /// Pauses, resumes or removes a trigger. Removing is final; removing the
+    /// last trigger of a provider subscription marks it removed, and the
+    /// controller then stops it at the provider.
     pub(crate) async fn change_event_trigger(
         &self,
         user: &User,
@@ -241,6 +233,11 @@ impl PgStore {
             data["revision"] == input.revision,
             "Event trigger changed; refresh its review"
         );
+        ensure!(data["state"] != "removed", "This event trigger was removed");
+        if input.remove {
+            ensure!(!input.enabled, "A removed event trigger cannot run");
+            return remove(tx, user, w, id, input, payload).await;
+        }
         ensure!(
             (data["state"] == "enabled") != input.enabled,
             "Event trigger already has this state"
@@ -250,15 +247,14 @@ impl PgStore {
                 self.pooled && data["principal"] == user.id,
                 "Only the original person can resume in pooled mode"
             );
-            let source = sources
-                .iter()
-                .find(|s| s.id == data["source"])
+            let source = saved_source(&tx, w, &data, sources)
+                .await?
                 .context("Event source is unavailable")?;
             ensure!(
                 source.fingerprint()? == data["binding"],
                 "Source identity or projection changed; create a new trigger"
             );
-            source.secret()?;
+            source.available()?;
             super::automation_access::authority(
                 &tx,
                 user,
@@ -268,7 +264,7 @@ impl PgStore {
             )
             .await?;
             let authority =
-                versions(&tx, user, w, agent, data["chat"].as_str().unwrap(), source).await?;
+                versions(&tx, user, w, agent, data["chat"].as_str().unwrap(), &source).await?;
             ensure!(
                 authority
                     == json!({"connection_revision":input.connection_revision,"read_revision":input.read_revision,"delegation_revision":input.delegation_revision}),
@@ -326,4 +322,86 @@ impl PgStore {
         tx.commit().await?;
         Ok(json!({"runs":runs}))
     }
+}
+
+/// Saves a checked trigger for `source`; `hash` identifies the exact request.
+pub(super) async fn insert(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+    input: &Trigger,
+    source: &Source,
+    hash: &str,
+) -> Result<()> {
+    source.available()?;
+    super::automation_access::authority(tx, user, w, agent, &input.chat).await?;
+    ensure!(
+        versions(tx, user, w, agent, &input.chat, source).await?
+            == super::event_access::expected(input),
+        "Source read/delegation authority changed; refresh before activation"
+    );
+    ensure!(
+        input
+            .filter
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|key| source.fields.contains(key)),
+        "Filter only the reviewed included fields"
+    );
+    let count: i64 = query(
+        tx,
+        "SELECT count(*) AS n FROM relay_event_triggers WHERE workspace=$1 AND agent=$2 AND state<>'removed'",
+        vec![w.into(), agent.into()],
+    )
+    .await?
+    .unwrap()
+    .try_get("", "n")?;
+    ensure!(
+        count < 100,
+        "The current operational limit is 100 saved event triggers per agent"
+    );
+    execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),input.chat.clone().into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
+    audit(
+        tx,
+        &user.id,
+        Some(w),
+        "agent_event_trigger_created",
+        &input.id,
+    )
+    .await
+}
+
+/// Removes a trigger for good. Its pending work is cancelled like a pause; a
+/// provider subscription no other trigger uses is marked removed in the same
+/// transaction, so a new trigger can never share a subscription being stopped.
+async fn remove(
+    tx: DatabaseTransaction,
+    user: &User,
+    w: &str,
+    id: &str,
+    input: &Change,
+    payload: Value,
+) -> Result<Value> {
+    execute(&tx,"UPDATE relay_event_triggers SET state='removed',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
+    super::event_dispatch::cancel_pending(&tx, w, id).await?;
+    execute(&tx,"UPDATE relay_connector_subscriptions s SET state='removed',detail='Its last event trigger was removed.',changed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE s.workspace=$1 AND s.state='active' AND s.id=(SELECT source FROM relay_event_triggers WHERE workspace=$1 AND id=$2) AND NOT EXISTS(SELECT 1 FROM relay_event_triggers t WHERE t.workspace=$1 AND t.source=s.id AND t.state<>'removed')",vec![w.into(),id.into()]).await?;
+    let result = json!({"id":id,"state":"removed","revision":input.revision+1});
+    execute(
+        &tx,
+        "INSERT INTO relay_event_trigger_changes VALUES($1,$2,$3,$4,$5,$6)",
+        vec![
+            w.into(),
+            id.into(),
+            input.request.clone().into(),
+            user.id.clone().into(),
+            payload.into(),
+            result.clone().into(),
+        ],
+    )
+    .await?;
+    audit(&tx, &user.id, Some(w), "agent_event_trigger_removed", id).await?;
+    tx.commit().await?;
+    Ok(result)
 }

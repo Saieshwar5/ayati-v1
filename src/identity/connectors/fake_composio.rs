@@ -27,6 +27,7 @@ pub(crate) struct Fake {
     /// Trigger instances: id to (trigger slug, account, config).
     pub triggers: HashMap<String, (String, String, Value)>,
     pub deleted_triggers: Vec<String>,
+    pub upserts: usize,
     /// The project's one webhook subscription.
     pub webhook: Option<Value>,
 }
@@ -327,6 +328,7 @@ async fn upsert(
     let account = body["connected_account_id"].as_str().unwrap().to_owned();
     assert!(body["user_id"].as_str().unwrap().starts_with("cuckoo-"));
     let mut state = s.lock().unwrap();
+    state.upserts += 1;
     let existing = state
         .triggers
         .iter()
