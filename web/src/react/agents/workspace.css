@@ -148,3 +148,6 @@
   .agent-instructions-tab { grid-template-columns: 1fr; }
   .agent-page-notice { margin: 0 18px 8px; }
 }
+/* An agent's Activity tab is Activity filtered to it; say so and link to the whole. */
+.agent-filtered-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: var(--soft); font-size: 13px; color: var(--muted); }
+.agent-filtered-note a { color: var(--text); font-weight: 600; }

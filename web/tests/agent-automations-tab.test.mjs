@@ -76,3 +76,22 @@ test('people who only talk to the agent are pointed to Chat, and a manager sees 
     return response({});
   } });
 });
+
+test('an agent’s Activity tab says it is a filtered view and links to all of Activity', async () => {
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts');
+    await context.enterWorkspace();
+    const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
+    await render(AgentWorkspace, { agent, directory: { agents: [agent], role: 'Admin', default_model: 'fixture', system_prompt: '', providers: [] },
+      back() {}, openChat() {}, busy: false, section: 'Activity', selectSection() {}, saved: async () => {} });
+    const note = document.querySelector('.agent-filtered-note');
+    assert.match(note.textContent, /Showing Nova only: the same list as Activity, filtered to one agent\. Open all activity/);
+    assert.equal(note.querySelector('a').getAttribute('href'), `/w/${w}/?view=activity&tab=history`);
+  }, { url, fetch: async path => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
+    if (path.endsWith('/chats')) return response({ chats: [] });
+    if (path.includes('/activity/totals')) return response({ requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, schedule_runs: 0, per_day: [], by_agent: [] });
+    return response({ items: [], next_before: null });
+  } });
+});

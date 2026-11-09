@@ -9,9 +9,10 @@ export function sectionNamed(value: string | null | undefined): WorkspaceSection
   const name = value?.toLowerCase() === 'schedules' ? 'automations' : value?.toLowerCase();
   return workspaceSections.find(section => section.toLowerCase() === name);
 }
-/** A link that opens one agent on one tab, e.g. from Activity or Chat. */
-export const agentSectionUrl = (agent: string, section: WorkspaceSection) =>
-  workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}`);
+/** A link that opens one agent on one tab, e.g. from Activity or Chat; `action`
+ * ("connection/operation") picks out one rule on the Tools tab. */
+export const agentSectionUrl = (agent: string, section: WorkspaceSection, action?: string) =>
+  workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}${action ? `&action=${encodeURIComponent(action)}` : ''}`);
 export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection; select: (section: WorkspaceSection) => void }) {
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
