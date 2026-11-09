@@ -9,6 +9,7 @@ import { SkillsStep } from './skills-step';
 import { loadMembers, PeopleStep } from './people-step';
 import { ConnectorsStep } from './connectors-step';
 import { ControlsStep, type Suggested, type ToolChoices } from './controls-step';
+import { CreateModelChoice } from './model-choice';
 import { loadAvailable, saveRule, switchTool } from '../control-model';
 import { assignSkill, createSkill } from '../skills/model';
 import { useSkillWriting } from '../skills/setup-chat';
@@ -44,9 +45,10 @@ export function newAgent(directory: Directory): Agent {
  * tools and apps it can use, its skills, people, then controls. Tools are saved
  * right after the agent; retrying after a failure updates the same agent and its
  * tools. Web search and a computer are offered when this Cuckoo has them
- * (designs/web-search, designs/agent-computers 7 and 8). */
-export function AgentCreate({ start, close, created, webSearch = false, computers }: {
-  start: Agent; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null;
+ * (designs/web-search, designs/agent-computers 7 and 8). The last step also shows
+ * the model, the workspace default unless changed there. */
+export function AgentCreate({ start, directory, close, created, webSearch = false, computers }: {
+  start: Agent; directory: Directory; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const [draft, setDraft] = useState(start);
@@ -127,6 +129,9 @@ export function AgentCreate({ start, close, created, webSearch = false, computer
         changeComputer={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))}
         suggested={suggested} setSuggested={setSuggested} request={{ name: draft.name.trim(), role: draft.role, audience, ground_rules: draft.settings.instructions,
           skills: [...drafts, ...skills.map(skill => ({ ...skill, steps: '' }))].map(({ name, description, steps }) => ({ name, description, steps })) }} />}
+      {step === 4 && <CreateModelChoice agent={draft} directory={directory}
+        needsTools={chosen.length > 0 || (webSearch && searchesWeb(draft.settings)) || Boolean(computers && computerOf(draft.settings).on)}
+        change={(model, provider) => setDraft(old => ({ ...old, model, settings: { ...old.settings, provider } }))} />}
     </fieldset>
     {pickingSkills && <SkillPicker agent={draft.name} owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
       choose={({ id, name, description }) => addSkills([{ id, name, description }])} />}

@@ -24,10 +24,8 @@ export function CatalogModelPicker({ agent, directory, catalog, saved }: { agent
       <legend className="visually-hidden">Model</legend>
       <ModelNotice agent={agent} current={current} replacement={replacement} allowed={choosable(agent.model)} />
       {!offered.length && <p className="ui-help">No models are on offer right now.</p>}
-      <ul>{offered.map(item => <li key={item.id}>
-        <ModelOption item={item} name={`model-${agent.id}`} checked={model === item.id} workspaceDefault={item.id === directory.default_model}
-          disabled={item.status === 'retiring' && item.id !== agent.model} choose={() => setModel(item.id)} />
-      </li>)}</ul>
+      <CatalogModelChoices models={offered} name={`model-${agent.id}`} value={model} saved={agent.model}
+        workspaceDefault={directory.default_model} choose={setModel} />
     </fieldset>
     <div className="agent-save-row">
       <Button primary disabled={mutation.busy || !changed || !choosable(model)} onClick={save}>Save model</Button>
@@ -43,6 +41,17 @@ function ModelNotice({ agent, current, replacement, allowed }: { agent: Agent; c
   if (current.status === 'retiring') return <p className="ui-help" role="status">{current.name} is being retired. Choose {replacement?.name ?? 'another model'} to keep {agent.name} working.</p>;
   if (!allowed) return <p className="ui-help" role="status">{current.name} is no longer allowed in this workspace, so {agent.name} can’t take new requests. Choose another.</p>;
   return null;
+}
+
+/** The catalog models to choose from, shared by the Environment tab and Create. A
+ * retiring model can only stay selected when it is the one already saved. */
+export function CatalogModelChoices({ models, name, value, saved, workspaceDefault, choose }: {
+  models: CatalogModel[]; name: string; value: string; saved?: string; workspaceDefault: string; choose: (id: string) => void;
+}) {
+  return <ul>{models.map(item => <li key={item.id}>
+    <ModelOption item={item} name={name} checked={value === item.id} workspaceDefault={item.id === workspaceDefault}
+      disabled={item.status === 'retiring' && item.id !== saved} choose={() => choose(item.id)} />
+  </li>)}</ul>;
 }
 
 function ModelOption({ item, name, checked, disabled, workspaceDefault, choose }: {

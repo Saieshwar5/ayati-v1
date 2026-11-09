@@ -87,3 +87,13 @@
 .agent-system-bar > span { flex: 1; min-width: 200px; }
 .agent-system-bar .ui-button { border: 0; background: transparent; padding: 4px 0; min-height: 32px; text-decoration: underline; }
 .agent-create-skills-step .agent-create-main { max-width: 760px; }
+/* The model on the last create step: collapsed to one line until "Change". */
+.agent-create-model { display: grid; gap: 10px; margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; }
+.agent-create-model-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.agent-create-model-line > span { min-width: 0; overflow-wrap: anywhere; }
+.agent-create-model-line .ui-badge { margin-left: 8px; }
+.agent-create-model-line small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.agent-create-model legend { margin-bottom: 4px; }
+.agent-create-model .ui-help { margin: 0; color: var(--muted); font-size: 13px; }
+.agent-create-model-warning { margin: 0; padding: 10px 14px; border-radius: 8px; background: var(--warning-bg); color: var(--warning); font-size: 13px; }
+.agent-create-model-warning .ui-button { margin-left: 6px; min-height: 30px; }
