@@ -301,7 +301,8 @@ async fn an_expired_account_asks_for_a_reconnect_and_reconnecting_replaces_and_r
     assert!(!s.needs_reconnect().await);
     assert_eq!(saved["binding"]["account"].as_str(), Some(fresh.as_str()));
     assert!(s.fake.state.lock().unwrap().removed.contains(&account));
-    // As with any reconnect, the account's actions start over from the safe defaults.
+    // The same mailbox signed in again with the same review, so the agent keeps
+    // its switch (schema 108); other accounts start over (connector_routing tests).
     let switches = query(
         &s.db.db,
         "SELECT count(*) AS n FROM relay_agent_connections WHERE workspace=$1 AND connection=$2",
@@ -312,7 +313,7 @@ async fn an_expired_account_asks_for_a_reconnect_and_reconnecting_replaces_and_r
     .unwrap()
     .try_get::<i64>("", "n")
     .unwrap();
-    assert_eq!(switches, 0);
+    assert_eq!(switches, 1);
     // Disconnecting hands the account back for the provider to revoke.
     let input = WorkspaceConnection {
         enabled: false,

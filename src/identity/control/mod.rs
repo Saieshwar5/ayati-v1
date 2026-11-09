@@ -1,4 +1,5 @@
 //! Shared-workspace authority boundary for supported, reviewed remote MCP operations.
+mod app_catalog;
 mod approvals;
 pub(crate) mod broker;
 pub(crate) mod catalog;
@@ -20,6 +21,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
+        .merge(app_catalog::routes())
         .merge(approvals::routes())
         .merge(guard::routes())
         .merge(outcomes::routes())
@@ -100,7 +102,7 @@ async fn connect(
     )?;
     // This older agent-level route connects operator-configured accounts only;
     // accounts that sign in through a provider page connect in Settings.
-    let provider = crate::identity::connectors::provider_for(&w, &input.server)?;
+    let provider = crate::identity::connectors::provider_for(&app.store, &w, &input.server).await?;
     check(
         provider.name() == "mcp",
         "Connect this account in Settings, Connections",

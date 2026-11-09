@@ -3,7 +3,7 @@
 -- result. Defaults match relay_control_effective_rules (relay_default_mode).
 SELECT jsonb_build_object(
  'id',c.id,'server',c.server,'name',c.definition->>'name','account',c.definition->>'account',
- 'revision',c.revision,'on',ac.agent IS NOT NULL,
+ 'revision',c.revision,'on',ac.agent IS NOT NULL,'state',relay_connection_state(c.workspace,c.id,c.provider),
  'operations',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
    'id',o.op->>'id','title',o.op->>'title','effect',o.op->>'effect','meaning',relay_action_meaning(c.workspace,c.id,o.op),
    'workspace_mode',COALESCE(w.mode,relay_default_mode(c.workspace,c.id,o.op)),

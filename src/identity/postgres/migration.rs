@@ -115,6 +115,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::computer_policy::ComputerPolicyMigration),
             Box::new(super::computer_turns::ComputerTurnsMigration),
             Box::new(super::control_actions::outcomes::migration::UnconfirmedWrites),
+            Box::new(super::connector_routing::ConnectorRouting),
         ]
     }
 }

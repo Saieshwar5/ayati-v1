@@ -38,13 +38,8 @@ impl ComposioApi {
                     && base.query().is_none()),
             "Composio endpoint must be the official HTTPS API or an explicit loopback fixture"
         );
-        let client = Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(Duration::from_secs(45))
-            .build()?;
         let api = Self {
-            client,
+            client: client()?,
             base,
             key_file,
         };
@@ -123,6 +118,21 @@ impl ComposioApi {
             Reply::Status(code) => anyhow::bail!("Composio refused the request (HTTP {code})"),
         }
     }
+}
+
+/// One HTTP client for every Composio request: the provider is rebuilt from the
+/// providers file on each use, and a client is costly to make.
+fn client() -> Result<Client> {
+    static CLIENT: std::sync::OnceLock<Client> = std::sync::OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Ok(client.clone());
+    }
+    let built = Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(45))
+        .build()?;
+    Ok(CLIENT.get_or_init(|| built).clone())
 }
 
 /// Composio ids and slugs used in paths: plain, bounded text only.

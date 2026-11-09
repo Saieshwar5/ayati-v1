@@ -24,7 +24,12 @@ pub(crate) struct Fake {
     pub executed: Vec<(String, Value)>,
     pub removed: Vec<String>,
     pub bad_keys: usize,
+    /// The mailbox the profile read answers with; `None` makes it fail.
+    pub mailbox: Option<String>,
+    pub identity_reads: usize,
 }
+/// The mailbox every fake account signs in as, unless a test changes it.
+pub(crate) const MAILBOX: &str = "orders@example.test";
 type Shared = Arc<Mutex<Fake>>;
 
 pub(crate) struct FakeComposio {
@@ -37,6 +42,7 @@ impl FakeComposio {
     pub(crate) async fn start() -> Self {
         use std::os::unix::fs::PermissionsExt;
         let state: Shared = Arc::default();
+        state.lock().unwrap().mailbox = Some(MAILBOX.into());
         let router = Router::new()
             .route(
                 "/api/v3.1/auth_configs",
@@ -198,7 +204,8 @@ fn schema(slug: &str, changed: bool) -> Option<Value> {
             json!({"type":"object","properties":{"query":text("Gmail search"),"max_results":{"type":"integer"},"page_token":{"type":"string"},"label_ids":{"type":"array","items":{"type":"string"}},"user_id":{"type":"string","default":"me"}},"required":[]})
         }
         "GMAIL_SEND_EMAIL" => {
-            json!({"type":"object","properties":{"recipient_email":text("Who gets it"),"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},"cc":{"type":"array"},"user_id":{"type":"string"}},"required":[]})
+            json!({"type":"object","properties":{"recipient_email":text("Who gets it"),"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},
+                "cc":{"type":"array","items":{"type":"string"},"description":"Copies"},"bcc":{"type":"array","items":{"type":"object"}},"user_id":{"type":"string"}},"required":[]})
         }
         "GMAIL_CREATE_EMAIL_DRAFT" => {
             json!({"type":"object","properties":{"recipient_email":{"type":"string"},"subject":{"type":"string"},"body":{"type":"string"},"is_html":{"type":"boolean"},"thread_id":{"type":"string"}},"required":[]})
@@ -243,6 +250,16 @@ async fn execute(
 ) -> Result<Json<Value>, StatusCode> {
     keyed(&s, &headers)?;
     let mut state = s.lock().unwrap();
+    if slug == "GMAIL_GET_PROFILE" {
+        // The identity read: Gmail's profile, wrapped as Composio wraps tool data.
+        state.identity_reads += 1;
+        return Ok(Json(match &state.mailbox {
+            Some(mailbox) => {
+                json!({"data":{"emailAddress":mailbox,"messagesTotal":12,"threadsTotal":9,"historyId":"77"},"error":null,"successful":true})
+            }
+            None => json!({"data":{},"error":"Insufficient scopes","successful":false}),
+        }));
+    }
     let status = state
         .accounts
         .get(body["connected_account_id"].as_str().unwrap())

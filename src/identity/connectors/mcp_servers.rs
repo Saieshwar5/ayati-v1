@@ -2,7 +2,9 @@
 //! reviewed operations and bearer files. Accounts are verified at once (no
 //! sign-in page), and the operator holds the credentials, so disconnecting
 //! here only stops Cuckoo from using them.
-use super::{Account, App, Call, Connect, ConnectorProvider, Outcome, Refusal, Saved};
+use super::{
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Outcome, Refusal, Saved,
+};
 use crate::identity::control::{
     catalog::{self, Server},
     mcp::Remote,
@@ -32,6 +34,10 @@ impl McpServers {
 impl ConnectorProvider for McpServers {
     fn name(&self) -> &'static str {
         "mcp"
+    }
+    /// Verified at once with the operator's credentials, which Cuckoo can't revoke.
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::default()
     }
     fn apps(&self, workspace: &str) -> Result<Vec<App>> {
         Ok(catalog::servers_in(self.file.as_deref(), workspace)?

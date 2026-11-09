@@ -202,12 +202,13 @@ async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User>
 }
 /// Process-wide settings read by code that has no `App`: start tracing and the
 /// operator-owned connector and event-source catalogs.
-fn configure_process(config: &crate::config::Controller) {
+fn configure_process(config: &crate::config::Controller) -> Result<()> {
     start_trace::enable(config.trace_start);
     control::catalog::configure(config.mcp_servers_file.clone());
-    connectors::configure(connectors::settings(config));
+    connectors::configure(connectors::settings(config)?);
     events::catalog::configure(config.event_sources_file.clone());
     communications::adapters::configure(communications::adapters::settings(config));
+    Ok(())
 }
 
 pub async fn serve(config: crate::config::Controller) -> Result<()> {
@@ -231,7 +232,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
         .context("Another identity server uses this data directory")?;
     let store = postgres::PgStore::open(&config).await?;
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
-    configure_process(&config);
+    configure_process(&config)?;
     let app = Arc::new(App {
         library: library::Storage::from_settings(&config.library)?,
         provider,

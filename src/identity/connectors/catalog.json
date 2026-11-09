@@ -6,6 +6,7 @@
       "description": "Email",
       "name": "Gmail",
       "providers": { "composio": "gmail" },
+      "identity": { "composio": { "tool": "GMAIL_GET_PROFILE", "field": "emailAddress" } },
       "actions": [
         {
           "id": "gmail.find_emails",
@@ -26,7 +27,7 @@
           "providers": {
             "composio": {
               "tool": "GMAIL_CREATE_EMAIL_DRAFT",
-              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
+              "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html", "thread_id": "thread_id" }
             }
           }
         },
@@ -38,7 +39,7 @@
           "providers": {
             "composio": {
               "tool": "GMAIL_SEND_EMAIL",
-              "fields": { "to": "recipient_email", "subject": "subject", "body": "body", "is_html": "is_html" }
+              "fields": { "to": "recipient_email", "cc": "cc", "bcc": "bcc", "subject": "subject", "body": "body", "is_html": "is_html" }
             }
           }
         },
@@ -62,6 +63,7 @@
       "description": "Calendar",
       "name": "Google Calendar",
       "providers": { "composio": "googlecalendar" },
+      "identity": { "composio": { "tool": "GOOGLECALENDAR_GET_CALENDAR", "arguments": { "calendar_id": "primary" }, "field": "id" } },
       "actions": [
         {
           "id": "google_calendar.find_events",
@@ -82,7 +84,7 @@
           "providers": {
             "composio": {
               "tool": "GOOGLECALENDAR_CREATE_EVENT",
-              "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates" }
+              "fields": { "title": "summary", "description": "description", "location": "location", "start": "start_datetime", "end": "end_datetime", "timezone": "timezone", "duration_hours": "event_duration_hour", "duration_minutes": "event_duration_minutes", "calendar_id": "calendar_id", "notify": "send_updates", "attendees": "attendees" }
             }
           }
         }
@@ -126,6 +128,7 @@
       "description": "Files and folders",
       "name": "Google Drive",
       "providers": { "composio": "googledrive" },
+      "identity": { "composio": { "tool": "GOOGLEDRIVE_GET_ABOUT", "arguments": { "fields": "user" }, "field": "user.emailAddress" } },
       "actions": [
         {
           "id": "google_drive.find_files",

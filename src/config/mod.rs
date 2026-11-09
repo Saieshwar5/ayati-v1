@@ -2,6 +2,7 @@
 //! settings, reports every problem together and refuses other processes' secrets.
 mod admin;
 mod archive;
+mod connectors;
 mod controller;
 mod executor;
 mod operators;
@@ -9,6 +10,7 @@ mod reader;
 
 pub use admin::Admin;
 pub use archive::Archive;
+pub use connectors::Connectors;
 pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
 pub use executor::{Executor, Identity};
 pub(crate) use reader::Reader;

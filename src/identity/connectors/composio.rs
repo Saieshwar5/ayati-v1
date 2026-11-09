@@ -4,7 +4,7 @@
 //! Every call first checks that the account is still active and the pinned tool
 //! still means the same thing; the agent never sees Composio.
 use super::{
-    Account, App, Call, Connect, ConnectorProvider, Outcome, Refusal, Saved,
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Outcome, Refusal, Saved,
     composio_api::{self, ComposioApi, Reply},
     curated::{self, CatalogApp},
     fingerprint,
@@ -22,6 +22,7 @@ const MAX_RESULT: usize = 64 * 1024;
 /// Seconds a sign-in page stays usable from Cuckoo's side.
 const SIGN_IN_SECONDS: i64 = 15 * 60;
 
+#[derive(Clone)]
 pub(crate) struct Settings {
     pub base: String,
     pub key_file: PathBuf,
@@ -31,15 +32,13 @@ pub(crate) struct Settings {
     pub auth_configs: BTreeMap<String, String>,
 }
 impl Settings {
-    pub(crate) fn from_config(config: &crate::config::Controller) -> Option<Self> {
-        Some(Self {
-            key_file: config.composio_key_file.clone()?,
-            base: config
-                .composio_base_url
-                .clone()
-                .unwrap_or_else(|| composio_api::OFFICIAL.into()),
-            auth_configs: config.composio_auth_configs.clone(),
-        })
+    /// Composio's entry in the connector providers file.
+    pub(crate) fn from_entry(entry: &super::providers_file::Composio, base: &str) -> Self {
+        Self {
+            base: base.into(),
+            key_file: entry.key_file.clone(),
+            auth_configs: entry.auth_configs.clone(),
+        }
     }
 }
 
@@ -228,6 +227,23 @@ impl Composio {
     }
 }
 
+impl Composio {
+    /// The account's own identity from the app's identity read, such as the
+    /// mailbox address. Only that one field is kept from the answer. A read that
+    /// fails proves nothing, so the account is saved without an identity.
+    async fn identity(&self, binding: &Binding, app: &CatalogApp) -> Option<String> {
+        let read = app.identity.get(NAME)?;
+        let path = format!("tools/execute/{}", composio_api::id(&read.tool).ok()?);
+        let body = json!({"connected_account_id":binding.account,"user_id":binding.user,"arguments":read.arguments});
+        match self.api.send(Method::POST, &path, Some(&body)).await {
+            Ok(Reply::Ok(reply)) if reply["successful"] == true && reply["error"].is_null() => {
+                curated::identity_value(&reply["data"], &read.field)
+            }
+            _ => None,
+        }
+    }
+}
+
 fn slug_is(value: &Value, toolkit: &str) -> bool {
     value
         .as_str()
@@ -238,6 +254,14 @@ fn slug_is(value: &Value, toolkit: &str) -> bool {
 impl ConnectorProvider for Composio {
     fn name(&self) -> &'static str {
         NAME
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            sign_in: true,
+            revoke: true,
+            list_fields: true,
+            ..Capabilities::default()
+        }
     }
     fn apps(&self, _workspace: &str) -> Result<Vec<App>> {
         Ok(curated::catalog()
@@ -320,13 +344,14 @@ impl ConnectorProvider for Composio {
             "Composio offers none of Cuckoo's reviewed actions for {}",
             catalog.name
         );
+        let identity = self.identity(&binding, catalog).await;
         let definition =
-            json!({"id":catalog.id,"name":catalog.name,"account":null,"operations":operations});
+            json!({"id":catalog.id,"name":catalog.name,"account":identity,"operations":operations});
         Ok(Account {
             fingerprint: fingerprint(NAME, &definition, Some(value)),
             definition,
             binding: Some(value.clone()),
-            identity: None,
+            identity,
         })
     }
 
