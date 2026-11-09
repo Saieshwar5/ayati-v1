@@ -4,9 +4,10 @@
 //! Every call first checks that the account is still active and the pinned tool
 //! still means the same thing; the agent never sees Composio.
 use super::{
-    Account, App, Call, Capabilities, Connect, ConnectorProvider, Delivery, Outcome, Refusal,
-    Saved, Subscription,
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Delivery, Refusal, Saved,
+    Subscription,
     composio_api::{self, ComposioApi, Reply},
+    composio_call::ComposioCall,
     composio_triggers,
     curated::{self, CatalogApp},
     fingerprint,
@@ -19,8 +20,6 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 const NAME: &str = "composio";
-/// Results larger than this are summarized instead of returned to the agent.
-const MAX_RESULT: usize = 64 * 1024;
 /// Seconds a sign-in page stays usable from Cuckoo's side.
 const SIGN_IN_SECONDS: i64 = 15 * 60;
 
@@ -487,33 +486,5 @@ impl ConnectorProvider for Composio {
         now: i64,
     ) -> Result<Vec<Delivery>> {
         composio_triggers::parse(headers, body, secret, now)
-    }
-}
-
-struct ComposioCall {
-    api: ComposioApi,
-    body: Value,
-    tool: String,
-    fields: BTreeMap<String, String>,
-}
-#[async_trait::async_trait]
-impl Call for ComposioCall {
-    async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
-        let Ok(arguments) = curated::provider_arguments(&self.fields, arguments) else {
-            return Outcome::Uncertain;
-        };
-        self.body["arguments"] = arguments;
-        let path = format!("tools/execute/{}", self.tool);
-        match self.api.send(Method::POST, &path, Some(&self.body)).await {
-            Ok(Reply::Ok(reply)) if reply["successful"] == true && reply["error"].is_null() => {
-                let data = &reply["data"];
-                Outcome::Completed(if data.to_string().len() <= MAX_RESULT {
-                    json!({"data": data})
-                } else {
-                    json!({"message":"The result was too large to return. Ask for fewer items or a narrower search."})
-                })
-            }
-            _ => Outcome::Uncertain,
-        }
     }
 }

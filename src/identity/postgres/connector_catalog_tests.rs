@@ -171,7 +171,7 @@ async fn the_catalog_searches_filters_and_pages_with_connected_apps_first() {
         .iter()
         .map(|c| c["count"].as_i64().unwrap())
         .collect();
-    assert_eq!(counts, [1, 21, 20, 0, 0, 0, 0, 0]);
+    assert_eq!(counts, [1, 21, 20, 0, 0, 0, 0, 0, 0]);
     let cursor = first["next_cursor"].as_str().unwrap();
     let second = page(&s, &s.owner, &offers, "", "", cursor).await;
     assert!(second["next_cursor"].is_null());
@@ -452,4 +452,28 @@ async fn company_rules_never_match_a_list_and_still_check_plain_fields() {
     let held = s.request(&job, "gmail.send_email", rival).await;
     assert_ne!(held["state"], "completed", "{held}");
     assert_eq!(s.fake.state.lock().unwrap().executed.len(), 1);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_operators_own_mcp_servers_are_listed_as_your_companys_systems() {
+    let s = setup().await;
+    let offers = vec![
+        offer("orders", "Orders sample system", "company"),
+        offer("google_drive", "Google Drive", "files"),
+    ];
+    let listed = page(&s, &s.owner, &offers, "", "company", "").await;
+    assert_eq!(ids(&listed), ["orders"]);
+    assert_eq!(listed["apps"][0]["state"], "available");
+    let company = listed["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "company")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        (company["name"].as_str(), company["count"].as_i64()),
+        (Some("Your company's systems"), Some(1))
+    );
 }

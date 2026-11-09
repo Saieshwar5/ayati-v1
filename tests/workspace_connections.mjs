@@ -39,13 +39,18 @@ test('Admin sets safety per action; a member creates an agent with tools and rev
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); return page;
   }
   const ownerPage = await pageFor(app.cookie); const memberPage = await pageFor(member);
-  const settingsUrl = `${app.base}/w/${w}/?view=settings&scope=workspace&section=connections`;
+  const settingsUrl = `${app.base}/w/${w}/?view=apps`;
   await memberPage.goto(settingsUrl);
-  assert.equal(await memberPage.getByRole('button', { name: 'Approve system', exact: true }).count(), 0);
+  await memberPage.getByRole('button', { name: 'Request an app' }).waitFor();
+  assert.equal(await memberPage.getByRole('button', { name: 'Add app' }).count(), 0);
   await ownerPage.goto(settingsUrl);
-  await ownerPage.getByRole('button', { name: 'Approve system', exact: true }).click();
-  await ownerPage.getByRole('button', { name: 'Connect account', exact: true }).click();
-  const safety = ownerPage.getByRole('region', { name: 'Safety for Orders sample system' });
+  await ownerPage.getByRole('button', { name: 'Add app' }).click();
+  await ownerPage.getByRole('button', { name: 'Connect Orders sample system' }).click();
+  await ownerPage.getByRole('button', { name: /^Continue to Orders sample system/ }).click();
+  await ownerPage.getByRole('heading', { name: /Orders sample system is connected|Account connected/ }).waitFor();
+  await ownerPage.getByRole('button', { name: 'Done', exact: true }).last().click();
+  await ownerPage.getByRole('button', { name: /Orders sample system/ }).first().click();
+  const safety = ownerPage.getByRole('complementary', { name: 'Orders sample system' });
   await safety.waitFor();
   // Everyone may create agents (D231); there is no creator permission to grant.
   assert.equal(await ownerPage.getByText('Agent creators').count(), 0);

@@ -103,3 +103,15 @@ test('Check in Activity’s Needs review opens the same dialog', async () => {
     return response({ agents: [], running: [], away: { since: Date.now(), totals: {} } });
   } });
 });
+
+test('The approval dialog from Chat explains an unconfirmed write and opens "Did this go out?"', async () => {
+  await reactFixture(async ({ render, click, button }) => {
+    const { ApprovalDialog } = await import('../src/react/approvals/approval-dialog.tsx');
+    await render(ApprovalDialog, { id: 'act-1', close() {} });
+    const approval = document.querySelector('dialog[open]');
+    assert.match(approval.textContent, /later writes to Gmail are paused until someone says whether it happened/);
+    await click(button('Check what happened'));
+    const titles = [...document.querySelectorAll('dialog[open] h2')].map(node => node.textContent);
+    assert.ok(titles.includes('Did this go out?'), 'the outcome dialog opens over the approval');
+  }, { url, fetch: async () => response(action()) });
+});

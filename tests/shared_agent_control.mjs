@@ -33,11 +33,16 @@ test('shared real Goose obeys the admin safety rules and the agent Tools switch,
   const [name, value] = app.cookie.split('=');
   await context.addCookies([{ name, value, url: app.base, httpOnly: true, sameSite: 'Lax' }]);
   const page = await context.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto(`${app.base}/w/${workspace}/?view=settings&scope=workspace&section=connections`);
-  await page.getByRole('button', { name: 'Approve system', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect account', exact: true }).click();
+  await page.goto(`${app.base}/w/${workspace}/?view=apps`);
+  await page.getByRole('button', { name: 'Add app' }).click();
+  await page.getByRole('button', { name: 'Connect Orders sample system' }).click();
+  await page.getByRole('button', { name: /^Continue to Orders sample system/ }).click();
+  await page.getByRole('heading', { name: /Orders sample system is connected|Account connected/ }).waitFor();
+  await page.getByRole('button', { name: 'Done', exact: true }).last().click();
+  await page.getByRole('button', { name: /Orders sample system/ }).first().click();
+
   // Admin safety (D231): reads Allow and changes Ask first by default; deleting is blocked here.
-  const safety = page.getByRole('region', { name: 'Safety for Orders sample system' });
+  const safety = page.getByRole('complementary', { name: 'Orders sample system' });
   await safety.getByRole('radiogroup', { name: 'Delete order workspace rule' }).getByText('Block', { exact: true }).click();
   await until(async () => (await app.request(`${app.path}/control/connections`, app.cookie)).value.safety[0].operations.find(o => o.id === 'order.delete').mode === 'block', 'Workspace rule did not persist');
   await page.screenshot({ path: join(app.data, 'connector-safety-desktop.png') });

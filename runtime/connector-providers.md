@@ -413,8 +413,8 @@ Unverified until a live run:
 - Composio app events are checked against fakes only; the operator's
   event-source file still works for sources made by hand.
 - Nested fields and lists of objects are not offered.
-- Operator MCP servers are not in the Add app catalog; they still connect from
-  the Connections controls.
+- Operator MCP servers appear in the Add app catalog under "Your company's
+  systems" and connect in one step without a sign-in page.
 - An abandoned sign-in that never returns stays at Composio until removed.
 - A connector Cuckoo builds itself: the contract and suite are ready for it.
 - Composio and Pipedream map the same apps, so both can't be configured on one

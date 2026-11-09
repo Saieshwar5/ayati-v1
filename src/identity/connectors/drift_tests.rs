@@ -124,7 +124,7 @@ async fn composio_describes_the_pinned_and_newest_tool_with_the_reviewed_fields(
         found(provider, &saved, &send).await,
         finding(
             "new_version",
-            &["body", "is_html", "subject", "to"],
+            &["body", "cc", "is_html", "subject", "to"],
             Some("20261101_00")
         )
     );

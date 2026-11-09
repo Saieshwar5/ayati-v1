@@ -8,6 +8,20 @@ becomes a provider now is an open question below. Nothing here is built.
 Provider facts were read from docs.composio.dev and pipedream.com on 2026-11-08
 and are checked live in phase 0.
 
+## Build status (2026-11-09)
+
+Built on `claude/hopeful-hypatia-c59ugs`, schemas 107–110, against local
+provider stand-ins only:
+
+- P1 unconfirmed writes, P2 routing, accounts and health, P3 screens, P4
+  Composio events, P5 Pipedream: built and tested.
+- Checks: clippy with warnings denied, 216 unit tests, 505 of 510 PostgreSQL
+  tests (the 5 need live E2B, a sandbox, S3 or pgvector), 427 web tests, build.
+- Not yet run: the three real-Goose journeys moved to the new Apps flow, and
+  any live call to Composio or Pipedream (`tools/connector-provider-check`).
+- P0 live checks and P6 production setup (public `/hooks`, secret store,
+  alerts) remain.
+
 ## Where we are (main, schema 103)
 
 Working, tested against local fakes:

@@ -7,7 +7,6 @@ use crate::config::pipedream::{environment_name, project};
 use anyhow::{Context, Result, anyhow, ensure};
 use futures_util::StreamExt;
 use reqwest::{Client, Method, Url};
-use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -43,43 +42,14 @@ impl Settings {
         })
     }
 
-    /// From the providers file's checked `pipedream` entry.
-    pub(crate) fn from_file(entry: &super::providers_file::Pipedream, base: &str) -> Self {
-        Self {
+    /// From the providers file's `pipedream` entry, checked again here.
+    pub(crate) fn from_file(entry: &super::providers_file::Pipedream, base: &str) -> Result<Self> {
+        let settings = Self {
             base: base.to_owned(),
             client_id_file: entry.client_id_file.clone(),
             client_secret_file: entry.client_secret_file.clone(),
             project_id: entry.project_id.clone(),
             environment: entry.environment.clone(),
-        }
-    }
-
-    /// The `pipedream` entry of `AYATI_CONNECTOR_PROVIDERS_FILE`, as
-    /// designs/connector-layer/contracts.md shows it. The price per call is
-    /// read by the provider operations package, not here.
-    pub(crate) fn from_entry(entry: &Value) -> Result<Self> {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Entry {
-            provider: String,
-            client_id_file: PathBuf,
-            client_secret_file: PathBuf,
-            project_id: String,
-            environment: String,
-            #[serde(default, rename = "usd_per_1k_calls")]
-            _usd_per_1k_calls: Option<f64>,
-        }
-        let entry = Entry::deserialize(entry).context("Invalid Pipedream provider entry")?;
-        ensure!(
-            entry.provider == "pipedream",
-            "Not a Pipedream provider entry"
-        );
-        let settings = Self {
-            base: OFFICIAL.into(),
-            client_id_file: entry.client_id_file,
-            client_secret_file: entry.client_secret_file,
-            project_id: entry.project_id,
-            environment: entry.environment,
         };
         settings.check()?;
         Ok(settings)

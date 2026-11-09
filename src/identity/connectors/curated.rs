@@ -46,7 +46,7 @@ pub(crate) struct IdentityRead {
     pub field: String,
 }
 /// The categories of the Add app catalog, in screen order: (id, name).
-pub(crate) const CATEGORIES: [(&str, &str); 8] = [
+pub(crate) const CATEGORIES: [(&str, &str); 9] = [
     ("email_calendar", "Email and calendar"),
     ("files", "Files and documents"),
     ("sales", "Sales and customers"),
@@ -55,6 +55,8 @@ pub(crate) const CATEGORIES: [(&str, &str); 8] = [
     ("projects", "Projects and tasks"),
     ("support", "Support"),
     ("shops", "Shops"),
+    // Systems the company runs, reached through operator-configured MCP servers.
+    ("company", "Your company's systems"),
 ];
 /// An app event, such as "New email". Like an action, each provider maps it to
 /// its own trigger and field names; only the mapped scalar fields (at most

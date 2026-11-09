@@ -16,20 +16,29 @@ async fn offers(store: &crate::identity::postgres::PgStore, w: &str) -> Result<V
     Ok(connectors::apps(store, w)
         .await?
         .into_iter()
-        .filter_map(|app| {
-            let catalog = connectors::curated::app(&app.id)?;
+        .map(|app| {
             let operations: Value = app
                 .operations
                 .iter()
                 .map(|o| json!({"id":o.id,"title":o.title,"tool":o.tool,"effect":o.effect}))
                 .collect();
-            Some(Offer {
+            // Apps outside Cuckoo's catalog are the operator's own MCP servers.
+            let (description, category) = match connectors::curated::app(&app.id) {
+                Some(catalog) => (catalog.description.clone(), catalog.category.clone()),
+                None => (
+                    app.account
+                        .clone()
+                        .unwrap_or_else(|| "Set up by your operator".into()),
+                    "company".into(),
+                ),
+            };
+            Offer {
                 id: app.id,
                 name: app.name,
-                description: catalog.description.clone(),
-                category: catalog.category.clone(),
+                description,
+                category,
                 operations,
-            })
+            }
         })
         .collect())
 }

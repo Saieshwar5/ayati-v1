@@ -339,26 +339,32 @@ async fn pipedream_deliveries_need_a_fresh_signature_from_the_subscription_key()
 
 #[tokio::test]
 async fn pipedream_settings_follow_the_providers_file_entry() {
-    let entry = json!({"provider":"pipedream","client_id_file":"/run/secrets/pd-id",
-        "client_secret_file":"/run/secrets/pd-secret","project_id":"proj_abc123",
-        "environment":"production","usd_per_1k_calls":0});
-    let settings = pipedream::Settings::from_entry(&entry).unwrap();
+    let file = |project: &str, environment: &str| {
+        super::providers_file::ProvidersFile::parse(&format!(
+            r#"{{"providers":[{{"provider":"pipedream","client_id_file":"/run/secrets/pd-id",
+            "client_secret_file":"/run/secrets/pd-secret","project_id":"{project}",
+            "environment":"{environment}","usd_per_1k_calls":0}}]}}"#
+        ))
+    };
+    let parsed = file("proj_abc123", "production").unwrap();
+    let settings =
+        pipedream::Settings::from_file(parsed.pipedream().unwrap(), super::pipedream_api::OFFICIAL)
+            .unwrap();
     assert_eq!(settings.base, super::pipedream_api::OFFICIAL);
     assert_eq!(
         (settings.project_id.as_str(), settings.environment.as_str()),
         ("proj_abc123", "production")
     );
-    for (key, value) in [
-        ("provider", "composio"),
-        ("environment", "staging"),
-        ("project_id", "abc123"),
-        ("client_id_file", "pd-id"),
-        ("base", "http://127.0.0.1:1/v1/"),
-    ] {
-        let mut wrong = entry.clone();
-        wrong[key] = json!(value);
-        assert!(pipedream::Settings::from_entry(&wrong).is_err(), "{key}");
-    }
+    assert!(file("proj_abc123", "staging").is_err());
+    let unprefixed = file("abc123", "production").unwrap();
+    assert!(
+        pipedream::Settings::from_file(
+            unprefixed.pipedream().unwrap(),
+            super::pipedream_api::OFFICIAL
+        )
+        .is_err(),
+        "a project id must look like proj_…"
+    );
     // Only the official API or a loopback fixture, with private client files.
     let fake = FakePipedream::start().await;
     let mut remote = fake.settings();
