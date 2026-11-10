@@ -29,7 +29,9 @@ rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", 
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
 # multipart (2026-11-07): voice-note transcription uploads audio as a form, the
 # OpenAI-compatible /audio/transcriptions API. Its mime_guess is already in the tree.
-reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "multipart"] }
+# form (2026-11-10): Twilio's Messages API takes form bodies; serde_urlencoded is
+# already in the tree via axum.
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "multipart", "form"] }
 rusqlite = { version = "0.38", features = ["bundled"] }
 sea-orm = { version = "=2.0.4", default-features = false, features = ["macros", "sqlx-postgres", "runtime-tokio-rustls", "with-json"] }
 sea-orm-migration = { version = "=2.0.4", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls"] }
