@@ -21,7 +21,7 @@ were read from the environment and are not stored in the repository.
 | Live picture (`Page.startScreencast`, JPEG quality 60, 1280×800) | 10 frames a second, about 42 KB a frame, sent only when the page changes |
 | A person's click and typing (`Input.dispatchMouseEvent`, `Input.insertText`) | Landed in the page field |
 | Browser closed properly (`Browser.close`), then restarted | Login cookie kept |
-| Overnight sleep | Started 11:14 UTC; result to be added on 2026-11-09 |
+| Overnight sleep (24 hours, 2026-11-08 11:14 to 2026-11-09 11:21 UTC) | Woke in 1.1 s; the file was kept; a counter running before sleep (4) carried on from where it stopped (7 two seconds after waking), so memory and running programs were kept for a day. Deleted afterwards |
 
 ### Cuckoo's image on E2B
 
@@ -89,6 +89,6 @@ start command sets `vm.overcommit_memory=1`, so every computer starts with it.
 
 ## Not yet checked
 
-- Overnight and multi-day sleep (overnight result due 2026-11-09).
+- Sleep longer than a day, and how long E2B keeps a sleeping computer before removing it.
 - Real costs per wake from E2B's billing, against the price assumptions.
 - AWS Lambda MicroVMs (later, as decided).
