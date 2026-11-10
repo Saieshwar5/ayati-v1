@@ -1,0 +1,10 @@
+/* An agent's WhatsApp number on Overview, and linking your number in Profile. */
+.agent-whatsapp-fact .agent-whatsapp-number { font-variant-numeric: tabular-nums; font-weight: 600; }
+.agent-whatsapp-fact .agent-whatsapp-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: end; }
+.agent-whatsapp-fact .ui-status { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.agent-whatsapp-choice { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.settings-whatsapp { max-width: 640px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+.settings-whatsapp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.settings-whatsapp-code { display: grid; gap: 10px; margin-top: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 9px; }
+.settings-whatsapp-code code { font-size: 20px; font-weight: 600; letter-spacing: .08em; overflow-wrap: anywhere; }
+.settings-whatsapp-code .settings-whatsapp-actions { display: flex; flex-wrap: wrap; gap: 8px; }

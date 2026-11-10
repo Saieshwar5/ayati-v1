@@ -4,6 +4,7 @@ import { useMutation, useResource } from '../requests';
 import { setNotifyDefaults } from '../chat/notifications';
 import { currentWorkspace, workspaceSession } from '../../workspace-context';
 import { MyProfile } from './my-profile';
+import { WhatsappLink } from './whatsapp-link';
 
 /** The one place to edit your name, photo, job title and About (D245). */
 export function ProfileSettings() {
@@ -11,6 +12,7 @@ export function ProfileSettings() {
   return <section className="settings-profile"><h2>Profile</h2>
     <p>How colleagues and agents see you in {currentWorkspace()?.name || 'this workspace'}. The only place to change these.</p>
     <MyProfile />
+    <WhatsappLink />
   </section>;
 }
 
