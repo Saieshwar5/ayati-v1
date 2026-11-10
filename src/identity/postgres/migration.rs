@@ -118,6 +118,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::connector_routing::ConnectorRouting),
             Box::new(super::event_subscriptions::ProviderEvents),
             Box::new(super::connector_calls::ConnectorOperations),
+            Box::new(super::communications::migration::WhatsappNumbers),
         ]
     }
 }

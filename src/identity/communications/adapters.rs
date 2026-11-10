@@ -91,20 +91,28 @@ pub(crate) trait TransportAdapter: Send + Sync {
 /// Process-wide transport settings, read once at controller start.
 pub(crate) struct Settings {
     pub transport_servers_file: Option<std::path::PathBuf>,
+    pub whatsapp_file: Option<std::path::PathBuf>,
+    pub origin: String,
 }
 static ADAPTERS: OnceLock<Vec<Arc<dyn TransportAdapter>>> = OnceLock::new();
 
 /// Registers the live transports this controller offers.
 pub(crate) fn configure(settings: Settings) {
-    let adapters: Vec<Arc<dyn TransportAdapter>> = vec![Arc::new(
-        super::mcp_transport::McpTransport::new(settings.transport_servers_file),
-    )];
+    super::whatsapp::settings::configure(settings.whatsapp_file, settings.origin);
+    let adapters: Vec<Arc<dyn TransportAdapter>> = vec![
+        Arc::new(super::mcp_transport::McpTransport::new(
+            settings.transport_servers_file,
+        )),
+        Arc::new(super::whatsapp::twilio::WhatsappTransport::new()),
+    ];
     let _ = ADAPTERS.set(adapters);
 }
 
 pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
     Settings {
         transport_servers_file: config.transport_servers_file.clone(),
+        whatsapp_file: config.whatsapp_file.clone(),
+        origin: config.origin.clone(),
     }
 }
 

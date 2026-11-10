@@ -20,6 +20,28 @@ impl MigrationTrait for Communications {
     }
 }
 
+/// Schema 111: WhatsApp numbers Cuckoo provides and people's verified mobiles.
+pub(crate) struct WhatsappNumbers;
+impl MigrationName for WhatsappNumbers {
+    fn name(&self) -> &str {
+        "m20261110_000111_whatsapp_numbers"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WhatsappNumbers {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("whatsapp.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "WhatsApp numbers require a forward migration".into(),
+        ))
+    }
+}
+
 /// Schema 54: real transports, delivery reasons and read cursors.
 pub(crate) struct CommunicationGateway;
 impl MigrationName for CommunicationGateway {
