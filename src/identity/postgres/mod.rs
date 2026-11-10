@@ -453,7 +453,9 @@ mod company_tests;
 mod messaging_tests;
 pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
-pub(crate) use communications::{NoFreeNumber, Offer, WhatsappIncoming, WhatsappOutcome};
+pub(crate) use communications::{
+    EmailOutcome, NoFreeNumber, Offer, WhatsappIncoming, WhatsappOutcome,
+};
 pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::answers::SaveAnswer;
 pub(crate) use library::edits::Decision;

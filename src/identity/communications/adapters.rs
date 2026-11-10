@@ -5,7 +5,8 @@
 //!
 //! Adding a transport is one module implementing [`TransportAdapter`], one line
 //! in [`configure`] and passing `conformance_tests`. Cuckoo Chat and the local
-//! email/WhatsApp simulations keep their own paths and are not adapters.
+//! email/WhatsApp simulations keep their own paths and are not adapters; live
+//! email (`email`) and WhatsApp (`whatsapp`) are.
 use super::model::Message;
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -37,6 +38,20 @@ pub(crate) struct Outgoing {
     pub thread: Option<String>,
     /// Markdown. The platform's bridge converts or strips formatting.
     pub text: String,
+    /// Email threading, for the email transport only. Left out otherwise, so
+    /// transport servers see the same fields as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<EmailReply>,
+}
+
+/// How an email reply joins its thread, from the message it answers.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct EmailReply {
+    pub subject: String,
+    pub in_reply_to: String,
+    pub references: Vec<String>,
+    /// The agent's name, shown next to its address.
+    pub from_name: String,
 }
 
 pub(crate) enum Event {
@@ -92,6 +107,7 @@ pub(crate) trait TransportAdapter: Send + Sync {
 pub(crate) struct Settings {
     pub transport_servers_file: Option<std::path::PathBuf>,
     pub whatsapp_file: Option<std::path::PathBuf>,
+    pub email_file: Option<std::path::PathBuf>,
     pub origin: String,
 }
 static ADAPTERS: OnceLock<Vec<Arc<dyn TransportAdapter>>> = OnceLock::new();
@@ -99,11 +115,13 @@ static ADAPTERS: OnceLock<Vec<Arc<dyn TransportAdapter>>> = OnceLock::new();
 /// Registers the live transports this controller offers.
 pub(crate) fn configure(settings: Settings) {
     super::whatsapp::settings::configure(settings.whatsapp_file, settings.origin);
+    super::email::settings::configure(settings.email_file);
     let adapters: Vec<Arc<dyn TransportAdapter>> = vec![
         Arc::new(super::mcp_transport::McpTransport::new(
             settings.transport_servers_file,
         )),
         Arc::new(super::whatsapp::twilio::WhatsappTransport::new()),
+        Arc::new(super::email::postmark::EmailTransport::new()),
     ];
     let _ = ADAPTERS.set(adapters);
 }
@@ -112,6 +130,7 @@ pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
     Settings {
         transport_servers_file: config.transport_servers_file.clone(),
         whatsapp_file: config.whatsapp_file.clone(),
+        email_file: config.email_file.clone(),
         origin: config.origin.clone(),
     }
 }

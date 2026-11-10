@@ -40,6 +40,7 @@ pub(crate) fn webhook_path(path: &str) -> bool {
     let uuids = |ids: &[&str]| ids.iter().all(|id| uuid::Uuid::parse_str(id).is_ok());
     path == "/hooks/composio"
         || crate::identity::communications::whatsapp::webhook_path(path)
+        || crate::identity::communications::email::webhook_path(path)
         || (parts.len() == 4
             && parts[0].is_empty()
             && parts[1..3] == ["hooks", "pipedream"]

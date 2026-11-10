@@ -3,7 +3,9 @@
 > Schema 54 adds the [communication gateway](communication-gateway.md): live
 > transports behind one adapter contract, starting with developer transports
 > through the Communication MCP. Schema 111 adds live WhatsApp on numbers Cuckoo
-> provides ([WhatsApp channel](whatsapp-channel.md)). The simulations below are unchanged.
+> provides ([WhatsApp channel](whatsapp-channel.md)). Schema 112 adds live email
+> on addresses at Cuckoo's mail domain ([email channel](email-channel.md)). The
+> simulations below are unchanged.
 
 This local implementation adds a common communication envelope and PostgreSQL
 inbox/outbox to the existing controller. Chat records ordinary message intake and

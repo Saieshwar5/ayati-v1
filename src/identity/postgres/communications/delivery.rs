@@ -240,6 +240,12 @@ async fn delivery(
             .map(str::to_owned)
             .context("Incomplete reply envelope")
     };
+    let email = if e["transport"] == "email" && e["simulated"] == false {
+        let event = row["event"].as_str().context("Missing reply event")?;
+        super::email_people::reply(tx, w, &e, event).await?
+    } else {
+        None
+    };
     Ok(Delivery {
         workspace: w.into(),
         id: row["id"].as_str().context("Missing reply")?.into(),
@@ -258,6 +264,7 @@ async fn delivery(
             conversation: field("conversation")?,
             thread: envelope["thread"].as_str().map(str::to_owned),
             text: field("text")?,
+            email,
         },
         attempt,
     })

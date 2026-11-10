@@ -42,6 +42,28 @@ impl MigrationTrait for WhatsappNumbers {
     }
 }
 
+/// Schema 112: agents' email addresses and the thread headers of admitted mail.
+pub(crate) struct EmailAddresses;
+impl MigrationName for EmailAddresses {
+    fn name(&self) -> &str {
+        "m20261110_000112_email_addresses"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for EmailAddresses {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("email.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Email addresses require a forward migration".into(),
+        ))
+    }
+}
+
 /// Schema 54: real transports, delivery reasons and read cursors.
 pub(crate) struct CommunicationGateway;
 impl MigrationName for CommunicationGateway {

@@ -151,8 +151,8 @@ impl PgStore {
             "Cannot bind the agent's own sender address"
         );
         ensure!(
-            !live_whatsapp(&e),
-            "People link their own WhatsApp numbers from their profile"
+            !self_bound(&e),
+            "People reach agents on WhatsApp and email from their own linked number or sign-in address"
         );
         ensure!(
             super::chat::agent_access(&tx, &input.user, w, e["agent"].as_str().unwrap()).await?,
@@ -184,8 +184,8 @@ impl PgStore {
             && let Some(e) = endpoint(&tx, w, id).await?
         {
             ensure!(
-                !live_whatsapp(&e),
-                "People link their own WhatsApp numbers from their profile"
+                !self_bound(&e),
+                "People reach agents on WhatsApp and email from their own linked number or sign-in address"
             );
         }
         let rows = if let Some(sender) = sender {
@@ -224,9 +224,10 @@ pub(super) async fn endpoint(
 ) -> Result<Option<Value>> {
     Ok(json_rows(db,"SELECT to_jsonb(e) AS data FROM relay_communication_endpoints e WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?.into_iter().next())
 }
-/// WhatsApp senders come from people's linked numbers, never an admin's say-so.
-fn live_whatsapp(e: &Value) -> bool {
-    e["transport"] == "whatsapp" && e["simulated"] == false
+/// WhatsApp and email senders come from people's own linked number or sign-in
+/// address, never an admin's say-so.
+fn self_bound(e: &Value) -> bool {
+    (e["transport"] == "whatsapp" || e["transport"] == "email") && e["simulated"] == false
 }
 fn identifier(value: &str) -> Result<()> {
     ensure!(
