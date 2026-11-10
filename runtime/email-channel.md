@@ -182,6 +182,10 @@ With no file, nothing about email is offered and the routes answer 404.
     In-Reply-To, References growing along the thread, Auto-Submitted and
     Metadata; delivered kept against a later bounce; a 406 refusal saved as
     failed with its reason.
+- Web `tests/email-channel.test.mjs`: Overview activates once on a double
+  click, keeps the state on failure, switches off, shows the address read-only
+  to people who may only talk to the agent, and shows nothing when email is not
+  offered.
 
 ```sh
 RUST_TEST_THREADS=4 cargo test --locked --lib communications::email_tests -- --ignored
@@ -192,7 +196,8 @@ RUST_TEST_THREADS=4 cargo test --locked --lib communications::email_tests -- --i
 - **A live Postmark check.** No real email has been sent or received. Before
   launch, confirm on a real inbound stream which authentication headers
   Postmark adds and that they come first.
-- **A Communication tab with an approved design.**
+- **A Communication tab with an approved design.** The address shows on the
+  agent's Overview, with Activate and Switch off for its owner and admins.
 - **Person memory across channels** (E2).
 - **Agents emailing teammates** from schedules and events, and a suppression
   list for bounces and complaints (E3).
