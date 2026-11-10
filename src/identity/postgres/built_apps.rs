@@ -268,8 +268,8 @@ mod actions;
 pub(crate) use actions::{AgentRule, BuiltAppActions};
 #[path = "built_app_events.rs"]
 mod events;
-pub(super) use events::agent_app_triggers;
 pub(crate) use events::{AppWatch, BuiltAppChanges, BuiltAppEvents};
+pub(super) use events::{agent_app_triggers, app_triggers_for};
 #[path = "built_app_asking.rs"]
 pub(super) mod asking;
 pub(crate) use asking::BuiltAppAsking;

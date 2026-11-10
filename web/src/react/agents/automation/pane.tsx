@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Agent } from '../model';
 import { Button } from '../../ui';
+import { workspaceUrl } from '../../../workspace-context';
 import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { CreateSchedule } from './create-dialog';
@@ -9,10 +10,26 @@ import { ScheduleRuns } from './runs-dialog';
 import { cadence, date, deviceClock, loadSchedules, results, stateLabels, type Routine } from './model';
 import './schedules.css';
 import { EventTriggers } from './events';
+import { NewAutomation } from './new-automation';
 
-type Open = { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
-export function AutomationPane({ agent }: { agent: Agent }) {
-  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <><h3>Automations</h3><p>Only this agent's managers can manage its schedules and triggers. Individual work remains visible through your authorized conversations.</p></>;
+type Open = { kind: 'choose' } | { kind: 'event' } | { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
+export function AutomationPane({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
+  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <MemberAutomations agent={agent} openChat={openChat} />;
+}
+/** People who talk to the agent but don't look after it: they get a schedule by
+ * asking in Chat, and it runs as them (designs/automations-simplified 4). */
+function MemberAutomations({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
+  return <section className="automation-member" aria-label={`${agent.name} automations`}>
+    <h3>Automations</h3>
+    <p>Only {agent.name}’s owner or an admin can add schedules and triggers here.</p>
+    <p>You can still get one: ask {agent.name} in Chat, in your own words. It suggests a schedule, and you save it.</p>
+    <p className="automation-example">“Every Friday at 5 pm, send me this week’s delayed orders.”</p>
+    <div className="automation-tools">
+      {openChat && <Button primary onClick={openChat}>Ask {agent.name} in Chat</Button>}
+      <a className="ui-button" href={workspaceUrl('/?view=activity&tab=upcoming')}>See what runs next in Activity</a>
+    </div>
+    <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity › Upcoming.</p>
+  </section>;
 }
 function ScheduleWorkspace({ agent }: { agent: Agent }) {
   const load = useCallback(() => loadSchedules(agent.id), [agent.id]);
@@ -47,11 +64,10 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
   return <section className="shared-schedules" aria-label={`${agent.name} automations`}>
     <header className="agent-section-heading"><div><h3>Automations</h3>
       <p>Work {agent.name} does on its own. Every run follows its tool rules, and Ask-first actions still wait for a person. Runs and anything that needs you appear in Activity.</p></div>
+      <Button primary className="automation-new" disabled={!ready} onClick={() => show({ kind: 'choose' })}>New automation</Button>
     </header>
     <section className="automation-group" aria-labelledby={`${agent.id}-on-schedule`}>
-      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4><p>At a time, once or repeating.</p></div>
-        <Button disabled={!ready || !resource.data?.execution_available} onClick={() => show({ kind: 'create' })}>New schedule</Button>
-      </header>
+      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4><p>At a time, once or repeating.</p></div></header>
       {resource.error && <p role="alert">{resource.error}</p>}
       {!resource.data && !resource.error && <p role="status">Loading schedules…</p>}
       {resource.data?.execution_available === false && <p role="status">Schedules need pooled background work, which this server doesn’t run. Saved schedules stay readable; they can’t run here.</p>}
@@ -69,11 +85,14 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
         </div>
         {!routine.can_resume && routine.state !== 'enabled' && routine.state !== 'completed' && <p className="ui-help">Only {routine.principal_name} can resume it, with their current access.</p>}
       </article>)}
-      {resource.data && !resource.data.schedules.length && <p className="ui-help">No schedules yet.</p>}
+      {resource.data && !resource.data.schedules.length && !resource.data.elsewhere && <p className="ui-help">No schedules yet.</p>}
+      {Boolean(resource.data?.elsewhere) && <p className="ui-help">{resource.data?.elsewhere === 1 ? '1 more schedule posts' : `${resource.data?.elsewhere} more schedules post`} in conversations you’re not in, so {resource.data?.elsewhere === 1 ? 'it stays' : 'they stay'} private. Pausing {agent.name} pauses every schedule.</p>}
       <div className="automation-tools"><Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button></div>
     </section>
-    <EventTriggers agent={agent.id}/>
-    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
+    <EventTriggers agent={agent.id} start={open?.kind === 'event'} finished={close} />
+    {open?.kind === 'choose' && <NewAutomation agent={agent.name} schedules={Boolean(resource.data?.execution_available)} close={close}
+      choose={kind => setOpen(kind === 'time' ? { kind: 'create' } : { kind: 'event' })} />}
+    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} agentName={agent.name} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
     {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
     {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={resource.refresh} />}
   </section>;

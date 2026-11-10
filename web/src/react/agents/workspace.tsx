@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
 import { saveAgent, type Agent, type Directory } from './model';
 import { AgentAvatar } from './avatar';
@@ -14,8 +15,8 @@ import { EnvironmentTab } from './environment-tab';
 import { IdentityDialog, PeopleDialog, TransferDialog } from './profile-dialogs';
 
 /** One agent's page: header, ⋯ menu and six tabs (D233). */
-export function AgentWorkspace({ agent, directory, back, openChat, busy, section, selectSection, saved }: {
-  agent: Agent; directory: Directory; back: () => void;
+export function AgentWorkspace({ agent, directory, back, openChat, busy, section, selectSection, saved, focus }: {
+  agent: Agent; directory: Directory; back: () => void; focus?: string;
   openChat: () => void; busy: boolean; section: WorkspaceSection; selectSection: (section: WorkspaceSection) => void;
   saved: () => Promise<void>;
 }) {
@@ -38,10 +39,13 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
     <WorkspaceTabs selected={section} select={selectSection} />
     <div id="agent-workspace-panel" className="agent-workspace-panel" role="tabpanel" aria-label={section} tabIndex={0}>
       {section === 'Overview' && <AgentOverview agent={agent} open={selectSection} people={() => setDialog('people')} />}
-      {section === 'Activity' && <HistoryView key={agent.id} agent={agent.id} />}
+      {section === 'Activity' && <>
+        <p className="agent-filtered-note">Showing {agent.name} only: the same list as Activity, filtered to one agent.{' '}
+          <a href={workspaceUrl('/?view=activity&tab=history')}>Open all activity</a></p>
+        <HistoryView key={agent.id} agent={agent.id} /></>}
       {section === 'Instructions' && <InstructionsTab key={agent.id} agent={agent} rules={directory.system_prompt} saved={saved} />}
-      {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} webSearch={Boolean(directory.web_search)} computers={Boolean(directory.computers)} saved={saved} />}
-      {section === 'Automations' && <AutomationLauncher agent={agent} />}
+      {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} webSearch={Boolean(directory.web_search)} computers={Boolean(directory.computers)} saved={saved} focus={focus} />}
+      {section === 'Automations' && <AutomationLauncher agent={agent} openChat={openChat} />}
       {section === 'Environment' && <EnvironmentTab key={agent.id} agent={agent} directory={directory} saved={saved} />}
     </div>
     {dialog === 'people' && <PeopleDialog agent={agent} close={() => setDialog(undefined)} saved={done} />}

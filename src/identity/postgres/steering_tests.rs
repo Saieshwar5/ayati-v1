@@ -1,7 +1,8 @@
 //! Adding to running work reaches the agent at its next step, and is never lost;
 //! a routine proposed in Chat is saved only when the person who asked confirms it.
 use super::super::super::super::control_tests::setup;
-use super::super::super::super::tests::{join, user};
+use super::super::super::super::executor_slot_tests;
+use super::super::super::super::tests::{chat, fixture, join, message, user, workspace};
 use super::super::super::super::*;
 use super::Proposal;
 use serde_json::json;
@@ -214,4 +215,117 @@ async fn a_routine_proposed_in_chat_is_saved_only_when_the_person_who_asked_conf
         "dismissed"
     );
     assert_eq!(count(&db, &second).await, 0);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_member_saves_the_routine_proposed_to_them_and_looks_after_only_that_one() {
+    use crate::identity::automations::model::{Change, Schedule};
+    let mut db = fixture().await;
+    let owner = user(&db, "own-routine-owner").await;
+    let mina = user(&db, "own-routine-mina").await;
+    let raj = user(&db, "own-routine-raj").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &mina, "Member").await;
+    join(&db, &owner, &w, &raj, "Member").await;
+    let (_, agent) = executor_slot_tests::agent(&db, &owner, &w).await;
+    db.chat_grant(&owner, &w, &mina.id, &agent, true)
+        .await
+        .unwrap();
+    let conversation = chat(&db, &mina, &w, vec![], vec![agent.clone()]).await;
+    db.chat_send(
+        &mina,
+        &w,
+        &conversation,
+        &message("Every Monday, send me the sales summary", Some(&agent)),
+    )
+    .await
+    .unwrap();
+    let job = db.claim_job().await.unwrap().unwrap();
+    db.pooled = true;
+    let draft = db
+        .propose_schedule(&job, &proposal("Monday sales summary"))
+        .await
+        .unwrap()["draft"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    // Members can't make schedules from Automations, even reusing the proposal's id.
+    let direct = Schedule {
+        id: draft.clone(),
+        chat: Some(conversation.clone()),
+        name: "Something else".into(),
+        content: "Do something else".into(),
+        first_ms: chrono_now_ms() + 3_600_000,
+        interval_seconds: None,
+        timezone: "UTC".into(),
+    };
+    assert!(db.save_schedule(&mina, &w, &agent, &direct).await.is_err());
+    assert_eq!(count(&db, &draft).await, 0);
+
+    // Saving the proposal makes it her own schedule, as her.
+    assert_eq!(
+        db.decide_schedule_draft(&mina, &w, &draft, true)
+            .await
+            .unwrap()["state"],
+        "saved"
+    );
+    let mine = db
+        .schedule_details(&mina, &w, &agent, &draft)
+        .await
+        .unwrap();
+    assert_eq!(mine["principal"], mina.id.as_str());
+    assert_eq!(mine["state"], "enabled");
+    assert_eq!(mine["can_resume"], true);
+    // It posts in her own chat, so the agent's owner sees only that one more exists.
+    let listed = db.schedules(&owner, &w, &agent).await.unwrap();
+    assert!(
+        !listed["schedules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == draft.as_str())
+    );
+    assert_eq!(listed["elsewhere"], 1);
+    // Others can't see or change it.
+    assert!(db.schedule_details(&raj, &w, &agent, &draft).await.is_err());
+
+    // She pauses and resumes her own.
+    let change = |revision: i64, enabled: bool| Change {
+        request: uuid::Uuid::new_v4().to_string(),
+        revision,
+        enabled,
+    };
+    let paused = db
+        .change_schedule(&mina, &w, &agent, &draft, &change(1, false))
+        .await
+        .unwrap();
+    assert_eq!(paused["state"], "paused");
+    let resumed = db
+        .change_schedule(&mina, &w, &agent, &draft, &change(2, true))
+        .await
+        .unwrap();
+    assert_eq!(resumed["state"], "enabled");
+    let paused = db
+        .change_schedule(&mina, &w, &agent, &draft, &change(3, false))
+        .await
+        .unwrap();
+    assert_eq!(paused["state"], "paused");
+
+    // Once she can no longer talk to the agent, it can't run or resume as her.
+    db.chat_grant(&owner, &w, &mina.id, &agent, false)
+        .await
+        .unwrap();
+    assert!(
+        db.change_schedule(&mina, &w, &agent, &draft, &change(4, true))
+            .await
+            .is_err()
+    );
+}
+
+fn chrono_now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
 }

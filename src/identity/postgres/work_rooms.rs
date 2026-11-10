@@ -3,7 +3,7 @@
 //! room never appears in Chat; its runs show in Activity, and it is the
 //! schedule's memory of earlier runs. A schedule may also post one short result
 //! message to a conversation, if its person chose one.
-use super::automation_access::authority;
+use super::automation_access::authority_for;
 use super::*;
 use crate::identity::chat::model::Job;
 #[path = "work_rooms_migration.rs"]
@@ -100,7 +100,7 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
     if !is_room(tx, &job.workspace, &job.chat).await? {
         return Ok(());
     }
-    let Some(schedule) = json_rows(tx, "SELECT jsonb_build_object('name',s.name,'chat',s.chat,'principal',s.principal) AS data FROM relay_schedule_occurrences o
+    let Some(schedule) = json_rows(tx, "SELECT jsonb_build_object('id',s.id,'name',s.name,'chat',s.chat,'principal',s.principal) AS data FROM relay_schedule_occurrences o
         JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule WHERE o.workspace=$1 AND o.reply=$2 AND s.chat IS NOT NULL",
         vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next() else {
         return Ok(());
@@ -115,7 +115,10 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
         display_name: None,
     };
     let w = &job.workspace;
-    let (state, message, reason) = match authority(tx, &person, w, &job.agent, target).await {
+    let own = schedule["id"].as_str();
+    let (state, message, reason) = match authority_for(tx, &person, w, &job.agent, own, target)
+        .await
+    {
         Ok(()) => {
             let mut shown: String = content.chars().take(POSTED_CHARS).collect();
             if content.chars().count() > POSTED_CHARS {

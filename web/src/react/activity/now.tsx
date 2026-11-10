@@ -5,7 +5,7 @@ import { AgentFace } from '../faces';
 import { ago, clock, dayLabel, loadNow, markSeen, pauseAgent, status, stopRequest, where, type AgentCard, type ActivityItem, type Scope } from './model';
 import { useLive } from './use-live';
 import { RequestDetails } from './request-details';
-import { ComingUp, NeedsFixing } from './fixing';
+import { NeedsFixing } from './fixing';
 import { PauseAgentsControl } from './agents-pause';
 import { QuestionDialog } from '../questions/dialog';
 import type { AttentionItem } from '../attention/model';
@@ -90,7 +90,7 @@ export function NowView({ scope, search, openHistory, openUnhandled, waiting }: 
       </li>;
     })}</ul>
     {data && !running.length && <p className="activity-empty">Nothing is running right now.</p>}
-    {data && <ComingUp items={data.coming_up ?? []} changed={() => void refresh().catch(() => {})} />}
+    {data && <p className="ui-help activity-next">What agents will do on their own, and when, is on <a href={workspaceUrl('/?view=activity&tab=upcoming')}>Upcoming</a>.</p>}
     {open && <RequestDetails reply={open} close={() => setOpen(undefined)} />}
     {answering && <QuestionDialog key={answering} id={answering} close={() => { setAnswering(undefined); void refresh().catch(() => {}); }} />}
   </section>;

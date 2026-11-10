@@ -11,6 +11,8 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
         let mut schedules = Vec::new();
+        // Schedules that post where this person isn't stay private; they are counted.
+        let mut elsewhere = 0;
         for data in json_rows(&tx,"SELECT to_jsonb(s)-'request_hash' AS data FROM relay_agent_schedules s WHERE workspace=$1 AND agent=$2 AND NOT EXISTS(SELECT 1 FROM relay_home_schedule_bindings b WHERE b.workspace=s.workspace AND b.schedule=s.id) ORDER BY created_ms DESC,id DESC LIMIT 100",vec![w.into(),agent.into()]).await? {
             match present(&tx,user,w,agent,data).await {
                 Ok(mut data) => {
@@ -22,7 +24,7 @@ impl PgStore {
                     schedules.push(data);
                 },
                 Err(error) if error.is::<sea_orm::DbErr>()=>return Err(error),
-                Err(_)=>{},
+                Err(_)=>elsewhere += 1,
             }
         }
         let mut conversations = Vec::new();
@@ -34,7 +36,7 @@ impl PgStore {
         conversations.truncate(100);
         tx.commit().await?;
         Ok(
-            json!({"schedules":schedules,"conversations":conversations,"more_conversations":more,"execution_available":self.pooled}),
+            json!({"schedules":schedules,"elsewhere":elsewhere,"conversations":conversations,"more_conversations":more,"execution_available":self.pooled}),
         )
     }
     pub(crate) async fn schedule_details(
@@ -54,12 +56,34 @@ impl PgStore {
         tx.commit().await?;
         Ok(data)
     }
+    /// Saves a schedule on an agent the person looks after (Agent › Automations).
     pub(crate) async fn save_schedule(
         &self,
         user: &User,
         w: &str,
         agent: &str,
         input: &Schedule,
+    ) -> Result<Value> {
+        self.save_schedule_as(user, w, agent, input, false).await
+    }
+    /// Saves the schedule the agent proposed to this person in their chat; a member who
+    /// may talk to the agent can save their own (steering.rs checks the draft is theirs).
+    pub(super) async fn save_proposed_schedule(
+        &self,
+        user: &User,
+        w: &str,
+        agent: &str,
+        input: &Schedule,
+    ) -> Result<Value> {
+        self.save_schedule_as(user, w, agent, input, true).await
+    }
+    async fn save_schedule_as(
+        &self,
+        user: &User,
+        w: &str,
+        agent: &str,
+        input: &Schedule,
+        proposed: bool,
     ) -> Result<Value> {
         input.validate()?;
         let tx = self.workspace_tx(w).await?;
@@ -72,7 +96,8 @@ impl PgStore {
             self.pooled,
             "Shared schedules require pooled background execution"
         );
-        run_authority(&tx, user, w, agent, input.chat.as_deref()).await?;
+        let own = proposed.then_some(input.id.as_str());
+        run_authority(&tx, user, w, agent, own, input.chat.as_deref()).await?;
         ensure!(
             query(
                 &tx,
@@ -149,7 +174,7 @@ impl PgStore {
                 data["principal"] == user.id,
                 "Only the original authorizing person can resume this routine"
             );
-            run_authority(&tx, user, w, agent, data["chat"].as_str()).await?;
+            run_authority(&tx, user, w, agent, Some(id), data["chat"].as_str()).await?;
         }
         ensure!(
             (data["state"] == "enabled") != input.enabled,

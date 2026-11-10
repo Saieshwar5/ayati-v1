@@ -3,7 +3,7 @@ import { workspaceUrl } from '../../../workspace-context';
 import type { BusinessClock } from '../../../business-time';
 export type ScheduleInput = { id: string; chat: string | null; name: string; content: string; first_ms: number; interval_seconds: number | null; timezone: string };
 export type Routine = ScheduleInput & { principal: string; principal_name: string; chat_name: string | null; revision: number; state: 'enabled' | 'paused' | 'blocked' | 'completed'; next_ms: number | null; detail: string; unfinished?: boolean; instructions_long?: boolean; can_resume: boolean };
-export type Directory = { schedules: Routine[]; conversations: { id: string; name: string; kind: string }[]; more_conversations: boolean; execution_available: boolean };
+export type Directory = { schedules: Routine[]; /** Schedules posting where this person isn't, kept private. */ elsewhere?: number; conversations: { id: string; name: string; kind: string }[]; more_conversations: boolean; execution_available: boolean };
 export type Run = { due_ms: number; message: string; reply: string; chat: string; state: string; job_state: string; progress?: { state: string; text: string } | null; created_ms: number };
 const path = (agent: string) => `/agent-profiles/${encodeURIComponent(agent)}/schedules`;
 export const loadSchedules = (agent: string) => chatRequest<Directory>(path(agent));
@@ -19,7 +19,7 @@ export function date(ms: number, timezone: string) {
   try { return new Date(ms).toLocaleString(undefined, { timeZone: timezone, dateStyle: 'medium', timeStyle: 'short' }); }
   catch { return `${new Date(ms).toISOString()} (UTC)`; }
 }
-export const cadence = (seconds: number | null) => seconds === null ? 'Run once' : seconds % 86400 === 0 ? `Every ${seconds / 86400} 24-hour period${seconds === 86400 ? '' : 's'}` : seconds % 3600 === 0 ? `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}` : seconds % 60 === 0 ? `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `Every ${seconds} seconds`;
+export const cadence = (seconds: number | null) => seconds === null ? 'Run once' : seconds === 86400 ? 'Every day' : seconds === 604800 ? 'Every week' : seconds % 86400 === 0 ? `Every ${seconds / 86400} 24-hour period${seconds === 86400 ? '' : 's'}` : seconds % 3600 === 0 ? `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}` : seconds % 60 === 0 ? `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `Every ${seconds} seconds`;
 /** A run opens in Activity: runs happen in the schedule's own room, not in Chat. */
 export const runUrl = (run: Run) => workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(run.reply)}`);
 /** A schedule's state in words. */

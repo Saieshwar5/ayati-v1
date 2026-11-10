@@ -12,10 +12,10 @@ pub(in crate::identity::postgres) mod migration;
 mod tests;
 
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
-const FIXERS: &str = "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
+pub(super) const FIXERS: &str = "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
  AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
  AND ($4::text IS DISTINCT FROM 'mine' OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))";
-const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
+pub(super) const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
 
 /// Each cause: rows of agent, agent_name, ref, detail, at.
 fn causes() -> Vec<(&'static str, String)> {
@@ -65,7 +65,7 @@ fn causes() -> Vec<(&'static str, String)> {
     ]
 }
 
-async fn exists(db: &impl ConnectionTrait, name: &str) -> Result<bool> {
+pub(super) async fn exists(db: &impl ConnectionTrait, name: &str) -> Result<bool> {
     Ok(query(
         db,
         "SELECT to_regclass($1) IS NOT NULL AS ok",

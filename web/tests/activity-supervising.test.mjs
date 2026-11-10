@@ -30,7 +30,7 @@ const coming = [
   { kind: 'follow_up', id: 't1', agent: 'nova', agent_name: 'Nova', title: 'Call Acme back', at: now + 7200000, can_pause: true },
 ];
 
-test('Now groups what needs fixing by cause with one fix each, and Coming up pauses a routine or a follow-up', async () => {
+test('Now groups what needs fixing by cause with one fix each, and points to Upcoming for what runs next', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, update }) => {
     await render(await page(), { href: nowUrl });
@@ -45,13 +45,8 @@ test('Now groups what needs fixing by cause with one fix each, and Coming up pau
     await update(() => { const b = button('Dismiss'); b.click(); });
     assert.ok(writes.some(w => w.path.endsWith('/activity/needs/n1/dismiss')));
     await click(button('Close'));
-    const upcoming = document.querySelector('[aria-label="Coming up"]');
-    assert.match(upcoming.textContent, /Morning sales review.*Schedule · Nova.*Call Acme back.*Follow-up · Nova/);
-    await click([...upcoming.querySelectorAll('button')].find(b => b.textContent === 'Pause'));
-    const pause = writes.find(w => w.path.includes('/schedules/s1/state'));
-    assert.deepEqual({ revision: pause.body.revision, enabled: pause.body.enabled }, { revision: 4, enabled: false });
-    await click(button('Cancel follow-up'));
-    assert.ok(writes.some(w => w.path.endsWith('/activity/tasks/t1/follow-up/cancel')));
+    assert.equal(document.querySelector('[aria-label="Coming up"]'), null, 'what runs next moved to Upcoming');
+    assert.match(document.querySelector('.activity-next a').getAttribute('href'), /\?view=activity&tab=upcoming$/);
   }, { url: nowUrl, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (options.method === 'POST') { writes.push({ path, body: JSON.parse(options.body ?? '{}') }); return response({ ok: true, id: 's1', state: 'paused', revision: 5 }); }

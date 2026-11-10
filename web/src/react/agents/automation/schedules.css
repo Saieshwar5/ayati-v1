@@ -31,3 +31,21 @@
 .agent-workspace-panel .automation-group > .agent-section-heading h4 { margin: 0; font-size: 16px; color: var(--text); text-transform: none; }
 .agent-workspace-panel .routine-row h4 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); text-transform: none; }
 .routine-row header .ui-badge { text-transform: none; }
+.automation-member { max-width: 640px; display: grid; gap: 4px; }
+.automation-member p { margin: 4px 0; }
+.automation-example { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-style: italic; }
+/* New automation: step 1 choices and the schedule form's repeat choices. */
+.automation-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+.automation-kind { display: grid; gap: 6px; text-align: left; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); cursor: pointer; }
+.automation-kind:hover:not(:disabled) { border-color: var(--text); }
+.automation-kind:disabled { cursor: default; opacity: .6; }
+.automation-kind strong { font-size: 15px; }
+.automation-kind small { color: var(--muted); }
+.automation-kind-example { font-style: italic; }
+.routine-repeat { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.routine-repeat legend { font-weight: 600; margin-bottom: 6px; }
+.routine-repeat-choice { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.routine-repeat-choice:has(input:checked) { border-color: var(--text); font-weight: 600; }
+.routine-sentence { background: var(--soft); border-radius: 10px; padding: 12px 14px; }
+.routine-sentence p { margin: 0 0 6px; }
+.automation-new { white-space: nowrap; flex-shrink: 0; }
