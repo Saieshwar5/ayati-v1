@@ -1,7 +1,7 @@
 # Phone app sign-in and device sessions
 
 Status: server side built and tested 2026-11-14 (mobile plan M1, schema 115). The
-phone app itself is not built yet. Plan: [designs/mobile-app/mobile-plan.md](../designs/mobile-app/mobile-plan.md).
+app's half is in `mobile/src/session/` and `shared/src/sign-in.ts`. Plan: [designs/mobile-app/mobile-plan.md](../designs/mobile-app/mobile-plan.md).
 
 The web keeps its HttpOnly session cookie. A phone app can't rely on browser
 cookies, so it gets a **device session**: a random bearer token. Cuckoo remains the

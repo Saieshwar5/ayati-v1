@@ -1,8 +1,10 @@
 # Cuckoo mobile app: build plan
 
 Status: M1 (server sign-in and device sessions) built and tested 2026-11-14, schema
-115, see [runtime/mobile-sign-in.md](../../runtime/mobile-sign-in.md); the app (M2
-onward) is not started. Supersedes the Google Doc "Cuckoo Mobile
+115, see [runtime/mobile-sign-in.md](../../runtime/mobile-sign-in.md). M2 started:
+`mobile/` and `shared/` hold sign-in, workspace choice, the five tabs, Chats and
+live conversations ([mobile/README.md](../../mobile/README.md)); Home panels, real
+faces and tablet layouts are still to do. Supersedes the Google Doc "Cuckoo Mobile
 App Plan" of the same day by adding Home. Design: `mobile-design-ideas.md`.
 
 ## Summary
@@ -146,7 +148,7 @@ person and workspace and cleared on sign out.
   - universal-link files;
   - PostgreSQL tests for a wrong verifier, an expired or reused code, revocation, a
     removed member, and bearer without cookie.
-- **M2, app skeleton, Chat and Home:**
+- **M2, app skeleton, Chat and Home (in progress; first increment 2026-11-14):**
   - the Expo app and the `shared/` package;
   - sign-in and the workspace picker;
   - the chat list, and a conversation with live replies and sending;

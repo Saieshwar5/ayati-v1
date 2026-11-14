@@ -1,0 +1,18 @@
+{
+  "name": "@cuckoo/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cuckoo's client code that is not a screen: API types, requests and pure rules, used by the phone app.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}
