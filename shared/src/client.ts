@@ -147,6 +147,10 @@ export function createClient(options: ClientOptions) {
     revokeDevice: (id: string) =>
       request<{ ok: true; provider_session_revoked: boolean }>(`/devices/${encodeURIComponent(id)}/revoke`, {}),
     logout: () => request<{ ok: true }>('/logout', {}),
+    /** This phone's push tokens; only its own device session may set them. */
+    registerPush: (input: { expo_token: string; native_token?: string }) =>
+      request<{ ok: true }>('/devices/current/push', input),
+    removePush: () => request<{ ok: true }>('/devices/current/push/remove', {}),
     /** Redeem the one-time sign-in code; needs no token. */
     exchange: (input: { code: string; verifier: string; device_name: string; platform: 'ios' | 'android' }) =>
       request<DeviceSession>('/mobile-sessions', input),

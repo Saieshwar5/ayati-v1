@@ -1,7 +1,8 @@
 /** Signed-in devices: this phone, and the others this person can sign out. */
 import type { Device } from '@cuckoo/shared';
-import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect } from 'react';
+import { StyleSheet, Switch, Text, View } from 'react-native';
+import { followTokenChanges, turnOff, turnOn, unavailable } from '../notifications/push-setup';
 import { shortTime } from '../chats/time';
 import { useSession } from '../session/session-context';
 import { type as typography } from '../theme/tokens';
@@ -14,6 +15,17 @@ export function Devices() {
   const { client } = useSession();
   const { data, error, refresh } = useResource(useCallback((signal: AbortSignal) => client.devices(signal), [client]));
   const revoke = useMutation();
+  const toggle = useMutation();
+  const current = data?.devices.find(device => device.current);
+  const on = !!current?.notifications;
+  // While on, a new token from the phone moves the registration with it.
+  useEffect(() => (on ? followTokenChanges(client, () => true) : undefined), [on, client]);
+  const setNotifications = (next: boolean) =>
+    toggle.run(async () => {
+      await (next ? turnOn(client) : turnOff(client));
+      await refresh();
+    });
+  const reason = unavailable();
   const signOutDevice = (device: Device) =>
     revoke.run(async () => {
       await client.revokeDevice(device.id);
@@ -21,7 +33,24 @@ export function Devices() {
     });
   return (
     <View style={styles.list}>
-      <Text accessibilityRole="header" style={[typography.header, { color: t.text }]}>Signed-in devices</Text>
+      {current ? (
+        <View style={[styles.row, { borderBottomColor: t.border }]}>
+          <View style={styles.text}>
+            <Text style={[typography.body, { color: t.text }]}>Notifications on this phone</Text>
+            <Text style={[typography.meta, { color: t.muted }]}>
+              {reason ?? 'Who and what kind only, never the message itself.'}
+            </Text>
+          </View>
+          <Switch
+            accessibilityLabel="Notifications on this phone"
+            value={on}
+            disabled={toggle.busy || (!on && !!reason)}
+            onValueChange={next => void setNotifications(next)}
+          />
+        </View>
+      ) : null}
+      <ErrorText>{toggle.error}</ErrorText>
+      <Text accessibilityRole="header" style={[typography.header, { color: t.text, marginTop: 12 }]}>Signed-in devices</Text>
       {(data?.devices ?? []).map(device => (
         <View key={device.id} style={[styles.row, { borderBottomColor: t.border }]}>
           <View style={styles.text}>

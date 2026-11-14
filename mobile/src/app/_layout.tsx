@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LiveProvider } from '../live/live-context';
+import { NotificationRouting } from '../notifications/notification-routing';
 import { SessionProvider, useSession } from '../session/session-context';
 import { useTokens } from '../theme/use-tokens';
 
@@ -48,6 +49,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SessionProvider>
         <StatusBar style="auto" />
+        <NotificationRouting />
         <RootNavigator />
       </SessionProvider>
     </SafeAreaProvider>

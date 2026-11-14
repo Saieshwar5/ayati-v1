@@ -14,6 +14,7 @@ import { usePanels } from '../../home/use-panels';
 import { AttentionCard } from '../../needs-me/attention-card';
 import { attentionTarget } from '../../needs-me/attention-target';
 import { useNeedsYou } from '../../needs-me/needs-you-context';
+import { TurnOnCard } from '../../notifications/turn-on-card';
 import { useWorkspace } from '../../session/session-context';
 import { type as typography } from '../../theme/tokens';
 import { useTokens } from '../../theme/use-tokens';
@@ -55,6 +56,7 @@ export default function Home() {
           {first ? `, ${first}` : ''}
         </Text>
         <BusinessClock timezone={workspace.timezone} />
+        <TurnOnCard />
 
         {waiting.length ? (
           <View style={styles.section}>

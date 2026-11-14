@@ -53,6 +53,50 @@ pub(super) async fn revoke(
     ))
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PushInput {
+    expo_token: String,
+    #[serde(default)]
+    native_token: Option<String>,
+}
+
+/// The phone turns notifications on for itself (mobile plan M4).
+pub(super) async fn register_push(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+    Json(input): Json<PushInput>,
+) -> ApiResult<Json<Value>> {
+    let token = phone_token(&headers)?;
+    identity(&app, &headers).await?;
+    app.store
+        .register_push(
+            &digest(&token),
+            &input.expo_token,
+            input.native_token.as_deref(),
+        )
+        .await?;
+    Ok(Json(json!({"ok": true})))
+}
+
+pub(super) async fn remove_push(
+    State(app): State<Shared>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let token = phone_token(&headers)?;
+    identity(&app, &headers).await?;
+    app.store.remove_push(&digest(&token)).await?;
+    Ok(Json(json!({"ok": true})))
+}
+
+/// Only a phone's own device session turns its notifications on or off.
+fn phone_token(headers: &HeaderMap) -> ApiResult<String> {
+    if !phone_request(headers) {
+        return Err(anyhow::anyhow!("Only the phone app changes its notifications").into());
+    }
+    bearer(headers).ok_or_else(Error::unauthorized)
+}
+
 /// Sign out the phone making this request. `None` when it is not a phone.
 pub(super) async fn sign_out(app: &App, headers: &HeaderMap) -> ApiResult<Option<bool>> {
     if !phone_request(headers) {

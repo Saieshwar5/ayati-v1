@@ -184,3 +184,13 @@ test('approval fields read as words and question drafts are checked before sendi
     ['3', 'No'],
   );
 });
+
+test('a tapped notification opens only a well-formed target', async () => {
+  const { readTarget } = await import('../src/notifications');
+  assert.deepEqual(readTarget({ workspace: 'w-1', kind: 'message', chat: 'c_1' }), { workspace: 'w-1', kind: 'message', chat: 'c_1' });
+  assert.deepEqual(readTarget({ workspace: 'w', kind: 'approval', approval: 'a1', chat: 'c' }), { workspace: 'w', kind: 'approval', approval: 'a1' });
+  assert.equal(readTarget({ workspace: 'w', kind: 'question' }), undefined);
+  assert.equal(readTarget({ workspace: '../x', kind: 'message', chat: 'c' }), undefined);
+  assert.equal(readTarget({ workspace: 'w', kind: 'settings', chat: 'c' }), undefined);
+  assert.equal(readTarget(null), undefined);
+});

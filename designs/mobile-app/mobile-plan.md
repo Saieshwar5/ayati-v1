@@ -163,7 +163,7 @@ person and workspace and cleared on sign out.
   - questions and forms;
   - photo, file and voice-note upload through the existing upload and
     transcription.
-- **M4, push notifications end to end:**
+- **M4, push notifications end to end (built 2026-11-14, schema 116; needs M0 to send):**
   - the device registry and the sender in the controller;
   - privacy-safe content and deep links;
   - no double notifications, and notification settings.

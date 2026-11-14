@@ -10,6 +10,9 @@ use crate::identity::digest;
 #[cfg(test)]
 mod device_tests;
 pub(crate) mod migration;
+pub(crate) mod push;
+#[cfg(test)]
+mod push_tests;
 #[cfg(test)]
 mod test_fixture;
 #[cfg(test)]
@@ -167,7 +170,7 @@ impl PgStore {
     pub(crate) async fn devices(&self, user: &User, current: Option<&str>) -> Result<Vec<Value>> {
         json_rows(
             &self.db,
-            "SELECT jsonb_build_object('id',id,'name',device_name,'platform',platform,'created',created,'last_used',last_used,'expires',expires,'current',COALESCE(hash=$3,false)) AS data FROM relay_device_sessions WHERE user_id=$1 AND expires>$2 ORDER BY created DESC",
+            "SELECT jsonb_build_object('id',d.id,'name',d.device_name,'platform',d.platform,'created',d.created,'last_used',d.last_used,'expires',d.expires,'current',COALESCE(d.hash=$3,false),'notifications',EXISTS(SELECT 1 FROM relay_push_devices p WHERE p.device=d.id)) AS data FROM relay_device_sessions d WHERE d.user_id=$1 AND d.expires>$2 ORDER BY d.created DESC",
             vec![user.id.clone().into(), now().into(), current.map(str::to_owned).into()],
         )
         .await

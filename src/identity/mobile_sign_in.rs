@@ -14,6 +14,32 @@ use axum::{Json, extract::Query, http::HeaderValue};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+/// The phone app's routes: sign-in, devices, notifications and the universal-link files.
+pub(super) fn routes() -> axum::Router<Shared> {
+    axum::Router::new()
+        .route("/auth/mobile/start", get(start))
+        .route("/auth/mobile/return", get(return_page))
+        .route("/api/identity/mobile-sessions", post(exchange))
+        .route("/api/identity/devices", get(super::devices::list))
+        .route(
+            "/api/identity/devices/{id}/revoke",
+            post(super::devices::revoke),
+        )
+        .route(
+            "/api/identity/devices/current/push",
+            post(super::devices::register_push),
+        )
+        .route(
+            "/api/identity/devices/current/push/remove",
+            post(super::devices::remove_push),
+        )
+        .route(
+            "/.well-known/apple-app-site-association",
+            get(apple_site_association),
+        )
+        .route("/.well-known/assetlinks.json", get(asset_links))
+}
+
 #[derive(Deserialize)]
 pub(super) struct Start {
     /// `BASE64URL(SHA-256(verifier))`, as in RFC 7636's S256 method.

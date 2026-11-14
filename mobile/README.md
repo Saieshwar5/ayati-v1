@@ -21,8 +21,11 @@ Status (2026-11-14, M2):
     upload (10 MiB, eight per message) and shown in messages: photo thumbnails,
     voice notes with play and transcript, and files that download to the share
     sheet (M3).
+  - push notifications: a one-time prompt on Home, a switch in You, and taps that
+    open the exact conversation, approval or question (M4,
+    [runtime/mobile-push.md](../runtime/mobile-push.md)).
 - **Not yet:**
-  - push notifications (M4);
+  - the Expo project id and store identities (M0), which push needs;
   - device testing.
 
 ## Layout

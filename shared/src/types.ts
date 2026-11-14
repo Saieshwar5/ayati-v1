@@ -144,6 +144,8 @@ export type Device = {
   last_used: number;
   expires: number;
   current: boolean;
+  /** This device has push notifications on. */
+  notifications?: boolean;
 };
 
 /** `POST /api/identity/mobile-sessions`. */

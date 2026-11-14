@@ -37,6 +37,12 @@
         {
           "microphonePermission": "Cuckoo uses the microphone only while you record a voice note."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#22252A"
+        }
       ]
     ],
     "scheme": "cuckoo"

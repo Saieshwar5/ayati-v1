@@ -38,6 +38,7 @@ mod private_config;
 mod process_lock;
 mod profile;
 mod provider;
+mod push;
 mod rehearsals;
 mod routes;
 mod secrets;
@@ -263,6 +264,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     library::keeping::start(app.clone());
     computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;
+    push::start(app.clone())?;
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
@@ -308,13 +310,7 @@ fn router(app: Shared) -> Router {
         )
         .route("/auth/login", get(routes::login))
         .route("/auth/callback", get(routes::callback))
-        .route("/auth/mobile/start", get(mobile_sign_in::start))
-        .route("/auth/mobile/return", get(mobile_sign_in::return_page))
-        .route("/api/identity/mobile-sessions", post(mobile_sign_in::exchange))
-        .route("/api/identity/devices", get(devices::list))
-        .route("/api/identity/devices/{id}/revoke", post(devices::revoke))
-        .route("/.well-known/apple-app-site-association", get(mobile_sign_in::apple_site_association))
-        .route("/.well-known/assetlinks.json", get(mobile_sign_in::asset_links))
+        .merge(mobile_sign_in::routes())
         .route("/api/identity/session", get(routes::session))
         .route("/api/identity/logout", post(routes::logout))
         .route("/api/identity/profile", post(profile::update))

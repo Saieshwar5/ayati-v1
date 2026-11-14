@@ -1,6 +1,7 @@
 //! The phone app: where sign-in returns to and the app identities Cuckoo's
 //! domain vouches for (iOS universal links and Android App Links).
 use super::Reader;
+use std::path::PathBuf;
 
 #[derive(Clone, Default)]
 pub struct Mobile {
@@ -13,7 +14,19 @@ pub struct Mobile {
     /// `AYATI_MOBILE_ANDROID_PACKAGE` and its signing certificates'
     /// SHA-256 fingerprints, `AYATI_MOBILE_ANDROID_CERT_SHA256`.
     pub android: Option<(String, Vec<String>)>,
+    /// `AYATI_MOBILE_PUSH=expo` sends push notifications through Expo's service.
+    pub push: Option<Push>,
 }
+
+/// Expo's push service, with the operator's access token when the Expo
+/// project requires one (`AYATI_EXPO_ACCESS_TOKEN_FILE`).
+#[derive(Clone)]
+pub struct Push {
+    pub url: String,
+    pub token_file: Option<PathBuf>,
+}
+
+pub const EXPO_PUSH_URL: &str = "https://exp.host/--/api/v2/push/send";
 
 impl Mobile {
     pub(crate) fn read(env: &mut Reader) -> Self {
@@ -52,10 +65,26 @@ impl Mobile {
                 );
             }
         }
+        let token_file = super::absolute(env, "AYATI_EXPO_ACCESS_TOKEN_FILE");
+        let push = match env.text("AYATI_MOBILE_PUSH").as_deref() {
+            None => None,
+            Some("expo") => Some(Push {
+                url: EXPO_PUSH_URL.into(),
+                token_file,
+            }),
+            Some(_) => {
+                env.problem("AYATI_MOBILE_PUSH must be expo, or unset");
+                None
+            }
+        };
+        if push.is_none() && env.present("AYATI_EXPO_ACCESS_TOKEN_FILE") {
+            env.problem("AYATI_EXPO_ACCESS_TOKEN_FILE needs AYATI_MOBILE_PUSH=expo");
+        }
         Self {
             scheme,
             ios_app_ids,
             android,
+            push,
         }
     }
 }
@@ -126,7 +155,15 @@ mod tests {
         assert_eq!(mobile.ios_app_ids, ["ABCDE12345.app.cuckoo.mobile"]);
         assert_eq!(mobile.android.unwrap().1, [fingerprint]);
 
+        let mut env = Reader::from_pairs(&[("AYATI_MOBILE_PUSH", "expo")]);
+        let push = Mobile::read(&mut env).push.unwrap();
+        assert!(env.finish("test").is_ok());
+        assert_eq!(push.url, EXPO_PUSH_URL);
+        assert!(push.token_file.is_none());
+
         for pairs in [
+            [("AYATI_MOBILE_PUSH", "fcm")],
+            [("AYATI_EXPO_ACCESS_TOKEN_FILE", "/run/secrets/expo")],
             [("AYATI_MOBILE_APP_SCHEME", "https")],
             [("AYATI_MOBILE_IOS_APP_IDS", "app.cuckoo.mobile")],
             [("AYATI_MOBILE_ANDROID_PACKAGE", "app.cuckoo.mobile")],
