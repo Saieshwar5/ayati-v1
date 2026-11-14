@@ -210,6 +210,9 @@ there is no multi-hour or hosted-capacity claim.
 
 This small local debug-build sample is not a hosted latency guarantee. Look at the
 retained messaging-* results for subsequent runs.
+Delivery latency above is measured separately from rendering. Chat's own UI speed
+(opening Chat, switching conversations, a 200-message transcript, long tasks and bundle
+size) has a committed baseline; see [layout and speed checks](layout-and-speed-checks.md).
 
 ### Idle connections and delivery under load
 

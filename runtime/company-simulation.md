@@ -33,7 +33,12 @@ the explicitly unauthenticated employee chooser is a local testing control.
 node tools/company-simulation/browser.mjs
 node tools/company-simulation/load.mjs 90
 node tools/company-simulation/findings.mjs
+./tools/company-simulation.sh layout   # phone/tablet layout audit, light and dark
+./tools/company-simulation.sh speed    # Chat speed compared with the committed baseline
 ```
+
+The last two are described, with their first results, in
+[layout and speed checks](layout-and-speed-checks.md).
 
 The runner provisions 20 named employees, five teams, 20 shared agent identities,
 private department channels, a public announcement channel, cross-team project and
