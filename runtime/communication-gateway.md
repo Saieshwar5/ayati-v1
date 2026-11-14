@@ -22,8 +22,11 @@ enabled endpoint for events after its saved cursor. For each message:
 3. **Who may write:** the sender's platform address must be bound to a
    workspace member who can talk to the agent. Anyone else is held without
    agent work, and their message body is not kept.
-4. **Room:** one private conversation per endpoint, sender and platform
-   conversation (and thread). Two people never share a room or a context.
+4. **Room:** a door with proven identity (WhatsApp, email) uses the person's
+   direct conversation with the agent; any other transport gets one private
+   conversation per endpoint, sender and platform conversation (and thread).
+   Two people never share a room or a context. See
+   [doors and rooms](#doors-and-rooms-schema-112).
 5. The message, the request and the receipt are saved together. The cursor
    moves only after the batch is saved, so a crash rereads it and duplicates
    are dropped.
@@ -46,6 +49,35 @@ stops reading it and cancels replies not yet sent.
 
 Agents keep the external manners of schema 52: one complete reply, no
 "working on it" updates and no front desk.
+
+## Doors and rooms (schema 112)
+
+Built 2026-11-14 as step E3 of the plan for how work reaches agents (`proj-docs/how-work-reaches-agents-plan.md`).
+
+- **Proven doors share one room.** `communications::model::shares_direct_room`
+  is the fixed table: live WhatsApp (the person sent a code from the number)
+  and live email (DMARC and the person's sign-in address) deliver into the
+  person's direct conversation with the agent. The agent then remembers the
+  person whichever door they use. A developer's Communication MCP bridge
+  relies on an admin's binding and the local simulations on fixtures, so they
+  keep a room of their own.
+- **The reply leaves by the request's door.** A WhatsApp question is answered on
+  WhatsApp, and a Chat question in the same room only in Chat. Chat shows every
+  message, and messages that came by a door say so ("via WhatsApp"; `door` on
+  each message). Activity adds the door to where a request came from.
+- **The request carries the door's generation, not the room.**
+  `relay_communication_door_requests` records the endpoint and binding
+  revisions each door request came under. `relay_communication_request_current`
+  is false once either changes or the person may no longer talk to the agent:
+  its work loses access and its unsent reply is cancelled. The room stays, and
+  Chat keeps working in it.
+- **Door manners follow the request.** A request that came by a door gets one
+  complete reply and no "working on it" updates, even in the direct room;
+  a Chat request there keeps Chat's rhythm.
+- **Approvals and answers only inside Cuckoo.** Every approval, decision and
+  question route requires a signed-in session. A door message is always a new
+  request: a WhatsApp message saying the answer to a waiting question leaves the
+  question waiting (`door_room_tests`).
 
 ## The adapter contract
 

@@ -13,22 +13,22 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-const FIRST: &str = "+14155550101";
+pub(super) const FIRST: &str = "+14155550101";
 const SECOND: &str = "+14155550102";
-const OWNER_PHONE: &str = "+919800000001";
-const MEMBER_PHONE: &str = "+919800000002";
+pub(super) const OWNER_PHONE: &str = "+919800000001";
+pub(super) const MEMBER_PHONE: &str = "+919800000002";
 /// A dummy account SID, built at run time so the source holds no SID-shaped text.
 fn account() -> String {
     format!("AC{}", "0".repeat(32))
 }
 
-fn offer(numbers: &[&str]) -> Offer {
+pub(super) fn offer(numbers: &[&str]) -> Offer {
     Offer {
         numbers: numbers.iter().map(|n| n.to_string()).collect(),
         cooling_days: 90,
     }
 }
-fn message(event: &str, from: &str, to: &str, text: &str) -> Incoming {
+pub(super) fn message(event: &str, from: &str, to: &str, text: &str) -> Incoming {
     Incoming {
         event: event.into(),
         from: from.into(),
@@ -36,7 +36,7 @@ fn message(event: &str, from: &str, to: &str, text: &str) -> Incoming {
         text: text.into(),
     }
 }
-async fn link(db: &PgStore, person: &User, phone: &str) {
+pub(super) async fn link(db: &PgStore, person: &User, phone: &str) {
     let code = db.mobile_link_code(person).await.unwrap()["code"]
         .as_str()
         .unwrap()
@@ -214,7 +214,7 @@ async fn whatsapp_messages_are_routed_by_the_senders_linked_number() {
         .unwrap();
     assert!(taken.is_some(), "a number belongs to one person");
 
-    // The owner's message reaches the agent in their own WhatsApp room.
+    // The owner's message reaches the agent in their direct room with it.
     let (outcome, _) = db
         .whatsapp_incoming(&message(
             "SM4",
@@ -276,7 +276,8 @@ async fn whatsapp_messages_are_routed_by_the_senders_linked_number() {
         .await
         .unwrap();
 
-    // Unlinking closes the room; linking again starts a new one.
+    // Unlinking stops the door and keeps the room: linking again comes back
+    // to the person's same direct conversation (E3).
     db.mobile_unlink(&owner).await.unwrap();
     let (outcome, _) = db
         .whatsapp_incoming(&message("SM7", OWNER_PHONE, FIRST, "Still me"))
@@ -294,7 +295,7 @@ async fn whatsapp_messages_are_routed_by_the_senders_linked_number() {
         .await
         .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
-    assert_ne!(job.chat, owner_room);
+    assert_eq!(job.chat, owner_room);
 
     // Admins can't bind WhatsApp senders by hand.
     let endpoint: String = query(

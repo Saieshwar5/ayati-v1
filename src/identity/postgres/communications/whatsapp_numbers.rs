@@ -150,7 +150,7 @@ async fn assigned(
 /// Work and replies that lost their room's current generation stop.
 pub(super) async fn fence(tx: &DatabaseTransaction, w: &str) -> Result<()> {
     super::super::task_revocation::inaccessible(tx, w).await?;
-    execute(tx,"UPDATE relay_communication_outbox o SET state='cancelled' WHERE workspace=$1 AND state IN ('queued','failed') AND NOT relay_communication_current(workspace,job->>'chat')",vec![w.into()]).await?;
+    super::access::cancel_stale(tx, w).await?;
     Ok(())
 }
 

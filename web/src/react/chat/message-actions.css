@@ -35,7 +35,7 @@
 .chat-reactions .chat-reaction-picker .chat-message-tool { height: 24px; min-width: 26px; border: 1px solid var(--border); border-radius: 12px; }
 
 /* Edited, deleted and editing states. */
-.chat-message-edited { color: var(--muted); font-size: 10.5px; }
+.chat-message-edited, .chat-message-door { color: var(--muted); font-size: 10.5px; }
 .chat-message-deleted { margin: 0; color: var(--muted); font-style: italic; }
 .chat-message-edit { display: grid; gap: 8px; min-width: min(480px, 70vw); }
 .chat-message-edit textarea { width: 100%; padding: 9px 11px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 10px; font: inherit; resize: vertical; }

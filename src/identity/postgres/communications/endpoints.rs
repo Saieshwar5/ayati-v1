@@ -198,7 +198,7 @@ impl PgStore {
             "Communication configuration changed; refresh before saving"
         );
         super::task_revocation::inaccessible(&tx, w).await?;
-        execute(&tx,"UPDATE relay_communication_outbox o SET state='cancelled' WHERE workspace=$1 AND state IN ('queued','failed') AND NOT relay_communication_current(workspace,job->>'chat')",vec![w.into()]).await?;
+        super::access::cancel_stale(&tx, w).await?;
         audit(&tx, &actor.id, Some(w), "communication_state_changed", id).await?;
         tx.commit().await?;
         Ok(json!({"enabled":input.enabled,"revision":input.revision+1}))

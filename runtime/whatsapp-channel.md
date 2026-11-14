@@ -42,8 +42,9 @@ Built 2026-11-10 as milestone W1.
   `off`, `active` or `paused`; `paused` means an admin switched the endpoint off
   with the gateway's endpoint state API. Anyone who may talk to the agent may
   read it, because they need the number to message the agent.
-- Each switch is a new generation of the endpoint, so earlier conversations and
-  sends never come back.
+- Each switch is a new generation of the endpoint, so earlier requests and
+  sends never come back. The person's direct conversation with the agent stays
+  (schema 112).
 - A number is never given to a second agent of the same workspace. One address
   never names two of a workspace's endpoints, and old records are immutable.
 - A number the operator removed from the file is no longer given out.
@@ -66,10 +67,10 @@ Rules:
 - One person has one number, and a number belongs to one person. A number already
   linked to someone else, or ever bound to someone else, is refused with a fixed
   reply, because senders are never reassigned.
-- Linking a new number closes the old number's conversations.
-- `POST /api/identity/mobile/unlink` closes every WhatsApp conversation of that
-  number in every workspace and cancels unsent replies. Linking again opens new
-  conversations.
+- Linking a new number stops the old number's requests.
+- `POST /api/identity/mobile/unlink` stops the number in every workspace: work
+  that came by it loses access and its unsent replies are cancelled. The
+  person's conversations stay, and linking again continues them.
 - The code is shown only in the person's signed-in session. Whoever sends it links
   their number to that account, so it must not be shared.
 
@@ -89,8 +90,11 @@ intake, exempt from the browser Origin check like the other `/hooks/` routes.
    - A binding whose number no longer belongs to its person is switched off.
 5. **Shared intake.** From here the gateway's own intake applies: deduplication
    by Twilio's `MessageSid`, and admission only for an enabled binding of a member
-   who may talk to the agent. The person gets one private conversation per agent,
-   named WhatsApp, separate from their Chat and from everyone else.
+   who may talk to the agent. The message goes to the person's **direct
+   conversation with the agent**, the same one they use in Chat, so the agent
+   remembers them on both (schema 112, see [the communication gateway](communication-gateway.md#doors-and-rooms-schema-112)).
+   Chat marks it "via WhatsApp". Two people never share it. Rooms named
+   WhatsApp from before schema 112 stay readable and receive nothing new.
 6. **Held messages.** A held sender gets a fixed reply: "This agent can't take
    messages from this number. Link your WhatsApp number in your Cuckoo profile, or
    ask your workspace admin for access." It does not say which of the two applies,
@@ -173,8 +177,8 @@ answer 404.
     usable by another workspace, and a number removed from the file.
   - Messages routed by the linked number: a stranger is held with a fixed reply,
     bad and taken codes are refused, rooms are separate per person, duplicates
-    are recognised, a member without access is held, and unlinking closes the
-    room and cancels the unsent reply while relinking opens a new room.
+    are recognised, a member without access is held, and unlinking cancels the
+    unsent reply while relinking continues the same direct room.
   - The admin binding API is refused for WhatsApp endpoints.
   - Sending through a local fake Twilio: From, To, converted Body, Basic auth, a
     signed status callback with the attempt, the delivered receipt kept against a

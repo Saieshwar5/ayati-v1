@@ -194,6 +194,7 @@ impl PgStore {
                 "agent_avatar": row.try_get::<Option<String>>("", "agent_avatar")?,
                 "kind": row.try_get::<String>("", "kind")?,
                 "conversation_kind": row.try_get::<String>("", "conversation_kind")?,
+                "door": row.try_get::<Option<String>>("", "door")?,
                 "in_conversation": row.try_get::<bool>("", "in_conversation")?,
                 "created_ms": row.try_get::<i64>("", "created_ms")?,
                 "finished_ms": row.try_get::<Option<i64>>("", "finished_ms")?,

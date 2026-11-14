@@ -41,7 +41,9 @@ export type Message = {
   routines?: import('./routine-proposal').RoutineProposal[];
   chat?: string; delivered?: number; seen?: number;
   attachments?: Attachment[]; thread?: string | null; reply_to?: string | null;
-  edited_at?: number | null; for_me?: boolean; reactions?: { emoji: string; count: number; mine: boolean }[];
+  edited_at?: number | null; for_me?: boolean;
+  /** The door a message came through when not Chat: `whatsapp`, `email` (E3). */
+  door?: string | null; reactions?: { emoji: string; count: number; mine: boolean }[];
   /** Agents acknowledging an emoji-only message instead of answering it (schema 101, D246). */
   agent_reactions?: AgentReaction[];
 };

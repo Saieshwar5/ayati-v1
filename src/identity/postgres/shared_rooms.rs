@@ -72,7 +72,7 @@ pub(super) async fn moved_from(db: &impl ConnectionTrait, job: &Job) -> Result<O
 }
 
 /// The person's direct conversation with the agent, opened if it doesn't exist.
-async fn direct_room(
+pub(in crate::identity::postgres) async fn direct_room(
     tx: &DatabaseTransaction,
     w: &str,
     person: &str,
