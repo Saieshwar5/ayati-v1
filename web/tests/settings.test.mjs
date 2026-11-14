@@ -6,6 +6,7 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 const workspace='11111111-1111-4111-8111-111111111111';
 const base=`http://localhost/w/${workspace}/?view=settings`;
 let refuseLeave=false;
+let phones=[];
 async function fixture(role, run, simulation=false) {
   const reads=[], writes=[];
   await reactFixture(async context => {
@@ -27,6 +28,8 @@ async function fixture(role, run, simulation=false) {
     if(path.endsWith('/simulation/reports'))data={reports:[]};
     if(path.endsWith('/feedback'))data={feedback:[]};
     if(path.endsWith('/chats'))data={chats:[]};
+    if(path.endsWith('/api/identity/devices'))data={devices:phones};
+    if(body&&path.endsWith('/devices/d1/revoke')){phones=phones.filter(phone=>phone.id!=='d1');data={ok:true,provider_session_revoked:true};}
     if(path.endsWith('/chat-directory'))data={role,users:[{id:'person',name:'Person',title:'Buyer',about:'',photo:null,role},{id:'lead',name:'Arjun Mehta',email:'arjun@test',role:'Admin'}],agents:[]};
     if(path.endsWith('/my-profile'))return {ok:false,status:400,json:async()=>({error:'Save failed'})};
     if(path.endsWith('/responsibilities'))data={agents:[{id:'a1',name:'Atlas'}],private_agents:1,library_items:0,kept_library_items:0,schedules:0,event_triggers:0,invitations:0};
@@ -179,4 +182,17 @@ test('Simulation results appear in the Audit log only in a simulation',async()=>
     await render(base+'&section=audit-log');
     assert.ok(document.querySelector('.settings-detail').textContent.includes('Simulation results'));
   },true);
+});
+
+test('Profile lists signed-in phones and signs one out',async()=>{
+  phones=[{id:'d1',name:'Person’s iPhone',platform:'ios',created:1,last_used:1763100000,expires:9e9,current:false,notifications:true}];
+  await fixture('Member',async({click,writes})=>{
+    const section=document.querySelector('.settings-phones');
+    assert.match(section.textContent,/Person’s iPhone.*iPhone or iPad.*notifications on/);
+    await click(section.querySelector('button'));
+    assert.ok(writes.some(write=>write.path.endsWith('/devices/d1/revoke')));
+    assert.match(document.querySelector('.settings-phones').textContent,/No phones are signed in/);
+    assert.match(document.querySelector('.settings-phones [role=status]').textContent,/Person’s iPhone is signed out/);
+  });
+  phones=[];
 });
