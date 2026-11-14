@@ -169,6 +169,35 @@ Touch targets under 44×44 px (all nine sizes unless stated):
 The full list, with every element's box, is in the run's `mobile-layout-*/report.json`
 next to outlined screenshots.
 
+### After the phone layout fixes (2026-11-14)
+
+**0/234 screen checks fail, 0 findings, 0 page errors** (light and dark, all nine sizes).
+What changed:
+
+- **Shared controls** (`app-ui.css`): on touch screens (`pointer: coarse`) `.ui-button`
+  is at least 44 px tall, `.ui-icon` 44 px wide and `.ui-search` 44 px tall. Mouse
+  layouts keep their density. The account menu button is 44 px wide everywhere.
+- **Composer:** it is a size container. Under 380 px wide (phones, and the thread
+  panel beside a desktop conversation) the text takes its own row above the buttons, so
+  it is never squeezed (it was 22 px wide at 320 px). On touch screens its buttons and
+  text box are 44 px.
+- **Conversation header on phones (≤ 420 px):** "‹ Chats" keeps only ‹ and Details
+  becomes an ⓘ (their words stay as hidden labels, so names are unchanged), and the
+  bell hides because Details has Notifications. The name keeps about twice the room.
+- **Message toolbar on phones (≤ 600 px):** own messages open it from the right edge
+  and it wraps within the message, so its last actions are never cut off.
+- **Faces, author names, reply counts and inline links** keep their look; on touch
+  screens their tap area grows to 44 px with negative margins, so text does not move.
+- **Per screen:** conversation rows, the alerts prompt, header icons and faces (Chat);
+  fact changes and tabs (Agents); tabs and search (Activity); filters and search
+  (Apps); views and search (Library); the page list and "‹ Settings" (Settings); the
+  source links (Home).
+
+Speed afterwards (same machine, no throttle, median of five): every timing stayed within
+the thresholds (they were lower than the baseline, within this machine's variance), long
+tasks were unchanged, and start-up JS/CSS grew 7.5 kB gzip (+2.8 %) with the ten chat
+improvements. The baseline was not updated.
+
 ### Speed baseline
 
 Committed in `tools/company-simulation/ui-performance-baseline.json` (median of five

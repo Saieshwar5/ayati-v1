@@ -154,3 +154,12 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 .chat-bots-url { display: flex; gap: 6px; }
 .chat-bots-url input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 @media (pointer: coarse) { .chat-bots-add input, .chat-bots-url input, .chat-bots .ui-button { min-height: 44px; } }
+.chat-details-toggle .chat-details-icon { display: none; width: 18px; height: 18px; }
+.workspace-chat .chat-pane-header .ui-icon svg { width: 18px; height: 18px; }
+@media (max-width: 420px) {
+  .workspace-chat .chat-pane-header .chat-back-label, .chat-details-toggle .chat-details-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .chat-details-toggle .chat-details-icon { display: block; }
+  /* The bell is also in Details (Notifications), so the name keeps its room. */
+  .workspace-chat .chat-pane-header > .chat-notify { display: none; }
+  .workspace-chat .chat-pane-header .chat-details-toggle, .workspace-chat .chat-pane-header .chat-back { min-width: 44px; padding: 6px; }
+}

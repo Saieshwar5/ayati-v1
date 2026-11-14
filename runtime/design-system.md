@@ -180,6 +180,12 @@ its face, name and emoji ("Atlas reacted 👍"), in the same chip shape on the s
 colour, never a toggle (D246). Edits show "edited"; deleting asks first, leaves "Message
 deleted" in place and stops agent work the message started that has not finished.
 
+Touch screens (`pointer: coarse`) get 44×44 px targets for every control, from the shared
+`.ui-button`, `.ui-icon` and `.ui-search` up to faces and inline links, whose tap areas
+grow without moving text; mouse layouts keep their density. The phone layout audit
+(`./tools/company-simulation.sh layout`, [layout and speed checks](layout-and-speed-checks.md))
+checks this at nine sizes in both themes.
+
 Notifications are personal. The conversation header's bell offers All new
 messages, @mentions and replies, Nothing, or Nothing, and hide it; direct messages
 default to all and channels to mentions. Muted rows show a crossed bell and keep their

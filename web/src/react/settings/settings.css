@@ -190,3 +190,4 @@
 .settings-device-text { display:grid; gap:2px; flex:1; min-width:0; overflow-wrap:anywhere; }
 .settings-device-text small { color:var(--muted); font-size:13px; }
 .settings-device-text .settings-device-error { color:var(--danger); }
+@media (pointer: coarse) { .settings-group button, .settings-back { min-height:44px; } }

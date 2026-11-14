@@ -188,3 +188,4 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-review-card h3, .activity-review-card p { margin: 0; }
 .activity-review .activity-list li { flex-wrap: wrap; }
 .activity-review .activity-list li .activity-main { flex: 1 1 260px; }
+@media (pointer: coarse) { .activity-tabs button, .activity-tabs .activity-scope button, .activity-search { min-height: 44px; } }
