@@ -23,19 +23,30 @@ pub(crate) struct Update {
 }
 
 /// How an agent behaves on a channel: the built-in chat gets the human rhythm
-/// (acknowledge, then updates); an email or WhatsApp thread gets one complete
-/// reply when the work is done. Same agent, same work lane, different manners.
+/// (acknowledge, then updates); a request that came by email or WhatsApp gets
+/// one complete reply when the work is done, whether its room is the door's
+/// own or the person's direct room (E3). Same agent, same work lane, different
+/// manners.
 pub(crate) struct Manners {
     pub acknowledges: bool,
     pub updates: bool,
 }
-pub(crate) async fn manners(db: &impl ConnectionTrait, w: &str, chat: &str) -> Result<Manners> {
+pub(crate) async fn manners(
+    db: &impl ConnectionTrait,
+    w: &str,
+    chat: &str,
+    reply: &str,
+) -> Result<Manners> {
     let external = query(db, "SELECT to_regclass('relay_communication_conversations') IS NOT NULL
         AND EXISTS(SELECT 1 FROM relay_communication_conversations c WHERE c.workspace=$1 AND c.chat=$2) AS external", vec![w.into(), chat.into()])
         .await?
         .map(|r| r.try_get::<bool>("", "external"))
         .transpose()?
-        .unwrap_or(false);
+        .unwrap_or(false)
+        || (crate::identity::postgres::communications::access::door_requests(db).await?
+            && query(db, "SELECT 1 AS found FROM relay_communication_door_requests WHERE workspace=$1 AND reply=$2", vec![w.into(), reply.into()])
+                .await?
+                .is_some());
     Ok(if external {
         Manners {
             acknowledges: false,
@@ -94,7 +105,10 @@ impl PgStore {
         }
         let tx = self.workspace_tx(&job.workspace).await?;
         super::control_actions::authorize(&tx, job, true).await?;
-        if !manners(&tx, &job.workspace, &job.chat).await?.updates {
+        if !manners(&tx, &job.workspace, &job.chat, &job.reply)
+            .await?
+            .updates
+        {
             tx.commit().await?;
             return Ok(
                 json!({"state":"not_here","message":"This conversation is an email or WhatsApp thread: the person gets one complete reply when the work is done. Keep working and put everything in your reply."}),

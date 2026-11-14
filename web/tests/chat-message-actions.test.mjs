@@ -105,3 +105,16 @@ test('agent reactions show each agent by name and face, while people keep their 
   },{url,fetch:server(writes)});
   assert.equal(writes.length,0,'showing agent reactions writes nothing');
 });
+
+test('messages that came by WhatsApp or email name their door; Chat messages do not (E3)',async()=>{
+  const list=[
+    {id:'wa',chat:'orders',author:'meera',name:'Meera Iyer',kind:'user',content:'Sent from my phone',state:'sent',at:1,door:'whatsapp'},
+    {id:'mail',chat:'orders',author:'ravi',name:'Ravi Kumar',kind:'user',content:'Sent by email',state:'sent',at:2,door:'email'},
+    {id:'typed',chat:'orders',author:'meera',name:'Meera Iyer',kind:'user',content:'Typed in Chat',state:'sent',at:3}];
+  await reactFixture(async({render})=>{
+    await show(render,list);
+    assert.match(article('wa').textContent,/via WhatsApp/);
+    assert.match(article('mail').textContent,/via email/);
+    assert.equal(article('typed').textContent.includes('via '),false);
+  },{url,fetch:server([])});
+});

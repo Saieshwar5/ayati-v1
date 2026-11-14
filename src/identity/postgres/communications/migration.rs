@@ -63,3 +63,25 @@ impl MigrationTrait for CommunicationGateway {
         ))
     }
 }
+
+/// Schema 112: doors with proven identity share the person's direct room.
+pub(crate) struct DoorRooms;
+impl MigrationName for DoorRooms {
+    fn name(&self) -> &str {
+        "m20261114_000112_door_rooms"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for DoorRooms {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("door_rooms.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Door rooms require a forward migration".into(),
+        ))
+    }
+}

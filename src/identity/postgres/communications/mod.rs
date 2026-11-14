@@ -4,6 +4,8 @@
 use super::*;
 pub(super) mod access;
 mod delivery;
+#[cfg(test)]
+mod door_room_tests;
 mod endpoints;
 #[cfg(test)]
 mod gateway_tests;

@@ -1,4 +1,5 @@
 import { identityRequest, storageScope, workspaceId, workspaceUrl } from '../../workspace-context';
+import { doorLabel } from '../chat/doors';
 
 /** Filters shared by History, its totals and an agent's Activity tab. */
 /** Whose agents: `mine` (agents you manage and your own requests) or `all` (everything you may see). */
@@ -9,6 +10,8 @@ export type Step = { id: string; title: string; effect: string; state: string; a
   computer?: { kind: 'command' | 'list' | 'read' | 'write' | 'browser'; detail: string; exit_code: number | null; output: string; output_bytes: number; milliseconds: number } };
 export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
+  /** The door the request came through when not Chat (E3). */
+  door?: string | null;
   agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
   /** A Home panel refresh names its panel. */
   panel?: { id: string; title: string } | null;
@@ -112,8 +115,9 @@ export function status(item: { state: string; approvals?: { state: string }[] })
   }
 }
 export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
-export const where = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
+const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
   : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
+export const where = (item: ActivityItem) => [place(item), doorLabel(item.door)].filter(Boolean).join(' · ');
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 export function dayLabel(ms: number): string {
   const day = new Date(ms); day.setHours(0, 0, 0, 0);

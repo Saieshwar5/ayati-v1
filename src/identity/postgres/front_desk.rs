@@ -136,7 +136,7 @@ pub(crate) async fn enqueue_if_busy(
 ) -> Result<()> {
     if !pooled
         || !super::chat::updates::ready(tx).await?
-        || !super::chat::updates::manners(tx, &job.workspace, &job.chat)
+        || !super::chat::updates::manners(tx, &job.workspace, &job.chat, &job.reply)
             .await?
             .acknowledges
     {
