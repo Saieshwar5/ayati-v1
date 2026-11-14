@@ -171,10 +171,10 @@ tab needs an approved design.
 - **Contacts and verification** (G3): pairing, one-time codes, assurance levels.
 - **Knowledge audiences and actions tied to the asker** (G4). No public
   endpoint should open before G3 and G4.
-- **Native email, Telegram, website chat and calls.** WhatsApp is built on
-  numbers Cuckoo provides: see [the WhatsApp channel](whatsapp-channel.md).
-- **Webhook ingress** for other transports. WhatsApp has its own signed Twilio
-  webhooks.
+- **Native email.** Agents' native channels are Cuckoo Chat and email; people
+  reach agents on phones through Cuckoo's own mobile app. Third-party
+  messengers (WhatsApp, Telegram) were removed on 2026-11-14 (schema 113).
+- **Webhook ingress** for other transports.
 - **For developers:** a doorbell notification, attachments, a TypeScript
   template and `ayati transport check`.
 - **Group conversations.**

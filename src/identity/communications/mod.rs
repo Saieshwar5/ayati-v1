@@ -9,7 +9,6 @@ pub(crate) mod fake_transport;
 pub(crate) mod gateway;
 pub(crate) mod mcp_transport;
 pub(crate) mod model;
-pub(crate) mod whatsapp;
 use super::*;
 use axum::{
     Json,
@@ -34,7 +33,6 @@ pub(super) fn routes() -> Router<Shared> {
         .route("/api/identity/workspaces/{w}/communications/simulation/outbox/{id}/dispatch",post(dispatch))
         .route("/api/identity/workspaces/{w}/communications/simulation/outbox/{id}/receipt",post(receipt))
         .layer(DefaultBodyLimit::max(32*1024))
-        .merge(whatsapp::routes::routes())
 }
 fn simulated(app: &App) -> ApiResult<&postgres::PgStore> {
     if app.simulation.is_none() {
@@ -93,12 +91,6 @@ async fn live_endpoint(
     let user = identity(&app, &headers).await?;
     // Only an admin can make Cuckoo contact a transport server.
     admin(&app, &user, &w).await?;
-    if input.transport == "whatsapp" {
-        return Err(Error(
-            anyhow::anyhow!("Switch on WhatsApp from the agent's page"),
-            StatusCode::BAD_REQUEST,
-        ));
-    }
     let route = adapters::Route {
         workspace: w.clone(),
         server: input.server.clone(),

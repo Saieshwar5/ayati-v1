@@ -129,9 +129,6 @@ async fn conversation(
     }
     let chat = uuid::Uuid::new_v4().to_string();
     let (name, description) = match e["server"].as_str() {
-        Some(_) if e["simulated"] == false && e["transport"] == "whatsapp" => {
-            ("WhatsApp".to_owned(), "Messages on WhatsApp".to_owned())
-        }
         Some(server) if e["simulated"] == false => {
             (server.to_owned(), format!("Messages through {server}"))
         }
