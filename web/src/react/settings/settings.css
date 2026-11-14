@@ -172,3 +172,14 @@
 .company-rule-form > label:not(.ui-check), .company-rule-times label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
 .company-rule-form > label:not(.ui-check) small { font-weight: 400; color: var(--muted); }
 .company-rule-form > label:not(.ui-check) select, .company-rule-form > label:not(.ui-check) input, .company-rule-times input { width: 100%; box-sizing: border-box; font-weight: 400; }
+
+/* Settings → Computers → Your computers (B3). */
+.settings-workspace-computers { display: grid; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+.settings-computer-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.settings-computer-list li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-computer-list li > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.settings-computer-list small { color: var(--muted); overflow-wrap: anywhere; }
+.settings-computer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-computer-add { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.settings-computer-code { display: block; margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: var(--soft); font-size: 13px; overflow-wrap: anywhere; user-select: all; }
+.settings-computer-agents { display: grid; gap: 8px; border: 0; padding: 0; margin: 0; }

@@ -3,6 +3,7 @@ mod computer_routes;
 pub(crate) mod computer_settings;
 pub(crate) mod config;
 pub(crate) mod system_prompt;
+pub(crate) mod workspace_computer_routes;
 use super::*;
 use axum::{
     Json,
@@ -14,6 +15,7 @@ use config::{SYSTEM_GUIDE, SaveAgent};
 use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     computer_routes::routes()
+        .merge(workspace_computer_routes::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/requests",
             get(requests),

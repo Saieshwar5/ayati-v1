@@ -42,6 +42,8 @@ export function ComputerCard({ agent, offer, saved }: { agent: Agent; offer: Com
         <span>Use a computer</span></label>
     </header>
     {policy && !policy.allowed && <p className="ui-help" role="note">An admin switched off computers in this workspace (Settings → Computers), so {agent.name} can’t use one now.</p>}
+    {status.data?.workspace_computer && <p className="ui-help" role="note">{agent.name} works on {status.data.workspace_computer}, your workspace’s own computer
+      (Settings → Computers). Its commands and files go there, under the Programs rule in its Tools tab; the browser isn’t available there yet.</p>}
     {!settings.on && <p className="ui-help">Off: {agent.name} has no computer tools. When it is on, {agent.name} can read and convert files,
       work through data and run programs on a computer that keeps its files between tasks.</p>}
     {settings.on && <>

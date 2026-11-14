@@ -276,6 +276,14 @@ impl PgStore {
         else {
             return Ok(Some(super::computers::refused("Agent unavailable")));
         };
+        if let Some(shared) =
+            super::shared_computers::assigned(&self.db, &job.workspace, &job.agent).await?
+        {
+            return Ok(Some(super::computers::refused(&format!(
+                "You use {}, your workspace's own computer, and browsing isn't available there yet. Answer without the browser.",
+                shared.name
+            ))));
+        }
         if self.computers.is_none() || !settings.on {
             return Ok(Some(
                 self.computer_ready(job).await?.err().unwrap_or_default(),
@@ -356,6 +364,11 @@ impl PgStore {
             Ok(ready) => ready,
             Err(refusal) => return Ok(refusal),
         };
+        if ready.shared.is_some() {
+            return Ok(super::computers::refused(
+                "Browsing isn't available on your workspace's own computer yet. Answer without the browser.",
+            ));
+        }
         let computers = self.computers.clone().context("Computers unavailable")?;
         if !computers.has_helper(&ready.awake.id) {
             ready

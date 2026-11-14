@@ -110,7 +110,7 @@ impl PgStore {
         else {
             return Ok(refused("Agent unavailable"));
         };
-        if self.computers.is_none() || !settings.on {
+        if !self.computer_usable(job, &settings).await? {
             return Ok(refused(
                 "You have no computer, so skill scripts can't run. Follow the skill's written steps instead.",
             ));
@@ -127,16 +127,12 @@ impl PgStore {
             Err(refusal) => return Ok(refusal),
         };
         for file in &files {
-            ready
-                .routed
-                .provider
-                .write(
-                    &ready.call(),
-                    &ready.awake,
-                    &format!("{HOME}/{folder}/{}", file.path),
-                    file.text.clone().into_bytes(),
-                )
-                .await?;
+            self.computer_put(
+                &ready,
+                &format!("{HOME}/{folder}/{}", file.path),
+                file.text.clone().into_bytes(),
+            )
+            .await?;
         }
         let run = super::super::computer_tools::Run {
             command,

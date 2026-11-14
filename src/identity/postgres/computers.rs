@@ -38,6 +38,9 @@ pub(super) struct Ready {
     pub routed: Routed,
     pub key: String,
     pub awake: Awake,
+    /// A workspace's own computer (schema 119): work goes to its connector, and
+    /// `awake.token` names the agent whose folder it uses.
+    pub shared: Option<super::shared_computers::Assigned>,
 }
 impl Ready {
     pub fn call(&self) -> Call<'_> {
@@ -123,6 +126,23 @@ impl PgStore {
         &self,
         job: &Job,
     ) -> Result<std::result::Result<Ready, Value>> {
+        // An agent the workspace gave its own computer uses that one (B3).
+        if let Some(shared) =
+            super::shared_computers::assigned(&self.db, &job.workspace, &job.agent).await?
+        {
+            if let Err(refusal) = self.shared_turn(job, &shared).await? {
+                return Ok(Err(refusal));
+            }
+            return Ok(Ok(Ready {
+                routed: Routed::connector(),
+                key: String::new(),
+                awake: Awake {
+                    id: shared.computer.clone(),
+                    token: job.agent.clone(),
+                },
+                shared: Some(shared),
+            }));
+        }
         let Some(computers) = self.computers.clone() else {
             return Ok(Err(unavailable(
                 "Computers are not set up on this Cuckoo. Answer without one.",
@@ -267,11 +287,17 @@ impl PgStore {
             execute(&self.db, "INSERT INTO relay_computer_sessions(workspace,agent,reply,person,size,provider,woke_at) VALUES($1,$2,$3,$4,$5,$6,$7)",
                 vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into(), job.requester.clone().into(), row.try_get::<String>("", "size")?.into(), provider.into(), at.into()]).await?;
         }
-        Ok(Ok(Ready { routed, key, awake }))
+        Ok(Ok(Ready {
+            routed,
+            key,
+            awake,
+            shared: None,
+        }))
     }
 
     /// Keeps the computer held a while longer after a use.
     pub(super) async fn computer_used(&self, job: &Job) -> Result<()> {
+        self.shared_used(job).await?;
         let at = now();
         execute(&self.db, "UPDATE relay_computers SET last_used=$4,held_until=$5 WHERE workspace=$1 AND agent=$2 AND held_by=$3",
             vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into(), at.into(), (at + HOLD_SECONDS).into()]).await?;
@@ -382,6 +408,7 @@ impl PgStore {
               SELECT COALESCE(sum(CASE WHEN slept_at IS NULL THEN extract(epoch FROM now())::bigint-woke_at ELSE seconds END),0)::bigint AS seconds,
                      COALESCE(sum(charge_micro),0)::bigint AS charge
               FROM relay_computer_sessions, start WHERE workspace=$1 AND agent=$2 AND woke_at>=start.s", vec![w.into(), agent.into()]).await?.context("Usage unavailable")?;
+        let shared = super::shared_computers::assigned(&tx, w, agent).await?;
         tx.commit().await?;
         let computer = match computer {
             None => Value::Null,
@@ -403,6 +430,7 @@ impl PgStore {
             "computer": computer,
             "month": {"seconds": month.try_get::<i64>("", "seconds")?, "charge_usd": month.try_get::<i64>("", "charge")? as f64 / 1e6},
             "sleep_after_minutes": file.as_ref().map(|f| f.sleep_after_minutes),
+            "workspace_computer": shared.map(|s| s.name),
         }))
     }
 
@@ -457,6 +485,6 @@ impl PgStore {
                 .await?;
             }
         }
-        Ok(())
+        super::shared_computers::release(db, w, reply).await
     }
 }

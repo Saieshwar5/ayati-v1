@@ -132,7 +132,7 @@ impl PgStore {
             return Ok(super::computers::refused("Agent unavailable"));
         };
         // Nobody is asked about a command that couldn't run anyway.
-        if self.computers.is_none() || !settings.on {
+        if !self.computer_usable(job, &settings).await? {
             return Ok(self.computer_ready(job).await?.err().unwrap_or_default());
         }
         match settings.programs.as_str() {
@@ -161,16 +161,8 @@ impl PgStore {
         let seconds = left.map_or(asked, |left| asked.min(left.saturating_sub(20).max(5)));
         let started = std::time::Instant::now();
         let cwd = format!("{HOME}/{}", folder(job));
-        let ran = ready
-            .routed
-            .provider
-            .run(
-                &ready.call(),
-                &ready.awake,
-                command,
-                &cwd,
-                Duration::from_secs(seconds),
-            )
+        let ran = self
+            .computer_exec(&ready, command, &cwd, Duration::from_secs(seconds))
             .await;
         self.computer_used(job).await?;
         let milliseconds = started.elapsed().as_millis() as i64;
@@ -188,6 +180,12 @@ impl PgStore {
                     milliseconds,
                 )
                 .await?;
+                // A workspace machine may have run it without answering.
+                if ready.shared.is_some() {
+                    return Ok(
+                        json!({"state": "unavailable", "message": format!("{error}. The command may have run anyway: check before running it again.")}),
+                    );
+                }
                 return Ok(
                     json!({"state": "unavailable", "message": "The command could not be run on your computer just now. Try again in a minute."}),
                 );
@@ -244,19 +242,9 @@ impl PgStore {
         let listing = format!(
             "mkdir -p {quoted} && find {quoted} -mindepth 1 -maxdepth 1 -printf '%y\\t%s\\t%TY-%Tm-%Td %TH:%TM\\t%f\\n' | sort -t \"$(printf '\\t')\" -k4 | head -200"
         );
-        let ran = ready
-            .routed
-            .provider
-            .run(
-                &ready.call(),
-                &ready.awake,
-                &listing,
-                HOME,
-                Duration::from_secs(30),
-            )
-            .await?;
+        let listed = self.computer_ls(&ready, &path, &listing).await?;
         self.computer_used(job).await?;
-        let files: Vec<Value> = ran.stdout.lines().filter_map(|line| {
+        let files: Vec<Value> = listed.lines().filter_map(|line| {
             let mut parts = line.splitn(4, '\t');
             let (kind, size, changed, name) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
             Some(json!({"name": name, "folder": kind == "d", "bytes": size.parse::<u64>().unwrap_or(0), "changed": changed}))
@@ -275,11 +263,7 @@ impl PgStore {
             Ok(ready) => ready,
             Err(refusal) => return Ok(refusal),
         };
-        let bytes = ready
-            .routed
-            .provider
-            .read(&ready.call(), &ready.awake, &path)
-            .await;
+        let bytes = self.computer_get(&ready, &path).await;
         self.computer_used(job).await?;
         let bytes = match bytes {
             Ok(bytes) => bytes,
@@ -325,15 +309,7 @@ impl PgStore {
             Ok(ready) => ready,
             Err(refusal) => return Ok(refusal),
         };
-        ready
-            .routed
-            .provider
-            .write(
-                &ready.call(),
-                &ready.awake,
-                &path,
-                input.content.clone().into_bytes(),
-            )
+        self.computer_put(&ready, &path, input.content.clone().into_bytes())
             .await?;
         self.computer_used(job).await?;
         self.computer_step(
