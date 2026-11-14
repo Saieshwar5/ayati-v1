@@ -22,7 +22,22 @@
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cuckoo opens your photos only when you choose one to share in a conversation.",
+          "cameraPermission": "Cuckoo uses the camera only when you take a photo to share in a conversation.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Cuckoo uses the microphone only while you record a voice note."
+        }
+      ]
     ],
     "scheme": "cuckoo"
   }

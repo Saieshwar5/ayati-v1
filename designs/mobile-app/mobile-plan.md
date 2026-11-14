@@ -158,7 +158,7 @@ person and workspace and cleared on sign out.
   - light and dark themes from the tokens;
   - real agent faces: the bundled robots and uploaded photos;
   - a two-pane layout on tablets for Chats and Agents.
-- **M3, approvals, questions, files and voice (approvals and questions built 2026-11-14):**
+- **M3, approvals, questions, files and voice (built 2026-11-14; device checks pending):**
   - exact approvals, with the web's rules for single submission and expiry;
   - questions and forms;
   - photo, file and voice-note upload through the existing upload and

@@ -11,6 +11,7 @@ import { useTokens } from '../theme/use-tokens';
 import { ConnectionBanner } from '../ui/connection-banner';
 import { AiTag, Button, ErrorText } from '../ui/controls';
 import { useMutation } from '../ui/requests';
+import { store as storeFile, type Picked } from './attachments';
 import { Composer } from './composer';
 import { MessageBubble } from './message-bubble';
 import { useConversation } from './use-conversation';
@@ -24,6 +25,7 @@ export function ConversationView({ id, onBack }: { id: string; onBack?: () => vo
   const newestFirst = useMemo(() => (loaded ? [...loaded.messages].reverse() : []), [loaded]);
   const agents = useMemo(() => new Set(loaded?.directory.agents.map(a => a.id)), [loaded?.directory]);
   const send = useCallback((submission: Parameters<typeof api.send>[1]) => api.send(id, submission), [api, id]);
+  const store = useCallback((picked: Picked) => storeFile(api, id, picked), [api, id]);
   const stop = useMutation();
   const [stopping, setStopping] = useState<string>();
   const run = stop.run;
@@ -127,6 +129,7 @@ export function ConversationView({ id, onBack }: { id: string; onBack?: () => vo
           agents={agent ? [agent] : []}
           send={send}
           sent={add}
+          store={store}
         />
       </KeyboardAvoidingView>
     </View>

@@ -5,6 +5,7 @@
  * (runtime/mobile-sign-in.md).
  */
 import type {
+  Attachment,
   AttentionPage,
   AttentionView,
   Device,
@@ -85,6 +86,32 @@ export function createClient(options: ClientOptions) {
       /** Create a conversation. `id` is chosen by the caller so a retry can't create two. */
       createChat: (input: { id: string; kind: 'direct'; name: string; users: string[]; agents: string[] }) =>
         request<{ id: string }>(`${base}/chats`, { ...input, description: '' }),
+      /**
+       * Store one file in the conversation (at most 10 MiB); the message that
+       * shares it is sent separately with its id. `body` is a Blob, such as
+       * expo-file-system's File.
+       */
+      upload: async (chat: string, name: string, mime: string, body: Blob, signal?: AbortSignal): Promise<Attachment> => {
+        const response = await options.fetch(
+          `${options.origin}/api/identity${base}/chats/${encodeURIComponent(chat)}/objects?name=${encodeURIComponent(name)}`,
+          {
+            method: 'POST',
+            headers: { ...headers(options.token(), false), 'Content-Type': mime || 'application/octet-stream' },
+            body,
+            credentials: 'omit',
+            signal,
+          },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 401) options.onUnauthorized?.();
+          throw new ApiError(typeof data?.error === 'string' ? data.error : `Upload failed (${response.status}).`, response.status);
+        }
+        return data as Attachment;
+      },
+      /** Where a stored file is read: a thumbnail for images, inline for images and audio. */
+      objectUrl: (id: string, mode?: 'thumbnail' | 'inline') =>
+        `${options.origin}/api/identity${base}/objects/${encodeURIComponent(id)}${mode ? `?${mode}=true` : ''}`,
       /** Stop a request an agent is working on; offered only when the message says `can_cancel`. */
       cancel: (chat: string, message: string) =>
         request<unknown>(`${base}/chats/${encodeURIComponent(chat)}/messages/${encodeURIComponent(message)}/cancel`, {}),

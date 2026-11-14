@@ -68,6 +68,8 @@ export type Attachment = {
   mime: string;
   size: number;
   transcript?: string | null;
+  /** Audio only (schema 95); `not_enabled` where the deployment doesn't transcribe. */
+  transcript_status?: 'pending' | 'ready' | 'failed' | 'not_enabled';
   duration_ms?: number | null;
 };
 

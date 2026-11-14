@@ -16,9 +16,12 @@ Status (2026-11-14, M2):
   - real agent faces (the bundled robots and uploaded pictures);
   - on tablets, Chats beside the open conversation and Agents beside the profile;
   - exact approvals and agent questions as sheets, from Needs me, Home and the
-    reply that asked (M3).
+    reply that asked (M3);
+  - photos (camera or library), files and voice notes, sent through the existing
+    upload (10 MiB, eight per message) and shown in messages: photo thumbnails,
+    voice notes with play and transcript, and files that download to the share
+    sheet (M3).
 - **Not yet:**
-  - photos, files and voice notes (M3);
   - push notifications (M4);
   - device testing.
 

@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { MessageBubble } from '../src/chats/message-bubble';
 
 jest.mock('../src/faces/face', () => ({ Face: () => null }));
+jest.mock('../src/chats/attachment-view', () => ({ AttachmentList: () => null }));
 
 const reply = (overrides: Partial<Message> = {}): Message => ({
   id: 'r1', author: 'nova', name: 'Nova', kind: 'agent', content: '', state: 'queued', at: 1, can_cancel: true,

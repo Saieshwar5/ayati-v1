@@ -10,6 +10,7 @@ import { radius, touchTarget, type as typography } from '../theme/tokens';
 import { useTokens } from '../theme/use-tokens';
 import { Face, type FaceIdentity } from '../faces/face';
 import { AiTag } from '../ui/controls';
+import { AttachmentList } from './attachment-view';
 import { ApprovalCard, QuestionCards } from './decision-cards';
 import { shortTime } from './time';
 
@@ -45,9 +46,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, agent,
       <View style={styles.mineRow}>
         <View style={[styles.bubble, { backgroundColor: t.selection }]}>
           {text ? <Text selectable style={[typography.body, { color: t.text }]}>{text}</Text> : null}
-          {files.map(file => (
-            <Text key={file.id} style={[typography.meta, { color: t.muted }]}>📎 {file.name}</Text>
-          ))}
+          <AttachmentList files={files} />
         </View>
         <Text style={[typography.small, { color: t.muted }]}>{shortTime(message.at)}</Text>
       </View>
@@ -64,9 +63,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, agent,
         </View>
         <View style={agent ? [styles.reply, { backgroundColor: t.soft }] : undefined}>
           {text ? <Text selectable style={[typography.body, { color: t.text }]}>{text}</Text> : null}
-          {files.map(file => (
-            <Text key={file.id} style={[typography.meta, { color: t.muted }]}>📎 {file.name}</Text>
-          ))}
+          <AttachmentList files={files} />
           {message.approval ? <ApprovalCard reference={message.approval} /> : null}
           {message.questions?.length ? <QuestionCards questions={message.questions} viewer={viewer} /> : null}
           {working || onStop ? (
