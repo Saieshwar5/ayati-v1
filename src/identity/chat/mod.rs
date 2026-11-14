@@ -1,5 +1,7 @@
 pub(crate) mod asked_together;
+mod bots;
 pub(super) mod execution;
+pub(crate) use bots::hook_path as bot_hook_path;
 pub(crate) mod link_preview;
 pub(crate) mod mentions;
 mod message_actions;
@@ -27,6 +29,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(organization::routes())
         .merge(message_actions::routes())
         .merge(link_preview::routes())
+        .merge(bots::routes())
         .merge(notifications::routes())
         .merge(presence::routes())
         .route(

@@ -336,7 +336,7 @@ impl PgStore {
 /// A channel is managed by its creator or a workspace admin with access to it
 /// (D231): they change its members, agents and settings. Returns whether the
 /// caller is an admin, who alone may change who can find it.
-async fn managed_channel(
+pub(super) async fn managed_channel(
     tx: &DatabaseTransaction,
     user: &User,
     w: &str,

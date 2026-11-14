@@ -377,7 +377,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     if request.method() != axum::http::Method::GET
         && !library_head
         && !(request.method() == axum::http::Method::POST
-            && events::routes::webhook_path(request.uri().path()))
+            && (events::routes::webhook_path(request.uri().path())
+                || chat::bot_hook_path(request.uri().path())))
         && !devices::app_request(request.method(), request.uri().path(), headers)
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
             != Some(app.config.origin.as_str())

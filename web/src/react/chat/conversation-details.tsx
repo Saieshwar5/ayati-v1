@@ -5,6 +5,7 @@ import { ChannelLeave } from './channel-leave';
 import { ArchiveReview } from './channel-lifecycle';
 import { ChannelPeople } from './channel-people';
 import { ChannelSettings } from './channel-settings';
+import { ChannelBots } from './channel-bots';
 import { LockIcon } from './conversation-face';
 import { conversationName, directPartner, type Conversation, type Directory } from './model';
 import { NotifyMenu } from './notify-controls';
@@ -89,6 +90,7 @@ function ConversationDetails({ chat, directory, chats, level, levelChanged, pins
     <ChannelPeople chat={chat} directory={directory} changed={changed} message={message} viewProfile={viewProfile} />
     {/* The creator and admins manage the channel; only admins change who can find it. */}
     {chat.can_archive && <ChannelSettings chat={chat} admin={directory.role === 'Admin'} changed={changed} />}
+    {chat.can_archive && <ChannelBots key={chat.id} chat={chat} />}
     <ChannelLeave chat={chat} changed={changed} left={left} />
   </>;
 }

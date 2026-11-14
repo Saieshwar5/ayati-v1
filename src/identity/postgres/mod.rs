@@ -57,6 +57,9 @@ mod channel_approval_migration;
 mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 pub(crate) mod chat;
+pub(crate) mod chat_bots;
+#[cfg(test)]
+mod chat_bots_tests;
 mod chat_intake;
 mod chat_migrations;
 mod chat_notification_migration;

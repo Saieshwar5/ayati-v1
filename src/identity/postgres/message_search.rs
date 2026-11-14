@@ -210,6 +210,7 @@ impl PgStore {
         }
         let oldest = messages.last().and_then(|m| m["sequence"].as_i64());
         super::reply_views::hydrate(&tx, user, w, &mut messages).await?;
+        super::chat_bots::name_bots(&tx, w, &mut messages, false).await?;
         tx.commit().await?;
         let results: Vec<Value> = messages
             .into_iter()

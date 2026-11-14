@@ -63,6 +63,11 @@ includes the composer and media/mention changes, not only the two libraries.
   code, typed buttons are text, folding, one read per message on screen, no read
   without a link or for an agent, only http(s) cards, no picture).
 
+## Bots
+
+Channels can have bots that post through a Slack-compatible webhook, tagged BOT and
+never able to ask agents or approve anything: see [bots in channels](chat-bots.md).
+
 ## Mentions
 
 Typing `@` searches eligible people and requestable agents. Arrow keys move through

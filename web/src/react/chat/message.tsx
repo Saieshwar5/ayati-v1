@@ -15,7 +15,7 @@ import { useResults, useResultSource, useResultReading } from '../results/provid
 import { InlineResponse } from '../results/inline-response';
 import { HandoffCard, CoordinationView } from './handoffs';
 import { MessageFiles } from '../results/files';
-import { AgentFace, AiTag, PersonFace } from '../faces';
+import { AgentFace, AiTag, BotTag, PersonFace } from '../faces';
 import { useShowProfile } from './profile-card';
 import { useState } from 'react';
 import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions } from './message-actions';
@@ -59,7 +59,7 @@ export function ChatMessage({ message, directory, replies, lastReply, inThread, 
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}${mentionsMe ? ' chat-message-for-me' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
-    <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}{mentionsMe && <span className="chat-message-mentions-you">mentions you</span>}</header>}
+    <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{message.kind === 'bot' && <BotTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}{mentionsMe && <span className="chat-message-mentions-you">mentions you</span>}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {inThread && <InThreadLine root={inThread.root} open={openThread} />}
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}

@@ -20,7 +20,7 @@ export function PersonText({ message, text }: { message: Message; text: string }
   return <>
     <div className={`message-markdown${long && !open ? ' message-folded' : ''}`} dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />
     {long && <button type="button" className="chat-thread-link message-fold" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Show more'}</button>}
-    {message.chat && message.state === 'sent' && hasLink(text) && <LinkCard message={message} />}
+    {message.chat && message.kind === 'user' && message.state === 'sent' && hasLink(text) && <LinkCard message={message} />}
   </>;
 }
 

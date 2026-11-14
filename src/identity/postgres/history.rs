@@ -70,6 +70,7 @@ impl PgStore {
         .collect::<std::result::Result<Vec<_>, _>>()?;
         super::reply_views::hydrate(tx, user, w, &mut messages).await?;
         super::transcripts::for_people(tx, w, &mut messages).await?;
+        super::chat_bots::name_bots(tx, w, &mut messages, false).await?;
         super::unread::mark_page(tx, user, w, chat, &mut messages).await?;
         Ok(
             json!({"messages":messages,"agents":agents,"next_before":if has_more {cursor}else{None}}),

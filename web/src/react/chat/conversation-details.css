@@ -140,3 +140,17 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
   .chat-side-panel { border-left: 1px solid CanvasText; }
   .chat-details-choice label:has(input:checked), .chat-details-action[aria-pressed=true], .chat-details-action[aria-expanded=true], .chat-details-toggle[aria-expanded=true] { outline: 2px solid Highlight; }
 }
+
+/* Bots (schema 119): the list, adding one, and its address shown once. */
+.chat-bots-list { display: grid; gap: 2px; margin: 10px 0; padding: 0; list-style: none; }
+.chat-bots-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.chat-bots-list li > span:first-child { display: grid; flex: 1; min-width: 0; font-size: 13.5px; }
+.chat-bots-list small { color: var(--muted); font-size: 12px; }
+.chat-bots-confirm { display: flex; gap: 6px; }
+.chat-bots-add { display: flex; gap: 8px; margin-top: 10px; }
+.chat-bots-add input, .chat-bots-url input { flex: 1; min-width: 0; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border-control); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.chat-bots-added { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft); font-size: 13px; line-height: 1.45; }
+.chat-bots-added > .ui-button { justify-self: start; }
+.chat-bots-url { display: flex; gap: 6px; }
+.chat-bots-url input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+@media (pointer: coarse) { .chat-bots-add input, .chat-bots-url input, .chat-bots .ui-button { min-height: 44px; } }

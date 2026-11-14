@@ -2,7 +2,7 @@
 //! 115): each root reports how many replies it has and when the last came,
 //! from the server rather than the loaded page, and a reply can also be sent
 //! to the conversation. Schema 116 adds the level that hides a conversation,
-//! and schema 118 the link preview cache.
+//! schema 118 the link preview cache and schema 119 bots.
 use sea_orm_migration::prelude::*;
 
 pub(in crate::identity::postgres) struct ChatThreads;
@@ -66,6 +66,28 @@ impl MigrationTrait for LinkPreviews {
     async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
         Err(DbErr::Custom(
             "Link previews require a forward migration".into(),
+        ))
+    }
+}
+
+/// Schema 119: bots that post through a channel's webhook.
+pub(in crate::identity::postgres) struct ChatBots;
+impl MigrationName for ChatBots {
+    fn name(&self) -> &str {
+        "m20261114_000119_chat_bots"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for ChatBots {
+    async fn up(&self, m: &SchemaManager) -> std::result::Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("chat_bots.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Chat bots require a forward migration".into(),
         ))
     }
 }
