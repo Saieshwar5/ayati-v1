@@ -102,6 +102,11 @@ mod data_lifecycle_migration;
 #[cfg(test)]
 mod data_lifecycle_tests;
 #[cfg(test)]
+mod device_http_tests;
+#[cfg(test)]
+mod device_session_tests;
+pub(crate) mod device_sessions;
+#[cfg(test)]
 mod dispatch_lock_tests;
 mod durable_wait_migration;
 mod executor_dispatch;

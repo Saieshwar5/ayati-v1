@@ -42,6 +42,10 @@ each live message batch. Provider sessions are revoked on logout. Provider acces
 persisted. Provider failures deny access; existing cookies are not automatically
 deleted on transient failure. The client can retry by reloading or sign in again.
 
+Phones sign in with **device sessions** instead: a one-time QR code made on the
+web, then `Authorization: Bearer` for 90 days, through the same identity and
+membership checks. See [device sessions](device-sessions.md).
+
 PostgreSQL holds users, sessions, workspaces, memberships, invitations and audit
 entries; `ayati identity` requires `RELAY_DATABASE_URL`.
 Workspace creation and owner membership are transactional and request-idempotent.

@@ -20,6 +20,7 @@ pub(crate) use identifier::identifier;
 pub(crate) mod archive;
 pub(crate) mod computers;
 pub(crate) mod data_cleanup;
+mod devices;
 mod hosting;
 mod interactions;
 mod invite_links;
@@ -173,7 +174,10 @@ async fn identity_for_read(app: &App, headers: &axum::http::HeaderMap) -> ApiRes
 }
 
 async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User> {
-    let token = cookie(headers, SESSION).ok_or_else(Error::unauthorized)?;
+    // A phone has no cookie; it sends its device token (`devices.rs`).
+    let Some(token) = cookie(headers, SESSION) else {
+        return devices::bearer_identity(app, headers).await;
+    };
     let (user, provider, sid) = app
         .store
         .session(&digest(&token))
@@ -279,6 +283,7 @@ fn router(app: Shared) -> Router {
         .merge(models::routes())
         .merge(collaboration::routes())
         .merge(communications::routes())
+        .merge(devices::routes())
         .merge(simulation::routes())
         .merge(operator::routes::routes())
         .route("/health/live", get(hosting::live))
@@ -373,6 +378,7 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
         && !library_head
         && !(request.method() == axum::http::Method::POST
             && events::routes::webhook_path(request.uri().path()))
+        && !devices::app_request(request.method(), request.uri().path(), headers)
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
             != Some(app.config.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))

@@ -157,6 +157,28 @@ impl Provider {
                 .is_some_and(|value| value.to_lowercase() == email))
     }
 
+    /// A device session (`devices.rs`) has no WorkOS session to check: the WorkOS
+    /// account must still exist with the verified email Cuckoo knows. A deleted
+    /// account signs the phone out instead of reading as an outage.
+    pub async fn account_valid(&self, user: &str, email: &str) -> Result<bool> {
+        let path = format!("/user_management/users/{user}");
+        let current = match self.request(Method::GET, &path, None).await {
+            Ok(current) => current,
+            Err(error)
+                if error
+                    .downcast_ref::<ProviderError>()
+                    .is_some_and(|error| error.status == 404) =>
+            {
+                return Ok(false);
+            }
+            Err(error) => return Err(error),
+        };
+        Ok(current["email_verified"] == true
+            && current["email"]
+                .as_str()
+                .is_some_and(|value| value.to_lowercase() == email))
+    }
+
     pub async fn session_active(&self, user: &str, session: &str) -> Result<bool> {
         let mut after = String::new();
         for _ in 0..20 {

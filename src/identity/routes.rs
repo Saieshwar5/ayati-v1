@@ -199,7 +199,8 @@ pub(super) async fn callback(
     response
 }
 pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Response {
-    if cookie(&headers, SESSION).is_none() {
+    // A phone asks with its device token (`devices.rs`) instead of a cookie.
+    if cookie(&headers, SESSION).is_none() && headers.get(header::AUTHORIZATION).is_none() {
         return Json(json!({"user":null})).into_response();
     }
     match identity(&app, &headers).await {
