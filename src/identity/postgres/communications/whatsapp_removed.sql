@@ -1,4 +1,4 @@
--- WhatsApp removed (schema 113). Agents keep Cuckoo Chat and email as their
+-- WhatsApp removed (schema 114). Agents keep Cuckoo Chat and email as their
 -- native channels; people reach agents on phones through Cuckoo's own app.
 -- Schema 111's tables go. Any live WhatsApp endpoint is switched off as a new
 -- generation, so its conversations close and replies not yet sent never go.

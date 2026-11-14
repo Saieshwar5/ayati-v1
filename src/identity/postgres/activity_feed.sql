@@ -1,6 +1,7 @@
 SELECT j.payload,j.sequence,j.state AS job_state,j.lease_until,j.started_ms,j.finished_ms,
  j.created_ms AS created_ms,m.id,m.chat,m.thread,m.state,m.content,m.progress,
  c.name AS conversation_name,c.kind AS conversation_kind,
+ (SELECT ci.transport FROM relay_communication_inbox ci WHERE ci.workspace=j.workspace AND ci.reply=j.reply AND ci.transport<>'chat') AS door,
  (SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=j.payload->>'requester') AS requester_name,
  (SELECT s.id FROM (/*SOURCE*/) s) AS source_message,(SELECT left(s.content,180) FROM (/*SOURCE*/) s) AS summary,
  (SELECT x.state FROM relay_worker_assignments x WHERE x.id=j.claim) AS attempt_state,

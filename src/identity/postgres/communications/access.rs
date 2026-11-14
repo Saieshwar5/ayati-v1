@@ -11,6 +11,19 @@ pub(in crate::identity::postgres) async fn exists(db: &impl ConnectionTrait) -> 
     .context("Missing schema check")?
     .try_get("", "present")?)
 }
+/// Whether door requests are recorded (schema 112).
+pub(in crate::identity::postgres) async fn door_requests(
+    db: &impl ConnectionTrait,
+) -> Result<bool> {
+    Ok(query(
+        db,
+        "SELECT to_regclass('relay_communication_door_requests') IS NOT NULL AS present",
+        vec![],
+    )
+    .await?
+    .context("Missing schema check")?
+    .try_get("", "present")?)
+}
 pub(super) async fn owner(tx: &DatabaseTransaction, user: &User, w: &str) -> Result<()> {
     ensure!(
         role(tx, w, &user.id).await? == "Admin",
@@ -25,14 +38,19 @@ pub(in crate::identity::postgres) async fn allowed(
     if !exists(db).await? {
         return Ok(true);
     }
-    Ok(query(
-        db,
-        "SELECT relay_communication_current($1,$2) AS allowed",
-        vec![job.workspace.clone().into(), job.chat.clone().into()],
-    )
-    .await?
-    .context("Missing communication scope")?
-    .try_get("", "allowed")?)
+    // The room's generation (a door's own room) and, from schema 112, the
+    // request's (a door request in the person's direct room) must both hold.
+    let mut values = vec![job.workspace.clone().into(), job.chat.clone().into()];
+    let sql = if door_requests(db).await? {
+        values.push(job.reply.clone().into());
+        "SELECT relay_communication_current($1,$2) AND relay_communication_request_current($1,$3) AS allowed"
+    } else {
+        "SELECT relay_communication_current($1,$2) AS allowed"
+    };
+    Ok(query(db, sql, values)
+        .await?
+        .context("Missing communication scope")?
+        .try_get("", "allowed")?)
 }
 pub(in crate::identity::postgres) async fn ordinary_chat(
     tx: &DatabaseTransaction,
@@ -51,5 +69,15 @@ pub(in crate::identity::postgres) async fn ordinary_chat(
             "Use the bound communication endpoint for this conversation"
         );
     }
+    Ok(())
+}
+
+/// Replies not yet sent whose room or request lost its door's generation.
+pub(in crate::identity::postgres) async fn cancel_stale(
+    tx: &DatabaseTransaction,
+    w: &str,
+) -> Result<()> {
+    execute(tx,"UPDATE relay_communication_outbox o SET state='cancelled' WHERE workspace=$1 AND state IN ('queued','failed')
+        AND (NOT relay_communication_current(workspace,job->>'chat') OR NOT relay_communication_request_current(workspace,id))",vec![w.into()]).await?;
     Ok(())
 }

@@ -135,6 +135,23 @@ Resources:
               - Effect: Allow
                 Action: [ssmmessages:CreateControlChannel, ssmmessages:CreateDataChannel, ssmmessages:OpenControlChannel, ssmmessages:OpenDataChannel]
                 Resource: '*'
+        # Agent email (mail.yaml): read SES's queue and stored mail, send as
+        # the mail domain through its configuration set. Harmless without it.
+        - PolicyName: AgentEmail
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:ChangeMessageVisibility]
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:ayati-mail'}
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: {Fn::Sub: 'arn:${AWS::Partition}:s3:::ayati-mail-${AWS::AccountId}/in/*'}
+              - Effect: Allow
+                Action: [ses:SendEmail, ses:SendRawEmail]
+                Resource:
+                  - {Fn::Sub: 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/*'}
+                  - {Fn::Sub: 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/ayati-mail'}
   # Executors need no AWS permission: STS GetCallerIdentity is always allowed,
   # and the controller, not the executor, calls ECS. ECS Exec is for debugging.
   ExecutorTask:

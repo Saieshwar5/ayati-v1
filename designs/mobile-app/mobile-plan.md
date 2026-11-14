@@ -190,7 +190,7 @@ person and workspace and cleared on sign out.
 These are for `decisions.md`.
 
 - **D251:** agents' native channels are Cuckoo Chat and email; WhatsApp and Telegram
-  are removed (schema 113). The local email and WhatsApp simulations stay as gateway
+  are removed (schema 114). The local email and WhatsApp simulations stay as gateway
   test fixtures.
 - **D252:**
   - Cuckoo gets a native React Native (Expo) app for members' daily work: Home,

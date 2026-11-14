@@ -1,4 +1,4 @@
-//! Schema 113 on a database that used WhatsApp: the agent's live endpoint is
+//! Schema 114 on a database that used WhatsApp: the agent's live endpoint is
 //! switched off as a new generation and the WhatsApp tables are gone.
 use super::super::*;
 use sea_orm_migration::MigratorTrait;
@@ -18,7 +18,7 @@ async fn removing_whatsapp_switches_off_live_numbers_and_drops_their_tables() {
     url.query_pairs_mut()
         .append_pair("options", &format!("-c search_path={schema}"));
     let db = PgStore::connect(url.as_str()).await.unwrap();
-    super::super::migration::Migrator::up(&db.db, Some(111))
+    super::super::migration::Migrator::up(&db.db, Some(113))
         .await
         .unwrap();
     db.db.execute_unprepared("INSERT INTO relay_workspaces(id,name) VALUES('w1','Mehta');

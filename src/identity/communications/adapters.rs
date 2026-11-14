@@ -37,6 +37,22 @@ pub(crate) struct Outgoing {
     pub thread: Option<String>,
     /// Markdown. The platform's bridge converts or strips formatting.
     pub text: String,
+    /// Email only: the thread and subject to answer under. Never sent to a
+    /// developer's transport server.
+    #[serde(skip)]
+    pub mail: Option<MailReply>,
+}
+
+/// What an email reply needs beyond its text, saved when the mail arrived.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct MailReply {
+    /// The agent's name, shown as the sender.
+    pub from_name: String,
+    pub subject: String,
+    /// The person's mail being answered, without brackets.
+    pub in_reply_to: Option<String>,
+    /// The thread so far, oldest first, ending with `in_reply_to`.
+    pub references: Vec<String>,
 }
 
 pub(crate) enum Event {
@@ -91,20 +107,26 @@ pub(crate) trait TransportAdapter: Send + Sync {
 /// Process-wide transport settings, read once at controller start.
 pub(crate) struct Settings {
     pub transport_servers_file: Option<std::path::PathBuf>,
+    pub email_file: Option<std::path::PathBuf>,
 }
 static ADAPTERS: OnceLock<Vec<Arc<dyn TransportAdapter>>> = OnceLock::new();
 
 /// Registers the live transports this controller offers.
 pub(crate) fn configure(settings: Settings) {
-    let adapters: Vec<Arc<dyn TransportAdapter>> = vec![Arc::new(
-        super::mcp_transport::McpTransport::new(settings.transport_servers_file),
-    )];
+    super::email::settings::configure(settings.email_file);
+    let adapters: Vec<Arc<dyn TransportAdapter>> = vec![
+        Arc::new(super::mcp_transport::McpTransport::new(
+            settings.transport_servers_file,
+        )),
+        Arc::new(super::email::ses::EmailTransport::new()),
+    ];
     let _ = ADAPTERS.set(adapters);
 }
 
 pub(crate) fn settings(config: &crate::config::Controller) -> Settings {
     Settings {
         transport_servers_file: config.transport_servers_file.clone(),
+        email_file: config.email_file.clone(),
     }
 }
 

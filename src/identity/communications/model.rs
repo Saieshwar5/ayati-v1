@@ -26,6 +26,16 @@ impl Transport {
     }
 }
 
+/// Doors whose sender Cuckoo proves itself: WhatsApp (a code sent from the
+/// number) and email (DMARC and the person's sign-in address). Their messages
+/// go to the person's direct room with the agent, so the agent remembers the
+/// person on every door (E3). A developer's bridge (`mcp`) relies on an
+/// admin's binding and the local simulations on fixtures: they keep their own
+/// rooms.
+pub(crate) fn shares_direct_room(transport: &str, simulated: bool) -> bool {
+    !simulated && transport == "email"
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Message {

@@ -54,35 +54,15 @@ pub(crate) async fn credentials() -> Result<Credentials> {
         .context("Could not load this executor's AWS task credentials")
 }
 
-/// SigV4-sign a POST with the official signer; returns the headers to send.
+/// SigV4-sign a POST in this region; returns the headers to send.
 fn sign(
     credentials: &Credentials,
     service: &str,
     url: &str,
-    mut headers: BTreeMap<String, String>,
+    headers: BTreeMap<String, String>,
     body: &[u8],
 ) -> Result<BTreeMap<String, String>> {
-    use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
-    let identity: aws_smithy_runtime_api::client::identity::Identity = credentials.clone().into();
-    let params = aws_sigv4::sign::v4::SigningParams::builder()
-        .identity(&identity)
-        .region(REGION)
-        .name(service)
-        .time(std::time::SystemTime::now())
-        .settings(SigningSettings::default())
-        .build()?
-        .into();
-    let request = SignableRequest::new(
-        "POST",
-        url,
-        headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
-        SignableBody::Bytes(body),
-    )?;
-    let (instructions, _) = sign(request, &params)?.into_parts();
-    for (name, value) in instructions.headers() {
-        headers.insert(name.to_ascii_lowercase(), value.to_owned());
-    }
-    Ok(headers)
+    crate::identity::aws_signing::sign(credentials, REGION, service, "POST", url, headers, body)
 }
 
 /// Sign, but do not send, a GetCallerIdentity request bound to `registration`.

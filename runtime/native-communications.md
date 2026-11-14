@@ -3,7 +3,7 @@
 > Schema 54 adds the [communication gateway](communication-gateway.md): live
 > transports behind one adapter contract, starting with developer transports
 > through the Communication MCP. Schema 111 added live WhatsApp on numbers Cuckoo
-> provided; schema 113 removed it (2026-11-14): agents' native channels are Cuckoo
+> provided; schema 114 removed it (2026-11-14): agents' native channels are Cuckoo
 > Chat and email, and phones use Cuckoo's own app. The local simulations below,
 > including the simulated WhatsApp transport, are unchanged test fixtures.
 

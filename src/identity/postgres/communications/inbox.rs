@@ -1,7 +1,7 @@
 use super::*;
 use crate::identity::{
     chat::model::{Job, NewMessage},
-    communications::model::Message,
+    communications::model::{Message, shares_direct_room},
 };
 use serde_json::json;
 
@@ -43,6 +43,19 @@ impl PgStore {
         endpoint: &Value,
         input: &Message,
     ) -> Result<Value> {
+        self.receive_in_thread(tx, w, endpoint, input, None).await
+    }
+
+    /// [`Self::receive`], placing an admitted message in `thread` of the room:
+    /// a mail thread is a thread in the person's direct room.
+    pub(super) async fn receive_in_thread(
+        &self,
+        tx: &DatabaseTransaction,
+        w: &str,
+        endpoint: &Value,
+        input: &Message,
+        thread: Option<String>,
+    ) -> Result<Value> {
         ensure!(
             endpoint["address"] == input.recipient,
             "Recipient does not match this endpoint"
@@ -82,17 +95,28 @@ impl PgStore {
             .await?
             .is_some();
             if member && super::chat::agent_access(tx, &user.id, w, agent).await? {
-                let c = conversation(tx, w, endpoint, &binding, &input.room()).await?;
+                let shared = shares_direct_room(
+                    endpoint["transport"].as_str().unwrap_or_default(),
+                    endpoint["simulated"] == true,
+                );
+                let c = if shared {
+                    super::super::shared_rooms::direct_room(tx, w, &user.id, agent).await?
+                } else {
+                    conversation(tx, w, endpoint, &binding, &input.room()).await?
+                };
                 let request = NewMessage {
                     reply_to: None,
                     id: uuid::Uuid::new_v4().to_string(),
                     content: input.text.clone(),
                     agent: Some(agent.into()),
                     agents: vec![],
-                    thread: None,
+                    thread,
                     attachments: vec![],
                 };
                 job = self.communication_in(tx, &user, w, &c, &request).await?;
+                if let Some(job) = &job {
+                    door_request(tx, w, endpoint, &binding, &job.reply).await?;
+                }
                 chat = Some(c);
                 message = Some(request.id);
                 status = "admitted";
@@ -104,9 +128,24 @@ impl PgStore {
         } else {
             json!({"event":input.event})
         };
-        execute(tx,"INSERT INTO relay_communication_inbox(workspace,endpoint,event,transport,fingerprint,envelope,status,message,reply,chat) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![w.into(),id.into(),input.event.clone().into(),endpoint["transport"].as_str().unwrap().into(),fingerprint.into(),envelope.into(),status.into(),message.into(),job.as_ref().map(|j|j.reply.clone()).into(),chat.into()]).await?;
-        Ok(json!({"accepted":true,"duplicate":false,"status":status}))
+        execute(tx,"INSERT INTO relay_communication_inbox(workspace,endpoint,event,transport,fingerprint,envelope,status,message,reply,chat) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![w.into(),id.into(),input.event.clone().into(),endpoint["transport"].as_str().unwrap().into(),fingerprint.into(),envelope.into(),status.into(),message.clone().into(),job.as_ref().map(|j|j.reply.clone()).into(),chat.into()]).await?;
+        Ok(json!({"accepted":true,"duplicate":false,"status":status,"message":message}))
     }
+}
+
+/// The endpoint and binding generations a door request came under. The
+/// request stops when either changes, wherever its room is.
+async fn door_request(
+    tx: &DatabaseTransaction,
+    w: &str,
+    e: &Value,
+    b: &Value,
+    reply: &str,
+) -> Result<()> {
+    execute(tx,"INSERT INTO relay_communication_door_requests(workspace,reply,endpoint,sender,endpoint_revision,binding_revision) VALUES($1,$2,$3,$4,$5,$6)",
+        vec![w.into(),reply.into(),e["id"].as_str().unwrap().into(),b["sender"].as_str().unwrap().into(),
+            e["revision"].as_i64().unwrap().into(),b["revision"].as_i64().unwrap().into()]).await?;
+    Ok(())
 }
 
 async fn conversation(

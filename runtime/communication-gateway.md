@@ -22,8 +22,11 @@ enabled endpoint for events after its saved cursor. For each message:
 3. **Who may write:** the sender's platform address must be bound to a
    workspace member who can talk to the agent. Anyone else is held without
    agent work, and their message body is not kept.
-4. **Room:** one private conversation per endpoint, sender and platform
-   conversation (and thread). Two people never share a room or a context.
+4. **Room:** a door with proven identity (email) uses the person's
+   direct conversation with the agent; any other transport gets one private
+   conversation per endpoint, sender and platform conversation (and thread).
+   Two people never share a room or a context. See
+   [doors and rooms](#doors-and-rooms-schema-112).
 5. The message, the request and the receipt are saved together. The cursor
    moves only after the batch is saved, so a crash rereads it and duplicates
    are dropped.
@@ -46,6 +49,35 @@ stops reading it and cancels replies not yet sent.
 
 Agents keep the external manners of schema 52: one complete reply, no
 "working on it" updates and no front desk.
+
+## Doors and rooms (schema 112)
+
+Built 2026-11-14 as step E3 of the plan for how work reaches agents (`proj-docs/how-work-reaches-agents-plan.md`).
+
+- **Proven doors share one room.** `communications::model::shares_direct_room`
+  is the fixed table: live email (DMARC and the person's sign-in address)
+  delivers into the person's direct conversation with the agent. The agent then remembers the
+  person whichever door they use. (WhatsApp was a proven door until schema
+  114 removed it.) A developer's Communication MCP bridge
+  relies on an admin's binding and the local simulations on fixtures, so they
+  keep a room of their own.
+- **The reply leaves by the request's door.** An email question is answered by
+  email, and a Chat question in the same room only in Chat. Chat shows every
+  message, and messages that came by a door say so ("via email"; `door` on
+  each message). Activity adds the door to where a request came from.
+- **The request carries the door's generation, not the room.**
+  `relay_communication_door_requests` records the endpoint and binding
+  revisions each door request came under. `relay_communication_request_current`
+  is false once either changes or the person may no longer talk to the agent:
+  its work loses access and its unsent reply is cancelled. The room stays, and
+  Chat keeps working in it.
+- **Door manners follow the request.** A request that came by a door gets one
+  complete reply and no "working on it" updates, even in the direct room;
+  a Chat request there keeps Chat's rhythm.
+- **Approvals and answers only inside Cuckoo.** Every approval, decision and
+  question route requires a signed-in session. A door message is always a new
+  request: an email saying the answer to a waiting question leaves the
+  question waiting (`door_room_tests`).
 
 ## The adapter contract
 
@@ -171,10 +203,11 @@ tab needs an approved design.
 - **Contacts and verification** (G3): pairing, one-time codes, assurance levels.
 - **Knowledge audiences and actions tied to the asker** (G4). No public
   endpoint should open before G3 and G4.
-- **Native email.** Agents' native channels are Cuckoo Chat and email; people
-  reach agents on phones through Cuckoo's own mobile app. Third-party
-  messengers (WhatsApp, Telegram) were removed on 2026-11-14 (schema 113).
-- **Webhook ingress** for other transports.
+- **Native email.** Agents' native channels are Cuckoo Chat and email on a
+  Cuckoo mail domain through Amazon SES ([the email channel](email-channel.md));
+  people reach agents on phones through Cuckoo's own mobile app. Third-party
+  messengers (WhatsApp, Telegram) were removed on 2026-11-14 (schema 114).
+- **Webhook ingress** for other transports. Email reads SES's queue.
 - **For developers:** a doorbell notification, attachments, a TypeScript
   template and `ayati transport check`.
 - **Group conversations.**

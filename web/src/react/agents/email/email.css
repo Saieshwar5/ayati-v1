@@ -1,0 +1,7 @@
+/* An agent's email address on Overview, and Email in the create flow. */
+.agent-email-fact .agent-email-address { font-weight: 600; overflow-wrap: anywhere; }
+.agent-email-fact .agent-email-actions { grid-column: 2; grid-row: 1; align-self: start; display: flex; flex-wrap: wrap; gap: 2px; justify-content: end; }
+.agent-email-fact .agent-email-actions .agent-fact-change { grid-column: auto; grid-row: auto; }
+.agent-fact.agent-email-fact dd { grid-column: 1 / -1; overflow-wrap: normal; }
+.agent-email-fact .ui-status { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.agent-email-choice { display: flex; align-items: start; justify-content: space-between; gap: 16px; }

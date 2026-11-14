@@ -81,6 +81,8 @@ pub struct Controller {
     pub event_sources_file: Option<PathBuf>,
     /// Developer transport servers (Communication MCP), a private 0600 file.
     pub transport_servers_file: Option<PathBuf>,
+    /// Agent email through Amazon SES (E4), a private 0600 file.
+    pub email_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
@@ -235,6 +237,7 @@ impl Controller {
             computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
             connectors: super::Connectors::read(env),
             transport_servers_file: absolute(env, "AYATI_TRANSPORT_SERVERS_FILE"),
+            email_file: absolute(env, "AYATI_EMAIL_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),

@@ -119,6 +119,8 @@ impl MigratorTrait for Migrator {
             Box::new(super::event_subscriptions::ProviderEvents),
             Box::new(super::connector_calls::ConnectorOperations),
             Box::new(super::communications::migration::WhatsappNumbers),
+            Box::new(super::communications::migration::DoorRooms),
+            Box::new(super::communications::migration::AgentEmail),
             Box::new(super::communications::migration::WhatsappRemoved),
         ]
     }

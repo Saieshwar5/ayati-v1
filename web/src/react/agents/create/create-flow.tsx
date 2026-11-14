@@ -19,6 +19,8 @@ import { SkillIcon } from '../skills/skill-icons';
 import { BuiltInTools, searchesWeb, WebSearchChoice } from '../web-search';
 import { ComputerChoice } from '../computer/computer-choice';
 import { computerOf, type ComputerOffer } from '../computer/model';
+import { EmailChoice } from '../email/email-choice';
+import { activateEmail } from '../email/model';
 import './create.css';
 
 const steps = ['Name and picture', 'Tools', 'Skills', 'People', 'Controls'];
@@ -47,8 +49,8 @@ export function newAgent(directory: Directory): Agent {
  * tools. Web search and a computer are offered when this Cuckoo has them
  * (designs/web-search, designs/agent-computers 7 and 8). The last step also shows
  * the model, the workspace default unless changed there. */
-export function AgentCreate({ start, directory, close, created, webSearch = false, computers }: {
-  start: Agent; directory: Directory; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null;
+export function AgentCreate({ start, directory, close, created, webSearch = false, computers, emailDomain }: {
+  start: Agent; directory: Directory; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null; emailDomain?: string;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const [draft, setDraft] = useState(start);
@@ -60,6 +62,7 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
   const members = useResource(loadMembers);
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
+  const [email, setEmail] = useState(false);
   const [suggested, setSuggested] = useState<Suggested>();
   const [skills, setSkills] = useState<LibraryPick[]>([]);
   const [drafts, setDrafts] = useState<DraftSkill[]>([]);
@@ -91,6 +94,8 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
       await assignSkill(draft.id, saved.id, true);
     }
     for (const skill of skills) await assignSkill(draft.id, skill.id, true);
+    // Gives the saved agent its address; repeating it after a failure keeps the same one.
+    if (email && emailDomain) await activateEmail(draft.id);
     await created(draft.id);
   });
   return <section className="agent-create" aria-labelledby="agent-create-title">
@@ -108,11 +113,13 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
         refresh={() => void available.refresh().catch(() => {})}
-        builtIn={(webSearch || computers) && <BuiltInTools>
+        builtIn={(webSearch || computers || emailDomain) && <BuiltInTools>
           {webSearch && <WebSearchChoice name={draft.name.trim() || 'This agent'} on={searchesWeb(draft.settings)}
             change={on => setDraft(old => ({ ...old, settings: { ...old.settings, web_search: on } }))} />}
           {computers && <ComputerChoice name={draft.name.trim() || 'This agent'} offer={computers} value={draft.settings.computer}
             change={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))} />}
+          {emailDomain && <EmailChoice name={draft.name.trim() || 'This agent'} workspace={currentWorkspace()?.name ?? 'team'}
+            domain={emailDomain} on={email} change={setEmail} />}
         </BuiltInTools>} />}
       {step === 2 && <SkillsStep name={draft.name} title={draft.role} text={draft.settings.instructions}
         apps={chosen.length > 0} connections={chosen} writing={writing} drafts={drafts} setDrafts={setDrafts} library={skills} reuse={addSkills}
