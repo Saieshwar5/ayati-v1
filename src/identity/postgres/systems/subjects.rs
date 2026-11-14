@@ -157,18 +157,25 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         super::connect::may_change(&tx, user, w, agent).await?;
         super::connect::saved(&tx, w, agent, system).await?;
+        // Saved context is immutable except when forgetting (schema 120).
+        let forgetting = super::super::context_compaction::forgetting_ready(&tx).await?;
+        if forgetting {
+            execute(
+                &tx,
+                "SELECT set_config('relay.forget_context','on',true)",
+                vec![],
+            )
+            .await?;
+        }
         let rooms = rows(&tx, "DELETE FROM relay_subject_rooms WHERE workspace=$1 AND connection=$2 AND subject=$3 RETURNING room",
             vec![w.into(), system.into(), subject.into()]).await?;
         for row in &rooms {
             let room: String = row.try_get("", "room")?;
             execute(&tx, "UPDATE relay_chat_messages SET content='Forgotten at the request of the system it came from.',attachments='[]'::jsonb WHERE workspace=$1 AND chat=$2",
                 vec![w.into(), room.clone().into()]).await?;
-            execute(
-                &tx,
-                "DELETE FROM relay_working_context WHERE workspace=$1 AND chat=$2",
-                vec![w.into(), room.into()],
-            )
-            .await?;
+            if forgetting {
+                super::super::context_compaction::forget_room(&tx, w, &room).await?;
+            }
         }
         audit(
             &tx,

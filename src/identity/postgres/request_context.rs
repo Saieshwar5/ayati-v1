@@ -19,7 +19,7 @@ impl PgStore {
         let identity = identity_in(&tx, job).await?;
         let request = if let Some(id) = identity["request_message"].as_str() {
             let row = query(&tx,
-                "SELECT a.revision,a.settings,m.sequence,r.thread,j.payload->>'prompt' AS stored_prompt,
+                "SELECT a.revision,a.settings,a.model,m.sequence,r.thread,j.payload->>'prompt' AS stored_prompt,
                     EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=m.workspace AND s.reply=m.id) AS library_source
                  FROM relay_shared_agents a
                  JOIN relay_chat_messages m ON m.workspace=a.workspace AND m.id=$3
@@ -32,6 +32,11 @@ impl PgStore {
             let settings: Value = row.try_get("", "settings")?;
             let in_thread: Option<String> = row.try_get("", "thread")?;
             let before: i64 = row.try_get("", "sequence")?;
+            // The history this prompt carries follows the agent's model window.
+            let budget = super::history_budget::bytes(
+                self.model_window(&row.try_get::<String>("", "model")?),
+            );
+            let most = super::history_budget::messages(budget);
             let scope = |thread, main_only, limit| super::conversation_context::RecentScope {
                 workspace: &job.workspace,
                 chat: &job.chat,
@@ -48,18 +53,23 @@ impl PgStore {
                 // of the main timeline; other threads stay out.
                 (true, Some(thread)) => {
                     let mut main =
-                        super::conversation_context::recent(&tx, scope(None, true, 10)).await?;
-                    let replies =
-                        super::conversation_context::recent(&tx, scope(Some(thread), false, 50))
-                            .await?;
+                        super::conversation_context::gather(&tx, scope(None, true, 10)).await?;
+                    let replies = super::conversation_context::gather(
+                        &tx,
+                        scope(Some(thread), false, most - 10),
+                    )
+                    .await?;
                     main.retain(|m| replies.iter().all(|r| r["id"] != m["id"]));
                     main.extend(replies);
                     main.sort_by_key(|m| m["sequence"].as_i64());
-                    super::conversation_context::bound(&mut main)?;
+                    super::conversation_context::bound_to(&mut main, budget)?;
                     main
                 }
                 (true, None) => {
-                    super::conversation_context::recent(&tx, scope(None, false, 60)).await?
+                    let mut messages =
+                        super::conversation_context::gather(&tx, scope(None, false, most)).await?;
+                    super::conversation_context::bound_to(&mut messages, budget)?;
+                    messages
                 }
                 (false, _) => {
                     let thread = in_thread.clone().or_else(|| {

@@ -173,6 +173,9 @@ mod computer_tests;
 mod computer_tools;
 mod computers;
 mod context_attempts;
+pub(crate) mod context_compaction;
+#[cfg(test)]
+mod context_compaction_tests;
 mod context_migration;
 mod context_preview;
 #[cfg(test)]
@@ -220,6 +223,7 @@ mod handoff_source_tests;
 mod handoff_tests;
 mod handoff_views;
 mod history;
+pub(crate) mod history_budget;
 mod home_frame_migration;
 #[cfg(test)]
 mod home_general_tests;

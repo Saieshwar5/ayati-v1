@@ -28,8 +28,10 @@ decisions, unresolved questions and corrections/conflicts. Every entry needs
 message or approved-note IDs present in that attempt or its recorded history reads.
 The summary is untrusted model interpretation, not a verified factual extraction,
 approval, tool grant, exact operation receipt or substitute for business records.
-An agent is instructed to save a summary when useful for long work. There is no
-additional automatic summarization model call and no semantic-search engine.
+An agent is instructed to save a summary when useful for long work. Since schema
+120, Cuckoo also keeps it up to date itself; see
+[automatic summaries](#automatic-summaries-schema-120). There is no semantic-search
+engine for history.
 
 Versions are scoped by workspace + agent + conversation + requesting human.
 Since schema 55, a [shared room](shared-rooms.md) (a conversation two or more
@@ -45,6 +47,70 @@ Tasks with external initial sources, business actions, questions or handoffs can
 save generic conversation summaries. They retain the source-aware continuation and
 receipt paths. This conservative boundary avoids promoting restricted tool output
 into general reusable context. There is no automatic cross-channel identity merge.
+
+## Automatic summaries (schema 120)
+
+Agents don't keep one long session: each request builds a fresh prompt, and the
+conversation's most recent messages fill a window sized from the agent's model
+(a fifth of its catalog context window, 14,000 to 64,000 bytes; see
+[conversation context](conversation-context.md)). Older messages leave that
+window, so the summary carries them. When
+`AYATI_CONTEXT_SUMMARY_MODEL=provider:model` is set (keys from
+`AYATI_MODEL_PROVIDERS_FILE`), the controller keeps each room's working summary
+up to date in the background:
+
+- **When:** after an agent's reply finishes, its room is checked. A new summary is
+  written once the messages since the last one are about to leave the window:
+  more than six sevenths of its bytes or two thirds of the messages it reads
+  (and at least 6). For a model outside the catalog that is 12,000 bytes or 40
+  messages; a 128,000-token model waits until about 55,000 bytes. Nobody waits for it; a room that fails is tried
+  again when its next reply finishes. A paused workspace or an agent past its
+  model budget gets none.
+- **What it reads:** exactly the history the agent itself would get in that room,
+  through the same scoped query and exclusions (connected-event data, Library
+  sources, hand-off trees, replies made under since-changed access, "since
+  joined"), new messages of at most 2,000 characters each, oldest first, up to
+  128,000 bytes per summary (a room that fell behind catches up one summary per
+  finished reply),
+  plus the room's current summary when that is still current. Never another
+  room: a private conversation has its person's summary, a shared conversation
+  its one brief, and work rooms and subject rooms their own.
+- **What it writes:** the same bounded shape as `save_working_context`. Every
+  entry must cite messages it read or that the carried-forward summary cited;
+  citations to anything else are removed and entries left with none are dropped.
+  The model is told the messages are data, never instructions.
+- **Saving:** as the room's next revision with `made_by='automatic'`, the model
+  and the IDs it covered. It is dropped if the room's access or sources changed
+  while it was written, or if a newer summary was saved meanwhile (the agent's
+  own or another controller's). Recent messages still reach the agent word for
+  word; older ones stay searchable with the history tools.
+- **Seen by:** the agent, labelled as untrusted interpretation like every summary,
+  and the agent's owner in Agents › Knowledge, marked "Kept up to date
+  automatically".
+- **Cost:** one model call per compression, recorded in model usage as
+  assignment `context` against the agent and the reply. Like the Library's and
+  the skill writer's calls it has no catalog charge.
+- **Without the setting** nothing runs and agents keep saving their own summaries.
+
+**Inside one run** the agent's own tool calls and results can fill the model's
+window, which is a different problem: Goose 1.54 (pinned) summarizes the run's
+older turns when it reaches 80% of the window (`GOOSE_AUTO_COMPACT_THRESHOLD`,
+set explicitly). Catalog models reach Goose under names it can't look up, so it
+would assume 128,000 tokens; the prepared context now carries the catalog's
+window (`context_limit`) and the executor passes it as `GOOSE_CONTEXT_LIMIT`.
+The pre-started tool-free chat path makes one model call with no tool output and
+keeps Goose's own default. Controller and executors must run the same version:
+an older executor refuses a prepared context with the new field.
+
+Forgetting a connected system's subject now also removes its rooms' summaries,
+history reads and saved prompts. Saved context is otherwise immutable; the
+database allows these deletes only in a transaction that sets
+`relay.forget_context`.
+
+Checks: `context_compaction_tests` (a long private conversation summarized from
+its own room only, with uncited entries dropped and usage recorded; short ones
+left alone; a summary dropped when access changes or a newer one exists; one
+brief for a shared conversation) and the subject-forgetting test.
 
 ## Corrections, revocation and retention
 

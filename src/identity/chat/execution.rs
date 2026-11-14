@@ -49,6 +49,10 @@ pub(crate) struct Prepared {
     pub run_seconds: u64,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub control_tools: bool,
+    /// The model's context window in tokens, from the catalog. Goose compacts a
+    /// long run against it; without it Goose guesses from the model's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_limit: Option<u32>,
 }
 
 #[cfg(test)]
@@ -228,6 +232,7 @@ pub(crate) async fn prepare_traced(
     }
     ensure!(db.chat_job_allowed(job).await, "Request access changed");
     trace.mark("authorize_after");
+    let window = db.model_window(&profile.model);
     let context = Prepared {
         version: 1,
         workspace: job.workspace.clone(),
@@ -241,6 +246,7 @@ pub(crate) async fn prepare_traced(
         sources,
         run_seconds: seconds,
         control_tools,
+        context_limit: Some(window).filter(|tokens| *tokens > 0),
     };
     ensure!(
         serde_json::to_vec(&context)?.len() <= 262144,
@@ -266,6 +272,7 @@ pub(crate) fn runtime_config(
     );
     let mut config = GooseConfig::new(root, &context.model, goose);
     config.run_timeout = std::time::Duration::from_secs(context.run_seconds);
+    config.context_limit = context.context_limit;
     config.agent_id = context.agent.clone();
     config.role = context.instructions.clone();
     if let Some(provider) = &context.provider {

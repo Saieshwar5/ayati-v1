@@ -4,7 +4,7 @@ import { useSavedContext } from './use-saved-context';
 import type { ContextPreview } from './use-context-preview';
 
 type Entry = { text: string; sources: string[] };
-export type WorkingContext = { revision: number; available: boolean; brief?: {
+export type WorkingContext = { revision: number; available: boolean; made_by?: 'agent' | 'automatic'; brief?: {
   objective: Entry; decisions: Entry[]; questions: Entry[]; corrections: Entry[];
 } };
 export type ContextAttempt = {
@@ -20,7 +20,9 @@ export function WorkingSummary({ working, label = 'Working summary' }: { working
   if (!working?.revision) return <p className="ui-help">No working summary yet. The agent can use recent messages and retrieve older eligible history.</p>;
   return <section aria-label="Working summary"><h3>{label} · Revision {working.revision}</h3>
     {!working.available || !working.brief ? <p>Outdated or unavailable. New work uses fresh evidence.</p> : <>
-      <p className="ui-help">Agent interpretation for your work with this agent in this conversation. Original evidence and controller action records take precedence.</p>
+      <p className="ui-help">{working.made_by === 'automatic'
+        ? 'Kept up to date automatically when this conversation grew long, from its own messages only.'
+        : 'Saved by the agent.'} An interpretation of the work in this conversation: original messages and action records take precedence.</p>
       <h4>Objective</h4><ul><SummaryEntry entry={working.brief.objective} /></ul>
       {([['Reported decisions', working.brief.decisions], ['Open questions', working.brief.questions],
         ['Corrections and conflicts', working.brief.corrections]] as const).map(([label, entries]) =>

@@ -120,8 +120,15 @@ async fn each_subject_has_its_own_room_and_subjects_run_side_by_side() {
         "subjects never see each other"
     );
 
-    // Forgetting a subject clears its room; its next event starts fresh.
+    // Forgetting a subject clears its room, including the agent's saved input
+    // and a working summary there; its next event starts fresh.
     s.finish(&again).await;
+    execute(&s.db.db, "INSERT INTO relay_context_attempts(workspace,task,claim,agent,chat,requester,generation,prepared,evidence)
+        VALUES($1,$2,'c1',$3,$4,$5,'[]','{\"request\":\"PLAN FOR stu-104\"}','{}')",
+        vec![s.w.clone().into(), again.reply.clone().into(), s.agent.clone().into(), again.chat.clone().into(), again.requester.clone().into()]).await.unwrap();
+    execute(&s.db.db, "INSERT INTO relay_working_context(workspace,agent,chat,requester,revision,task,claim,generation,cutoff,brief)
+        VALUES($1,$2,$3,$4,1,$5,'c1','[]',1,'{\"objective\":\"stu-104 plan\"}')",
+        vec![s.w.clone().into(), s.agent.clone().into(), again.chat.clone().into(), again.requester.clone().into(), again.reply.clone().into()]).await.unwrap();
     let forgotten =
         s.db.forget_subject(&s.owner, &s.w, &s.agent, &s.system, "stu-104")
             .await
@@ -135,6 +142,17 @@ async fn each_subject_has_its_own_room_and_subjects_run_side_by_side() {
     .await
     .unwrap();
     assert!(!json!(cleared).to_string().contains("PLAN FOR"));
+    for table in ["relay_context_attempts", "relay_working_context"] {
+        let left = query(
+            &s.db.db,
+            &format!("SELECT count(*) AS n FROM {table} WHERE workspace=$1 AND chat=$2"),
+            vec![s.w.clone().into(), ravi.chat.clone().into()],
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(left.try_get::<i64>("", "n").unwrap(), 0, "{table}");
+    }
     s.send("ravi-3", "stu-104").await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     assert_ne!(s.job("ravi-3").await.unwrap().chat, ravi.chat);

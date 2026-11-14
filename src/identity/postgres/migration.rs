@@ -127,6 +127,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::systems::SystemEvents),
             Box::new(super::systems::Subjects),
             Box::new(super::shared_computers::SharedComputers),
+            Box::new(super::context_compaction::ContextCompaction),
         ]
     }
 }

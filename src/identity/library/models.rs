@@ -48,7 +48,7 @@ pub struct Settings<'a> {
     pub model: &'a str,
 }
 
-async fn post(settings: &Settings<'_>, path: &str, body: Value) -> Result<Value> {
+pub(crate) async fn post(settings: &Settings<'_>, path: &str, body: Value) -> Result<Value> {
     let (base, key) =
         crate::identity::worker_control::model_provider(settings.file, settings.provider)?;
     let response = crate::identity::worker_control::model_client()

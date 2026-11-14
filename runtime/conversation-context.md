@@ -45,9 +45,13 @@ that thread first and then the latest main-timeline messages, the agent is told
 who reads the reply, and a private question moves to the asker's direct
 conversation (`continue_privately`).
 
-Managed recent history remains scoped to the current conversation, at most 60
-messages. Revision-zero profiles retain their existing 30-message/thread selection.
-The 14,000-byte budget now counts serialized attribution and escaped content. The
+Managed recent history remains scoped to the current conversation. Since schema
+120 its size follows the agent's model: a fifth of the model catalog's context
+window, at 4 bytes a token, between 14,000 and 64,000 bytes, and 60 to 278
+messages (`history_budget`). A model the catalog doesn't describe keeps 14,000
+bytes and 60 messages. Revision-zero profiles retain their existing
+30-message/thread selection. The budget counts serialized attribution and escaped
+content. The
 latest explicit request remains intact if it alone exceeds that budget, bounded
 by the existing 12,000-byte input limit and prepared-context limit. Older messages
 are removed first. The existing since-joining policy remains.
