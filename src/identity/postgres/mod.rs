@@ -173,6 +173,9 @@ mod computer_tests;
 mod computer_tools;
 mod computers;
 mod context_attempts;
+pub(crate) mod context_compaction;
+#[cfg(test)]
+mod context_compaction_tests;
 mod context_migration;
 mod context_preview;
 #[cfg(test)]

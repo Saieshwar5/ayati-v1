@@ -19,6 +19,7 @@ mod identifier;
 pub(crate) use identifier::identifier;
 pub(crate) mod archive;
 pub(crate) mod computers;
+pub(crate) mod context_compaction;
 pub(crate) mod data_cleanup;
 mod hosting;
 mod interactions;
@@ -254,6 +255,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     data_cleanup::start(app.clone());
     connectors::drift::start(app.clone());
     library::indexer::start(app.clone());
+    context_compaction::start(app.clone());
     library::keeping::start(app.clone());
     computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;

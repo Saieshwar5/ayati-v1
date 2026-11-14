@@ -23,6 +23,14 @@ pub(super) struct RecentScope<'a> {
 }
 
 pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> Result<Vec<Value>> {
+    let mut messages = gather(tx, scope).await?;
+    bound(&mut messages)?;
+    Ok(messages)
+}
+
+/// The same eligible messages as `recent`, without its prompt-size bound: the
+/// automatic summarizer reads more than one prompt holds (schema 120).
+pub(super) async fn gather(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> Result<Vec<Value>> {
     let exclusions = source_exclusions(tx).await?;
     let sql = format!(
         "SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,
@@ -71,7 +79,6 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
     super::transcripts::for_agents(tx, scope.workspace, scope.chat, &mut messages).await?;
     mark_handoffs(tx, scope.workspace, &mut messages).await?;
     mark_reactions(tx, scope.workspace, scope.agent, &mut messages).await?;
-    bound(&mut messages)?;
     Ok(messages)
 }
 

@@ -71,6 +71,9 @@ pub struct Controller {
     /// Writes agents' skills in chat while people set them up: "provider:model"
     /// from the model providers file, called by the controller with no tools.
     pub skill_writer_model: Option<(String, String)>,
+    /// Keeps long conversations' working summaries up to date in the background
+    /// (schema 120): "provider:model" from the model providers file.
+    pub context_summary_model: Option<(String, String)>,
     /// Web search services for agents, their keys, prices and order (runtime/web-search.md).
     pub web_search_providers_file: Option<PathBuf>,
     /// Agent computers' sizes and providers (runtime/agent-computers.md).
@@ -233,6 +236,7 @@ impl Controller {
             library_summary_model: provider_model(env, "AYATI_LIBRARY_SUMMARY_MODEL"),
             transcription_model: provider_model(env, "AYATI_TRANSCRIPTION_MODEL"),
             skill_writer_model: provider_model(env, "AYATI_SKILL_WRITER_MODEL"),
+            context_summary_model: provider_model(env, "AYATI_CONTEXT_SUMMARY_MODEL"),
             web_search_providers_file: absolute(env, "AYATI_WEB_SEARCH_PROVIDERS_FILE"),
             computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
             connectors: super::Connectors::read(env),
@@ -268,6 +272,9 @@ impl Controller {
         }
         if config.skill_writer_model.is_some() && config.model_providers_file.is_none() {
             env.problem("AYATI_SKILL_WRITER_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
+        }
+        if config.context_summary_model.is_some() && config.model_providers_file.is_none() {
+            env.problem("AYATI_CONTEXT_SUMMARY_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         // Model keys belong on executors (.env.executor locally).

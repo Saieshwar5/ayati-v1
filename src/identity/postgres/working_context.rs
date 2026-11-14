@@ -21,6 +21,61 @@ pub(crate) struct Brief {
     corrections: Vec<Entry>,
 }
 impl Brief {
+    /// A summary from the automatic summarizer's answer (schema 120), kept to
+    /// the same bounds as an agent's: entries citing anything outside `eligible`
+    /// lose those citations, and entries left with none are dropped.
+    pub(super) fn from_model(
+        revision: i64,
+        answer: &Value,
+        eligible: &BTreeSet<String>,
+    ) -> Option<Self> {
+        let entry = |value: &Value| -> Option<Entry> {
+            let text: String = value["text"].as_str()?.trim().chars().take(400).collect();
+            let sources: Vec<String> = value["sources"]
+                .as_array()?
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|id| eligible.contains(*id))
+                .take(8)
+                .map(str::to_owned)
+                .collect();
+            (!text.is_empty() && !sources.is_empty()).then_some(Entry { text, sources })
+        };
+        let list = |key: &str| -> Vec<Entry> {
+            answer[key]
+                .as_array()
+                .map(|items| items.iter().filter_map(entry).take(8).collect())
+                .unwrap_or_default()
+        };
+        let mut brief = Brief {
+            revision,
+            objective: entry(&answer["objective"])?,
+            decisions: list("decisions"),
+            questions: list("questions"),
+            corrections: list("corrections"),
+        };
+        // Keep it under the byte limit by dropping the oldest decisions first.
+        while serde_json::to_vec(&brief).ok()?.len() > 12000 {
+            if !brief.decisions.is_empty() {
+                brief.decisions.remove(0);
+            } else if !brief.corrections.is_empty() {
+                brief.corrections.remove(0);
+            } else {
+                brief.questions.pop()?;
+            }
+        }
+        brief.validate(eligible).ok()?;
+        Some(brief)
+    }
+    /// Every message ID the summary cites.
+    pub(super) fn sources(&self) -> BTreeSet<String> {
+        std::iter::once(&self.objective)
+            .chain(&self.decisions)
+            .chain(&self.questions)
+            .chain(&self.corrections)
+            .flat_map(|entry| entry.sources.iter().cloned())
+            .collect()
+    }
     fn validate(&self, eligible: &BTreeSet<String>) -> Result<()> {
         ensure!(
             self.revision >= 0
@@ -69,14 +124,15 @@ pub(super) async fn latest(tx: &DatabaseTransaction, job: &Job) -> Result<Value>
     }
     // A shared room has one brief everyone in it reads; otherwise it is the requester's.
     let owner = super::shared_rooms::brief_owner(tx, job).await?;
-    let row=query(tx,"SELECT revision,generation,brief,cutoff,task,claim FROM relay_working_context WHERE workspace=$1 AND agent=$2 AND chat=$3 AND requester=$4 ORDER BY revision DESC LIMIT 1",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),owner.clone().into()]).await?;
+    let row=query(tx,"SELECT revision,generation,brief,cutoff,task,claim,COALESCE(to_jsonb(w)->>'made_by','agent') AS made_by FROM relay_working_context w WHERE workspace=$1 AND agent=$2 AND chat=$3 AND requester=$4 ORDER BY revision DESC LIMIT 1",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),owner.clone().into()]).await?;
     let Some(row) = row else {
         return Ok(json!({"revision":0,"available":false}));
     };
     let revision: i64 = row.try_get("", "revision")?;
     let available = row.try_get::<Value>("", "generation")?
         == super::context_attempts::generation(tx, job).await?;
-    let mut result = json!({"revision":revision,"available":available});
+    let made_by: String = row.try_get("", "made_by")?;
+    let mut result = json!({"revision":revision,"available":available,"made_by":made_by});
     if available {
         result["brief"] = row.try_get("", "brief")?;
         result["cutoff"] = json!(row.try_get::<i64>("", "cutoff")?);

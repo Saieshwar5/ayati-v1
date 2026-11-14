@@ -28,8 +28,10 @@ decisions, unresolved questions and corrections/conflicts. Every entry needs
 message or approved-note IDs present in that attempt or its recorded history reads.
 The summary is untrusted model interpretation, not a verified factual extraction,
 approval, tool grant, exact operation receipt or substitute for business records.
-An agent is instructed to save a summary when useful for long work. There is no
-additional automatic summarization model call and no semantic-search engine.
+An agent is instructed to save a summary when useful for long work. Since schema
+120, Cuckoo also keeps it up to date itself; see
+[automatic summaries](#automatic-summaries-schema-120). There is no semantic-search
+engine for history.
 
 Versions are scoped by workspace + agent + conversation + requesting human.
 Since schema 55, a [shared room](shared-rooms.md) (a conversation two or more
@@ -45,6 +47,53 @@ Tasks with external initial sources, business actions, questions or handoffs can
 save generic conversation summaries. They retain the source-aware continuation and
 receipt paths. This conservative boundary avoids promoting restricted tool output
 into general reusable context. There is no automatic cross-channel identity merge.
+
+## Automatic summaries (schema 120)
+
+An agent's prompt carries only about 14 KB of the conversation's most recent
+messages, so in a long conversation older messages leave its view early. When
+`AYATI_CONTEXT_SUMMARY_MODEL=provider:model` is set (keys from
+`AYATI_MODEL_PROVIDERS_FILE`), the controller keeps each room's working summary
+up to date in the background:
+
+- **When:** after an agent's reply finishes, its room is checked. A new summary is
+  written once the messages since the last one exceed 12,000 bytes or 40
+  messages (and are at least 6). Nobody waits for it; a room that fails is tried
+  again when its next reply finishes. A paused workspace or an agent past its
+  model budget gets none.
+- **What it reads:** exactly the history the agent itself would get in that room,
+  through the same scoped query and exclusions (connected-event data, Library
+  sources, hand-off trees, replies made under since-changed access, "since
+  joined"), up to the 150 newest new messages of at most 2,000 characters each,
+  plus the room's current summary when that is still current. Never another
+  room: a private conversation has its person's summary, a shared conversation
+  its one brief, and work rooms and subject rooms their own.
+- **What it writes:** the same bounded shape as `save_working_context`. Every
+  entry must cite messages it read or that the carried-forward summary cited;
+  citations to anything else are removed and entries left with none are dropped.
+  The model is told the messages are data, never instructions.
+- **Saving:** as the room's next revision with `made_by='automatic'`, the model
+  and the IDs it covered. It is dropped if the room's access or sources changed
+  while it was written, or if a newer summary was saved meanwhile (the agent's
+  own or another controller's). Recent messages still reach the agent word for
+  word; older ones stay searchable with the history tools.
+- **Seen by:** the agent, labelled as untrusted interpretation like every summary,
+  and the agent's owner in Agents › Knowledge, marked "Kept up to date
+  automatically".
+- **Cost:** one model call per compression, recorded in model usage as
+  assignment `context` against the agent and the reply. Like the Library's and
+  the skill writer's calls it has no catalog charge.
+- **Without the setting** nothing runs and agents keep saving their own summaries.
+
+Forgetting a connected system's subject now also removes its rooms' summaries,
+history reads and saved prompts. Saved context is otherwise immutable; the
+database allows these deletes only in a transaction that sets
+`relay.forget_context`.
+
+Checks: `context_compaction_tests` (a long private conversation summarized from
+its own room only, with uncited entries dropped and usage recorded; short ones
+left alone; a summary dropped when access changes or a newer one exists; one
+brief for a shared conversation) and the subject-forgetting test.
 
 ## Corrections, revocation and retention
 
