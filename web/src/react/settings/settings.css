@@ -172,3 +172,21 @@
 .company-rule-form > label:not(.ui-check), .company-rule-times label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
 .company-rule-form > label:not(.ui-check) small { font-weight: 400; color: var(--muted); }
 .company-rule-form > label:not(.ui-check) select, .company-rule-form > label:not(.ui-check) input, .company-rule-times input { width: 100%; box-sizing: border-box; font-weight: 400; }
+/* Profile › Your phone: a one-time QR sign-in code and the signed-in phones. */
+.settings-phone { max-width:640px; margin-top:28px; padding-top:20px; border-top:1px solid var(--border); }
+.settings-phone h3 { margin:0 0 4px; }
+.settings-phone h4 { margin:24px 0 4px; font-size:15px; }
+.settings-phone-code { display:flex; flex-wrap:wrap; align-items:center; gap:22px; margin:4px 0 8px; padding:18px; border:1px solid var(--border-panel); border-radius:16px; }
+/* Dark on white in both themes, so phone cameras read it. */
+.settings-phone-qr { display:block; width:180px; height:180px; padding:6px; background:#fff; border-radius:8px; }
+.settings-phone-expired { width:180px; margin:0; }
+.settings-phone-details { display:grid; gap:10px; flex:1 1 220px; min-width:0; }
+.settings-phone-details p { margin:0; font-size:13px; }
+.settings-phone-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.settings-devices { list-style:none; margin:0; padding:0; }
+.settings-device { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+.settings-device:last-child { border-bottom:0; }
+.settings-device > svg { flex:none; color:var(--muted); }
+.settings-device-text { display:grid; gap:2px; flex:1; min-width:0; overflow-wrap:anywhere; }
+.settings-device-text small { color:var(--muted); font-size:13px; }
+.settings-device-text .settings-device-error { color:var(--danger); }
