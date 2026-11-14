@@ -73,7 +73,13 @@
 /* Unread only, and conversations hidden until someone mentions you (schema 116). */
 .workspace-chat .chat-unread-only { display:flex; align-items:center; gap:8px; min-height:40px; margin:0 0 14px; padding:0 10px; border-radius:10px; background:var(--soft); font-size:13px; font-weight:600; cursor:pointer; }
 .workspace-chat .chat-unread-only > span { flex:1; }
-.workspace-chat .chat-unread-only input { width:34px; height:20px; margin:0; accent-color:var(--accent); cursor:pointer; }
+.workspace-chat .chat-unread-only input { position:relative; flex:none; width:34px; height:20px; margin:0; border-radius:10px; background:var(--border-control); appearance:none; cursor:pointer; transition:background .15s; }
+.workspace-chat .chat-unread-only input::before { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--surface); box-shadow:0 1px 2px var(--shadow-deep); transition:transform .15s; }
+.workspace-chat .chat-unread-only input:checked { background:var(--accent); }
+.workspace-chat .chat-unread-only input:checked::before { transform:translateX(14px); }
+.workspace-chat .chat-unread-only input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce) { .workspace-chat .chat-unread-only input, .workspace-chat .chat-unread-only input::before { transition:none; } }
+@media (forced-colors: active) { .workspace-chat .chat-unread-only input { appearance:auto; } }
 .workspace-chat .chat-list-note { margin:-18px 10px 24px; line-height:1.45; }
 .workspace-chat .chat-list-note .chat-thread-link { font-size:inherit; }
 @media(pointer:coarse) { .workspace-chat .chat-unread-only { min-height:44px; } }

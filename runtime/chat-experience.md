@@ -364,6 +364,19 @@ Dependency audit reports no advisory for the new parser/sanitizer. It reports an
 existing Vite 8.3.2 development-server launch-editor advisory; that unrelated tool
 upgrade is not included in this change. Normal use here serves built static assets.
 
+## Live check of the 2026-11-14 chat improvements
+
+Against the company simulation server (schema 119, production client build, Chromium
+headless; 1280×720 light and 390×844 dark, touch): a bot webhook posted without a
+cookie or Origin and a wrong secret got 404; the thread summary read "2 replies · last
+…"; the broadcast reply showed in the conversation with its thread line; a mention of
+the reader stood out; code had Copy; the long message folded; the bot message was
+tagged BOT, its button became a link and its mention stayed plain text; the thread
+opened beside the conversation with "Also send to #…" (and covered it on the phone);
+↑ opened the last message for editing; Ctrl+/ listed the shortcuts; Ctrl+K search
+with `in:#…` and From me found the reply; Details listed the bot; no sideways scroll
+at 390 px with or without the thread; no page errors (18 of 18).
+
 ## Compact design follow-up
 
 The approved floating-composer design passes all 16 frontend test files, production
