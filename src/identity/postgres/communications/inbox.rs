@@ -132,6 +132,9 @@ async fn conversation(
         Some(_) if e["simulated"] == false && e["transport"] == "whatsapp" => {
             ("WhatsApp".to_owned(), "Messages on WhatsApp".to_owned())
         }
+        Some(_) if e["simulated"] == false && e["transport"] == "telegram" => {
+            ("Telegram".to_owned(), "Messages on Telegram".to_owned())
+        }
         Some(server) if e["simulated"] == false => {
             (server.to_owned(), format!("Messages through {server}"))
         }

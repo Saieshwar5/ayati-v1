@@ -1,5 +1,10 @@
 # WhatsApp channel (schema 111)
 
+> **Postponed 2026-11-14.** Telegram is the next native channel instead
+> ([Telegram channel](telegram-channel.md)): Meta's verification, number limits
+> and AI-provider terms made WhatsApp slow to launch. This code stays and is not
+> offered while no `AYATI_WHATSAPP_FILE` is set.
+
 People message an agent on WhatsApp and get its answer there. WhatsApp is **off
 by default**. An agent's owner or an admin switches it on with one action, during
 creation or later on the agent's Overview, and the agent's number appears at once.
