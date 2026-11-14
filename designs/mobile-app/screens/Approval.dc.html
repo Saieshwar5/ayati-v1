@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Approve Atlas's action</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#fff;color:#22252a;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.ai{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #aeb8c5;border-radius:5px;padding:1px 4px;color:#4b5159;margin-left:6px}
+.bot{border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:#e6f2ec;color:#26745c}
+.reply{background:#f7f8f9;border:1px solid #e5e7ea;border-radius:16px;padding:12px 14px;line-height:1.45;font-size:16px}
+.mine{align-self:flex-end;background:#eef0f2;border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:16px;line-height:1.4;max-width:78%}
+.btn{height:52px;border-radius:12px;border:0;font:600 16px Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;flex:1}
+.pri{background:#22252a;color:#fff}
+.out{background:#fff;border:1px solid #aeb8c5;color:#22252a}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #e5e7ea;font-size:15px}
+.kv:last-child{border-bottom:0}
+.k{color:#5f6670}
+a{color:#22252a}
+</style>
+</helmet>
+<div class="ph">
+<header style="padding:50px 16px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e5e7ea">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22252a" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+<span class="bot" style="width:36px;height:36px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><path d="M9 14h6"/></svg></span>
+<span><b style="font-size:17px">Atlas</b><span class="ai">AI</span><br><span style="font-size:13px;color:#5f6670">Accounts</span></span>
+</header>
+<main style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+<div class="mine">Bill Sharma Traders for the October delivery.</div>
+<div class="reply">The invoice is ready. I need your approval before I email it.</div>
+</main>
+<div style="position:absolute;inset:0;background:rgb(17 19 24 / 42%)"></div>
+<section aria-label="Approval" style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -8px 30px rgb(0 0 0 / 18%);padding:10px 20px 34px;display:flex;flex-direction:column;gap:14px">
+<span style="width:40px;height:5px;border-radius:3px;background:#d1d6dd;align-self:center"></span>
+<div style="display:flex;align-items:center;gap:10px">
+<span class="bot" style="width:40px;height:40px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><path d="M9 14h6"/></svg></span>
+<span style="flex:1"><b style="font-size:19px">Atlas needs your approval</b><br><span style="font-size:14px;color:#5f6670">Expires in 23 hours</span></span>
+</div>
+<div style="border:1px solid #d1d6dd;border-radius:16px;padding:6px 16px">
+<div class="kv"><span class="k">Action</span><b>Email an invoice</b></div>
+<div class="kv"><span class="k">Using</span><span>Zoho Books</span></div>
+<div class="kv"><span class="k">Invoice</span><span>INV-2041</span></div>
+<div class="kv"><span class="k">To</span><span>accounts@sharmatraders.in</span></div>
+<div class="kv"><span class="k">Amount</span><b>₹48,500</b></div>
+<div class="kv"><span class="k">Due</span><span>30 November 2026</span></div>
+</div>
+<p style="margin:0;font-size:14px;line-height:1.45;color:#4b5159">Approving allows this one action exactly as shown. If anything changes, Atlas has to ask again.</p>
+<div style="display:flex;gap:10px">
+<a class="btn out" href="AgentChat.dc.html">Decline</a>
+<a class="btn pri" href="AgentChat.dc.html">Approve</a>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

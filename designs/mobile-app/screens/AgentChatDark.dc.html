@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Conversation in dark mode</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#1c1f26;color:#f0f1f5;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.ai{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #697487;border-radius:5px;padding:1px 4px;color:#c9ced8;margin-left:6px}
+.bot{border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:#2f2b52;color:#afa5ff}
+.ib{width:44px;height:44px;border-radius:50%;border:0;background:transparent;display:flex;align-items:center;justify-content:center;color:#f0f1f5;padding:0;flex:none;text-decoration:none}
+.reply{background:#252a34;border:1px solid #303540;border-radius:16px;padding:12px 14px;line-height:1.45;font-size:16px;position:relative}
+.mine{align-self:flex-end;background:#303540;border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:16px;line-height:1.4;max-width:78%}
+.meta{font-size:12px;color:#abb1bf}
+.who{display:flex;align-items:center;gap:8px;font-size:14px}
+a{color:#f0f1f5}
+</style>
+</helmet>
+<div class="ph">
+<header style="padding:50px 8px 8px 4px;display:flex;align-items:center;gap:4px;border-bottom:1px solid #303540">
+<a class="ib" href="Chats.dc.html" aria-label="Back to Chats"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></a>
+<span class="bot" style="width:36px;height:36px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span>
+<span style="flex:1;margin-left:6px"><b style="font-size:17px">Nova</b><span class="ai">AI</span><br><span class="meta" style="font-size:13px">HR assistant</span></span>
+<button class="ib" type="button" aria-label="More"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+</header>
+<main style="flex:1;overflow:hidden;padding:12px 16px 0;display:flex;flex-direction:column;gap:12px">
+<div class="mine">What does the new travel policy say about hotels?</div>
+<div class="who"><span class="bot" style="width:28px;height:28px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span><b>Nova</b><span class="ai">AI</span><span class="meta">11:02</span></div>
+<div class="reply" style="height:176px;overflow:hidden">
+<p style="margin:0 0 8px"><b>Hotels on work trips</b></p>
+<p style="margin:0 0 8px">Book through the company travel desk. The nightly limit is ₹6,000 in metro cities and ₹4,000 elsewhere, including taxes.</p>
+<p style="margin:0">If no hotel under the limit is available, ask your manager before booking and attach the quotes to your expense claim. Breakfast is included; other meals are claimed</p>
+<span style="position:absolute;left:0;right:0;bottom:0;height:70px;background:linear-gradient(rgb(37 42 52 / 0%),#252a34)"></span>
+<button type="button" aria-label="Show the whole reply" style="position:absolute;right:4px;bottom:4px;width:44px;height:44px;border:0;background:transparent;color:#f0f1f5;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M20 4l-7 7M9 20H4v-5M4 20l7-7"/></svg></button>
+</div>
+<div class="mine">Great. Fill in the leave request we discussed.</div>
+<div class="who"><span class="bot" style="width:28px;height:28px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span><b>Nova</b><span class="ai">AI</span><span class="meta">11:05 · Done</span></div>
+<div class="reply">Here it is, ready for Meera to sign.
+<a href="AgentChatDark.dc.html" style="margin-top:10px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #414956;border-radius:12px;text-decoration:none;background:#1c1f26">
+<span style="width:36px;height:36px;border-radius:8px;background:#3b2a2c;color:#ffadaf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">PDF</span>
+<span style="flex:1;min-width:0"><b style="font-size:15px">Leave request 29–31 Dec.pdf</b><br><span class="meta" style="font-size:13px">1 page · 84 KB</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+</a>
+</div>
+</main>
+<div style="margin:6px 12px 28px;border:1px solid #697487;border-radius:18px;display:flex;align-items:center;gap:2px;padding:4px;background:#252a34;box-shadow:0 4px 12px rgb(0 0 0 / 32%)">
+<button class="ib" type="button" aria-label="Add a photo or file"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+<label style="flex:1"><input aria-label="Message Nova" placeholder="Message Nova" style="width:100%;border:0;outline:none;font:16px Inter,system-ui,sans-serif;color:#f0f1f5;background:transparent"></label>
+<button class="ib" type="button" aria-label="Record a voice note"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

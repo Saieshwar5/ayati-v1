@@ -1,0 +1,30 @@
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-14T07:45:00Z"},"title":"Cuckoo Mobile App Design","launch":{"view":"canvas"},"pages":[],
+"boards":{
+"Main.dc.html":{"x":0,"y":0,"w":1880,"h":844,"title":"Design language"},
+"SignIn.dc.html":{"x":0,"y":1300,"w":390,"h":844,"title":"1 Sign in","is_interactive":true},
+"Workspace.dc.html":{"x":470,"y":1300,"w":390,"h":844,"title":"2 Choose workspace","is_interactive":true},
+"Notifications.dc.html":{"x":940,"y":1300,"w":390,"h":844,"title":"3 Turn on notifications","is_interactive":true},
+"LockScreen.dc.html":{"x":1410,"y":1300,"w":390,"h":844,"title":"4 A notification arrives","is_interactive":true},
+"Home.dc.html":{"x":0,"y":2524,"w":390,"h":844,"title":"5 Home","is_interactive":true},
+"HomePanel.dc.html":{"x":470,"y":2524,"w":390,"h":844,"title":"6 A panel, opened","is_interactive":true},
+"Chats.dc.html":{"x":0,"y":3748,"w":390,"h":844,"title":"7 Chats","is_interactive":true},
+"AgentChat.dc.html":{"x":470,"y":3748,"w":390,"h":844,"title":"8 Talking to an agent","is_interactive":true},
+"Approval.dc.html":{"x":940,"y":3748,"w":390,"h":844,"title":"9 Approve an action","is_interactive":true},
+"Channel.dc.html":{"x":1410,"y":3748,"w":390,"h":844,"title":"10 A channel","is_interactive":true},
+"Composer.dc.html":{"x":1880,"y":3748,"w":390,"h":844,"title":"11 Voice note and attachments","is_interactive":true},
+"Inbox.dc.html":{"x":0,"y":4972,"w":390,"h":844,"title":"12 Needs me","is_interactive":true},
+"Question.dc.html":{"x":470,"y":4972,"w":390,"h":844,"title":"13 Answer an agent's question","is_interactive":true},
+"Agents.dc.html":{"x":0,"y":6196,"w":390,"h":844,"title":"14 Agents","is_interactive":true},
+"AgentProfile.dc.html":{"x":470,"y":6196,"w":390,"h":844,"title":"15 Agent profile","is_interactive":true},
+"You.dc.html":{"x":940,"y":6196,"w":390,"h":844,"title":"16 You","is_interactive":true},
+"AgentChatDark.dc.html":{"x":1410,"y":6196,"w":390,"h":844,"title":"17 Dark mode","is_interactive":true}
+},
+"order":["Main.dc.html","SignIn.dc.html","Workspace.dc.html","Notifications.dc.html","LockScreen.dc.html","Home.dc.html","HomePanel.dc.html","Chats.dc.html","AgentChat.dc.html","Approval.dc.html","Channel.dc.html","Composer.dc.html","Inbox.dc.html","Question.dc.html","Agents.dc.html","AgentProfile.dc.html","You.dc.html","AgentChatDark.dc.html"],
+"notes":{
+"t1":{"x":0,"y":1040,"text":"Getting in","kind":"title1","maxW":1800},
+"t5":{"x":0,"y":2264,"text":"Home","kind":"title1","maxW":860},
+"t2":{"x":0,"y":3488,"text":"Chat","kind":"title1","maxW":2270},
+"t3":{"x":0,"y":4712,"text":"Needs me","kind":"title1","maxW":860},
+"t4":{"x":0,"y":5936,"text":"Agents and you","kind":"title1","maxW":1800}
+},
+"designSystems":[]}

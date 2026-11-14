@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Needs me</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#fff;color:#22252a;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.ai{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #aeb8c5;border-radius:5px;padding:1px 4px;color:#4b5159;margin-left:6px}
+.bot{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+.card{border:1px solid #d1d6dd;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;text-decoration:none;color:#22252a}
+.kind{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.sec{font-size:13px;font-weight:600;color:#5f6670;padding:18px 0 8px}
+.go{align-self:flex-start;height:40px;padding:0 16px;border-radius:10px;background:#22252a;color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;text-decoration:none}
+.go.out{background:#fff;color:#22252a;border:1px solid #aeb8c5}
+.done{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e5e7ea;text-decoration:none;color:#22252a;min-height:56px}
+.seg{display:flex;background:#f3f4f5;border-radius:10px;padding:3px}
+.seg span{flex:1;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#4b5159}
+.seg .on{background:#fff;color:#22252a;box-shadow:0 1px 3px rgb(0 0 0 / 10%)}
+.tabs{margin-top:auto;display:flex;justify-content:space-around;padding:6px 4px 28px;background:#f3f4f5;border-top:1px solid #e5e7ea}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:500;color:#5f6670;min-width:62px;min-height:48px;justify-content:center;text-decoration:none;position:relative}
+.tab.on{color:#22252a;font-weight:600}
+.tb{position:absolute;top:0;left:36px;background:#a42f35;color:#fff;font-size:11px;font-weight:700;border-radius:9px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box}
+a{color:#22252a}
+</style>
+</helmet>
+<div class="ph">
+<header style="padding:54px 20px 8px">
+<h1 style="margin:28px 0 12px;font-size:32px;font-weight:700;letter-spacing:-0.02em">Needs me</h1>
+<div class="seg" role="tablist" aria-label="Show"><span class="on" role="tab" aria-selected="true">Waiting · 3</span><span role="tab" aria-selected="false">Done recently</span></div>
+</header>
+<div style="flex:1;overflow:hidden;padding:4px 20px 0;display:flex;flex-direction:column;gap:12px">
+<a class="card" href="Approval.dc.html">
+<div style="display:flex;align-items:center;gap:10px"><span class="bot" style="background:#e6f2ec;color:#26745c"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><path d="M9 14h6"/></svg></span><span style="flex:1"><span class="kind" style="color:#a42f35">Approval</span><br><b>Atlas</b><span class="ai">AI</span></span><span style="font-size:12px;color:#5f6670">Expires in 23 h</span></div>
+<span style="font-size:16px;line-height:1.4">Email invoice INV-2041 to Sharma Traders for ₹48,500</span>
+<span class="go">Review</span>
+</a>
+<a class="card" href="Question.dc.html">
+<div style="display:flex;align-items:center;gap:10px"><span class="bot" style="background:#ecebfb;color:#4a40b5"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span><span style="flex:1"><span class="kind" style="color:#6257cf">Question</span><br><b>Nova</b><span class="ai">AI</span></span><span style="font-size:12px;color:#5f6670">10:44</span></div>
+<span style="font-size:16px;line-height:1.4">Which days should your December leave cover?</span>
+<span class="go">Answer</span>
+</a>
+<a class="card" href="Inbox.dc.html">
+<div style="display:flex;align-items:center;gap:10px"><span class="bot" style="background:#e8eefc;color:#2b4a9a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span><span style="flex:1"><span class="kind" style="color:#945b10">Problem</span><br><b>Juno</b><span class="ai">AI</span></span><span style="font-size:12px;color:#5f6670">9:12</span></div>
+<span style="font-size:16px;line-height:1.4">Lost access to Google Drive, so the weekly sales sheet wasn't updated.</span>
+<span class="go out">Fix in the web app</span>
+</a>
+<div class="sec">Finished for you today</div>
+<a class="done" href="Chats.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#26745c" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span style="flex:1;font-size:15px"><b>Juno</b> · Three sofa layouts are ready</span><span style="font-size:12px;color:#5f6670">2 h</span></a>
+</div>
+<nav class="tabs" aria-label="Main">
+<a class="tab" href="Home.dc.html"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+<a class="tab" href="Chats.dc.html"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Chats</a>
+<a class="tab on" href="Inbox.dc.html" aria-current="page"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l2.5-7h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/></svg><span class="tb">3</span>Needs me</a>
+<a class="tab" href="Agents.dc.html"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg>Agents</a>
+<a class="tab" href="You.dc.html"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>You</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
