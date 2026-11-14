@@ -3,7 +3,7 @@
 //! calls happen between these steps, never inside a transaction.
 use super::*;
 use crate::identity::communications::{
-    adapters::{Outgoing, Route, Sent, Source},
+    adapters::{MailReply, Outgoing, Route, Sent, Source},
     model::Message,
 };
 
@@ -234,6 +234,11 @@ async fn delivery(
     .await?
     .context("Endpoint unavailable")?;
     let envelope = &row["envelope"];
+    let mail = if e["transport"] == "email" {
+        Some(mail_reply(tx, w, row, &e).await?)
+    } else {
+        None
+    };
     let field = |name: &str| {
         envelope[name]
             .as_str()
@@ -258,7 +263,51 @@ async fn delivery(
             conversation: field("conversation")?,
             thread: envelope["thread"].as_str().map(str::to_owned),
             text: field("text")?,
+            mail,
         },
         attempt,
+    })
+}
+
+/// The subject and thread of the person's mail, saved when it arrived, and
+/// the agent's current name to send as.
+async fn mail_reply(
+    tx: &DatabaseTransaction,
+    w: &str,
+    row: &Value,
+    e: &Value,
+) -> Result<MailReply> {
+    let saved = json_rows(tx, "SELECT jsonb_build_object('message_id',m.message_id,'subject',m.subject,'parents',m.parents,
+            'name',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=m.workspace AND a.id=$4)) AS data
+        FROM relay_email_messages m WHERE m.workspace=$1 AND m.endpoint=$2 AND m.event=$3",
+        vec![w.into(), row["endpoint"].as_str().unwrap_or_default().into(), row["event"].as_str().unwrap_or_default().into(),
+            e["agent"].as_str().unwrap_or_default().into()]).await?
+        .into_iter()
+        .next()
+        // Never expected; a reply still goes out, outside the thread, rather
+        // than holding up every send behind it.
+        .unwrap_or_default();
+    let in_reply_to = saved["message_id"].as_str().map(str::to_owned);
+    let mut references: Vec<String> = saved["parents"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|p| p.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(id) = &in_reply_to {
+        references.retain(|p| p != id);
+        references.push(id.clone());
+    }
+    let limit = crate::identity::communications::email::inbound::MAX_REFERENCES;
+    if references.len() > limit {
+        references.drain(..references.len() - limit);
+    }
+    Ok(MailReply {
+        from_name: saved["name"].as_str().unwrap_or("Cuckoo agent").to_owned(),
+        subject: saved["subject"].as_str().unwrap_or_default().to_owned(),
+        in_reply_to,
+        references,
     })
 }

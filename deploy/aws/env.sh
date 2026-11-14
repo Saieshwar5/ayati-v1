@@ -16,6 +16,7 @@
 #   env.sh kept                 list the snapshots and files kept between windows
 #   env.sh forget [--yes]       delete everything kept (next window starts empty)
 #   env.sh verify-clean         list anything temporary that still exists
+#   env.sh mail [DOMAIN]        agent email: the permanent mail stack (mail.sh)
 # The fast cycle (cycle.sh): park | wake | ship [--full|--rolling] [--dirty] |
 #   smoke | db-capacity | reset --yes. Park between sessions instead of down; wake
 #   reuses the database; reset empties a test environment's data in place.
@@ -164,7 +165,8 @@ services() {  # services <controllers> <executors>
         TranscriptionModel="${AYATI_TRANSCRIPTION_MODEL:-}" TranscriptionBaseUrl="${AYATI_TRANSCRIPTION_BASE_URL:-}" \
         WorkosSecretArn="$(secret_arn workos-api-key)" ModelSecretArn="$(secret_arn model-api-key)" \
         WorkerServerSecretArn="$(secret_arn worker-control-server)" \
-        WorkerCaSecretArn="$(secret_arn worker-control-ca)"
+        WorkerCaSecretArn="$(secret_arn worker-control-ca)" \
+        MailSettings="$(mail_settings)"
 }
 
 # The services' current tasks. ECS reports a service at zero while its old tasks
@@ -459,6 +461,8 @@ cost() {
 
 # shellcheck source=cycle.sh
 . "$here/cycle.sh"
+# shellcheck source=mail.sh
+. "$here/mail.sh"
 
 command=${1:-}; shift || true
 case "$command" in
@@ -484,5 +488,6 @@ case "$command" in
     smoke) smoke ;;
     db-capacity) db_capacity ;;
     reset) reset "$@" ;;
+    mail) require_session; mail "$@" ;;
     *) sed -n '2,22p' "$0"; exit 2 ;;
 esac

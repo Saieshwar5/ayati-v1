@@ -49,6 +49,8 @@ Parameters:
   # provider:model and that provider's OpenAI-compatible base URL, using ModelSecretArn.
   TranscriptionModel: {Type: String, Default: '', AllowedPattern: '([a-z0-9-]+:[A-Za-z0-9./_-]+)?'}
   TranscriptionBaseUrl: {Type: String, Default: '', AllowedPattern: '(https://[A-Za-z0-9./_-]+)?'}
+  # Agent email: the permanent mail stack's Settings output (env.sh mail), or empty.
+  MailSettings: {Type: String, Default: ''}
   # Fargate sizes; the defaults fit one test workspace (a few people, about five agents).
   ControllerCpu: {Type: String, Default: '256', AllowedValues: ['256', '512', '1024']}
   ControllerMemory: {Type: String, Default: '512', AllowedValues: ['512', '1024', '2048']}
@@ -75,6 +77,7 @@ Parameters:
 Conditions:
   Openai: {Fn::Equals: [{Ref: ModelProvider}, openai]}
   Transcription: {Fn::Not: [{Fn::Equals: [{Ref: TranscriptionModel}, '']}]}
+  Mail: {Fn::Not: [{Fn::Equals: [{Ref: MailSettings}, '']}]}
 Rules:
   DeploymentTarget:
     Assertions:
@@ -294,12 +297,14 @@ Resources:
               printf '%s\n' "$WORKER_SERVER_KEY" > /run/ayati/server.key;
               if [ -n "$MODEL_KEY" ]; then printf '%s\n' "$MODEL_KEY" > /run/ayati/model-key; fi;
               if [ -n "$TRANSCRIPTION_PROVIDER" ]; then printf '[{"provider":"%s","base_url":"%s","key_file":"/run/ayati/model-key"}]\n' "$TRANSCRIPTION_PROVIDER" "$TRANSCRIPTION_BASE_URL"; else echo '[]'; fi > /run/ayati/model-providers.json;
+              if [ -n "$MAIL_SETTINGS" ]; then printf '%s\n' "$MAIL_SETTINGS" > /run/ayati/email.json; fi;
               chown 10001:10001 /run/ayati/* /var/lib/ayati /tmp;
               chmod 700 /var/lib/ayati /tmp
           Environment:
             - {Name: DB_HOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
             - Fn::If: [Transcription, {Name: TRANSCRIPTION_PROVIDER, Value: {Fn::Select: [0, {Fn::Split: [':', {Ref: TranscriptionModel}]}]}}, {Ref: 'AWS::NoValue'}]
             - Fn::If: [Transcription, {Name: TRANSCRIPTION_BASE_URL, Value: {Ref: TranscriptionBaseUrl}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Mail, {Name: MAIL_SETTINGS, Value: {Ref: MailSettings}}, {Ref: 'AWS::NoValue'}]
           Secrets:
             - Name: RUNTIME_PASSWORD
               ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}}]}
@@ -356,6 +361,7 @@ Resources:
             - {Name: AYATI_PLATFORM_ADMINS, Value: {Ref: PlatformAdmins}}
             # The key stays in its file: the controller refuses model keys in its environment.
             - {Name: AYATI_MODEL_PROVIDERS_FILE, Value: /run/ayati/model-providers.json}
+            - Fn::If: [Mail, {Name: AYATI_EMAIL_FILE, Value: /run/ayati/email.json}, {Ref: 'AWS::NoValue'}]
             - Fn::If: [Transcription, {Name: AYATI_TRANSCRIPTION_MODEL, Value: {Ref: TranscriptionModel}}, {Ref: 'AWS::NoValue'}]
           Secrets:
             - Name: WORKOS_API_KEY

@@ -1,0 +1,246 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Ayati agent email (permanent, E4; runtime/email-channel.md). Amazon SES
+  receives mail for the mail domain, stores each message in a private bucket
+  and notifies a queue the controllers read; replies go out through SES and
+  their delivery events reach the same queue. It stays up between test
+  windows, so mail sent while the app is parked waits on the queue.
+Parameters:
+  ExpectedAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  MailDomain:
+    Type: String
+    Default: mail.dev.cuckoo.onl
+    AllowedPattern: '[a-z0-9][a-z0-9.-]+[a-z0-9]'
+    Description: Agents' addresses end in it. Its records go in the zone below.
+  ZoneId:
+    Type: String
+    Default: ''
+    Description: Route 53 zone holding MailDomain; empty uses the foundation zone (dev.cuckoo.onl).
+Conditions:
+  FoundationZone: {Fn::Equals: [{Ref: ZoneId}, '']}
+Rules:
+  DeploymentTarget:
+    Assertions:
+      - Assert: {Fn::Equals: [{Ref: 'AWS::AccountId'}, {Ref: ExpectedAccountId}]}
+        AssertDescription: The current AWS account must match the reviewed account.
+      - Assert: {Fn::Equals: [{Ref: 'AWS::Region'}, ap-south-1]}
+        AssertDescription: Ayati runs in Mumbai (ap-south-1), where SES also receives mail.
+Resources:
+  # The domain is verified by its DKIM records; replies are signed with it and
+  # sent with a bounce subdomain, so SPF and DKIM both line up for DMARC.
+  Identity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: {Ref: MailDomain}
+      DkimSigningAttributes: {NextSigningKeyLength: RSA_2048_BIT}
+      MailFromAttributes:
+        MailFromDomain: {Fn::Sub: 'bounce.${MailDomain}'}
+        BehaviorOnMxFailure: USE_DEFAULT_VALUE
+      ConfigurationSetAttributes: {ConfigurationSetName: {Ref: ConfigurationSet}}
+      FeedbackAttributes: {EmailForwardingEnabled: false}
+  Dkim1:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::GetAtt: [Identity, DkimDNSTokenName1]}
+      Type: CNAME
+      TTL: '1800'
+      ResourceRecords: [{Fn::GetAtt: [Identity, DkimDNSTokenValue1]}]
+  Dkim2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::GetAtt: [Identity, DkimDNSTokenName2]}
+      Type: CNAME
+      TTL: '1800'
+      ResourceRecords: [{Fn::GetAtt: [Identity, DkimDNSTokenValue2]}]
+  Dkim3:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::GetAtt: [Identity, DkimDNSTokenName3]}
+      Type: CNAME
+      TTL: '1800'
+      ResourceRecords: [{Fn::GetAtt: [Identity, DkimDNSTokenValue3]}]
+  # Mail for agents goes to SES's inbound servers in this region.
+  Inbound:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Ref: MailDomain}
+      Type: MX
+      TTL: '300'
+      ResourceRecords: [{Fn::Sub: '10 inbound-smtp.${AWS::Region}.amazonaws.com'}]
+  BounceMx:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::Sub: 'bounce.${MailDomain}'}
+      Type: MX
+      TTL: '300'
+      ResourceRecords: [{Fn::Sub: '10 feedback-smtp.${AWS::Region}.amazonses.com'}]
+  BounceSpf:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::Sub: 'bounce.${MailDomain}'}
+      Type: TXT
+      TTL: '300'
+      ResourceRecords: ['"v=spf1 include:amazonses.com -all"']
+  # Others can't send mail as an agent: receivers quarantine what fails DMARC.
+  Dmarc:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: {Fn::If: [FoundationZone, {Fn::ImportValue: ayati-ZoneId}, {Ref: ZoneId}]}
+      Name: {Fn::Sub: '_dmarc.${MailDomain}'}
+      Type: TXT
+      TTL: '300'
+      ResourceRecords: ['"v=DMARC1; p=quarantine; adkim=r; aspf=r"']
+
+  # Raw incoming mail, private, kept 30 days.
+  Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: {Fn::Sub: 'ayati-mail-${AWS::AccountId}'}
+      OwnershipControls: {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}}]
+      LifecycleConfiguration:
+        Rules: [{Id: expire-mail, Status: Enabled, ExpirationInDays: 30}]
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: {Ref: Bucket}
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SesStoresIncomingMail
+            Effect: Allow
+            Principal: {Service: ses.amazonaws.com}
+            Action: s3:PutObject
+            Resource: {Fn::Sub: '${Bucket.Arn}/in/*'}
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+              ArnLike: {'aws:SourceArn': {Fn::Sub: 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:receipt-rule-set/ayati-mail:receipt-rule/*'}}
+          - Sid: HttpsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [{Fn::GetAtt: [Bucket, Arn]}, {Fn::Sub: '${Bucket.Arn}/*'}]
+            Condition: {Bool: {'aws:SecureTransport': 'false'}}
+
+  # One topic for received mail and for replies' delivery events; only SES
+  # publishes to it and only the queue listens.
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ayati-mail
+  TopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [{Ref: Topic}]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ses.amazonaws.com}
+            Action: sns:Publish
+            Resource: {Ref: Topic}
+            Condition:
+              StringEquals: {'aws:SourceAccount': {Ref: 'AWS::AccountId'}}
+  DeadLetters:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ayati-mail-dead
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+  # Fourteen days of mail can wait here while the app is parked. A notification
+  # that fails five times moves to the dead-letter queue.
+  Queue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ayati-mail
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 120
+      ReceiveMessageWaitTimeSeconds: 20
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: {Fn::GetAtt: [DeadLetters, Arn]}
+        maxReceiveCount: 5
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [{Ref: Queue}]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: sns.amazonaws.com}
+            Action: sqs:SendMessage
+            Resource: {Fn::GetAtt: [Queue, Arn]}
+            Condition: {ArnEquals: {'aws:SourceArn': {Ref: Topic}}}
+  Subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: {Ref: Topic}
+      Protocol: sqs
+      Endpoint: {Fn::GetAtt: [Queue, Arn]}
+      RawMessageDelivery: true
+
+  # Every address on the domain: scanned for spam and viruses, stored, then
+  # announced. `env.sh mail` makes this rule set the region's active one.
+  RuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: ayati-mail
+  Rule:
+    Type: AWS::SES::ReceiptRule
+    DependsOn: [BucketPolicy, TopicPolicy]
+    Properties:
+      RuleSetName: {Ref: RuleSet}
+      Rule:
+        Name: agents
+        Enabled: true
+        ScanEnabled: true
+        TlsPolicy: Optional
+        Recipients: [{Ref: MailDomain}]
+        Actions:
+          - S3Action:
+              BucketName: {Ref: Bucket}
+              ObjectKeyPrefix: in/
+              TopicArn: {Ref: Topic}
+
+  ConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: ayati-mail
+      ReputationOptions: {ReputationMetricsEnabled: true}
+      SendingOptions: {SendingEnabled: true}
+      SuppressionOptions: {SuppressedReasons: [BOUNCE, COMPLAINT]}
+  Events:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    DependsOn: TopicPolicy
+    Properties:
+      ConfigurationSetName: {Ref: ConfigurationSet}
+      EventDestination:
+        Name: replies
+        Enabled: true
+        MatchingEventTypes: [delivery, bounce, complaint, reject]
+        SnsDestination: {TopicARN: {Ref: Topic}}
+Outputs:
+  # Exactly the controller's AYATI_EMAIL_FILE; it holds no secret.
+  Settings:
+    Value:
+      Fn::Sub: '{"domain":"${MailDomain}","region":"${AWS::Region}","queue_url":"${Queue}","bucket":"${Bucket}","configuration_set":"${ConfigurationSet}"}'
+    Export: {Name: ayati-MailSettings}
+  DeadLetterQueue:
+    Value: {Ref: DeadLetters}

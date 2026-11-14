@@ -4,6 +4,7 @@ mod activity_review;
 mod agents;
 mod attention;
 mod automations;
+pub(crate) mod aws_signing;
 pub(crate) mod built_apps;
 mod chat;
 mod collaboration;
@@ -246,6 +247,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
     communications::gateway::start(app.clone());
+    communications::email::queue::start(app.clone());
     control::outcome_checks::start(app.clone());
     metrics::start(app.clone());
     data_cleanup::start(app.clone());

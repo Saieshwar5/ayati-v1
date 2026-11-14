@@ -151,8 +151,8 @@ impl PgStore {
             "Cannot bind the agent's own sender address"
         );
         ensure!(
-            !live_whatsapp(&e),
-            "People link their own WhatsApp numbers from their profile"
+            !proven_door(&e),
+            "People's WhatsApp numbers and sign-in addresses decide who writes"
         );
         ensure!(
             super::chat::agent_access(&tx, &input.user, w, e["agent"].as_str().unwrap()).await?,
@@ -184,8 +184,8 @@ impl PgStore {
             && let Some(e) = endpoint(&tx, w, id).await?
         {
             ensure!(
-                !live_whatsapp(&e),
-                "People link their own WhatsApp numbers from their profile"
+                !proven_door(&e),
+                "People's WhatsApp numbers and sign-in addresses decide who writes"
             );
         }
         let rows = if let Some(sender) = sender {
@@ -224,9 +224,13 @@ pub(super) async fn endpoint(
 ) -> Result<Option<Value>> {
     Ok(json_rows(db,"SELECT to_jsonb(e) AS data FROM relay_communication_endpoints e WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?.into_iter().next())
 }
-/// WhatsApp senders come from people's linked numbers, never an admin's say-so.
-fn live_whatsapp(e: &Value) -> bool {
-    e["transport"] == "whatsapp" && e["simulated"] == false
+/// Senders on doors Cuckoo proves itself come from people's linked numbers
+/// and sign-in addresses, never an admin's say-so.
+fn proven_door(e: &Value) -> bool {
+    crate::identity::communications::model::shares_direct_room(
+        e["transport"].as_str().unwrap_or_default(),
+        e["simulated"] == true,
+    )
 }
 fn identifier(value: &str) -> Result<()> {
     ensure!(
