@@ -38,6 +38,22 @@
         "ssmmessages:OpenDataChannel"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "AgentEmail",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": [
+        "arn:aws:sqs:ap-south-1:${ACCOUNT}:ayati-mail",
+        "arn:aws:ses:ap-south-1:${ACCOUNT}:identity/*",
+        "arn:aws:ses:ap-south-1:${ACCOUNT}:configuration-set/ayati-mail"
+      ]
     }
   ]
 }

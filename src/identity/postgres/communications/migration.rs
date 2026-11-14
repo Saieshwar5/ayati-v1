@@ -85,3 +85,25 @@ impl MigrationTrait for DoorRooms {
         ))
     }
 }
+
+/// Schema 113: agents' email addresses and the mail threads they answer in.
+pub(crate) struct AgentEmail;
+impl MigrationName for AgentEmail {
+    fn name(&self) -> &str {
+        "m20261114_000113_agent_email"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for AgentEmail {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("email.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Agent email requires a forward migration".into(),
+        ))
+    }
+}

@@ -43,6 +43,19 @@ impl PgStore {
         endpoint: &Value,
         input: &Message,
     ) -> Result<Value> {
+        self.receive_in_thread(tx, w, endpoint, input, None).await
+    }
+
+    /// [`Self::receive`], placing an admitted message in `thread` of the room:
+    /// a mail thread is a thread in the person's direct room.
+    pub(super) async fn receive_in_thread(
+        &self,
+        tx: &DatabaseTransaction,
+        w: &str,
+        endpoint: &Value,
+        input: &Message,
+        thread: Option<String>,
+    ) -> Result<Value> {
         ensure!(
             endpoint["address"] == input.recipient,
             "Recipient does not match this endpoint"
@@ -97,7 +110,7 @@ impl PgStore {
                     content: input.text.clone(),
                     agent: Some(agent.into()),
                     agents: vec![],
-                    thread: None,
+                    thread,
                     attachments: vec![],
                 };
                 job = self.communication_in(tx, &user, w, &c, &request).await?;
@@ -115,8 +128,8 @@ impl PgStore {
         } else {
             json!({"event":input.event})
         };
-        execute(tx,"INSERT INTO relay_communication_inbox(workspace,endpoint,event,transport,fingerprint,envelope,status,message,reply,chat) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![w.into(),id.into(),input.event.clone().into(),endpoint["transport"].as_str().unwrap().into(),fingerprint.into(),envelope.into(),status.into(),message.into(),job.as_ref().map(|j|j.reply.clone()).into(),chat.into()]).await?;
-        Ok(json!({"accepted":true,"duplicate":false,"status":status}))
+        execute(tx,"INSERT INTO relay_communication_inbox(workspace,endpoint,event,transport,fingerprint,envelope,status,message,reply,chat) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![w.into(),id.into(),input.event.clone().into(),endpoint["transport"].as_str().unwrap().into(),fingerprint.into(),envelope.into(),status.into(),message.clone().into(),job.as_ref().map(|j|j.reply.clone()).into(),chat.into()]).await?;
+        Ok(json!({"accepted":true,"duplicate":false,"status":status,"message":message}))
     }
 }
 
