@@ -15,9 +15,12 @@ mod tests;
 /// Characters of the result shown in a posted message; the rest is in Activity.
 const POSTED_CHARS: usize = 400;
 
-/// The schedule's own room, opened at its first run.
+/// The schedule's own room, opened at its first run. A schedule set to "fresh
+/// each run" (schema 115) gets a new room for every run instead, so no run sees
+/// an earlier one.
 pub(super) async fn room(tx: &DatabaseTransaction, w: &str, schedule: &Value) -> Result<String> {
-    if let Some(room) = schedule["room"].as_str() {
+    let fresh = schedule["memory"] == "fresh";
+    if !fresh && let Some(room) = schedule["room"].as_str() {
         return Ok(room.to_owned());
     }
     let (id, agent, person) = (
@@ -25,9 +28,32 @@ pub(super) async fn room(tx: &DatabaseTransaction, w: &str, schedule: &Value) ->
         schedule["agent"].as_str().context("Missing agent")?,
         schedule["principal"].as_str().context("Missing person")?,
     );
+    let name = schedule["name"].as_str().unwrap_or("Schedule");
+    let room = open(tx, w, name, "Runs of a schedule", person, agent).await?;
+    if !fresh {
+        execute(
+            tx,
+            "UPDATE relay_agent_schedules SET room=$3 WHERE workspace=$1 AND id=$2 AND room IS NULL",
+            vec![w.into(), id.into(), room.clone().into()],
+        )
+        .await?;
+    }
+    Ok(room)
+}
+
+/// Opens a new work room holding `person` and `agent`. Work rooms never appear
+/// in Chat, and people can't write into them.
+pub(super) async fn open(
+    tx: &DatabaseTransaction,
+    w: &str,
+    name: &str,
+    description: &str,
+    person: &str,
+    agent: &str,
+) -> Result<String> {
     let room = uuid::Uuid::new_v4().to_string();
-    execute(tx, "INSERT INTO relay_chats(id,workspace,name,creator,kind,description,work) VALUES($1,$2,$3,$4,'direct','Runs of a schedule',TRUE)",
-        vec![room.clone().into(), w.into(), schedule["name"].as_str().unwrap_or("Schedule").into(), person.into()]).await?;
+    execute(tx, "INSERT INTO relay_chats(id,workspace,name,creator,kind,description,work) VALUES($1,$2,$3,$4,'direct',$5,TRUE)",
+        vec![room.clone().into(), w.into(), name.into(), person.into(), description.into()]).await?;
     execute(
         tx,
         "INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3)",
@@ -38,12 +64,6 @@ pub(super) async fn room(tx: &DatabaseTransaction, w: &str, schedule: &Value) ->
         tx,
         "INSERT INTO relay_chat_agents(workspace,chat,agent,joined_sequence) VALUES($1,$2,$3,0)",
         vec![w.into(), room.clone().into(), agent.into()],
-    )
-    .await?;
-    execute(
-        tx,
-        "UPDATE relay_agent_schedules SET room=$3 WHERE workspace=$1 AND id=$2 AND room IS NULL",
-        vec![w.into(), id.into(), room.clone().into()],
     )
     .await?;
     Ok(room)
@@ -100,9 +120,16 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
     if !is_room(tx, &job.workspace, &job.chat).await? {
         return Ok(());
     }
-    let Some(schedule) = json_rows(tx, "SELECT jsonb_build_object('id',s.id,'name',s.name,'chat',s.chat,'principal',s.principal) AS data FROM relay_schedule_occurrences o
+    let mut found = json_rows(tx, "SELECT jsonb_build_object('id',s.id,'name',s.name,'chat',s.chat,'principal',s.principal,'kind','schedule') AS data FROM relay_schedule_occurrences o
         JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule WHERE o.workspace=$1 AND o.reply=$2 AND s.chat IS NOT NULL",
-        vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next() else {
+        vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
+    // An event trigger's run (schema 115) posts the same way.
+    if found.is_none() && super::automation_memory::ready(tx).await? {
+        found = json_rows(tx, "SELECT jsonb_build_object('id',t.id,'name',t.input->>'name','chat',t.chat,'principal',t.principal,'kind','event') AS data FROM relay_event_deliveries d
+            JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2 AND d.room IS NOT NULL AND t.chat IS NOT NULL AND NOT d.revoked",
+            vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
+    }
+    let Some(schedule) = found else {
         return Ok(());
     };
     let target = schedule["chat"].as_str().context("Missing post target")?;
@@ -115,7 +142,9 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
         display_name: None,
     };
     let w = &job.workspace;
-    let own = schedule["id"].as_str();
+    let own = schedule["id"]
+        .as_str()
+        .filter(|_| schedule["kind"] == "schedule");
     let (state, message, reason) = match authority_for(tx, &person, w, &job.agent, own, target)
         .await
     {
@@ -127,7 +156,7 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
             let id = uuid::Uuid::new_v4().to_string();
             let text = format!(
                 "**{}**\n\n{shown}\n\n[View run](run:{})",
-                schedule["name"].as_str().unwrap_or("Schedule"),
+                schedule["name"].as_str().unwrap_or("Automation"),
                 job.reply
             );
             execute(tx, "INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at) VALUES($1,$2,$3,$4,'agent',$5,'complete',$6)",
@@ -138,11 +167,49 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
         Err(_) => (
             "skipped",
             None,
-            Some("The person who set up the schedule can no longer post there with this agent."),
+            Some("The person who set up the automation can no longer post there with this agent."),
         ),
     };
     execute(tx, "INSERT INTO relay_run_posts(workspace,reply,chat,message,state,reason,created) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING",
         vec![w.into(), job.reply.clone().into(), target.into(), message.into(), state.into(), reason.into(), now().into()]).await?;
+    Ok(())
+}
+
+/// A posted run summary carries the run's result, so it follows the run's own
+/// source checks: when the viewer may no longer see the run (an event source's
+/// read was revoked, a Library document was hidden), the summary is hidden too.
+pub(super) async fn guard_posts(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    messages: &mut [Value],
+) -> Result<()> {
+    if !ready(tx).await? {
+        return Ok(());
+    }
+    let ids = messages
+        .iter()
+        .filter(|m| m["kind"] == "agent")
+        .map(|m| m["id"].clone())
+        .collect::<Vec<_>>();
+    let posts = rows(tx, "SELECT p.message,j.payload FROM relay_run_posts p JOIN relay_chat_jobs j ON j.workspace=p.workspace AND j.reply=p.reply
+        WHERE p.workspace=$1 AND p.message IN (SELECT jsonb_array_elements_text($2::jsonb))",
+        vec![w.into(), serde_json::json!(ids).into()]).await?;
+    for row in posts {
+        let message: String = row.try_get("", "message")?;
+        let mut viewer: Job = serde_json::from_value(row.try_get("", "payload")?)?;
+        viewer.requester = user.id.clone();
+        if super::source_access::allowed(tx, &viewer).await? {
+            continue;
+        }
+        for shown in messages.iter_mut().filter(|m| m["id"] == message.as_str()) {
+            shown["content"] =
+                Value::String("Result unavailable because source access changed.".into());
+            shown["response"] = Value::Null;
+            shown["attachments"] = serde_json::json!([]);
+            shown["response_unavailable"] = Value::Bool(true);
+        }
+    }
     Ok(())
 }
 

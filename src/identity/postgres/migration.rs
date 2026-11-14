@@ -122,6 +122,11 @@ impl MigratorTrait for Migrator {
             Box::new(super::communications::migration::DoorRooms),
             Box::new(super::communications::migration::AgentEmail),
             Box::new(super::communications::migration::WhatsappRemoved),
+            Box::new(super::automation_memory::AutomationMemory),
+            Box::new(super::systems::ConnectedSystems),
+            Box::new(super::systems::SystemEvents),
+            Box::new(super::systems::Subjects),
+            Box::new(super::shared_computers::SharedComputers),
         ]
     }
 }

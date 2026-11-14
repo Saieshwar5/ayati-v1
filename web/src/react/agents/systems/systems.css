@@ -1,0 +1,39 @@
+/* Connected systems on an agent's Tools tab (C1 of the connected systems plan). */
+.agent-systems { margin-top: 20px; display: grid; gap: 8px; justify-items: start; }
+.agent-systems > .agent-tool { justify-self: stretch; }
+.system-state { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--selection); color: var(--muted); margin-left: 8px; }
+.system-state.connected { color: var(--success); }
+.system-state.changed, .system-state.unreachable { background: var(--warning-bg); color: var(--warning); }
+.system-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.system-tile > header { flex-wrap: wrap; }
+.system-tile-tools { list-style: none; margin: 8px 0 0; padding: 0 0 0 16px; display: grid; gap: 4px; }
+.system-tile-tools li { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.system-tile-tools small { color: var(--muted); }
+.system-steps { display: flex; gap: 16px; list-style: none; padding: 0; margin: 0 0 12px; color: var(--muted); font-size: 13px; counter-reset: step; }
+.system-steps li { counter-increment: step; }
+.system-steps li::before { content: counter(step) " "; }
+.system-steps li.current { color: var(--text); font-weight: 600; }
+.system-tools { list-style: none; margin: 0; padding: 0; }
+.system-tool { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.system-tool > span { min-width: 0; }
+.system-tool strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.system-tool small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.system-tool-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.system-tool.unsupported { grid-template-columns: minmax(0, 1fr); opacity: .8; }
+.system-tool.changed { background: var(--warning-bg); }
+.system-tool-held { color: var(--warning) !important; }
+.system-kind { min-width: 110px; }
+@media (max-width: 600px) { .system-tool { grid-template-columns: auto minmax(0, 1fr); } .system-tool > .system-kind, .system-tool > .mode-picker { grid-column: 2; } }
+.system-events-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 0 16px; font-size: 13px; color: var(--muted); }
+.system-events { display: grid; gap: 12px; }
+.system-events code, .system-key code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.system-key { display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: var(--warning-bg); color: var(--text); }
+.system-sample { margin: 0; padding: 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--border); font-size: 12px; overflow-x: auto; white-space: pre; }
+.system-table { overflow-x: auto; }
+.system-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.system-table th, .system-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.system-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.system-test { display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.system-result-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.system-subject { grid-column: 2 / -1; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.system-subject span { display: grid; gap: 2px; }

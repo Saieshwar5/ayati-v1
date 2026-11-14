@@ -97,7 +97,7 @@ pub(super) async fn source_allowed(db: &impl ConnectionTrait, viewer: &Job) -> R
                 &principal,
                 &viewer.workspace,
                 h["target"].as_str().unwrap(),
-                h["chat"].as_str().unwrap(),
+                h["chat"].as_str(),
                 &source,
             )
             .await?;
@@ -178,9 +178,15 @@ pub(super) async fn event_source(
         email: String::new(),
         display_name: None,
     };
-    let authority =
-        super::event_access::versions(db, &user, &task.workspace, target, &task.chat, &source)
-            .await?;
+    let authority = super::event_access::versions(
+        db,
+        &user,
+        &task.workspace,
+        target,
+        Some(&task.chat),
+        &source,
+    )
+    .await?;
     Ok(Some(
         json!({"source":source.id,"delivery":row.try_get::<String>("","id")?,"binding":source.fingerprint()?,"connection":source.connection,"operation":source.read_operation,"authority":authority}),
     ))

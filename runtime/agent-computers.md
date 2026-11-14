@@ -7,6 +7,8 @@ while the agent works; asleep, it keeps its files and costs nothing. People neve
 which provider runs it. Designed in [designs/agent-computers](../designs/agent-computers/README.md);
 the provider check is in [agent-computer-providers](agent-computer-providers.md).
 First slice (server and screens) built 2026-11-08.
+An admin can instead give chosen agents a machine the workspace runs itself; see
+[your own computers](workspace-computers.md).
 
 ## Turning it on
 

@@ -367,6 +367,7 @@ impl PgStore {
             first_ms: (now() + 7 * 86400) * 1000,
             interval_seconds: Some(7 * 86400),
             timezone: zone,
+            memory: None,
         };
         self.save_schedule(user, w, agent, &schedule).await?;
         let tx = self.workspace_tx(w).await?;

@@ -13,6 +13,7 @@ import { adminWorkspace, comingLater, labels, memberWorkspace, personal, request
 import './settings.css';
 import { UsagePage } from './usage-page';
 import { ComputersSettings } from './computers-settings';
+import { WorkspaceComputers } from './workspace-computers';
 
 export function SettingsPage({ href }: { href: string }) {
   const url = new URL(href);
@@ -46,7 +47,7 @@ export function SettingsPage({ href }: { href: string }) {
         : section === 'people' ? <PeoplePage />
         : section === 'company-rules' ? <CompanyRules />
         : section === 'audit-log' ? <><AuditLog />{workspaceSession?.simulation && <SimulationReport />}</>
-        : section === 'computers' ? <ComputersSettings />
+        : section === 'computers' ? <><ComputersSettings /><WorkspaceComputers /></>
         : section === 'usage' ? <UsagePage />
         : <ComingLater section={section} />}
     </div>

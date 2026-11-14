@@ -6,9 +6,9 @@ use crate::identity::events::{
     model::{Change, Trigger, fingerprint},
 };
 use serde_json::json;
-/// Where an event source's work may be posted for this person: the agent's
-/// conversations where it may read the source and the person may post. Rules
-/// belong to the agent (schema 47), so the destination is chosen, not derived.
+/// What a person may set up for an event source: its read authority, and the
+/// agent's conversations where results may also be posted. Runs happen in a
+/// private work room (schema 115), so posting anywhere is optional.
 pub(super) async fn choice(
     db: &DatabaseTransaction,
     user: &User,
@@ -18,19 +18,21 @@ pub(super) async fn choice(
 ) -> Result<Value> {
     source.available()?;
     let account=query(db,"SELECT c.definition->>'account' AS account,c.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("The agent needs this read action set to Allow on its Tools tab first")?;
+    super::automation_access::run_authority(db, user, w, agent, None, None).await?;
     let (conversations, authority) = destinations(db, user, w, agent, source).await?;
-    let first = conversations
-        .first()
-        .context("Add the agent to a conversation you can post in first")?
-        .clone();
+    ensure!(
+        !authority.is_null(),
+        "The agent needs this read action set to Allow on its Tools tab first"
+    );
     Ok(
-        json!({"source":source.public(),"chat":first["id"],"chat_name":first["name"],"visibility":first["visibility"],
-        "conversations":conversations,"account":account.try_get::<Option<String>>("","account")?,
+        json!({"source":source.public(),"chat":null,"conversations":conversations,
+        "account":account.try_get::<Option<String>>("","account")?,
         "account_name":account.try_get::<Option<String>>("","account_name")?,"authority":authority}),
     )
 }
-/// The agent's conversations where this person may post and the agent may read
-/// the source, with the current read authority.
+/// The current read authority for the source (null when the agent's rule
+/// doesn't allow the read), and the agent's conversations where this person
+/// may also post results.
 pub(super) async fn destinations(
     db: &DatabaseTransaction,
     user: &User,
@@ -38,22 +40,18 @@ pub(super) async fn destinations(
     agent: &str,
     source: &Source,
 ) -> Result<(Vec<Value>, Value)> {
-    let candidates=json_rows(db,"SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived ORDER BY c.name,c.id LIMIT 50",vec![w.into(),agent.into()]).await?;
+    let authority = match versions(db, user, w, agent, None, source).await {
+        Ok(v) => v,
+        Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
+        Err(_) => return Ok((vec![], Value::Null)),
+    };
+    let hidden = super::work_rooms::hidden(db).await?;
+    let candidates=json_rows(db,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived{hidden} ORDER BY c.name,c.id LIMIT 50"),vec![w.into(),agent.into()]).await?;
     let mut conversations = vec![];
-    let mut authority = Value::Null;
     for chat in candidates {
         let id = chat["id"].as_str().unwrap();
-        if super::automation_access::authority(db, user, w, agent, id)
-            .await
-            .is_err()
-        {
-            continue;
-        }
-        match versions(db, user, w, agent, id, source).await {
-            Ok(v) => {
-                authority = v;
-                conversations.push(chat);
-            }
+        match super::automation_access::authority(db, user, w, agent, id).await {
+            Ok(()) => conversations.push(chat),
             Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
             Err(_) => {}
         }
@@ -83,9 +81,12 @@ pub(super) async fn present(
     full: bool,
 ) -> Result<Value> {
     visible(db, user, w, agent, &data).await?;
-    let names=query(db,"SELECT c.name,COALESCE(u.display_name,u.email) AS person FROM relay_chats c JOIN relay_users u ON u.id=$3 WHERE c.workspace=$1 AND c.id=$2",vec![w.into(),data["chat"].as_str().unwrap().into(),data["principal"].as_str().unwrap().into()]).await?.context("Event destination unavailable")?;
-    data["chat_name"] = json!(names.try_get::<String>("", "name")?);
+    let names=query(db,"SELECT (SELECT c.name FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2) AS name,COALESCE(u.display_name,u.email) AS person FROM relay_users u WHERE u.id=$3",vec![w.into(),super::event_access::post_to(&data).into(),data["principal"].as_str().unwrap().into()]).await?.context("Event person unavailable")?;
+    data["chat_name"] = json!(names.try_get::<Option<String>>("", "name")?);
     data["principal_name"] = json!(names.try_get::<String>("", "person")?);
+    if data["memory"].is_null() {
+        data["memory"] = json!("fresh");
+    }
     data["name"] = data["input"]["name"].clone();
     data["filter"] = data["input"]["filter"].clone();
     let text = data["input"]["instructions"].as_str().unwrap();
@@ -110,12 +111,17 @@ pub(super) async fn present(
     } else {
         None
     };
+    let posts = super::event_access::post_to(&data).map(str::to_owned);
     data["can_resume"] = json!(
         data["principal"] == user.id
-            && current.as_ref().is_some_and(|c| c["conversations"]
-                .as_array()
-                .is_some_and(|list| list.iter().any(|chat| chat["id"] == data["chat"])))
+            && current.as_ref().is_some_and(|c| match &posts {
+                None => true,
+                Some(chat) => c["conversations"]
+                    .as_array()
+                    .is_some_and(|list| list.iter().any(|item| item["id"] == chat.as_str())),
+            })
     );
+    data.as_object_mut().unwrap().remove("room");
     data["choice"] = json!(current);
     Ok(data)
 }
@@ -258,16 +264,16 @@ impl PgStore {
                 "Source identity or projection changed; create a new trigger"
             );
             source.available()?;
-            super::automation_access::authority(
+            super::event_access::start(&tx, user, w, &data).await?;
+            let authority = versions(
                 &tx,
                 user,
                 w,
                 agent,
-                data["chat"].as_str().unwrap(),
+                super::event_access::post_to(&data),
+                &source,
             )
             .await?;
-            let authority =
-                versions(&tx, user, w, agent, data["chat"].as_str().unwrap(), &source).await?;
             ensure!(
                 authority
                     == json!({"connection_revision":input.connection_revision,"read_revision":input.read_revision,"delegation_revision":input.delegation_revision}),
@@ -338,9 +344,10 @@ pub(super) async fn insert(
     hash: &str,
 ) -> Result<()> {
     source.available()?;
-    super::automation_access::authority(tx, user, w, agent, &input.chat).await?;
+    super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
+        .await?;
     ensure!(
-        versions(tx, user, w, agent, &input.chat, source).await?
+        versions(tx, user, w, agent, input.chat.as_deref(), source).await?
             == super::event_access::expected(input),
         "Source read/delegation authority changed; refresh before activation"
     );
@@ -365,7 +372,16 @@ pub(super) async fn insert(
         count < 100,
         "The current operational limit is 100 saved event triggers per agent"
     );
-    execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),input.chat.clone().into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
+    let memory = input.memory.as_deref().unwrap_or("fresh");
+    if super::automation_memory::ready(tx).await? {
+        execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision,memory) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),input.chat.clone().into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into(),memory.into()]).await?;
+    } else {
+        let chat = input
+            .chat
+            .as_deref()
+            .context("Choose where the results go")?;
+        execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),chat.into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
+    }
     audit(
         tx,
         &user.id,

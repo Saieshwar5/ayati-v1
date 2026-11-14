@@ -55,7 +55,7 @@ pub(super) async fn setup() -> Setup {
     })
     .unwrap();
     let tx = db.read_tx(&w).await.unwrap();
-    let v = super::event_access::versions(&tx, &owner, &w, &a, &c, &source)
+    let v = super::event_access::versions(&tx, &owner, &w, &a, Some(&c), &source)
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -63,7 +63,8 @@ pub(super) async fn setup() -> Setup {
         id: uuid::Uuid::new_v4().to_string(),
         source: source.id.clone(),
         binding: source.fingerprint().unwrap(),
-        chat: c.clone(),
+        chat: Some(c.clone()),
+        memory: None,
         name: "Review order change".into(),
         instructions: "Review this change and report blockers.".into(),
         connection_revision: v["connection_revision"].as_i64().unwrap(),
@@ -173,7 +174,18 @@ async fn event_exact_receipts_admit_one_atomic_principal_bound_job_and_isolate_c
     assert_eq!(one.unwrap() + two.unwrap(), 1);
     let job = s.job().await;
     assert_eq!(job.requester, s.owner.id);
-    assert_eq!(job.chat, s.c);
+    // Runs happen in a private work room, never the conversation (schema 115).
+    assert_ne!(job.chat, s.c);
+    assert!(
+        query(
+            &s.db.db,
+            "SELECT 1 AS found FROM relay_chats WHERE id=$1 AND work",
+            vec![job.chat.clone().into()]
+        )
+        .await
+        .unwrap()
+        .is_some()
+    );
     assert!(!job.prompt.contains("PRIVATE-ORDER"));
     let sources = s.db.event_job_context(&job).await.unwrap();
     assert!(json!(sources).to_string().contains("PRIVATE-ORDER-42"));
@@ -197,7 +209,7 @@ async fn event_exact_receipts_admit_one_atomic_principal_bound_job_and_isolate_c
     assert!(!next.prompt.contains("PRIVATE-EVENT-RESULT"));
     assert!(s.db.event_job_context(&next).await.unwrap().is_empty());
     assert_eq!(
-        s.db.response_body(&s.owner, &s.w, &s.c, &job.reply, false)
+        s.db.response_body(&s.owner, &s.w, &job.chat, &job.reply, false)
             .await
             .unwrap()["source_scope"],
         s.source.id
@@ -236,7 +248,7 @@ async fn event_unmatched_paused_and_stopped_receipts_never_rematch_or_restart() 
     s.accept("fresh-event", "delayed").await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     let job = s.job().await;
-    s.db.cancel_assignment(&s.owner, &s.w, &s.c, &job.reply)
+    s.db.cancel_assignment(&s.owner, &s.w, &job.chat, &job.reply)
         .await
         .unwrap();
     s.accept("fresh-event", "delayed").await;
@@ -268,7 +280,7 @@ async fn event_pressure_has_no_partial_ack_and_two_distinct_ids_wait_without_ove
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     assert_eq!(s.db.dispatch_events().await.unwrap(), 0);
     let job = s.job().await;
-    s.db.cancel_assignment(&s.owner, &s.w, &s.c, &job.reply)
+    s.db.cancel_assignment(&s.owner, &s.w, &job.chat, &job.reply)
         .await
         .unwrap();
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);

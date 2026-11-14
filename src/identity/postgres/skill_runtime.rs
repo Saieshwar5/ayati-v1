@@ -50,7 +50,9 @@ pub(crate) async fn steps(db: &impl ConnectionTrait, w: &str, reply: &str) -> Re
         return Ok(vec![]);
     }
     json_rows(db, "SELECT jsonb_build_object('id','skill-'||l.at_ms||'-'||s.name||COALESCE('/'||l.path,''),'title',
-        CASE WHEN l.path IS NULL THEN 'Used skill: '||s.name||' (version '||l.version||')' ELSE 'Read '||l.path||' from '||s.name END,
+        CASE WHEN l.path IS NULL THEN 'Used skill: '||s.name||' (version '||l.version||')'
+          WHEN l.path LIKE 'run:%' THEN 'Ran '||substr(l.path,5)||' from '||s.name||' (version '||l.version||') on its computer'
+          ELSE 'Read '||l.path||' from '||s.name END,
         'effect','skill','state','completed','automatic',true,'decision',NULL,'decided_by',NULL,'account',NULL,'arguments','{}'::jsonb,'at',l.at_ms/1000) AS data
         FROM relay_skill_loads l JOIN relay_skills s ON s.workspace=l.workspace AND s.id=l.skill
         WHERE l.workspace=$1 AND l.job=$2 ORDER BY l.at_ms LIMIT 50", vec![w.into(), reply.into()]).await
@@ -94,7 +96,7 @@ impl PgStore {
         Ok(
             json!({"state":"available","name":input.name,"version":version,"file":path,"content":file.text,
             "files":files.iter().map(|f| &f.path).collect::<Vec<_>>(),
-            "note": if has_scripts { "Scripts in this skill can't run here. Follow the written steps instead." } else { "" }}),
+            "note": if has_scripts { "This skill has scripts. Run one with run_skill_script when its steps say to; it runs on your computer under your programs rule. Without a computer, follow the written steps instead." } else { "" }}),
         )
     }
 }

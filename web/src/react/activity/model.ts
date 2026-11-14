@@ -25,7 +25,9 @@ export type RunSchedule = { id: string; name: string; agent: string; state: stri
   post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
   /** The run happened in the schedule's own work room, which isn't a conversation. */
   room: boolean };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null;
+/** The event trigger a run came from (schema 115): the same facts as a schedule's. */
+export type RunTrigger = Omit<RunSchedule, 'interval_seconds'> & { source: string | null; memory: 'fresh' | 'remember' | 'subject' };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null; trigger?: RunTrigger | null;
   /** What the person added while it ran (Phase 4), and whether the agent saw it. */
   added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[];
   /** Tokens through the model gateway (core-agent CA3); zero calls without it. */

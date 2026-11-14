@@ -60,7 +60,7 @@ export function SkillView({ id, close }: { id: string; close: () => void }) {
     {!data && !error && <p role="status">Loading skill…</p>}
     {data && <section className="skill-detail" aria-label="Skill">
       <p><strong>Use it when:</strong> {data.description}</p>
-      <p className="ui-help">{scope(data)} · {data.license ? `License: ${data.license}` : 'No license'}{data.has_scripts ? ' · Has scripts: scripts can’t run yet' : ''}</p>
+      <p className="ui-help">{scope(data)} · {data.license ? `License: ${data.license}` : 'No license'}{data.has_scripts ? ' · Has scripts: they run on the agent’s computer under its programs rule' : ''}</p>
       <label className="ui-field">Version<select value={data.shown_version} onChange={event => setVersion(Number(event.target.value))}>
         {data.versions.map(v => <option key={v.version} value={v.version}>Version {v.version} · {v.author} · {new Date(v.created_ms).toLocaleDateString()}</option>)}</select></label>
       {main && <pre className="skill-text">{main.text}</pre>}

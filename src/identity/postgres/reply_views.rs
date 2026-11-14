@@ -20,6 +20,7 @@ pub(super) async fn hydrate(
     if ids.is_empty() {
         return Ok(());
     }
+    super::work_rooms::guard_posts(tx, user, workspace, messages).await?;
     let task_ids = rows(tx,"SELECT reply FROM relay_chat_jobs WHERE workspace=$1 AND reply IN (SELECT jsonb_array_elements_text($2::jsonb))",vec![workspace.into(),serde_json::json!(ids).into()]).await?.into_iter().map(|r|r.try_get::<String>("","reply")).collect::<std::result::Result<std::collections::HashSet<_>,_>>()?;
     for message in messages.iter_mut() {
         message["has_task"] = Value::Bool(

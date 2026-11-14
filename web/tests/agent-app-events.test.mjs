@@ -67,9 +67,13 @@ test('a trigger from an app reviews app, event, fields and audience before one e
       await change(field('Trigger name'), 'Invoices');
       await change(field('Task instructions'), 'Read the email and say whether it asks for payment.');
       await change(field('subject'), 'Invoice');
+      await click(field('Activity, and post the result to'));
+      await click(field('Remember earlier runs'));
       await click(button('Review event trigger'));
       assert.equal(writes.length, 0);
       for (const text of [
+        'Activity, and a summary in Accounts',
+        'Remember earlier runs',
         'Gmail',
         'accounts@example.test',
         'New email',
@@ -88,6 +92,7 @@ test('a trigger from an app reviews app, event, fields and audience before one e
       assert.equal(writes[0].connection, 'gmail-connection');
       assert.equal(writes[0].event, 'gmail.new_email');
       assert.equal(writes[0].chat, 'channel');
+      assert.equal(writes[0].memory, 'remember');
       assert.deepEqual(writes[0].filter, { subject: 'Invoice' });
       assert.equal(writes[0].connection_revision, 4);
       assert.equal(writes[0].read_revision, 7);
@@ -103,6 +108,39 @@ test('a trigger from an app reviews app, event, fields and audience before one e
           return new Promise((resolve) => {
             finish = resolve;
           });
+        }
+        return base(path);
+      },
+    },
+  );
+});
+
+test('an app trigger keeps results in Activity and starts each run fresh unless asked', async () => {
+  const writes = [];
+  await reactFixture(
+    async ({ render, button, click, change, update }) => {
+      await setup();
+      const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
+      await render(CreateAppEvent, { agent: 'a', directory: directory([gmail]), close: () => {}, saved: async () => {} });
+      assert.equal(field('Activity only').checked, true);
+      assert.equal(field('Fresh each run').checked, true);
+      assert.equal(field('Conversation'), undefined, 'no conversation is asked for by default');
+      await change(field('Trigger name'), 'Invoices');
+      await change(field('Task instructions'), 'Say whether it asks for payment.');
+      await click(button('Review event trigger'));
+      for (const text of ['Activity only', 'Fresh each run', 'never reads anyone’s conversations'])
+        assert.ok(document.body.textContent.includes(text), text);
+      await update(() => button('Activate event trigger').click());
+      assert.equal(writes.length, 1);
+      assert.equal('chat' in writes[0], false);
+      assert.equal('memory' in writes[0], false);
+    },
+    {
+      url,
+      fetch: async (path, init = {}) => {
+        if (init.method === 'POST') {
+          writes.push(JSON.parse(init.body));
+          return new Promise(() => {});
         }
         return base(path);
       },

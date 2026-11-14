@@ -7,7 +7,13 @@ pub(crate) struct Trigger {
     pub id: String,
     pub source: String,
     pub binding: String,
-    pub chat: String,
+    /// Where to also post a short result, if anywhere. Runs happen in a private
+    /// work room (schema 115); older triggers keep their conversation here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat: Option<String>,
+    /// `fresh` (the default) or `remember`: what a run sees of earlier runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<String>,
     pub name: String,
     pub instructions: String,
     pub connection_revision: i64,
@@ -17,9 +23,18 @@ pub(crate) struct Trigger {
 }
 impl Trigger {
     pub(crate) fn validate(&self) -> Result<()> {
-        for id in [&self.id, &self.source, &self.chat] {
+        for id in [Some(&self.id), Some(&self.source), self.chat.as_ref()]
+            .into_iter()
+            .flatten()
+        {
             crate::identity::automations::model::uuid(id)?;
         }
+        ensure!(
+            self.memory
+                .as_deref()
+                .is_none_or(|m| crate::identity::postgres::MEMORY.contains(&m)),
+            "Choose what the automation remembers: fresh or remember"
+        );
         ensure!(
             self.binding.len() == 43
                 && self.connection_revision > 0
@@ -66,7 +81,10 @@ pub(crate) struct FromApp {
     pub id: String,
     pub connection: String,
     pub event: String,
-    pub chat: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<String>,
     pub name: String,
     pub instructions: String,
     pub connection_revision: i64,
@@ -82,6 +100,7 @@ impl FromApp {
             source: source.to_owned(),
             binding: binding.to_owned(),
             chat: self.chat.clone(),
+            memory: self.memory.clone(),
             name: self.name.clone(),
             instructions: self.instructions.clone(),
             connection_revision: self.connection_revision,

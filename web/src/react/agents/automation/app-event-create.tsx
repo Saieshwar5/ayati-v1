@@ -3,6 +3,7 @@ import { identityRequest, storageScope, workspaceSession } from '../../../worksp
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
 import { eventPath, loadAppEvents, type AppTriggerInput, type Events } from './event-model';
+import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from './results-and-memory';
 
 function pending(key: string): AppTriggerInput | undefined {
   try {
@@ -12,7 +13,7 @@ function pending(key: string): AppTriggerInput | undefined {
       typeof v.id === 'string' &&
       typeof v.connection === 'string' &&
       typeof v.event === 'string' &&
-      typeof v.chat === 'string' &&
+      (v.chat === undefined || typeof v.chat === 'string') &&
       typeof v.name === 'string' &&
       typeof v.instructions === 'string' &&
       v.filter &&
@@ -55,8 +56,11 @@ export function CreateAppEvent({
   const events = useResource(load);
   const [chosen, choose] = useState(original?.event ?? '');
   const event = events.data?.find((e) => e.id === chosen) ?? events.data?.[0];
+  // Runs happen in a private work room (schema 115); posting a summary is optional.
+  const [post, setPost] = useState(Boolean(original?.chat));
   const [destination, setDestination] = useState(original?.chat ?? '');
-  const place = app?.conversations.find((c) => c.id === destination) ?? app?.conversations[0];
+  const place = post ? (app?.conversations.find((c) => c.id === destination) ?? app?.conversations[0]) : undefined;
+  const [memory, setMemory] = useState<Memory>(original?.memory ?? 'fresh');
   const [name, setName] = useState(original?.name ?? ''),
     [task, setTask] = useState(original?.instructions ?? '');
   const [filters, setFilters] = useState<Record<string, string>>(
@@ -90,7 +94,8 @@ export function CreateAppEvent({
   };
   const inspect = () =>
     void m.run(async () => {
-      if (!app || !ready || !event || !place || !app.authority) throw new Error('Choose a connected app that is ready.');
+      if (!app || !ready || !event || !app.authority) throw new Error('Choose a connected app that is ready.');
+      if (post && !place) throw new Error('Choose a conversation you may post to, or keep results in Activity only.');
       if (!name.trim() || tooLong(name, 100) || !task.trim() || tooLong(task, 4000))
         throw new Error('Use a name up to 100 bytes and task instructions up to 4,000 bytes.');
       const filter = Object.fromEntries(
@@ -101,7 +106,8 @@ export function CreateAppEvent({
         id: crypto.randomUUID(),
         connection: app.connection,
         event: event.id,
-        chat: place.id,
+        ...(place ? { chat: place.id } : {}),
+        ...(memory === 'remember' ? { memory } : {}),
         name,
         instructions: task,
         filter,
@@ -151,7 +157,7 @@ export function CreateAppEvent({
             </Button>
           </>
         ) : (
-          <Button primary disabled={m.busy || !ready || !event || !place} onClick={inspect}>
+          <Button primary disabled={m.busy || !ready || !event || (post && !place)} onClick={inspect}>
             Review event trigger
           </Button>
         )
@@ -194,10 +200,12 @@ export function CreateAppEvent({
             <dd>{reviewedEvent?.title ?? review.event}</dd>
             <dt>Included fields</dt>
             <dd>{reviewedEvent?.fields.join(', ')}</dd>
-            <dt>Destination</dt>
+            <dt>Results</dt>
             <dd>
-              {reviewedPlace?.name ?? 'Unavailable'} · {reviewedPlace?.visibility}
+              {review.chat ? `Activity, and a summary in ${reviewedPlace?.name ?? 'a conversation no longer available'}` : 'Activity only'}
             </dd>
+            <dt>Memory</dt>
+            <dd>{memoryLabels[review.memory ?? 'fresh'].title}</dd>
             <dt>Authorized by</dt>
             <dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd>
             <dt>Exact text filters</dt>
@@ -208,8 +216,10 @@ export function CreateAppEvent({
             </dd>
           </dl>
           <p>
-            These fields may be used by this agent and its result shared in the destination conversation. Its current
-            members are the audience.
+            Each run happens in its own private room and appears in Activity. It never reads anyone’s conversations.
+            {review.chat
+              ? ' A short result is posted to the conversation you chose; its current members are the audience.'
+              : ' Only you, the agent’s managers and admins see what it found.'}
           </p>
           <p>
             Activating asks the app to send these events to Cuckoo. Automatic reading needs{' '}
@@ -270,20 +280,15 @@ export function CreateAppEvent({
                   ))}
                 </select>
               </label>
-              <label className="ui-field">
-                Post in
-                <select
-                  aria-label="Destination conversation"
-                  value={place?.id ?? ''}
-                  onChange={(e) => setDestination(e.target.value)}
-                >
-                  {app?.conversations.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ResultsChoice
+                name="app-event"
+                post={post}
+                setPost={setPost}
+                chat={place?.id ?? app?.conversations[0]?.id ?? ''}
+                setChat={setDestination}
+                conversations={app?.conversations ?? []}
+              />
+              <MemoryChoice name="app-event" value={memory} change={setMemory} />
               <label className="ui-field">
                 Trigger name
                 <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />

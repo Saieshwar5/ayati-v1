@@ -297,6 +297,7 @@ impl PgStore {
                 first_ms: draft["first_ms"].as_i64().unwrap_or_default(),
                 interval_seconds: draft["interval_seconds"].as_i64(),
                 timezone: zone,
+                memory: None,
             };
             self.save_proposed_schedule(
                 user,

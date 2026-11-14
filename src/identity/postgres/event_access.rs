@@ -16,7 +16,7 @@ pub(super) async fn versions(
     user: &User,
     w: &str,
     agent: &str,
-    chat: &str,
+    chat: Option<&str>,
     source: &Source,
 ) -> Result<Value> {
     ensure!(source.workspace == w, "Event source workspace mismatch");
@@ -28,7 +28,11 @@ pub(super) async fn versions(
             .any(|op| op["id"] == source.read_operation && op["effect"] == "read")),
         "The source operation must be a reviewed read"
     );
-    super::chat::access(db, user, w, chat).await?;
+    // A trigger that posts its results somewhere needs the person's access
+    // there; runs themselves happen in a private work room (schema 115).
+    if let Some(chat) = chat {
+        super::chat::access(db, user, w, chat).await?;
+    }
     // Per-person delegation limits were retired in schema 47; the workspace rule
     // for the read action now bounds every agent, so there is no delegation.
     let delegation: Option<i64> = None;
@@ -55,13 +59,26 @@ pub(super) async fn visible(
     data: &Value,
 ) -> Result<()> {
     super::agent_profiles::managed_access(db, &user.id, w, agent, true).await?;
-    super::chat::access(
-        db,
-        user,
-        w,
-        data["chat"].as_str().context("Missing event destination")?,
-    )
-    .await
+    // A trigger that posts its results somewhere is seen only by people there.
+    match post_to(data) {
+        Some(chat) => super::chat::access(db, user, w, chat).await,
+        None => Ok(()),
+    }
+}
+/// Where a trigger also posts its result, if anywhere.
+pub(super) fn post_to(data: &Value) -> Option<&str> {
+    data["chat"].as_str()
+}
+/// What a trigger needs from its person to start work, as for a schedule: they
+/// look after the agent and may use it, and may post where it posts, if anywhere.
+pub(super) async fn start(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    data: &Value,
+) -> Result<()> {
+    let agent = data["agent"].as_str().context("Missing agent")?;
+    super::automation_access::run_authority(tx, user, w, agent, None, post_to(data)).await
 }
 pub(super) fn principal(data: &Value) -> Result<User> {
     Ok(User {
@@ -85,7 +102,7 @@ pub(super) async fn current(db: &impl ConnectionTrait, w: &str, data: &Value) ->
         &principal(data)?,
         w,
         data["agent"].as_str().unwrap(),
-        data["chat"].as_str().unwrap(),
+        post_to(data),
         &source,
     )
     .await
@@ -119,13 +136,22 @@ pub(super) async fn allowed(
     if !exists(db).await? {
         return Ok(true);
     }
-    let data=query(db,"SELECT to_jsonb(t)-'request_hash' AS data,d.authority,d.revoked FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
+    let room = if super::automation_memory::ready(db).await? {
+        "d.room"
+    } else {
+        "NULL::text"
+    };
+    let data=query(db,&format!("SELECT to_jsonb(t)-'request_hash' AS data,d.authority,d.revoked,{room} AS room FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2"),vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
     let Some(row) = data else { return Ok(true) };
     if row.try_get::<bool>("", "revoked")? {
         return Ok(false);
     }
     let data: Value = row.try_get("", "data")?;
-    if data["chat"] != job.chat || data["agent"] != job.agent {
+    // A run happens in its work room; older runs happened in the trigger's
+    // conversation.
+    let room: Option<String> = row.try_get("", "room")?;
+    let ran_in = room.as_deref().or(post_to(&data));
+    if ran_in != Some(job.chat.as_str()) || data["agent"] != job.agent {
         return Ok(false);
     }
     let user = User {

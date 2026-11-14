@@ -207,6 +207,7 @@ fn configure_process(config: &crate::config::Controller) -> Result<()> {
     start_trace::enable(config.trace_start);
     control::catalog::configure(config.mcp_servers_file.clone());
     connectors::configure(connectors::settings(config)?);
+    connectors::systems::configure(config.secrets_key_file.clone());
     events::catalog::configure(config.event_sources_file.clone());
     communications::adapters::configure(communications::adapters::settings(config));
     Ok(())
@@ -372,7 +373,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     if request.method() != axum::http::Method::GET
         && !library_head
         && !(request.method() == axum::http::Method::POST
-            && events::routes::webhook_path(request.uri().path()))
+            && (events::routes::webhook_path(request.uri().path())
+                || agents::workspace_computer_routes::hook_path(request.uri().path())))
         && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
             != Some(app.config.origin.as_str())
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))

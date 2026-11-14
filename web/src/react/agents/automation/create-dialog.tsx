@@ -4,6 +4,7 @@ import { useMutation } from '../../requests';
 import { localMinute, matchingInstants, type BusinessClock } from '../../../business-time';
 import { storageScope, workspaceSession } from '../../../workspace-context';
 import { cadence, date, results, saveSchedule, type Directory, type ScheduleInput } from './model';
+import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from './results-and-memory';
 function pending(key: string): ScheduleInput | undefined {
   try {
     const value = JSON.parse(window.sessionStorage.getItem(key) ?? 'null');
@@ -29,6 +30,7 @@ export function CreateSchedule({ agent, agentName = 'The agent', data, clock, cl
   // Results go to Activity; posting a short summary to a conversation is optional.
   const [post, setPost] = useState(Boolean(original?.chat));
   const [chat, setChat] = useState(original?.chat ?? data.conversations[0]?.id ?? '');
+  const [memory, setMemory] = useState<Memory>(original?.memory ?? 'remember');
   const [start, setStart] = useState(() => localMinute(original?.first_ms ?? Date.now() + 3600000, original?.timezone ?? clock.timezone));
   const [repeat, setRepeat] = useState<Repeat>(repeatOf(original?.interval_seconds));
   const [amount, setAmount] = useState(original?.interval_seconds ? String(original.interval_seconds / 60) : '1');
@@ -61,7 +63,7 @@ export function CreateSchedule({ agent, agentName = 'The agent', data, clock, cl
     if (interval !== null && (!Number.isSafeInteger(interval) || interval < 1 || interval > 31536000)) throw new Error('Choose an interval of at most 365 24-hour periods.');
     if (!name.trim() || new TextEncoder().encode(name).length > 100 || !content.trim() || new TextEncoder().encode(content).length > 10000) throw new Error('Give it a name (up to 100 bytes) and say what to do (up to 10,000 bytes).');
     if (!ready) throw new Error('Choose a conversation you may post to, or keep results in Activity only.');
-    setReview({ id: crypto.randomUUID(), chat: target, name, content, first_ms: times[0], interval_seconds: interval, timezone: zone });
+    setReview({ id: crypto.randomUUID(), chat: target, name, content, first_ms: times[0], interval_seconds: interval, timezone: zone, ...(memory === 'fresh' ? { memory } : {}) });
   });
   const footer = confirmed ? <Button onClick={close}>Done</Button> : review ? <>
     {!attempt.current && <Button disabled={mutation.busy} onClick={() => setReview(undefined)}>Back to timing</Button>}
@@ -77,21 +79,14 @@ export function CreateSchedule({ agent, agentName = 'The agent', data, clock, cl
       <h3>{review.name}</h3>
       <div className="routine-sentence"><p><strong>{whenSentence(review)}</strong> ({review.timezone}), {agentName} will:</p>
         <p className="routine-instructions">{review.content}</p></div>
-      <dl className="agent-facts"><dt>Results</dt><dd>{results(review.chat, destination?.name ?? null)}</dd><dt>Set up by</dt><dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd></dl>
+      <dl className="agent-facts"><dt>Results</dt><dd>{results(review.chat, destination?.name ?? null)}</dd><dt>Memory</dt><dd>{memoryLabels[review.memory ?? 'remember'].title}</dd><dt>Set up by</dt><dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd></dl>
       <p>Each run happens in the schedule's own room and appears in Activity, using your current access to the agent{review.chat ? ' and to the conversation it posts to' : ''}. Normal questions and exact tool approvals still apply. This grants no new permissions.</p>
       <p className="ui-help">Runs can use your configured model while you are offline. The service and background workers must be running. Reading this review starts no work.</p>
     </div> : <div className="ui-form">
       <label className="ui-field">Name<input value={name} maxLength={100} placeholder="Weekly delayed orders" onChange={event => setName(event.target.value)} /></label>
       <label className="ui-field">What should {agentName} do?<textarea rows={5} maxLength={10000} value={content} placeholder="List orders more than 3 days late and who is waiting on them." onChange={event => setContent(event.target.value)} /></label>
-      <fieldset className="routine-results"><legend>Where results go</legend>
-        <label className="routine-choice"><input type="radio" name="results" checked={!post} onChange={() => setPost(false)} />
-          <span><strong>Activity only</strong><small>Results, approvals and questions appear in Activity. No conversation gets a message.</small></span></label>
-        <label className="routine-choice"><input type="radio" name="results" checked={post} disabled={!data.conversations.length} onChange={() => setPost(true)} />
-          <span><strong>Activity, and post the result to</strong><small>One short message with a link to the run. The steps, approvals and questions stay in Activity.</small></span></label>
-        {post && <label className="ui-field">Conversation<select aria-label="Conversation" value={chat} onChange={event => setChat(event.target.value)}>{data.conversations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
-        {!data.conversations.length && <p className="ui-help">To post results, first add this agent to a conversation you may use.</p>}
-        {post && data.more_conversations && <p className="ui-help">Only the first 100 eligible conversations are listed.</p>}
-      </fieldset>
+      <ResultsChoice name="schedule" post={post} setPost={setPost} chat={chat} setChat={setChat} conversations={data.conversations} more={data.more_conversations} />
+      <MemoryChoice name="schedule" value={memory} change={setMemory} />
       <label className="ui-field">First run<input type="datetime-local" value={start} onChange={event => setStart(event.target.value)} /></label>
       <p className="ui-help">{clock.location} · {zone}. Repeated or missing daylight-saving times are rejected.</p>
       <fieldset className="routine-repeat"><legend>Repeat</legend>

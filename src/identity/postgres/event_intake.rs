@@ -16,6 +16,7 @@ impl PgStore {
         source.validate()?;
         crate::identity::identifier(id)?;
         let data = source.project(id, event)?;
+        let subject = data["$subject"].as_str().map(str::to_owned);
         let hash = fingerprint(event)?;
         let w = &source.workspace;
         let binding = source.fingerprint()?;
@@ -42,7 +43,7 @@ impl PgStore {
             let authority=super::event_access::current(&tx,w,&trigger).await;
             let expected=json!({"connection_revision":trigger["connection_revision"],"read_revision":trigger["read_revision"],"delegation_revision":trigger["delegation_revision"]});
             if authority.as_ref().is_err_and(|e|e.is::<sea_orm::DbErr>()) {return Err(authority.unwrap_err());}
-            let start=super::automation_access::authority(&tx,&super::event_access::principal(&trigger)?,w,trigger["agent"].as_str().unwrap(),trigger["chat"].as_str().unwrap()).await;
+            let start=super::event_access::start(&tx,&super::event_access::principal(&trigger)?,w,&trigger).await;
             if start.as_ref().is_err_and(|e|e.is::<sea_orm::DbErr>()) {return Err(start.unwrap_err());}
             if authority.ok().as_ref()!=Some(&expected) || start.is_err() {continue;}
             if matches(&trigger["input"]["filter"],&data) {matching.push((trigger,expected));}
@@ -55,8 +56,20 @@ impl PgStore {
         }
         execute(&tx,"INSERT INTO relay_event_inbox(workspace,source,id,fingerprint,binding,data) VALUES($1,$2,$3,$4,$5,$6)",vec![w.clone().into(),source.id.clone().into(),id.into(),hash.into(),binding.into(),if matching.is_empty(){None}else{Some(data)}.into()]).await?;
         super::home_update_runs::living::on_event(&tx, w, &source.connection, id).await?;
+        // A connected system's event may name its subject (schema 118); it is
+        // saved in the same transaction, so dispatch always sees it.
+        let subjects = subject.is_some() && super::systems::subjects::ready(&tx).await?;
         for (trigger, authority) in matching {
-            execute(&tx,"INSERT INTO relay_event_deliveries(workspace,id,trigger_id,source,event_id,authority) VALUES($1,$2,$3,$4,$5,$6)",vec![w.clone().into(),uuid::Uuid::new_v4().to_string().into(),trigger["id"].as_str().unwrap().into(),source.id.clone().into(),id.into(),authority.into()]).await?;
+            let delivery = uuid::Uuid::new_v4().to_string();
+            execute(&tx,"INSERT INTO relay_event_deliveries(workspace,id,trigger_id,source,event_id,authority) VALUES($1,$2,$3,$4,$5,$6)",vec![w.clone().into(),delivery.clone().into(),trigger["id"].as_str().unwrap().into(),source.id.clone().into(),id.into(),authority.into()]).await?;
+            if subjects {
+                execute(
+                    &tx,
+                    "UPDATE relay_event_deliveries SET subject=$3 WHERE workspace=$1 AND id=$2",
+                    vec![w.clone().into(), delivery.into(), subject.clone().into()],
+                )
+                .await?;
+            }
         }
         tx.commit().await?;
         Ok(json!({"accepted":true,"duplicate":false}))

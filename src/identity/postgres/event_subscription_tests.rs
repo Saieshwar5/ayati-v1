@@ -165,7 +165,8 @@ impl Setup {
             id: uuid::Uuid::new_v4().to_string(),
             connection: self.connection.clone(),
             event: "gmail.new_email".into(),
-            chat: self.chat.clone(),
+            chat: Some(self.chat.clone()),
+            memory: None,
             name: "Invoice mail".into(),
             instructions: "Read the new email and say whether it asks for payment.".into(),
             connection_revision: choice["authority"]["connection_revision"]

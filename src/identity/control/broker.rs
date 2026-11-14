@@ -114,7 +114,9 @@ async fn exchange(
 /// minute and a half. The guest waits a little longer (`computer_schema::seconds`).
 fn tool_seconds(tool: &str, arguments: &Value) -> u64 {
     match tool {
-        "computer_run" => arguments["seconds"].as_u64().unwrap_or(60).clamp(1, 600) + 30,
+        "computer_run" | "run_skill_script" => {
+            arguments["seconds"].as_u64().unwrap_or(60).clamp(1, 600) + 30
+        }
         _ if tool.starts_with("computer_") || tool.starts_with("browser_") => 90,
         _ => 45,
     }
@@ -209,6 +211,13 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
         "send_update" => {
             let input = serde_json::from_value(arguments)?;
             pg.send_update(job, &input).await
+        }
+        "report_result" => {
+            ensure!(
+                arguments.as_object().is_some_and(|a| a.len() == 1),
+                "Invalid result report"
+            );
+            pg.report_result(job, &arguments["fields"]).await
         }
         "load_skill" => {
             let input = serde_json::from_value(arguments)?;
@@ -305,6 +314,10 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.computer_run(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "run_skill_script" => {
+            pg.run_skill_script(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "computer_list_files" => {
             pg.computer_list_files(job, &serde_json::from_value(arguments)?)
                 .await
@@ -382,7 +395,10 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.control_operations(job).await
         }
         "request_action" => {
-            let request: ActionRequest = serde_json::from_value(arguments)?;
+            let mut request: ActionRequest = serde_json::from_value(arguments)?;
+            // A connected system's tool marked "Needs the subject" gets it from
+            // the run's event, never from the agent (C3).
+            pg.fill_subject(job, &mut request).await?;
             let action = pg.control_propose(job, &request).await?;
             super::dispatch(pg, &job.workspace, action).await
         }

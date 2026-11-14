@@ -1,3 +1,4 @@
+import { memoryLabels } from './results-and-memory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { identityRequest, workspaceUrl } from '../../../workspace-context';
 import { Button, Dialog } from '../../ui';
@@ -99,8 +100,10 @@ export function EventReview({
             <dd>{t.source_definition.event_type}</dd>
             <dt>Included fields</dt>
             <dd>{t.source_definition.fields.join(', ')}</dd>
-            <dt>Destination</dt>
-            <dd>{t.chat_name}</dd>
+            <dt>Results</dt>
+            <dd>{t.chat_name ? `Activity, and a summary in ${t.chat_name}` : 'Activity only'}</dd>
+            <dt>Memory</dt>
+            <dd>{memoryLabels[t.memory ?? 'fresh'].title}</dd>
             <dt>Authorized by</dt>
             <dd>{t.principal_name}</dd>
             <dt>Exact filters</dt>
@@ -160,11 +163,9 @@ export function EventReview({
               {run.detail && <p>{run.detail}</p>}
               {run.reply && !run.revoked && (
                 <a
-                  href={workspaceUrl(
-                    `/?view=chat&conversation=${encodeURIComponent(run.chat)}&message=${encodeURIComponent(run.reply)}`,
-                  )}
+                  href={workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(run.reply)}`)}
                 >
-                  Open original task
+                  Open run in Activity
                 </a>
               )}
             </article>

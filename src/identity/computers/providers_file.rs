@@ -81,6 +81,16 @@ pub(crate) struct Routed {
     key_file: PathBuf,
 }
 impl Routed {
+    /// The route of a workspace's own computer (B3). Its work goes through the
+    /// connector relay, never a provider; anything else it is asked fails.
+    pub fn connector() -> Self {
+        Self {
+            provider: &super::Connector,
+            api: String::new(),
+            computers: String::new(),
+            key_file: PathBuf::new(),
+        }
+    }
     /// The key, read now so it can be rotated in place.
     pub fn key(&self) -> Result<String> {
         let key = std::fs::read_to_string(&self.key_file)

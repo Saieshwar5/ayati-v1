@@ -12,6 +12,16 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
     s.db.chat_finish(&job, "PRIVATE-EVENT-RESULT", "complete")
         .await
         .unwrap();
+    // The run happens in its own work room (schema 115); the trigger's
+    // conversation gets a short posted summary.
+    assert_ne!(job.chat, s.c);
+    assert!(
+        s.db.chat_page(&s.owner, &s.w, &job.chat, None)
+            .await
+            .unwrap()
+            .to_string()
+            .contains("PRIVATE-EVENT-RESULT")
+    );
     assert!(
         s.db.chat_page(&s.owner, &s.w, &s.c, None)
             .await
@@ -36,25 +46,38 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
         .await;
     }
     assert!(
-        s.db.response_body(&s.owner, &s.w, &s.c, &job.reply, false)
+        s.db.response_body(&s.owner, &s.w, &job.chat, &job.reply, false)
             .await
             .is_err()
     );
     assert!(
-        s.db.chat_focus(&s.owner, &s.w, &s.c, &job.reply)
+        s.db.chat_focus(&s.owner, &s.w, &job.chat, &job.reply)
             .await
             .is_err()
     );
-    let history = s.db.chat_page(&s.owner, &s.w, &s.c, None).await.unwrap();
-    assert!(!history.to_string().contains("PRIVATE-EVENT-RESULT"));
+    let room =
+        s.db.chat_page(&s.owner, &s.w, &job.chat, None)
+            .await
+            .unwrap();
+    assert!(!room.to_string().contains("PRIVATE-EVENT-RESULT"));
     assert_eq!(
-        history["messages"]
+        room["messages"]
             .as_array()
             .unwrap()
             .iter()
             .find(|m| m["id"] == job.reply)
             .unwrap()["response_unavailable"],
         true
+    );
+    // The summary posted to the conversation is hidden with its run.
+    let history = s.db.chat_page(&s.owner, &s.w, &s.c, None).await.unwrap();
+    assert!(!history.to_string().contains("PRIVATE-EVENT-RESULT"));
+    assert!(
+        history["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["response_unavailable"] == true)
     );
     assert!(
         s.db.agent_request(&s.owner, &s.w, &s.a, &job.reply)
@@ -92,7 +115,15 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
         .await;
     }
     assert!(
-        s.db.response_body(&s.owner, &s.w, &s.c, &job.reply, false)
+        !s.db
+            .chat_page(&s.owner, &s.w, &s.c, None)
+            .await
+            .unwrap()
+            .to_string()
+            .contains("PRIVATE-EVENT-RESULT")
+    );
+    assert!(
+        s.db.response_body(&s.owner, &s.w, &job.chat, &job.reply, false)
             .await
             .is_err()
     );

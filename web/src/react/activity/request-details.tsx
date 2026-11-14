@@ -10,6 +10,7 @@ import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
 import { dollars } from '../usage/usage-model';
 import { ComputerStep } from './computer-step';
+import { memoryLabels } from '../agents/automation/results-and-memory';
 
 /** One request, step by step from Cuckoo's own records (designs/activity 4).
  * Work that is still running can be stopped here, as from the conversation. */
@@ -35,7 +36,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
     mutation.setStatus('Schedule paused. Resume it on the agent\'s Automations tab.'); setVersion(v => v + 1);
   });
   // A run in its schedule's own room has no conversation to open.
-  const room = Boolean(data?.schedule?.room);
+  const room = Boolean(data?.schedule?.room || data?.trigger?.room);
   const me = workspaceSession?.user?.id;
   const failed = data?.state === 'failed' || data?.state === 'interrupted';
   const unsure = Boolean(data?.steps.some(step => step.state === 'uncertain'));
@@ -64,6 +65,12 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
           <dt>Set up by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
           <dt>Results</dt><dd>{data.schedule.post_to ? `Activity, and a summary in ${data.schedule.post_to}` : 'Activity only'}
             {data.schedule.posted === 'posted' && ' · Posted'}{data.schedule.posted === 'skipped' && ` · Not posted: ${data.schedule.post_reason ?? ''}`}</dd>
+        </> : data.trigger ? <>
+          <dt>Started by</dt><dd>Event · {data.trigger.source ?? 'Connected app'} · {data.trigger.name}</dd>
+          <dt>Set up by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
+          <dt>Results</dt><dd>{data.trigger.post_to ? `Activity, and a summary in ${data.trigger.post_to}` : 'Activity only'}
+            {data.trigger.posted === 'posted' && ' · Posted'}{data.trigger.posted === 'skipped' && ` · Not posted: ${data.trigger.post_reason ?? ''}`}</dd>
+          <dt>Memory</dt><dd>{memoryLabels[data.trigger.memory].title}</dd>
         </> : <>
           <dt>{data.panel ? 'For' : 'Asked by'}</dt><dd>{data.requester_name ?? 'Former member'}</dd>
           <dt>Where</dt><dd>{data.panel ? `Home panel · ${data.panel.title}` : where(data)}</dd>

@@ -114,6 +114,13 @@ pub(super) async fn source_exclusions(db: &impl ConnectionTrait) -> Result<Strin
             " AND NOT EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=m.workspace AND (h.request_message=m.id OR h.child=m.id OR h.root=m.id) AND EXISTS(SELECT 1 FROM relay_agent_handoffs t JOIN relay_chat_messages x ON x.workspace=t.workspace AND x.id IN (t.root,t.child,t.request_message) WHERE t.workspace=h.workspace AND t.root=h.root AND (t.source IS NOT NULL OR t.source_revoked OR NOT (TRUE{each}))))"
         ));
     }
+    if super::automation_memory::ready(db).await? {
+        // An event run's posted summary (schema 115) carries event data, so like
+        // the run's own reply it never enters a later task's context.
+        clauses.push_str(
+            " AND NOT EXISTS(SELECT 1 FROM relay_run_posts p JOIN relay_event_deliveries e ON e.workspace=p.workspace AND e.reply=p.reply WHERE p.workspace=m.workspace AND p.message=m.id)",
+        );
+    }
     Ok(clauses)
 }
 

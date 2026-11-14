@@ -119,6 +119,60 @@ pub(crate) trait Provider: Send + Sync {
     async fn read(&self, call: &Call<'_>, computer: &Awake, path: &str) -> Result<Vec<u8>>;
 }
 
+/// A workspace's own computer. Commands and files go through the connector
+/// relay (`postgres::shared_computers::relay`); what the relay doesn't carry,
+/// such as the browser's live view, isn't offered there yet.
+pub(crate) struct Connector;
+#[async_trait::async_trait]
+impl Provider for Connector {
+    fn name(&self) -> &'static str {
+        "connector"
+    }
+    fn api_url(&self) -> &'static str {
+        ""
+    }
+    fn computer_url(&self) -> &'static str {
+        ""
+    }
+    async fn create(&self, _: &Call<'_>, _: &Spec<'_>) -> Result<Awake> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn wake(&self, _: &Call<'_>, _: &str, _: u64) -> Result<Awake> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn sleep(&self, _: &Call<'_>, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn delete(&self, _: &Call<'_>, _: &str) -> Result<()> {
+        Ok(())
+    }
+    async fn set_internet(&self, _: &Call<'_>, _: &str, _: &Internet) -> Result<()> {
+        Ok(())
+    }
+    async fn run(&self, _: &Call<'_>, _: &Awake, _: &str, _: &str, _: Duration) -> Result<Ran> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn stream(
+        &self,
+        _: &Call<'_>,
+        _: &Awake,
+        _: &str,
+        _: &str,
+    ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn send(&self, _: &Call<'_>, _: &Awake, _: &str, _: &[u8]) -> Result<()> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn write(&self, _: &Call<'_>, _: &Awake, _: &str, _: Vec<u8>) -> Result<()> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+    async fn read(&self, _: &Call<'_>, _: &Awake, _: &str) -> Result<Vec<u8>> {
+        anyhow::bail!("{NOT_HERE}")
+    }
+}
+const NOT_HERE: &str = "This isn't available on a workspace's own computer yet";
+
 /// Every provider this Cuckoo version supports, by its providers-file name.
 pub(crate) fn adapter(name: &str) -> Option<&'static dyn Provider> {
     let found: &'static dyn Provider = match name {

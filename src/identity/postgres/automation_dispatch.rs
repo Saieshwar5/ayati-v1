@@ -111,15 +111,16 @@ impl PgStore {
         };
         // A personal Home panel update keeps its own source; every other
         // schedule runs in its own work room, never in a conversation.
+        // The room opens inside the intake, so a refused run leaves no room.
+        let intake = tx.begin().await?;
         let target = if panel {
             data["chat"]
                 .as_str()
                 .context("Missing panel source")?
                 .to_owned()
         } else {
-            super::work_rooms::room(&tx, w, &data).await?
+            super::work_rooms::room(&intake, w, &data).await?
         };
-        let intake = tx.begin().await?;
         let job = match self
             .background_in(&intake, &person, w, &target, &input)
             .await

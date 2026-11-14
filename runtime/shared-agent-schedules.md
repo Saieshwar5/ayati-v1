@@ -31,7 +31,10 @@ people start or join; work an agent does on its own appears in Activity.
   run directly. In an agent's Schedules, **View runs** opens each run in
   Activity, and the create dialog asks "Where results go".
 - **Unchanged:** personal Home panel updates keep their own source.
-  Event-triggered work still posts in its channel until milestone B1b.
+- **Since schema 115:** event triggers run in work rooms too, and every
+  automation has a **Memory** choice: *Remember earlier runs* (the schedule
+  default) or *Fresh each run*, which opens a new room for each run. See
+  [shared events](shared-agent-events.md).
 
 The sections below describe the original schedules increment. Where they say
 runs enter the source conversation, the work room above replaces that.

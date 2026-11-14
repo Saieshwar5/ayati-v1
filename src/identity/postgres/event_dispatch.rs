@@ -27,14 +27,8 @@ pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -
             return Err(current.unwrap_err());
         }
         let read = current.ok().as_ref() == Some(&expected);
-        let start_access = super::automation_access::authority(
-            db,
-            &super::event_access::principal(&data)?,
-            w,
-            data["agent"].as_str().unwrap(),
-            data["chat"].as_str().unwrap(),
-        )
-        .await;
+        let start_access =
+            super::event_access::start(db, &super::event_access::principal(&data)?, w, &data).await;
         if start_access
             .as_ref()
             .is_err_and(|e| e.is::<sea_orm::DbErr>())
@@ -59,7 +53,7 @@ pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -
                     vec![
                         w.into(),
                         data["source"].as_str().unwrap().into(),
-                        data["chat"].as_str().unwrap().into(),
+                        super::event_access::post_to(&data).into(),
                     ],
                 )
                 .await?;
@@ -73,7 +67,15 @@ impl PgStore {
         if !self.pooled {
             return Ok(0);
         }
-        let candidates=rows(&self.db,"SELECT d.workspace,d.id,t.agent FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id JOIN relay_event_inbox i ON i.workspace=d.workspace AND i.source=d.source AND i.id=d.event_id WHERE d.state='pending' AND NOT d.revoked AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries earlier JOIN relay_event_inbox ei ON ei.workspace=earlier.workspace AND ei.source=earlier.source AND ei.id=earlier.event_id WHERE earlier.workspace=d.workspace AND earlier.trigger_id=d.trigger_id AND earlier.state='pending' AND NOT earlier.revoked AND ei.sequence<i.sequence) AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries active JOIN relay_chat_jobs j ON j.workspace=active.workspace AND j.reply=active.reply WHERE active.workspace=d.workspace AND active.trigger_id=d.trigger_id AND j.state<>'finished') ORDER BY d.checked_ms,i.sequence,d.id LIMIT 20",vec![]).await?;
+        // One unfinished run per trigger, and per subject when events name one
+        // (schema 118): different subjects run side by side, one subject's in order.
+        let same = if super::systems::subjects::ready(&self.db).await? {
+            " AND earlier.subject IS NOT DISTINCT FROM d.subject"
+        } else {
+            ""
+        };
+        let busy = same.replace("earlier.", "active.");
+        let candidates=rows(&self.db,&format!("SELECT d.workspace,d.id,t.agent FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id JOIN relay_event_inbox i ON i.workspace=d.workspace AND i.source=d.source AND i.id=d.event_id WHERE d.state='pending' AND NOT d.revoked AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries earlier JOIN relay_event_inbox ei ON ei.workspace=earlier.workspace AND ei.source=earlier.source AND ei.id=earlier.event_id WHERE earlier.workspace=d.workspace AND earlier.trigger_id=d.trigger_id{same} AND earlier.state='pending' AND NOT earlier.revoked AND ei.sequence<i.sequence) AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries active JOIN relay_chat_jobs j ON j.workspace=active.workspace AND j.reply=active.reply WHERE active.workspace=d.workspace AND active.trigger_id=d.trigger_id{busy} AND j.state<>'finished') ORDER BY d.checked_ms,i.sequence,d.id LIMIT 20"),vec![]).await?;
         let mut count = 0;
         for row in candidates {
             count += usize::from(
@@ -93,19 +95,27 @@ impl PgStore {
     async fn dispatch_event(&self, w: &str, agent: &str, id: &str) -> Result<bool> {
         let tx = self.workspace_tx(w).await?;
         invalidate_inaccessible(&tx, w).await?;
-        let row=query(&tx,"SELECT to_jsonb(t) AS data,d.authority,d.event_id,d.source FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.id=$2 AND d.state='pending' AND NOT d.revoked AND t.state='enabled'",vec![w.into(),id.into()]).await?;
+        let subjects = super::systems::subjects::ready(&tx).await?;
+        let subject_column = if subjects { "d.subject" } else { "NULL::text" };
+        let row=query(&tx,&format!("SELECT to_jsonb(t) AS data,d.authority,d.event_id,d.source,{subject_column} AS subject FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.id=$2 AND d.state='pending' AND NOT d.revoked AND t.state='enabled'"),vec![w.into(),id.into()]).await?;
         let Some(row) = row else {
             tx.commit().await?;
             return Ok(false);
         };
         let data: Value = row.try_get("", "data")?;
+        let subject: Option<String> = row.try_get("", "subject")?;
         ensure!(data["agent"] == agent, "Event target changed");
         let authority: Value = row.try_get("", "authority")?;
         ensure!(
             super::event_access::current(&tx, w, &data).await? == authority,
             "Event authority changed"
         );
-        if query(&tx,"SELECT j.reply FROM relay_event_deliveries d JOIN relay_chat_jobs j ON j.workspace=d.workspace AND j.reply=d.reply WHERE d.workspace=$1 AND d.trigger_id=$2 AND j.state<>'finished' LIMIT 1",vec![w.into(),data["id"].as_str().unwrap().into()]).await?.is_some(){tx.commit().await?;return Ok(false)}
+        let one_subject = if subjects {
+            " AND d.subject IS NOT DISTINCT FROM $3"
+        } else {
+            " AND ($3::text IS NULL OR TRUE)"
+        };
+        if query(&tx,&format!("SELECT j.reply FROM relay_event_deliveries d JOIN relay_chat_jobs j ON j.workspace=d.workspace AND j.reply=d.reply WHERE d.workspace=$1 AND d.trigger_id=$2 AND j.state<>'finished'{one_subject} LIMIT 1"),vec![w.into(),data["id"].as_str().unwrap().into(),subject.clone().into()]).await?.is_some(){tx.commit().await?;return Ok(false)}
         execute(&tx,"UPDATE relay_event_deliveries SET checked_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
         let input = NewMessage {
             reply_to: None,
@@ -115,18 +125,37 @@ impl PgStore {
             thread: None,
             attachments: vec![],
             content: format!(
-                "Connected event work · {}\n{}",
+                "Connected event work · {}\n{}{}",
                 data["input"]["name"].as_str().unwrap(),
-                data["input"]["instructions"].as_str().unwrap()
+                data["input"]["instructions"].as_str().unwrap(),
+                super::systems::results::instruction(&tx, w, data["id"].as_str().unwrap()).await?
             ),
         };
+        // Every run happens in a private work room (schema 115), never in a
+        // conversation people use; older schemas run in the trigger's conversation.
+        // The room opens inside the intake, so a refused run leaves no room.
+        let memory = super::automation_memory::ready(&tx).await?;
         let nested = tx.begin().await?;
+        let per_subject = if data["memory"] == "subject" {
+            super::systems::subjects::room(&nested, w, &data, subject.as_deref()).await?
+        } else {
+            None
+        };
+        let target = if let Some(room) = per_subject {
+            room
+        } else if memory {
+            super::automation_memory::event_room(&nested, w, &data).await?
+        } else {
+            super::event_access::post_to(&data)
+                .context("Missing event destination")?
+                .to_owned()
+        };
         let job = match self
             .background_in(
                 &nested,
                 &super::event_access::principal(&data)?,
                 w,
-                data["chat"].as_str().unwrap(),
+                &target,
                 &input,
             )
             .await
@@ -158,6 +187,14 @@ impl PgStore {
             }
         };
         execute(&tx,"UPDATE relay_event_deliveries SET state='accepted',message=$3,reply=$4 WHERE workspace=$1 AND id=$2 AND state='pending'",vec![w.into(),id.into(),input.id.into(),job.reply.clone().into()]).await?;
+        if memory {
+            execute(
+                &tx,
+                "UPDATE relay_event_deliveries SET room=$3 WHERE workspace=$1 AND id=$2",
+                vec![w.into(), id.into(), target.into()],
+            )
+            .await?;
+        }
         super::tasks::ensure_automatic(&tx, &job, "event").await?;
         audit(
             &tx,

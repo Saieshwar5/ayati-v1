@@ -1,5 +1,52 @@
 # Shared connected-system events
 
+## Since schema 115: trigger runs happen in work rooms, with a Memory setting
+
+Built 2026-11-14 (step E2 of the owner-approved plan "How work reaches agents", D247).
+Event triggers now behave like schedules (schema 56):
+
+- **Work rooms.** Every run happens in a private work room holding the person
+  who set the trigger up and the agent. It never appears in Chat, people can't
+  write into it, and its runs show in Activity. A run never reads anyone's
+  conversation.
+- **Memory** (`relay_event_triggers.memory`, part of the saved configuration):
+  `fresh` (the default for triggers) opens a new room for every run, so a run
+  sees nothing of earlier ones; `remember` keeps one room per trigger
+  (`relay_event_triggers.room`), so later runs read the earlier ones. Schedules
+  gain the same column (`relay_agent_schedules.memory`), defaulting to
+  `remember` as before; a `fresh` schedule opens a new room for each run and
+  keeps no lasting room. Each delivery records the room it ran in
+  (`relay_event_deliveries.room`). Rooms open inside the intake transaction, so
+  a refused or full-queue run leaves none behind.
+- **Where results go.** A trigger's conversation (`chat`) is now optional and
+  means "also post the result to", as for schedules. With none, results stay in
+  Activity. When one is set, a completed run posts the trigger's name, the
+  first 400 characters and a `[View run](run:<id>)` link, recorded in
+  `relay_run_posts`. Existing triggers keep their conversation as the post-to
+  target and start fresh.
+- **Authority.** Starting a run needs what a schedule needs: the person looks
+  after the agent and may use it, and may post where the trigger posts, if
+  anywhere. The source read rule (an agent **Allow** on the read action) is
+  unchanged.
+- **Posted results follow their run.** A posted summary carries the run's
+  result, so history, search and the live stream hide it when the viewer may
+  no longer see the run (`work_rooms::guard_posts`), and later conversation
+  context leaves it out unless the run itself could be remembered
+  (`conversation_context::source_exclusions`). Both apply to schedule posts too.
+- **API.** Trigger inputs (`POST …/event-triggers`, from an app or a reviewed
+  source) take optional `chat` and `memory`. Saved triggers report `memory` and
+  `chat_name` (null for Activity only). Activity run details gain `trigger`:
+  name, source, memory, post target and whether the result was posted.
+- **Screens.** The schedule and both trigger forms share one **Where results
+  go** control and one **Memory** control (`automation/results-and-memory.tsx`).
+  A trigger run in Activity shows *Started by: Event*, *Results* and *Memory*.
+  Recent deliveries link to the run in Activity.
+
+Checks: PostgreSQL `automation_memory_tests` (fresh rooms, one remembering room
+with a posted result, refused memory values, fresh schedules) and the updated
+event, intake and scope tests; web `agent-app-events` and `agent-events`.
+
+
 Implemented locally on `feat/shared-agent-events`, serially after PR 73.
 The plan below was saved before application edits; the acceptance section records
 executed evidence and the remaining provider/cloud boundary.

@@ -40,6 +40,11 @@ Main product contracts:
 - [Home attention](runtime/workspace-attention.md),
   [general Home panels](runtime/general-home-panels.md) and
   [panel maintenance](runtime/home-panel-maintenance.md).
+- [Connected systems](runtime/connected-systems.md): an agent's owner connects the
+  company's own MCP server from the agent's Tools tab and reviews each tool;
+  developers start from the [connected systems guide](runtime/connected-systems-guide.md).
+- [Your own computers](runtime/workspace-computers.md): admins add a machine the
+  workspace runs; the Cuckoo Connector on it takes chosen agents' commands and files.
 - [Web search](runtime/web-search.md): agents search the web and read pages through
   Cuckoo's own tools, answered by interchangeable search services and cited under
   the answer.

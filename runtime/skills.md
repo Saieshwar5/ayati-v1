@@ -24,10 +24,33 @@ How-to packages for agents in the open Agent Skills format
   - Each load is recorded (`relay_skill_loads`) and shown on the request in
     Activity: "Used skill: quote-builder (version 3)".
 - **Limits:**
-  - Scripts are stored as text and never run; the tool says so.
+  - Scripts run only through `run_skill_script` on the agent's own computer
+    (see *Skill scripts* below); without a computer they stay text to read.
   - Loading depends on the model choosing to call `load_skill`. Whether the
     hosted default model picks the right skill from its description is checked in
     the cloud run, not locally (the local provider is scripted).
+
+## Skill scripts (B2 of agent building blocks, D248)
+
+Built 2026-11-14. A skill may hold scripts under `scripts/`. The agent runs one
+with `ayati_control__run_skill_script {skill, script, arguments?, seconds?}`:
+
+- It runs **only on the agent's own computer**, never on Cuckoo's servers or an
+  executor. An agent without a computer gets a refusal and follows the written
+  steps.
+- It follows the computer's **Programs** rule; there is no separate permission.
+  *Block* runs nothing; *Ask first* asks with the exact command, which names the
+  skill, its version and the script
+  (`python3 '/home/user/shared/skills/invoice-line/v1/scripts/line.py' '1042'`).
+- Cuckoo copies the skill's files (the version current when the request
+  started) to `shared/skills/<name>/v<version>/`, then runs the script from the
+  request's folder with `python3` (`.py`), `bash` (`.sh`) or `node` (`.js`,
+  `.mjs`). Other files can't run. Up to 20 arguments of up to 500 characters,
+  each passed as one quoted word, never as shell.
+- The run is a computer command step in Activity, and the request also shows
+  "Ran scripts/line.py from invoice-line (version 1) on its computer".
+- Check: PostgreSQL `skills::scripts_tests` (no computer, Allow with a real
+  script, paths outside `scripts/`, quoting, Ask first naming the skill, Block).
 
 ## Rules
 
