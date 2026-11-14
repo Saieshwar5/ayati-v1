@@ -40,6 +40,17 @@ of the plan for how work reaches agents (`proj-docs/how-work-reaches-agents-plan
   or `active`. Anyone who may talk to the agent may read it.
 - The gateway's generic live endpoint and binding APIs refuse email.
 
+## Screens (approved designs in `designs/agent-email/`)
+
+- **Create, Tools step:** Email sits under "Built into Cuckoo", off by default,
+  only when the server offers email (the agent directory's `email` is the mail
+  domain, or null). Switched on, it previews the address; the agent's address is
+  made right after it is created (`web/src/react/agents/email/`).
+- **Overview:** an Email row under WhatsApp. Everyone who may talk to the agent
+  sees the address and Copy; its owner and admins see Switch on / Switch off.
+  Switched off, the row shows the kept address. Hidden when email is not offered
+  and the agent never had an address.
+
 ## How a mail travels
 
 **In.**
@@ -148,13 +159,17 @@ file nothing about email is shown, and activation answers 404.
   queue and S3, deleting only after saving, sending through fake SES, the delivery
   event, a follow-up continuing the room thread by SES's ID, a bare subject
   starting a new one, and switching off cancelling the unsent reply.
+- Web `tests/email-channel.test.mjs`: creation activates only when switched on,
+  with the address preview; no choice when not offered; Overview switches on once
+  on a double click and keeps the state on failure; Copy, the kept address after
+  switching off, and nothing when not offered.
+- Checked in a browser (local simulation, 2026-11-14): create with email on, the
+  address on Overview, Switch off keeps it, Switch on brings it back.
 - Not yet: a live SES check (domain verification, a real Gmail and Outlook
-  thread, a forged sender, a bounce), a browser journey and the screens.
+  thread, a forged sender, a bounce).
 
 ## Not built yet
 
-- **Screens:** the email switch in agent creation and the address on Overview
-  wait for an approved design. The API is ready.
 - Attachments, several recipients and CC (needs groups outside Chat, E6), mail an
   agent starts itself, a workspace's own domain, and people outside the
   organization.
