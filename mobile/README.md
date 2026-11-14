@@ -12,11 +12,10 @@ Status (2026-11-14, M2):
   - Chats, and conversations with live replies, sending and Stop;
   - Home: business clock, Needs you and read-only saved panels in every family,
     each with its own page;
-  - Needs me, Agents and You;
+  - Needs me, Agents with each agent's profile, and You;
   - real agent faces (the bundled robots and uploaded pictures);
-  - Chats beside the open conversation on tablets.
+  - on tablets, Chats beside the open conversation and Agents beside the profile.
 - **Not yet:**
-  - the agent profile, and Agents beside it on tablets;
   - approvals and questions as sheets, files and voice (M3);
   - push notifications (M4);
   - device testing.

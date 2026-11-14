@@ -27,6 +27,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="panel/[id]" />
+        <Stack.Screen name="agent/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="workspace" />
