@@ -112,6 +112,7 @@ impl PgStore {
                     agents: vec![],
                     thread,
                     attachments: vec![],
+                    broadcast: false,
                 };
                 job = self.communication_in(tx, &user, w, &c, &request).await?;
                 if let Some(job) = &job {

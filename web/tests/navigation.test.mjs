@@ -224,7 +224,7 @@ test('unified Chat keeps its directory across channel and direct-message navigat
       await until(update,()=>document.querySelector('.message-composer textarea')?.value==='Inventory draft');
       await click(button('Reply in thread'));
       await change(document.querySelector('textarea[aria-label="Reply in thread"]'),'Thread reply');
-      await submit(document.querySelector('dialog .message-composer'));
+      await submit(document.querySelector('.chat-thread-panel .message-composer'));
       assert.match(document.querySelector('[aria-label="Thread replies"]').textContent,/Thread reply/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
@@ -252,13 +252,13 @@ test('a reply in an agent thread asks that agent unless the reply mentions anoth
       await click(button('Reply in thread'));
       const reply = () => document.querySelector('textarea[aria-label="Reply in thread"]');
       await change(reply(),'How many are reserved?');
-      await submit(document.querySelector('dialog .message-composer'));
+      await submit(document.querySelector('.chat-thread-panel .message-composer'));
       await until(update,()=>sent.length===1);
       assert.deepEqual([sent[0].agents,sent[0].thread],[['assistant-two'],'root']);
       // Naming another agent asks that agent instead.
       await change(reply(),'@Ot');
-      await click(document.querySelector('dialog [role=option]'));
-      await submit(document.querySelector('dialog .message-composer'));
+      await click(document.querySelector('.chat-thread-panel [role=option]'));
+      await submit(document.querySelector('.chat-thread-panel .message-composer'));
       await until(update,()=>sent.length===2);
       assert.deepEqual([sent[1].agents,sent[1].thread],[['assistant-three'],'root']);
     } finally { await setup.cleanup(); }

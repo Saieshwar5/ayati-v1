@@ -6,9 +6,11 @@ import { Button } from '../ui';
  * Details and profiles. It is not modal, so the conversation stays readable.
  * Focus moves to its title on open and back to whatever opened it on close.
  */
-export function SidePanel({ title, label, close, back, children }: {
+export function SidePanel({ title, label, close, back, className, children }: {
   title: ReactNode; label: string; close: () => void;
-  back?: { label: string; go: () => void }; children: ReactNode;
+  back?: { label: string; go: () => void };
+  /** A panel with its own scrolling, like a thread with its composer. */
+  className?: string; children: ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -24,7 +26,7 @@ export function SidePanel({ title, label, close, back, children }: {
       if (previous?.isConnected && previous !== document.body && (!active || active === document.body || node.contains(active))) previous.focus();
     };
   }, []);
-  return <aside ref={panel} className="chat-side-panel" aria-label={label}
+  return <aside ref={panel} className={className ? `chat-side-panel ${className}` : 'chat-side-panel'} aria-label={label}
     onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); close(); } }}>
     <header className="chat-side-panel-header">
       {back && <Button className="ui-icon chat-side-panel-back" aria-label={back.label} title={back.label} onClick={back.go}>‹</Button>}

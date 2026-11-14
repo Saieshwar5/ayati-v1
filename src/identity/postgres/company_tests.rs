@@ -14,6 +14,7 @@ fn message(content: &str) -> NewMessage {
         agents: vec![],
         thread: None,
         attachments: vec![],
+        broadcast: false,
     }
 }
 #[tokio::test]

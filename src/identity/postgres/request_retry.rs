@@ -90,6 +90,7 @@ impl PgStore {
             thread: row.try_get("", "thread")?,
             reply_to: Some(reply.to_string()),
             attachments: vec![],
+            broadcast: false,
         };
         drop(tx);
         let retry = match self.chat_send(user, w, &chat, &message).await? {

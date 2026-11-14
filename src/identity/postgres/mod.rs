@@ -71,6 +71,9 @@ mod chat_people_migration;
 #[cfg(test)]
 mod chat_people_tests;
 mod chat_pins;
+mod chat_threads;
+#[cfg(test)]
+mod chat_threads_tests;
 pub mod cli;
 #[cfg(test)]
 mod cloud_executor_tests;

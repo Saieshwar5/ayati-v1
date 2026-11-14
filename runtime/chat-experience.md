@@ -195,6 +195,37 @@ are offline or reconnecting. The browser keeps one presence store fed by
 `/chat-directory` and the live stream's `presence` events, with no extra polling.
 Server design, write rate and privacy: [presence and status](reliable-messaging.md#presence-and-status-schema-98-d245).
 
+## Threads beside the conversation (schema 115, 2026-11-14)
+
+A thread opens in the panel beside the conversation that Details and profiles use
+(`web/src/react/chat/thread.tsx`, `SidePanel`), so the conversation stays readable
+while replying; it is no longer a modal drawer. The thread and Details take turns:
+opening one closes the other. Escape or × closes the thread and focus returns to
+what opened it. The replies scroll and the composer stays at the bottom of the panel.
+
+- **Summary under the first message.** "4 replies · last 10:52" (a date on another
+  day). The server returns `thread_replies` and `thread_last` with every message
+  (history pages, focused pages and live changes): replies that are not working
+  updates and not deleted, counted through `relay_messages_by_thread`. Older clients
+  and pages before schema 115 fall back to counting the loaded replies.
+- **Live.** Adding or deleting a reply records a change for its root
+  (`relay_thread_reply_changed`), so every open screen refreshes the count without
+  reloading the thread.
+- **Also send to the conversation.** Under the thread composer, "Also send to
+  #orders" ("the conversation" in a direct message) posts the reply in the thread and
+  shows it in the main timeline too, with "Replied in a thread: …" and View thread.
+  The choice is for one reply. `POST …/messages` takes `broadcast: true` only with a
+  `thread` ("Only a thread reply can also be sent to the conversation"); the column
+  `relay_chat_messages.broadcast` has a matching check. An outbox retry must repeat
+  the same choice ("Message ID already used" otherwise), and ordinary replies keep
+  sending the earlier payload. It still counts as a thread reply, and agents asked in
+  it answer in the thread.
+- **Checks.** PostgreSQL `chat_threads_tests` (count and last time, the root's live
+  change on a new and a deleted reply, broadcast only from a thread, the saved flag,
+  exact retries); web `tests/chat-threads.test.mjs` (server count over the loaded
+  page, the main timeline shows only broadcast replies with their thread line, the
+  side panel, the checkbox payload and reset, Details taking turns, reply times).
+
 ## Replies and media
 
 An agent requested in the main channel responds in the main channel timeline.

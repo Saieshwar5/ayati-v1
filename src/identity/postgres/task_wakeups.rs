@@ -176,6 +176,7 @@ impl PgStore {
             agents: vec![],
             thread: None,
             attachments: vec![],
+            broadcast: false,
         };
         let intake = tx.begin().await?;
         match self.background_in(&intake, &person, w, &chat, &input).await {

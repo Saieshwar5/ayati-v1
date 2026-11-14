@@ -184,6 +184,7 @@ impl PgStore {
             content,
             agent: Some(job.agent.clone()),
             agents: vec![],
+            broadcast: false,
         };
         let person = User {
             id: job.requester.clone(),

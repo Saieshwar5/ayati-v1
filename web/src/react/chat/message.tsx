@@ -1,4 +1,5 @@
 import { messageHtml } from '../../markdown';
+import { InThreadLine, ThreadSummary } from './thread-summary';
 import '../../message-content.css';
 import { MessageReceipt, useSeen } from './receipt';
 import { workspaceSession } from '../../workspace-context';
@@ -20,7 +21,7 @@ import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions }
 import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
-export function ChatMessage({ message, directory, replies, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
+export function ChatMessage({ message, directory, replies, lastReply, inThread, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; lastReply?: number | null; /** On a thread reply shown in the conversation: its thread's first message. */ inThread?: { root?: string }; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
@@ -54,6 +55,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
     <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
+      {inThread && <InThreadLine root={inThread.root} open={openThread} />}
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
       {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
       {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
@@ -68,7 +70,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       </>}
       {own && <div className="chat-message-meta">{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
-    {replies ? <button type="button" className="chat-thread-link chat-thread-count" aria-label={`${replies} ${replies === 1 ? 'reply' : 'replies'}`} title="Open thread" onClick={openThread}>{`${replies} ${replies === 1 ? 'reply' : 'replies'}`}</button> : null}
+    {replies ? <ThreadSummary replies={replies} last={lastReply} open={openThread} /> : null}
     {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)}
       details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}

@@ -176,6 +176,7 @@ impl PgStore {
             agents: vec![],
             thread: None,
             attachments: vec![],
+            broadcast: false,
         };
         let person = User {
             id: job.requester.clone(),

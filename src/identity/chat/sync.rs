@@ -75,7 +75,9 @@ fn presence_event(people: String) -> Event {
 /// entry is out of date and offers to reload (`web/src/react/chat/live.ts`).
 /// Read on each stream so a new build is announced once its files are in place.
 async fn client_build() -> Option<String> {
-    let html = tokio::fs::read_to_string("web/dist/index.html").await.ok()?;
+    let html = tokio::fs::read_to_string("web/dist/index.html")
+        .await
+        .ok()?;
     entry_script(&html)
 }
 fn entry_script(html: &str) -> Option<String> {
