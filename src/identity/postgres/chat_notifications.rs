@@ -4,6 +4,9 @@ use super::*;
 use serde_json::json;
 
 pub const LEVELS: [&str; 3] = ["all", "mentions", "none"];
+/// A conversation's own level may also hide it from the Chat list until
+/// something mentions you (schema 116); it is never a workspace default.
+pub const CHAT_LEVELS: [&str; 4] = ["all", "mentions", "none", "hide"];
 
 /// Matches unread messages that mention the person or answer their request.
 pub(super) const FOR_ME: &str =
@@ -39,7 +42,10 @@ impl PgStore {
         chat: &str,
         level: &str,
     ) -> Result<()> {
-        ensure!(LEVELS.contains(&level), "Choose all, mentions or none");
+        ensure!(
+            CHAT_LEVELS.contains(&level),
+            "Choose all, mentions, none or hide"
+        );
         let tx = self.workspace_tx(w).await?;
         super::chat::access(&tx, user, w, chat).await?;
         execute(

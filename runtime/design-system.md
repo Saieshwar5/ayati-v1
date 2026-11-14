@@ -179,8 +179,16 @@ colour, never a toggle (D246). Edits show "edited"; deleting asks first, leaves 
 deleted" in place and stops agent work the message started that has not finished.
 
 Notifications are personal. The conversation header's bell offers All new
-messages, @mentions and replies, or Nothing; direct messages default to all and
-channels to mentions. Muted rows show a crossed bell and keep their count. A count
+messages, @mentions and replies, Nothing, or Nothing, and hide it; direct messages
+default to all and channels to mentions. Muted rows show a crossed bell and keep their
+count. A hidden conversation (schema 116, never a default) alerts nothing and leaves
+the Chat list until something there mentions you; a note under the list says how many
+are hidden, with Show them. "Unread only", a switch at the top of the list with the
+number of unread conversations, shows just those (the open one always stays) and is
+remembered per person and workspace in local storage. With it on, a note says how many
+others are read, or "You're all caught up", with Show all
+(`web/src/react/chat/chat-list-filter.tsx`; checks `tests/chat-list-filter.test.mjs`
+and PostgreSQL `chat_notification_tests`). A count
 turns red when something unread is for you (an @mention or an agent's reply to your
 request). Desktop alerts use the browser's notifications while Cuckoo is open, on
 any page, once the person allows them from the one-time prompt in the chat list;

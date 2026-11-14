@@ -65,7 +65,15 @@
 .chat-in-thread q { min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; quotes:'“' '”'; }
 @media(pointer:coarse) { .workspace-chat .chat-directory .ui-icon { min-width:44px; min-height:44px; } .workspace-chat .chat-thread-action { min-width:44px; min-height:44px; } }
 
-.workspace-chat .chat-directory .chat-unread { min-width:20px; padding:2px 6px; border-radius:10px; background:var(--accent); color:var(--on-accent); text-align:center; font-size:11px; font-weight:600; }
+.workspace-chat .chat-directory .chat-unread, .workspace-chat .chat-unread-total { min-width:20px; padding:2px 6px; border-radius:10px; background:var(--accent); color:var(--on-accent); text-align:center; font-size:11px; font-weight:600; }
 
 .chat-message-focused { outline: 1px solid var(--focus); outline-offset: -1px; border-radius: 6px; }
 .chat-visibility-note { margin: 4px auto 12px; max-width: 520px; text-align: center; font-size: 12px; color: var(--muted); }
+
+/* Unread only, and conversations hidden until someone mentions you (schema 116). */
+.workspace-chat .chat-unread-only { display:flex; align-items:center; gap:8px; min-height:40px; margin:0 0 14px; padding:0 10px; border-radius:10px; background:var(--soft); font-size:13px; font-weight:600; cursor:pointer; }
+.workspace-chat .chat-unread-only > span { flex:1; }
+.workspace-chat .chat-unread-only input { width:34px; height:20px; margin:0; accent-color:var(--accent); cursor:pointer; }
+.workspace-chat .chat-list-note { margin:-18px 10px 24px; line-height:1.45; }
+.workspace-chat .chat-list-note .chat-thread-link { font-size:inherit; }
+@media(pointer:coarse) { .workspace-chat .chat-unread-only { min-height:44px; } }

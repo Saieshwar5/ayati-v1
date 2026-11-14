@@ -26,6 +26,14 @@ async fn levels_are_personal_and_need_access_to_the_conversation() {
     db.set_chat_notify(&member, &w, &shared, "none")
         .await
         .unwrap();
+    // Schema 116: a conversation of your own can be hidden until it mentions you.
+    db.set_chat_notify(&member, &w, &shared, "hide")
+        .await
+        .unwrap();
+    assert_eq!(
+        db.chat_notify_levels(&member, &w).await.unwrap()["levels"],
+        serde_json::json!({ shared.clone(): "hide" })
+    );
     db.set_chat_notify(&member, &w, &shared, "all")
         .await
         .unwrap();

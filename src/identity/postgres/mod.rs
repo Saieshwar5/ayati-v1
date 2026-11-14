@@ -58,6 +58,7 @@ mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 pub(crate) mod chat;
 mod chat_intake;
+mod chat_migrations;
 mod chat_notification_migration;
 #[cfg(test)]
 mod chat_notification_tests;
@@ -71,7 +72,6 @@ mod chat_people_migration;
 #[cfg(test)]
 mod chat_people_tests;
 mod chat_pins;
-mod chat_threads;
 #[cfg(test)]
 mod chat_threads_tests;
 pub mod cli;

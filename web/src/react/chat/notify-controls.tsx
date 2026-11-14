@@ -8,6 +8,7 @@ const CHOICES: { level: Level; label: string; short: string; help: (direct: bool
   { level: 'all', label: 'All new messages', short: 'All messages', help: direct => direct ? 'Default for direct messages' : 'Every message here' },
   { level: 'mentions', label: '@mentions and replies', short: 'Mentions', help: direct => direct ? 'Only when you are mentioned' : 'Default for channels' },
   { level: 'none', label: 'Nothing', short: 'Muted', help: () => 'Muted · the unread count still shows' },
+  { level: 'hide', label: 'Nothing, and hide it', short: 'Hidden', help: () => 'Leaves the list until something mentions you' },
 ];
 
 /** The bell in a conversation header (and, labelled, in Details): how much this conversation may alert you. */
@@ -25,7 +26,7 @@ export function NotifyMenu({ chat, level, changed, labelled = false }: { chat: C
   return <span className={`chat-notify${labelled ? ' chat-notify-labelled' : ''}`}
     onKeyDown={event => { if (open && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); toggle.current?.focus(); } }}>
     <Button ref={toggle} className={labelled ? 'chat-notify-button' : 'ui-icon chat-notify-button'} aria-label={`Notifications: ${labelled ? choice.short : choice.label}`} aria-expanded={open}
-      title="Notifications" onClick={() => setOpen(!open)}><BellIcon muted={current === 'none'} />{labelled && <><span aria-hidden="true">{choice.short}</span><Chevron /></>}</Button>
+      title="Notifications" onClick={() => setOpen(!open)}><BellIcon muted={current === 'none' || current === 'hide'} />{labelled && <><span aria-hidden="true">{choice.short}</span><Chevron /></>}</Button>
     {open && <div className="chat-notify-menu" role="menu" aria-label={`Notify me in ${chat.kind === 'direct' ? 'this conversation' : `#${chat.name}`} about`}>
       {CHOICES.map(choice => <button type="button" role="menuitemradio" aria-checked={current === choice.level} key={choice.level} disabled={mutation.busy} onClick={() => choose(choice.level)}>
         <span>{choice.label}<small>{choice.help(chat.kind === 'direct')}</small></span>{current === choice.level && <span aria-hidden="true">✓</span>}

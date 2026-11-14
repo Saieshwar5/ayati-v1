@@ -8,7 +8,8 @@ import { chatRequest, type Conversation, type Message } from './model';
 import { loadAttention } from '../attention/model';
 import { activeStatus, ownPresence } from './presence';
 
-export type Level = 'all' | 'mentions' | 'none';
+/** `hide` also leaves the Chat list until something mentions you (schema 116); it is never a default. */
+export type Level = 'all' | 'mentions' | 'none' | 'hide';
 /** The person's own defaults (Settings → Preferences), stored on the server. */
 export type NotifyDefaults = { desktop_alerts: boolean; channel_level: Level; approval_alerts: boolean };
 let defaults: NotifyDefaults = { desktop_alerts: true, channel_level: 'mentions', approval_alerts: true };
@@ -36,7 +37,7 @@ export function alertText(content: string): string {
 export const quietened = () => activeStatus(ownPresence())?.kind === 'busy';
 
 export function shouldAlert(message: Message, chat: Conversation | undefined, level: Level, viewing: boolean, now = Date.now() / 1000, quiet = quietened()): boolean {
-  if (!chat || viewing || level === 'none') return false;
+  if (!chat || viewing || level === 'none' || level === 'hide') return false;
   if (message.author === workspaceSession?.user?.id) return false;
   if (message.state !== (message.kind === 'agent' ? 'complete' : 'sent')) return false;
   if (now - message.at > RECENT_SECONDS) return false;
