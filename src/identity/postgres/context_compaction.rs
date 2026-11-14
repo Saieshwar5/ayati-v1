@@ -1,5 +1,6 @@
 //! Automatic working summaries (schema 120). When a room's conversation grows
-//! past what one prompt holds, Cuckoo writes the room's working summary itself,
+//! past what one prompt holds (`history_budget`: a share of the agent model's
+//! context window), Cuckoo writes the room's working summary itself,
 //! in the background after the agent's work finishes. It reads exactly what the
 //! agent's own history would show in that room, and nothing from other rooms:
 //! one person's private conversation, a shared conversation's single brief, a
@@ -12,14 +13,13 @@ use crate::identity::chat::model::Job;
 use serde_json::json;
 use std::collections::BTreeSet;
 
-/// New messages since the last summary that call for a new one: more than one
-/// prompt's recent window (14,000 bytes) or this many messages.
-const NEW_BYTES: usize = 12_000;
-const NEW_MESSAGES: usize = 40;
 /// Too few new messages to be worth a summary, however long they are.
 const FEWEST: usize = 6;
-/// The most messages one summary reads, newest kept.
-const MOST: i64 = 150;
+/// The most new messages one check reads.
+const READ_MOST: i64 = 400;
+/// The most one summary is given to read. A room further behind (its summaries
+/// failed for a while) catches up oldest first, one summary per finished reply.
+const INPUT_BYTES: usize = 128_000;
 /// Each message's text is cut to this many characters for the summarizer.
 const MESSAGE_CHARS: usize = 2_000;
 
@@ -96,7 +96,7 @@ impl PgStore {
         reply: &str,
     ) -> Result<Option<CompactionInput>> {
         let tx = self.read_tx(w).await?;
-        let input = input(&tx, w, reply).await;
+        let input = input(&tx, w, reply, |model| self.model_window(model)).await;
         tx.commit().await?;
         input
     }
@@ -161,12 +161,26 @@ pub(super) async fn forget_room(tx: &DatabaseTransaction, w: &str, room: &str) -
     Ok(())
 }
 
-async fn input(tx: &DatabaseTransaction, w: &str, reply: &str) -> Result<Option<CompactionInput>> {
+/// Whether new messages of this size are due a summary: they are about to
+/// leave the prompt's history window (most of `budget` bytes, or most of the
+/// messages it reads).
+fn due(count: usize, bytes: usize, budget: usize) -> bool {
+    count >= FEWEST
+        && (bytes > budget * 6 / 7
+            || count as i64 >= super::history_budget::messages(budget) * 2 / 3)
+}
+
+async fn input(
+    tx: &DatabaseTransaction,
+    w: &str,
+    reply: &str,
+    window: impl Fn(&str) -> u32,
+) -> Result<Option<CompactionInput>> {
     if !super::context_attempts::exists(tx).await? {
         return Ok(None);
     }
     // Only finished, complete replies of managed agents, whose context was saved.
-    let Some(row) = query(tx, "SELECT j.payload,m.sequence,a.settings,
+    let Some(row) = query(tx, "SELECT j.payload,m.sequence,a.settings,a.model,
             (SELECT c.claim FROM relay_context_attempts c WHERE c.workspace=j.workspace AND c.task=j.reply ORDER BY c.created_at DESC,c.claim LIMIT 1) AS claim
          FROM relay_chat_jobs j
          JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply AND m.state='complete'
@@ -186,7 +200,8 @@ async fn input(tx: &DatabaseTransaction, w: &str, reply: &str) -> Result<Option<
     {
         return Ok(None);
     }
-    let cutoff: i64 = row.try_get("", "sequence")?;
+    let reply_sequence: i64 = row.try_get("", "sequence")?;
+    let budget = super::history_budget::bytes(window(&row.try_get::<String>("", "model")?));
     let latest = super::working_context::latest(tx, &job).await?;
     let revision = latest["revision"].as_i64().unwrap_or(0);
     // A summary the room's access or sources have since outdated is not carried
@@ -199,7 +214,7 @@ async fn input(tx: &DatabaseTransaction, w: &str, reply: &str) -> Result<Option<
     } else {
         (None, 0)
     };
-    if after >= cutoff {
+    if after >= reply_sequence {
         return Ok(None);
     }
     let settings: Value = row.try_get("", "settings")?;
@@ -210,17 +225,28 @@ async fn input(tx: &DatabaseTransaction, w: &str, reply: &str) -> Result<Option<
         thread: None,
         main_only: false,
         since_join: settings["history"] == "since_join",
-        limit: MOST,
-        before: cutoff + 1,
+        limit: READ_MOST,
+        before: reply_sequence + 1,
         request: "",
     };
     let mut messages = super::conversation_context::gather(tx, scope).await?;
     messages.retain(|m| m["sequence"].as_i64().is_some_and(|s| s > after));
-    let bytes = serde_json::to_vec(&messages)?.len();
-    if messages.len() < FEWEST || (bytes <= NEW_BYTES && messages.len() < NEW_MESSAGES) {
+    if !due(messages.len(), serde_json::to_vec(&messages)?.len(), budget) {
         return Ok(None);
     }
-    let messages = messages.iter().map(plain).collect();
+    // Oldest first, up to what one summary reads; the summary then covers up to
+    // the last message it read.
+    let (mut read, mut size, mut cutoff) = (Vec::new(), 0, after);
+    for message in &messages {
+        let plain = plain(message);
+        size += serde_json::to_vec(&plain)?.len() + 1;
+        if size > INPUT_BYTES && !read.is_empty() {
+            break;
+        }
+        cutoff = message["sequence"].as_i64().unwrap_or(cutoff);
+        read.push(plain);
+    }
+    let messages = read;
     let owner = super::shared_rooms::brief_owner(tx, &job).await?;
     let generation = super::context_attempts::generation(tx, &job).await?;
     Ok(Some(CompactionInput {
@@ -263,6 +289,24 @@ fn plain(message: &Value) -> Value {
         );
     }
     plain
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_summary_is_due_when_new_messages_are_about_to_leave_the_window() {
+        let floor = super::super::history_budget::FLOOR;
+        assert!(!super::due(5, 50_000, floor), "too few messages");
+        assert!(!super::due(20, 11_000, floor));
+        assert!(super::due(20, 12_500, floor), "most of a 14 KB window");
+        assert!(
+            super::due(40, 4_000, floor),
+            "most of the 60 messages it reads"
+        );
+        // A 128,000-token model carries 64,000 bytes, so it waits much longer.
+        assert!(!super::due(60, 30_000, 64_000));
+        assert!(super::due(60, 56_000, 64_000));
+    }
 }
 
 pub(crate) use migration::ContextCompaction;

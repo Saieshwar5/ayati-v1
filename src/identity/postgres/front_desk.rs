@@ -226,6 +226,7 @@ pub(crate) async fn enqueue_if_busy(
         sources: vec![],
         run_seconds: RUN_SECONDS,
         control_tools: false,
+        context_limit: None,
     };
     let prepared = serde_json::to_value(&context)?;
     if prepared.to_string().len() > 65536 {

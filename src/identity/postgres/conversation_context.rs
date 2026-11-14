@@ -89,6 +89,11 @@ const REACTED_REPLIES: usize = 20;
 /// Oldest first; the explicit latest request stays even if it alone is too long.
 /// Only the latest replies keep their reactions.
 pub(super) fn bound(messages: &mut Vec<Value>) -> Result<()> {
+    bound_to(messages, super::history_budget::FLOOR)
+}
+
+/// `bound` to a model-sized window (`history_budget`).
+pub(super) fn bound_to(messages: &mut Vec<Value>, most: usize) -> Result<()> {
     for message in messages
         .iter_mut()
         .rev()
@@ -99,7 +104,7 @@ pub(super) fn bound(messages: &mut Vec<Value>) -> Result<()> {
             fields.remove("reactions");
         }
     }
-    while serde_json::to_vec(&messages)?.len() > 14000 && messages.len() > 1 {
+    while serde_json::to_vec(&messages)?.len() > most && messages.len() > 1 {
         messages.remove(0);
     }
     Ok(())

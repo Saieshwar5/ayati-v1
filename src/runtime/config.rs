@@ -22,6 +22,8 @@ pub struct GooseConfig {
     pub proxy: Option<crate::config::ModelProxy>,
     pub model: String,
     pub run_timeout: std::time::Duration,
+    /// The model's context window in tokens, when the catalog knows it.
+    pub context_limit: Option<u32>,
 }
 
 impl GooseConfig {
@@ -38,6 +40,7 @@ impl GooseConfig {
             proxy: goose.proxy.clone(),
             model: model.into(),
             run_timeout: std::time::Duration::from_secs(180),
+            context_limit: None,
         }
     }
 
@@ -134,7 +137,14 @@ impl GooseConfig {
             .env("GOOSE_MODE", "approve")
             .env("GOOSE_DISABLE_KEYRING", "1")
             .env("GOOSE_DISABLE_SESSION_NAMING", "true")
+            // Goose 1.54 summarizes a long run's older turns at 80% of its window
+            // (its default, pinned here). Catalog models are served under names
+            // Goose can't look up, so it is told their real window.
+            .env("GOOSE_AUTO_COMPACT_THRESHOLD", "0.8")
             .env("DO_NOT_TRACK", "1");
+        if let Some(tokens) = self.context_limit.filter(|t| *t >= 8_192) {
+            command.env("GOOSE_CONTEXT_LIMIT", tokens.to_string());
+        }
         Ok(command)
     }
 
@@ -168,7 +178,9 @@ mod tests {
                 gateway: false,
                 proxy: None,
             };
-            let config = GooseConfig::new(directory.path(), "fixture", &goose);
+            let mut config = GooseConfig::new(directory.path(), "fixture", &goose);
+            // A catalog model's window reaches the run; others leave Goose's own.
+            config.context_limit = prepared.then_some(32_000);
             let version = if prepared {
                 PREPARED_GOOSE_VERSION
             } else {
@@ -194,6 +206,14 @@ mod tests {
             assert_eq!(env("GOOSE_PATH_ROOT"), Some(root.clone()));
             assert_eq!(env("HOME"), Some(root));
             assert_eq!(env("CONTEXT_FILE_NAMES"), Some(PathBuf::from("[]")));
+            assert_eq!(
+                env("GOOSE_AUTO_COMPACT_THRESHOLD"),
+                Some(PathBuf::from("0.8"))
+            );
+            assert_eq!(
+                env("GOOSE_CONTEXT_LIMIT"),
+                prepared.then(|| PathBuf::from("32000"))
+            );
         }
     }
 }

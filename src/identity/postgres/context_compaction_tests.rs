@@ -315,3 +315,62 @@ async fn a_shared_conversation_gets_one_summary_everyone_there_reads() {
     let (_, request) = ask(&db, &other, &w, &room, &a, "Where are we?").await;
     assert!(request.contains("Shared brief") && request.contains("Move happens in March"));
 }
+
+/// A catalog listing the fixture agents' model with a 128,000-token window.
+fn large_window(dir: &std::path::Path) -> crate::identity::models::catalog::Files {
+    let providers = dir.join("providers.json");
+    std::fs::write(&providers, r#"[{"provider":"fireworks","base_url":"https://api.fireworks.ai/inference/v1","key_file":"/k"}]"#).unwrap();
+    let catalog = dir.join("catalog.json");
+    std::fs::write(&catalog, r#"{"models":[{"id":"fixture","name":"Fixture","context":128000,"routes":[{"provider":"fireworks","model":"fixture"}]}]}"#).unwrap();
+    crate::identity::models::catalog::Files { catalog, providers }
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn history_and_summaries_follow_the_models_context_window() {
+    let mut db = fixture().await;
+    let owner = user(&db, "summary-window").await;
+    let w = workspace(&db, &owner).await;
+    let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let mut last = exchange(&db, &owner, &w, &c, &a, &long(0)).await;
+    for n in 1..20 {
+        last = exchange(&db, &owner, &w, &c, &a, &long(n)).await;
+    }
+    let unlisted = db.clone();
+    let dir = tempfile::tempdir().unwrap();
+    db.model_catalog = Some(large_window(dir.path()));
+    assert_eq!(db.model_window("fixture"), 128_000);
+
+    // Outside the catalog the summary is due; a 128,000-token model still holds
+    // these messages word for word, so it waits.
+    assert!(
+        unlisted
+            .compaction_input(&w, &last.reply)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        db.compaction_input(&w, &last.reply)
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    // The next prompt carries the whole conversation for the large model, and
+    // only the latest part for a model the catalog doesn't describe.
+    let (next, request) = ask(&db, &owner, &w, &c, &a, "What is left?").await;
+    assert!(
+        request.contains("Step 1 of the Pune warehouse move"),
+        "large window"
+    );
+    let (_, smaller) = unlisted.request_context(&next).await.unwrap();
+    assert!(
+        !smaller.contains("Step 1 of the Pune warehouse move"),
+        "14 KB window"
+    );
+    assert!(smaller.contains("Step 19 of the Pune warehouse move"));
+    // Goose is told the real window for runs that compact as they go.
+    let prepared = prepare(&db, &next, 180).await.unwrap();
+    assert_eq!(prepared.context_limit, Some(128_000));
+}

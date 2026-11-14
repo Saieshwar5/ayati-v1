@@ -41,6 +41,7 @@ pub(super) async fn prepare(
         sources,
         run_seconds: 45,
         control_tools: false,
+        context_limit: None,
     };
     ensure!(
         serde_json::to_vec(&context)?.len() <= 262144,

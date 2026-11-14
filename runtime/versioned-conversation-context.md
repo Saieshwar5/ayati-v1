@@ -50,21 +50,28 @@ into general reusable context. There is no automatic cross-channel identity merg
 
 ## Automatic summaries (schema 120)
 
-An agent's prompt carries only about 14 KB of the conversation's most recent
-messages, so in a long conversation older messages leave its view early. When
+Agents don't keep one long session: each request builds a fresh prompt, and the
+conversation's most recent messages fill a window sized from the agent's model
+(a fifth of its catalog context window, 14,000 to 64,000 bytes; see
+[conversation context](conversation-context.md)). Older messages leave that
+window, so the summary carries them. When
 `AYATI_CONTEXT_SUMMARY_MODEL=provider:model` is set (keys from
 `AYATI_MODEL_PROVIDERS_FILE`), the controller keeps each room's working summary
 up to date in the background:
 
 - **When:** after an agent's reply finishes, its room is checked. A new summary is
-  written once the messages since the last one exceed 12,000 bytes or 40
-  messages (and are at least 6). Nobody waits for it; a room that fails is tried
+  written once the messages since the last one are about to leave the window:
+  more than six sevenths of its bytes or two thirds of the messages it reads
+  (and at least 6). For a model outside the catalog that is 12,000 bytes or 40
+  messages; a 128,000-token model waits until about 55,000 bytes. Nobody waits for it; a room that fails is tried
   again when its next reply finishes. A paused workspace or an agent past its
   model budget gets none.
 - **What it reads:** exactly the history the agent itself would get in that room,
   through the same scoped query and exclusions (connected-event data, Library
   sources, hand-off trees, replies made under since-changed access, "since
-  joined"), up to the 150 newest new messages of at most 2,000 characters each,
+  joined"), new messages of at most 2,000 characters each, oldest first, up to
+  128,000 bytes per summary (a room that fell behind catches up one summary per
+  finished reply),
   plus the room's current summary when that is still current. Never another
   room: a private conversation has its person's summary, a shared conversation
   its one brief, and work rooms and subject rooms their own.
@@ -84,6 +91,16 @@ up to date in the background:
   assignment `context` against the agent and the reply. Like the Library's and
   the skill writer's calls it has no catalog charge.
 - **Without the setting** nothing runs and agents keep saving their own summaries.
+
+**Inside one run** the agent's own tool calls and results can fill the model's
+window, which is a different problem: Goose 1.54 (pinned) summarizes the run's
+older turns when it reaches 80% of the window (`GOOSE_AUTO_COMPACT_THRESHOLD`,
+set explicitly). Catalog models reach Goose under names it can't look up, so it
+would assume 128,000 tokens; the prepared context now carries the catalog's
+window (`context_limit`) and the executor passes it as `GOOSE_CONTEXT_LIMIT`.
+The pre-started tool-free chat path makes one model call with no tool output and
+keeps Goose's own default. Controller and executors must run the same version:
+an older executor refuses a prepared context with the new field.
 
 Forgetting a connected system's subject now also removes its rooms' summaries,
 history reads and saved prompts. Saved context is otherwise immutable; the
