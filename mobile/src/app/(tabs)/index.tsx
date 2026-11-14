@@ -1,7 +1,6 @@
 /**
- * Screen 5: Home. A read-and-react page: greeting and business clock, then
- * what needs this person. Saved panels come in the next increment and are
- * arranged on the web.
+ * Screen 5: Home. A read-and-react page: greeting and business clock, what
+ * needs this person, then their saved panels in web order (arranged on the web).
  */
 import type { AttentionItem } from '@cuckoo/shared';
 import * as Linking from 'expo-linking';
@@ -10,10 +9,12 @@ import { useCallback } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { origin } from '../../config';
 import { BusinessClock } from '../../home/business-clock';
+import { PanelCard } from '../../home/panel-card';
+import { usePanels } from '../../home/use-panels';
 import { AttentionCard } from '../../needs-me/attention-card';
-import { useAttention } from '../../needs-me/use-attention';
+import { useNeedsYou } from '../../needs-me/needs-you-context';
 import { useWorkspace } from '../../session/session-context';
-import { radius, type as typography } from '../../theme/tokens';
+import { type as typography } from '../../theme/tokens';
 import { useTokens } from '../../theme/use-tokens';
 import { ErrorText } from '../../ui/controls';
 import { Screen } from '../../ui/screen';
@@ -28,7 +29,9 @@ export default function Home() {
   const t = useTokens();
   const router = useRouter();
   const { user, workspace } = useWorkspace();
-  const { data, error, loading, refresh } = useAttention('needs_you');
+  const { data, error, loading, refresh } = useNeedsYou();
+  const panels = usePanels();
+  const openPanel = useCallback((id: string) => router.push({ pathname: '/panel/[id]', params: { id } }), [router]);
   const open = useCallback((item: AttentionItem) => router.push({ pathname: '/chat/[id]', params: { id: item.chat } }), [router]);
   const first = (user.display_name ?? '').split(' ')[0];
   const waiting = data?.items ?? [];
@@ -36,7 +39,12 @@ export default function Home() {
     <Screen>
       <ScrollView
         contentContainerStyle={styles.page}
-        refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={() => void refresh()} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={(loading && !!data) || (panels.loading && !!panels.data)}
+            onRefresh={() => void Promise.all([refresh(), panels.refresh()])}
+          />
+        }
       >
         <Text style={[typography.meta, { color: t.muted }]}>
           {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} · {workspace.name}
@@ -64,15 +72,20 @@ export default function Home() {
         ) : null}
         <ErrorText>{error}</ErrorText>
 
-        <View style={[styles.note, { borderColor: t.borderPanel }]}>
-          <Text style={[typography.header, { color: t.text }]}>Your panels</Text>
+        {panels.data?.panels.length ? (
+          <View style={styles.section}>
+            <Text accessibilityRole="header" style={[typography.header, { color: t.text }]}>Your panels</Text>
+            {panels.data.panels.map(panel => (
+              <PanelCard key={panel.id} panel={panel} onOpen={openPanel} />
+            ))}
+          </View>
+        ) : null}
+        <ErrorText>{panels.error}</ErrorText>
+        <Pressable accessibilityRole="link" style={styles.web} onPress={() => void Linking.openURL(`${origin}/w/${workspace.id}/`)}>
           <Text style={[typography.meta, { color: t.muted }]}>
-            Saved Home panels arrive in the app soon. Until then, see and arrange them on the web.
+            {panels.data?.panels.length ? 'Arrange your panels on the web ›' : 'Add panels to your Home on the web ›'}
           </Text>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(`${origin}/w/${workspace.id}/`)}>
-            <Text style={[typography.meta, { color: t.text, fontWeight: '600' }]}>Open Cuckoo on the web ›</Text>
-          </Pressable>
-        </View>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -82,5 +95,5 @@ const styles = StyleSheet.create({
   page: { padding: 16, gap: 12 },
   section: { gap: 10, marginTop: 12 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  note: { borderWidth: 1, borderRadius: radius.card, padding: 16, gap: 6, marginTop: 12 },
+  web: { paddingVertical: 12 },
 });

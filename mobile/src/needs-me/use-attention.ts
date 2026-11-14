@@ -9,20 +9,26 @@ import { useChanges } from '../live/live-context';
 import { useWorkspace } from '../session/session-context';
 import { useResource } from '../ui/requests';
 
-export function useAttention(view: AttentionView) {
+/** `enabled: false` reads nothing (the Done recently view before it is opened). */
+export function useAttention(view: AttentionView, enabled = true) {
   const { api } = useWorkspace();
-  const resource = useResource(useCallback((signal: AbortSignal) => api.attention(view, null, signal), [api, view]));
+  const resource = useResource(
+    useCallback(
+      (signal: AbortSignal) => (enabled ? api.attention(view, null, signal) : Promise.resolve(undefined)),
+      [api, view, enabled],
+    ),
+  );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const refresh = resource.refresh;
   useEffect(() => () => clearTimeout(timer.current), []);
   useChanges(
     useCallback(
       (change: Change) => {
-        if (!['message', 'access', 'reset'].includes(change.kind)) return;
+        if (!enabled || !['message', 'access', 'reset'].includes(change.kind)) return;
         clearTimeout(timer.current);
         timer.current = setTimeout(() => void refresh(), 1000);
       },
-      [refresh],
+      [refresh, enabled],
     ),
   );
   return resource;

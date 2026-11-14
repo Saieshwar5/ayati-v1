@@ -137,3 +137,21 @@ test('the client sends the bearer token and marker, never cookies, and reports 4
     'https://cuckoo.example/api/identity/workspaces/w/message-events?compact=true&after=12',
   );
 });
+
+test('panels show in the web order, without hidden or empty ones, and chart numbers read as a table', async () => {
+  const { shownPanels, chartTable, comparisonView, progressView } = await import('../src/panels');
+  const panel = (id: string, sections = 1) => ({
+    id, revision: 1, agent_name: 'Nova',
+    active: { revision: 1, available: true, definition: { title: id, purpose: '', sections: Array.from({ length: sections }, () => ({ kind: 'text' as const, heading: 'h', body: 'b' })) } },
+  });
+  const page = { available: true, panels: [panel('a'), panel('b'), panel('c'), panel('empty', 0)], layout: { revision: 1, order: ['c', 'a'], wide: [], hidden: ['b'] } };
+  assert.deepEqual(shownPanels(page).map(p => p.id), ['c', 'a']);
+  const table = chartTable({ kind: 'chart', title: 'Sales', unit: '€', series: [
+    { name: 'This week', points: [{ label: 'Mon', value: 10 }, { label: 'Tue', value: 12.5 }] },
+    { name: 'Last week', points: [{ label: 'Tue', value: 9 }] },
+  ] });
+  assert.deepEqual(table.columns, ['', 'This week', 'Last week']);
+  assert.deepEqual(table.rows[0], ['Mon', '10 €', '']);
+  assert.equal(comparisonView({ label: 'vs last week', value: -3, favorable: 'decrease' }).sentiment, 'favorable');
+  assert.equal(progressView({ id: 'p', label: 'Goal', actual: 50, target: 200 }).width, 25);
+});

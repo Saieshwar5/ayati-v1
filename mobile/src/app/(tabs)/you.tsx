@@ -5,7 +5,8 @@ import { origin } from '../../config';
 import { useSession, useWorkspace } from '../../session/session-context';
 import { touchTarget, type as typography } from '../../theme/tokens';
 import { useTokens } from '../../theme/use-tokens';
-import { Button, ErrorText, Face } from '../../ui/controls';
+import { Face } from '../../faces/face';
+import { Button, ErrorText } from '../../ui/controls';
 import { useMutation } from '../../ui/requests';
 import { Screen } from '../../ui/screen';
 import { Devices } from '../../you/devices';
@@ -20,7 +21,7 @@ export default function You() {
     <Screen title="You">
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.profile}>
-          <Face name={name} size={64} />
+          <Face name={name} person={{ id: user.id }} size={64} workspace={workspace.id} />
           <View style={styles.text}>
             <Text style={[typography.header, { color: t.text }]}>{name}</Text>
             <Text style={[typography.meta, { color: t.muted }]}>{user.email}</Text>

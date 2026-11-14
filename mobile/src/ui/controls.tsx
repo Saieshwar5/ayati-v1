@@ -65,35 +65,6 @@ export function ErrorText({ children }: { children: ReactNode }) {
   );
 }
 
-/** A round face with initials; agents' bundled robots and photos come next (D253). */
-export function Face({ name, size = 40, agent }: { name: string; size?: number; agent?: boolean }) {
-  const t = useTokens();
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('');
-  return (
-    <View
-      importantForAccessibility="no-hide-descendants"
-      accessibilityElementsHidden
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: agent ? t.selection : t.soft,
-        borderColor: t.border,
-        borderWidth: StyleSheet.hairlineWidth,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text style={{ color: t.text, fontWeight: '600', fontSize: size * 0.38 }}>{initials || '?'}</Text>
-    </View>
-  );
-}
-
 /** A count that means something is waiting for this person (red), or muted (grey). */
 export function Count({ value, quiet }: { value: number; quiet?: boolean }) {
   const t = useTokens();

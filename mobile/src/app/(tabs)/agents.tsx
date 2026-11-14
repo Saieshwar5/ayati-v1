@@ -7,7 +7,8 @@ import { useOpenAgent } from '../../agents/use-open-agent';
 import { useWorkspace } from '../../session/session-context';
 import { radius, touchTarget, type as typography } from '../../theme/tokens';
 import { useTokens } from '../../theme/use-tokens';
-import { AiTag, ErrorText, Face } from '../../ui/controls';
+import { Face } from '../../faces/face';
+import { AiTag, ErrorText } from '../../ui/controls';
 import { useResource } from '../../ui/requests';
 import { Screen } from '../../ui/screen';
 
@@ -38,7 +39,7 @@ export default function Agents() {
       onPress={() => void opener.open(item)}
       style={({ pressed }) => [styles.row, { borderBottomColor: t.border, backgroundColor: pressed ? t.soft : t.surface }]}
     >
-      <Face name={item.name} agent />
+      <Face name={item.name} agent={item} workspace={workspace.id} />
       <View style={styles.text}>
         <View style={styles.title}>
           <Text numberOfLines={1} style={[typography.header, { color: t.text, flexShrink: 1 }]}>{item.name}</Text>

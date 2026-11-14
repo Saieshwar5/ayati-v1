@@ -17,6 +17,7 @@ import type {
   Submission,
   UnreadResponse,
 } from './types';
+import type { PanelsPage } from './panels';
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -83,6 +84,9 @@ export function createClient(options: ClientOptions) {
       /** Create a conversation. `id` is chosen by the caller so a retry can't create two. */
       createChat: (input: { id: string; kind: 'direct'; name: string; users: string[]; agents: string[] }) =>
         request<{ id: string }>(`${base}/chats`, { ...input, description: '' }),
+      /** Stop a request an agent is working on; offered only when the message says `can_cancel`. */
+      cancel: (chat: string, message: string) =>
+        request<unknown>(`${base}/chats/${encodeURIComponent(chat)}/messages/${encodeURIComponent(message)}/cancel`, {}),
       receipts: (chat: string, ids: string[], seen: boolean) =>
         request<unknown>(`${base}/chats/${encodeURIComponent(chat)}/receipts`, { ids, seen }),
       attention: (view: AttentionView, before?: string | null, signal?: AbortSignal) => {
@@ -90,6 +94,8 @@ export function createClient(options: ClientOptions) {
         if (before) params.set('before', before);
         return request<AttentionPage>(`${base}/attention?${params}`, undefined, signal);
       },
+      /** Saved Home panels and their order (read-only on phones). */
+      panels: (signal?: AbortSignal) => request<PanelsPage>(`${base}/home-panels`, undefined, signal),
       /** The live message stream's address, resuming after `cursor`. */
       liveUrl: (cursor?: string) =>
         `${options.origin}/api/identity${base}/message-events?compact=true${cursor ? `&after=${encodeURIComponent(cursor)}` : ''}`,

@@ -4,7 +4,8 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type as typography } from '../theme/tokens';
 import { useTokens } from '../theme/use-tokens';
-import { AiTag, Count, Face } from '../ui/controls';
+import { Face, type FaceIdentity } from '../faces/face';
+import { AiTag, Count } from '../ui/controls';
 import { shortTime } from './time';
 
 type Props = {
@@ -13,9 +14,10 @@ type Props = {
   viewer: string;
   unread: number;
   onOpen: (id: string) => void;
+  workspace: string;
 };
 
-export const ChatRow = memo(function ChatRow({ chat, directory, viewer, unread, onOpen }: Props) {
+export const ChatRow = memo(function ChatRow({ chat, directory, viewer, unread, onOpen, workspace }: Props) {
   const t = useTokens();
   const name = conversationName(chat, directory, viewer);
   const kind = conversationKind(chat, directory, viewer);
@@ -25,6 +27,12 @@ export const ChatRow = memo(function ChatRow({ chat, directory, viewer, unread, 
       : kind === 'Agent'
         ? (directory.agents.find(agent => chat.agents.includes(agent.id))?.title ?? 'Agent')
         : 'Direct message';
+  const face: FaceIdentity =
+    kind === 'Agent'
+      ? { name, agent: directory.agents.find(agent => chat.agents.includes(agent.id)) }
+      : kind === 'Person'
+        ? { name, person: directory.users.find(user => chat.users.includes(user.id) && user.id !== viewer) }
+        : { name };
   return (
     <Pressable
       accessibilityRole="button"
@@ -32,7 +40,7 @@ export const ChatRow = memo(function ChatRow({ chat, directory, viewer, unread, 
       onPress={() => onOpen(chat.id)}
       style={({ pressed }) => [styles.row, { borderBottomColor: t.border, backgroundColor: pressed ? t.soft : t.surface }]}
     >
-      <Face name={kind === 'Channel' ? `# ${name}` : name} agent={kind === 'Agent'} />
+      <Face {...face} workspace={workspace} />
       <View style={styles.text}>
         <View style={styles.title}>
           <Text numberOfLines={1} style={[typography.header, styles.name, { color: t.text }]}>

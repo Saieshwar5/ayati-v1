@@ -83,6 +83,11 @@ export function existingAgentChat(chats: Conversation[], agent: string, viewer: 
   );
 }
 
+/** Whether the viewer may stop this reply now (the web's rule, reply-progress.tsx). */
+export function canStop(message: Message): boolean {
+  return Boolean(message.can_cancel && message.state === 'queued');
+}
+
 /** Message text with mention links shown as `@Name` (the web's mention markup). */
 export function plainText(content: string): string {
   return content.replace(/\[@([^\]\n]+)\]\(mention:(?:user|agent):[a-zA-Z0-9_-]+\)/g, '@$1');
@@ -90,3 +95,47 @@ export function plainText(content: string): string {
 
 /** Stored as the content of a message that only shares files. */
 export const filesOnlyContent = 'Shared files';
+
+/** What picture a face shows (web/src/react/faces.tsx): a bundled robot, an upload or initials. */
+export type Picture = { kind: 'robot'; robot: string } | { kind: 'image'; path: string } | { kind: 'initials'; text: string };
+
+const ROBOTS = 24;
+const uploadedPicture = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const bundledRobot = /^robot-(0[1-9]|1\d|2[0-4])$/;
+
+function stableNumber(text: string): number {
+  let value = 0;
+  for (const char of text) value = (value * 31 + char.codePointAt(0)!) >>> 0;
+  return value;
+}
+
+/** The robot an agent gets until someone picks a picture for it (same as the web). */
+export function defaultRobot(agentId: string): string {
+  return `robot-${String((stableNumber(agentId) % ROBOTS) + 1).padStart(2, '0')}`;
+}
+
+export function initials(name: string): string {
+  return (
+    name
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => Array.from(part)[0])
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+/** Paths are under `/api/identity` and need the viewer's credentials. */
+export function agentPicture(workspace: string, agent: { id: string; avatar?: string | null }): Picture {
+  const avatar = agent.avatar ?? '';
+  if (bundledRobot.test(avatar)) return { kind: 'robot', robot: avatar };
+  if (uploadedPicture.test(avatar)) return { kind: 'image', path: `/workspaces/${workspace}/agent-profiles/${agent.id}/avatar/${avatar}` };
+  return { kind: 'robot', robot: defaultRobot(agent.id) };
+}
+
+export function personPicture(workspace: string, person: { id: string; name: string; photo?: string | null }): Picture {
+  return person.photo
+    ? { kind: 'image', path: `/workspaces/${workspace}/members/${person.id}/photo/${person.photo}` }
+    : { kind: 'initials', text: initials(person.name) };
+}

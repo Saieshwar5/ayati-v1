@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { AttentionCard } from '../../needs-me/attention-card';
+import { useNeedsYou } from '../../needs-me/needs-you-context';
 import { useAttention } from '../../needs-me/use-attention';
 import { useWorkspace } from '../../session/session-context';
 import { radius, type as typography } from '../../theme/tokens';
@@ -16,7 +17,9 @@ export default function NeedsMe() {
   const router = useRouter();
   const { workspace } = useWorkspace();
   const [view, setView] = useState<AttentionView>('needs_you');
-  const { data, error, loading, refresh } = useAttention(view);
+  const waiting = useNeedsYou();
+  const recent = useAttention('recent', view === 'recent');
+  const { data, error, loading, refresh } = view === 'needs_you' ? waiting : recent;
   const open = useCallback((item: AttentionItem) => router.push({ pathname: '/chat/[id]', params: { id: item.chat } }), [router]);
   const segments: { value: AttentionView; label: string }[] = [
     { value: 'needs_you', label: 'Waiting' },

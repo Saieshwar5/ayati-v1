@@ -5,10 +5,21 @@ Architecture), TypeScript and Expo Router. Plan and decisions:
 [designs/mobile-app/](../designs/mobile-app/mobile-plan.md). Sign-in contract:
 [runtime/mobile-sign-in.md](../runtime/mobile-sign-in.md).
 
-Status (2026-11-14, M2 first increment): sign-in, workspace choice, the five tabs,
-Chats, conversations with live replies and sending, Needs me, Agents and You.
-Not yet: Home panels, real agent faces, tab icons, Stop, approvals and questions
-as sheets (M3), files and voice (M3), push (M4), tablet two-pane layouts.
+Status (2026-11-14, M2):
+- **Built:**
+  - sign-in and workspace choice;
+  - the five tabs, with icons and a Needs me badge;
+  - Chats, and conversations with live replies, sending and Stop;
+  - Home: business clock, Needs you and read-only saved panels in every family,
+    each with its own page;
+  - Needs me, Agents and You;
+  - real agent faces (the bundled robots and uploaded pictures);
+  - Chats beside the open conversation on tablets.
+- **Not yet:**
+  - the agent profile, and Agents beside it on tablets;
+  - approvals and questions as sheets, files and voice (M3);
+  - push notifications (M4);
+  - device testing.
 
 ## Layout
 
@@ -18,7 +29,8 @@ as sheets (M3), files and voice (M3), push (M4), tablet two-pane layouts.
 | `src/session/` | Sign-in in the system browser, the device-session token in SecureStore, the session context |
 | `src/live/` | The live message stream (streaming fetch, cursor resume, reconnect) and its context |
 | `src/chats/`, `src/needs-me/`, `src/agents/`, `src/you/`, `src/home/` | Each tab's hooks and components |
-| `src/ui/`, `src/theme/` | Shared controls, request hooks and the web's tokens |
+| `src/faces/` | Faces; `robots.ts` is generated from `web/public/agent-avatars` by `scripts/sync-agent-avatars.mjs` |
+| `src/ui/`, `src/theme/` | Shared controls, tab icons, request hooks and the web's tokens |
 | `../shared/` | `@cuckoo/shared`: API types, the request client and pure rules, with their own tests |
 
 ## Run it

@@ -2,9 +2,10 @@
 
 Status: M1 (server sign-in and device sessions) built and tested 2026-11-14, schema
 115, see [runtime/mobile-sign-in.md](../../runtime/mobile-sign-in.md). M2 started:
-`mobile/` and `shared/` hold sign-in, workspace choice, the five tabs, Chats and
-live conversations ([mobile/README.md](../../mobile/README.md)); Home panels, real
-faces and tablet layouts are still to do. Supersedes the Google Doc "Cuckoo Mobile
+`mobile/` and `shared/` hold sign-in, workspace choice, the five tabs, Chats, live
+conversations with Stop, Home with read-only panels, real faces and two-pane Chats
+on tablets ([mobile/README.md](../../mobile/README.md)). The agent profile, the
+two-pane Agents screen and device checks remain. Supersedes the Google Doc "Cuckoo Mobile
 App Plan" of the same day by adding Home. Design: `mobile-design-ideas.md`.
 
 ## Summary
