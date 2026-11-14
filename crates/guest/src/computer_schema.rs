@@ -7,7 +7,9 @@ use serde_json::{Value, json};
 /// uses the same limits (`control::broker::tool_seconds`).
 pub(crate) fn seconds(name: &str, input: &Value) -> u64 {
     match name {
-        "computer_run" => input["seconds"].as_u64().unwrap_or(60).clamp(1, 600) + 30,
+        "computer_run" | "run_skill_script" => {
+            input["seconds"].as_u64().unwrap_or(60).clamp(1, 600) + 30
+        }
         _ if name.starts_with("computer_") || name.starts_with("browser_") => 90,
         _ => 45,
     }
@@ -18,6 +20,7 @@ pub(crate) fn tools() -> Vec<Value> {
         json!({"name":"computer_run","description":"Run a shell command on your own Linux computer, in this request's folder. Use it for files and programs: convert or read documents (pdftotext, python3 with openpyxl), work with data, run scripts. Your computer keeps its files between requests; put files every request needs in shared/. It may only reach the websites your owner allowed. Output is shortened; write long results to a file. The command stops after `seconds` (default 60, at most 600), or sooner when this request's time is nearly up; split long work into steps that save to files.","inputSchema":{"type":"object","properties":{"command":{"type":"string","maxLength":4000},"seconds":{"type":"integer","minimum":1,"maximum":600}},"required":["command"],"additionalProperties":false}}),
         json!({"name":"computer_list_files","description":"List files on your computer: this request's folder by default, a path inside it, or shared/ for files kept for every request.","inputSchema":{"type":"object","properties":{"path":{"type":"string","maxLength":500}},"additionalProperties":false}}),
         json!({"name":"computer_read_file","description":"Read a text file from your computer (up to 30,000 characters). Paths are inside this request's folder, or shared/. For PDFs and spreadsheets use computer_run with a converter.","inputSchema":{"type":"object","properties":{"path":{"type":"string","maxLength":500}},"required":["path"],"additionalProperties":false}}),
+        json!({"name":"run_skill_script","description":"Run a script from one of your skills on your own computer, in this request's folder. Name the skill and the script's path inside it (such as scripts/make_invoice.py); Cuckoo copies the skill's files to your computer and runs the script with python3, bash or node by its extension. Use it when a skill's steps say to run its script: a tested script gives the same result every time. It follows your computer's programs rule, so it may ask a person first.","inputSchema":{"type":"object","properties":{"skill":{"type":"string","maxLength":64},"script":{"type":"string","maxLength":200},"arguments":{"type":"array","maxItems":20,"items":{"type":"string","maxLength":500}},"seconds":{"type":"integer","minimum":1,"maximum":600}},"required":["skill","script"],"additionalProperties":false}}),
         json!({"name":"computer_write_file","description":"Save a text file (up to 1 MB) on your computer, in this request's folder or in shared/. It replaces a file with the same name.","inputSchema":{"type":"object","properties":{"path":{"type":"string","maxLength":500},"content":{"type":"string","maxLength":1048576}},"required":["path","content"],"additionalProperties":false}}),
     ]
 }
@@ -36,6 +39,20 @@ pub(crate) fn observed(name: &str, input: &Value) -> bool {
         "computer_run" => {
             only(&["command", "seconds"])
                 && text("command", 4000)
+                && v.get("seconds")
+                    .is_none_or(|s| s.as_u64().is_some_and(|s| (1..=600).contains(&s)))
+        }
+        "run_skill_script" => {
+            only(&["skill", "script", "arguments", "seconds"])
+                && text("skill", 64)
+                && text("script", 200)
+                && v.get("arguments").is_none_or(|a| {
+                    a.as_array().is_some_and(|a| {
+                        a.len() <= 20
+                            && a.iter()
+                                .all(|x| x.as_str().is_some_and(|x| x.chars().count() <= 500))
+                    })
+                })
                 && v.get("seconds")
                     .is_none_or(|s| s.as_u64().is_some_and(|s| (1..=600).contains(&s)))
         }
@@ -70,6 +87,18 @@ mod tests {
             "computer_run",
             &json!({"command":"ls","cwd":"/"})
         ));
+        assert!(observed(
+            "run_skill_script",
+            &json!({"skill":"invoice-pdf","script":"scripts/make.py","arguments":["1042"]})
+        ));
+        assert!(!observed(
+            "run_skill_script",
+            &json!({"skill":"invoice-pdf","script":"scripts/make.py","command":"rm -rf"})
+        ));
+        assert!(!observed(
+            "run_skill_script",
+            &json!({"skill":"invoice-pdf","script":"scripts/make.py","arguments":[1]})
+        ));
         assert!(observed("computer_list_files", &json!({})));
         assert!(observed("computer_read_file", &json!({"path":"a.txt"})));
         assert!(!observed("computer_read_file", &json!({})));
@@ -78,7 +107,7 @@ mod tests {
             &json!({"path":"a.txt","content":"x"})
         ));
         assert!(!observed("computer_write_file", &json!({"path":"a.txt"})));
-        assert_eq!(tools().len(), 4);
+        assert_eq!(tools().len(), 5);
         // Long commands and browser work wait longer for the controller than other tools.
         assert_eq!(
             seconds("computer_run", &json!({"command":"ls","seconds":600})),

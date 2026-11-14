@@ -11,6 +11,11 @@ pub(crate) mod files;
 pub(crate) mod migration;
 #[path = "skill_runtime.rs"]
 pub(crate) mod runtime;
+#[path = "skill_scripts.rs"]
+pub(crate) mod scripts;
+#[cfg(test)]
+#[path = "skill_scripts_tests.rs"]
+mod scripts_tests;
 #[cfg(test)]
 #[path = "skills_tests.rs"]
 mod tests;

@@ -133,7 +133,7 @@ function Review({ draft, reviewed, agent, admin, shareNeeded }: {
       <ul className="skill-file-list">{ordered.map(file => <FileRow key={file.path} file={file} initiallyOpen={file.path === 'SKILL.md'} />)}</ul>
     </section>
     {checked.has_scripts && <p className="skill-warning"><SkillIcon name="warning" />
-      <span>This skill has a script. Scripts can’t run yet, so {agent} follows the written steps only.</span></p>}
+      <span>This skill has a script. It runs only on {agent}’s own computer, under its programs rule, so it can ask first. Check the script before you save. Without a computer, {agent} follows the written steps.</span></p>}
     {admin && <label className="ui-check skill-share">
       <input type="checkbox" checked={draft.shared} disabled={Boolean(draft.saved)} onChange={event => draft.share(event.target.checked)} />
       <span>Share with the workspace<small>Any agent can use it. Admins only.</small></span>
@@ -156,7 +156,7 @@ function FileRow({ file, initiallyOpen }: { file: SkillFile; initiallyOpen: bool
     <button type="button" className="skill-file-toggle" aria-expanded={open} aria-controls={open ? preview : undefined} onClick={() => setOpen(!open)}>
       <SkillIcon name="file" /><span className="skill-file-path">{file.path}</span>
       <small>{byteSize(textBytes(file.text))}</small>
-      {isScript(file.path) && <span className="skill-file-tag">Can’t run yet</span>}
+      {isScript(file.path) && <span className="skill-file-tag">Script</span>}
       <SkillIcon name="chevron" />
     </button>
     {open && <div className="skill-file-preview" id={preview}>

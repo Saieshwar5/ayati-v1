@@ -206,14 +206,14 @@ test('upload: choose a .zip by keyboard, review what was read, Add skill, back t
     const toggles = [...dialog().querySelectorAll('.skill-file-toggle')];
     assert.deepEqual(toggles.map(node => [node.querySelector('.skill-file-path').textContent, node.getAttribute('aria-expanded')]),
       [['SKILL.md', 'true'], ['reference/fabric-widths.md', 'false'], ['scripts/cutting_list.py', 'false']]);
-    assert.match(toggles[2].textContent, /Can’t run yet/);
+    assert.match(toggles[2].textContent, /Script/);
     assert.equal(dialog().querySelectorAll('.skill-file-preview').length, 1);
     assert.doesNotMatch(dialog().querySelector('.skill-file-preview pre').textContent, /Step 8/);
     await click(button('Show all 13 lines'));
     assert.match(dialog().querySelector('.skill-file-preview pre').textContent, /8\. Step 8\./);
     await click(toggles[1]);
     assert.equal(dialog().querySelectorAll('.skill-file-preview').length, 2);
-    assert.match(dialog().textContent, /This skill has a script\. Scripts can’t run yet, so Atlas follows the written steps only\./);
+    assert.match(dialog().textContent, /This skill has a script\. It runs only on Atlas’s own computer, under its programs rule, so it can ask first\./);
     const share = dialog().querySelector('.skill-share input');
     assert.equal(share.checked, false, 'personal unless the admin shares it');
     await click(share);
