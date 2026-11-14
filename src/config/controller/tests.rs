@@ -384,6 +384,12 @@ fn transcription_is_a_provider_and_model_from_the_providers_file() {
     );
     assert!(controller(&[]).unwrap().context_summary_model.is_none());
     assert!(controller(&[("AYATI_CONTEXT_SUMMARY_MODEL", "openai:gpt-5-mini")]).is_err());
+    let learning = controller(&[providers, ("AYATI_LEARNING_MODEL", "openai:gpt-5-mini")]).unwrap();
+    assert_eq!(
+        learning.learning_model,
+        Some(("openai".into(), "gpt-5-mini".into()))
+    );
+    assert!(controller(&[("AYATI_LEARNING_MODEL", "openai:gpt-5-mini")]).is_err());
     let Err(error) = controller(&[providers, ("AYATI_TRANSCRIPTION_MODEL", "whisper-v3")]) else {
         panic!("a model without a provider must be refused")
     };

@@ -74,6 +74,9 @@ pub struct Controller {
     /// Keeps long conversations' working summaries up to date in the background
     /// (schema 120): "provider:model" from the model providers file.
     pub context_summary_model: Option<(String, String)>,
+    /// Proposes lessons from agents' work once a day (schema 121):
+    /// "provider:model" from the model providers file.
+    pub learning_model: Option<(String, String)>,
     /// Web search services for agents, their keys, prices and order (runtime/web-search.md).
     pub web_search_providers_file: Option<PathBuf>,
     /// Agent computers' sizes and providers (runtime/agent-computers.md).
@@ -237,6 +240,7 @@ impl Controller {
             transcription_model: provider_model(env, "AYATI_TRANSCRIPTION_MODEL"),
             skill_writer_model: provider_model(env, "AYATI_SKILL_WRITER_MODEL"),
             context_summary_model: provider_model(env, "AYATI_CONTEXT_SUMMARY_MODEL"),
+            learning_model: provider_model(env, "AYATI_LEARNING_MODEL"),
             web_search_providers_file: absolute(env, "AYATI_WEB_SEARCH_PROVIDERS_FILE"),
             computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
             connectors: super::Connectors::read(env),
@@ -275,6 +279,9 @@ impl Controller {
         }
         if config.context_summary_model.is_some() && config.model_providers_file.is_none() {
             env.problem("AYATI_CONTEXT_SUMMARY_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
+        }
+        if config.learning_model.is_some() && config.model_providers_file.is_none() {
+            env.problem("AYATI_LEARNING_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         // Model keys belong on executors (.env.executor locally).

@@ -43,6 +43,8 @@ Main product contracts:
 - [Connected systems](runtime/connected-systems.md): an agent's owner connects the
   company's own MCP server from the agent's Tools tab and reviews each tool;
   developers start from the [connected systems guide](runtime/connected-systems-guide.md).
+- [Agents learn from their work](runtime/agent-learning.md): once a day Cuckoo
+  proposes lessons from shared conversations; maintainers approve them as notes.
 - [Your own computers](runtime/workspace-computers.md): admins add a machine the
   workspace runs; the Cuckoo Connector on it takes chosen agents' commands and files.
 - [Web search](runtime/web-search.md): agents search the web and read pages through
