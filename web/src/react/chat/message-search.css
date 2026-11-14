@@ -12,3 +12,13 @@
 .chat-hit-text { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 .chat-hit-text mark { background: var(--warning-bg); color: var(--text); border-radius: 3px; padding: 0 1px; }
 .chat-search-heading { margin: 12px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+/* Filters: chips toggle, written filters (in:, from:, has:) show with × to remove. */
+.chat-search-chips, .chat-search-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chat-search-recent > span { color: var(--muted); font-size: 12px; font-weight: 600; margin-right: 2px; }
+.chat-search-chip.ui-button, .chat-search-chip { min-height: 30px; padding: 4px 11px; border-radius: 15px; font-size: 12.5px; font-weight: 500; }
+.chat-search-chip[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chat-search-chip.written { display: inline-flex; align-items: center; gap: 4px; background: var(--selection); color: var(--text); padding-right: 4px; }
+.chat-search-chip.written button { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font-size: 14px; cursor: pointer; }
+.chat-search-chip.written button:hover, .chat-search-chip.written button:focus-visible { background: var(--soft); color: var(--text); }
+@media (pointer: coarse) { .chat-search-chip.ui-button, .chat-search-chip { min-height: 44px; } .chat-search-chip.written button { width: 36px; height: 36px; } }
