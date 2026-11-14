@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#fff;color:#22252a;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.btn{height:52px;border-radius:12px;border:0;font:600 16px Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;padding:0 18px;box-sizing:border-box}
+.pri{background:#22252a;color:#fff}
+a{color:#22252a}
+</style>
+</helmet>
+<div class="ph" style="padding:0 28px 44px">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px">
+<div style="display:flex;align-items:center;gap:12px">
+<svg width="64" height="44" viewBox="0 0 410 280" role="img" aria-label="Cuckoo"><g transform="translate(0,280) scale(0.1,-0.1)" fill="#22252a"><path d="M2768 2676 c-247 -44 -477 -188 -661 -414 -30 -37 -144 -197 -252 -357 -323 -474 -486 -684 -719 -923 -239 -245 -491 -456 -834 -700 l-193 -137 43 -9 c59 -13 260 7 381 38 255 66 524 214 728 404 90 83 142 160 239 351 112 221 189 351 282 477 67 90 195 234 186 209 -2 -5 -18 -40 -36 -77 -70 -148 -86 -224 -86 -423 -1 -204 7 -243 76 -377 146 -283 521 -467 875 -427 270 30 525 177 693 401 61 80 129 202 119 212 -3 3 -41 -7 -84 -22 -73 -24 -94 -26 -230 -26 -138 0 -156 2 -217 26 -385 147 -518 542 -282 832 57 70 170 146 265 177 113 37 302 35 412 -5 l78 -28 21 29 c78 102 192 170 371 220 97 27 98 27 75 45 -32 24 -161 74 -270 103 -66 18 -95 30 -106 47 -31 44 -138 150 -196 195 -178 133 -454 198 -678 159z"/></g></svg>
+<span style="font-size:34px;font-weight:700;letter-spacing:-0.02em">cuckoo</span>
+</div>
+<h1 style="margin:0;font-size:34px;line-height:1.12;letter-spacing:-0.025em">Your team's agents, in your pocket.</h1>
+<p style="margin:0;font-size:17px;line-height:1.5;color:#4b5159">Ask, approve and follow work from anywhere. Everything stays inside your company's Cuckoo workspace.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<a class="btn pri" href="Workspace.dc.html">Sign in with your work account</a>
+<p style="margin:0;font-size:14px;line-height:1.45;color:#5f6670;text-align:center">Opens a secure browser window. Cuckoo never sees your password.</p>
+<p style="margin:12px 0 0;font-size:14px;line-height:1.45;color:#5f6670;text-align:center">New here? Ask your workspace admin for an invitation.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

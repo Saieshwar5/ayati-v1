@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Choose a workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#fff;color:#22252a;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.ws{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #d1d6dd;border-radius:16px;text-decoration:none;color:#22252a;min-height:72px;box-sizing:border-box}
+.mark{width:44px;height:44px;border-radius:12px;background:#22252a;color:#fff;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none}
+.role{font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;background:#eef0f2;color:#4b5159}
+a{color:#22252a}
+</style>
+</helmet>
+<div class="ph" style="padding:72px 20px 40px">
+<p style="margin:0;font-size:15px;color:#5f6670">Signed in as ravi.kumar@mehtafurnishings.in</p>
+<h1 style="margin:8px 0 6px;font-size:32px;font-weight:700;letter-spacing:-0.02em">Choose a workspace</h1>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.45;color:#4b5159">You can switch any time from the You tab.</p>
+<div style="display:flex;flex-direction:column;gap:12px">
+<a class="ws" href="Notifications.dc.html">
+<span class="mark">MF</span>
+<span style="flex:1;min-width:0"><b style="font-size:17px">Mehta Furnishings</b><br><span style="font-size:14px;color:#5f6670">18 people · 6 agents</span></span>
+<span class="role">Admin</span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6670" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="ws" href="Notifications.dc.html">
+<span class="mark" style="background:#4a40b5">SS</span>
+<span style="flex:1;min-width:0"><b style="font-size:17px">Sharma Stores</b><br><span style="font-size:14px;color:#5f6670">11 people · 3 agents</span></span>
+<span class="role">Member</span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6670" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+<div style="margin-top:28px;padding:16px;border-radius:16px;background:#f7f8f9;display:flex;gap:12px;align-items:flex-start">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22252a" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>
+<p style="margin:0;font-size:15px;line-height:1.45;color:#4b5159"><b style="color:#22252a">1 invitation</b><br>Patel Logistics invited you. Accept it in the web app or from the email.</p>
+</div>
+<a href="SignIn.dc.html" style="margin-top:auto;align-self:center;font-size:15px;font-weight:600;padding:12px;text-decoration:none">Sign out</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -152,7 +152,7 @@ impl PgStore {
         );
         ensure!(
             !proven_door(&e),
-            "People's WhatsApp numbers and sign-in addresses decide who writes"
+            "People's sign-in addresses decide who writes"
         );
         ensure!(
             super::chat::agent_access(&tx, &input.user, w, e["agent"].as_str().unwrap()).await?,
@@ -185,7 +185,7 @@ impl PgStore {
         {
             ensure!(
                 !proven_door(&e),
-                "People's WhatsApp numbers and sign-in addresses decide who writes"
+                "People's sign-in addresses decide who writes"
             );
         }
         let rows = if let Some(sender) = sender {
@@ -224,8 +224,8 @@ pub(super) async fn endpoint(
 ) -> Result<Option<Value>> {
     Ok(json_rows(db,"SELECT to_jsonb(e) AS data FROM relay_communication_endpoints e WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?.into_iter().next())
 }
-/// Senders on doors Cuckoo proves itself come from people's linked numbers
-/// and sign-in addresses, never an admin's say-so.
+/// Senders on doors Cuckoo proves itself come from people's sign-in
+/// addresses, never an admin's say-so.
 fn proven_door(e: &Value) -> bool {
     crate::identity::communications::model::shares_direct_room(
         e["transport"].as_str().unwrap_or_default(),

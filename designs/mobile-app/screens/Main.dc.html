@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cuckoo mobile design language</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sheet{font-family:Inter,system-ui,sans-serif;color:#22252a}
+.h{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5f6670;margin:0 0 14px}
+.p{font-size:15px;line-height:1.5;margin:0}
+.li{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.45}
+.num{flex:none;width:26px;height:26px;border-radius:50%;background:#22252a;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.sw{display:flex;align-items:center;gap:10px;font-size:13px}
+.chip{width:36px;height:36px;border-radius:10px;border:1px solid #d1d6dd;flex:none}
+.ai{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #aeb8c5;border-radius:5px;padding:1px 4px;color:#4b5159;margin-left:6px}
+.card{border:1px solid #d1d6dd;border-radius:16px;padding:16px;background:#fff}
+a{color:#22252a}a:hover{color:#000}
+</style>
+</helmet>
+<div class="sheet" style="width:1880px;height:844px;box-sizing:border-box;padding:56px 64px;background:#f3f4f5;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:40px">
+
+<section style="display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;align-items:center;gap:12px">
+<svg width="54" height="37" viewBox="0 0 410 280" role="img" aria-label="Cuckoo"><g transform="translate(0,280) scale(0.1,-0.1)" fill="#22252a"><path d="M2768 2676 c-247 -44 -477 -188 -661 -414 -30 -37 -144 -197 -252 -357 -323 -474 -486 -684 -719 -923 -239 -245 -491 -456 -834 -700 l-193 -137 43 -9 c59 -13 260 7 381 38 255 66 524 214 728 404 90 83 142 160 239 351 112 221 189 351 282 477 67 90 195 234 186 209 -2 -5 -18 -40 -36 -77 -70 -148 -86 -224 -86 -423 -1 -204 7 -243 76 -377 146 -283 521 -467 875 -427 270 30 525 177 693 401 61 80 129 202 119 212 -3 3 -41 -7 -84 -22 -73 -24 -94 -26 -230 -26 -138 0 -156 2 -217 26 -385 147 -518 542 -282 832 57 70 170 146 265 177 113 37 302 35 412 -5 l78 -28 21 29 c78 102 192 170 371 220 97 27 98 27 75 45 -32 24 -161 74 -270 103 -66 18 -95 30 -106 47 -31 44 -138 150 -196 195 -178 133 -454 198 -678 159z"/></g></svg>
+<span style="font-size:30px;font-weight:700;letter-spacing:-0.02em">cuckoo</span>
+</div>
+<h1 style="margin:0;font-size:40px;line-height:1.1;letter-spacing:-0.025em">The phone app, in one page</h1>
+<p class="p" style="color:#4b5159">The same calm, graphite-on-white look as the web app, rebuilt for a thumb. Everything here is a native screen; anything not shown opens the web app.</p>
+<div style="display:flex;flex-direction:column;gap:14px">
+<div class="li"><span class="num">1</span><span><b>Grey outside, white inside.</b> Like the web rail, the tab bar sits on the grey canvas; every screen's content is the white surface.</span></div>
+<div class="li"><span class="num">2</span><span><b>One thumb.</b> Main actions live at the bottom: tab bar, composer, Approve. Every target is at least 44 px.</span></div>
+<div class="li"><span class="num">3</span><span><b>Sheets, not new pages.</b> Approvals, questions, attachments and filters slide up from the bottom and keep your place in the chat.</span></div>
+<div class="li"><span class="num">4</span><span><b>Agents look like teammates.</b> Same round faces as people, told apart only by the small AI tag.</span></div>
+<div class="li"><span class="num">5</span><span><b>Nothing private on the lock screen.</b> Notifications say who and what kind, never the message.</span></div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:16px">
+<h2 class="h">Navigation: five tabs</h2>
+<div class="card" style="display:flex;flex-direction:column;gap:14px">
+<div><b style="font-size:16px">Home</b><p class="p" style="color:#4b5159">Your day: business clock, what needs you, agents working now and your saved panels. The app opens here.</p></div>
+<div><b style="font-size:16px">Chats</b><p class="p" style="color:#4b5159">Direct messages with agents and people, then channels, pinned at the top.</p></div>
+<div><b style="font-size:16px">Needs me</b><p class="p" style="color:#4b5159">Approvals, questions and finished work waiting for you. The red count is things only you can unblock.</p></div>
+<div><b style="font-size:16px">Agents</b><p class="p" style="color:#4b5159">Every agent you may use. Tap one to see what it does and start a chat.</p></div>
+<div><b style="font-size:16px">You</b><p class="p" style="color:#4b5159">Profile, status, notifications, appearance, devices, workspace switching and sign out.</p></div>
+</div>
+<div class="card" style="background:#f7f8f9;border-color:#e5e7ea">
+<b style="font-size:15px">Opens the web app instead</b>
+<p class="p" style="color:#4b5159;margin-top:6px">Creating and editing agents, Settings and People, company rules, Apps and Home panels, Library management, watching or taking over an agent's computer.</p>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:16px">
+<h2 class="h">Colour, from the web tokens</h2>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+<div class="sw"><span class="chip" style="background:#ffffff"></span><span><b>Surface</b><br>#FFFFFF</span></div>
+<div class="sw"><span class="chip" style="background:#f3f4f5"></span><span><b>Canvas</b><br>#F3F4F5</span></div>
+<div class="sw"><span class="chip" style="background:#f7f8f9"></span><span><b>Soft</b><br>#F7F8F9</span></div>
+<div class="sw"><span class="chip" style="background:#eef0f2"></span><span><b>Selection</b><br>#EEF0F2</span></div>
+<div class="sw"><span class="chip" style="background:#22252a"></span><span><b>Ink / primary</b><br>#22252A</span></div>
+<div class="sw"><span class="chip" style="background:#6257cf"></span><span><b>Working</b><br>#6257CF</span></div>
+<div class="sw"><span class="chip" style="background:#1f9d55"></span><span><b>Online</b><br>#1F9D55</span></div>
+<div class="sw"><span class="chip" style="background:#a42f35"></span><span><b>Needs you</b><br>#A42F35</span></div>
+<div class="sw"><span class="chip" style="background:#1c1f26"></span><span><b>Dark surface</b><br>#1C1F26</span></div>
+<div class="sw"><span class="chip" style="background:#111318"></span><span><b>Dark canvas</b><br>#111318</span></div>
+</div>
+<h2 class="h" style="margin-top:10px">Type: Inter</h2>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:32px;font-weight:700;letter-spacing:-0.02em">Large title 32</div>
+<div style="font-size:17px;font-weight:600">Header 17 semibold</div>
+<div style="font-size:16px">Message text 16, line 1.45</div>
+<div style="font-size:13px;color:#5f6670">Meta and labels 13</div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:14px">
+<h2 class="h">Building blocks</h2>
+<div style="display:flex;gap:10px">
+<span style="height:48px;padding:0 20px;border-radius:12px;background:#22252a;color:#fff;font-weight:600;font-size:16px;display:flex;align-items:center">Approve</span>
+<span style="height:48px;padding:0 20px;border-radius:12px;border:1px solid #aeb8c5;font-weight:600;font-size:16px;display:flex;align-items:center;background:#fff">Decline</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:12px">
+<span style="width:44px;height:44px;border-radius:50%;background:#ecebfb;color:#4a40b5;display:flex;align-items:center;justify-content:center;flex:none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span>
+<span style="flex:1;min-width:0"><b>Nova</b><span class="ai">AI</span><br><span style="color:#5f6670;font-size:14px">Your leave balance is 12 days…</span></span>
+<span style="font-size:12px;color:#5f6670">10:42</span>
+</div>
+<div style="background:#f7f8f9;border:1px solid #e5e7ea;border-radius:16px;padding:12px 14px;font-size:15px;line-height:1.45">Agent replies sit in a soft box with 16 px corners, under the agent's name.</div>
+<div style="align-self:flex-end;background:#eef0f2;border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:15px;max-width:80%">Your own messages are on the right.</div>
+<div style="border:1px solid #d1d6dd;border-radius:16px;padding:12px 14px;background:#fff;font-size:14px;display:flex;flex-direction:column;gap:8px">
+<b style="font-size:15px">Needs your approval</b>
+<span style="color:#4b5159">Atlas wants to send an invoice to Sharma Traders.</span>
+</div>
+<div style="border:1px solid #aeb8c5;border-radius:18px;padding:12px 14px;background:#fff;color:#5f6670;font-size:15px;box-shadow:0 4px 12px rgb(23 33 43 / 8%)">Message Nova</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1880,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

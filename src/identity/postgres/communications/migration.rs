@@ -21,6 +21,7 @@ impl MigrationTrait for Communications {
 }
 
 /// Schema 111: WhatsApp numbers Cuckoo provides and people's verified mobiles.
+/// Kept for the schema's history; schema 114 removes them.
 pub(crate) struct WhatsappNumbers;
 impl MigrationName for WhatsappNumbers {
     fn name(&self) -> &str {
@@ -38,6 +39,29 @@ impl MigrationTrait for WhatsappNumbers {
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom(
             "WhatsApp numbers require a forward migration".into(),
+        ))
+    }
+}
+
+/// Schema 114: WhatsApp removed. Its tables go and live WhatsApp endpoints
+/// are switched off.
+pub(crate) struct WhatsappRemoved;
+impl MigrationName for WhatsappRemoved {
+    fn name(&self) -> &str {
+        "m20261114_000114_whatsapp_removed"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for WhatsappRemoved {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("whatsapp_removed.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Removing WhatsApp requires a forward migration".into(),
         ))
     }
 }

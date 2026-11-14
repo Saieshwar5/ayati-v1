@@ -20,10 +20,6 @@ pub(super) mod migration;
 pub(super) mod outbox;
 #[cfg(test)]
 mod recovery_tests;
-mod whatsapp_numbers;
-mod whatsapp_people;
 #[cfg(test)]
-mod whatsapp_tests;
+mod whatsapp_removed_tests;
 pub(crate) use email_people::Incoming as EmailIncoming;
-pub(crate) use whatsapp_numbers::{NoFreeNumber, Offer};
-pub(crate) use whatsapp_people::{Incoming as WhatsappIncoming, Outcome as WhatsappOutcome};

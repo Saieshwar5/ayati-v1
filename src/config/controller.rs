@@ -81,8 +81,6 @@ pub struct Controller {
     pub event_sources_file: Option<PathBuf>,
     /// Developer transport servers (Communication MCP), a private 0600 file.
     pub transport_servers_file: Option<PathBuf>,
-    /// WhatsApp numbers Cuckoo provides (Twilio), a private 0600 file.
-    pub whatsapp_file: Option<PathBuf>,
     /// Agent email through Amazon SES (E4), a private 0600 file.
     pub email_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
@@ -239,7 +237,6 @@ impl Controller {
             computer_providers_file: absolute(env, "AYATI_COMPUTER_PROVIDERS_FILE"),
             connectors: super::Connectors::read(env),
             transport_servers_file: absolute(env, "AYATI_TRANSPORT_SERVERS_FILE"),
-            whatsapp_file: absolute(env, "AYATI_WHATSAPP_FILE"),
             email_file: absolute(env, "AYATI_EMAIL_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),

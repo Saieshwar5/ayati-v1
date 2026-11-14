@@ -33,7 +33,7 @@ impl Transport {
 /// admin's binding and the local simulations on fixtures: they keep their own
 /// rooms.
 pub(crate) fn shares_direct_room(transport: &str, simulated: bool) -> bool {
-    !simulated && matches!(transport, "whatsapp" | "email")
+    !simulated && transport == "email"
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The orders channel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;box-sizing:border-box;background:#fff;color:#22252a;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:16px}
+.ai{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #aeb8c5;border-radius:5px;padding:1px 4px;color:#4b5159;margin-left:6px}
+.av{width:32px;height:32px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px}
+.ib{width:44px;height:44px;border-radius:50%;border:0;background:transparent;display:flex;align-items:center;justify-content:center;color:#22252a;padding:0;flex:none;text-decoration:none}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.body{flex:1;min-width:0;font-size:16px;line-height:1.45}
+.meta{font-size:12px;color:#5f6670}
+.reply{background:#f7f8f9;border:1px solid #e5e7ea;border-radius:16px;padding:12px 14px;line-height:1.45;font-size:16px;margin-top:6px}
+.mine{align-self:flex-end;background:#eef0f2;border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:16px;line-height:1.4;max-width:78%}
+.at{font-weight:600;color:#2b4a9a;background:#e8eefc;border-radius:5px;padding:0 3px}
+.thread{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:14px;font-weight:600;color:#22252a;min-height:32px}
+a{color:#22252a}
+</style>
+</helmet>
+<div class="ph">
+<header style="padding:50px 8px 8px 4px;display:flex;align-items:center;gap:4px;border-bottom:1px solid #e5e7ea">
+<a class="ib" href="Chats.dc.html" aria-label="Back to Chats"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></a>
+<span style="flex:1;min-width:0"><b style="font-size:17px"># orders</b><br><span class="meta" style="font-size:13px">12 people · 2 agents</span></span>
+<button class="ib" type="button" aria-label="Notifications for this channel"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 7 2 7H4s2-2 2-7"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+<button class="ib" type="button" aria-label="Channel details"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
+</header>
+<main style="flex:1;overflow:hidden;padding:14px 16px 0;display:flex;flex-direction:column;gap:16px">
+<div class="msg">
+<span class="av" style="background:#fde9d9;color:#8a4413">MI</span>
+<div class="body"><b>Meera Iyer</b> <span class="meta">9:58</span><br><span class="at">@Ravi</span> the Pune sofa order is delayed by the supplier. Can we tell the customer today?</div>
+</div>
+<div class="mine"><span class="at">@Juno</span> draft a short, polite update for the customer.</div>
+<div class="msg">
+<span class="av" style="background:#e8eefc;color:#2b4a9a"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="4"/><circle cx="9" cy="13" r="1.2" fill="currentColor"/><circle cx="15" cy="13" r="1.2" fill="currentColor"/></svg></span>
+<div class="body"><b>Juno</b><span class="ai">AI</span> <span class="meta">10:01</span>
+<div class="reply">Hello Mr. Desai, your three-seater sofa will now reach Pune on 21 November instead of 18 November. We're sorry for the wait. Reply here if another day works better.</div>
+<a class="thread" href="Channel.dc.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>2 replies</a>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:10px"><span style="flex:1;height:1px;background:#aeb8c5"></span><b style="font-size:12px">1 new</b><span style="flex:1;height:1px;background:#aeb8c5"></span></div>
+<div class="msg">
+<span class="av" style="background:#e3f1f7;color:#1d5f7a">AS</span>
+<div class="body"><b>Arjun Shah</b> <span class="meta">10:12</span><br>The supplier just confirmed dispatch for 19 November.</div>
+</div>
+</main>
+<div style="margin:6px 12px 28px;border:1px solid #aeb8c5;border-radius:18px;display:flex;align-items:center;gap:2px;padding:4px;background:#fff;box-shadow:0 4px 12px rgb(23 33 43 / 8%)">
+<a class="ib" href="Composer.dc.html" aria-label="Add a photo or file"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+<label style="flex:1"><input aria-label="Message orders" placeholder="Message #orders · @ to ask an agent" style="width:100%;border:0;outline:none;font:16px Inter,system-ui,sans-serif;color:#22252a;background:transparent"></label>
+<a class="ib" href="Composer.dc.html" aria-label="Record a voice note"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
