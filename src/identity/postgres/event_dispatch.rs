@@ -27,14 +27,8 @@ pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -
             return Err(current.unwrap_err());
         }
         let read = current.ok().as_ref() == Some(&expected);
-        let start_access = super::automation_access::authority(
-            db,
-            &super::event_access::principal(&data)?,
-            w,
-            data["agent"].as_str().unwrap(),
-            data["chat"].as_str().unwrap(),
-        )
-        .await;
+        let start_access =
+            super::event_access::start(db, &super::event_access::principal(&data)?, w, &data).await;
         if start_access
             .as_ref()
             .is_err_and(|e| e.is::<sea_orm::DbErr>())
@@ -59,7 +53,7 @@ pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -
                     vec![
                         w.into(),
                         data["source"].as_str().unwrap().into(),
-                        data["chat"].as_str().unwrap().into(),
+                        super::event_access::post_to(&data).into(),
                     ],
                 )
                 .await?;
@@ -120,13 +114,24 @@ impl PgStore {
                 data["input"]["instructions"].as_str().unwrap()
             ),
         };
+        // Every run happens in a private work room (schema 115), never in a
+        // conversation people use; older schemas run in the trigger's conversation.
+        // The room opens inside the intake, so a refused run leaves no room.
+        let memory = super::automation_memory::ready(&tx).await?;
         let nested = tx.begin().await?;
+        let target = if memory {
+            super::automation_memory::event_room(&nested, w, &data).await?
+        } else {
+            super::event_access::post_to(&data)
+                .context("Missing event destination")?
+                .to_owned()
+        };
         let job = match self
             .background_in(
                 &nested,
                 &super::event_access::principal(&data)?,
                 w,
-                data["chat"].as_str().unwrap(),
+                &target,
                 &input,
             )
             .await
@@ -158,6 +163,14 @@ impl PgStore {
             }
         };
         execute(&tx,"UPDATE relay_event_deliveries SET state='accepted',message=$3,reply=$4 WHERE workspace=$1 AND id=$2 AND state='pending'",vec![w.into(),id.into(),input.id.into(),job.reply.clone().into()]).await?;
+        if memory {
+            execute(
+                &tx,
+                "UPDATE relay_event_deliveries SET room=$3 WHERE workspace=$1 AND id=$2",
+                vec![w.into(), id.into(), target.into()],
+            )
+            .await?;
+        }
         super::tasks::ensure_automatic(&tx, &job, "event").await?;
         audit(
             &tx,

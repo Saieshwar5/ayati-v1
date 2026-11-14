@@ -238,6 +238,11 @@ impl PgStore {
                 "schedule".into(),
                 json!(super::super::work_rooms::run_source(&tx, w, reply).await?),
             );
+            // An event trigger's run: its trigger, and whether its result was posted.
+            object.insert(
+                "trigger".into(),
+                json!(super::super::automation_memory::run_source(&tx, w, reply).await?),
+            );
         }
         tx.commit().await?;
         Ok(item)

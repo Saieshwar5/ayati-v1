@@ -42,7 +42,8 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
         id: uuid::Uuid::new_v4().to_string(),
         source: source.id.clone(),
         binding: source.fingerprint().unwrap(),
-        chat: s.c.clone(),
+        chat: Some(s.c.clone()),
+        memory: None,
         name: "Source task".into(),
         instructions: "Review the event and obtain help if needed.".into(),
         connection_revision: authority["connection_revision"].as_i64().unwrap(),
@@ -62,6 +63,21 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
     .await
     .unwrap();
     s.db.dispatch_events().await.unwrap();
+    // Since schema 115 an event run happens in a private work room, where there
+    // is no hand-off (`a_new_event_run_cannot_hand_off`). Deliveries accepted
+    // before then ran in the trigger's channel and may still hand off; these
+    // tests keep their source guards covered by moving the run there.
+    execute(&s.db.db, "UPDATE relay_chat_messages SET chat=$1 WHERE id IN (SELECT message FROM relay_event_deliveries WHERE event_id='source-event' UNION SELECT reply FROM relay_event_deliveries WHERE event_id='source-event')",
+        vec![s.c.clone().into()]).await.unwrap();
+    execute(&s.db.db, "UPDATE relay_chat_jobs SET payload=jsonb_set(payload,'{chat}',to_jsonb($1::text)) WHERE reply=(SELECT reply FROM relay_event_deliveries WHERE event_id='source-event')",
+        vec![s.c.clone().into()]).await.unwrap();
+    execute(
+        &s.db.db,
+        "UPDATE relay_event_deliveries SET room=NULL WHERE event_id='source-event'",
+        vec![],
+    )
+    .await
+    .unwrap();
     let row = query(
         &s.db.db,
         "SELECT reply FROM relay_event_deliveries WHERE event_id='source-event'",
@@ -76,6 +92,86 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
             .unwrap();
     s.parent = claim(&s.db, &task).await;
     (s, conn, source)
+}
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_new_event_run_cannot_hand_off() {
+    // Like a schedule's run, an event run happens in a private work room
+    // (schema 115), which has no other agents to ask.
+    let s = setup().await;
+    s.db.cancel_assignment(&s.owner, &s.w, &s.c, &s.parent.reply)
+        .await
+        .unwrap();
+    let conn = account(&s).await;
+    rule(&s, &s.a, &conn, "order.read", "allow", 0).await;
+    let source = crate::identity::events::test_catalog::register(Source {
+        id: uuid::Uuid::new_v4().to_string(),
+        workspace: s.w.clone(),
+        connection: conn.clone(),
+        connection_fingerprint: "a".repeat(43),
+        name: "Room source".into(),
+        provider: "composio_v3".into(),
+        user_id: "person-1".into(),
+        connected_account_id: "account-1".into(),
+        auth_config_id: "auth-1".into(),
+        trigger_id: "trigger-1".into(),
+        trigger_slug: "ORDER_CHANGED".into(),
+        read_operation: "order.read".into(),
+        fields: vec!["order_id".into(), "status".into()],
+        secret_file: String::new(),
+        subscribed: None,
+    })
+    .unwrap();
+    let authority =
+        s.db.event_triggers(&s.owner, &s.w, &s.a, std::slice::from_ref(&source))
+            .await
+            .unwrap()["choices"][0]["authority"]
+            .clone();
+    let input = Trigger {
+        id: uuid::Uuid::new_v4().to_string(),
+        source: source.id.clone(),
+        binding: source.fingerprint().unwrap(),
+        chat: None,
+        memory: None,
+        name: "Room task".into(),
+        instructions: "Review the event.".into(),
+        connection_revision: authority["connection_revision"].as_i64().unwrap(),
+        read_revision: authority["read_revision"].as_i64().unwrap(),
+        delegation_revision: None,
+        filter: json!({}),
+    };
+    s.db.save_event_trigger(&s.owner, &s.w, &s.a, &input, Some(&source))
+        .await
+        .unwrap();
+    s.db.accept_event(
+        &source,
+        "room-event",
+        &super::event_tests::payload("room-event", "delayed"),
+        100000,
+    )
+    .await
+    .unwrap();
+    s.db.dispatch_events().await.unwrap();
+    let row = query(
+        &s.db.db,
+        "SELECT reply FROM relay_event_deliveries WHERE event_id='room-event'",
+        vec![],
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let task =
+        super::handoff_access::job(&s.db.db, &s.w, &row.try_get::<String>("", "reply").unwrap())
+            .await
+            .unwrap();
+    let run = claim(&s.db, &task).await;
+    assert_ne!(run.chat, s.c);
+    assert!(s.db.handoff_targets(&run).await.is_err());
+    assert!(
+        s.db.request_handoff(&run, &request(&s.b, "room"))
+            .await
+            .is_err()
+    );
 }
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]

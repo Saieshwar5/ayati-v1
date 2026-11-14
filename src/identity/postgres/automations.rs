@@ -130,6 +130,19 @@ impl PgStore {
             "This agent has reached the current operational limit of 100 saved routines"
         );
         execute(&tx,"INSERT INTO relay_agent_schedules(workspace,id,agent,principal,chat,name,content,first_ms,interval_seconds,timezone,request_hash,next_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$8)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),input.chat.clone().into(),input.name.trim().into(),input.content.clone().into(),input.first_ms.into(),input.interval_seconds.into(),input.timezone.clone().into(),fingerprint(input)?.into()]).await?;
+        // Schedules remember earlier runs unless their person chose fresh runs.
+        if input.memory.as_deref() == Some("fresh") {
+            ensure!(
+                super::automation_memory::ready(&tx).await?,
+                "This server can't keep schedule runs apart yet"
+            );
+            execute(
+                &tx,
+                "UPDATE relay_agent_schedules SET memory='fresh' WHERE workspace=$1 AND id=$2",
+                vec![w.into(), input.id.clone().into()],
+            )
+            .await?;
+        }
         audit(&tx, &user.id, Some(w), "agent_schedule_created", &input.id).await?;
         let result = present(&tx, user, w, agent, record(&tx, w, agent, &input.id).await?).await?;
         tx.commit().await?;

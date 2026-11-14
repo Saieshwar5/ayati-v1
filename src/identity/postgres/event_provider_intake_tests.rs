@@ -91,10 +91,9 @@ async fn composio_intake_routes_to_the_subscription_and_refuses_anything_else() 
             .await.unwrap().unwrap().try_get("", "payload").unwrap(),
     )
     .unwrap();
-    assert_eq!(
-        (job.requester.as_str(), job.chat.as_str()),
-        (s.owner.id.as_str(), s.chat.as_str())
-    );
+    // The run happens in a private work room; the conversation only gets a summary.
+    assert_eq!(job.requester.as_str(), s.owner.id.as_str());
+    assert_ne!(job.chat, s.chat);
     let context = json!(s.db.event_job_context(&job).await.unwrap()).to_string();
     assert!(
         context.contains("sharma@example.test") && context.contains("Invoice"),

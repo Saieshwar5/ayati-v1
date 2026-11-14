@@ -259,6 +259,7 @@ async fn a_member_saves_the_routine_proposed_to_them_and_looks_after_only_that_o
         first_ms: chrono_now_ms() + 3_600_000,
         interval_seconds: None,
         timezone: "UTC".into(),
+        memory: None,
     };
     assert!(db.save_schedule(&mina, &w, &agent, &direct).await.is_err());
     assert_eq!(count(&db, &draft).await, 0);

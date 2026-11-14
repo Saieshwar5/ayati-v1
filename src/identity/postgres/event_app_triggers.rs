@@ -105,7 +105,8 @@ async fn check(
         .context("This app doesn't offer that event")?;
     let read = triggers::read_operation(&account.server, &account.definition)
         .context("This account offers no read action, so its events can't start an agent")?;
-    super::super::automation_access::authority(tx, user, w, agent, &input.chat).await?;
+    super::super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
+        .await?;
     let probe = source_for(
         w,
         &input.connection,
@@ -117,7 +118,7 @@ async fn check(
     )?;
     let trigger = input.trigger(&probe.id, &probe.fingerprint()?);
     ensure!(
-        versions(tx, user, w, agent, &input.chat, &probe).await? == expected(&trigger),
+        versions(tx, user, w, agent, input.chat.as_deref(), &probe).await? == expected(&trigger),
         "Read authority changed; refresh before activation"
     );
     ensure!(
@@ -336,14 +337,12 @@ impl PgStore {
                 .and_then(|o| o["title"].as_str())
                 .unwrap_or("its read action")
                 .to_owned();
-            if let Some(first) = conversations.first() {
-                choice["chat"] = first["id"].clone();
-                choice["chat_name"] = first["name"].clone();
-                choice["visibility"] = first["visibility"].clone();
-            } else {
+            // Runs happen in a work room (schema 115); a conversation is only
+            // an optional place to post results.
+            if authority.is_null() {
                 choice["state"] = json!("needs_allow");
                 choice["detail"] = json!(format!(
-                    "Set \u{201c}{title}\u{201d} to Allow on this agent\u{2019}s Tools tab, and add the agent to a conversation you can post in."
+                    "Set \u{201c}{title}\u{201d} to Allow on this agent\u{2019}s Tools tab."
                 ));
             }
             choice["read_operation"] = json!(read);

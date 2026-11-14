@@ -24,6 +24,7 @@ const choice = {
   visibility: 'private',
   account: 'orders@example.test',
   authority: { connection_revision: 2, read_revision: 3, delegation_revision: null },
+  conversations: [{ id: 'channel', name: 'Delivery operations', visibility: 'private' }],
 };
 const directory = { choices: [choice], triggers: [], execution_available: true };
 const trigger = {
@@ -70,9 +71,11 @@ test('event review shows account projection audience and principal before an exa
       await change(field('Trigger name'), 'Review delays');
       await change(field('Task instructions'), 'Review this event and ask before changing orders.');
       await change(field('status'), 'delayed');
+      await click(field('Activity, and post the result to'));
       await click(button('Review event trigger'));
       assert.equal(writes.length, 0);
       for (const text of [
+        'Fresh each run',
         'orders@example.test',
         'order_id, status',
         'Delivery operations',

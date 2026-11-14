@@ -3,9 +3,8 @@ export type EventSource = { id: string; name: string; event_type: string; fields
 type Authority = { connection_revision: number; read_revision: number; delegation_revision: number | null };
 export type EventChoice = {
   source: EventSource;
-  chat: string;
-  chat_name: string;
-  visibility: string;
+  /** Runs happen in a work room (schema 115); a conversation is optional. */
+  chat: string | null;
   account?: string;
   account_name?: string;
   authority: Authority;
@@ -16,7 +15,8 @@ export type EventInput = Authority & {
   id: string;
   source: string;
   binding: string;
-  chat: string;
+  chat?: string;
+  memory?: 'fresh' | 'remember';
   name: string;
   instructions: string;
   filter: Record<string, unknown>;
@@ -26,7 +26,7 @@ export type EventTrigger = EventInput & {
   revision: number;
   detail: string;
   principal_name: string;
-  chat_name: string;
+  chat_name: string | null;
   instructions_long: boolean;
   can_resume: boolean;
   choice?: EventChoice | null;
@@ -54,7 +54,8 @@ export type AppTriggerInput = Authority & {
   id: string;
   connection: string;
   event: string;
-  chat: string;
+  chat?: string;
+  memory?: 'fresh' | 'remember';
   name: string;
   instructions: string;
   filter: Record<string, unknown>;
@@ -83,7 +84,7 @@ export type Delivery = {
   revoked: boolean;
   detail: string;
   received_ms: number;
-  chat: string;
+  chat: string | null;
   reply?: string;
   task_state?: string;
   job_state?: string;

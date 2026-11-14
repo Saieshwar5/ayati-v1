@@ -1,7 +1,7 @@
 import { chatRequest } from '../../chat/model';
 import { workspaceUrl } from '../../../workspace-context';
 import type { BusinessClock } from '../../../business-time';
-export type ScheduleInput = { id: string; chat: string | null; name: string; content: string; first_ms: number; interval_seconds: number | null; timezone: string };
+export type ScheduleInput = { id: string; chat: string | null; name: string; content: string; first_ms: number; interval_seconds: number | null; timezone: string; memory?: 'fresh' | 'remember' };
 export type Routine = ScheduleInput & { principal: string; principal_name: string; chat_name: string | null; revision: number; state: 'enabled' | 'paused' | 'blocked' | 'completed'; next_ms: number | null; detail: string; unfinished?: boolean; instructions_long?: boolean; can_resume: boolean };
 export type Directory = { schedules: Routine[]; /** Schedules posting where this person isn't, kept private. */ elsewhere?: number; conversations: { id: string; name: string; kind: string }[]; more_conversations: boolean; execution_available: boolean };
 export type Run = { due_ms: number; message: string; reply: string; chat: string; state: string; job_state: string; progress?: { state: string; text: string } | null; created_ms: number };

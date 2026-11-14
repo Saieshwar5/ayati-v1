@@ -13,6 +13,10 @@ pub(crate) struct Schedule {
     pub first_ms: i64,
     pub interval_seconds: Option<i64>,
     pub timezone: String,
+    /// `remember` (the default) or `fresh`: whether a run sees earlier runs
+    /// (schema 115).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<String>,
 }
 impl Schedule {
     pub(crate) fn validate(&self) -> Result<()> {
@@ -45,6 +49,12 @@ impl Schedule {
                 && self.timezone.len() <= 100
                 && !self.timezone.chars().any(char::is_control),
             "Choose a timezone label up to 100 bytes"
+        );
+        ensure!(
+            self.memory
+                .as_deref()
+                .is_none_or(|m| crate::identity::postgres::MEMORY.contains(&m)),
+            "Choose what the schedule remembers: fresh or remember"
         );
         Ok(())
     }

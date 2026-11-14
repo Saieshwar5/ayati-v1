@@ -18,6 +18,7 @@ pub(super) fn schedule(chat: &str, repeat: Option<i64>) -> Schedule {
         first_ms: now() * 1000 + 60000,
         interval_seconds: repeat,
         timezone: "Asia/Kolkata".into(),
+        memory: None,
     }
 }
 pub(super) async fn state(db: &PgStore, w: &str, id: &str) -> Value {

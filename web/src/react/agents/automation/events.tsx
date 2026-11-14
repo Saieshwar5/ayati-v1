@@ -1,3 +1,4 @@
+import { memoryLabels } from './results-and-memory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Dialog } from '../../ui';
 import { TriggerKind } from './new-automation';
@@ -93,7 +94,8 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
             <span>{t.state === 'enabled' ? 'On' : t.state}</span>
           </header>
           <p>
-            {t.source_definition.name} · {t.chat_name}
+            {t.source_definition.name} · {t.chat_name ? `Activity, and a summary in ${t.chat_name}` : 'Activity only'} ·{' '}
+            {memoryLabels[t.memory ?? 'fresh'].title}
           </p>
           <p className="routine-instructions">
             {t.instructions}

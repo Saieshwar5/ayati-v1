@@ -42,7 +42,7 @@ impl PgStore {
             let authority=super::event_access::current(&tx,w,&trigger).await;
             let expected=json!({"connection_revision":trigger["connection_revision"],"read_revision":trigger["read_revision"],"delegation_revision":trigger["delegation_revision"]});
             if authority.as_ref().is_err_and(|e|e.is::<sea_orm::DbErr>()) {return Err(authority.unwrap_err());}
-            let start=super::automation_access::authority(&tx,&super::event_access::principal(&trigger)?,w,trigger["agent"].as_str().unwrap(),trigger["chat"].as_str().unwrap()).await;
+            let start=super::event_access::start(&tx,&super::event_access::principal(&trigger)?,w,&trigger).await;
             if start.as_ref().is_err_and(|e|e.is::<sea_orm::DbErr>()) {return Err(start.unwrap_err());}
             if authority.ok().as_ref()!=Some(&expected) || start.is_err() {continue;}
             if matches(&trigger["input"]["filter"],&data) {matching.push((trigger,expected));}

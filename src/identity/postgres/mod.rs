@@ -44,6 +44,10 @@ mod attention_scope_tests;
 mod attention_tests;
 mod automation_access;
 mod automation_dispatch;
+mod automation_memory;
+#[cfg(test)]
+mod automation_memory_tests;
+pub(crate) use automation_memory::MEMORY;
 mod automation_migration;
 #[cfg(test)]
 mod automation_migration_tests;
