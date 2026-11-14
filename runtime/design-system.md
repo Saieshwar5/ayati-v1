@@ -172,7 +172,9 @@ ordinary reply actions on hover/focus, keeping them available on touch devices.
 The message toolbar sits beside a message on hover or focus (on its top edge on
 phones): three quick reactions, a reaction picker, reply in thread and More.
 More offers Edit and Delete only on your own messages, plus Copy link. Reactions
-are a fixed set of twelve, shown as chips under the message; they never approve
+are a fixed set of twelve emoji and three words (On it, Done, Seen, across the top of
+the picker), shown as chips under the message; hovering or focusing a chip names who
+chose it ("Meera, You and 2 others reacted 👍", from the first ten); they never approve
 or request work. An agent acknowledging an emoji-only message shows beside them as
 its face, name and emoji ("Atlas reacted 👍"), in the same chip shape on the surface
 colour, never a toggle (D246). Edits show "edited"; deleting asks first, leaves "Message

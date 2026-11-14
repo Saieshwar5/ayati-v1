@@ -101,7 +101,7 @@ test('agent reactions show each agent by name and face, while people keep their 
     assert.equal(chips.some(chip=>chip.closest('button')!==null),false,'an agent\'s reaction is not a toggle');
     assert.equal(article('nod').querySelectorAll('button.chat-reaction').length,1,'people\'s chips are unchanged');
     await click(inside(article('nod'),'Add reaction'));
-    assert.equal(article('nod').querySelectorAll('[aria-label="Choose a reaction"] button').length,12);
+    assert.equal(article('nod').querySelectorAll('[aria-label="Choose a reaction"] button').length,15,'three words and the twelve emoji');
   },{url,fetch:server(writes)});
   assert.equal(writes.length,0,'showing agent reactions writes nothing');
 });
@@ -117,4 +117,35 @@ test('messages that came by WhatsApp or email name their door; Chat messages do 
     assert.match(article('mail').textContent,/via email/);
     assert.equal(article('typed').textContent.includes('via '),false);
   },{url,fetch:server([])});
+});
+
+test('a reaction says who chose it, and words like "On it" react without a message',async()=>{
+  const writes=[];
+  await reactFixture(async({render,click})=>{
+    const list=[{id:'plan',chat:'orders',author:'ravi',name:'Ravi Kumar',kind:'user',content:'Loading at 4',state:'sent',at:5,
+      reactions:[{emoji:'👍',count:5,mine:true,users:['ravi','meera','gone','ravi2']},{emoji:'Done',count:1,mine:false,users:['ravi']}]}];
+    await show(render,list);
+    const chips=[...article('plan').querySelectorAll('button.chat-reaction')];
+    assert.equal(chips[0].getAttribute('title'),'Ravi Kumar, You, A former member and 2 others reacted 👍');
+    assert.equal(chips[0].getAttribute('aria-label'),'Ravi Kumar, You, A former member and 2 others reacted 👍. Remove yours');
+    assert.equal(chips[1].getAttribute('title'),'Ravi Kumar reacted Done');
+    assert.ok(chips[1].classList.contains('chat-reaction-word'));
+    assert.equal(chips[1].textContent,'Done 1');
+    await click(chips[1]);
+    await click(inside(article('plan').querySelector('.chat-reactions'),'Add reaction'));
+    const words=[...article('plan').querySelectorAll('[aria-label="Choose a reaction"] .chat-reaction-menu-word')].map(b=>b.textContent);
+    assert.deepEqual(words,['On it','Done','Seen']);
+    await click(inside(article('plan').querySelector('[aria-label="Choose a reaction"]'),'On it'));
+    assert.deepEqual(writes.map(write=>write.body),[{emoji:'Done',on:true},{emoji:'On it',on:true}]);
+  },{url,fetch:server(writes)});
+});
+
+test('who reacted reads well for one, two and many people', async () => {
+  await reactFixture(async () => {
+    await(await import('../src/workspace-context.ts')).enterWorkspace();
+    const { whoReacted } = await import('../src/react/chat/message-actions.tsx');
+    assert.equal(whoReacted({ emoji: '🎉', count: 2, mine: false, users: ['ravi', 'meera'] }, directory), 'Ravi Kumar and You reacted 🎉');
+    assert.equal(whoReacted({ emoji: '🎉', count: 12, mine: false, users: ['ravi'] }, directory), 'Ravi Kumar and 11 others reacted 🎉');
+    assert.equal(whoReacted({ emoji: '🎉', count: 3, mine: false }, directory), '3 people reacted 🎉', 'an older server sends counts only');
+  }, { url, fetch: server([]) });
 });

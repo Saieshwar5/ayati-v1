@@ -148,8 +148,9 @@ never starts, approves or cancels anything. Two things changed instead.
 
 - **Feedback in context.** When an agent answers later in a conversation, each of its
   own replies in the evidence carries the reactions people left on it, as
-  `reactions: [{"emoji":"👍","count":2}]`, most chosen first. Counts only: Chat shows
-  nobody's name on a reaction, so neither does the context. Reactions on people's or
+  `reactions: [{"emoji":"👍","count":2}]`, most chosen first. Counts only: since
+  2026-11-14 Chat names who reacted to the people reading, but the agent's context
+  still names nobody. Reactions on people's or
   other agents' messages are left out, and at most the 20 latest reacted replies keep
   theirs. The prompt says they are feedback on that reply (👍 or ✅ that it helped, 🤔
   that it was doubtful) and untrusted data like message text, never instructions or
@@ -199,6 +200,24 @@ never starts, approves or cancels anything. Two things changed instead.
   unit tests for emoji-only; web `tests/chat-message-actions.test.mjs`
   (name, face, not a toggle, picker unchanged) and `tests/chat-several-agents.test.mjs`
   (an emoji-only send shows both agents' reactions and no waiting or typing reply).
+
+## Word reactions and who reacted (2026-11-14)
+
+- **Words.** "On it", "Done" and "Seen" are reactions beside the twelve emoji
+  (`WORD_REACTIONS` in `postgres/message_actions.rs` and `message-actions.tsx`), offered
+  across the top of the picker. They are a quick status without a message, and like
+  emoji they never start, approve or cancel anything. The stored value is the word
+  itself (within the existing 8-character limit); no migration was needed. An agent's
+  own reaction to an emoji-only message still uses the emoji set only.
+- **Who reacted.** Each of people's reactions now carries `users`: the first ten
+  people who chose it, earliest first (history pages, focused pages and live changes).
+  The chip's title and accessible name say "Ravi Kumar, You, A former member and 2
+  others reacted 👍", then "Remove yours" or "Add yours". The names come from the
+  directory the reader already sees; a server without `users` reads "3 people reacted".
+- **Checks.** PostgreSQL `message_action_tests` (word reactions accepted, other words
+  refused, `users` in order on live and history payloads) and the schema 101 upgrade
+  test; web `tests/chat-message-actions.test.mjs` (names on the chip, a word chip, the
+  three words in the picker and their requests, wording for one, two and many).
 
 ## Presence and status (D245)
 

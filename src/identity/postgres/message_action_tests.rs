@@ -185,6 +185,56 @@ async fn reactions_are_per_person_idempotent_and_never_start_work() {
             .await
             .is_err()
     );
+    // Words are reactions too, and each reaction says who chose it, first first.
+    db.react(&member, &w, &c, &note.id, "On it", true)
+        .await
+        .unwrap();
+    db.react(&owner, &w, &c, &note.id, "On it", true)
+        .await
+        .unwrap();
+    assert!(
+        db.react(&member, &w, &c, &note.id, "On it!", true)
+            .await
+            .is_err(),
+        "only the offered words"
+    );
+    let shown = latest(&db, &owner, &w, &c, &note.id).await;
+    let words = shown["reactions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["emoji"] == "On it")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        (words["count"].as_i64(), words["users"].clone()),
+        (
+            Some(2),
+            serde_json::json!([member.id.clone(), owner.id.clone()])
+        )
+    );
+    let page = db.chat_page(&owner, &w, &c, None).await.unwrap();
+    let listed = page["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == note.id.as_str())
+        .unwrap()["reactions"]
+        .clone();
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["emoji"] == "On it" && r["users"].as_array().unwrap().len() == 2),
+        "history pages carry the same names"
+    );
+    db.react(&member, &w, &c, &note.id, "On it", false)
+        .await
+        .unwrap();
+    db.react(&owner, &w, &c, &note.id, "On it", false)
+        .await
+        .unwrap();
     assert!(
         db.react(&outsider, &w, &c, &note.id, "👍", true)
             .await

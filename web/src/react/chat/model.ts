@@ -47,7 +47,9 @@ export type Message = {
   /** A thread reply that was also sent to the conversation (schema 115). */
   broadcast?: boolean;
   /** The door a message came through when not Chat: `whatsapp`, `email` (E3). */
-  door?: string | null; reactions?: { emoji: string; count: number; mine: boolean }[];
+  door?: string | null;
+  /** People's reactions; `users` are the first ten who chose one, earliest first. */
+  reactions?: { emoji: string; count: number; mine: boolean; users?: string[] }[];
   /** Agents acknowledging an emoji-only message instead of answering it (schema 101, D246). */
   agent_reactions?: AgentReaction[];
 };
