@@ -18,6 +18,7 @@ import type {
   UnreadResponse,
 } from './types';
 import type { PanelsPage } from './panels';
+import type { Answer, Approval, Decision, Question } from './decisions';
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -94,6 +95,15 @@ export function createClient(options: ClientOptions) {
         if (before) params.set('before', before);
         return request<AttentionPage>(`${base}/attention?${params}`, undefined, signal);
       },
+      approval: (id: string, signal?: AbortSignal) =>
+        request<Approval>(`${base}/control/actions/${encodeURIComponent(id)}`, undefined, signal),
+      /** `requestId` is kept per action and decision, so a retry can't decide twice. */
+      decide: (id: string, decision: Decision, requestId: string) =>
+        request<Approval>(`${base}/control/actions/${encodeURIComponent(id)}/decision`, { id: requestId, decision }),
+      question: (id: string, signal?: AbortSignal) =>
+        request<Question>(`${base}/questions/${encodeURIComponent(id)}`, undefined, signal),
+      /** `answer.id` is kept per exact payload, so a retry can't answer twice. */
+      answer: (id: string, answer: Answer) => request<Question>(`${base}/questions/${encodeURIComponent(id)}`, answer),
       /** Saved Home panels and their order (read-only on phones). */
       panels: (signal?: AbortSignal) => request<PanelsPage>(`${base}/home-panels`, undefined, signal),
       /** The live message stream's address, resuming after `cursor`. */

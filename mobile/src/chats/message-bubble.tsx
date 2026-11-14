@@ -10,6 +10,7 @@ import { radius, touchTarget, type as typography } from '../theme/tokens';
 import { useTokens } from '../theme/use-tokens';
 import { Face, type FaceIdentity } from '../faces/face';
 import { AiTag } from '../ui/controls';
+import { ApprovalCard, QuestionCards } from './decision-cards';
 import { shortTime } from './time';
 
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
   /** Offered on a reply still being worked on. */
   onStop?: (message: Message) => void;
   stopping?: boolean;
+  /** The viewer, who may be the one a question asks. */
+  viewer?: string;
 };
 
 function stateLabel(message: Message): string | undefined {
@@ -31,7 +34,7 @@ function stateLabel(message: Message): string | undefined {
   return undefined;
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, mine, agent, face, workspace, onStop, stopping }: Props) {
+export const MessageBubble = memo(function MessageBubble({ message, mine, agent, face, workspace, onStop, stopping, viewer = '' }: Props) {
   const t = useTokens();
   const text = message.content === filesOnlyContent && message.attachments?.length ? '' : plainText(message.content);
   const files = message.attachments ?? [];
@@ -64,6 +67,8 @@ export const MessageBubble = memo(function MessageBubble({ message, mine, agent,
           {files.map(file => (
             <Text key={file.id} style={[typography.meta, { color: t.muted }]}>📎 {file.name}</Text>
           ))}
+          {message.approval ? <ApprovalCard reference={message.approval} /> : null}
+          {message.questions?.length ? <QuestionCards questions={message.questions} viewer={viewer} /> : null}
           {working || onStop ? (
             <View style={styles.progress}>
               {working ? (

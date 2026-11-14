@@ -53,6 +53,7 @@ export function ConversationView({ id, onBack }: { id: string; onBack?: () => vo
           workspace={workspace.id}
           onStop={canStop(item) ? stopReply : undefined}
           stopping={stopping === item.id}
+          viewer={user.id}
         />
       );
     },

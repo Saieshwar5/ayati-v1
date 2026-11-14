@@ -1,9 +1,10 @@
-/** Screen 12: Needs me. Approving and answering open the conversation until M3 adds the sheets. */
+/** Screen 12: Needs me. Approvals and questions open their sheets; outcomes open their conversation. */
 import type { AttentionItem, AttentionView } from '@cuckoo/shared';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { AttentionCard } from '../../needs-me/attention-card';
+import { attentionTarget } from '../../needs-me/attention-target';
 import { useNeedsYou } from '../../needs-me/needs-you-context';
 import { useAttention } from '../../needs-me/use-attention';
 import { useWorkspace } from '../../session/session-context';
@@ -20,7 +21,7 @@ export default function NeedsMe() {
   const waiting = useNeedsYou();
   const recent = useAttention('recent', view === 'recent');
   const { data, error, loading, refresh } = view === 'needs_you' ? waiting : recent;
-  const open = useCallback((item: AttentionItem) => router.push({ pathname: '/chat/[id]', params: { id: item.chat } }), [router]);
+  const open = useCallback((item: AttentionItem) => router.push(attentionTarget(item)), [router]);
   const segments: { value: AttentionView; label: string }[] = [
     { value: 'needs_you', label: 'Waiting' },
     { value: 'recent', label: 'Done recently' },

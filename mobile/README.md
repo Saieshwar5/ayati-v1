@@ -14,9 +14,11 @@ Status (2026-11-14, M2):
     each with its own page;
   - Needs me, Agents with each agent's profile, and You;
   - real agent faces (the bundled robots and uploaded pictures);
-  - on tablets, Chats beside the open conversation and Agents beside the profile.
+  - on tablets, Chats beside the open conversation and Agents beside the profile;
+  - exact approvals and agent questions as sheets, from Needs me, Home and the
+    reply that asked (M3).
 - **Not yet:**
-  - approvals and questions as sheets, files and voice (M3);
+  - photos, files and voice notes (M3);
   - push notifications (M4);
   - device testing.
 

@@ -12,6 +12,7 @@ import { BusinessClock } from '../../home/business-clock';
 import { PanelCard } from '../../home/panel-card';
 import { usePanels } from '../../home/use-panels';
 import { AttentionCard } from '../../needs-me/attention-card';
+import { attentionTarget } from '../../needs-me/attention-target';
 import { useNeedsYou } from '../../needs-me/needs-you-context';
 import { useWorkspace } from '../../session/session-context';
 import { type as typography } from '../../theme/tokens';
@@ -32,7 +33,7 @@ export default function Home() {
   const { data, error, loading, refresh } = useNeedsYou();
   const panels = usePanels();
   const openPanel = useCallback((id: string) => router.push({ pathname: '/panel/[id]', params: { id } }), [router]);
-  const open = useCallback((item: AttentionItem) => router.push({ pathname: '/chat/[id]', params: { id: item.chat } }), [router]);
+  const open = useCallback((item: AttentionItem) => router.push(attentionTarget(item)), [router]);
   const first = (user.display_name ?? '').split(' ')[0];
   const waiting = data?.items ?? [];
   return (

@@ -91,6 +91,10 @@ export type Message = {
   progress?: Progress | null;
   attachments?: Attachment[];
   edited_at?: number | null;
+  /** The exact action this reply asks approval for. */
+  approval?: import('./decisions').ApprovalReference;
+  /** Questions this reply asks. */
+  questions?: import('./decisions').QuestionReference[];
 };
 
 /** `GET …/chats/{chat}/messages`. */

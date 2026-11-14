@@ -155,3 +155,32 @@ test('panels show in the web order, without hidden or empty ones, and chart numb
   assert.equal(comparisonView({ label: 'vs last week', value: -3, favorable: 'decrease' }).sentiment, 'favorable');
   assert.equal(progressView({ id: 'p', label: 'Goal', actual: 50, target: 200 }).width, 25);
 });
+
+test('approval fields read as words and question drafts are checked before sending', async () => {
+  const { fieldEntries, waitingLine, answerValues, draftProblem, answerLabels } = await import('../src/decisions');
+  assert.deepEqual(fieldEntries({ invoice_id: 'INV-7', amount: 120.5, send_copy: true }), [
+    ['invoice id', 'INV-7'], ['amount', '120.5'], ['send copy', 'Yes'],
+  ]);
+  assert.equal(waitingLine({ state: 'pending', may_decide: true }), 'Waiting for your decision');
+  assert.equal(waitingLine({ state: 'pending', waiting_for: ['Ravi', 'Meera'] }), 'Waiting for approval from Ravi or Meera');
+  assert.equal(waitingLine({ state: 'completed' }), 'Completed');
+
+  const single = { version: 1, kind: 'single_choice', title: 'Which?', description: '', fallback: '', allow_other: true,
+    options: [{ id: 'a', label: 'Monday' }, { id: 'b', label: 'Tuesday' }], fields: [] };
+  assert.equal(draftProblem(single, { choices: [], fields: {} }), 'Choose an answer.');
+  assert.equal(draftProblem(single, { choices: [], other: ' ', fields: {} }), 'Write your other answer.');
+  assert.equal(draftProblem(single, { choices: ['a'], fields: {} }), undefined);
+  assert.deepEqual(answerValues(single, { choices: ['a'], fields: {} }), { choices: ['a'] });
+
+  const form = { ...single, kind: 'form', options: [], fields: [
+    { id: 'qty', label: 'Quantity', kind: 'number', required: true, description: '', options: [] },
+    { id: 'rush', label: 'Rush', kind: 'boolean', required: false, description: '', options: [] },
+  ] };
+  assert.equal(draftProblem(form, { choices: [], fields: {} }), 'Fill in Quantity.');
+  assert.deepEqual(answerValues(form, { choices: [], fields: { qty: '3', rush: 'true' } }), { qty: 3, rush: true });
+  assert.deepEqual(
+    answerLabels({ id: 'q', key: 'k', revision: 1, state: 'answered', values: { qty: 3, rush: false }, specification: form,
+      respondent: 'me', respondent_name: 'Me', can_respond: false, reply: 'r', chat: 'c' }).map(a => a.value),
+    ['3', 'No'],
+  );
+});

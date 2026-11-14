@@ -28,6 +28,9 @@ function RootNavigator() {
         <Stack.Screen name="chat/[id]" />
         <Stack.Screen name="panel/[id]" />
         <Stack.Screen name="agent/[id]" />
+        {/* Sheets slide up over the screen and keep its place (design principle 3). */}
+        <Stack.Screen name="approval/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="question/[id]" options={{ presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="workspace" />
