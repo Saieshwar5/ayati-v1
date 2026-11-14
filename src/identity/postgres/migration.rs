@@ -124,6 +124,8 @@ impl MigratorTrait for Migrator {
             Box::new(super::communications::migration::WhatsappRemoved),
             Box::new(super::automation_memory::AutomationMemory),
             Box::new(super::systems::ConnectedSystems),
+            Box::new(super::systems::SystemEvents),
+            Box::new(super::systems::Subjects),
         ]
     }
 }

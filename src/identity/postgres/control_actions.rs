@@ -46,6 +46,7 @@ impl PgStore {
                 let connection = op["connection"].as_str().unwrap().to_owned();
                 op["company_rules"] =
                     json!(guard::summaries(&tx, &job.workspace, &connection, &op).await?);
+                super::systems::subjects::hide(&tx, &job.workspace, &mut op).await?;
                 visible.push(op);
             }
         }

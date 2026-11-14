@@ -7,6 +7,8 @@ import type { Agent } from '../model';
 import { ConnectSystem } from './connect-system';
 import { changeSystem, initialChoices, loadSystems, reviewSystem, savedTools, stateLabels, type ListedTool, type System } from './model';
 import { ReviewTools, chosen } from './review-tools';
+import { EventsDialog } from './events-dialog';
+import { SystemAutomationDialog } from './automation-dialog';
 
 /** "Your systems" on the agent's Tools tab (C1, D249): a tile per connected
  * system with its state, and Connect a system for the owner and admins. */
@@ -16,6 +18,8 @@ export function SystemsSection({ agent }: { agent: Agent }) {
   const [connecting, setConnecting] = useState(false);
   const [reviewing, setReviewing] = useState<System>();
   const [removing, setRemoving] = useState<System>();
+  const [events, setEvents] = useState<System>();
+  const [automating, setAutomating] = useState<System>();
   const m = useMutation();
   const change = (system: System, to: 'on' | 'off' | 'remove', done: string) => void m.run(async () => {
     await changeSystem(agent.id, system.id, system.revision, to); await refresh(); setRemoving(undefined); m.setStatus(done);
@@ -41,11 +45,17 @@ export function SystemsSection({ agent }: { agent: Agent }) {
           <Button disabled={m.busy} onClick={() => setRemoving(system)}>Remove</Button>
         </span>}
       </header>
+      <p className="system-events-line"><span>Events: {system.events_on ? 'on' : 'off'}</span>
+        <Button disabled={m.busy} onClick={() => setEvents(system)}>{system.events_on ? 'Events and key' : canConnect ? 'Turn on events' : 'See events'}</Button>
+        {canConnect && system.events_on && <Button disabled={m.busy} onClick={() => setAutomating(system)}>Add automation</Button>}
+      </p>
       <ul className="system-tile-tools">{system.tools.map(tool => <li key={tool.name}><span>{tool.name}</span>
         <small>{tool.kind === 'read' ? 'Reads' : 'Changes'} · {modes[tool.rule]}{system.held.includes(tool.name) ? ' · held' : ''}</small></li>)}</ul>
     </article>)}
     {canConnect && <Button onClick={() => setConnecting(true)}>Connect a system</Button>}
     {connecting && <ConnectSystem agent={agent.id} agentName={agent.name} close={() => setConnecting(false)} saved={() => refresh()} />}
+    {events && <EventsDialog agent={agent.id} system={events} canChange={canConnect} close={() => setEvents(undefined)} changed={() => refresh()} />}
+    {automating && <SystemAutomationDialog agent={agent.id} agentName={agent.name} system={automating} close={() => setAutomating(undefined)} saved={async () => {}} />}
     {reviewing && <ReviewSystem agent={agent.id} system={reviewing} close={() => setReviewing(undefined)} saved={() => refresh()} />}
     {removing && <Dialog title={`Remove ${removing.name}?`} close={() => setRemoving(undefined)} busy={m.busy} status={m.status}
       footer={<><Button onClick={() => setRemoving(undefined)}>Keep it</Button><Button primary onClick={() => change(removing, 'remove', `${removing.name} was removed.`)}>Remove</Button></>}>

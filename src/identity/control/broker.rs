@@ -212,6 +212,13 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             let input = serde_json::from_value(arguments)?;
             pg.send_update(job, &input).await
         }
+        "report_result" => {
+            ensure!(
+                arguments.as_object().is_some_and(|a| a.len() == 1),
+                "Invalid result report"
+            );
+            pg.report_result(job, &arguments["fields"]).await
+        }
         "load_skill" => {
             let input = serde_json::from_value(arguments)?;
             pg.load_skill(job, &input).await
@@ -388,7 +395,10 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.control_operations(job).await
         }
         "request_action" => {
-            let request: ActionRequest = serde_json::from_value(arguments)?;
+            let mut request: ActionRequest = serde_json::from_value(arguments)?;
+            // A connected system's tool marked "Needs the subject" gets it from
+            // the run's event, never from the agent (C3).
+            pg.fill_subject(job, &mut request).await?;
             let action = pg.control_propose(job, &request).await?;
             super::dispatch(pg, &job.workspace, action).await
         }

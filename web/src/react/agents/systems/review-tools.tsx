@@ -30,10 +30,12 @@ export function ReviewTools({ tools, choices, change, held = [] }: {
             onChange={event => set(tool.name, { kind: event.target.value as 'read' | 'write' })}>
             <option value="read">Reads</option><option value="write">Changes</option></select></label>
           <ModePicker label={`${tool.title} rule`} value={choice.rule} disabled={!choice.on} change={rule => set(tool.name, { rule })} />
+          {tool.fields.includes('subject') && <label className="system-subject"><input type="checkbox" checked={Boolean(choice.subject)} disabled={!choice.on}
+            onChange={event => set(tool.name, { subject: event.target.checked })} /><span>Needs the subject<small>Cuckoo fills “subject” from the event and hides it from the agent, so it can only reach that subject’s data. It can’t be used from Chat.</small></span></label>}
         </li>;
       })}
     </ul>
   </div>;
 }
 export const chosen = (choices: Choices): ToolChoice[] =>
-  Object.values(choices).filter(c => c.on).map(({ name, kind, rule }) => ({ name, kind, rule }));
+  Object.values(choices).filter(c => c.on).map(({ name, kind, rule, subject }) => ({ name, kind, rule, ...(subject ? { subject } : {}) }));

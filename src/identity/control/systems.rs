@@ -17,6 +17,122 @@ pub(super) fn routes() -> Router<Shared> {
         .route(&format!("{base}/{{id}}/review"), post(review))
         .route(&format!("{base}/{{id}}/tools"), post(saved_tools))
         .route(&format!("{base}/{{id}}/state"), post(state))
+        .route(
+            &format!("{base}/{{id}}/events"),
+            get(events).post(events_key),
+        )
+        .route(&format!("{base}/{{id}}/test-event"), post(test_event))
+        .route(&format!("{base}/{{id}}/automations"), post(automation))
+        .route(
+            &format!("{base}/{{id}}/forget-subject"),
+            post(forget_subject),
+        )
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Forget {
+    subject: String,
+}
+
+/// "Forget this subject": the subject's rooms are cleared (C3).
+async fn forget_subject(
+    State(app): State<Shared>,
+    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Forget>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .forget_subject(&user, &w, &agent, &id, &input.subject)
+            .await?,
+    ))
+}
+
+/// Recent events and the event types received so far, never values.
+async fn events(
+    State(app): State<Shared>,
+    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let mut data = app.store.system_events(&user, &w, &agent, &id).await?;
+    data["address"] = json!(format!("{}/hooks/system/{id}", app.config.origin));
+    Ok(Json(data))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventsKey {
+    on: bool,
+}
+
+/// Turns events on with a new key, shown once, or off.
+async fn events_key(
+    State(app): State<Shared>,
+    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<EventsKey>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let mut data = app
+        .store
+        .system_events_key(&user, &w, &agent, &id, input.on)
+        .await?;
+    data["address"] = json!(format!("{}/hooks/system/{id}", app.config.origin));
+    Ok(Json(data))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Sample {
+    r#type: String,
+    #[serde(default)]
+    data: Value,
+}
+
+/// "Send test event": a sample through the same intake, marked as a test.
+async fn test_event(
+    State(app): State<Shared>,
+    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Sample>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let data = if input.data.is_null() {
+        json!({})
+    } else {
+        input.data
+    };
+    Ok(Json(
+        app.store
+            .system_test_event(
+                &user,
+                &w,
+                &agent,
+                &id,
+                &json!({"type":input.r#type,"data":data}),
+                app.config.event_receipt_limit,
+            )
+            .await?,
+    ))
+}
+
+/// A new automation: when this system sends an event of one type.
+async fn automation(
+    State(app): State<Shared>,
+    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::systems::automations::FromSystem>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    check(input.system == id, "The automation names another system")?;
+    Ok(Json(
+        app.store
+            .create_system_trigger(&user, &w, &agent, &input)
+            .await?,
+    ))
 }
 
 async fn list(
@@ -75,9 +191,11 @@ fn operations(listed: &[Tool], chosen: &[ToolChoice]) -> Result<Vec<Operation>> 
                 .iter()
                 .find(|t| t.name == choice.name)
                 .and_then(|t| t.operation(&choice.kind))
+                // "Needs the subject" needs a text input named subject.
+                .filter(|op| !choice.subject || op.schema["properties"]["subject"]["type"] == "string")
                 .with_context(|| {
                     format!(
-                        "The tool \u{201c}{}\u{201d} isn't offered in a form Cuckoo can use. Review the tools again.",
+                        "The tool \u{201c}{}\u{201d} isn't offered in a form Cuckoo can use, or has no text input named subject for \u{201c}Needs the subject\u{201d}. Review the tools again.",
                         choice.name
                     )
                 })

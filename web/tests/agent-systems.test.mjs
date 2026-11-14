@@ -23,8 +23,8 @@ const tile = (state = 'connected', held = []) => ({
   last_call_ms: null, created_by: 'Owner',
   tools: [{ name: 'get_marks', kind: 'read', rule: 'allow' }, { name: 'save_study_plan', kind: 'write', rule: 'ask' }],
 });
-const field = (label) =>
-  [...document.querySelectorAll('label')].find((n) => n.textContent.startsWith(label))?.querySelector('input,textarea,select');
+const field = (label, nth = 0) =>
+  [...document.querySelectorAll('label')].filter((n) => n.textContent.startsWith(label))[nth]?.querySelector('input,textarea,select');
 async function setup() {
   const context = await import('../src/workspace-context.ts');
   await context.enterWorkspace();
@@ -133,4 +133,97 @@ test('switching a system off sends its saved revision once', async () => {
       },
     },
   );
+});
+
+test('turning on events shows the key once and recent events show field names, never values', async () => {
+  const writes = [];
+  let on = false;
+  await reactFixture(
+    async ({ render, button, click }) => {
+      await setup();
+      const { EventsDialog } = await import('../src/react/agents/systems/events-dialog.tsx');
+      await render(EventsDialog, { agent: 'agent-1', system: tile(), canChange: true, close: () => {}, changed: async () => {} });
+      assert.match(document.body.textContent, /Nothing has arrived yet/);
+      await click(button('Turn on events'));
+      assert.deepEqual(writes[0], { on: true });
+      assert.match(document.body.textContent, /Events key \(shown once\)cke_secret_events_key/);
+      assert.match(document.body.textContent, /exam\.result_published.*Accepted · 1 run/);
+      assert.match(document.body.textContent, /exam, scores/);
+      assert.match(document.body.innerHTML, /<td>stu-104<\/td><td>exam, scores<\/td>/, 'the subject and field names, never values');
+    },
+    {
+      url,
+      fetch: async (path, init = {}) => {
+        if (path.endsWith('/session')) return session();
+        if (init.method === 'POST') {
+          writes.push(JSON.parse(init.body));
+          on = true;
+          return response({ events_on: true, key: 'cke_secret_events_key', address: 'https://cuckoo.example/hooks/system/sys-1' });
+        }
+        if (path.endsWith('/events')) return response({ events_on: on, address: 'https://cuckoo.example/hooks/system/sys-1',
+          recent: on ? [{ id: 'evt-1', type: 'exam.result_published', subject: 'stu-104', fields: ['exam', 'scores'], matched: 1, test: false, received_ms: 1 }] : [],
+          types: on ? [{ type: 'exam.result_published', count: 1, last_ms: 1, fields: ['exam', 'scores'] }] : [] });
+        return response({});
+      },
+    },
+  );
+});
+
+test('a system automation saves its type, fields, memory and result fields as one exact request', async () => {
+  const writes = [];
+  await reactFixture(
+    async ({ render, button, click, change, update }) => {
+      await setup();
+      const { SystemAutomationDialog } = await import('../src/react/agents/systems/automation-dialog.tsx');
+      await render(SystemAutomationDialog, { agent: 'agent-1', agentName: 'Study Coach', system: { ...tile(), events_on: true }, close: () => {}, saved: async () => {} });
+      await change(field('Event type'), 'exam.result_published');
+      const box = (name) => [...document.querySelectorAll('label')].find((n) => n.textContent === name)?.querySelector('input');
+      await click(box('scores'));
+      await change(field('Name'), 'Study plan after results');
+      await change(field('What should Study Coach do?'), 'Save a plan when a subject is below 50.');
+      await click(button('Add a result field'));
+      await change(field('Name', 1), 'plan_saved');
+      await update(() => {
+        button('Save automation').click();
+        button('Save automation').click();
+      });
+      assert.equal(writes.length, 1);
+      const sent = writes[0];
+      assert.equal(sent.system, 'sys-1');
+      assert.equal(sent.event, 'exam.result_published');
+      assert.deepEqual(sent.fields, ['scores']);
+      assert.equal('memory' in sent, false, 'fresh each run by default');
+      assert.equal('chat' in sent, false, 'Activity only by default');
+      assert.match(document.body.textContent, /Saved\. Each exam\.result_published event/);
+    },
+    {
+      url,
+      fetch: async (path, init = {}) => {
+        if (path.endsWith('/session')) return session();
+        if (init.method === 'POST') {
+          writes.push(JSON.parse(init.body));
+          return response({ id: 'a', state: 'enabled' });
+        }
+        if (path.endsWith('/events')) return response({ events_on: true, address: 'x', recent: [], types: [{ type: 'exam.result_published', count: 1, last_ms: 1, fields: ['exam', 'scores'] }] });
+        if (path.includes('/schedules')) return response({ schedules: [], conversations: [], more_conversations: false, execution_available: true });
+        return response({});
+      },
+    },
+  );
+});
+
+test('a tool with a subject input can be marked "Needs the subject"; automations can remember per subject', async () => {
+  const { initialChoices } = await import('../src/react/agents/systems/model.ts');
+  const { chosen } = await import('../src/react/agents/systems/review-tools.tsx');
+  const tools = [...listed, { name: 'get_profile', title: 'get_profile', description: '', suggested: 'read', supported: true, reason: null, fields: ['subject'] }];
+  const choices = initialChoices(tools);
+  assert.equal(choices.get_profile.subject, undefined);
+  choices.get_profile.subject = true;
+  assert.deepEqual(chosen(choices).find((c) => c.name === 'get_profile'), { name: 'get_profile', kind: 'read', rule: 'allow', subject: true });
+  assert.equal('subject' in chosen(choices).find((c) => c.name === 'get_marks'), false);
+  const kept = initialChoices(tools, [{ name: 'get_profile', kind: 'read', rule: 'ask', subject: true }]);
+  assert.equal(kept.get_profile.subject, true);
+  assert.equal(kept.get_marks.on, false, 'a saved review keeps other tools off');
+  const { memoryLabels } = await import('../src/react/agents/automation/results-and-memory.tsx');
+  assert.equal(memoryLabels.subject.title, 'Per subject');
 });

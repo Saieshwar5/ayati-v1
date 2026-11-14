@@ -28,7 +28,7 @@ async fn a_connected_system_keeps_the_provider_call_contract() {
     };
     // Review: every tool is listed; the nested one is explained, not offered.
     let listed = systems::list(WORKSPACE, &address).await.unwrap();
-    assert_eq!(listed.len(), 4);
+    assert_eq!(listed.len(), 5);
     let unsupported = listed.iter().find(|t| t.name == "export_students").unwrap();
     assert!(
         unsupported.schema.is_none() && unsupported.reason.as_deref().unwrap().contains("filter")

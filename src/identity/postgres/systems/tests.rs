@@ -12,6 +12,7 @@ pub(crate) fn choice(name: &str, kind: &str, rule: &str) -> ToolChoice {
         name: name.into(),
         kind: kind.into(),
         rule: rule.into(),
+        subject: false,
     }
 }
 

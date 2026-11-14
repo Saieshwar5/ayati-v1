@@ -96,7 +96,46 @@ public HTTPS address works), then connect that address. Cuckoo's own client and
 reviewer run against the example in the test
 `identity::connectors::systems_tests::the_guide_example_server_connects_and_every_tool_is_usable`.
 
-## What comes next
+## 7. Start the agent with events
 
-Your system will also be able to **start** the agent by sending an event, and
-to read the result back. Those steps extend this same connection.
+On the system's tile choose **Turn on events** and copy the key (it is shown
+once). Then send one call per event:
+
+```sh
+curl -X POST https://<cuckoo>/hooks/system/<connection> \
+  -H "Authorization: Bearer $EVENTS_KEY" -H "Content-Type: application/json" \
+  -d '{"id":"evt-5001","type":"exam.result_published","subject":"stu-104","data":{"exam":"Maths term 1","scores":{"algebra":41}}}'
+```
+
+- `id` is yours and must be unique: send the same event again and Cuckoo
+  answers `duplicate` and starts nothing, so retrying after a timeout is safe.
+- `type` picks the automations. The agent's owner adds one with **Add
+  automation**, choosing which `data` fields the agent sees.
+- `data` may be nested; the chosen fields reach the agent whole (16 KiB in all).
+- Answers: 200 accepted or duplicate, 401 wrong key, 409 id reused with other
+  content, 422 bad envelope (the message names the field), 429 try later.
+
+## Serve many users: `subject`
+
+Put the user an event is about in `subject` (your own id, such as `stu-104`).
+With *Per subject* memory each user gets a private room, so the agent remembers
+Ravi's earlier plan and never Meena's, and different users run side by side.
+Give a tool a text input named `subject` and the owner can mark it *Needs the
+subject*: Cuckoo then fills it from the event, so the agent can only ever reach
+that user's data. Your system checks its own users; Cuckoo never does.
+
+## 8. Read the result back
+
+An automation can name **result fields** (text, number, yes/no, date). The agent
+must fill them, so your code never parses sentences:
+
+```sh
+curl https://<cuckoo>/hooks/system/<connection>/events/evt-5001 \
+  -H "Authorization: Bearer $EVENTS_KEY"
+# {"id":"evt-5001","runs":[{"automation":"Study plan after results","state":"done",
+#   "answer":"A two-week Maths plan is saved.","result":{"plan_saved":true},"reason":null}]}
+```
+
+States: `queued`, `working`, `waiting_for_person` (an approval inside Cuckoo),
+`done`, `failed`, `cancelled`. `POST …/events/<id>/cancel` stops runs that
+haven't finished. Poll every few seconds; a call back to your system comes later.

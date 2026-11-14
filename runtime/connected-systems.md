@@ -52,6 +52,90 @@ For developers building such a server, see the
   that use it, and only an admin may switch it on for another agent
   (`…/control/tools`).
 
+## Events (C2) and nested data (C5)
+
+Built 2026-11-14, schema 117. A connected system starts automations by sending
+events.
+
+- **Turning events on.** On the system's tile, *Turn on events* (owner or
+  admin) makes a key, shown once and kept only as its digest; *Replace the
+  key* stops the old one at once; *Turn off events* refuses everything.
+- **The call.** `POST /hooks/system/{connection}` with
+  `Authorization: Bearer <events key>` and the fixed envelope
+  `{"id","type","subject","time","data"}`. `id`: up to 128 letters, digits,
+  `-` or `_`, unique within the system. `type`: up to 64 lowercase letters,
+  digits, dots or underscores, starting with a letter. `subject` and `time`:
+  optional text. `data`: any JSON object. Unknown envelope fields are ignored.
+  Up to 64,000 bytes. No cookie authorizes it; it is a narrow exception to the
+  browser's Origin checks.
+- **Answers.** 200 `{"status":"accepted","matched":n,"id":…}` (saved before the
+  answer; `matched` is the number of automations that will run), 200
+  `{"status":"duplicate"}` for the same id and content, 401 wrong key or events
+  off, 409 the same id with other content, 422 a bad envelope or oversized data
+  (the message names the field), 429 too many waiting events.
+- **Automations.** *Add automation* on the tile (owner or admin): an event
+  type (from those received, or typed), the `data` fields the agent sees (1 to
+  8), instructions, Memory and where results go. Each system, type and field
+  choice is one `system` event source in `relay_connector_subscriptions`, so
+  receipts, duplicate rules, deliveries, dispatch, work rooms, pause, Activity
+  and source revocation are the existing ones. A system with no reading tool
+  set to Allow can't start work: an event carries what such a read could fetch.
+  An event that matches no automation is saved and shown, never matched later.
+- **Nested data (C5).** Each chosen field reaches the agent whole, nested
+  objects and lists included, with `$type` and `$subject`; together at most
+  16 KiB, or the event is refused with the largest field named. Fields not
+  chosen never reach the agent. Event contents are data, never instructions.
+- **Recent events** (`GET …/systems/{id}/events`): the latest 100 within 30
+  days with time, id, type, subject, field names (never values) and how many
+  automations ran. *Send test event* sends a sample through the same intake,
+  marked as a test.
+
+## Results (C4)
+
+- **Result fields.** An automation may name up to 8, each text, number,
+  yes/no or date. The run's request asks the agent to call `report_result`
+  once; Cuckoo checks every name and kind and refuses anything else. A run that
+  finishes without them counts as failed.
+- **Reading.** `GET /hooks/system/{connection}/events/{id}` with the events
+  key returns one run per automation: `state` (`queued`, `working`,
+  `waiting_for_person`, `done`, `failed`, `cancelled`), the written `answer`
+  when done, `result` and `reason`.
+- **Stopping.** `POST /hooks/system/{connection}/events/{id}/cancel` stops runs
+  that haven't finished. Finished runs keep their result.
+- **Not yet:** Cuckoo calling the system back with the result; reading is
+  enough for a first version.
+
+## Subjects (C3)
+
+Built 2026-11-14, schema 118. An event's `subject` names one user of the
+outside system (a student, a patient, an order). Cuckoo trusts it because it
+arrived with the system's key; the system verifies its own users. A subject's
+words in `data` are data, and a subject can never approve anything.
+
+- **Per subject memory.** An automation set to *Per subject* runs each event
+  in the agent's private room for that system and subject
+  (`relay_subject_rooms`), shared by that system's automations, so a later run
+  sees only that subject's earlier runs. Events without a subject start fresh.
+- **Side by side.** Each delivery keeps its subject. Dispatch keeps one
+  unfinished run per automation *and subject*: different subjects run in
+  parallel within the queue limits, and one subject's events run in the order
+  they arrived. Events without a subject keep the old rule: one run per
+  automation.
+- **Needs the subject.** When reviewing tools, a tool with a text input named
+  `subject` can be marked *Needs the subject*. Cuckoo then hides that input from
+  the agent and fills it from the run's event before the action is proposed,
+  so approvals and receipts show the exact subject. The agent can't supply one,
+  and a run without a subject (a request in Chat) can't use the tool. A system
+  that wants staff to look up any student from Chat offers a separate tool with
+  an explicit student input and its own rule.
+- **Forget this subject** (events dialog): clears that subject's rooms with the
+  system's agents (messages and working summary) and its next event starts in a
+  new room.
+- **Shared places** (notes for every conversation, "always" Library documents
+  and the computer's `shared/` folder) reach every run, so the form warns to
+  keep nothing about one subject there.
+- **Open:** how long a quiet subject's room is kept.
+
 ## Addresses and inputs
 
 - **Addresses.** HTTPS on a public address, no credentials, query or fragment
@@ -73,8 +157,7 @@ For developers building such a server, see the
 
 ## Not yet
 
-Events from a connected system (C2), results back to it (C4), subjects (C3),
-sign-in with the system (OAuth), private addresses through the Cuckoo
+The result call back to the system, signed events, declared event types, sign-in with the system (OAuth), private addresses through the Cuckoo
 Connector, and an admin switch to give a system to another agent from that
 agent's Tools tab (today an admin uses `…/control/tools`).
 
@@ -85,7 +168,16 @@ Rust: `connectors::system_tools` (schema review), `connectors::systems`
 contract against a local StudyHub: read and write run, unconfirmed results are
 uncertain, a changed or removed tool is held while others work, a refused key
 and a moved sealed key send nothing, error messages say what to fix) and, with
-`--include-ignored`, the guide's example server. PostgreSQL
+`--include-ignored`, the guide's example server; `events::system_events`
+(envelope, nested projection, size limit) and `events::system_routes`.
+PostgreSQL `systems::events_tests`: matched and unmatched events, nested
+fields whole and unchosen fields absent, duplicates and conflicts, wrong and
+replaced keys, oversized data, owner-only automations and filters, test
+events, run states, checked result fields, a run failed without them, and
+cancel. `systems::subjects_tests`: a room per subject, subjects side by side
+and one subject in order, forgetting a subject, and the subject filled into a
+marked tool (hidden from the listing, never from the agent, refused without
+one). PostgreSQL
 `systems::tests`: saving, exact repeats, rules in the effective view, the key
 never stored in plain text, off/on/remove, a stricter review, owner-or-admin
 only, and another agent's owner can't take a system. Web

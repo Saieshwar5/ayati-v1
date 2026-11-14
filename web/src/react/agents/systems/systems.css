@@ -24,3 +24,16 @@
 .system-tool-held { color: var(--warning) !important; }
 .system-kind { min-width: 110px; }
 @media (max-width: 600px) { .system-tool { grid-template-columns: auto minmax(0, 1fr); } .system-tool > .system-kind, .system-tool > .mode-picker { grid-column: 2; } }
+.system-events-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 0 16px; font-size: 13px; color: var(--muted); }
+.system-events { display: grid; gap: 12px; }
+.system-events code, .system-key code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.system-key { display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: var(--warning-bg); color: var(--text); }
+.system-sample { margin: 0; padding: 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--border); font-size: 12px; overflow-x: auto; white-space: pre; }
+.system-table { overflow-x: auto; }
+.system-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.system-table th, .system-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.system-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.system-test { display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.system-result-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.system-subject { grid-column: 2 / -1; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.system-subject span { display: grid; gap: 2px; }

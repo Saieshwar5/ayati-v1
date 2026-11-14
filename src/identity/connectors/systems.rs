@@ -206,6 +206,10 @@ impl ConnectorProvider for Systems {
     async fn disconnect(&self, _: &str, _: &str, _: Option<&Value>) -> Result<()> {
         Ok(())
     }
+    /// A system's event sources live in Cuckoo; there is nothing to stop at the system.
+    async fn unsubscribe(&self, _: &Saved<'_>, _: &str) -> Result<()> {
+        Ok(())
+    }
     /// The tool must still look as it was reviewed; a changed or missing tool is
     /// held (refused) until someone reviews it again, while the others work.
     async fn prepare(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Box<dyn Call>> {

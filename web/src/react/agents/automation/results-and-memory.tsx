@@ -1,16 +1,18 @@
 /** The two choices every automation shares (schema 115): what a run remembers
  * of earlier runs, and where its results go besides Activity. Schedules and
  * app events use the same controls and the same words. */
-export type Memory = 'fresh' | 'remember';
+export type Memory = 'fresh' | 'remember' | 'subject';
 
 export const memoryLabels: Record<Memory, { title: string; detail: string }> = {
   fresh: { title: 'Fresh each run', detail: 'Sees nothing from earlier runs. Best for one-off events like a new email.' },
   remember: { title: 'Remember earlier runs', detail: 'Sees what this automation did before. Best for daily or weekly reports.' },
+  subject: { title: 'Per subject', detail: 'Sees only earlier runs about the same subject: one student, patient or order. Best when your system serves many people.' },
 };
 
-export function MemoryChoice({ value, change, name }: { value: Memory; change: (value: Memory) => void; name: string }) {
+export function MemoryChoice({ value, change, name, subject = false }: { value: Memory; change: (value: Memory) => void; name: string; subject?: boolean }) {
+  const choices: Memory[] = subject ? ['fresh', 'remember', 'subject'] : ['fresh', 'remember'];
   return <fieldset className="routine-results"><legend>Memory</legend>
-    {(['fresh', 'remember'] as const).map(choice => <label key={choice} className="routine-choice">
+    {choices.map(choice => <label key={choice} className="routine-choice">
       <input type="radio" name={`${name}-memory`} checked={value === choice} onChange={() => change(choice)} />
       <span><strong>{memoryLabels[choice].title}</strong><small>{memoryLabels[choice].detail}</small></span>
     </label>)}

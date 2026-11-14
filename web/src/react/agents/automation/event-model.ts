@@ -16,7 +16,7 @@ export type EventInput = Authority & {
   source: string;
   binding: string;
   chat?: string;
-  memory?: 'fresh' | 'remember';
+  memory?: 'fresh' | 'remember' | 'subject';
   name: string;
   instructions: string;
   filter: Record<string, unknown>;

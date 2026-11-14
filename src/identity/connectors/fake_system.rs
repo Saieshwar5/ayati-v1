@@ -30,7 +30,8 @@ pub(crate) struct FakeSystem {
     pub url: String,
 }
 
-/// StudyHub's tools: two reads, one change, and one Cuckoo can't check.
+/// StudyHub's tools: reads, one change, one Cuckoo can't check, and one that
+/// takes the student as `subject`.
 pub(crate) fn tools() -> Vec<Value> {
     vec![
         json!({"name":"get_marks","title":"Read exam marks","description":"A student's exam marks",
@@ -43,6 +44,8 @@ pub(crate) fn tools() -> Vec<Value> {
             "inputSchema":{"type":"object","properties":{"student":{"type":"string"},"plan":{"type":"string"}},"required":["student","plan"]}}),
         json!({"name":"export_students","description":"Every student",
             "inputSchema":{"type":"object","properties":{"filter":{"type":"object","properties":{"class":{"type":"string"}}}}}}),
+        json!({"name":"get_profile","description":"One student's class and weak subjects","annotations":{"readOnlyHint":true},
+            "inputSchema":{"type":"object","properties":{"subject":{"type":"string"}},"required":["subject"]}}),
     ]
 }
 

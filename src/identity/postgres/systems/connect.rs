@@ -5,7 +5,12 @@ use crate::identity::postgres::*;
 use serde_json::json;
 
 /// The agent's owner or an admin may connect or change its systems.
-async fn may_change(tx: &DatabaseTransaction, user: &User, w: &str, agent: &str) -> Result<()> {
+pub(super) async fn may_change(
+    tx: &DatabaseTransaction,
+    user: &User,
+    w: &str,
+    agent: &str,
+) -> Result<()> {
     super::super::agent_profiles::managed_access(tx, &user.id, w, agent, true)
         .await
         .map(|_| ())
@@ -15,7 +20,12 @@ async fn may_change(tx: &DatabaseTransaction, user: &User, w: &str, agent: &str)
 }
 
 /// The saved system for `agent`, locked for this change.
-async fn saved(tx: &DatabaseTransaction, w: &str, agent: &str, id: &str) -> Result<Value> {
+pub(super) async fn saved(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: &str,
+    id: &str,
+) -> Result<Value> {
     json_rows(tx, "SELECT jsonb_build_object('name',s.name,'removed',s.removed,'revision',s.revision,'server',c.server,
             'connection_revision',c.revision,'enabled',c.enabled,'binding',c.binding) AS data
         FROM relay_connected_systems s JOIN relay_control_connections c ON c.workspace=s.workspace AND c.id=s.connection

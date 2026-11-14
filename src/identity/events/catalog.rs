@@ -140,6 +140,9 @@ impl Source {
     }
     pub(crate) fn project(&self, id: &str, event: &Value) -> Result<Value> {
         if let Some(subscribed) = &self.subscribed {
+            if self.provider == "system" {
+                return super::system_events::project(self, subscribed, id, event);
+            }
             return super::provider_events::project(self, subscribed, id, event);
         }
         ensure!(

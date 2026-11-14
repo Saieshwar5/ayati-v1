@@ -7,10 +7,19 @@ use super::*;
 use crate::identity::control::model::Operation;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+pub(crate) mod automations;
 mod connect;
+pub(crate) mod events;
+#[cfg(test)]
+mod events_tests;
+pub(crate) mod results;
+pub(crate) mod subjects;
+#[cfg(test)]
+mod subjects_tests;
 #[cfg(test)]
 mod tests;
-pub(crate) use migration::ConnectedSystems;
+pub(crate) use migration::{ConnectedSystems, SystemEvents};
+pub(crate) use subjects::Subjects;
 
 /// One tool as the person reviewed it.
 #[derive(Clone, Deserialize, Serialize, PartialEq)]
@@ -21,6 +30,10 @@ pub(crate) struct ToolChoice {
     pub kind: String,
     /// `allow`, `ask` or `block`.
     pub rule: String,
+    /// "Needs the subject" (C3): the tool has a `subject` input that Cuckoo
+    /// fills from the event and hides from the agent.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub subject: bool,
 }
 
 /// A request to connect a system to an agent, after the person reviewed its tools.
@@ -114,6 +127,7 @@ async fn tiles(db: &impl ConnectionTrait, w: &str, agent: &str) -> Result<Vec<Va
     let mut tiles = json_rows(db, "SELECT jsonb_build_object('id',s.connection,'name',s.name,'tools',s.tools,'revision',s.revision,
             'enabled',c.enabled,'url',c.binding->>'url','has_key',c.binding->>'key' IS NOT NULL,'created_ms',s.created_ms,
             'created_by',COALESCE(u.display_name,u.email),'reviewed_ms',s.reviewed_ms,
+            'events_on',COALESCE((to_jsonb(s)->>'events_on')::boolean,false),
             'last_call_ms',(SELECT max(k.started_ms) FROM relay_connector_calls k WHERE k.workspace=s.workspace AND k.app=c.server),
             'held',COALESCE((SELECT jsonb_agg(d.operation ORDER BY d.operation) FROM relay_connector_drift d
                 WHERE d.workspace=s.workspace AND d.connection=s.connection AND d.fingerprint=c.fingerprint AND d.status IN ('missing','changed')
@@ -167,6 +181,26 @@ mod migration {
     impl MigrationName for ConnectedSystems {
         fn name(&self) -> &str {
             "m20261114_000116_connected_systems"
+        }
+    }
+    pub(crate) struct SystemEvents;
+    impl MigrationName for SystemEvents {
+        fn name(&self) -> &str {
+            "m20261114_000117_system_events"
+        }
+    }
+    #[async_trait::async_trait]
+    impl MigrationTrait for SystemEvents {
+        async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+            m.get_connection()
+                .execute_unprepared(include_str!("events.sql"))
+                .await?;
+            Ok(())
+        }
+        async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+            Err(DbErr::Custom(
+                "System events require a forward migration".into(),
+            ))
         }
     }
     #[async_trait::async_trait]
