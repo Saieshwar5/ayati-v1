@@ -1,5 +1,6 @@
 pub(crate) mod asked_together;
 pub(super) mod execution;
+pub(crate) mod link_preview;
 pub(crate) mod mentions;
 mod message_actions;
 pub(crate) mod model;
@@ -25,6 +26,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(task_progress::routes())
         .merge(organization::routes())
         .merge(message_actions::routes())
+        .merge(link_preview::routes())
         .merge(notifications::routes())
         .merge(presence::routes())
         .route(

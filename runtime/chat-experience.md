@@ -23,6 +23,46 @@ The combined entry bundle grows from 93.73 kB gzip to about 122 kB gzip in the l
 production build; the lazy private-chat bundle remains about 18 kB gzip. This cost
 includes the composer and media/mention changes, not only the two libraries.
 
+## Code, long messages and link previews (schema 118, 2026-11-14)
+
+- **Copy code.** Every fenced code block (`markdown.ts`, so people's messages, agents'
+  replies and the reader alike) gets a Copy button that copies just the code and says
+  "Copied". One delegated click listener per window handles it, so HTML set from
+  Markdown needs no handlers. Typed HTML is still escaped: only the renderer makes the
+  button, which the sanitizer allows with `type` and `aria-label`.
+- **Show more.** A person's message over 1,200 characters or 14 lines folds to about
+  16 lines with a fade, and "Show more" / "Show less" (`aria-expanded`). Agents'
+  replies keep their own expanding reader.
+- **Link previews.** The first http(s) link of a person's sent message gets a card:
+  site, title and up to two lines of description, linking to the page
+  (`noopener noreferrer`). Never a picture: loading a remote image would tell that site
+  who reads the conversation. The browser asks
+  `GET …/chats/{chat}/messages/{message}/link-preview` once per message and revision,
+  and only when the message scrolls into view.
+  - The server reads the link from the message itself, after the same access check as
+    reading the conversation, so nobody can make it fetch an arbitrary address.
+    Agents' replies get no preview (they have per-viewer views of their own).
+  - Fetching is fenced like a remote MCP connection (`chat/link_preview.rs`): http(s)
+    on ports 80 and 443, no credentials in the address, the host resolved once and
+    pinned to its public IPv4 addresses (private, loopback, link-local, CGNAT and the
+    cloud metadata address are refused; IPv6-only hosts get no preview), each of up to
+    three redirects checked again, no proxy, 5 seconds, `text/html` only, 256 KiB
+    read. At most four pages are fetched at once per process; a busy server answers no
+    preview rather than queueing.
+  - The page's own Open Graph, Twitter and plain `description`/`<title>` tags give the
+    preview, with entities decoded and lengths cut (title 200, site 80, description
+    300). The site falls back to the host without `www.`.
+  - `relay_link_previews(url, preview, fetched)` (schema 118) caches an answer a day
+    and a page without a preview an hour. It holds what public pages say about
+    themselves, never who posted or read a link.
+- **Checks.** Rust `link_preview_tests` (first link, meta tags in order, entities,
+  multibyte text; a local server for redirects, non-HTML and missing pages; refusing
+  this machine, `localhost`, private and metadata addresses, credentials and `file:`);
+  PostgreSQL `link_previews_tests` (only readable people's messages, deleted ones none,
+  the day and hour cache); web `tests/chat-message-text.test.mjs` (Copy copies the
+  code, typed buttons are text, folding, one read per message on screen, no read
+  without a link or for an agent, only http(s) cards, no picture).
+
 ## Mentions
 
 Typing `@` searches eligible people and requestable agents. Arrow keys move through

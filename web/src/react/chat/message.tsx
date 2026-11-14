@@ -1,5 +1,6 @@
 import { messageHtml } from '../../markdown';
 import { InThreadLine, ThreadSummary } from './thread-summary';
+import { PersonText } from './message-text';
 import '../../message-content.css';
 import { MessageReceipt, useSeen } from './receipt';
 import { workspaceSession } from '../../workspace-context';
@@ -62,7 +63,7 @@ export function ChatMessage({ message, directory, replies, lastReply, inThread, 
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {inThread && <InThreadLine root={inThread.root} open={openThread} />}
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
-      {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
+      {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : message.kind === 'agent' ? <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} /> : <PersonText message={message} text={text} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
       {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
       <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
       {message.approval && <ApprovalCard reference={message.approval} />}

@@ -125,6 +125,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::chat_migrations::ChatThreads),
             Box::new(super::chat_migrations::ChatHideLevel),
             Box::new(super::device_sessions::DeviceSessions),
+            Box::new(super::chat_migrations::LinkPreviews),
         ]
     }
 }

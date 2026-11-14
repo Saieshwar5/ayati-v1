@@ -1,7 +1,8 @@
 //! Chat migrations of 2026-11-14. Threads beside the conversation (schema
 //! 115): each root reports how many replies it has and when the last came,
 //! from the server rather than the loaded page, and a reply can also be sent
-//! to the conversation. Schema 116 adds the level that hides a conversation.
+//! to the conversation. Schema 116 adds the level that hides a conversation,
+//! and schema 118 the link preview cache.
 use sea_orm_migration::prelude::*;
 
 pub(in crate::identity::postgres) struct ChatThreads;
@@ -43,6 +44,28 @@ impl MigrationTrait for ChatHideLevel {
     async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
         Err(DbErr::Custom(
             "The hide level requires a forward migration".into(),
+        ))
+    }
+}
+
+/// Schema 118: the link preview cache.
+pub(in crate::identity::postgres) struct LinkPreviews;
+impl MigrationName for LinkPreviews {
+    fn name(&self) -> &str {
+        "m20261114_000118_link_previews"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for LinkPreviews {
+    async fn up(&self, m: &SchemaManager) -> std::result::Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("link_previews.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Link previews require a forward migration".into(),
         ))
     }
 }

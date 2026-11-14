@@ -115,6 +115,9 @@ mod executor_slot_tests;
 mod executor_slots;
 mod executor_task_migration;
 mod executor_tasks;
+mod link_previews;
+#[cfg(test)]
+mod link_previews_tests;
 pub mod member_profiles;
 mod message_action_migration;
 #[cfg(test)]
