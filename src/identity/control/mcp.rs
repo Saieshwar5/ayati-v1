@@ -3,6 +3,12 @@ use super::{catalog::Server, model::Operation};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 
+/// MCP protocol versions Cuckoo speaks, newest first. It asks for the newest;
+/// a server may answer with an older one it supports (MCP version negotiation),
+/// and every request then names that version. All three have Streamable HTTP
+/// with `tools/list` and `tools/call` in the shape this client reads.
+const VERSIONS: [&str; 3] = ["2025-11-25", "2025-06-18", "2025-03-26"];
+
 pub(crate) struct Remote {
     client: reqwest::Client,
     server: Server,
@@ -10,6 +16,7 @@ pub(crate) struct Remote {
     bearer: Option<String>,
     capabilities: Value,
     limit: usize,
+    version: &'static str,
 }
 impl Remote {
     pub async fn connect(server: Server, fingerprint: &str) -> Result<Self> {
@@ -18,6 +25,11 @@ impl Remote {
             server.fingerprint_for(&bearer)? == fingerprint,
             "Connection credentials changed"
         );
+        Self::connect_with(server, bearer).await
+    }
+    /// Connects with a key held elsewhere (a connected system's sealed key);
+    /// the caller has already checked it belongs to the reviewed connection.
+    pub async fn connect_with(server: Server, bearer: Option<String>) -> Result<Self> {
         let url = super::endpoint(&server.url)?;
         let host = url.host_str().context("Missing MCP host")?;
         let mut builder = reqwest::Client::builder()
@@ -45,12 +57,18 @@ impl Remote {
             bearer,
             capabilities: Value::Null,
             limit: 65536,
+            version: VERSIONS[0],
         };
-        let init = remote.rpc("initialize", json!({"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"cuckoo-control","version":env!("CARGO_PKG_VERSION")}}), Some(1)).await?;
+        let init = remote.rpc("initialize", json!({"protocolVersion":VERSIONS[0],"capabilities":{},"clientInfo":{"name":"cuckoo-control","version":env!("CARGO_PKG_VERSION")}}), Some(1)).await?;
+        let version = VERSIONS
+            .into_iter()
+            .find(|v| init["protocolVersion"] == *v)
+            .context("This server speaks an MCP version Cuckoo doesn't support yet")?;
         ensure!(
-            init["protocolVersion"] == "2025-11-25" && init["capabilities"]["tools"].is_object(),
-            "Unsupported remote MCP protocol or capabilities"
+            init["capabilities"]["tools"].is_object(),
+            "This server offers no MCP tools"
         );
+        remote.version = version;
         remote.capabilities = init["capabilities"].clone();
         remote
             .rpc("notifications/initialized", json!({}), None)
@@ -138,7 +156,7 @@ impl Remote {
             .client
             .post(&self.server.url)
             .header("Accept", "application/json, text/event-stream")
-            .header("MCP-Protocol-Version", "2025-11-25")
+            .header("MCP-Protocol-Version", self.version)
             .json(&payload);
         if let Some(token) = &self.bearer {
             request = request.bearer_auth(token);

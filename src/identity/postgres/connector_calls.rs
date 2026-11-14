@@ -57,6 +57,8 @@ impl MigrationTrait for ConnectorOperations {
 pub(crate) struct CallRecord {
     id: String,
     provider: String,
+    /// The breaker this call counts against: the provider's, or a system's own.
+    breaker: String,
     started: Instant,
 }
 
@@ -105,9 +107,14 @@ impl PgStore {
             .context("Count")?
             .try_get("", "n")?;
         let id = uuid::Uuid::new_v4().to_string();
+        // A connected system has its own breaker, so one broken system never
+        // pauses another (connected systems plan, C1).
+        let breaker = crate::identity::connectors::systems::breaker(&dispatch.server)
+            .filter(|_| provider == "system")
+            .unwrap_or_else(|| provider.to_owned());
         let refused = if recent >= RATE_PER_MINUTE {
             Some("rate_limit")
-        } else if breaker_lets_through(&tx, provider, &id, now).await? {
+        } else if breaker_lets_through(&tx, &breaker, &id, now).await? {
             None
         } else {
             Some("breaker")
@@ -118,6 +125,7 @@ impl PgStore {
             None => Admission::Admitted(CallRecord {
                 id,
                 provider: provider.to_owned(),
+                breaker,
                 started: Instant::now(),
             }),
             Some("rate_limit") => Admission::Refused(RATE_REASON),
@@ -175,7 +183,7 @@ impl PgStore {
                 probe=CASE WHEN probe=$2 THEN NULL ELSE probe END,changed_ms={NOW_MS}
                 WHERE provider=$1 AND (probe=$2 OR (open_until_ms=0 AND failures>0))"
                 ),
-                vec![record.provider.clone().into(), record.id.clone().into()],
+                vec![record.breaker.clone().into(), record.id.clone().into()],
             )
             .await?;
             Ok(())
@@ -185,9 +193,9 @@ impl PgStore {
     async fn breaker_failed(&self, record: &CallRecord) -> Result<()> {
         let tx = self.db.begin().await?;
         execute(&tx, &format!("INSERT INTO relay_connector_breakers(provider,changed_ms) VALUES($1,{NOW_MS}) ON CONFLICT DO NOTHING"),
-            vec![record.provider.clone().into()]).await?;
+            vec![record.breaker.clone().into()]).await?;
         let row = query(&tx, &format!("SELECT failures,window_ms,open_until_ms,probe,{NOW_MS} AS now FROM relay_connector_breakers WHERE provider=$1 FOR UPDATE"),
-            vec![record.provider.clone().into()]).await?.context("Breaker")?;
+            vec![record.breaker.clone().into()]).await?.context("Breaker")?;
         let (failures, window, open_until, probe, now): (i32, i64, i64, Option<String>, i64) = (
             row.try_get("", "failures")?,
             row.try_get("", "window_ms")?,
@@ -210,14 +218,14 @@ impl PgStore {
         };
         if open {
             execute(&tx, "UPDATE relay_connector_breakers SET failures=$2,window_ms=$3,open_until_ms=$4,opened_ms=$5,probe=NULL,probe_until_ms=0,changed_ms=$5 WHERE provider=$1",
-                vec![record.provider.clone().into(), failures.into(), window.into(), (now + BREAKER_COOLDOWN_MS).into(), now.into()]).await?;
+                vec![record.breaker.clone().into(), failures.into(), window.into(), (now + BREAKER_COOLDOWN_MS).into(), now.into()]).await?;
             tracing::warn!(
-                provider = %record.provider,
+                provider = %record.breaker,
                 "Paused calls to a connector provider after repeated failures"
             );
         } else {
             execute(&tx, "UPDATE relay_connector_breakers SET failures=$2,window_ms=$3,changed_ms=$4 WHERE provider=$1",
-                vec![record.provider.clone().into(), failures.into(), window.into(), now.into()]).await?;
+                vec![record.breaker.clone().into(), failures.into(), window.into(), now.into()]).await?;
         }
         tx.commit().await?;
         Ok(())

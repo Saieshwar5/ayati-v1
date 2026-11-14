@@ -100,13 +100,19 @@ pub(crate) fn pipedream() -> Option<providers_file::Pipedream> {
 /// Composio when its key is configured.
 pub(super) fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
     let Some(settings) = SETTINGS.get() else {
-        return vec![Arc::new(mcp_servers::McpServers::new(
-            crate::identity::control::catalog::file(),
-        ))];
+        return vec![
+            Arc::new(mcp_servers::McpServers::new(
+                crate::identity::control::catalog::file(),
+            )),
+            Arc::new(systems::Systems),
+        ];
     };
-    let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![Arc::new(
-        mcp_servers::McpServers::new(settings.mcp_servers_file.clone()),
-    )];
+    let mut providers: Vec<Arc<dyn ConnectorProvider>> = vec![
+        Arc::new(mcp_servers::McpServers::new(
+            settings.mcp_servers_file.clone(),
+        )),
+        Arc::new(systems::Systems),
+    ];
     if let Some(composio) = composio_from(settings) {
         match composio::Composio::new(composio) {
             Ok(provider) => providers.push(Arc::new(provider)),
@@ -187,6 +193,7 @@ pub(crate) fn label(provider: &str) -> &'static str {
         "composio" => "Composio",
         "pipedream" => "Pipedream",
         "mcp" => "MCP server",
+        "system" => "Connected system",
         _ => "Another provider",
     }
 }

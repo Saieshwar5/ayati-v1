@@ -13,6 +13,7 @@ import { ModePicker } from './mode-picker';
 import type { Agent } from './model';
 import { WebSearchCard } from './web-search';
 import { ComputerToolsCard } from './computer/computer-controls';
+import { SystemsSection } from './systems/systems-section';
 
 export const connectorName = (c: ToolConnection) => c.name || c.server;
 
@@ -49,7 +50,7 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved, f
     {!data && !error && <p role="status">Loading tools…</p>}
     {data?.execution_available === false && <p role="status" className="ui-help">Business tools are not enabled for this workspace yet. Ask your operator to enable controller-managed execution.</p>}
     <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
-    {data?.connections.map(connection => <article key={connection.id} className="agent-tool" aria-label={connectorName(connection)}>
+    {data?.connections.filter(connection => connection.provider !== 'system').map(connection => <article key={connection.id} className="agent-tool" aria-label={connectorName(connection)}>
       <header>
         <span><span className="agent-app-name"><strong>{connectorName(connection)}</strong><HealthTag app={connection} /></span>
           <small>{[connection.account, `${connection.operations.length} ${connection.operations.length === 1 ? 'action' : 'actions'}`].filter(Boolean).join(' · ')}</small>
@@ -64,8 +65,9 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved, f
         note={focus === `${connection.id}/${operation.id}` ? 'Suggested in Activity › Review: approved every time it asked.' : undefined}
         change={mode => change(() => saveRule(agent.id, { connection: connection.id, operation: operation.id, mode, revision: operation.revision }), `${operation.title}: ${modes[mode]}.`)} />)}
     </article>)}
-    {data && !data.connections.length && <><p className="ui-empty">No apps yet. Once an admin connects one, it can be switched on here.</p>
+    {data && !data.connections.some(connection => connection.provider !== 'system') && <><p className="ui-empty">No apps yet. Once an admin connects one, it can be switched on here.</p>
       <NeedAnotherApp connected={() => void refresh().catch(() => {})} /></>}
+    <SystemsSection agent={agent} />
     {data && data.actions.length > 0 && <RecentActions actions={data.actions} review={action => action.state === 'uncertain' ? check(action.id) : review(action.id)} />}
     {reviewing && <ApprovalDialog id={reviewing} close={() => { review(undefined); void refresh().catch(() => {}); }} />}
     {checking && <OutcomeDialog id={checking} close={() => { check(undefined); void refresh().catch(() => {}); }} />}

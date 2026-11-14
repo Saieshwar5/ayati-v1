@@ -111,6 +111,14 @@ impl PgStore {
         super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
         if input.enabled {
             available(&tx, w, &input.connection).await?;
+            // A connected system belongs to the agent it was connected for; only
+            // an admin may switch it on for another agent (connected systems, C1).
+            let system = query(&tx, "SELECT 1 AS found FROM relay_control_connections WHERE workspace=$1 AND id=$2 AND provider='system'",
+                vec![w.into(), input.connection.clone().into()]).await?.is_some();
+            ensure!(
+                !system || role(&tx, w, &user.id).await? == "Admin",
+                "Only an admin can give another agent a system connected to one agent"
+            );
             execute(&tx,"INSERT INTO relay_agent_connections(workspace,agent,connection,revision,enabled_by,at) VALUES($1,$2,$3,nextval('relay_control_revision'),$4,$5) ON CONFLICT DO NOTHING",vec![w.into(),agent.into(),input.connection.clone().into(),user.id.clone().into(),now().into()]).await?;
         } else {
             execute(&tx,"DELETE FROM relay_agent_connections WHERE workspace=$1 AND agent=$2 AND connection=$3",vec![w.into(),agent.into(),input.connection.clone().into()]).await?;

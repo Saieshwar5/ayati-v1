@@ -7,7 +7,8 @@
 //! jobs ([`ConnectorProvider`]); adding one is a module that implements them plus
 //! one line in [`configure`]. Agents never see a provider, its links or its keys.
 //!
-//! Providers today: operator-configured remote MCP servers (`mcp`), Composio
+//! Providers today: operator-configured remote MCP servers (`mcp`), systems an
+//! agent's owner connected from its Tools tab (`system`), Composio
 //! (`composio`) and Pipedream Connect (`pipedream`). The provider is chosen per
 //! app and workspace ([`routing`]), so one app can move to another provider, or
 //! to a connector Cuckoo builds itself, without touching the others.
@@ -26,6 +27,8 @@ pub(crate) mod fake_composio;
 mod fake_mcp;
 #[cfg(test)]
 pub(crate) mod fake_pipedream;
+#[cfg(test)]
+pub(crate) mod fake_system;
 mod mcp_servers;
 mod pipedream;
 mod pipedream_accounts;
@@ -41,6 +44,10 @@ pub(crate) mod providers_file;
 mod registry;
 pub(crate) mod routes;
 pub(crate) mod routing;
+pub(crate) mod system_tools;
+pub(crate) mod systems;
+#[cfg(test)]
+mod systems_tests;
 pub(crate) mod triggers;
 #[cfg(test)]
 mod triggers_conformance_tests;

@@ -207,6 +207,7 @@ fn configure_process(config: &crate::config::Controller) -> Result<()> {
     start_trace::enable(config.trace_start);
     control::catalog::configure(config.mcp_servers_file.clone());
     connectors::configure(connectors::settings(config)?);
+    connectors::systems::configure(config.secrets_key_file.clone());
     events::catalog::configure(config.event_sources_file.clone());
     communications::adapters::configure(communications::adapters::settings(config));
     Ok(())
