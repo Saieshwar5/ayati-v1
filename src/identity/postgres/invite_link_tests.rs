@@ -67,6 +67,7 @@ async fn sign_in_remembers_the_invite_page_to_return_to() {
         verifier: "verifier".into(),
         invitation: None,
         return_to: Some("/invite/abcdefghijklmnopqrstuvwxyz0123456789".into()),
+        mobile_challenge: None,
         expires: crate::identity::user::now() + 600,
     };
     let hash = crate::identity::provider::digest("return-flow");

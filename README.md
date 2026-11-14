@@ -47,6 +47,8 @@ Main product contracts:
   [shared schedules](runtime/shared-agent-schedules.md) and
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
+- [Phone app sign-in](runtime/mobile-sign-in.md): device sessions with bearer
+  tokens, PKCE-bound one-time codes and device revocation (mobile plan M1).
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:
   workspaces and suspension, provider keys and the emergency switch, the model catalog
   live, spend and margin, platform settings and one change log.

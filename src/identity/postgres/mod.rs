@@ -98,6 +98,7 @@ mod data_lifecycle;
 mod data_lifecycle_migration;
 #[cfg(test)]
 mod data_lifecycle_tests;
+pub(crate) mod device_sessions;
 #[cfg(test)]
 mod dispatch_lock_tests;
 mod durable_wait_migration;

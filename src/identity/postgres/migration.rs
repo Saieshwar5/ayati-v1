@@ -122,6 +122,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::communications::migration::DoorRooms),
             Box::new(super::communications::migration::AgentEmail),
             Box::new(super::communications::migration::WhatsappRemoved),
+            Box::new(super::device_sessions::migration::DeviceSessions),
         ]
     }
 }

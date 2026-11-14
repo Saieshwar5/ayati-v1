@@ -75,6 +75,9 @@ or background email reconciliation yet. Invitation emails are generic applicatio
 invitations; the workspace name and offered role are shown after verified login.
 Recipients on another computer cannot reach this localhost instance.
 
+Phones sign in through the same WorkOS flow and get a device session instead of a
+cookie; see [phone app sign-in](mobile-sign-in.md).
+
 See [workspace client integration](workspace-client-integration.md) for the request boundary.
 The original browser-only preview remains at `?view=access-preview` in the
 regular client and is not used as authentication by this server.

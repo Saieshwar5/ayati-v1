@@ -1,6 +1,8 @@
 # Cuckoo mobile app: build plan
 
-Status: planned, not started, 2026-11-14. Supersedes the Google Doc "Cuckoo Mobile
+Status: M1 (server sign-in and device sessions) built and tested 2026-11-14, schema
+115, see [runtime/mobile-sign-in.md](../../runtime/mobile-sign-in.md); the app (M2
+onward) is not started. Supersedes the Google Doc "Cuckoo Mobile
 App Plan" of the same day by adding Home. Design: `mobile-design-ideas.md`.
 
 ## Summary
@@ -137,7 +139,7 @@ person and workspace and cleared on sign out.
   - app name, icon and bundle id (for example `app.cuckoo.mobile`);
   - the domain for universal links;
   - public listing, or unlisted or private distribution.
-- **M1, mobile sign-in and device sessions (server):**
+- **M1, mobile sign-in and device sessions (server), done 2026-11-14:**
   - the start and exchange routes, the device-session table and bearer identity;
   - the Origin rule for bearer requests;
   - devices list and revoke;

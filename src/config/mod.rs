@@ -5,6 +5,7 @@ mod archive;
 mod connectors;
 mod controller;
 mod executor;
+mod mobile;
 mod operators;
 pub(crate) mod pipedream;
 mod reader;
@@ -14,6 +15,7 @@ pub use archive::Archive;
 pub use connectors::Connectors;
 pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
 pub use executor::{Executor, Identity};
+pub use mobile::Mobile;
 pub use pipedream::Pipedream;
 pub(crate) use reader::Reader;
 

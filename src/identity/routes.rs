@@ -49,17 +49,38 @@ pub(super) async fn login(
         input.return_to.as_deref().is_none_or(safe_return),
         "Invalid return page",
     )?;
-    let hint = input
-        .email
-        .as_deref()
-        .map(str::trim)
-        .filter(|e| !e.is_empty());
+    let hint = login_hint(input.email.as_deref())?;
+    authorize(
+        &app,
+        input.method.is_some(),
+        hint,
+        input.invitation_token,
+        input.return_to,
+        None,
+    )
+    .await
+}
+/// A trimmed email to pre-fill AuthKit with, if one was given.
+pub(super) fn login_hint(email: Option<&str>) -> anyhow::Result<Option<&str>> {
+    let hint = email.map(str::trim).filter(|e| !e.is_empty());
     check(
         hint.is_none_or(|e| {
             e.len() <= 254 && e.contains('@') && !e.chars().any(char::is_whitespace)
         }),
         "Enter a valid email",
     )?;
+    Ok(hint)
+}
+/// Save a single-use sign-in flow bound to a browser cookie and send the
+/// browser to WorkOS. `mobile_challenge` marks a sign-in the phone app started.
+pub(super) async fn authorize(
+    app: &App,
+    google: bool,
+    hint: Option<&str>,
+    invitation: Option<String>,
+    return_to: Option<String>,
+    mobile_challenge: Option<String>,
+) -> ApiResult<Response> {
     let token = random_token();
     let state = random_token();
     let verifier = random_token();
@@ -67,14 +88,7 @@ pub(super) async fn login(
     url.query_pairs_mut().extend_pairs([
         ("client_id", app.provider.client_id.as_str()),
         ("response_type", "code"),
-        (
-            "provider",
-            if input.method.is_some() {
-                "GoogleOAuth"
-            } else {
-                "authkit"
-            },
-        ),
+        ("provider", if google { "GoogleOAuth" } else { "authkit" }),
         (
             "redirect_uri",
             &format!("{}/auth/callback", app.config.origin),
@@ -83,7 +97,7 @@ pub(super) async fn login(
         ("code_challenge", &digest(&verifier)),
         ("code_challenge_method", "S256"),
     ]);
-    if let Some(invitation) = &input.invitation_token {
+    if let Some(invitation) = &invitation {
         url.query_pairs_mut()
             .append_pair("invitation_token", invitation);
     }
@@ -91,13 +105,14 @@ pub(super) async fn login(
         url.query_pairs_mut().append_pair("login_hint", email);
     }
     login_state::save(
-        &app,
+        app,
         &digest(&token),
         Pending {
             state,
             verifier,
-            invitation: input.invitation_token,
-            return_to: input.return_to,
+            invitation,
+            return_to,
+            mobile_challenge,
             expires: now() + 600,
         },
     )
@@ -105,8 +120,14 @@ pub(super) async fn login(
     let mut response = Redirect::to(url.as_str()).into_response();
     response
         .headers_mut()
-        .append(header::SET_COOKIE, set_cookie(&app, FLOW, &token, 600));
+        .append(header::SET_COOKIE, set_cookie(app, FLOW, &token, 600));
     Ok(response)
+}
+/// How a sign-in ends: a browser session cookie, or a one-time code handed
+/// back to the phone app at this address.
+enum Signed {
+    Browser(String, Option<String>),
+    Mobile(String),
 }
 #[derive(Deserialize)]
 pub(super) struct Callback {
@@ -119,9 +140,11 @@ pub(super) async fn callback(
     headers: HeaderMap,
     Query(input): Query<Callback>,
 ) -> Response {
-    let result: anyhow::Result<(String, Option<String>)> = async {
+    let mut mobile = false;
+    let result: anyhow::Result<Signed> = async {
         let token = cookie(&headers, FLOW).context("Missing sign-in cookie")?;
         let pending = login_state::take(&app, &digest(&token)).await?;
+        mobile = pending.mobile_challenge.is_some();
         anyhow::ensure!(
             pending.expires > now() && input.state.as_deref() == Some(&pending.state),
             "Sign-in state mismatch"
@@ -151,6 +174,10 @@ pub(super) async fn callback(
             .context("Missing email")?
             .to_lowercase();
         let sid = provider::exchanged_session(&data)?;
+        if let Some(challenge) = &pending.mobile_challenge {
+            let target = mobile_sign_in::finish(&app, provider, &email, &sid, challenge).await?;
+            return Ok(Signed::Mobile(target));
+        }
         let token = random_token();
         // Rotate an existing browser session instead of leaving the old token usable.
         if let Some(old) = cookie(&headers, SESSION) {
@@ -159,11 +186,12 @@ pub(super) async fn callback(
         app.store
             .login(provider, &email, &digest(&token), &sid)
             .await?;
-        Ok((token, pending.return_to))
+        Ok(Signed::Browser(token, pending.return_to))
     }
     .await;
     let mut response = match result {
-        Ok((token, return_to)) => {
+        Ok(Signed::Mobile(target)) => Redirect::to(&target).into_response(),
+        Ok(Signed::Browser(token, return_to)) => {
             let target = return_to.filter(|path| safe_return(path));
             let mut response =
                 Redirect::to(target.as_deref().unwrap_or("/?view=account")).into_response();
@@ -189,8 +217,13 @@ pub(super) async fn callback(
                 .find(|k| message.starts_with(**k))
                 .copied()
                 .unwrap_or("Provider exchange or session failed");
-            tracing::warn!(reason, "Sign-in callback refused");
-            Redirect::to("/index.html?view=account&login_error=1").into_response()
+            tracing::warn!(reason, mobile, "Sign-in callback refused");
+            if mobile {
+                Redirect::to(&mobile_sign_in::return_url(&app, "error", "sign_in_failed"))
+                    .into_response()
+            } else {
+                Redirect::to("/index.html?view=account&login_error=1").into_response()
+            }
         }
     };
     response
@@ -199,7 +232,7 @@ pub(super) async fn callback(
     response
 }
 pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Response {
-    if cookie(&headers, SESSION).is_none() {
+    if cookie(&headers, SESSION).is_none() && devices::bearer(&headers).is_none() {
         return Json(json!({"user":null})).into_response();
     }
     match identity(&app, &headers).await {
@@ -215,6 +248,9 @@ pub(super) async fn session(State(app): State<Shared>, headers: HeaderMap) -> Re
     }
 }
 pub(super) async fn logout(State(app): State<Shared>, headers: HeaderMap) -> ApiResult<Response> {
+    if let Some(revoked) = devices::sign_out(&app, &headers).await? {
+        return Ok(Json(json!({"ok":true,"provider_session_revoked":revoked})).into_response());
+    }
     let mut revoked = true;
     if let Some(token) = cookie(&headers, SESSION) {
         let hash = digest(&token);

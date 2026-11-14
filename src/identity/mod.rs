@@ -20,6 +20,7 @@ pub(crate) use identifier::identifier;
 pub(crate) mod archive;
 pub(crate) mod computers;
 pub(crate) mod data_cleanup;
+mod devices;
 mod hosting;
 mod interactions;
 mod invite_links;
@@ -28,6 +29,7 @@ mod live_metrics;
 mod login_state;
 mod member_profiles;
 mod metrics;
+mod mobile_sign_in;
 pub(crate) mod models;
 pub mod operator;
 mod pictures;
@@ -73,6 +75,8 @@ struct Pending {
     invitation: Option<String>,
     /// A Cuckoo page to open after signing in (an invite link), never an external URL.
     return_to: Option<String>,
+    /// The phone app's PKCE challenge when the app started this sign-in.
+    mobile_challenge: Option<String>,
     expires: i64,
 }
 struct App {
@@ -173,12 +177,15 @@ async fn identity_for_read(app: &App, headers: &axum::http::HeaderMap) -> ApiRes
 }
 
 async fn identity(app: &App, headers: &axum::http::HeaderMap) -> ApiResult<User> {
-    let token = cookie(headers, SESSION).ok_or_else(Error::unauthorized)?;
-    let (user, provider, sid) = app
-        .store
-        .session(&digest(&token))
-        .await?
-        .ok_or_else(Error::unauthorized)?;
+    // A browser's cookie, or a phone's device session (`devices.rs`).
+    let session = if let Some(token) = cookie(headers, SESSION) {
+        app.store.session(&digest(&token)).await?
+    } else if let Some(token) = devices::bearer(headers) {
+        app.store.device_session(&digest(&token)).await?
+    } else {
+        None
+    };
+    let (user, provider, sid) = session.ok_or_else(Error::unauthorized)?;
     if app.simulation.is_some() {
         check(
             provider.starts_with("simulation_employee_") && sid == "local-simulation",
@@ -301,6 +308,13 @@ fn router(app: Shared) -> Router {
         )
         .route("/auth/login", get(routes::login))
         .route("/auth/callback", get(routes::callback))
+        .route("/auth/mobile/start", get(mobile_sign_in::start))
+        .route("/auth/mobile/return", get(mobile_sign_in::return_page))
+        .route("/api/identity/mobile-sessions", post(mobile_sign_in::exchange))
+        .route("/api/identity/devices", get(devices::list))
+        .route("/api/identity/devices/{id}/revoke", post(devices::revoke))
+        .route("/.well-known/apple-app-site-association", get(mobile_sign_in::apple_site_association))
+        .route("/.well-known/assetlinks.json", get(mobile_sign_in::asset_links))
         .route("/api/identity/session", get(routes::session))
         .route("/api/identity/logout", post(routes::logout))
         .route("/api/identity/profile", post(profile::update))
@@ -369,12 +383,19 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     if !health && headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(host) {
         return StatusCode::FORBIDDEN.into_response();
     }
+    // The phone app sends no Origin. Without a cookie there is no ambient
+    // credential to forge, so a bearer request, or the code exchange that
+    // creates one, needs only the request marker.
+    let phone = devices::phone_request(headers)
+        || (request.uri().path() == "/api/identity/mobile-sessions"
+            && headers.get(header::COOKIE).is_none());
     if request.method() != axum::http::Method::GET
         && !library_head
         && !(request.method() == axum::http::Method::POST
             && events::routes::webhook_path(request.uri().path()))
-        && (headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
-            != Some(app.config.origin.as_str())
+        && ((!phone
+            && headers.get(header::ORIGIN).and_then(|v| v.to_str().ok())
+                != Some(app.config.origin.as_str()))
             || headers.get("x-ayati-request").and_then(|v| v.to_str().ok()) != Some("identity"))
     {
         return StatusCode::FORBIDDEN.into_response();

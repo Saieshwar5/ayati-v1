@@ -12,13 +12,22 @@ async fn owned(tx: &DatabaseTransaction, id: &str, user: &str) -> Result<bool> {
     .await?
     .is_some())
 }
+/// The account for a WorkOS user, created on first sign-in; WorkOS's verified
+/// email replaces the stored one. Returns its ID and display name.
+pub(super) async fn upsert_user(
+    tx: &DatabaseTransaction,
+    provider: &str,
+    email: &str,
+) -> Result<(String, Option<String>)> {
+    let proposed = uuid::Uuid::new_v4().to_string();
+    let row = query(tx, "INSERT INTO relay_users(id,provider,email) VALUES($1,$2,$3) ON CONFLICT(provider) DO UPDATE SET email=excluded.email RETURNING id,display_name",
+        vec![proposed.into(), provider.into(), email.into()]).await?.context("Missing user")?;
+    Ok((row.try_get("", "id")?, row.try_get("", "display_name")?))
+}
 impl PgStore {
     pub async fn login(&self, provider: &str, email: &str, hash: &str, sid: &str) -> Result<User> {
         let tx = self.db.begin().await?;
-        let proposed = uuid::Uuid::new_v4().to_string();
-        let row = query(&tx, "INSERT INTO relay_users(id,provider,email) VALUES($1,$2,$3) ON CONFLICT(provider) DO UPDATE SET email=excluded.email RETURNING id,display_name",
-            vec![proposed.into(), provider.into(), email.into()]).await?.context("Missing user")?;
-        let id: String = row.try_get("", "id")?;
+        let (id, display_name) = upsert_user(&tx, provider, email).await?;
         execute(
             &tx,
             "DELETE FROM relay_sessions WHERE expires <= $1",
@@ -41,7 +50,7 @@ impl PgStore {
         Ok(User {
             id,
             email: email.into(),
-            display_name: row.try_get("", "display_name")?,
+            display_name,
         })
     }
     pub async fn session(&self, hash: &str) -> Result<Option<(User, String, String)>> {
