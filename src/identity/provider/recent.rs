@@ -53,10 +53,41 @@ impl Provider {
         now: Instant,
     ) -> Result<bool> {
         let key = (user.to_owned(), session.to_owned(), email.to_owned());
+        self.remember(key, reading, now, self.identity_valid(user, session, email))
+            .await
+    }
+
+    /// [`Provider::account_valid`] for device sessions, trusted for reads the
+    /// same way. Their key has an empty session; WorkOS session IDs never are.
+    pub async fn account_valid_checked(
+        &self,
+        user: &str,
+        email: &str,
+        reading: bool,
+    ) -> Result<bool> {
+        let key = (user.to_owned(), String::new(), email.to_owned());
+        self.remember(
+            key,
+            reading,
+            Instant::now(),
+            self.account_valid(user, email),
+        )
+        .await
+    }
+
+    /// Answers a read from a fresh positive result, or asks WorkOS (`check`)
+    /// and keeps a positive answer.
+    async fn remember(
+        &self,
+        key: Key,
+        reading: bool,
+        now: Instant,
+        check: impl std::future::Future<Output = Result<bool>>,
+    ) -> Result<bool> {
         if reading && self.trusted.fresh(&key, now) {
             return Ok(true);
         }
-        let valid = self.identity_valid(user, session, email).await?;
+        let valid = check.await?;
         let mut map = self.trusted.0.lock().unwrap();
         if valid {
             if map.len() >= MAX_ENTRIES {

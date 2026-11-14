@@ -66,6 +66,11 @@ quick-xml = "=0.41.0"
 # 0.11.9: the mature line, only `hashify` at default features. 1.0 (October
 # 2026) is a recent rewrite with SIMD and unsafe code, so it waits.
 mail-parser = "=0.11.9"
+# Device sessions (2026-11-14): the web shows a one-time sign-in code as a QR
+# code. qrcode (MIT OR Apache-2.0) encodes it and renders SVG on the server, so
+# the browser bundle gains nothing; default features (image) are off. Tested
+# with 0.14.1.
+qrcode = { version = "=0.14.1", default-features = false, features = ["svg"] }
 # Executor AWS task identity (D227 slice 7b): official SDK credentials and SigV4
 # signing. The two read-only ECS calls are signed requests, not the very large
 # ECS SDK crate. One modern HTTPS client, no legacy TLS stack.

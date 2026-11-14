@@ -151,3 +151,8 @@
 /* An agent's Activity tab is Activity filtered to it; say so and link to the whole. */
 .agent-filtered-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: var(--soft); font-size: 13px; color: var(--muted); }
 .agent-filtered-note a { color: var(--text); font-weight: 600; }
+/* Touch screens: fact changes and tabs are full-size targets. */
+@media (pointer: coarse) {
+  .agent-fact .agent-fact-change { min-height: 44px; min-width: 44px; }
+  .agent-workspace-tabs .ui-button { min-width: 44px; }
+}

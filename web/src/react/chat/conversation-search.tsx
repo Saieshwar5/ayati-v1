@@ -17,6 +17,6 @@ export function ConversationSearch({ chat, title, directory, close }: { chat: Co
     <label className="ui-field">Words in messages
       <input ref={input} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search this conversation…" />
     </label>
-    <MessageResults query={query} chat={chat.id} chats={[chat]} directory={directory} open={open} />
+    <MessageResults query={query} chat={chat.id} chats={[chat]} directory={directory} open={open} setQuery={setQuery} />
   </Dialog>;
 }

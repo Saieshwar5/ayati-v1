@@ -135,6 +135,7 @@ pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {
         content: text.into(),
         agent: agent.map(str::to_owned),
         agents: vec![],
+        broadcast: false,
     }
 }
 

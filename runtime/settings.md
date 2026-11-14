@@ -67,7 +67,9 @@ Connections moved to the [Apps page](apps-page.md); `section=connections` links 
 - **Phones:** the sidebar list comes first, and a chosen page shows "‹ Settings".
 - **Profile** is the one place to edit your name, photo, job title and About; the
   sign-in email is shown read-only (D245, `designs/chat-and-account` screen 9).
-  The old My account page and its second name editor were removed.
+  The old My account page and its second name editor were removed. **Your phone**
+  shows a one-time QR code that signs the Cuckoo app in, and lists signed-in
+  phones with Sign out ([device sessions](device-sessions.md)).
 - **Account menu** (your photo at the foot of the rail): you, your workspaces (the
   current one ticked with your role, then All workspaces…), Settings (opens
   Profile) and Sign out; simulations add Switch employee. Edit profile, My account

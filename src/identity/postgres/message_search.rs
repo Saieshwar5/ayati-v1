@@ -56,6 +56,18 @@ pub(crate) struct SearchInput {
     /// Only messages with files.
     #[serde(default)]
     pub files: bool,
+    /// Only messages that @mention the person searching.
+    #[serde(default)]
+    pub mentions_me: bool,
+    /// Only agents' messages.
+    #[serde(default)]
+    pub agents: bool,
+    /// Only messages with a web link.
+    #[serde(default)]
+    pub links: bool,
+    /// Only thread replies.
+    #[serde(default)]
+    pub threads: bool,
     /// Older than this message sequence: the next page.
     #[serde(default)]
     pub before: Option<i64>,
@@ -176,9 +188,12 @@ impl PgStore {
               AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3))
               AND ($4::text IS NULL OR m.chat=$4) AND ($5::text IS NULL OR m.author=$5)
               AND (NOT $6 OR m.attachments<>'[]'::jsonb) AND ($7::bigint IS NULL OR m.sequence<$7)
+              AND (NOT $9 OR strpos(m.content,'](mention:user:'||$3||')')>0) AND (NOT $10 OR m.kind='agent')
+              AND (NOT $11 OR m.content ~* 'https?://') AND (NOT $12 OR m.thread IS NOT NULL)
             ORDER BY m.sequence DESC LIMIT $8",
             vec![w.into(), ts_query(&terms).into(), user.id.clone().into(), input.chat.clone().into(), input.from.clone().into(),
-                input.files.into(), input.before.into(), (PAGE + 1).into()]).await?;
+                input.files.into(), input.before.into(), (PAGE + 1).into(), input.mentions_me.into(), input.agents.into(),
+                input.links.into(), input.threads.into()]).await?;
         let more = rows.len() as i64 > PAGE;
         let mut messages = Vec::new();
         for row in rows.into_iter().take(PAGE as usize) {
@@ -195,6 +210,7 @@ impl PgStore {
         }
         let oldest = messages.last().and_then(|m| m["sequence"].as_i64());
         super::reply_views::hydrate(&tx, user, w, &mut messages).await?;
+        super::chat_bots::name_bots(&tx, w, &mut messages, false).await?;
         tx.commit().await?;
         let results: Vec<Value> = messages
             .into_iter()

@@ -47,6 +47,7 @@ fn chat(agent: &str, text: &str) -> NewMessage {
         agents: vec![],
         thread: None,
         reply_to: None,
+        broadcast: false,
     }
 }
 async fn outbox_state(db: &PgStore, w: &str, reply: &str) -> Option<(String, String)> {
@@ -131,7 +132,8 @@ async fn proven_doors_share_the_persons_direct_room_and_memory() {
     assert_eq!(claimed.reply, second.reply);
     let second = claimed;
     assert!(
-        second.prompt.contains("MAIL_FIRST_QUESTION") && second.prompt.contains("MAIL_FIRST_ANSWER")
+        second.prompt.contains("MAIL_FIRST_QUESTION")
+            && second.prompt.contains("MAIL_FIRST_ANSWER")
     );
     assert_ne!(send_update_state(&db, &second).await, "not_here");
     db.chat_finish(&second, "CHAT_ANSWER", "complete")

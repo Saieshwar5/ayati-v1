@@ -1,0 +1,51 @@
+{
+  "created_at": "2026-11-14T09:54:53.793Z",
+  "thresholds": {
+    "ratio": 0.2,
+    "floor": {
+      "ms": 50,
+      "tasks": 2,
+      "kB": 5
+    }
+  },
+  "environment": {
+    "chromium": "153.0.8010.12",
+    "cpus": 4,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "node": "v22.23.4",
+    "cpu_throttle": 1,
+    "viewport": {
+      "width": 1366,
+      "height": 900
+    },
+    "repeat": 5,
+    "source_head": "8ba5d31",
+    "server": "debug build, local simulation"
+  },
+  "fixtures": {
+    "switch_messages": 40,
+    "large_messages": 200,
+    "large_rendered_articles": 200
+  },
+  "metrics": {
+    "chat_open_cold_ms": 399.4,
+    "chat_open_from_home_ms": 110,
+    "conversation_switch_ms": 109.1,
+    "large_conversation_ms": 362.4,
+    "chat_open_cold_long_tasks": 0,
+    "chat_open_from_home_long_tasks": 0,
+    "conversation_switch_long_tasks": 0,
+    "large_conversation_long_tasks": 1,
+    "bundle_entry_gzip_kB": 271.7,
+    "bundle_total_gzip_kB": 625.4
+  },
+  "entry_assets": [
+    "assets/main-SN2z8ku3.js",
+    "assets/jsx-runtime-ByaQ0wya.js",
+    "assets/client-DwPOLqlU.js",
+    "assets/ui-S8QQ9djP.js",
+    "assets/model-glVvnux0.js",
+    "assets/model-BNkcYojG.js",
+    "assets/main-BNVyCNld.css"
+  ]
+}

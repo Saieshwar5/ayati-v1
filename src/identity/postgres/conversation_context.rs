@@ -69,6 +69,7 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
     .await?;
     // Attachment IDs become their names, types, sizes and transcripts (schema 95).
     super::transcripts::for_agents(tx, scope.workspace, scope.chat, &mut messages).await?;
+    super::chat_bots::name_bots(tx, scope.workspace, &mut messages, true).await?;
     mark_handoffs(tx, scope.workspace, &mut messages).await?;
     mark_reactions(tx, scope.workspace, scope.agent, &mut messages).await?;
     bound(&mut messages)?;

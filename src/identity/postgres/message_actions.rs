@@ -12,6 +12,9 @@ pub(super) mod agent_reactions;
 pub const REACTIONS: [&str; 12] = [
     "👍", "✅", "👀", "🙏", "🎉", "❤️", "😂", "🔥", "👏", "🤔", "😮", "💯",
 ];
+/// Reactions in words (2026-11-14): a quick status without a message. Like
+/// emoji they are feedback only and never start, approve or cancel work.
+pub const WORD_REACTIONS: [&str; 3] = ["On it", "Done", "Seen"];
 
 impl PgStore {
     /// Changes the text of the caller's own message. Agent work it already
@@ -107,7 +110,7 @@ impl PgStore {
         on: bool,
     ) -> Result<()> {
         ensure!(
-            REACTIONS.contains(&emoji),
+            REACTIONS.contains(&emoji) || WORD_REACTIONS.contains(&emoji),
             "Choose one of the offered reactions"
         );
         let tx = self.workspace_tx(w).await?;

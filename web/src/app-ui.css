@@ -81,3 +81,10 @@
 .ui-switch input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .ui-switch input:disabled { opacity: .5; cursor: not-allowed; }
 .ui-switch span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* Touch screens: shared controls are at least 44×44 px (WCAG 2.5.5,
+   runtime/layout-and-speed-checks.md). Mouse layouts keep their density. */
+@media (pointer: coarse) {
+  .ui-button { min-height: 44px; }
+  .ui-icon { width: 44px; min-width: 44px; }
+  .ui-search { min-height: 44px; }
+}

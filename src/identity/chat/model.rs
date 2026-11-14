@@ -68,6 +68,9 @@ pub struct NewMessage {
     /// An earlier message of the same conversation (and thread) this one quotes.
     #[serde(default)]
     pub reply_to: Option<String>,
+    /// A thread reply that is also shown in the conversation (schema 115).
+    #[serde(default)]
+    pub broadcast: bool,
 }
 /// The most agents one message may ask (the owner's decision of 2026-11-07).
 pub const MAX_AGENTS: usize = 3;

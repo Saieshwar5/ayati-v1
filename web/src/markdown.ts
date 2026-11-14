@@ -8,6 +8,8 @@ const parser = new Marked({ gfm: true, breaks: true, renderer: {
   // Remote model-generated images must not make tracking requests. Uploaded media
   // uses the authenticated attachment renderer instead.
   image: ({ text }) => escape(text),
+  // A fenced block gets a Copy button, handled by one listener per window (below).
+  code: ({ text }) => `<pre class="message-code"><button type="button" class="message-code-copy" aria-label="Copy code">Copy</button><code>${escape(text)}</code></pre>`,
   link({ href, tokens }) {
     const text = this.parser.parseInline(tokens);
     if (/^mention:(user|agent):[a-zA-Z0-9_-]+$/.test(href)) return `<span class="message-mention">${text}</span>`;
@@ -23,13 +25,24 @@ const parser = new Marked({ gfm: true, breaks: true, renderer: {
 } });
 let purifier: ReturnType<typeof createDOMPurify> | undefined;
 let owner: Window | undefined;
+/** Copies a code block's text. Delegated, so markup set as HTML needs no handlers of its own. */
+function copyCode(event: MouseEvent) {
+  const button = (event.target as Element | null)?.closest?.('button.message-code-copy');
+  const code = button?.closest('pre')?.querySelector('code');
+  if (!button || !code) return;
+  const view = button.ownerDocument.defaultView;
+  const say = (text: string) => { button.textContent = text; view?.setTimeout(() => { button.textContent = 'Copy'; }, 2000); };
+  const clipboard = view?.navigator.clipboard;
+  if (!clipboard) { say('Copy failed'); return; }
+  void clipboard.writeText(code.textContent ?? '').then(() => say('Copied'), () => say('Copy failed'));
+}
 /** One HTML boundary for React and the remaining private transcript. Never bypass it. */
 export function messageHtml(content: string): string {
   const current = document.defaultView!;
-  if (owner !== current) { owner = current; purifier = createDOMPurify(current); }
+  if (owner !== current) { owner = current; purifier = createDOMPurify(current); current.document.addEventListener('click', copyCode); }
   return purifier!.sanitize(parser.parse(content, { async: false }), {
-    ALLOWED_TAGS: ['p','br','strong','em','del','blockquote','h1','h2','h3','h4','h5','h6','ul','ol','li','pre','code','hr','table','thead','tbody','tr','th','td','a','span'],
-    ALLOWED_ATTR: ['href','title','target','rel','class','start'],
+    ALLOWED_TAGS: ['p','br','strong','em','del','blockquote','h1','h2','h3','h4','h5','h6','ul','ol','li','pre','code','hr','table','thead','tbody','tr','th','td','a','span','button'],
+    ALLOWED_ATTR: ['href','title','target','rel','class','start','type','aria-label'],
     ALLOW_DATA_ATTR: false,
   });
 }

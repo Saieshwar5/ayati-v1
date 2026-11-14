@@ -238,6 +238,7 @@ impl PgStore {
             agents: vec![],
             thread: None,
             attachments: vec![],
+            broadcast: false,
         };
         let chat: String = row.try_get("", "chat")?;
         let intake = tx.begin().await?;

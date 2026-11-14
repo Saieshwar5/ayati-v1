@@ -144,6 +144,10 @@ person and workspace and cleared on sign out.
   - universal-link files;
   - PostgreSQL tests for a wrong verifier, an expired or reused code, revocation, a
     removed member, and bearer without cookie.
+  - **Started 2026-11-14:** sign-in by scanning a QR code from Profile › Your phone,
+    device sessions, bearer identity, the Origin rule, and the device list with
+    sign-out are built (schema 117, [device sessions](../../runtime/device-sessions.md)).
+    Still to do: the browser PKCE start and exchange routes and universal-link files.
 - **M2, app skeleton, Chat and Home:**
   - the Expo app and the `shared/` package;
   - sign-in and the workspace picker;

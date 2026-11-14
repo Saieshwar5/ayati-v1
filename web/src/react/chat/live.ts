@@ -2,6 +2,7 @@ import { workspaceId, workspaceSession, storageScope } from '../../workspace-con
 import { chatRequest, type Message } from './model';
 import { flushOutbox, stopOutbox, subscribeSent } from './outbox';
 import { applyPresence } from './presence';
+import { outdated, showNotice } from './live-notice';
 export type Change = { kind: 'message' | 'access' | 'reset' | 'sample_access' | 'event_access' | 'panel_access' | 'agents'; source?: string; chat?: string; message?: Message };
 const subscribers = new Set<(change: Change) => void>();
 const statusSubscribers = new Set<() => void>();
@@ -69,6 +70,9 @@ export function startLive() {
   let stopped = false, stream: EventSource | undefined, retry: number | undefined, cursor: string | undefined;
   try { cursor = sessionStorage.getItem(storageScope('relay.sync-cursor')) ?? undefined; } catch { /* A fresh snapshot is safe. */ }
   let failures = 0, lastEvent = Date.now();
+  // Messages replayed since the connection came back after a visible drop;
+  // undefined while connected without a gap.
+  let caughtUp: Set<string> | undefined;
   const connect = () => {
     if (stopped || !window.navigator.onLine) return;
     lastEvent = Date.now(); setStatus('Connecting…');
@@ -76,19 +80,28 @@ export function startLive() {
     stream.addEventListener('changes', event => {
       if (stopped) return;
       lastEvent = Date.now();
-      const data = JSON.parse((event as MessageEvent).data) as { cursor: number; reset?: boolean; events: Change[] };
+      const data = JSON.parse((event as MessageEvent).data) as { cursor: number; more?: boolean; reset?: boolean; events: Change[] };
+      // A cursor older than the server keeps changes for: screens reload instead.
+      if (data.reset && cursor) { caughtUp = undefined; showNotice({ kind: 'reloaded' }); }
       // Publish before advancing: reconnection can safely replay anything not applied.
       if (data.reset) subscribers.forEach(fn => fn({ kind: 'reset' }));
       for (const change of data.events) {
         subscribers.forEach(fn => fn(change));
         if (change.chat && change.message) acknowledge(change.chat, [change.message]);
+        if (change.kind === 'message' && change.message) caughtUp?.add(change.message.id);
       }
+      if (caughtUp && !data.more) { showNotice({ kind: 'back', messages: caughtUp.size }); caughtUp = undefined; }
       cursor = String(data.cursor);
       try { sessionStorage.setItem(storageScope('relay.sync-cursor'), cursor); } catch { /* Reconnect within this page still replays. */ }
       failures = 0; setStatus('Connected');
     });
     // A sign of life only: no change to publish and no status to show.
     stream.addEventListener('alive', () => { lastEvent = Date.now(); });
+    // Sent first on every stream: the web build the server now hands out.
+    stream.addEventListener('version', event => {
+      lastEvent = Date.now();
+      try { if (outdated((JSON.parse((event as MessageEvent).data) as { client?: unknown }).client)) showNotice({ kind: 'updated' }); } catch { /* The next stream says it again. */ }
+    });
     // Who is online and their statuses: everyone after connecting, then each change.
     stream.addEventListener('presence', event => {
       if (stopped) return;
@@ -97,7 +110,7 @@ export function startLive() {
     });
     const reconnect = () => {
       if (stopped) return;
-      stream?.close(); setStatus('Reconnecting… Messages remain on this device until confirmed.');
+      stream?.close(); caughtUp ??= new Set(); setStatus('Reconnecting… Messages remain on this device until confirmed.');
       retry = window.setTimeout(connect, Math.min(30_000, 1000 * 2 ** Math.min(failures++, 5)) + Math.random() * 500);
     };
     stream.onerror = reconnect;
@@ -120,10 +133,10 @@ export function startLive() {
   };
   void detect();
   const timer = window.setInterval(() => {
-    if (receiptsEnabled && ['Connected', 'Connecting…'].includes(status) && window.navigator.onLine && Date.now() - lastEvent > (status === 'Connecting…' ? CONNECT_LIMIT_MS : SILENT_STREAM_LIMIT_MS)) { stream?.close(); clearTimeout(retry); setStatus('Reconnecting…'); connect(); }
+    if (receiptsEnabled && ['Connected', 'Connecting…'].includes(status) && window.navigator.onLine && Date.now() - lastEvent > (status === 'Connecting…' ? CONNECT_LIMIT_MS : SILENT_STREAM_LIMIT_MS)) { stream?.close(); clearTimeout(retry); caughtUp ??= new Set(); setStatus('Reconnecting…'); connect(); }
     if (receiptsEnabled) void flushReceipts(); void flushOutbox().catch(() => setStatus('Local message storage unavailable. Keep your draft.')); }, 1000);
   const online = () => { stream?.close(); clearTimeout(retry); if (receiptsEnabled) connect(); else void detect(); void flushOutbox().catch(() => {}); };
-  const offline = () => { stream?.close(); clearTimeout(retry); setStatus('Offline · messages are kept on this device until confirmed.'); };
+  const offline = () => { stream?.close(); clearTimeout(retry); caughtUp ??= new Set(); setStatus('Offline · messages are kept on this device until confirmed.'); };
   window.addEventListener('online', online); window.addEventListener('offline', offline);
   retryNow = () => { failures = 0; online(); };
   return () => { stopped = true; retryNow = undefined; unsubscribeSent(); stream?.close(); clearTimeout(retry); window.clearInterval(timer); window.clearInterval(fallback); window.removeEventListener('online', online); window.removeEventListener('offline', offline); delivered.clear(); seen.clear(); stopOutbox(); };

@@ -135,6 +135,7 @@ impl PgStore {
             None
         };
         messages.reverse();
+        super::chat_bots::name_bots(&tx, &job.workspace, &mut messages, true).await?;
         let result = json!({"state":"available","conversation":job.chat,"messages":messages,
             "next_before":next,"scanned":result["scanned"],"query":input.query.trim(),
             "scope":"Current task conversation only; source-bearing replies are excluded. Display names are current profile values. Follow next_before to continue scanning older eligible history."});

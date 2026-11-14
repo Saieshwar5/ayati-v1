@@ -25,6 +25,8 @@ import { useUnreadCounts } from './unread-counts';
 import { useConversationOrder } from './conversation-order';
 import { applyPresence, clearPresence } from './presence';
 import { PresenceWords, StatusEmoji } from './presence-view';
+import { ChatListNote, UnreadOnlySwitch, useChatListFilter } from './chat-list-filter';
+import { ShortcutsDialog, useChatShortcuts } from './chat-shortcuts';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
@@ -39,12 +41,14 @@ export function WorkspaceChat({ href }: { href: string }) {
   const [search, setSearch] = useState(false);
   const [chooser, setChooser] = useState<'channel' | 'direct'>();
   const [people, showPeople] = useState(false);
+  const [shortcuts, showShortcuts] = useState(false);
   const [panel, setPanel] = useState<PanelView>();
   const [showList, setShowList] = useState(!selected);
   const refresh = useRef<() => Promise<void>>(async () => {});
   const pins = usePinActions(preferences, next => setPreferences(previous => previous && previous.revision > next.revision ? previous : next), sourceEpoch, () => refresh.current());
   const pinned = (pin: Pin) => preferences?.pins.some(item => samePin(item, pin)) ?? false;
   const order = useConversationOrder(chats, refresh);
+  const filter = useChatListFilter({ chats, selected, unread, mentioned, levels });
   useEffect(() => {
     const abort = new AbortController(); let busy = false, again = false;
     const load = async () => {
@@ -80,14 +84,30 @@ export function WorkspaceChat({ href }: { href: string }) {
       {directory ? <ConversationFace chat={chat} directory={directory} /> : <span className="chat-avatar channel">#</span>}
       <span>{partner ? <ParticipantName kind={partner.kind} name={name} /> : <span className="chat-name-text">{name}</span>}
         {partner?.kind === 'user' && <><StatusEmoji id={partner.who.id} /><PresenceWords id={partner.who.id} /></>}{chat.archived && <small>Archived</small>}</span>
-      {levels[chat.id] === 'none' && <span className="chat-muted" title="Muted"><BellIcon muted /></span>}
+      {['none', 'hide'].includes(levels[chat.id]) && <span className="chat-muted" title={levels[chat.id] === 'hide' ? 'Hidden until someone mentions you' : 'Muted'}><BellIcon muted /></span>}
       {count > 0 && <small className={`chat-unread${mentioned[chat.id] ? ' chat-unread-mention' : ''}`} aria-label={`${count} unread messages${mentioned[chat.id] ? `, ${mentioned[chat.id]} for you` : ''}`}>{count}</small>}
     </a><PinButton pin={{ kind: 'chat', id: chat.id }} name={name} preferences={preferences} busy={pins.busy} toggle={pins.toggle} /></div>;
   };
-  const activePinned = preferences?.pins.flatMap(pin => {
+  const pinnedChats = preferences?.pins.flatMap(pin => {
     const chat = chats.find(chat => chat.id === pin.id && !chat.archived);
-    return chat ? [contact(chat)] : [];
+    return chat && filter.visible(chat) ? [chat] : [];
   }) ?? [];
+  const activePinned = pinnedChats.map(contact);
+  const channelChats = order.chats.filter(chat => chat.kind !== 'direct' && !chat.archived && !pinned({ kind: 'chat', id: chat.id }) && filter.visible(chat));
+  const directChats = order.chats.filter(chat => chat.kind === 'direct' && !pinned({ kind: 'chat', id: chat.id }) && filter.visible(chat));
+  // The list as it reads, top to bottom, for moving with Alt+↑/↓.
+  const listed = [...pinnedChats, ...channelChats, ...directChats];
+  useChatShortcuts({
+    search: () => { if (directory) setSearch(true); },
+    shortcuts: () => showShortcuts(true),
+    move: (step, unreadOnly) => {
+      const at = listed.findIndex(chat => chat.id === selected);
+      for (let i = 1; i <= listed.length; i++) {
+        const next = listed[((at < 0 && step < 0 ? 0 : at) + step * i + listed.length * i) % listed.length];
+        if (next.id !== selected && (!unreadOnly || (unread[next.id] ?? 0) > 0)) { open(next.id); return; }
+      }
+    },
+  });
   const archived = order.chats.filter(chat => chat.archived && chat.kind !== 'direct');
   const messageTarget = (target: ProfileTarget & { name: string }) => {
     const who = target.kind === 'user' ? directory?.users.find(user => user.id === target.id) : directory?.agents.find(agent => agent.id === target.id);
@@ -111,11 +131,11 @@ export function WorkspaceChat({ href }: { href: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       </Button>
     </header>
-      <div className="chat-directory-scroll"><AlertsPrompt />{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
-        {order.chats.filter(chat => chat.kind !== 'direct' && !chat.archived && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
+      <div className="chat-directory-scroll"><AlertsPrompt /><UnreadOnlySwitch filter={filter} />{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
+        {channelChats.map(contact)}
         {!chats.some(chat => chat.kind !== 'direct' && !chat.archived) && <p className="chat-help">Organize work with your team.</p>}
-      </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{order.chats.filter(chat => chat.kind === 'direct' && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
-      </section>{archived.length > 0 && <section><header><Button className="chat-archive-toggle" aria-expanded={archivedVisible} onClick={() => showArchived(value => !value)}>Archived channels ({archived.length})</Button></header>{archivedVisible && archived.map(contact)}</section>}</div>
+      </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{directChats.map(contact)}
+      </section><ChatListNote filter={filter} />{archived.length > 0 && <section><header><Button className="chat-archive-toggle" aria-expanded={archivedVisible} onClick={() => showArchived(value => !value)}>Archived channels ({archived.length})</Button></header>{archivedVisible && archived.map(contact)}</section>}</div>
       <Button className="chat-people-button" disabled={!directory} onClick={() => showPeople(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0" /><rect x="15" y="9" width="7" height="6" rx="2" /></svg>
         People &amp; agents{directory && <small>{directory.users.length} · {directory.agents.length}</small>}
@@ -136,6 +156,7 @@ export function WorkspaceChat({ href }: { href: string }) {
       left={() => { setPanel(undefined); setShowList(true); navigate(workspaceUrl('/?view=chat')); void refresh.current(); }} />}
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
+    {shortcuts && <ShortcutsDialog close={() => showShortcuts(false)} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
   </div></ShowProfile.Provider>;
 }

@@ -17,3 +17,5 @@
 .company-simulation-banner { padding:6px 16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); flex-shrink:0; }
 
 .company-run { padding:12px 0; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }.company-run summary { cursor:pointer; font-weight:600; }.company-run li { margin:8px 0; }.company-run pre { white-space:pre-wrap; }
+/* Touch screens: the link back to the source conversation is a full-height target. */
+@media (pointer: coarse) { .company-rows article > a { display:inline-flex; align-items:center; min-height:44px; } }

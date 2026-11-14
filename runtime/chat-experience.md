@@ -23,6 +23,51 @@ The combined entry bundle grows from 93.73 kB gzip to about 122 kB gzip in the l
 production build; the lazy private-chat bundle remains about 18 kB gzip. This cost
 includes the composer and media/mention changes, not only the two libraries.
 
+## Code, long messages and link previews (schema 118, 2026-11-14)
+
+- **Copy code.** Every fenced code block (`markdown.ts`, so people's messages, agents'
+  replies and the reader alike) gets a Copy button that copies just the code and says
+  "Copied". One delegated click listener per window handles it, so HTML set from
+  Markdown needs no handlers. Typed HTML is still escaped: only the renderer makes the
+  button, which the sanitizer allows with `type` and `aria-label`.
+- **Show more.** A person's message over 1,200 characters or 14 lines folds to about
+  16 lines with a fade, and "Show more" / "Show less" (`aria-expanded`). Agents'
+  replies keep their own expanding reader.
+- **Link previews.** The first http(s) link of a person's sent message gets a card:
+  site, title and up to two lines of description, linking to the page
+  (`noopener noreferrer`). Never a picture: loading a remote image would tell that site
+  who reads the conversation. The browser asks
+  `GET …/chats/{chat}/messages/{message}/link-preview` once per message and revision,
+  and only when the message scrolls into view.
+  - The server reads the link from the message itself, after the same access check as
+    reading the conversation, so nobody can make it fetch an arbitrary address.
+    Agents' replies get no preview (they have per-viewer views of their own).
+  - Fetching is fenced like a remote MCP connection (`chat/link_preview.rs`): http(s)
+    on ports 80 and 443, no credentials in the address, the host resolved once and
+    pinned to its public IPv4 addresses (private, loopback, link-local, CGNAT and the
+    cloud metadata address are refused; IPv6-only hosts get no preview), each of up to
+    three redirects checked again, no proxy, 5 seconds, `text/html` only, 256 KiB
+    read. At most four pages are fetched at once per process; a busy server answers no
+    preview rather than queueing.
+  - The page's own Open Graph, Twitter and plain `description`/`<title>` tags give the
+    preview, with entities decoded and lengths cut (title 200, site 80, description
+    300). The site falls back to the host without `www.`.
+  - `relay_link_previews(url, preview, fetched)` (schema 118) caches an answer a day
+    and a page without a preview an hour. It holds what public pages say about
+    themselves, never who posted or read a link.
+- **Checks.** Rust `link_preview_tests` (first link, meta tags in order, entities,
+  multibyte text; a local server for redirects, non-HTML and missing pages; refusing
+  this machine, `localhost`, private and metadata addresses, credentials and `file:`);
+  PostgreSQL `link_previews_tests` (only readable people's messages, deleted ones none,
+  the day and hour cache); web `tests/chat-message-text.test.mjs` (Copy copies the
+  code, typed buttons are text, folding, one read per message on screen, no read
+  without a link or for an agent, only http(s) cards, no picture).
+
+## Bots
+
+Channels can have bots that post through a Slack-compatible webhook, tagged BOT and
+never able to ask agents or approve anything: see [bots in channels](chat-bots.md).
+
 ## Mentions
 
 Typing `@` searches eligible people and requestable agents. Arrow keys move through
@@ -43,8 +88,31 @@ mentions it adds with the same rules (people who can read the conversation, well
 identities). An edit never asks an agent, so adding an agent mention is refused with
 "Editing does not ask an agent. Send a new message to ask it."; mentions already in
 the message stay as they are. Human mentions are
-highlighted in the conversation and participate in ordinary unread/receipt behavior;
+highlighted in the conversation (a whole message that mentions you also stands out, see
+below) and participate in ordinary unread/receipt behavior;
 this increment does not add a separate mention inbox, email or push notifications.
+
+## Mentions of you, quick edit and shortcuts (2026-11-14)
+
+- **Mentions of you stand out.** A person's message that @mentions you gets the warm
+  warning surface and "mentions you" after the time, so it does not rely on colour
+  alone (forced colours outline it). Your own messages and agents' replies are not
+  highlighted; agents' replies to you already turn the unread count red.
+- **↑ edits your last message.** In an empty composer, ↑ (no modifier) opens your
+  newest sent message in the conversation for editing, the same editor as Edit
+  message; Enter saves, Escape cancels and focus returns to the composer. With a draft,
+  ↑ moves in the text as usual. Editing is held by the conversation
+  (`ConversationPane` → `ChatMessage editing`), so the composer can start it.
+- **Shortcuts** (`web/src/react/chat/chat-shortcuts.tsx`, one window listener while
+  Chat is open): ⌘K / Ctrl+K opens Search; ⌘/ / Ctrl+/ lists every shortcut; Alt+↓ and
+  Alt+↑ open the next or previous conversation in the list as it reads (pinned,
+  channels, direct messages, after the Unread only and hidden filters); Alt+⇧+↓ and
+  Alt+⇧+↑ the next or previous unread one. Arrows are left alone while a dialog is
+  open. The list shows ⌘ and ⌥ on Apple devices and Ctrl and Alt elsewhere, and names
+  only shortcuts that exist.
+- **Checks.** `web/tests/chat-shortcuts.test.mjs`: the highlight on a mention of you
+  only, ↑ with and without a draft, the newest own message, Escape returning focus,
+  saving the edit, ⌘K, ⌘/, Alt+↓ and Alt+⇧+↓.
 
 ## Several agents in one message (schema 99)
 
@@ -125,8 +193,9 @@ never starts, approves or cancels anything. Two things changed instead.
 
 - **Feedback in context.** When an agent answers later in a conversation, each of its
   own replies in the evidence carries the reactions people left on it, as
-  `reactions: [{"emoji":"👍","count":2}]`, most chosen first. Counts only: Chat shows
-  nobody's name on a reaction, so neither does the context. Reactions on people's or
+  `reactions: [{"emoji":"👍","count":2}]`, most chosen first. Counts only: since
+  2026-11-14 Chat names who reacted to the people reading, but the agent's context
+  still names nobody. Reactions on people's or
   other agents' messages are left out, and at most the 20 latest reacted replies keep
   theirs. The prompt says they are feedback on that reply (👍 or ✅ that it helped, 🤔
   that it was doubtful) and untrusted data like message text, never instructions or
@@ -177,6 +246,24 @@ never starts, approves or cancels anything. Two things changed instead.
   (name, face, not a toggle, picker unchanged) and `tests/chat-several-agents.test.mjs`
   (an emoji-only send shows both agents' reactions and no waiting or typing reply).
 
+## Word reactions and who reacted (2026-11-14)
+
+- **Words.** "On it", "Done" and "Seen" are reactions beside the twelve emoji
+  (`WORD_REACTIONS` in `postgres/message_actions.rs` and `message-actions.tsx`), offered
+  across the top of the picker. They are a quick status without a message, and like
+  emoji they never start, approve or cancel anything. The stored value is the word
+  itself (within the existing 8-character limit); no migration was needed. An agent's
+  own reaction to an emoji-only message still uses the emoji set only.
+- **Who reacted.** Each of people's reactions now carries `users`: the first ten
+  people who chose it, earliest first (history pages, focused pages and live changes).
+  The chip's title and accessible name say "Ravi Kumar, You, A former member and 2
+  others reacted 👍", then "Remove yours" or "Add yours". The names come from the
+  directory the reader already sees; a server without `users` reads "3 people reacted".
+- **Checks.** PostgreSQL `message_action_tests` (word reactions accepted, other words
+  refused, `users` in order on live and history payloads) and the schema 101 upgrade
+  test; web `tests/chat-message-actions.test.mjs` (names on the chip, a word chip, the
+  three words in the picker and their requests, wording for one, two and many).
+
 ## Presence and status (D245)
 
 People show who is around (`designs/chat-and-account` screens 2, 3, 9, 10): a green
@@ -194,6 +281,37 @@ The header no longer shows your own connection; a thin banner appears only while
 are offline or reconnecting. The browser keeps one presence store fed by
 `/chat-directory` and the live stream's `presence` events, with no extra polling.
 Server design, write rate and privacy: [presence and status](reliable-messaging.md#presence-and-status-schema-98-d245).
+
+## Threads beside the conversation (schema 115, 2026-11-14)
+
+A thread opens in the panel beside the conversation that Details and profiles use
+(`web/src/react/chat/thread.tsx`, `SidePanel`), so the conversation stays readable
+while replying; it is no longer a modal drawer. The thread and Details take turns:
+opening one closes the other. Escape or × closes the thread and focus returns to
+what opened it. The replies scroll and the composer stays at the bottom of the panel.
+
+- **Summary under the first message.** "4 replies · last 10:52" (a date on another
+  day). The server returns `thread_replies` and `thread_last` with every message
+  (history pages, focused pages and live changes): replies that are not working
+  updates and not deleted, counted through `relay_messages_by_thread`. Older clients
+  and pages before schema 115 fall back to counting the loaded replies.
+- **Live.** Adding or deleting a reply records a change for its root
+  (`relay_thread_reply_changed`), so every open screen refreshes the count without
+  reloading the thread.
+- **Also send to the conversation.** Under the thread composer, "Also send to
+  #orders" ("the conversation" in a direct message) posts the reply in the thread and
+  shows it in the main timeline too, with "Replied in a thread: …" and View thread.
+  The choice is for one reply. `POST …/messages` takes `broadcast: true` only with a
+  `thread` ("Only a thread reply can also be sent to the conversation"); the column
+  `relay_chat_messages.broadcast` has a matching check. An outbox retry must repeat
+  the same choice ("Message ID already used" otherwise), and ordinary replies keep
+  sending the earlier payload. It still counts as a thread reply, and agents asked in
+  it answer in the thread.
+- **Checks.** PostgreSQL `chat_threads_tests` (count and last time, the root's live
+  change on a new and a deleted reply, broadcast only from a thread, the saved flag,
+  exact retries); web `tests/chat-threads.test.mjs` (server count over the loaded
+  page, the main timeline shows only broadcast replies with their thread line, the
+  side panel, the checkbox payload and reset, Details taking turns, reply times).
 
 ## Replies and media
 
@@ -245,6 +363,19 @@ for 12 messages; this remains a small local measurement, not a production guaran
 Dependency audit reports no advisory for the new parser/sanitizer. It reports an
 existing Vite 8.3.2 development-server launch-editor advisory; that unrelated tool
 upgrade is not included in this change. Normal use here serves built static assets.
+
+## Live check of the 2026-11-14 chat improvements
+
+Against the company simulation server (schema 119, production client build, Chromium
+headless; 1280×720 light and 390×844 dark, touch): a bot webhook posted without a
+cookie or Origin and a wrong secret got 404; the thread summary read "2 replies · last
+…"; the broadcast reply showed in the conversation with its thread line; a mention of
+the reader stood out; code had Copy; the long message folded; the bot message was
+tagged BOT, its button became a link and its mention stayed plain text; the thread
+opened beside the conversation with "Also send to #…" (and covered it on the phone);
+↑ opened the last message for editing; Ctrl+/ listed the shortcuts; Ctrl+K search
+with `in:#…` and From me found the reply; Details listed the bot; no sideways scroll
+at 390 px with or without the thread; no page errors (18 of 18).
 
 ## Compact design follow-up
 

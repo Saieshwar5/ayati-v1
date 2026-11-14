@@ -1,6 +1,6 @@
 .workspace-menu-trigger { align-self:center; width:36px; min-height:36px; padding:4px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-size:12px; font-weight:600; }
 .workspace-menu-trigger:hover, .workspace-menu-trigger[aria-expanded=true] { background:var(--selection); }
-.workspace-profile-trigger { display:grid; place-items:center; border:0; background:transparent; width:42px; border-radius:12px; }
+.workspace-profile-trigger { display:grid; place-items:center; border:0; background:transparent; width:44px; border-radius:12px; }
 .workspace-profile-avatar.face { width:30px; height:30px; font-size:11px; }
 /* Account menu (designs/chat-and-account screen 9): you, workspaces, then Settings and Sign out. */
 .workspace-menu { position:fixed; inset:64px auto auto 82px; margin:0; width:min(300px,calc(100vw - 94px)); max-height:calc(100dvh - 24px); overflow:auto; padding:6px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); box-shadow:0 12px 36px var(--shadow-deep); }

@@ -2,7 +2,7 @@ import { storageScope, workspaceSession } from '../../workspace-context';
 import { chatRequest, type Message } from './model';
 /** `agents` asks up to three agents; `agent` is how entries saved by an earlier
  * version asked one, and the server still accepts it. */
-export type Submission = { id: string; content: string; agents?: string[]; agent?: string; thread?: string; reply_to?: string; attachments: string[] };
+export type Submission = { id: string; content: string; agents?: string[]; agent?: string; thread?: string; reply_to?: string; attachments: string[]; /** A thread reply also shown in the conversation; sent only when true. */ broadcast?: true };
 /** The agents a pending message asks. */
 export const askedAgents = (payload: Submission): string[] => payload.agents ?? (payload.agent ? [payload.agent] : []);
 export type PendingMessage = { key: string; scope: string; chat: string; payload: Submission; at: number; state: 'waiting' | 'sending' | 'checking' | 'failed' | 'paused' | 'sent'; error?: string; attempts: number; next: number };

@@ -197,7 +197,7 @@ test('the connection banner shows only while offline or reconnecting', async () 
     assert.equal(offline.getAttribute('role'), 'status');
     assert.match(named(offline), /^You’re offline\. Messages you send will go out when you’re back\.\s*Retry$/);
     for (const trying of ['Reconnecting… Messages remain on this device until confirmed.', 'Reconnecting…', 'Cannot reach server. Pending messages are kept on this device.']) {
-      assert.equal(named(await shown(trying)), 'Reconnecting…', trying);
+      assert.equal(named(await shown(trying)), 'Reconnecting… You can keep writing; messages send when you’re back.', trying);
     }
   }, { url, fetch: fetcher([]) });
 });

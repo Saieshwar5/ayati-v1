@@ -34,6 +34,9 @@
 .chat-connection-banner { display: flex; align-items: center; gap: 10px; margin: 8px 16px 0; padding: 7px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; }
 .chat-connection-banner.offline { background: var(--warning-bg); color: var(--warning); }
 .chat-connection-banner.reconnecting { background: var(--soft); color: var(--muted); }
+.chat-connection-banner.back { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.chat-connection-banner.reloaded { background: var(--soft); color: var(--text); }
+.chat-connection-banner.updated { background: var(--selection); color: var(--text); }
 .chat-connection-banner > svg { flex: none; width: 16px; height: 16px; }
 .chat-connection-banner > span { flex: 1; min-width: 0; }
 .chat-connection-banner .ui-button { min-height: 28px; padding: 3px 10px; border-color: transparent; background: transparent; color: inherit; font-weight: 600; }

@@ -19,7 +19,7 @@ export function ConversationHeader({ chat, directory, title, back, search, level
     : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`,
       chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
   return <header className="chat-pane-header">
-    <Button className="chat-back" onClick={back}>‹ Chats</Button>
+    <Button className="chat-back" onClick={back}>‹<span className="chat-back-label"> Chats</span></Button>
     {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} onClick={details.show}>
       <ConversationFace chat={chat} directory={directory} />
     </button> : <ConversationFace chat={chat} directory={directory} />}
@@ -34,7 +34,11 @@ export function ConversationHeader({ chat, directory, title, back, search, level
     </Button>
     {chat.kind !== 'direct' && <HeaderFaces chat={chat} directory={directory} details={details} />}
     <NotifyMenu chat={chat} level={level} changed={levelChanged} />
-    <Button className="chat-details-toggle" aria-expanded={details.open} onClick={details.toggle}>{chat.kind === 'direct' ? 'Profile' : 'Details'}</Button>
+    {/* On the narrowest phones the words hide and an ⓘ stays, so the name keeps its room. */}
+    <Button className="chat-details-toggle" aria-expanded={details.open} onClick={details.toggle}>
+      <svg className="chat-details-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+      <span className="chat-details-label">{chat.kind === 'direct' ? 'Profile' : 'Details'}</span>
+    </Button>
   </header>;
 }
 

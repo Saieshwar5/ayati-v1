@@ -172,15 +172,31 @@ ordinary reply actions on hover/focus, keeping them available on touch devices.
 The message toolbar sits beside a message on hover or focus (on its top edge on
 phones): three quick reactions, a reaction picker, reply in thread and More.
 More offers Edit and Delete only on your own messages, plus Copy link. Reactions
-are a fixed set of twelve, shown as chips under the message; they never approve
+are a fixed set of twelve emoji and three words (On it, Done, Seen, across the top of
+the picker), shown as chips under the message; hovering or focusing a chip names who
+chose it ("Meera, You and 2 others reacted 👍", from the first ten); they never approve
 or request work. An agent acknowledging an emoji-only message shows beside them as
 its face, name and emoji ("Atlas reacted 👍"), in the same chip shape on the surface
 colour, never a toggle (D246). Edits show "edited"; deleting asks first, leaves "Message
 deleted" in place and stops agent work the message started that has not finished.
 
+Touch screens (`pointer: coarse`) get 44×44 px targets for every control, from the shared
+`.ui-button`, `.ui-icon` and `.ui-search` up to faces and inline links, whose tap areas
+grow without moving text; mouse layouts keep their density. The phone layout audit
+(`./tools/company-simulation.sh layout`, [layout and speed checks](layout-and-speed-checks.md))
+checks this at nine sizes in both themes.
+
 Notifications are personal. The conversation header's bell offers All new
-messages, @mentions and replies, or Nothing; direct messages default to all and
-channels to mentions. Muted rows show a crossed bell and keep their count. A count
+messages, @mentions and replies, Nothing, or Nothing, and hide it; direct messages
+default to all and channels to mentions. Muted rows show a crossed bell and keep their
+count. A hidden conversation (schema 116, never a default) alerts nothing and leaves
+the Chat list until something there mentions you; a note under the list says how many
+are hidden, with Show them. "Unread only", a switch at the top of the list with the
+number of unread conversations, shows just those (the open one always stays) and is
+remembered per person and workspace in local storage. With it on, a note says how many
+others are read, or "You're all caught up", with Show all
+(`web/src/react/chat/chat-list-filter.tsx`; checks `tests/chat-list-filter.test.mjs`
+and PostgreSQL `chat_notification_tests`). A count
 turns red when something unread is for you (an @mention or an agent's reply to your
 request). Desktop alerts use the browser's notifications while Cuckoo is open, on
 any page, once the person allows them from the one-time prompt in the chat list;

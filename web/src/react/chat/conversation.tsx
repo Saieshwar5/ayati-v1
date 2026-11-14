@@ -43,6 +43,8 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const [error, setError] = useState('');
   const [searching, setSearching] = useState(false);
   const [thread, setThread] = useState<string>();
+  // The message being edited in place; ↑ in the empty composer starts it on your last one.
+  const [editingId, setEditingId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const directAgent = chat.kind === 'direct' ? chat.agents[0] ?? '' : '';
   const draftKey = storageScope(`relay.chat.draft.${chat.id}`);
@@ -192,7 +194,18 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   };
   const allMessages = mergeMessages(focused, older, history?.messages ?? []);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
-  const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
+  // Thread replies stay in their thread, unless they were also sent here (schema 115).
+  const timeline = visibleHistory?.messages.filter(message => !message.thread || message.broadcast) ?? [];
+  const byId = new Map(allMessages.map(message => [message.id, message]));
+  const replyCount = (message: Message) => message.thread_replies ?? allMessages.filter(reply => reply.thread === message.id && !reply.update_of && reply.state !== 'deleted').length;
+  // The thread and Details share the place beside the conversation: one at a time.
+  const openThread = (id: string) => { if (details.open) details.toggle(); setThread(id); };
+  const lastOwn = [...timeline].reverse().find(message => message.author === viewer && message.kind === 'user' && message.state === 'sent');
+  const composer = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
+  const editLast = () => { if (!lastOwn || chat.archived) return false; setEditingId(lastOwn.id); return true; };
+  const editingFor = (message: Message) => ({ editing: editingId === message.id,
+    setEditing: (on: boolean) => { setEditingId(on ? message.id : undefined); if (!on) composer()?.focus(); } });
+  const headerDetails: DetailsControl = { ...details, toggle: () => { if (!details.open) setThread(undefined); details.toggle(); } };
   // Sending a message means you have caught up, so the line goes, as it does on reopening.
   const line = unreadStart && !timeline.some(message => message.author === viewer && (message.sequence ?? 0) > (openedAt.current ?? Infinity)) ? unreadStart : undefined;
   const title = conversationName(chat, directory);
@@ -201,7 +214,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
-      level={level} levelChanged={levelChanged} details={details} />
+      level={level} levelChanged={levelChanged} details={headerDetails} />
     <ConnectionBanner status={connection} />
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {
@@ -213,7 +226,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       {partner?.kind === 'agent' && <p className="chat-visibility-note">Activity with {title} is visible to its managers and admins.</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage {...editingFor(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={message.thread ? 0 : replyCount(message)} lastReply={message.thread_last} inThread={message.thread ? { root: byId.has(message.thread) ? quotePreview(byId.get(message.thread), agentName).text : undefined } : undefined} openThread={() => openThread(message.thread ?? message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
@@ -221,16 +234,17 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
-    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
+    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length} editLast={editLast}
       placeholder="Message…"
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />
-    {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
-    {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
-      <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
-    </ShowProfile.Provider>}
     {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
-  </section></ManagedResults></ApprovalViewer>;
+  </section>
+    {/* Beside the conversation; a name in a thread opens its profile there, so the thread closes first. */}
+    {visibleHistory && thread && byId.has(thread) && !details.open && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
+      <ChatThread focus={focus} place={chat.kind === 'direct' ? 'the conversation' : `#${title}`} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={byId.get(thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
+    </ShowProfile.Provider>}
+  </ManagedResults></ApprovalViewer>;
 }

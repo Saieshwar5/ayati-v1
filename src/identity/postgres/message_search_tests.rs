@@ -188,3 +188,112 @@ async fn results_page_from_newest_to_oldest() {
     );
     assert_eq!(second["next_before"], Value::Null);
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
+    let db = fixture().await;
+    let owner = user(&db, "filter-owner").await;
+    let member = user(&db, "filter-member").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let (_, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let c = chat(
+        &db,
+        &owner,
+        &w,
+        vec![member.id.clone()],
+        vec![agent.clone()],
+    )
+    .await;
+    let plain = message("Supplier sent the price list", None);
+    let mention = message(
+        &format!("[@Member](mention:user:{}) supplier call at 3", member.id),
+        None,
+    );
+    let link = message("Supplier page https://shree.example/prices", None);
+    db.chat_send(&owner, &w, &c, &plain).await.unwrap();
+    db.chat_send(&owner, &w, &c, &mention).await.unwrap();
+    db.chat_send(&owner, &w, &c, &link).await.unwrap();
+    let reply = crate::identity::chat::model::NewMessage {
+        thread: Some(plain.id.clone()),
+        ..message("Supplier confirmed in the thread", None)
+    };
+    db.chat_send(&member, &w, &c, &reply).await.unwrap();
+    // An agent's finished reply that names the supplier.
+    let asked = message("Summarise the supplier terms", None);
+    db.chat_send(
+        &owner,
+        &w,
+        &c,
+        &crate::identity::chat::model::NewMessage {
+            agents: vec![agent.clone()],
+            ..asked
+        },
+    )
+    .await
+    .unwrap();
+    let job = db.claim_job().await.unwrap().unwrap();
+    db.chat_finish(&job, "Supplier terms: 30 days", "complete")
+        .await
+        .unwrap();
+
+    let find = |input: SearchInput| {
+        let db = &db;
+        let member = &member;
+        let w = &w;
+        async move { ids(&db.search_messages(member, w, &input).await.unwrap()) }
+    };
+    let base = || q("supplier");
+    assert_eq!(
+        find(SearchInput {
+            mentions_me: true,
+            ..base()
+        })
+        .await,
+        [mention.id.as_str()]
+    );
+    assert_eq!(
+        find(SearchInput {
+            agents: true,
+            ..base()
+        })
+        .await,
+        [job.reply.as_str()]
+    );
+    assert_eq!(
+        find(SearchInput {
+            links: true,
+            ..base()
+        })
+        .await,
+        [link.id.as_str()]
+    );
+    assert_eq!(
+        find(SearchInput {
+            threads: true,
+            ..base()
+        })
+        .await,
+        [reply.id.as_str()]
+    );
+    // From me is the existing author filter with my own id.
+    assert_eq!(
+        find(SearchInput {
+            from: Some(member.id.clone()),
+            ..base()
+        })
+        .await,
+        [reply.id.as_str()]
+    );
+    // Filters combine: a mention of me that is also a thread reply has none here.
+    assert!(
+        find(SearchInput {
+            mentions_me: true,
+            threads: true,
+            ..base()
+        })
+        .await
+        .is_empty()
+    );
+}

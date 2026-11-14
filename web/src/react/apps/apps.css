@@ -79,3 +79,4 @@
 @media (max-width: 760px) { .built-code { grid-template-columns: 1fr; } }
 .built-helpers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .built-helpers li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+@media (pointer: coarse) { .apps-filters > button:not(.apps-needs), .apps-search input { height: 44px; } }

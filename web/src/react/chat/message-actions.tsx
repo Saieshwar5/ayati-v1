@@ -4,11 +4,14 @@ import { useMutation } from '../requests';
 import { Button, Dialog } from '../ui';
 import { AgentFace } from '../faces';
 import { chatRequest, type AgentReaction, type Directory, type Message } from './model';
+import { workspaceSession } from '../../workspace-context';
 import type { useCancelReply } from './reply-progress';
 import './message-actions.css';
 
 /** Must match the server's fixed set (postgres/message_actions.rs). */
 export const REACTIONS = ['👍', '✅', '👀', '🙏', '🎉', '❤️', '😂', '🔥', '👏', '🤔', '😮', '💯'] as const;
+/** Reactions in words, a quick status without a message (same server list). */
+export const WORD_REACTIONS = ['On it', 'Done', 'Seen'] as const;
 const QUICK = REACTIONS.slice(0, 3);
 
 const path = (message: Message, action: string) => `/chats/${message.chat}/messages/${message.id}/${action}`;
@@ -23,12 +26,26 @@ export function useReactions(message: Message) {
   return { ...mutation, toggle };
 }
 
+/** "Meera, Ravi and 2 others reacted 👍", from the first people who chose it (up to ten). */
+export function whoReacted(reaction: NonNullable<Message['reactions']>[number], directory: Directory, me = workspaceSession?.user?.id) {
+  if (!reaction.users?.length) return `${reaction.count} ${reaction.count === 1 ? 'person' : 'people'} reacted ${reaction.emoji}`;
+  const names = reaction.users.map(id => id === me ? 'You' : directory.users.find(user => user.id === id)?.name ?? 'A former member');
+  const others = reaction.count - names.length;
+  const shown = names.length > 3 ? names.slice(0, 3) : names;
+  const rest = others + names.length - shown.length;
+  const list = rest > 0 ? [...shown, `${rest} ${rest === 1 ? 'other' : 'others'}`] : shown;
+  const people = list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : list[0];
+  return `${people} reacted ${reaction.emoji}`;
+}
+const isWord = (reaction: string) => (WORD_REACTIONS as readonly string[]).includes(reaction);
+
 export function ReactionBar({ message, reactions, directory }: { message: Message; reactions: ReturnType<typeof useReactions>; directory: Directory }) {
   const [picking, setPicking] = useState(false);
   if (!message.reactions?.length && !message.agent_reactions?.length) return null;
   return <div className="chat-reactions" aria-label="Reactions">
-    {message.reactions?.map(reaction => <button type="button" key={reaction.emoji} className="chat-reaction" aria-pressed={reaction.mine}
-      disabled={reactions.busy} aria-label={`${reaction.emoji} ${reaction.count}${reaction.mine ? ', including you' : ''}`}
+    {message.reactions?.map(reaction => <button type="button" key={reaction.emoji} className={`chat-reaction${isWord(reaction.emoji) ? ' chat-reaction-word' : ''}`} aria-pressed={reaction.mine}
+      disabled={reactions.busy} title={whoReacted(reaction, directory)}
+      aria-label={`${whoReacted(reaction, directory)}. ${reaction.mine ? 'Remove yours' : 'Add yours'}`}
       onClick={() => reactions.toggle(reaction.emoji)}><span aria-hidden="true">{reaction.emoji}</span> {reaction.count}</button>)}
     {message.agent_reactions?.map(reaction => <AgentReactionChip key={reaction.agent} reaction={reaction} directory={directory} />)}
     <ReactionPicker open={picking} setOpen={setPicking} choose={reactions.toggle} busy={reactions.busy} />
@@ -51,6 +68,7 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
   return <span className="chat-reaction-picker">
     <button type="button" className="chat-message-tool" aria-label="Add reaction" aria-expanded={open} title="Add reaction" onClick={() => setOpen(!open)}><SmileIcon /></button>
     {open && <span className="chat-reaction-menu" role="group" aria-label="Choose a reaction">
+      {WORD_REACTIONS.map(word => <button type="button" key={word} className="chat-reaction-menu-word" disabled={busy} onClick={() => { choose(word); setOpen(false); }}>{word}</button>)}
       {REACTIONS.map(emoji => <button type="button" key={emoji} disabled={busy} onClick={() => { choose(emoji); setOpen(false); }}>{emoji}</button>)}
     </span>}
   </span>;

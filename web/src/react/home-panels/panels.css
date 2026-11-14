@@ -279,3 +279,7 @@
 .panel-pipeline-bar { display: block; height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
 .panel-pipeline-bar span { display: block; height: 100%; background: var(--accent, #3b5bdb); }
 .panel-pipeline small { color: var(--muted); }
+/* Touch screens: the source link is a full-height target without moving the text. */
+@media (pointer: coarse) {
+  .workspace-panel-basis a { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; }
+}

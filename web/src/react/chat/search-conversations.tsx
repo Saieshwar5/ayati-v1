@@ -6,6 +6,7 @@ import { Button, Dialog } from '../ui';
 import { existingDirect, useDirectConversation, type DirectTarget } from './direct-conversation';
 import { conversationName, type Conversation, type Directory } from './model';
 import { MessageResults, searchable } from './message-search';
+import { clearSearches, recentSearches } from './search-query';
 import './search-conversations.css';
 
 export function SearchConversations({ directory, chats, close, opened, openMessage }: {
@@ -18,6 +19,7 @@ export function SearchConversations({ directory, chats, close, opened, openMessa
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
+  const [recent, setRecent] = useState(recentSearches);
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLUListElement>(null);
   const direct = useDirectConversation(chats, opened);
@@ -86,8 +88,13 @@ export function SearchConversations({ directory, chats, close, opened, openMessa
           </li>;
         })}
       </ul>}
+      {!query.trim() && recent.length > 0 && <div className="chat-search-recent" role="group" aria-label="Recent searches">
+        <span>Recent searches</span>
+        {recent.map(item => <Button key={item} className="chat-search-chip" onClick={() => { setQuery(item); setCategory('Messages'); input.current?.focus(); }}>{item}</Button>)}
+        <button type="button" className="chat-thread-link" onClick={() => { clearSearches(); setRecent([]); }}>Clear</button>
+      </div>}
       {showMessages && <><h3 className="chat-search-heading">Messages</h3>
-        <MessageResults query={query} chats={chats} directory={directory} open={openMessage} /></>}
+        <MessageResults query={query} chats={chats} directory={directory} open={openMessage} setQuery={setQuery} /></>}
     </div>
   </Dialog>;
 }

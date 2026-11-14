@@ -108,6 +108,7 @@ impl PgStore {
             agents: vec![],
             thread: None,
             attachments: vec![],
+            broadcast: false,
         };
         // A personal Home panel update keeps its own source; every other
         // schedule runs in its own work room, never in a conversation.

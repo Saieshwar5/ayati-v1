@@ -89,6 +89,7 @@ async fn a_round_transcribes_stored_audio_once_and_refuses_long_recordings() {
             agents: vec![],
             thread: None,
             attachments: vec![object.id.clone()],
+            broadcast: false,
         };
         app.store.chat_send(&owner, &w, &chat, &sent).await.unwrap();
         uploads.push(sent.id);

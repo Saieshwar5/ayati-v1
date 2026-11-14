@@ -403,7 +403,7 @@ async fn schema_101_adds_agent_reactions_and_keeps_peoples() {
     let kept = shown(&db, &owner, &w, &c, &note.id).await;
     assert_eq!(
         kept["reactions"],
-        json!([{"emoji":"👍","count":1,"mine":true}])
+        json!([{"emoji":"👍","count":1,"mine":true,"users":[owner.id.clone()]}])
     );
     assert_eq!(kept["agent_reactions"], json!([]));
     let nod = message("👍", Some(&a));

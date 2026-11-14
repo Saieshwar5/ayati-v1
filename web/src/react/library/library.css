@@ -202,3 +202,4 @@
 .library-fields dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 0 0 6px; }
 .library-fields dt { font-size: 12px; color: var(--muted); text-transform: capitalize; }
 .library-fields dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+@media (pointer: coarse) { .library-sidebar nav button { min-height: 44px; } .library-header-actions input { min-height: 44px; } }

@@ -21,11 +21,11 @@ test('a saved request opens its older thread and clears focused history after a 
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { ConversationPane } = await import('../src/react/chat/conversation.tsx');
     await render(ConversationPane, props);
-    assert.match(document.querySelector('dialog').textContent, /Original thread/);
+    assert.match(document.querySelector('.chat-thread-panel').textContent, /Original thread/);
     assert.equal(document.querySelector('.chat-message-focused').dataset.messageId, 'reply');
     await render(ConversationPane, { ...props, focus: 'denied' });
     assert.equal(document.body.textContent.includes('Saved original response'), false);
-    assert.equal(document.querySelector('dialog'), null);
+    assert.equal(document.querySelector('.chat-thread-panel'), null);
     assert.match(document.querySelector('[role=alert]').textContent, /linked request is unavailable/);
     assert.match(document.body.textContent, /Recent conversation/);
     assert.deepEqual(writes, []);
@@ -47,7 +47,7 @@ test('unmount aborts a linked history read and its late response cannot reopen p
     assert.ok(pending.every(read => read.signal.aborted));
     await update(() => pending.forEach(read => read.finish(response(focused))));
     assert.equal(document.body.textContent.includes('Saved original response'), false);
-    assert.equal(document.querySelector('dialog'), null);
+    assert.equal(document.querySelector('.chat-thread-panel'), null);
   }, { url: `http://localhost/w/${w}/?view=chat`, fetch: async (path, options = {}) => {
     path = new URL(path, 'http://localhost').pathname;
     if (path.endsWith('/messages/reply')) return new Promise(finish => pending.push({ finish, signal: options.signal }));

@@ -57,7 +57,11 @@ mod channel_approval_migration;
 mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 pub(crate) mod chat;
+pub(crate) mod chat_bots;
+#[cfg(test)]
+mod chat_bots_tests;
 mod chat_intake;
+mod chat_migrations;
 mod chat_notification_migration;
 #[cfg(test)]
 mod chat_notification_tests;
@@ -71,6 +75,8 @@ mod chat_people_migration;
 #[cfg(test)]
 mod chat_people_tests;
 mod chat_pins;
+#[cfg(test)]
+mod chat_threads_tests;
 pub mod cli;
 #[cfg(test)]
 mod cloud_executor_tests;
@@ -99,6 +105,11 @@ mod data_lifecycle_migration;
 #[cfg(test)]
 mod data_lifecycle_tests;
 #[cfg(test)]
+mod device_http_tests;
+#[cfg(test)]
+mod device_session_tests;
+pub(crate) mod device_sessions;
+#[cfg(test)]
 mod dispatch_lock_tests;
 mod durable_wait_migration;
 mod executor_dispatch;
@@ -107,6 +118,9 @@ mod executor_slot_tests;
 mod executor_slots;
 mod executor_task_migration;
 mod executor_tasks;
+mod link_previews;
+#[cfg(test)]
+mod link_previews_tests;
 pub mod member_profiles;
 mod message_action_migration;
 #[cfg(test)]

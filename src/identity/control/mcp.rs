@@ -188,7 +188,7 @@ impl Remote {
         anyhow::bail!("Remote MCP returned no matching result")
     }
 }
-fn public_ip(ip: std::net::IpAddr) -> bool {
+pub(crate) fn public_ip(ip: std::net::IpAddr) -> bool {
     match ip {
         std::net::IpAddr::V4(ip) => {
             !(ip.is_private()

@@ -99,6 +99,40 @@ a change that can affect them (a message change from someone else, an access cha
 a reset), one read at a time; receipts and reactions on your own messages, agent pauses
 and panel access do not trigger a read.
 
+### What people see after a gap (2026-11-14)
+
+The banner under the conversation header (`web/src/react/chat/connection-banner.tsx`)
+says what happened once the stream is back, from `live-notice.ts`:
+
+- **Reconnecting… You can keep writing; messages send when you're back.** While the
+  stream is down. Unsent messages wait in the outbox ("◷ Waiting to send") and go out
+  on reconnect; a real refusal shows "⚠ Not sent", the reason, and Retry.
+- **Back online. Caught up on N messages.** After a visible drop (an error, the
+  silence watchdog or going offline), the tab counts the distinct messages replayed
+  until a batch arrives with `more` false. It fades after four seconds.
+- **You were away for a while. Showing the latest messages.** The tab's cursor was
+  older than the change log keeps (`AYATI_RETAIN_SYNC_DAYS`) or ahead of the clock, so
+  the server answered `reset` and screens reloaded their history instead of guessing.
+  A first load without a stored cursor resets silently.
+- **Cuckoo was updated. Reload to keep chatting.** Every stream first sends a
+  `version` event, `{"client": "/assets/main-<hash>.js"}`: the module entry named in
+  the `web/dist/index.html` the server hands out now, read when the stream opens (null
+  without a build). A tab whose own entry script differs offers Reload; drafts and the
+  outbox survive it. The development server's entry (`/src/main.tsx`) is not compared.
+  The prompt stays until reload and no other notice replaces it. `version` has no
+  `id:` line, so the reconnect position stays the change cursor.
+
+Reconnects back off exponentially to 30 seconds with up to 500 ms of random spread,
+so a restart is not answered by every tab at once. Someone removed from a conversation
+or the workspace stops receiving it within one re-check: access changes wake the
+stream at once, and an idle stream re-checks the session and membership every 30
+seconds, then sends `unavailable` and closes.
+
+Checks: `web/tests/chat-live-notice.test.mjs` (catch-up across two pages, counting a
+message once; reset after a gap but not on a first load; build comparison including
+the development server; banner text, fade and Dismiss) and the Rust unit test
+`the_client_build_is_the_module_entry_script`.
+
 ## Presence and status (schema 98, D245)
 
 Presence rides on the same stream; no browser timer sends heartbeats. While a person's
@@ -176,6 +210,9 @@ there is no multi-hour or hosted-capacity claim.
 
 This small local debug-build sample is not a hosted latency guarantee. Look at the
 retained messaging-* results for subsequent runs.
+Delivery latency above is measured separately from rendering. Chat's own UI speed
+(opening Chat, switching conversations, a 200-message transcript, long tasks and bundle
+size) has a committed baseline; see [layout and speed checks](layout-and-speed-checks.md).
 
 ### Idle connections and delivery under load
 

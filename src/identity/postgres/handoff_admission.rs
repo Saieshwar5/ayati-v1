@@ -178,6 +178,7 @@ impl PgStore {
             thread: thread.clone(),
             attachments: vec![],
             content: input.task.clone(),
+            broadcast: false,
         };
         let child = self
             .handoff_in(&tx, job, &request)

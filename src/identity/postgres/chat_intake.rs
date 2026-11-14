@@ -230,7 +230,7 @@ impl PgStore {
             };
         if let Some(row) = query(
             tx,
-            "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments FROM relay_chat_messages m WHERE id=$1",
+            "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments,coalesce((to_jsonb(m)->>'broadcast')::boolean,false) AS broadcast FROM relay_chat_messages m WHERE id=$1",
             vec![input.id.clone().into()],
         )
         .await?
@@ -243,7 +243,8 @@ impl PgStore {
                     && row.try_get::<Option<String>>("", "target")? == target
                     && row.try_get::<Option<String>>("", "thread")? == input.thread
                     && row.try_get::<Option<String>>("", "reply_to")? == input.reply_to
-                    && row.try_get::<Value>("", "attachments")? == json!(input.attachments),
+                    && row.try_get::<Value>("", "attachments")? == json!(input.attachments)
+                    && row.try_get::<bool>("", "broadcast")? == input.broadcast,
                 "Message ID already used"
             );
             several_agents::replayed(
@@ -281,6 +282,10 @@ impl PgStore {
         if announcements {
             manager(tx, workspace, &user.id).await?;
         }
+        ensure!(
+            !input.broadcast || input.thread.is_some(),
+            "Only a thread reply can also be sent to the conversation"
+        );
         if let Some(thread) = &input.thread {
             ensure!(query(tx,"SELECT id FROM relay_chat_messages WHERE workspace=$1 AND chat=$2 AND id=$3 AND thread IS NULL",vec![workspace.into(),chat.into(),thread.clone().into()]).await?.is_some(),"Thread is not in this conversation");
         }
@@ -297,12 +302,22 @@ impl PgStore {
             },
         };
         several_agents::admit(tx, user, workspace, chat, &asked, asking).await?;
-        // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.
-        let (columns, values) = if input.reply_to.is_some() {
-            (",reply_to", ",$11")
-        } else {
-            ("", "")
-        };
+        // reply_to (schema 40) and broadcast (schema 115) are only named when
+        // used, so ordinary sends also work on older schemas (upgrade tests).
+        let mut columns = String::new();
+        let mut values = String::new();
+        if input.reply_to.is_some() {
+            columns.push_str(",reply_to");
+            values.push_str(",$11");
+        }
+        if input.broadcast {
+            columns.push_str(",broadcast");
+            values.push_str(if input.reply_to.is_some() {
+                ",$12"
+            } else {
+                ",$11"
+            });
+        }
         let mut args: Vec<sea_orm::Value> = vec![
             input.id.clone().into(),
             workspace.into(),
@@ -317,6 +332,9 @@ impl PgStore {
         ];
         if let Some(quoted) = &input.reply_to {
             args.push(quoted.clone().into());
+        }
+        if input.broadcast {
+            args.push(true.into());
         }
         execute(tx,&format!("INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments{columns}) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9{values})"),args).await?;
         let mut jobs = Vec::with_capacity(asked.len());

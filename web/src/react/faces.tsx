@@ -54,3 +54,7 @@ export function AgentFace({ agent, className = 'chat-avatar' }: { agent: AgentId
 export function AiTag() {
   return <span className="ai-tag" title="AI agent">AI</span>;
 }
+/** A bot posting through a channel's webhook (schema 119): never a person or an agent. */
+export function BotTag() {
+  return <span className="ai-tag" title="Bot: posts through this channel's webhook">BOT</span>;
+}

@@ -379,6 +379,7 @@ impl PgStore {
                 fields.join(", "),
                 watcher["instructions"].as_str().unwrap_or("")
             ),
+            broadcast: false,
         };
         let nested = tx.begin().await?;
         let job = match self
