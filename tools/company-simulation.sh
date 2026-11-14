@@ -52,6 +52,8 @@ SQL
     exec target/debug/ayati simulate "$company_local/data"
     ;;
   run) exec node tools/company-simulation/run.mjs "http://127.0.0.1:${COMPANY_HTTP_PORT:-8876}" "$company_local/runs" ;;
+  # Phone/tablet layout audit; see runtime/layout-and-speed-checks.md.
+  layout) shift; exec node tools/company-simulation/mobile-layout.mjs "$company_local/runs" "$@" ;;
   test)
     export RELAY_TEST_DATABASE_URL="postgresql://$company_owner@localhost/relay_simulation_test?host=$company_socket&port=$company_port"
     exec cargo test --locked --lib identity::postgres -- --ignored
@@ -64,5 +66,5 @@ SQL
     cp -a "$company_local/runs" "$company_backup/runs"
     echo "Saved $company_backup (stop the simulation runner before taking coordinated backups)."
     ;;
-  *) echo 'Usage: tools/company-simulation.sh setup|serve|run|test|backup' ;;
+  *) echo 'Usage: tools/company-simulation.sh setup|serve|run|layout|test|backup' ;;
 esac
