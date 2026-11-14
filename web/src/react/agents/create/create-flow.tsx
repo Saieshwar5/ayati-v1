@@ -21,8 +21,6 @@ import { ComputerChoice } from '../computer/computer-choice';
 import { computerOf, type ComputerOffer } from '../computer/model';
 import { WhatsappChoice } from '../whatsapp/whatsapp-choice';
 import { activateWhatsapp } from '../whatsapp/model';
-import { TelegramChoice } from '../telegram/telegram-choice';
-import { activateTelegram, loadWorkspaceTelegram, type WorkspaceTelegram } from '../telegram/model';
 import './create.css';
 
 const steps = ['Name and picture', 'Tools', 'Skills', 'People', 'Controls'];
@@ -45,16 +43,14 @@ export function newAgent(directory: Directory): Agent {
     settings: { ...defaults, provider, avatar: defaultRobot(id) }, editable: true };
 }
 
-const noTelegram = async (): Promise<WorkspaceTelegram | null> => null;
-
 /** Create an agent in five short steps (designs/agent-built-skills): name, the
  * tools and apps it can use, its skills, people, then controls. Tools are saved
  * right after the agent; retrying after a failure updates the same agent and its
  * tools. Web search and a computer are offered when this Cuckoo has them
  * (designs/web-search, designs/agent-computers 7 and 8). The last step also shows
  * the model, the workspace default unless changed there. */
-export function AgentCreate({ start, directory, close, created, webSearch = false, computers, whatsappOffered = false, telegramOffered = false }: {
-  start: Agent; directory: Directory; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null; whatsappOffered?: boolean; telegramOffered?: boolean;
+export function AgentCreate({ start, directory, close, created, webSearch = false, computers, whatsappOffered = false }: {
+  start: Agent; directory: Directory; close: () => void; created: (id: string) => Promise<void>; webSearch?: boolean; computers?: ComputerOffer | null; whatsappOffered?: boolean;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const [draft, setDraft] = useState(start);
@@ -67,8 +63,6 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
   const [whatsapp, setWhatsapp] = useState(false);
-  const [telegram, setTelegram] = useState(false);
-  const telegramWorkspace = useResource(telegramOffered ? loadWorkspaceTelegram : noTelegram);
   const [suggested, setSuggested] = useState<Suggested>();
   const [skills, setSkills] = useState<LibraryPick[]>([]);
   const [drafts, setDrafts] = useState<DraftSkill[]>([]);
@@ -102,8 +96,6 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
     for (const skill of skills) await assignSkill(draft.id, skill.id, true);
     // Gives the saved agent its number; repeating it after a failure keeps the same one.
     if (whatsapp) await activateWhatsapp(draft.id);
-    // Asks for the agent's own bot; repeating it after a failure keeps one request.
-    if (telegram) await activateTelegram(draft.id);
     await created(draft.id);
   });
   return <section className="agent-create" aria-labelledby="agent-create-title">
@@ -121,13 +113,11 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <ConnectorsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
         refresh={() => void available.refresh().catch(() => {})}
-        builtIn={(webSearch || computers || whatsappOffered || telegramOffered) && <BuiltInTools>
+        builtIn={(webSearch || computers || whatsappOffered) && <BuiltInTools>
           {webSearch && <WebSearchChoice name={draft.name.trim() || 'This agent'} on={searchesWeb(draft.settings)}
             change={on => setDraft(old => ({ ...old, settings: { ...old.settings, web_search: on } }))} />}
           {computers && <ComputerChoice name={draft.name.trim() || 'This agent'} offer={computers} value={draft.settings.computer}
             change={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))} />}
-          {telegramOffered && <TelegramChoice name={draft.name.trim() || 'This agent'} on={telegram}
-            connected={Boolean(telegramWorkspace.data?.connected)} change={setTelegram} />}
           {whatsappOffered && <WhatsappChoice name={draft.name.trim() || 'This agent'} on={whatsapp} change={setWhatsapp} />}
         </BuiltInTools>} />}
       {step === 2 && <SkillsStep name={draft.name} title={draft.role} text={draft.settings.instructions}

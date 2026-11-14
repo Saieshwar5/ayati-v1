@@ -42,29 +42,6 @@ impl MigrationTrait for WhatsappNumbers {
     }
 }
 
-/// Schema 113: Telegram bots for agents, people's linked Telegram accounts and
-/// workspaces' Telegram owners.
-pub(crate) struct Telegram;
-impl MigrationName for Telegram {
-    fn name(&self) -> &str {
-        "m20261114_000113_telegram"
-    }
-}
-#[async_trait::async_trait]
-impl MigrationTrait for Telegram {
-    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
-        m.get_connection()
-            .execute_unprepared(include_str!("telegram.sql"))
-            .await?;
-        Ok(())
-    }
-    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
-        Err(DbErr::Custom(
-            "Telegram requires a forward migration".into(),
-        ))
-    }
-}
-
 /// Schema 54: real transports, delivery reasons and read cursors.
 pub(crate) struct CommunicationGateway;
 impl MigrationName for CommunicationGateway {

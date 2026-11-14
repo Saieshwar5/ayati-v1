@@ -83,8 +83,6 @@ pub struct Controller {
     pub transport_servers_file: Option<PathBuf>,
     /// WhatsApp numbers Cuckoo provides (Twilio), a private 0600 file.
     pub whatsapp_file: Option<PathBuf>,
-    /// Cuckoo's Telegram manager bot, a private 0600 file.
-    pub telegram_file: Option<PathBuf>,
     pub handoff_wait_seconds: i64,
     pub event_receipt_limit: i64,
     pub cloud: Option<CloudWorkers>,
@@ -240,7 +238,6 @@ impl Controller {
             connectors: super::Connectors::read(env),
             transport_servers_file: absolute(env, "AYATI_TRANSPORT_SERVERS_FILE"),
             whatsapp_file: absolute(env, "AYATI_WHATSAPP_FILE"),
-            telegram_file: absolute(env, "AYATI_TELEGRAM_FILE"),
             event_sources_file: absolute(env, "AYATI_EVENT_SOURCES_FILE"),
             handoff_wait_seconds: env.number("AYATI_HANDOFF_WAIT_SECONDS", 604_800, 60..=2_592_000),
             event_receipt_limit: env.number("AYATI_EVENT_RECEIPT_LIMIT", 100_000, 1..=1_000_000),

@@ -171,9 +171,8 @@ tab needs an approved design.
 - **Contacts and verification** (G3): pairing, one-time codes, assurance levels.
 - **Knowledge audiences and actions tied to the asker** (G4). No public
   endpoint should open before G3 and G4.
-- **Native email, website chat and calls.** Telegram is built with a bot per
-  agent: see [the Telegram channel](telegram-channel.md). WhatsApp is built on
-  numbers Cuckoo provides but postponed: see [the WhatsApp channel](whatsapp-channel.md).
+- **Native email, Telegram, website chat and calls.** WhatsApp is built on
+  numbers Cuckoo provides: see [the WhatsApp channel](whatsapp-channel.md).
 - **Webhook ingress** for other transports. WhatsApp has its own signed Twilio
   webhooks.
 - **For developers:** a doorbell notification, attachments, a TypeScript

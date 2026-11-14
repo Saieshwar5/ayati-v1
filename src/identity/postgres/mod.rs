@@ -453,11 +453,7 @@ mod company_tests;
 mod messaging_tests;
 pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
-pub(crate) use communications::{
-    NoFreeNumber, Offer, TelegramCreated, TelegramFrom, TelegramIncoming, TelegramLinked,
-    TelegramNotConnected, TelegramOutcome, TelegramOwnerAsk, WhatsappIncoming, WhatsappOutcome,
-    telegram_start_code,
-};
+pub(crate) use communications::{NoFreeNumber, Offer, WhatsappIncoming, WhatsappOutcome};
 pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::answers::SaveAnswer;
 pub(crate) use library::edits::Decision;

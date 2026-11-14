@@ -246,7 +246,6 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     chat::start_dispatcher(app.clone());
     automations::start(app.clone()).await;
     communications::gateway::start(app.clone());
-    communications::telegram::poller::start(app.clone());
     control::outcome_checks::start(app.clone());
     metrics::start(app.clone());
     data_cleanup::start(app.clone());
