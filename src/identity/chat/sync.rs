@@ -70,6 +70,31 @@ fn presence_event(people: String) -> Event {
     Event::default().event("presence").data(people)
 }
 
+/// The web build this server hands out: the entry script named in
+/// `web/dist/index.html` (`/assets/main-<hash>.js`). A tab built from another
+/// entry is out of date and offers to reload (`web/src/react/chat/live.ts`).
+/// Read on each stream so a new build is announced once its files are in place.
+async fn client_build() -> Option<String> {
+    let html = tokio::fs::read_to_string("web/dist/index.html").await.ok()?;
+    entry_script(&html)
+}
+fn entry_script(html: &str) -> Option<String> {
+    html.split("<script").skip(1).find_map(|tag| {
+        let tag = &tag[..tag.find('>')?];
+        if !tag.contains(r#"type="module""#) {
+            return None;
+        }
+        let src = tag.split(r#"src=""#).nth(1)?.split('"').next()?;
+        src.starts_with("/assets/").then(|| src.to_owned())
+    })
+}
+/// No `id:` line, like presence, so the reconnect position stays the cursor.
+fn version_event(client: Option<String>) -> Event {
+    Event::default()
+        .event("version")
+        .data(json!({"client": client}).to_string())
+}
+
 use tokio_stream::wrappers::ReceiverStream;
 #[derive(Deserialize)]
 struct Cursor {
@@ -131,8 +156,12 @@ async fn events(
     // A member with this stream open is online (D245).
     super::presence::opened(&app, &w, &user.id).await;
     let (send, receive) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1);
+    let build = client_build().await;
     tokio::spawn(async move {
         let _permit = permit;
+        if !deliver(&send, version_event(build)).await {
+            return;
+        }
         let mut page = first;
         let mut sent_cursor = None;
         // Everyone's presence follows the first batch, and again after a check
@@ -272,6 +301,19 @@ async fn capabilities(
 mod tests {
     use super::*;
     use tokio::sync::broadcast::error::RecvError;
+
+    #[test]
+    fn the_client_build_is_the_module_entry_script() {
+        let html = r#"<head><script type="module" crossorigin src="/assets/main-DN8.js"></script>
+            <link rel="modulepreload" href="/assets/ui-1.js"></head>"#;
+        assert_eq!(entry_script(html).as_deref(), Some("/assets/main-DN8.js"));
+        // The development server's entry is not a build: no version, no reload prompt.
+        assert_eq!(
+            entry_script(r#"<script type="module" src="/src/main.tsx"></script>"#),
+            None
+        );
+        assert_eq!(entry_script("<p>no scripts</p>"), None);
+    }
 
     #[test]
     fn streams_wake_for_their_workspace_a_reconnect_or_a_missed_wake() {
