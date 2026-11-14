@@ -251,7 +251,7 @@ async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
             ..base()
         })
         .await,
-        [mention.id.clone()]
+        [mention.id.as_str()]
     );
     assert_eq!(
         find(SearchInput {
@@ -259,7 +259,7 @@ async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
             ..base()
         })
         .await,
-        [job.reply.clone()]
+        [job.reply.as_str()]
     );
     assert_eq!(
         find(SearchInput {
@@ -267,7 +267,7 @@ async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
             ..base()
         })
         .await,
-        [link.id.clone()]
+        [link.id.as_str()]
     );
     assert_eq!(
         find(SearchInput {
@@ -275,7 +275,7 @@ async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
             ..base()
         })
         .await,
-        [reply.id.clone()]
+        [reply.id.as_str()]
     );
     // From me is the existing author filter with my own id.
     assert_eq!(
@@ -284,7 +284,7 @@ async fn filters_narrow_to_mentions_of_me_agents_links_and_threads() {
             ..base()
         })
         .await,
-        [reply.id.clone()]
+        [reply.id.as_str()]
     );
     // Filters combine: a mention of me that is also a thread reply has none here.
     assert!(
