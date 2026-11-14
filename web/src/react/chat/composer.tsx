@@ -12,9 +12,11 @@ export type ComposerProps = {
   /** A voice recording in progress replaces the text field; the draft stays. Enter sends and
    * Escape calls `cancel` (when given) anywhere in the composer except on its buttons. */
   voice?: { row: ReactNode; cancel?: () => void };
+  /** ↑ in an empty box edits your last message; true when there was one to edit. */
+  editLast?: () => boolean;
 };
 /** Shared UI; each conversation adapter owns its authorized transport and durable draft. */
-export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice }: ComposerProps) {
+export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice, editLast }: ComposerProps) {
   const input = useRef<HTMLTextAreaElement>(null);
   const restoreFocus = useRef(false);
   const submit = () => { if (!disabled && !sendDisabled) { restoreFocus.current = true; send(); } };
@@ -95,6 +97,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
           else if (event.key === 'Enter' || event.key === 'Tab') choose(choices[selected]);
           else setActive((selected+(event.key === 'ArrowDown' ? 1 : choices.length-1)) % choices.length);
         } else if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); }
+        else if (event.key === 'ArrowUp' && !value && !event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && editLast?.()) event.preventDefault();
       }} />
     {voice?.row}
     {attachments && <div className="composer-attachments">{attachments}</div>}

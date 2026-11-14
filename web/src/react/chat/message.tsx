@@ -21,7 +21,8 @@ import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions }
 import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
-export function ChatMessage({ message, directory, replies, lastReply, inThread, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; lastReply?: number | null; /** On a thread reply shown in the conversation: its thread's first message. */ inThread?: { root?: string }; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
+export function ChatMessage({ message, directory, replies, lastReply, inThread, openThread, reply, quoted, compact = false, focused = false, editing: editingNow, setEditing: setEditingNow }: { focused?: boolean; compact?: boolean;
+  /** Editing held by the conversation, so ↑ in its composer can start it. */ editing?: boolean; setEditing?: (on: boolean) => void; message: Message; directory: Directory; replies?: number; lastReply?: number | null; /** On a thread reply shown in the conversation: its thread's first message. */ inThread?: { root?: string }; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
@@ -38,7 +39,11 @@ export function ChatMessage({ message, directory, replies, lastReply, inThread, 
   const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder ? '' : message.content;
   // Just a voice message: its time and ticks can share the transcript line.
   const voiceOnly = own && placeholder && message.attachments?.length === 1 && message.attachments[0].mime.startsWith('audio/');
-  const [editing, setEditing] = useState(false);
+  const [editingHere, setEditingHere] = useState(false);
+  const editing = editingNow ?? editingHere, setEditing = setEditingNow ?? setEditingHere;
+  // A person's message that @mentions you stands out, and says so in words too.
+  const viewer = workspaceSession?.user?.id;
+  const mentionsMe = !own && message.kind !== 'agent' && Boolean(viewer) && message.content.includes(`](mention:user:${viewer})`);
   const [deleting, setDeleting] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [keeping, setKeeping] = useState(false);
@@ -51,9 +56,9 @@ export function ChatMessage({ message, directory, replies, lastReply, inThread, 
   const door = via ? <span className="chat-message-door">{via}</span> : null;
   if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
-  return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
+  return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}${mentionsMe ? ' chat-message-for-me' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
-    <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
+    <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}{mentionsMe && <span className="chat-message-mentions-you">mentions you</span>}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {inThread && <InThreadLine root={inThread.root} open={openThread} />}
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}

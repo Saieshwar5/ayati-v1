@@ -43,8 +43,31 @@ mentions it adds with the same rules (people who can read the conversation, well
 identities). An edit never asks an agent, so adding an agent mention is refused with
 "Editing does not ask an agent. Send a new message to ask it."; mentions already in
 the message stay as they are. Human mentions are
-highlighted in the conversation and participate in ordinary unread/receipt behavior;
+highlighted in the conversation (a whole message that mentions you also stands out, see
+below) and participate in ordinary unread/receipt behavior;
 this increment does not add a separate mention inbox, email or push notifications.
+
+## Mentions of you, quick edit and shortcuts (2026-11-14)
+
+- **Mentions of you stand out.** A person's message that @mentions you gets the warm
+  warning surface and "mentions you" after the time, so it does not rely on colour
+  alone (forced colours outline it). Your own messages and agents' replies are not
+  highlighted; agents' replies to you already turn the unread count red.
+- **↑ edits your last message.** In an empty composer, ↑ (no modifier) opens your
+  newest sent message in the conversation for editing, the same editor as Edit
+  message; Enter saves, Escape cancels and focus returns to the composer. With a draft,
+  ↑ moves in the text as usual. Editing is held by the conversation
+  (`ConversationPane` → `ChatMessage editing`), so the composer can start it.
+- **Shortcuts** (`web/src/react/chat/chat-shortcuts.tsx`, one window listener while
+  Chat is open): ⌘K / Ctrl+K opens Search; ⌘/ / Ctrl+/ lists every shortcut; Alt+↓ and
+  Alt+↑ open the next or previous conversation in the list as it reads (pinned,
+  channels, direct messages, after the Unread only and hidden filters); Alt+⇧+↓ and
+  Alt+⇧+↑ the next or previous unread one. Arrows are left alone while a dialog is
+  open. The list shows ⌘ and ⌥ on Apple devices and Ctrl and Alt elsewhere, and names
+  only shortcuts that exist.
+- **Checks.** `web/tests/chat-shortcuts.test.mjs`: the highlight on a mention of you
+  only, ↑ with and without a draft, the newest own message, Escape returning focus,
+  saving the edit, ⌘K, ⌘/, Alt+↓ and Alt+⇧+↓.
 
 ## Several agents in one message (schema 99)
 
