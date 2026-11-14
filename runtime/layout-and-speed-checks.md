@@ -37,7 +37,7 @@ owner's direct conversation with their team agent, and `Speed check · channel A
 ## Layout audit
 
 **Screens** (signed in as the Owner, employee 0): Home, Chat list, a channel
-conversation, its thread drawer (opened with a tap on the reply count), a direct
+conversation, its thread panel (opened with a tap on the reply count), a direct
 conversation with an agent, Agents, an agent's profile, Activity, Apps, Library,
 Settings (the page list), Settings → Profile and Settings → People.
 
@@ -79,7 +79,7 @@ Deliberate simplifications, to keep the heuristic predictable:
   not audited until shown; the `clipped-text` rule still notices when they overflow.
 - A form control's touch box includes its `<label>` elements. Hit areas enlarged with
   pseudo-elements or padding on a parent are not detected.
-- An open modal (the thread drawer) is audited on its own; the inert page behind it is
+- An open thread panel (a modal drawer before schema 115) is audited on its own; the page behind it is
   covered by the channel screen.
 - Allowlist: inline `a` elements inside running text (the WCAG 2.5.8 inline exception,
   such as links in messages) and the simulation-only "Switch employee" banner, which
@@ -140,7 +140,7 @@ Layout breakage, highest priority:
 | Screen | Sizes | Rule | Finding |
 | --- | --- | --- | --- |
 | Channel, agent direct message | 320×568 | `touch-target` | The composer textarea is squeezed to 22×160 px; the "Message" placeholder wraps one letter per line |
-| Thread drawer | 320×568 | `touch-target` | The "Reply in thread" box is 40×56 px between the composer buttons |
+| Thread drawer (before schema 115) | 320×568 | `touch-target` | The "Reply in thread" box is 40×56 px between the composer buttons |
 | Channel, agent direct message | 320×568, 360×740, 375×667 | `clipped-text` | The message list (`div[role=log]`, 250–305 px) clips its content to 306–313 px: the message actions toolbar reaches 369–376 px, so after a tap its last actions (⋯ More actions) are cut off |
 | Channel, agent direct message | 320×568 | screenshot only | The conversation header has no room for the name: the channel name disappears and the agent's name shows one letter, because the rail, "‹ Chats" and three header buttons take the width (ellipsis is allowed by the rules, so this is not counted) |
 

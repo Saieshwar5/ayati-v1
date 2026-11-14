@@ -53,9 +53,11 @@ const screens = [
   { id: 'home', query: 'view=home', ready: page => page.getByRole('main', { name: 'Home' }) },
   { id: 'chat-list', query: 'view=chat', ready: page => page.getByRole('complementary', { name: 'Conversations' }).getByRole('link').first() },
   { id: 'channel', query: `view=chat&conversation=${channel}`, ready: message },
-  { id: 'thread', query: `view=chat&conversation=${channel}`, ready: message, scope: 'dialog[open]', open: async page => {
-    await page.getByRole('button', { name: /^\d+ repl(y|ies)$/ }).first().tap();
-    await page.getByRole('dialog', { name: 'Thread' }).getByRole('textbox', { name: 'Reply in thread' }).waitFor();
+  // The thread opens in the side panel beside the conversation (schema 115); on a
+  // phone it covers the conversation, so only the panel is audited.
+  { id: 'thread', query: `view=chat&conversation=${channel}`, ready: message, scope: 'aside.chat-thread-panel', open: async page => {
+    await page.getByRole('button', { name: /^\d+ repl(y|ies).*Open thread$/ }).first().tap();
+    await page.getByRole('complementary', { name: 'Thread' }).getByRole('textbox', { name: 'Reply in thread' }).waitFor();
   } },
   { id: 'agent-direct', query: `view=chat&conversation=${direct}`, ready: message },
   { id: 'agents', query: 'view=agents', ready: page => page.getByRole('heading', { name: /^Your team/ }) },
