@@ -7,6 +7,7 @@ import { WorkspaceRules } from './workspace-rules';
 import { WorkspaceDeletion } from './workspace-deletion';
 import { PauseAgentsControl } from '../activity/agents-pause';
 import { loadCatalog } from '../agents/catalog-model';
+import { WorkspaceTelegram } from './workspace-telegram';
 
 /** Settings → Workspace (designs/settings 4): name, rules and the danger zone. */
 export function WorkspaceGeneral({ renamed }: { renamed: (name: string) => void }) {
@@ -27,6 +28,7 @@ export function WorkspaceGeneral({ renamed }: { renamed: (name: string) => void 
         <div><h3>Pause all agents</h3><p>If an agent is doing something wrong, stop every agent at once. Resume when it’s fixed.</p></div>
         <PauseAgentsControl />
       </section>
+      <WorkspaceTelegram />
       <WorkspaceDeletion settings={data} changed={resource.refresh} />
     </>}
   </section>;

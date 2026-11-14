@@ -5,6 +5,7 @@ import { useAgentRequests } from './work';
 import { RequestRow } from './request-row';
 import { loadMembers } from './create/people-step';
 import type { WorkspaceSection } from './workspace-tabs';
+import { TelegramFact } from './telegram/telegram-fact';
 import { WhatsappFact } from './whatsapp/whatsapp-fact';
 
 /** The first readable lines of the instructions, without the section headings. */
@@ -44,6 +45,7 @@ export function AgentOverview({ agent, open, people }: {
         {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}
         {fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
+        <TelegramFact agent={agent} />
         <WhatsappFact agent={agent} />
       </dl>
     </aside>
