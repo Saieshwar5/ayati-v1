@@ -50,10 +50,17 @@ export async function turnOff(client: Client): Promise<void> {
   await client.removePush();
 }
 
-/** When the phone gives Cuckoo a new token, the registration follows it. */
-export function followTokenChanges(client: Client, enabled: () => boolean) {
+/**
+ * When the phone gives Cuckoo a new token, the registration follows it, but
+ * only if this phone already has notifications on (the server's devices list
+ * says so): a token change never turns them on by itself.
+ */
+export function followTokenChanges(client: Client) {
   const subscription = Notifications.addPushTokenListener(() => {
-    if (enabled()) void tokens().then(next => client.registerPush(next)).catch(() => {});
+    void (async () => {
+      const { devices } = await client.devices();
+      if (devices.find(device => device.current)?.notifications) await client.registerPush(await tokens());
+    })().catch(() => {});
   });
   return () => subscription.remove();
 }

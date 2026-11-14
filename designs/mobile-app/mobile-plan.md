@@ -167,7 +167,7 @@ person and workspace and cleared on sign out.
   - the device registry and the sender in the controller;
   - privacy-safe content and deep links;
   - no double notifications, and notification settings.
-- **M5, internal testing and store release:**
+- **M5, internal testing and store release (checklist and draft answers: [store-release.md](store-release.md)):**
   - TestFlight and Play internal testing with a real workspace;
   - privacy labels and the Data safety form;
   - review notes about AI agents and company sign-in;

@@ -8,6 +8,7 @@ import { readTarget, type NotificationTarget } from '@cuckoo/shared';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { followTokenChanges } from './push-setup';
 import { useSession } from '../session/session-context';
 
 Notifications.setNotificationHandler({
@@ -26,9 +27,12 @@ export function pathFor(target: NotificationTarget) {
 }
 
 export function NotificationRouting() {
-  const { state, chooseWorkspace } = useSession();
+  const { state, chooseWorkspace, client } = useSession();
   const router = useRouter();
   const response = Notifications.useLastNotificationResponse();
+  const signedIn = state.status === 'signed-in';
+  // Signed in: follow token changes for as long as the app runs.
+  useEffect(() => (signedIn ? followTokenChanges(client) : undefined), [signedIn, client]);
   const [pending, setPending] = useState<NotificationTarget>();
 
   useEffect(() => {

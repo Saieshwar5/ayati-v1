@@ -1,8 +1,8 @@
 /** Signed-in devices: this phone, and the others this person can sign out. */
 import type { Device } from '@cuckoo/shared';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
-import { followTokenChanges, turnOff, turnOn, unavailable } from '../notifications/push-setup';
+import { turnOff, turnOn, unavailable } from '../notifications/push-setup';
 import { shortTime } from '../chats/time';
 import { useSession } from '../session/session-context';
 import { type as typography } from '../theme/tokens';
@@ -18,8 +18,6 @@ export function Devices() {
   const toggle = useMutation();
   const current = data?.devices.find(device => device.current);
   const on = !!current?.notifications;
-  // While on, a new token from the phone moves the registration with it.
-  useEffect(() => (on ? followTokenChanges(client, () => true) : undefined), [on, client]);
   const setNotifications = (next: boolean) =>
     toggle.run(async () => {
       await (next ? turnOn(client) : turnOff(client));

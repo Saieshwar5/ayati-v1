@@ -1,6 +1,8 @@
 import { render, waitFor } from '@testing-library/react-native';
 import { NotificationRouting, pathFor } from '../src/notifications/notification-routing';
 
+jest.mock('../src/notifications/push-setup', () => ({ followTokenChanges: () => () => {} }));
+
 const mockPush = jest.fn();
 const mockChoose = jest.fn();
 let mockResponse: unknown = null;
@@ -11,9 +13,10 @@ jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   useLastNotificationResponse: () => mockResponse,
   clearLastNotificationResponseAsync: async () => {},
+  addPushTokenListener: () => ({ remove: () => {} }),
 }));
 jest.mock('../src/session/session-context', () => ({
-  useSession: () => ({ state: mockState, chooseWorkspace: mockChoose }),
+  useSession: () => ({ state: mockState, chooseWorkspace: mockChoose, client: {} }),
 }));
 
 const tap = (data: unknown) => ({
