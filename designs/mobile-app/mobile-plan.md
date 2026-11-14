@@ -150,7 +150,9 @@ person and workspace and cleared on sign out.
   - the chat list, and a conversation with live replies and sending;
   - Home with clock, Needs you summary and read-only panels in all families, plus
     panel detail;
-  - light and dark themes from the tokens.
+  - light and dark themes from the tokens;
+  - real agent faces: the bundled robots and uploaded photos;
+  - a two-pane layout on tablets for Chats and Agents.
 - **M3, approvals, questions, files and voice:**
   - exact approvals, with the web's rules for single submission and expiry;
   - questions and forms;
@@ -197,3 +199,9 @@ These are for `decisions.md`.
   - Phones sign in through Cuckoo with device sessions.
   - Push notifications never carry message content.
   - The app opens on Home, with five tabs: Home, Chats, Needs me, Agents, You.
+- **D253 (design choices, 2026-11-14):**
+  - Home panels are read-only on the phone in the first release.
+  - The home-screen widget comes after the first store release.
+  - Agents show their real faces: the bundled robots and uploaded photos.
+  - Tablets get two panes, like the web.
+  - The light-mode muted token is `#5F6670` on the web and the phone.

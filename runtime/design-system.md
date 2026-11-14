@@ -33,6 +33,9 @@ Use semantic tokens from `web/src/workspace.css` rather than hard-coded white or
 new parallel palettes. `--canvas` is the outer background; `--surface` is the main
 work area; `--soft` is a subtle inset/search/hover fill; `--selection` marks selected
 items. Dark mode uses the corresponding existing tokens, not literal white.
+`--muted` is `#5F6670` in light mode (2026-11-14, shared with the mobile app). The
+earlier `#697079` fell to 4.38:1 on `--selection`; the new value keeps meta text
+and small labels at 5:1 or more on every light surface.
 
 - Establish hierarchy with spacing, type, alignment and thin dividers first.
 - Apply the approved OpenPencil D / Selective treatment: keep ordinary row,

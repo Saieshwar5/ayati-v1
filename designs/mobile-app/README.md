@@ -48,8 +48,8 @@ Use the web's semantic tokens; never invent a parallel palette.
 | danger | `#A42F35` | `#FFADAF` | Needs-you counts, Sign out |
 | warning | `#945B10` | `#EFBC77` | Problems, paused |
 
-\* The web's muted is `#697079`; phones use the slightly darker `#5F6670` so 11–13 px
-labels on the grey tab bar keep 4.5:1 contrast. Decide whether to change the web too.
+\* Decided 2026-11-14: the web's muted moved from `#697079` to `#5F6670` too, so
+11–13 px labels keep at least 5:1 on every light surface, the grey tab bar included.
 
 Type: Inter. Large title 30–32 bold; header 17 semibold; message text 16 / 1.45;
 meta 12–13. Corners: 12 px buttons and inputs, 14–16 px cards and reply boxes,
@@ -218,16 +218,23 @@ safe area left empty (no fake status bar).
   - Reduced motion turns off spinners and sheet bounce.
 - **Offline:** a thin banner under the header with Retry; sending waits and says so.
 
+## Decisions (owner, 2026-11-14)
+
+1. **Home panels are read-only on the phone in the first release.** Adding,
+   removing and reordering stay on the web; long-press reordering is later work.
+2. **The phone home-screen widget comes later**, after the first store release.
+3. **Agents use their real faces**: the bundled robots
+   (`web/public/agent-avatars/robot-01.svg` to `robot-24.svg`) and uploaded photos,
+   exactly as on the web. The robot glyph in the design screens is only a placeholder.
+4. **Tablets get two panes, like the web**: the chat list beside the open
+   conversation, and the agents list beside the profile. Phones keep one pane with Back.
+5. **Muted text is `#5F6670` on the web and the phone.** It is applied in
+   `web/src/workspace.css`; the old `#697079` was 4.38:1 on the selection grey.
+
 ## Open design questions
 
 1. Swipe actions on chat rows (pin, mute, mark read): which, and are they discoverable?
-2. Should Home allow reordering panels on the phone in the first release?
-3. A home-screen widget (one panel or "3 things need you"), now or later?
-4. Real agent faces: reuse `web/public/agent-avatars/robot-*.svg` and uploaded photos
-   instead of the placeholder robot glyph.
-5. Tablet layout: a two-pane Chat (list and conversation), as on the web, or the
-   phone layout scaled up?
-6. Should muted on phones be `#5F6670` everywhere, including the web?
+2. Tablet screens are not drawn yet: design the two-pane Chat and Agents before M2 ends.
 
 ## Changing these designs
 
