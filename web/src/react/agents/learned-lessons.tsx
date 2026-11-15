@@ -4,7 +4,7 @@ import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { base, type Agent } from './model';
 
-type Evidence = { kind: 'answer' | 'reaction' | 'rejected_approval'; excerpt?: string; conversation?: string };
+type Evidence = { kind: 'answer' | 'reaction' | 'rejected_approval' | 'owner_request'; excerpt?: string; conversation?: string };
 export type Lesson = {
   id: string; title: string; content: string; why: string;
   kind: 'new' | 'update' | 'conflict'; state: 'proposed' | 'approved' | 'rejected'; created_ms: number;
@@ -21,6 +21,7 @@ const evidenceLabels: Record<Evidence['kind'], string> = {
   answer: 'A person answered its reply',
   reaction: 'A person reacted to its reply',
   rejected_approval: 'A person refused to approve',
+  owner_request: 'An owner or admin asked for it',
 };
 
 /** Knowledge → Lessons from its work (schema 121): once a day Cuckoo proposes
@@ -55,7 +56,7 @@ export function LearnedLessons({ agent, saved }: { agent: Agent; saved: () => Pr
   return <section className="agent-lessons" aria-labelledby={`lessons-${agent.id}`}>
     <h3 id={`lessons-${agent.id}`}>Lessons from its work</h3>
     <p className="ui-help">Once a day Cuckoo reads {agent.name}’s work in shared conversations (never private chats) — how people answered it,
-      their reactions and refused approvals — and suggests lessons about how to work. Nothing changes until you approve one.</p>
+      their reactions and refused approvals — and suggests lessons about how to work. An owner or admin can also ask {agent.name} for one in their own chat with it. Nothing changes until you approve one.</p>
     {learning.error && <p role="alert">{learning.error}</p>}
     {!data && !learning.error && <p role="status">Loading lessons…</p>}
     {data && !data.available && <p className="ui-help">Run workspace-db migrate to use lessons.</p>}

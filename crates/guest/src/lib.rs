@@ -10,4 +10,5 @@ mod question_schema;
 mod rule_schema;
 mod task_schema;
 mod web_schema;
+mod work_schema;
 mod working_context_schema;

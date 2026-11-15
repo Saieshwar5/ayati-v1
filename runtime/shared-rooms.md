@@ -25,7 +25,9 @@ the conversation.
   brief. The next task builds a new one from what the remaining audience may
   see.
 - A person's direct conversation never reads a room's brief, and a room never
-  reads a person's summary.
+  reads a person's summary. The one way across rooms is the
+  [owner view](owner-view.md): an agent's owners and admins ask it about its
+  work everywhere, in their own private chat.
 - Summaries saved per person in channels before schema 55 are no longer read
   there.
 

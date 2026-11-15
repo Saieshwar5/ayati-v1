@@ -45,11 +45,14 @@ async fn targeted_profile_lookup_rechecks_grants_and_preserves_private_and_works
     db.chat_grant(&owner, &w, &member.id, &agent.id, true)
         .await
         .unwrap();
+    // The same profile, except that the member isn't one of its owners.
+    let mut granted = selected.clone();
+    granted["yours"] = serde_json::json!(false);
     assert_eq!(
         db.allowed_shared_agent(&member, &w, &agent.id)
             .await
             .unwrap(),
-        Some(selected)
+        Some(granted)
     );
     db.chat_grant(&owner, &w, &member.id, &agent.id, false)
         .await

@@ -56,10 +56,21 @@ async fn the_preview_is_exactly_what_a_direct_request_gets() {
         },
     };
     db.save_agent_profile(&owner, &w, &input).await.unwrap();
-    let request = direct_instructions(&db, &owner, &w, &agent).await;
+    // A person who doesn't own the agent: the preview is what they get.
+    let asker = user(&db, "preview-asker").await;
+    join(&db, &owner, &w, &asker, "Member").await;
+    db.chat_grant(&owner, &w, &asker.id, &agent, true)
+        .await
+        .unwrap();
+    let request = direct_instructions(&db, &asker, &w, &agent).await;
     assert_eq!(preview(&db, &w, &agent).await, request);
     assert!(request.contains("Answer order questions briefly."));
     assert!(request.contains(system_prompt::WORKING_VOICE));
+    // One of its owners gets the owner view in place of separate conversations.
+    assert_eq!(
+        direct_instructions(&db, &owner, &w, &agent).await,
+        request.replace(system_prompt::ROOMS, system_prompt::OWNER_VIEW)
+    );
 
     // A skill adds its section and listing to both.
     let files = vec![SkillFile {
@@ -81,7 +92,7 @@ async fn the_preview_is_exactly_what_a_direct_request_gets() {
     db.assign_skill(&owner, &w, &agent, skill["id"].as_str().unwrap(), true)
         .await
         .unwrap();
-    let request = direct_instructions(&db, &owner, &w, &agent).await;
+    let request = direct_instructions(&db, &asker, &w, &agent).await;
     assert!(request.contains("\n- refund-check: Use when a customer asks for a refund"));
     assert_eq!(preview(&db, &w, &agent).await, request);
 }

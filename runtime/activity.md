@@ -43,7 +43,9 @@ A request is visible to the person who asked, anyone who can see its conversatio
 every one of the agent's owners, and admins. Work that used Library sources stays with its
 requester. Losing access to a channel hides its requests again. When one of the agent's owners or an
 admin opens a request from a conversation they are not in, the details say so and
-the view is recorded in the audit log (`activity_private_viewed`).
+the view is recorded in the audit log (`activity_private_viewed`). Owners and
+admins can also ask the agent itself, in their private chat with it; it reads
+the same records ([owner view](owner-view.md)).
 
 ## Panel updates
 

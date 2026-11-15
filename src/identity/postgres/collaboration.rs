@@ -36,7 +36,13 @@ impl PgStore {
         } else {
             "(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)"
         };
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',{owners}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
+        // `yours`: the person is one of its owners, so they may ask it about all its work.
+        let yours = if super::agent_owners::ready(&tx).await? {
+            "relay_agent_owns(a.workspace,a.id,$2)"
+        } else {
+            "a.owner_id=$2"
+        };
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',{owners},'yours',{yours}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }
