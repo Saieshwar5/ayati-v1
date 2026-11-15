@@ -142,7 +142,7 @@ impl PgStore {
     /// One request: the original message, each tool step with how it was allowed,
     /// the reply, a plain fix when it failed, and a warning when the reply claims a
     /// change the records don't show. Viewing a conversation the person isn't in
-    /// (as a manager or admin) is recorded in the audit log.
+    /// (as the agent's owner or an admin) is recorded in the audit log.
     pub(crate) async fn activity_request(
         &self,
         user: &User,

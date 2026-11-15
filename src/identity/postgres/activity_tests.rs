@@ -18,7 +18,7 @@ async fn ids(db: &PgStore, person: &User, w: &str, f: &ActivityFilters) -> Vec<S
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn requests_show_to_the_requester_the_conversation_managers_and_admins_only() {
+async fn requests_show_to_the_requester_the_conversation_the_agents_owner_and_admins_only() {
     let db = fixture().await;
     let admin = user(&db, "act-admin").await;
     let asker = user(&db, "act-asker").await;
@@ -36,7 +36,17 @@ async fn requests_show_to_the_requester_the_conversation_managers_and_admins_onl
     )
     .await
     .unwrap();
-    execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$3,1)", vec![w.clone().into(), agent.clone().into(), manager.id.clone().into()]).await.unwrap();
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![
+            w.clone().into(),
+            agent.clone().into(),
+            manager.id.clone().into(),
+        ],
+    )
+    .await
+    .unwrap();
     // A direct chat between the asker and the agent.
     let direct = db
         .chat_create(

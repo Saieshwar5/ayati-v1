@@ -64,7 +64,7 @@ export function NowView({ scope, search, openHistory, openUnhandled, waiting }: 
           <span className={`activity-status ${state.tone}`}>{state.label}</span></header>
         <p>{state.line}</p>
         <div className="activity-card-actions">
-          {/* Also once paused: a manager often pauses a failing agent, then fixes it. */}
+          {/* Also once paused: an owner often pauses a failing agent, then fixes it. */}
           {agent.last_failed && <Button onClick={() => setOpen(agent.last_failed!)}>How to fix it</Button>}
           {agent.can_pause && !data?.agents_paused && <Button disabled={mutation.busy} aria-label={`${agent.paused ? 'Resume' : 'Pause'} ${agent.name}`}
             onClick={() => pause(agent, !agent.paused)}>{agent.paused ? 'Resume' : 'Pause'}</Button>}

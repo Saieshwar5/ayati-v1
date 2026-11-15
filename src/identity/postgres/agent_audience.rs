@@ -1,4 +1,6 @@
-//! Who can talk to an agent, its managers and its owner (D231 slice 2, D233).
+//! Who can talk to an agent, and its owner (D231 slice 2, D233). Since schema
+//! 122 an agent has one owner and no managers; an agent whose owner left has
+//! none and stays paused until an admin gives it one.
 //! "Who can talk" is `everyone`, `selected` (listed in `relay_chat_access`) or
 //! `only_me`; `relay_agent_can_talk` in schema 45 is the single definition.
 use super::*;
@@ -10,7 +12,7 @@ use serde_json::json;
 pub(super) async fn exists(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
         db,
-        "SELECT to_regclass('relay_agent_managers') IS NOT NULL AS present",
+        "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('relay_shared_agents') AND attname='audience' AND NOT attisdropped) AS present",
         vec![],
     )
     .await?
@@ -80,14 +82,12 @@ async fn members(db: &impl ConnectionTrait, w: &str, people: &[String]) -> Resul
     Ok(wanted)
 }
 
-/// Saves the selected people and managers that `input` names. A new agent's
-/// first manager is its creator. Reports what changed and whether someone lost access.
+/// Saves the selected people that `input` names. Reports what changed and
+/// whether someone lost access.
 pub(super) async fn save_lists(
     tx: &impl ConnectionTrait,
-    actor: &str,
     w: &str,
     input: &SaveAgent,
-    creating: bool,
 ) -> Result<super::agent_changes::ListChanges> {
     let mut changes = super::agent_changes::ListChanges::default();
     if !exists(tx).await? {
@@ -116,49 +116,7 @@ pub(super) async fn save_lists(
             }
         }
     }
-    let managers = match &input.managers {
-        Some(managers) => {
-            ensure!(!managers.is_empty(), "Choose at least one manager");
-            Some(members(tx, w, managers).await?)
-        }
-        None if creating => Some(vec![actor.to_string()]),
-        None => None,
-    };
-    if let Some(wanted) = managers {
-        let current = listed(tx, "SELECT user_id FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 ORDER BY user_id", w, agent).await?;
-        if wanted != current {
-            changes.managers = !creating;
-            execute(
-                tx,
-                "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2",
-                vec![w.into(), agent.into()],
-            )
-            .await?;
-            for person in &wanted {
-                execute(tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,$5)", vec![w.into(), agent.into(), person.clone().into(), actor.into(), now().into()]).await?;
-            }
-        }
-    }
     Ok(changes)
-}
-
-/// After `person` leaves, an agent they managed alone is managed by its owner.
-pub(super) async fn keep_a_manager(db: &impl ConnectionTrait, w: &str, person: &str) -> Result<()> {
-    if !exists(db).await? {
-        return Ok(());
-    }
-    execute(
-        db,
-        "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at)
-         SELECT a.workspace,a.id,a.owner_id,a.owner_id,$3 FROM relay_shared_agents a
-         WHERE a.workspace=$1 AND a.owner_id IS NOT NULL AND a.owner_id<>$2
-           AND EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)
-           AND NOT EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id<>$2)
-         ON CONFLICT DO NOTHING",
-        vec![w.into(), person.into(), now().into()],
-    )
-    .await?;
-    Ok(())
 }
 
 #[derive(serde::Deserialize)]
@@ -169,8 +127,10 @@ pub(crate) struct TransferAgent {
 }
 
 impl PgStore {
-    /// Hands an agent to another member. The new owner replaces the old one as a
-    /// manager; an only-me agent then talks only to its new owner.
+    /// Hands an agent to another member, or gives one whose owner left a new
+    /// owner (admins only, since nobody owns it). An only-me agent then talks
+    /// only to its new owner. An agent that was running when its owner left
+    /// resumes.
     pub(crate) async fn agent_transfer(
         &self,
         user: &User,
@@ -181,7 +141,7 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
         // An exact retry after a lost response succeeds without changing anything,
-        // even though the previous owner may no longer manage the agent.
+        // even though the previous owner no longer owns the agent.
         let retry = query(
             &tx,
             "SELECT 1 AS n FROM relay_shared_agents a WHERE a.workspace=$1 AND a.id=$2 AND a.owner_id=$3 AND a.revision=$4
@@ -205,14 +165,13 @@ impl PgStore {
         role(&tx, w, &input.owner)
             .await
             .context("The new owner must be in this workspace")?;
-        execute(&tx, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1 WHERE workspace=$1 AND id=$2", vec![w.into(), id.into(), input.owner.clone().into()]).await?;
-        execute(
-            &tx,
-            "DELETE FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 AND user_id=$3",
-            vec![w.into(), id.into(), owner.into()],
-        )
-        .await?;
-        execute(&tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", vec![w.into(), id.into(), input.owner.clone().into(), user.id.clone().into(), now().into()]).await?;
+        // `resume_with_owner` is set when a running agent's owner left (schema 122).
+        let resume = if super::single_owner::ready(&tx).await? {
+            ",settings=CASE WHEN resume_with_owner THEN jsonb_set(settings,'{paused}','false') ELSE settings END,resume_with_owner=false"
+        } else {
+            ""
+        };
+        execute(&tx, &format!("UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1{resume} WHERE workspace=$1 AND id=$2"), vec![w.into(), id.into(), input.owner.clone().into()]).await?;
         super::task_revocation::inaccessible(&tx, w).await?;
         let actor = super::member_handover::name(&tx, &user.id).await?;
         let heir = super::member_handover::name(&tx, &input.owner).await?;

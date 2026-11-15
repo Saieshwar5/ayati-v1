@@ -1,6 +1,6 @@
 //! Pause or resume one agent from Activity (people-and-agents-first, Phase 1b).
-//! The agent's owner, its managers and admins may do it: managers decide its
-//! approvals and can pause it (D231). The effect is the same as the pause switch
+//! The agent's owner and admins may do it (schema 122: one owner per agent).
+//! An agent with no owner stays paused until an admin gives it one. The effect is the same as the pause switch
 //! on the Agents page: the agent takes no new work, and work people may no longer
 //! ask for stops.
 use super::*;
@@ -17,16 +17,13 @@ impl PgStore {
         let tx = self.workspace_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let a = super::agent_profiles::stored(&tx, w, id).await?;
-        let manager = query(
-            &tx,
-            "SELECT 1 AS n FROM relay_agent_managers WHERE workspace=$1 AND agent=$2 AND user_id=$3",
-            vec![w.into(), id.into(), user.id.clone().into()],
-        )
-        .await?
-        .is_some();
         ensure!(
-            admin || manager || a["owner_id"] == user.id,
-            "Only the agent's owner, its managers or an admin can pause or resume it"
+            admin || a["owner_id"] == user.id,
+            "Only the agent's owner or an admin can pause or resume it"
+        );
+        ensure!(
+            paused || !a["owner_id"].is_null(),
+            "This agent has no owner. An admin needs to give it one before it can work again."
         );
         let revision = a["revision"].as_i64().unwrap_or(0);
         // Asking for the state it is already in changes nothing, so a repeated

@@ -45,7 +45,7 @@ export function ToolsTab({ agent, webSearch = false, computers = false, saved, f
     {webSearch && saved && <WebSearchCard agent={agent} saved={saved} />}
     {computers && saved && <ComputerToolsCard agent={agent} saved={saved} />}
     {(webSearch || computers) && <h3 className="agent-group-label">Apps your admin added</h3>}
-    <p className="agent-tools-note">Your admin decides which tools exist and the loosest rule for each action. Here you can only make an action stricter. “Ask first” goes to {agent.name}’s managers.</p>
+    <p className="agent-tools-note">Your admin decides which tools exist and the loosest rule for each action. Here you can only make an action stricter. “Ask first” goes to {agent.name}’s owner.</p>
     {error && <p role="alert">{error} <Button onClick={() => void refresh().catch(() => {})}>Retry</Button></p>}
     {!data && !error && <p role="status">Loading tools…</p>}
     {data?.execution_available === false && <p role="status" className="ui-help">Business tools are not enabled for this workspace yet. Ask your operator to enable controller-managed execution.</p>}

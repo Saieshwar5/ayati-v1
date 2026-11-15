@@ -26,7 +26,6 @@ fn new_agent(model: &str, provider: &str) -> SaveAgent {
         model: model.into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             provider: provider.into(),

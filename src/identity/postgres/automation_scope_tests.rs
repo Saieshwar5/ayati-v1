@@ -157,6 +157,21 @@ async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore
     db.change(&other, &w, &owner.id, Some("Admin"), None)
         .await
         .unwrap();
+    // Their agent had no owner while they were gone; an admin gives it back.
+    let revision = db.managed_agent(&other, &w, &a, true).await.unwrap()["revision"]
+        .as_i64()
+        .unwrap();
+    db.agent_transfer(
+        &other,
+        &w,
+        &a,
+        &super::agent_audience::TransferAgent {
+            owner: owner.id.clone(),
+            revision,
+        },
+    )
+    .await
+    .unwrap();
     // Rejoining does not restore former private conversation membership.
     assert!(db.save_schedule(&owner, &w, &a, &input).await.is_err());
     execute(
@@ -285,7 +300,6 @@ async fn automation_only_me_agent_routines_remain_private_from_other_members() {
         model: "fixture".into(),
         audience: "only_me".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Default::default(),
     };

@@ -16,7 +16,6 @@ pub(super) async fn setup() -> (PgStore, User, String, String, String) {
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 1,
         settings: Settings {
             provider: "openai".into(),
@@ -184,7 +183,6 @@ async fn job_guidance_survives_older_clients_and_enters_normal_prompt_without_gr
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 2,
         settings: Settings {
             provider: "openai".into(),

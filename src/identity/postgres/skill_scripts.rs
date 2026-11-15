@@ -117,7 +117,7 @@ impl PgStore {
         }
         if settings.programs == "block" {
             return Ok(refused(
-                "Running programs on your computer is blocked, so this script can't run. Follow the skill's written steps, or tell the person a manager can allow programs in your Tools tab.",
+                "Running programs on your computer is blocked, so this script can't run. Follow the skill's written steps, or tell the person your owner or an admin can allow programs in your Tools tab.",
             ));
         }
         // The skill's files go to the computer first; the command then runs under

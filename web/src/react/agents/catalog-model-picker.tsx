@@ -15,7 +15,7 @@ export function CatalogModelPicker({ agent, directory, catalog, saved }: { agent
   const replacement = current?.replacement ? catalog.models.find(m => m.id === current.replacement) : undefined;
   const changed = model !== agent.model || agent.settings.provider !== '';
   const save = () => void mutation.run(async () => {
-    await saveAgent({ ...agent, model, people: undefined, managers: undefined, settings: { ...agent.settings, provider: '' } });
+    await saveAgent({ ...agent, model, people: undefined, settings: { ...agent.settings, provider: '' } });
     mutation.setStatus('Model saved. New requests use it.');
     await saved();
   });

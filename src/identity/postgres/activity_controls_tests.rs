@@ -4,8 +4,15 @@
 use super::super::tests::{chat, fixture, join, message, user, workspace};
 use super::super::*;
 
-async fn add_manager(db: &PgStore, w: &str, agent: &str, person: &User, by: &User) {
-    execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,1)", vec![w.into(), agent.into(), person.id.clone().into(), by.id.clone().into()]).await.unwrap();
+/// Makes `person` the agent's one owner; the admin who created it stays an admin.
+async fn make_owner(db: &PgStore, w: &str, agent: &str, person: &User) {
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![w.into(), agent.into(), person.id.clone().into()],
+    )
+    .await
+    .unwrap();
 }
 
 async fn everyone_may_talk(db: &PgStore, agent: &str) {
@@ -53,7 +60,7 @@ async fn fail(db: &PgStore, reply: &str) {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn managers_owners_and_admins_pause_one_agent_and_others_cannot() {
+async fn the_owner_and_admins_pause_one_agent_and_others_cannot() {
     let db = fixture().await;
     let admin = user(&db, "pause-admin").await;
     let manager = user(&db, "pause-manager").await;
@@ -63,12 +70,12 @@ async fn managers_owners_and_admins_pause_one_agent_and_others_cannot() {
     join(&db, &admin, &w, &other, "Member").await;
     let (_, agent) = super::super::executor_slot_tests::agent(&db, &admin, &w).await;
     everyone_may_talk(&db, &agent).await;
-    add_manager(&db, &w, &agent, &manager, &admin).await;
+    make_owner(&db, &w, &agent, &manager).await;
 
     // A room with the agent, made before it is paused (a paused agent can't join).
     let room = chat(&db, &admin, &w, vec![other.id.clone()], vec![agent.clone()]).await;
     let refused = db.agent_pause_set(&other, &w, &agent, true).await;
-    assert!(refused.is_err(), "a member who doesn't manage it");
+    assert!(refused.is_err(), "a member who doesn't own it");
     assert!(!paused(&db, &agent).await.0);
 
     let before = paused(&db, &agent).await.1;

@@ -226,7 +226,7 @@ async fn transfer(
 struct PauseAgent {
     paused: bool,
 }
-/// Pause or resume one agent: its owner, its managers or an admin (Activity's
+/// Pause or resume one agent: its owner or an admin (Activity's
 /// agent cards use this; the Agents page keeps its own pause switch).
 async fn pause(
     State(app): State<Shared>,

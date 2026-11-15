@@ -268,7 +268,6 @@ async fn hosted_workspace_does_not_create_local_runtime_and_media_survives_api_r
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings::default(),
     };

@@ -45,7 +45,7 @@ export function WorkspaceRules({ initial, catalog, saved }: { initial: Workspace
       <label className="ui-field">Time zone <small>used by schedules and Home</small>
         <select value={timezone} onChange={event => setTimezone(event.target.value)}>
           {zones.map(zone => <option key={zone} value={zone}>{zone.replaceAll('_', ' ')}</option>)}</select></label>
-      <label className="ui-field">Approval backup <small>when no agent manager has decided</small>
+      <label className="ui-field">Approval backup <small>when an agent’s owner hasn’t decided</small>
         <select value={backup} onChange={event => setBackup(Number(event.target.value))}>
           {backupChoices.map(n => <option key={n} value={n}>Admins can decide after {hours(n)}</option>)}</select></label>
       <fieldset className="settings-models"><legend>Models <small>which models agents may use</small></legend>

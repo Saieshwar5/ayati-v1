@@ -5,8 +5,9 @@ import { HandoverSummary, useResponsibilities } from '../handover-summary';
 import { useMutation } from '../requests';
 import { Button, Dialog } from '../ui';
 
-/** A person leaves on their own, choosing who takes over their shared agents and Library
- * items (an admin by default). The server refuses the last admin. */
+/** A person leaves on their own, choosing who takes over their shared Library items
+ * (an admin by default). Their agents pause until an admin gives them a new owner
+ * (schema 122). The server refuses the last admin. */
 export function LeaveWorkspaceDialog({ people, close }: { people: Participant[]; close: () => void }) {
   const you = workspaceSession?.user?.id ?? '';
   const choices = people.filter(person => person.id !== you);
@@ -27,7 +28,7 @@ export function LeaveWorkspaceDialog({ people, close }: { people: Participant[];
     <Button className="danger settings-remove" disabled={mutation.busy || left || !summary.data || !heir} onClick={leave}>{mutation.busy || left ? 'Leaving…' : 'Leave workspace'}</Button>
   </>}>
     <p className="ui-help settings-remove-intro">You lose access straight away: channels, agents and files. To come back, an admin has to invite you again.</p>
-    <label className="ui-field">Who takes over<select value={heir} onChange={event => setHeir(event.target.value)}>
+    <label className="ui-field">Who takes over your Library items<select value={heir} onChange={event => setHeir(event.target.value)}>
       {choices.map(person => <option key={person.id} value={person.id}>{person.name}{person.role === 'Admin' ? ' (admin)' : ''}</option>)}
     </select></label>
     <HandoverSummary summary={summary} name="you" heirName={heirName} self />

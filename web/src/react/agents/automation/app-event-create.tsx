@@ -219,7 +219,7 @@ export function CreateAppEvent({
             Each run happens in its own private room and appears in Activity. It never reads anyone’s conversations.
             {review.chat
               ? ' A short result is posted to the conversation you chose; its current members are the audience.'
-              : ' Only you, the agent’s managers and admins see what it found.'}
+              : ' Only you, the agent’s owner and admins see what it found.'}
           </p>
           <p>
             Activating asks the app to send these events to Cuckoo. Automatic reading needs{' '}

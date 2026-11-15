@@ -15,7 +15,7 @@ const checked: Record<Settle['checks'][number]['result'], (app: string) => strin
 };
 
 /** "Did this go out?" (designs/connector-screens 4): a write the app never confirmed
- * pauses that account's writes until one of the agent's managers or an admin says
+ * pauses that account's writes until the agent's owner or an admin says
  * whether it happened. Opened from Apps and from Activity's Needs review. */
 export function OutcomeDialog({ id, close }: { id: string; close: () => void }) {
   const load = useCallback(() => loadApproval(id), [id]);
@@ -62,7 +62,7 @@ export function OutcomeDialog({ id, close }: { id: string; close: () => void }) 
       </fieldset>}
       {canAnswer && <label className="ui-field"><span>Note <span className="ui-help">(optional)</span></span>
         <input aria-label="Note" maxLength={500} value={note} onChange={event => setNote(event.target.value)} /></label>}
-      {waiting && !data.settle?.can_settle && <p className="ui-help">{data.agent_name}’s managers and workspace admins can answer this.</p>}
+      {waiting && !data.settle?.can_settle && <p className="ui-help">{data.agent_name}’s owner and workspace admins can answer this.</p>}
       {!waiting && <Answered data={data} />}
     </div>}
   </Dialog>;

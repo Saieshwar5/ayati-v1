@@ -77,7 +77,7 @@ local fakes of those APIs. They have not yet been run against live accounts.
 
 ## Rules Cuckoo enforces
 
-- **On by default.** Every agent searches unless its owner, a manager or an
+- **On by default.** Every agent searches unless its owner or an
   admin switches it off (`settings.web_search`). Agents saved before schema 102
   have no setting and are on.
 - **Only found or given pages.** `read_web_page` opens only an address that
@@ -110,7 +110,7 @@ separately, before the web pages.
 
 - **Create, step 2 (Tools).** This step was renamed from Connectors. A **Built
   into Cuckoo** group sits above the admin's apps, with Web search switched on.
-- **Agent page → Tools.** A Web search switch for the owner, managers and
+- **Agent page → Tools.** A Web search switch for the owner and
   admins. Everyone else sees it read-only.
 - **Chat.** The cited pages appear under the answer.
 

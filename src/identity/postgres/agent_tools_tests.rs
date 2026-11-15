@@ -25,7 +25,6 @@ fn agent() -> SaveAgent {
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings::default(),
     }
@@ -420,8 +419,9 @@ async fn role_changes_keep_pending_decisions_and_a_removed_owner_hands_tools_on(
     .try_get("", "state")
     .unwrap();
     assert_eq!(state, "pending");
-    // The agent and its tools move to the admin; the switch stays on.
-    s.db.change(&s.owner, &s.w, &s.member.id, None, None)
+    // The admin names themselves the new owner: the agent and its tools move
+    // to them and the switch stays on.
+    s.db.change_member(&s.owner, &s.w, &s.member.id, None, None, Some(&s.owner.id))
         .await
         .unwrap();
     assert!(s.db.control_enabled(&s.w, &s.agent.id).await.unwrap());

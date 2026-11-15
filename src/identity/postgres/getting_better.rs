@@ -1,5 +1,5 @@
 //! Getting better over time (people-and-agents-first, Phase 5), for the people who
-//! can fix an agent (owner, managers, admins):
+//! can fix an agent (its owner and admins):
 //!
 //! - **Measures** per agent and per person: tasks done, failed, on time, how many
 //!   needed a person, person-minutes (time from reading a question or approval to
@@ -25,9 +25,10 @@ pub(in crate::identity::postgres) mod migration;
 mod tests;
 
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
-const FIXERS: &str = "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
- AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
- AND ($4::text IS DISTINCT FROM 'mine' OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))";
+const FIXERS: &str =
+    "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
+ AND ($3 OR a.owner_id=$2)
+ AND ($4::text IS DISTINCT FROM 'mine' OR a.owner_id=$2))";
 const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
 
 async fn available(db: &impl ConnectionTrait) -> Result<bool> {
@@ -106,7 +107,7 @@ fn line(text: &str, max: usize, what: &str) -> Result<String> {
     Ok(text.to_string())
 }
 
-const REVIEW: &str = "Write your weekly review for your managers. Look back over the last seven days of your requests and tasks, then call write_review once: done (what you finished), went_wrong (what failed or needed a person, and why), learned (what you'd do differently) and, if useful, suggestion (one change to your instructions or skills for a manager to approve). Plain, short sentences; no new work.";
+const REVIEW: &str = "Write your weekly review for your owner. Look back over the last seven days of your requests and tasks, then call write_review once: done (what you finished), went_wrong (what failed or needed a person, and why), learned (what you'd do differently) and, if useful, suggestion (one change to your instructions or skills for a manager to approve). Plain, short sentences; no new work.";
 
 impl PgStore {
     /// Activity → Review: measures, rule suggestions, goals and weekly reviews.
@@ -200,7 +201,7 @@ impl PgStore {
             )
             .await?
             .is_some(),
-            "Only the agent's owner, managers and admins can do this"
+            "Only the agent's owner and admins can do this"
         );
         Ok(())
     }
@@ -248,7 +249,7 @@ impl PgStore {
         Ok(())
     }
 
-    /// A manager sets (or changes) one of the agent's goals.
+    /// The owner or an admin sets (or changes) one of the agent's goals.
     pub(crate) async fn save_goal(&self, user: &User, w: &str, input: &Goal) -> Result<Value> {
         let name = line(&input.name, 80, "the goal")?;
         ensure!(
@@ -312,7 +313,7 @@ impl PgStore {
         Ok(())
     }
 
-    /// Weekly review on or off: a weekly routine for the agent, run as the manager
+    /// Weekly review on or off: a weekly routine for the agent, run as the person
     /// who turned it on, in its own work room.
     pub(crate) async fn set_weekly_review(
         &self,
@@ -451,6 +452,6 @@ impl PgStore {
         execute(&tx, "INSERT INTO relay_agent_reviews(workspace,id,agent,job,done,went_wrong,learned,suggestion) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(workspace,job) DO NOTHING",
             vec![job.workspace.clone().into(), uuid::Uuid::new_v4().to_string().into(), job.agent.clone().into(), job.reply.clone().into(), done.into(), wrong.into(), learned.into(), suggestion.into()]).await?;
         tx.commit().await?;
-        Ok(json!({"state": "saved", "message": "Saved for your managers (Activity → Progress)."}))
+        Ok(json!({"state": "saved", "message": "Saved for your owner (Activity → Progress)."}))
     }
 }

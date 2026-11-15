@@ -64,7 +64,6 @@ async fn named_agent(db: &PgStore, owner: &User, w: &str, name: &str) -> String 
         model: "fixture".into(),
         audience: "everyone".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),

@@ -27,7 +27,7 @@ export function InstructionsTab({ agent, rules, saved }: { agent: Agent; rules: 
   const changed = JSON.stringify(draft) !== JSON.stringify(pick(base.settings));
   if (!changed && base.revision !== agent.revision) { setBase(agent); setDraft(pick(agent.settings)); }
   const save = () => void mutation.run(async () => {
-    const next = await saveAgent({ ...base, people: undefined, managers: undefined, settings: { ...base.settings, ...draft } });
+    const next = await saveAgent({ ...base, people: undefined, settings: { ...base.settings, ...draft } });
     setBase({ ...base, revision: next.revision, settings: { ...base.settings, ...draft } });
     mutation.setStatus('Instructions saved.');
     await saved();

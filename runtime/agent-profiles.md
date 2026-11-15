@@ -3,7 +3,7 @@
 There is one agent type (D231, D233; schema 45). Creation and editing use
 `/api/identity/workspaces/{workspace}/agent-profiles`.
 
-## Who can talk to it, owners and managers
+## Who can talk to it, and its owner
 
 - **Everyone may create agents.** The per-person creator right and its
   `/control/creators` route were removed with `relay_agent_creators`.
@@ -17,13 +17,27 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
 - **Seeing and changing:** the owner and admins see and change every agent,
   including only-me agents (admins cannot talk to someone else's only-me agent).
   Other members see the agents they can talk to.
-- **Managers** (`relay_agent_managers`) start as the owner; saves may send
-  `managers` (at least one workspace member). Approvals start using them in M3.
-- **Owner transfer:** `POST …/agent-profiles/{id}/owner` with `{owner, revision}`.
-  The new owner replaces the old one as a manager; the audit log records a
-  readable sentence. An exact retry by the previous owner succeeds.
-- **Removing a person** moves all their agents to the person taking over; only-me
-  agents move paused. An agent they managed alone falls back to its owner.
+- **One owner, no managers (schema 122).** The owner changes the agent, decides its
+  "Ask first" actions, sees all its work in Activity and pauses it. Admins have
+  the same authority over every agent, and decide an approval the owner can't or
+  hasn't in time ([tools and approvals](tools-and-approvals.md#who-decides-ask-first)).
+  The manager lists that existed before are kept in
+  `relay_agent_former_managers` as a record and are no longer read.
+- **Owner transfer:** `POST …/agent-profiles/{id}/owner` with `{owner, revision}`,
+  by the owner or an admin. The audit log records a readable sentence. An exact
+  retry by the previous owner succeeds.
+- **Removing a person:** an admin may name the new owner of their agents
+  (`agents_owner` beside `handover_to`, which is who takes their Library items).
+  The agents then keep working under that person; an only-me agent moves paused
+  for them to look at. With no owner named, and whenever a person leaves on their
+  own, each agent has **no owner** (`owner_id` NULL) and is paused.
+- **An agent with no owner** takes no work: it is paused, can't be resumed, has
+  no effective tool rules (an agent acts through its owner's), and approvals it
+  was waiting for can't be decided by anyone. The directory reports
+  `needs_owner`; admins see "Needs an owner" in the list and on its page. When an
+  admin gives it an owner (the transfer route), an agent that was running when
+  its owner left resumes; one its owner had paused, and an only-me agent, stay
+  paused for the new owner. Waiting approvals can then be decided again.
 - Narrowing who can talk, or pausing, stops queued and waiting work that the
   requester may no longer ask for.
 - Upgrade tests run this code on older schemas, where `scope` (private/workspace)

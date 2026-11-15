@@ -308,7 +308,6 @@ async fn rehearsal_only_me_agent_samples_require_the_owner_and_stay_hidden_from_
         model: "fixture".into(),
         audience: "only_me".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),

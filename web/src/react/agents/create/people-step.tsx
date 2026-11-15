@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { Button } from '../../ui';
 import { identityRequest, workspaceId } from '../../../workspace-context';
 import type { Audience } from '../model';
 
 export type Member = { id: string; name: string; email?: string };
-/** Everyone in the workspace, for choosing selected people and managers. */
+/** Everyone in the workspace, for choosing selected people and a new owner. */
 export const loadMembers = () => identityRequest<{ users: Member[] }>(`/workspaces/${workspaceId}/chat-directory`);
 
 const choices: { value: Audience; label: (workspace: string) => string; help: (name: string) => string }[] = [
@@ -13,18 +11,19 @@ const choices: { value: Audience; label: (workspace: string) => string; help: (n
   { value: 'only_me', label: () => 'Only me', help: name => `Only you can message ${name}. Admins can still see its settings and activity.` },
 ];
 
-/** Create step 3: who can talk to it, its managers and who sees its activity
- * (design 3-create-people). The creator owns the agent and starts as a manager. */
-export function PeopleStep({ name, workspace, me, owner = me, members, audience, people, managers, setAudience, setPeople, setManagers }: {
-  name: string; workspace: string; me: string; owner?: string; members?: Member[];
-  audience: Audience; people: string[]; managers: string[];
-  setAudience: (value: Audience) => void; setPeople: (ids: string[]) => void; setManagers: (ids: string[]) => void;
+/** Create step 3: who can talk to it, its owner and who sees its activity
+ * (design 3-create-people). An agent has one owner (schema 122): its creator,
+ * until it is handed to someone else. */
+export function PeopleStep({ name, workspace, me, owner = me, members, audience, people, setAudience, setPeople }: {
+  name: string; workspace: string; me: string; owner?: string | null; members?: Member[];
+  audience: Audience; people: string[];
+  setAudience: (value: Audience) => void; setPeople: (ids: string[]) => void;
 }) {
-  const [adding, setAdding] = useState('');
   const display = name.trim() || 'this agent';
   const others = (members ?? []).filter(member => member.id !== owner);
-  const named = (id: string) => members?.find(member => member.id === id);
-  const candidates = others.filter(member => !managers.includes(member.id));
+  const mine = owner === me;
+  const person = members?.find(member => member.id === owner);
+  const ownerName = person?.name ?? (mine ? 'You' : owner ? 'Former member' : 'Nobody yet');
   return <div className="agent-create-people">
     <div className="agent-create-main">
       <fieldset className="agent-audience"><legend>Who can talk to {display}</legend>
@@ -42,28 +41,19 @@ export function PeopleStep({ name, workspace, me, owner = me, members, audience,
           {member.name}</label>)}
       </fieldset>}
       {audience !== 'only_me' && <p className="ui-help">In a channel, anyone in that channel can ask {display}.</p>}
-      <section className="agent-managers" aria-label="Managers">
-        <h3>Managers</h3>
-        <p className="ui-help">Managers approve {display}’s “Ask first” actions, see all its activity and can pause it. If no manager decides within 4 hours, an admin can.</p>
-        <ul>{managers.map(id => <li key={id}>
-          <span><strong>{named(id)?.name ?? (id === me ? 'You' : 'Former member')}{id === me && ' (you)'}</strong>{named(id)?.email && <small>{named(id)?.email}</small>}</span>
-          {id === owner ? <span className="agent-owner-tag">Owner</span>
-            : <Button className="ui-icon" aria-label={`Remove ${named(id)?.name ?? 'manager'} as a manager`} disabled={managers.length < 2}
-              onClick={() => setManagers(managers.filter(other => other !== id))}>×</Button>}
-        </li>)}</ul>
-        {candidates.length > 0 && <div className="agent-add-manager">
-          <label className="ui-field">Add manager<select value={adding} onChange={event => setAdding(event.target.value)}>
-            <option value="">Choose a person</option>
-            {candidates.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
-          </select></label>
-          <Button disabled={!adding} onClick={() => { setManagers([...managers, adding]); setAdding(''); }}>Add</Button>
-        </div>}
+      <section className="agent-managers" aria-label="Owner">
+        <h3>Owner</h3>
+        <ul><li><span><strong>{ownerName}{mine && person && ' (you)'}</strong>{person?.email && <small>{person.email}</small>}</span>
+          <span className="agent-owner-tag">Owner</span></li></ul>
+        <p className="ui-help">{mine ? 'You change' : 'The owner changes'} {display}, approve{mine ? '' : 's'} its “Ask first” actions, see{mine ? '' : 's'} all its
+          activity and can pause it. Admins can do the same, and decide an approval the owner hasn’t answered in time.
+          If the owner leaves the workspace, {display} pauses until an admin gives it a new owner.</p>
       </section>
     </div>
     <aside className="agent-create-side">
       <section className="agent-rules" aria-label={`Who sees ${display}’s activity`}>
         <h3>Who sees {display}’s activity</h3>
-        <dl><dt>You and other managers</dt><dd>Everything {display} does.</dd>
+        <dl><dt>{mine ? 'You, its owner' : 'Its owner'}</dt><dd>Everything {display} does.</dd>
           <dt>Admins</dt><dd>Everything {display} does.</dd>
           <dt>Everyone else</dt><dd>Only their own requests.</dd></dl>
       </section>

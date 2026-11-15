@@ -50,8 +50,18 @@ pub(super) async fn setup(mode: &str, needs_other: bool) -> Held {
     let (_, agent) = super::super::super::executor_slot_tests::agent(&db, &owner, &w).await;
     let ids = people.iter().map(|p| p.id.clone()).collect();
     let room = chat(&db, &owner, &w, ids, vec![agent.clone()]).await;
-    execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,1)",
-        vec![w.clone().into(), agent.clone().into(), people[0].id.clone().into(), owner.id.clone().into()]).await.unwrap();
+    // The first person owns the agent; `owner` stays the workspace admin.
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![
+            w.clone().into(),
+            agent.clone().into(),
+            people[0].id.clone().into(),
+        ],
+    )
+    .await
+    .unwrap();
     let connection = uuid::Uuid::new_v4().to_string();
     let approval = SystemApproval {
         server: "orders".into(),
@@ -397,7 +407,7 @@ async fn reconnecting_the_account_keeps_its_writes_held_until_someone_answers() 
 #[ignore = "requires disposable PostgreSQL"]
 async fn a_waiting_task_continues_and_is_told_the_write_was_not_sent() {
     let s = setup("ask", false).await;
-    let id = s.unconfirmed("one", &s.owner).await;
+    let id = s.unconfirmed("one", &s.manager).await;
     assert_eq!(s.job_state().await, "waiting");
     assert!(s.db.claim_job().await.unwrap().is_none());
     s.db.control_settle(&s.manager, &s.w, &id, &answer(false, "Nothing in Sent"))

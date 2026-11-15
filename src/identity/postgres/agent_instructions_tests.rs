@@ -84,7 +84,6 @@ async fn saves_record_a_readable_change_and_titles_are_short() {
         model: "fixture".into(),
         audience: "everyone".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             instructions: "Answer order questions.".into(),

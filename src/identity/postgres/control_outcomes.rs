@@ -1,6 +1,6 @@
 //! Unconfirmed writes (schema 107). A write the provider didn't confirm holds every
 //! later write on its account (`control_propose`, `claim`). It is settled when one
-//! of the agent's managers or an admin says whether it happened, or when Cuckoo
+//! the agent's owner or an admin says whether it happened, or when Cuckoo
 //! finds at the provider that it did (`rechecks`). Settling releases the hold, and
 //! the action's row trigger continues a task waiting for it (durable waits).
 use super::*;
@@ -32,8 +32,8 @@ fn unconfirmed(a: &Value) -> bool {
         || (a["state"] == "executing" && a["updated"].as_i64().unwrap_or(i64::MAX) < now() - 60)
 }
 
-/// `user` may say what happened (owner decision 2026-11-08): the agent's current
-/// managers and admins who can see the request, but never the person who asked
+/// `user` may say what happened (owner decision 2026-11-08): the agent's owner
+/// and admins who can see the request, but never the person who asked
 /// when the action needed someone else's approval.
 async fn may_settle(db: &impl ConnectionTrait, user: &User, w: &str, a: &Value) -> Result<()> {
     super::super::approval_delivery::viewer(db, user, w, a).await?;
@@ -42,12 +42,12 @@ async fn may_settle(db: &impl ConnectionTrait, user: &User, w: &str, a: &Value) 
         "Someone other than the person who asked must say what happened"
     );
     let agent = a["agent"].as_str().context("Missing agent")?;
-    if super::super::approval_authority::manages(db, w, agent, &user.id).await? {
+    if super::super::approval_authority::owns(db, w, agent, &user.id).await? {
         return Ok(());
     }
     ensure!(
         role(db, w, &user.id).await? == "Admin",
-        "Only this agent's managers or an admin can say what happened"
+        "Only this agent's owner or an admin can say what happened"
     );
     Ok(())
 }

@@ -104,6 +104,11 @@ impl PgStore {
                 pending == 0 || input.settings.paused,
                 "Wait for active work to finish or pause the agent first"
             );
+            // An agent whose owner left stays paused until it has one (schema 122).
+            ensure!(
+                input.settings.paused || !a["owner_id"].is_null(),
+                "This agent has no owner. Give it one before it can work again."
+            );
             if input.audience == "only_me" && a["audience"] != "only_me" {
                 super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
             }
@@ -123,8 +128,7 @@ impl PgStore {
             let audience = column(&tx).await?;
             execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
-        let creating = old.is_none();
-        let lists = super::agent_audience::save_lists(&tx, &user.id, w, input, creating).await?;
+        let lists = super::agent_audience::save_lists(&tx, w, input).await?;
         narrowed |= lists.narrowed;
         if uuid::Uuid::parse_str(&input.settings.avatar).is_ok() {
             ensure!(

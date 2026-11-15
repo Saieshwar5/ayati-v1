@@ -79,7 +79,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       </dl>
       {data.model_usage && data.model_usage.calls > 0 && <p className="activity-task-line">Model use: {data.model_usage.models} · {data.model_usage.calls} {data.model_usage.calls === 1 ? 'call' : 'calls'} · {data.model_usage.input_tokens.toLocaleString()} tokens in, {data.model_usage.output_tokens.toLocaleString()} out{data.model_usage.charge_usd ? ` · ${dollars(data.model_usage.charge_usd)}` : ''}</p>}
       {data.task && <p className="activity-task-line">Part of task <a href={taskUrl(data.task.id)}>{data.task.title}</a> · {taskLabels[data.task.status]}</p>}
-      {!data.in_conversation && <p className="ui-help">You are not in this conversation. As a manager or admin you can read this request; your view is recorded in the audit log.</p>}
+      {!data.in_conversation && <p className="ui-help">You are not in this conversation. As this agent’s owner or an admin you can read this request; your view is recorded in the audit log.</p>}
       <h3>What {data.agent_name} did</h3>
       <ol className="activity-steps">
         <li className="done"><strong>Read the message</strong>{data.message && <blockquote>{data.message}</blockquote>}</li>

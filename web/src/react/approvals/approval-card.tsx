@@ -6,9 +6,9 @@ import { states } from '../agents/control-model';
 
 export type ApprovalReference = {
   id?: string; state?: string; restricted?: boolean;
-  /** Pending only: this person may decide now (a manager, or an admin after the backup delay). */
+  /** Pending only: this person may decide now (the agent's owner, or an admin after the backup delay). */
   may_decide?: boolean;
-  /** Pending only: the managers who could decide now. */
+  /** Pending only: the owner, when they could decide now. */
   waiting_for?: string[];
   /** Pending only: when admins may step in, in seconds. */
   backup_at?: number;

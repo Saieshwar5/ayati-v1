@@ -5,7 +5,7 @@ import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 
 // Web search (designs/web-search): built into Cuckoo, on by default, switched by
-// the agent's owner or managers; the service behind it is never named.
+// the agent's owner or admins; the service behind it is never named.
 const w = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${w}/?view=agents`;
 const session = { user: { id: 'owner', email: 'owner@example.test', display_name: 'Ravi Kumar' }, workspaces: [{ id: w, name: 'Mehta Furnishings', role: 'Member' }] };
@@ -110,6 +110,6 @@ test('people who cannot change the agent see web search but cannot switch it', a
     assert.equal(webSwitch().disabled, true);
     assert.equal(webSwitch().checked, false);
     assert.match(document.body.textContent, /Off: Atlas answers from its apps and the Library only/);
-    assert.match(document.body.textContent, /Only Atlas’s owner, its managers and admins can change this/);
+    assert.match(document.body.textContent, /Only Atlas’s owner and admins can change this/);
   }, { url, fetch: async () => response(controls) });
 });

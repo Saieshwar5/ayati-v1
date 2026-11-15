@@ -49,7 +49,7 @@ test('a failed create keeps the whole draft and a double click sends one request
     for (let next = 0; next < 4; next++) await click(button('Continue'));
     fail = false; await click(button('Create agent'));
     assert.equal(writes.length, 2); assert.deepEqual(writes[0], writes[1]); assert.equal(created.length, 1);
-    assert.equal(writes[1].audience, 'everyone'); assert.deepEqual(writes[1].people, []); assert.deepEqual(writes[1].managers, ['owner']);
+    assert.equal(writes[1].audience, 'everyone'); assert.deepEqual(writes[1].people, []); assert.equal('managers' in writes[1], false, 'an agent has one owner and no managers');
     assert.equal(writes[1].role, 'Customer support'); assert.equal(writes[1].revision, 0);
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
@@ -60,7 +60,7 @@ test('a failed create keeps the whole draft and a double click sends one request
   } });
 });
 
-test('starters only fill an empty box, and selected people and managers are sent', async () => {
+test('starters only fill an empty box, selected people are sent, and the creator is the one owner', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
     await open(render);
@@ -73,13 +73,15 @@ test('starters only fill an empty box, and selected people and managers are sent
     await click(button('Continue'));
     await click(document.querySelector('input[value=selected]'));
     await click([...document.querySelectorAll('label')].find(node => node.textContent === 'Priya Shah').querySelector('input'));
-    await change(field('Add manager'), 'arjun'); await click(button('Add'));
-    assert.match(document.body.textContent, /Arjun Mehta/);
+    const owner = document.querySelector('section[aria-label="Owner"]');
+    assert.match(owner.textContent, /Ravi Kumar \(you\)ravi@example\.testOwner/);
+    assert.match(owner.textContent, /If the owner leaves the workspace, Ledger pauses until an admin gives it a new owner/);
+    assert.equal(document.querySelector('section[aria-label="Managers"]'), null);
     await click(button('Continue'));
     await click(button('Create agent'));
     assert.equal(writes.length, 1);
     assert.equal(writes[0].audience, 'selected'); assert.deepEqual(writes[0].people, ['priya']);
-    assert.deepEqual(writes[0].managers, ['owner', 'arjun']); assert.equal(writes[0].role, 'Books');
+    assert.equal('managers' in writes[0], false); assert.equal(writes[0].role, 'Books');
     assert.equal(writes[0].settings.instructions, 'My own words');
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);

@@ -47,7 +47,7 @@ export function ProfileDetails({ target, directory, chats, message }: {
     {message && !self && <div className="profile-card-actions"><Button primary onClick={() => message({ ...target, name: who.name })}>Message</Button></div>}
     {person?.about && <ProfileLine label="About">{person.about}</ProfileLine>}
     {person?.email && <ProfileLine label="Email">{person.email}</ProfileLine>}
-    {agent?.manager && <ProfileLine label="Managed by">{agent.manager}</ProfileLine>}
+    {agent?.manager && <ProfileLine label="Owned by">{agent.manager}</ProfileLine>}
     <ProfileLine label={agent ? 'Works in' : self ? 'Your channels' : 'Channels together'}>
       {shared.length ? <span className="profile-card-chips">{shared.slice(0, 8).map(chat => <span key={chat.id}># {chat.name}</span>)}{shared.length > 8 && <span>+{shared.length - 8} more</span>}</span> : 'No channels yet'}
     </ProfileLine>

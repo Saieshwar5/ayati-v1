@@ -86,9 +86,16 @@ async fn removal_hands_agents_library_and_invitations_to_the_chosen_person() {
         1
     );
 
-    db.change(&admin, &w, &leaving.id, None, Some(&heir.id))
-        .await
-        .unwrap();
+    db.change_member(
+        &admin,
+        &w,
+        &leaving.id,
+        None,
+        Some(&heir.id),
+        Some(&heir.id),
+    )
+    .await
+    .unwrap();
     assert!(db.role(&w, &leaving.id).await.is_err());
     let owner: String = query(
         &db.db,
@@ -151,7 +158,7 @@ async fn removal_hands_agents_library_and_invitations_to_the_chosen_person() {
 
 #[tokio::test]
 #[ignore = "requires local PostgreSQL"]
-async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
+async fn removal_without_a_new_owner_pauses_their_agents_and_members_cannot_remove() {
     let db = fixture().await;
     let admin = user(&db, "default-heir-admin").await;
     let member = user(&db, "default-heir-member").await;
@@ -178,8 +185,9 @@ async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
             .await
             .is_err()
     );
+    // With no new owner named, their agent has none and pauses (schema 122).
     db.change(&admin, &w, &member.id, None, None).await.unwrap();
-    let owner: String = query(
+    let owner: Option<String> = query(
         &db.db,
         "SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), agent.into()],
@@ -189,10 +197,10 @@ async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
     .unwrap()
     .try_get("", "owner_id")
     .unwrap();
-    assert_eq!(owner, admin.id);
+    assert_eq!(owner, None);
     assert_eq!(
         audit_summary(&db, &w).await,
-        "default-heir-admin@example.test removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
+        "default-heir-admin@example.test removed default-heir-member@example.test; 1 agent paused until an admin gives them an owner"
     );
     let activity = db
         .workspace_activity(&admin, &w, "all", None)
@@ -204,7 +212,7 @@ async fn removal_defaults_to_the_acting_admin_and_members_cannot_remove() {
     );
     assert_eq!(
         activity["activity"][0]["sentence"],
-        "removed default-heir-member@example.test; 1 agent moved to default-heir-admin@example.test"
+        "removed default-heir-member@example.test; 1 agent paused until an admin gives them an owner"
     );
 }
 
@@ -242,7 +250,7 @@ async fn members_leave_on_their_own_and_the_last_admin_cannot() {
             .await
             .is_err()
     );
-    // Leaving names who takes over; a member still cannot change anyone else.
+    // Leaving names who takes their Library items; a member still cannot change anyone else.
     assert!(
         db.change(&member, &w, &member.id, None, None)
             .await
@@ -257,7 +265,7 @@ async fn members_leave_on_their_own_and_the_last_admin_cannot() {
         .await
         .unwrap();
     assert!(db.role(&w, &member.id).await.is_err());
-    let owner: String = query(
+    let owner: Option<String> = query(
         &db.db,
         "SELECT owner_id FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
         vec![w.clone().into(), agent.into()],
@@ -267,10 +275,10 @@ async fn members_leave_on_their_own_and_the_last_admin_cannot() {
     .unwrap()
     .try_get("", "owner_id")
     .unwrap();
-    assert_eq!(owner, other.id);
+    assert_eq!(owner, None, "only an admin gives an agent its new owner");
     assert_eq!(
         audit_summary(&db, &w).await,
-        "leave-member@example.test left the workspace; 1 agent moved to leave-other@example.test"
+        "leave-member@example.test left the workspace; 1 agent paused until an admin gives them an owner"
     );
 
     let refused = db

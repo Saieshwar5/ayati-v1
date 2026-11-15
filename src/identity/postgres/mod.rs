@@ -297,6 +297,7 @@ mod response_tests;
 mod responses;
 pub(crate) mod settings;
 mod shared_rooms;
+pub(crate) mod single_owner;
 mod skill_writing;
 #[cfg(test)]
 mod skill_writing_tests;

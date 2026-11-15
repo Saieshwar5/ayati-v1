@@ -91,7 +91,7 @@ export function ComputerToolsCard({ agent, saved }: { agent: Agent; saved: () =>
   const draft = edits ?? settings;
   const changed = JSON.stringify(draft) !== JSON.stringify(settings);
   const save = () => void mutation.run(async () => {
-    await saveAgent({ ...agent, people: undefined, managers: undefined, settings: { ...agent.settings, computer: draft } });
+    await saveAgent({ ...agent, people: undefined, settings: { ...agent.settings, computer: draft } });
     await saved();
     setEdits(undefined);
     mutation.setStatus('Computer controls saved. They apply from its next command.');

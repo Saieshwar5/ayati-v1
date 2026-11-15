@@ -9,7 +9,7 @@ const when = (ms: number) => `${dayLabel(ms)} ${clock(ms)}`;
 
 /** One task: what it promises, its status from the records, each request that
  * worked on it, and closing it. "Not a task" is for anyone who can see it; done
- * and cancelled for the person it's for, the agent's managers and admins. */
+ * and cancelled for the person it's for, the agent's owner and admins. */
 export function TaskDetails({ id, close }: { id: string; close: () => void }) {
   const [state, setState] = useState<{ data?: TaskDetail; error?: string }>({});
   const [version, setVersion] = useState(0);

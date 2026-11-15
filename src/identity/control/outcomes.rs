@@ -1,4 +1,4 @@
-//! Settling an unconfirmed write (schema 107): one of the agent's managers or an
+//! Settling an unconfirmed write (schema 107): the agent's owner or an
 //! admin says whether it happened, which releases the hold on the account's writes.
 use super::*;
 

@@ -84,7 +84,7 @@ export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0)
 export const loadNow = (scope: Scope, signal?: AbortSignal) => identityRequest<Now>(`${root}/now?today=${startOfToday()}&scope=${scope}`, undefined, signal);
 export const loadUnhandled = (params: { from?: number; scope?: Scope; agent?: string }, before?: number, signal?: AbortSignal) =>
   identityRequest<{ items: Unhandled[]; next_before: number | null }>(`${root}/unhandled?${query({ from: params.from, scope: params.scope, agent: params.agent }, { before })}`, undefined, signal);
-/** Pause or resume one agent (its owner, managers and admins). */
+/** Pause or resume one agent (its owner and admins). */
 export const pauseAgent = (agent: string, paused: boolean) =>
   identityRequest<{ paused: boolean; revision: number }>(`/workspaces/${workspaceId}/agent-profiles/${encodeURIComponent(agent)}/pause`, { paused });
 /** Ask a failed request again, as the person who asked. Repeats give the same retry. */

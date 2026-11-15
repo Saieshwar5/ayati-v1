@@ -17,7 +17,6 @@ async fn targeted_profile_lookup_rechecks_grants_and_preserves_private_and_works
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings::default(),
     };

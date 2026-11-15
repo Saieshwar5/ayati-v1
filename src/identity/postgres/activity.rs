@@ -2,7 +2,7 @@
 //! filters, totals and details. It reads existing records and never starts work.
 //!
 //! Who sees a request (D231, D235): the person who asked; anyone who can see the
-//! conversation; the agent's managers; and admins. Requests that used Library
+//! conversation; the agent's owner; and admins. Requests that used Library
 //! sources stay with their requester, as on the agent's own request list.
 use super::*;
 use serde::Deserialize;
@@ -281,7 +281,7 @@ impl PgStore {
             WHERE l.workspace=$1 AND l.action IN ('agent_profile_saved','agent_owner_changed') AND l.summary IS NOT NULL AND l.id<$5
               AND ($4::text IS NULL OR a.id=$4)
               AND ($3 OR a.owner_id=$2 OR relay_agent_can_talk(a.workspace,a.id,$2)
-                OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
+                OR a.owner_id=$2)
             ORDER BY l.id DESC LIMIT 26",
             vec![w.into(), user.id.clone().into(), admin.into(), agent.map(str::to_owned).into(), before.unwrap_or(i64::MAX).into()]).await?;
         let more = records.len() > 25;

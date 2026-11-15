@@ -74,7 +74,7 @@ impl PgStore {
             "message": "Follow-up booked. Tell the person when you'll check again; you'll be woken then to continue this task."}))
     }
 
-    /// Coming up: the person it's for, the agent's managers and admins stop a
+    /// Coming up: the person it's for, the agent's owner and admins stop a
     /// booked follow-up. The task stays open.
     pub(crate) async fn task_cancel_follow_up(
         &self,
@@ -85,7 +85,7 @@ impl PgStore {
         let details = self.task_details(user, w, task).await?;
         ensure!(
             details["may_close"] == true,
-            "Only the person it's for, the agent's managers and admins can stop its follow-up"
+            "Only the person it's for, the agent's owner and admins can stop its follow-up"
         );
         let tx = self.workspace_tx(w).await?;
         cancel(&tx, w, task).await?;

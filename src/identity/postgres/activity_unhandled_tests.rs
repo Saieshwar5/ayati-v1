@@ -1,11 +1,11 @@
 //! Events no agent acted on: listed with their reason for the person who set up the
-//! trigger, the agent's managers and admins; never their contents.
+//! trigger, the agent's owner and admins; never their contents.
 use super::super::tests::{chat, fixture, join, user, workspace};
 use super::super::*;
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn unhandled_events_show_their_reason_to_the_trigger_owner_managers_and_admins() {
+async fn unhandled_events_show_their_reason_to_the_trigger_owner_the_agents_owner_and_admins() {
     let db = fixture().await;
     let admin = user(&db, "events-admin").await;
     let setter = user(&db, "events-setter").await;
@@ -24,7 +24,17 @@ async fn unhandled_events_show_their_reason_to_the_trigger_owner_managers_and_ad
         vec![agent.clone()],
     )
     .await;
-    execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,1)", vec![w.clone().into(), agent.clone().into(), manager.id.clone().into(), admin.id.clone().into()]).await.unwrap();
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![
+            w.clone().into(),
+            agent.clone().into(),
+            manager.id.clone().into(),
+        ],
+    )
+    .await
+    .unwrap();
     db.db
         .execute_unprepared(&format!(
             "INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES('{w}','shop',true,1);

@@ -1,10 +1,13 @@
 //! What a person is responsible for, and handing it on when an admin removes them.
-//! Their agents and workspace-wide Library items move to the chosen person; an
-//! only-me agent moves paused, so the new owner looks at it before it works again.
+//! Their workspace-wide Library items move to the person taking over. Their
+//! agents move to the new owner the admin chose (an only-me agent moves paused,
+//! so the new owner looks at it before it works again); with none chosen, or
+//! when the person leaves on their own, their agents have no owner and pause
+//! until an admin gives them one (schema 122).
 //! Private pages and items shared with selected people stay as they are: moving
 //! them would show the new owner something it was never shared with. Existing safety rules still
 //! pause their schedules and event triggers; those are reported, not moved. Pending
-//! approvals stay with the agent's other managers.
+//! approvals go to the agent's new owner, or to admins while it has none.
 use super::*;
 use serde_json::json;
 
@@ -33,18 +36,17 @@ pub(super) async fn responsibilities(
     }))
 }
 
-/// Moves agents and Library items to `heir` and cancels invitations `person` sent.
-/// Returns provider invitation IDs to revoke after commit.
+/// Moves Library items to `heir`, agents to `new_owner` (or leaves them without
+/// an owner, paused) and cancels invitations `person` sent. Returns provider
+/// invitation IDs to revoke after commit.
 pub(super) async fn hand_over(
     tx: &impl ConnectionTrait,
     w: &str,
     person: &str,
     heir: &str,
+    new_owner: Option<&str>,
 ) -> Result<Vec<String>> {
-    // The new owner also manages the agents they take over.
-    execute(tx, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) SELECT workspace,id,$3,$3,$4 FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 ON CONFLICT DO NOTHING", vec![w.into(), person.into(), heir.into(), now().into()]).await?;
-    execute(tx, "UPDATE relay_shared_agents SET owner_id=$3,revision=revision+1,settings=CASE WHEN audience='only_me' THEN jsonb_set(settings,'{paused}','true') ELSE settings END WHERE workspace=$1 AND owner_id=$2", vec![w.into(), person.into(), heir.into()]).await?;
-    super::agent_audience::keep_a_manager(tx, w, person).await?;
+    super::single_owner::owner_leaves(tx, w, person, new_owner, heir).await?;
     execute(tx, "UPDATE relay_library_items SET steward=$3,access_revision=access_revision+1 WHERE workspace=$1 AND steward=$2 AND visibility='workspace'", vec![w.into(), person.into(), heir.into()]).await?;
     let cancelled = rows(tx, "UPDATE relay_invitations SET status='cancelled' WHERE workspace=$1 AND inviter=$2 AND status='pending' RETURNING provider", vec![w.into(), person.into()]).await?;
     Ok(cancelled
@@ -75,6 +77,7 @@ pub(super) fn removal_summary(
     actor: Option<&str>,
     person: &str,
     heir: &str,
+    new_owner: Option<&str>,
     before: &Value,
 ) -> String {
     let n = |key: &str| before[key].as_i64().unwrap_or(0);
@@ -83,18 +86,31 @@ pub(super) fn removal_summary(
         Some(actor) => format!("{actor} removed {person}"),
         None => format!("{person} left the workspace"),
     }];
-    let moved: Vec<String> = [
-        plural(agents, "agent", "agents"),
-        plural(n("library_items"), "Library item", "Library items"),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    if !moved.is_empty() {
-        parts.push(format!("{} moved to {heir}", moved.join(" and ")));
+    let agents = plural(agents, "agent", "agents");
+    let library = plural(n("library_items"), "Library item", "Library items");
+    if new_owner == Some(heir) {
+        // One person takes both.
+        let moved: Vec<String> = [agents, library].into_iter().flatten().collect();
+        if !moved.is_empty() {
+            parts.push(format!("{} moved to {heir}", moved.join(" and ")));
+        }
+    } else {
+        if let Some(agents) = agents {
+            parts.push(match new_owner {
+                Some(owner) => format!("{agents} moved to {owner}"),
+                None => format!("{agents} paused until an admin gives them an owner"),
+            });
+        }
+        if let Some(library) = library {
+            parts.push(format!("{library} moved to {heir}"));
+        }
     }
     let paused: Vec<String> = [
-        plural(n("private_agents"), "only-me agent", "only-me agents"),
+        new_owner.and(plural(
+            n("private_agents"),
+            "only-me agent",
+            "only-me agents",
+        )),
         plural(n("schedules"), "schedule", "schedules"),
         plural(n("event_triggers"), "event trigger", "event triggers"),
     ]
@@ -147,16 +163,36 @@ mod tests {
     fn summary_names_what_moved_paused_and_stopped() {
         let before = json!({"agents":[{"id":"a"},{"id":"b"}],"library_items":1,"schedules":2,"event_triggers":0,"invitations":3,"private_agents":0,"kept_library_items":0});
         assert_eq!(
-            removal_summary(Some("Arjun Mehta"), "Ravi Kumar", "Meera Iyer", &before),
+            removal_summary(
+                Some("Arjun Mehta"),
+                "Ravi Kumar",
+                "Meera Iyer",
+                Some("Meera Iyer"),
+                &before
+            ),
             "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to Meera Iyer; 2 schedules paused for review; 3 invitations cancelled"
         );
         let empty =
             json!({"agents":[],"library_items":0,"schedules":0,"event_triggers":0,"invitations":0});
-        assert_eq!(removal_summary(Some("A"), "B", "A", &empty), "A removed B");
+        assert_eq!(
+            removal_summary(Some("A"), "B", "A", None, &empty),
+            "A removed B"
+        );
         let one = json!({"agents":[{"id":"a"}],"library_items":0});
         assert_eq!(
-            removal_summary(None, "Ravi Kumar", "Arjun Mehta", &one),
-            "Ravi Kumar left the workspace; 1 agent moved to Arjun Mehta"
+            removal_summary(None, "Ravi Kumar", "Arjun Mehta", None, &one),
+            "Ravi Kumar left the workspace; 1 agent paused until an admin gives them an owner"
+        );
+        let both = json!({"agents":[{"id":"a"}],"library_items":2});
+        assert_eq!(
+            removal_summary(
+                Some("Arjun Mehta"),
+                "Ravi Kumar",
+                "Arjun Mehta",
+                Some("Meera Iyer"),
+                &both
+            ),
+            "Arjun Mehta removed Ravi Kumar; 1 agent moved to Meera Iyer; 2 Library items moved to Arjun Mehta"
         );
     }
 }

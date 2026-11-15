@@ -58,7 +58,6 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
   const [step, setStep] = useState(0);
   const [audience, setAudience] = useState<Audience>(start.audience);
   const [people, setPeople] = useState<string[]>([]);
-  const [managers, setManagers] = useState<string[]>([me]);
   const members = useResource(loadMembers);
   const available = useResource(loadAvailable);
   const [tools, setTools] = useState<ToolChoices>({});
@@ -72,9 +71,9 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
   const [pickingSkills, setPickingSkills] = useState(false);
   const mutation = useMutation();
   const first = useRef<HTMLInputElement>(null);
-  const ready = [Boolean(draft.name.trim()), true, Boolean(draft.settings.instructions.trim()), managers.length > 0, true];
+  const ready = [Boolean(draft.name.trim()), true, Boolean(draft.settings.instructions.trim()), true, true];
   const submit = () => mutation.run(async () => {
-    const input = { ...draft, audience, people: audience === 'selected' ? people : [], managers };
+    const input = { ...draft, audience, people: audience === 'selected' ? people : [] };
     // A saved agent keeps its revision if the picture upload fails, so a retry updates it.
     await saveAgentWithPicture(input, file, next => setDraft(old => ({ ...old, revision: next.revision, settings: next.settings })));
     setFile(undefined);
@@ -129,8 +128,8 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
           <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
       </SkillsStep>}
       {step === 3 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
-        members={members.data?.users} audience={audience} people={people} managers={managers}
-        setAudience={setAudience} setPeople={setPeople} setManagers={setManagers} />}
+        members={members.data?.users} audience={audience} people={people}
+        setAudience={setAudience} setPeople={setPeople} />}
       {step === 4 && <ControlsStep name={draft.name} connections={available.data?.connections} choices={tools} change={setTools}
         computer={computers && computerOf(draft.settings).on ? computerOf(draft.settings) : undefined}
         changeComputer={computer => setDraft(old => ({ ...old, settings: { ...old.settings, computer } }))}

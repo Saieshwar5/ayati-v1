@@ -54,7 +54,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
         const conversation = existingDirect(chats, item, me);
         const pinned = conversation && preferences?.pins.some(pin => samePin(pin, { kind: 'chat', id: conversation.id }));
         const self = item.kind === 'user' && item.id === me;
-        const detail = item.kind === 'agent' ? [item.role, item.manager && `managed by ${item.manager}`].filter(Boolean).join(' · ') : item.title || (item.role === 'Admin' ? 'Admin' : '');
+        const detail = item.kind === 'agent' ? [item.role, item.manager && `owned by ${item.manager}`].filter(Boolean).join(' · ') : item.title || (item.role === 'Admin' ? 'Admin' : '');
         return <li key={`${item.kind}:${item.id}`}>
           <DirectoryWho item={item} self={self} detail={detail} open={() => showProfile({ kind: item.kind, id: item.id })} />
           {!self && preferences?.available && <Button className="ui-icon chat-pin-action" aria-pressed={Boolean(pinned)} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${item.name}`} title={pinned ? 'Unpin' : 'Pin to Chat'} disabled={direct.busy} onClick={() => pinTarget(item)}>{pinned ? '★' : '☆'}</Button>}

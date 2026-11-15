@@ -54,7 +54,7 @@ fn plain_suggestions_follow_the_skills_and_the_ground_rules() {
     assert_eq!(list[0].reason, "refund-check uses it");
     assert_eq!(
         list[1].reason,
-        "refund-check uses it; a manager approves each one"
+        "refund-check uses it; its owner approves each one"
     );
     assert_eq!(list[2].reason, "You said: “Never give discounts.”");
     assert_eq!(list[4].reason, "No skill uses it");

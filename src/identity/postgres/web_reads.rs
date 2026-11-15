@@ -170,7 +170,7 @@ impl PgStore {
         };
         if !agent_searches(&self.db, &job.workspace, &job.agent).await? {
             return Ok(Err(refused(
-                "Web search is switched off for you. Answer from your apps and the Library, or tell the person a manager can switch web search on in your Tools tab.",
+                "Web search is switched off for you. Answer from your apps and the Library, or tell the person your owner or an admin can switch web search on in your Tools tab.",
             )));
         }
         if let Some(reason) =
@@ -189,7 +189,7 @@ impl PgStore {
     }
 }
 
-/// Web search is on unless the agent's owner or a manager switched it off.
+/// Web search is on unless the agent's owner or an admin switched it off.
 pub(super) async fn agent_searches(
     db: &impl ConnectionTrait,
     w: &str,

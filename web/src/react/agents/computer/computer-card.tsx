@@ -19,7 +19,7 @@ export function ComputerCard({ agent, offer, saved }: { agent: Agent; offer: Com
   const settings = computerOf(agent.settings);
   const editable = Boolean(agent.editable);
   const save = (next: ComputerSettings, done: string) => void mutation.run(async () => {
-    await saveAgent({ ...agent, people: undefined, managers: undefined, settings: { ...agent.settings, computer: next } });
+    await saveAgent({ ...agent, people: undefined, settings: { ...agent.settings, computer: next } });
     await saved();
     await status.refresh().catch(() => {});
     mutation.setStatus(done);

@@ -161,7 +161,7 @@ test('The only admin cannot be made a member or removed', async () => {
   });
 });
 
-test('Removal shows what moves, hands it to the chosen person and sends one request', async () => {
+test('Removal pauses their agents unless a new owner is named, and sends one request', async () => {
   let release;
   const pending = new Promise(resolve => { release = resolve; });
   const second = { id: 'second', email: 'second@example.com', role: 'Admin' };
@@ -170,19 +170,26 @@ test('Removal shows what moves, hands it to the chosen person and sends one requ
     assert.ok(reads.some(path => path.endsWith('/members/employee/responsibilities')));
     const dialog = document.querySelector('dialog');
     assert.equal(dialog.querySelector('h2').textContent, `Remove ${member.email}?`);
-    assert.match(dialog.textContent, /Moves to owner@example.com3 agents: Atlas, Nova, Scout/);
+    // With no new owner named, their agents pause until an admin gives them one.
+    assert.match(dialog.textContent, /Paused until an admin gives them an owner3 agents: Atlas, Nova, Scout/);
+    const select = label => [...dialog.querySelectorAll('label')].find(node => node.textContent.startsWith(label)).querySelector('select');
+    const owner = select('New owner of their agents');
+    assert.equal(owner.value, '', 'nobody owns them by default');
+    assert.deepEqual([...owner.options].map(option => option.value), ['', 'owner', 'second']);
     assert.match(dialog.textContent, /Stays as it is2 private or selected Library items/);
-    assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 schedules/);
+    assert.match(dialog.textContent, /Paused for review2 schedules/);
     assert.match(dialog.textContent, /1 invitation employee@example.com sent/);
-    const heir = dialog.querySelector('select');
-    assert.equal(heir.value, 'owner', 'the acting admin takes over by default');
+    const heir = select('Who takes over their Library items');
+    assert.equal(heir.value, 'owner', 'the acting admin takes their Library items by default');
     assert.deepEqual([...heir.options].map(option => option.value), ['owner', 'second']);
-    await change(heir, 'second');
-    assert.match(dialog.textContent, /Moves to second@example.com/);
+    // Naming an owner moves the agents to them; an only-me agent then pauses for review.
+    await change(owner, 'second');
+    assert.match(dialog.textContent, /Moves to second@example.com3 agents: Atlas, Nova, Scout/);
+    assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 schedules/);
     const remove = button(`Remove ${member.email}`);
     await click(remove); await click(remove);
     assert.equal(writes.length, 1);
-    assert.deepEqual(writes[0].body, { role: null, handover_to: 'second' });
+    assert.deepEqual(writes[0].body, { role: null, handover_to: 'owner', agents_owner: 'second' });
     assert.equal(button('Close').disabled, true);
     await update(() => release({ ok: true }));
     assert.equal(document.querySelector('dialog'), null);

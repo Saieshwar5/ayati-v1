@@ -395,9 +395,13 @@ pub(super) async fn cancel(
 #[serde(deny_unknown_fields)]
 pub(super) struct Change {
     role: Option<String>,
-    /// On removal, who takes over agents and Library items; defaults to the acting admin.
+    /// On removal, who takes over their Library items; defaults to the acting admin.
     #[serde(default)]
     handover_to: Option<String>,
+    /// On removal by an admin, the new owner of their agents. Without one the
+    /// agents pause until an admin gives them an owner.
+    #[serde(default)]
+    agents_owner: Option<String>,
 }
 pub(super) async fn change(
     State(app): State<Shared>,
@@ -408,12 +412,13 @@ pub(super) async fn change(
     let user = identity(&app, &headers).await?;
     let providers = app
         .store
-        .change(
+        .change_member(
             &user,
             &workspace,
             &target,
             input.role.as_deref(),
             input.handover_to.as_deref(),
+            input.agents_owner.as_deref(),
         )
         .await?;
     // Invitations the removed person sent are already cancelled locally; the

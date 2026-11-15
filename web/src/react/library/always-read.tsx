@@ -22,7 +22,7 @@ type Listing = {
   budget: number;
 };
 
-/** Documents an agent always has in every request (Library LB2c). Its managers choose
+/** Documents an agent always has in every request (Library LB2c). Its owner and admins choose
  * them from the documents it was given; each request still follows "use for". */
 export function AlwaysRead({ agent }: { agent: { id: string; name: string } }) {
   const path = `/workspaces/${workspaceId}/library-always/${encodeURIComponent(agent.id)}`;

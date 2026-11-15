@@ -57,7 +57,7 @@ export function ReviewView({ scope }: { scope: Scope }) {
       {data.reviews?.length ? data.reviews.map(r => <article key={r.id} className="activity-review-card"><h3>{r.agent_name} · {dayLabel(r.at)}</h3>
         <p><strong>Done:</strong> {r.done}</p><p><strong>Went wrong:</strong> {r.went_wrong}</p><p><strong>Learned:</strong> {r.learned}</p>
         {r.suggestion && <p className="activity-fix"><strong>Suggested change:</strong> {r.suggestion} <a href={`?view=agents&selected=${encodeURIComponent(r.agent)}`}>Set up {r.agent_name} →</a></p>}
-      </article>) : <p className="activity-empty">Turn on a weekly review above; each agent then writes one for its managers.</p>}
+      </article>) : <p className="activity-empty">Turn on a weekly review above; each agent then writes one for its owner.</p>}
     </section>
   </section>;
 }

@@ -8,7 +8,7 @@ const w = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${w}/?view=agents`;
 const session = { user: { id: 'owner', email: 'owner@example.test', display_name: 'Ravi Kumar' }, workspaces: [{ id: w, name: 'Store', role: 'Member' }] };
 const settings = { provider: '', instructions: '## Responsibility\nAnswer order questions.', escalation: '', avatar: 'robot-03', memory: true, browser: false, history: 'all', paused: false };
-const agent = { id: 'atlas', name: 'Atlas', role: 'Orders assistant', model: 'fixture', audience: 'everyone', revision: 5, settings, editable: true, owner_id: 'owner', owner_name: 'Ravi Kumar', people: [], managers: ['owner'] };
+const agent = { id: 'atlas', name: 'Atlas', role: 'Orders assistant', model: 'fixture', audience: 'everyone', revision: 5, settings, editable: true, owner_id: 'owner', owner_name: 'Ravi Kumar', people: [] };
 const directory = { role: 'Member', agents: [agent], default_model: 'fixture', providers: [], system_prompt: 'System guide' };
 const users = [{ id: 'owner', name: 'Ravi Kumar' }, { id: 'priya', name: 'Priya Shah' }];
 const response = data => ({ ok: true, json: async () => data });
@@ -35,7 +35,7 @@ test('overview shows what it does and who can talk to it, without the old placeh
     assert.match(text, /AboutAnswer order questions\./);
     assert.match(text, /Orders assistant · owned by Ravi Kumar/);
     assert.match(text, /Who can talk to itEveryone in the workspace/);
-    assert.match(text, /ManagersRavi Kumar/);
+    assert.match(text, /OwnerRavi Kumar/);
     assert.equal(text.includes('Not connected'), false);
     assert.equal(text.includes('Try a sample task'), false);
   }, { url, fetch: async path => response(read(path)) });
@@ -49,7 +49,7 @@ test('pause from the ⋯ menu saves once and leaves the people lists alone', asy
     await update(() => { button('Pause').click(); });
     assert.equal(writes.length, 1);
     assert.equal(writes[0].settings.paused, true); assert.equal(writes[0].revision, 5);
-    assert.equal(writes[0].people, undefined); assert.equal(writes[0].managers, undefined);
+    assert.equal(writes[0].people, undefined); assert.equal('managers' in writes[0], false);
     assert.equal(calls.saved, 1);
     assert.match(document.body.textContent, /Atlas is paused/);
   }, { url, fetch: async (path, options = {}) => {
@@ -73,6 +73,38 @@ test('transfer owner sends the chosen person with the current revision', async (
     if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); return response({ owner: 'priya', revision: 6 }); }
     return response(read(path));
   } });
+});
+
+test('an agent whose owner left says so, cannot resume, and an admin gives it an owner', async () => {
+  const writes = [];
+  const ownerless = { ...agent, owner_id: null, owner_name: 'Former member', needs_owner: true, settings: { ...settings, paused: true } };
+  await reactFixture(async ({ render, button, click, change }) => {
+    await open(render, { agent: ownerless });
+    assert.match(document.body.textContent, /Needs an owner/);
+    assert.match(document.body.textContent, /Orders assistant · its owner left the workspace/);
+    assert.match(document.querySelector('[role=note]').textContent, /Atlas’s owner left the workspace, so it is paused and takes no work/);
+    assert.match(document.body.textContent, /OwnerNone: its owner left/);
+    // Without an owner it can't be resumed: giving it one comes first.
+    await click(button('More actions for Atlas'));
+    assert.equal(button('Resume'), undefined);
+    await click(button('Give it an owner…'));
+    assert.equal(document.querySelector('dialog h2').textContent, 'Give Atlas an owner');
+    await change(document.querySelector('dialog select'), 'priya');
+    await click(button('Give owner'));
+    assert.deepEqual(writes, [{ path: `/api/identity/workspaces/${w}/agent-profiles/atlas/owner`, body: { owner: 'priya', revision: 5 } }]);
+    assert.match(document.body.textContent, /Priya Shah now owns Atlas/);
+  }, { url, fetch: async (path, options = {}) => {
+    if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); return response({ owner: 'priya', revision: 6 }); }
+    return response(read(path));
+  } });
+});
+
+test('people who are not admins are told an admin must give it an owner', async () => {
+  await reactFixture(async ({ render, button }) => {
+    await open(render, { agent: { ...agent, owner_id: null, needs_owner: true, editable: false, settings: { ...settings, paused: true } } });
+    assert.match(document.querySelector('[role=note]').textContent, /An admin needs to give it a new owner/);
+    assert.equal(button('Give it an owner'), undefined);
+  }, { url, fetch: async path => response(read(path)) });
 });
 
 test('people who cannot change the agent get no ⋯ menu or Change links', async () => {

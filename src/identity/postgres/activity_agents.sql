@@ -21,14 +21,12 @@ SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'avatar',a.setti
  'next_run',(SELECT min(s.next_ms) FROM relay_agent_schedules s WHERE s.workspace=a.workspace AND s.agent=a.id AND s.state='enabled'),
  -- The latest of today's requests that could not complete, for "How to fix it".
  'last_failed',(SELECT v.reply FROM v WHERE v.agent=a.id AND v.state IN ('failed','interrupted') ORDER BY v.sequence DESC LIMIT 1),
- -- Owners, managers and admins may pause or resume it from the card.
- 'can_pause',($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
+ -- Its owner and admins may pause or resume it from the card.
+ 'can_pause',($3 OR a.owner_id=$2)
 ) AS data
 FROM relay_shared_agents a
 WHERE a.workspace=$1 AND a.revision>0
- AND ($3 OR a.owner_id=$2 OR relay_agent_can_talk(a.workspace,a.id,$2)
-  OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
- -- My agents ($13='mine'): only the agents the person manages.
- AND ($13::text IS DISTINCT FROM 'mine'
-  OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
+ AND ($3 OR a.owner_id=$2 OR relay_agent_can_talk(a.workspace,a.id,$2))
+ -- My agents ($13='mine'): only the agents the person owns.
+ AND ($13::text IS DISTINCT FROM 'mine' OR a.owner_id=$2)
 ORDER BY a.name,a.id LIMIT 100

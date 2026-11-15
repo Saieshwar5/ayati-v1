@@ -12,7 +12,7 @@ const given = [
   { id: 'tone', title: 'Tone guide', folder: null, use_for: 'viewers', characters: 6000 },
 ];
 
-test('managers choose, order and save the documents an agent always reads', async () => {
+test('the owner chooses, orders and saves the documents an agent always reads', async () => {
   const sent = [];
   let fail = true;
   await reactFixture(async ({ render, change, click, update, button }) => {

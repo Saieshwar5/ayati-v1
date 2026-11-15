@@ -112,6 +112,7 @@
 .agent-identity-name .agent-availability.paused { background: var(--selection); color: var(--muted); }
 .agent-menu { position: relative; }
 .agent-page-notice { margin: 0 32px 8px; font-size: 13px; color: var(--muted); }
+.agent-page-notice .ui-button { margin: 4px 0 0 4px; }
 .agent-key-facts { margin: 0; }
 .agent-fact { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .agent-fact dt { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; }

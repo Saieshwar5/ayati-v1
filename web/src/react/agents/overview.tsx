@@ -1,9 +1,7 @@
 import { Button } from '../ui';
-import { useResource } from '../requests';
 import { audienceLabels, type Agent } from './model';
 import { useAgentRequests } from './work';
 import { RequestRow } from './request-row';
-import { loadMembers } from './create/people-step';
 import type { WorkspaceSection } from './workspace-tabs';
 import { EmailFact } from './email/email-fact';
 
@@ -19,8 +17,6 @@ export function AgentOverview({ agent, open, people }: {
   agent: Agent; open: (section: WorkspaceSection) => void; people: () => void;
 }) {
   const requests = useAgentRequests(agent.id, 'mine', 'active');
-  const members = useResource(loadMembers);
-  const names = (agent.managers ?? []).map(id => members.data?.users.find(member => member.id === id)?.name ?? (members.data ? 'Former member' : '…'));
   const fact = (label: string, value: string, change?: () => void, action = 'Change') => <div className="agent-fact">
     <dt>{label}</dt><dd>{value}</dd>
     {change && <Button className="agent-fact-change" aria-label={`${action} ${label.toLowerCase()}`} onClick={change}>{action}</Button>}
@@ -39,7 +35,7 @@ export function AgentOverview({ agent, open, people }: {
     <aside className="agent-overview-side">
       <dl className="agent-key-facts">
         {fact('Who can talk to it', audienceLabels[agent.audience], agent.editable ? people : undefined)}
-        {fact('Managers', names.join(', ') || 'None', agent.editable ? people : undefined)}
+        {fact('Owner', agent.needs_owner ? 'None: its owner left' : agent.owner_name ?? '…')}
         {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}
         {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}

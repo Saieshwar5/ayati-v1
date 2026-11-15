@@ -39,7 +39,7 @@ async fn everyone_may_talk(db: &PgStore, agent: &str) {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn my_agents_shows_my_requests_and_the_agents_i_manage_only() {
+async fn my_agents_shows_my_requests_and_the_agents_i_own_only() {
     let db = fixture().await;
     let admin = user(&db, "scope-admin").await;
     let manager = user(&db, "scope-manager").await;
@@ -50,7 +50,17 @@ async fn my_agents_shows_my_requests_and_the_agents_i_manage_only() {
     let (_, other) = super::super::executor_slot_tests::agent(&db, &admin, &w).await;
     everyone_may_talk(&db, &mine).await;
     everyone_may_talk(&db, &other).await;
-    execute(&db.db, "INSERT INTO relay_agent_managers(workspace,agent,user_id,added_by,at) VALUES($1,$2,$3,$4,1)", vec![w.clone().into(), mine.clone().into(), manager.id.clone().into(), admin.id.clone().into()]).await.unwrap();
+    execute(
+        &db.db,
+        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        vec![
+            w.clone().into(),
+            mine.clone().into(),
+            manager.id.clone().into(),
+        ],
+    )
+    .await
+    .unwrap();
 
     // The admin asks the managed agent in a chat the member is not in.
     let managed = db
