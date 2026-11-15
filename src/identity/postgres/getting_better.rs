@@ -27,8 +27,8 @@ mod tests;
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
 const FIXERS: &str =
     "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
- AND ($3 OR a.owner_id=$2)
- AND ($4::text IS DISTINCT FROM 'mine' OR a.owner_id=$2))";
+ AND ($3 OR relay_agent_owns(a.workspace,a.id,$2))
+ AND ($4::text IS DISTINCT FROM 'mine' OR relay_agent_owns(a.workspace,a.id,$2)))";
 const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
 
 async fn available(db: &impl ConnectionTrait) -> Result<bool> {
@@ -390,7 +390,7 @@ impl PgStore {
                 AND m.content ~* '^\\s*(how many|how much|what is|what''s|whats|show|list|total|status of)'
               GROUP BY 1,2 HAVING count(*)>=3) x
             JOIN relay_shared_agents a ON a.workspace=$1 AND a.id=x.agent
-            WHERE relay_agent_can_talk($1,x.agent,$2) OR a.owner_id=$2
+            WHERE relay_agent_can_talk($1,x.agent,$2) OR relay_agent_owns(a.workspace,a.id,$2)
             ORDER BY x.n DESC LIMIT 3", vec![w.into(), user.id.clone().into()]).await?;
         tx.commit().await?;
         Ok(json!({"suggestions": items}))

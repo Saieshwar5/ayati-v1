@@ -35,7 +35,7 @@ async fn removal_hands_agents_library_and_invitations_to_the_chosen_person() {
     let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![
             w.clone().into(),
             agent.clone().into(),
@@ -169,7 +169,7 @@ async fn removal_without_a_new_owner_pauses_their_agents_and_members_cannot_remo
     let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![
             w.clone().into(),
             agent.clone().into(),
@@ -229,7 +229,7 @@ async fn members_leave_on_their_own_and_the_last_admin_cannot() {
     let (_, agent) = super::executor_slot_tests::agent(&db, &admin, &w).await;
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![
             w.clone().into(),
             agent.clone().into(),

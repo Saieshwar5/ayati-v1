@@ -139,7 +139,7 @@ export function AgentCreate({ start, directory, close, created, webSearch = fals
         needsTools={chosen.length > 0 || (webSearch && searchesWeb(draft.settings)) || Boolean(computers && computerOf(draft.settings).on)}
         change={(model, provider) => setDraft(old => ({ ...old, model, settings: { ...old.settings, provider } }))} />}
     </fieldset>
-    {pickingSkills && <SkillPicker agent={draft.name} owner={me} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
+    {pickingSkills && <SkillPicker agent={draft.name} owners={[me]} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
       choose={({ id, name, description }) => addSkills([{ id, name, description }])} />}
     <footer className="agent-create-footer">
       {step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}

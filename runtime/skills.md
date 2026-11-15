@@ -56,11 +56,11 @@ with `ayati_control__run_skill_script {skill, script, arguments?, seconds?}`:
 
 - **Workspace skills** are shared; only admins add, change, share or delete them.
 - **My skills:** anyone can add them; the owner (or an admin) changes them; they
-  can only go on agents their owner owns. Admins see everyone's.
+  can only go on agents their owner is one of the owners of (schema 122). Admins see everyone's.
 - **Names are unique in a workspace** and can't change, because agents load
   skills by name. Every change is a new version with a SHA-256 content hash;
   older versions stay readable.
-- **On an agent:** its owner or an admin adds or removes skills; at most 20 per
+- **On an agent:** any of its owners or an admin adds or removes skills; at most 20 per
   agent, and their names and descriptions together at most 8,000 characters.
 - **Audit log:** adding, changing, sharing, deleting and assigning skills.
 
@@ -134,7 +134,7 @@ instructions) and skills as drafts (designs/agent-built-skills 2 and 5).
   on its own: ground rules go into the box (saved with Save changes); a changed
   skill is saved as its next version keeping its other files; new skills are
   created and attached; removals and reuse use the existing assign route.
-- **Who:** anyone creating an agent; on a saved agent, its owner or an admin (the
+- **Who:** anyone creating an agent; on a saved agent, any of its owners or an admin (the
   route checks it). Each turn is recorded as model usage (`skill_writer`).
 - **Limits:** the model only drafts; quality depends on it. A refused or failed
   turn keeps what was typed.

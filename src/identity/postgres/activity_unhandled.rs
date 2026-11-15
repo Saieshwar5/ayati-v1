@@ -17,9 +17,9 @@ const UNHANDLED: &str = "FROM relay_event_deliveries d
  JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent
  WHERE d.workspace=$1 AND d.state='cancelled'
   AND (t.principal=$2 OR $3
-   OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2))
+   OR relay_agent_owns(t.workspace,t.agent,$2))
   AND ($6::text IS DISTINCT FROM 'mine' OR t.principal=$2
-   OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2))
+   OR relay_agent_owns(t.workspace,t.agent,$2))
   AND ($7::text IS NULL OR t.agent=$7)
   AND i.received_ms>=$4 AND i.sequence<$5";
 

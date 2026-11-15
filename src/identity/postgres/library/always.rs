@@ -61,8 +61,7 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         let profile =
             super::super::agent_profiles::managed_access(&tx, &user.id, w, agent, false).await?;
-        let editable =
-            profile["owner_id"] == user.id.as_str() || role(&tx, w, &user.id).await? == "Admin";
+        let editable = profile["is_owner"] == true || role(&tx, w, &user.id).await? == "Admin";
         let given = json_rows(
             &tx,
             &format!("{GIVEN} ORDER BY i.title,i.id LIMIT 200"),

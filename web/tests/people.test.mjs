@@ -161,7 +161,7 @@ test('The only admin cannot be made a member or removed', async () => {
   });
 });
 
-test('Removal pauses their agents unless a new owner is named, and sends one request', async () => {
+test('Removal pauses agents they own alone unless a new owner is named, and sends one request', async () => {
   let release;
   const pending = new Promise(resolve => { release = resolve; });
   const second = { id: 'second', email: 'second@example.com', role: 'Admin' };
@@ -170,10 +170,12 @@ test('Removal pauses their agents unless a new owner is named, and sends one req
     assert.ok(reads.some(path => path.endsWith('/members/employee/responsibilities')));
     const dialog = document.querySelector('dialog');
     assert.equal(dialog.querySelector('h2').textContent, `Remove ${member.email}?`);
-    // With no new owner named, their agents pause until an admin gives them one.
+    // With no new owner named, agents they own alone pause until an admin gives them one;
+    // an agent with other owners stays with them.
     assert.match(dialog.textContent, /Paused until an admin gives them an owner3 agents: Atlas, Nova, Scout/);
+    assert.match(dialog.textContent, /Stays with their other owners1 agent: Orbit/);
     const select = label => [...dialog.querySelectorAll('label')].find(node => node.textContent.startsWith(label)).querySelector('select');
-    const owner = select('New owner of their agents');
+    const owner = select('New owner of agents only they own');
     assert.equal(owner.value, '', 'nobody owns them by default');
     assert.deepEqual([...owner.options].map(option => option.value), ['', 'owner', 'second']);
     assert.match(dialog.textContent, /Stays as it is2 private or selected Library items/);
@@ -185,6 +187,7 @@ test('Removal pauses their agents unless a new owner is named, and sends one req
     // Naming an owner moves the agents to them; an only-me agent then pauses for review.
     await change(owner, 'second');
     assert.match(dialog.textContent, /Moves to second@example.com3 agents: Atlas, Nova, Scout/);
+    assert.match(dialog.textContent, /Stays with their other owners1 agent: Orbit/);
     assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 schedules/);
     const remove = button(`Remove ${member.email}`);
     await click(remove); await click(remove);
@@ -195,9 +198,22 @@ test('Removal pauses their agents unless a new owner is named, and sends one req
     assert.equal(document.querySelector('dialog'), null);
     assert.match(document.querySelector('.desk-page > [role=status]').textContent, /was removed/);
   }, (path, body) => {
-    if (path.endsWith('/responsibilities')) return { ok: true, data: { ...nothing, agents: [{ id: 'a', name: 'Atlas' }, { id: 'n', name: 'Nova' }, { id: 's', name: 'Scout' }], private_agents: 1, kept_library_items: 2, schedules: 2, invitations: 1 } };
+    if (path.endsWith('/responsibilities')) return { ok: true, data: { ...nothing, agents: [{ id: 'a', name: 'Atlas', alone: true }, { id: 'n', name: 'Nova', alone: true }, { id: 'o', name: 'Orbit', alone: false }, { id: 's', name: 'Scout', alone: true }], private_agents: 1, kept_library_items: 2, schedules: 2, invitations: 1 } };
     if (body && path.endsWith('/members/employee')) return { ok: true, data: pending };
   }, [second]);
+});
+
+test('Removing someone whose agents all have other owners asks for no new owner', async () => {
+  await fixture('Admin', async ({ writes, button, click }) => {
+    await openMenu(click, button, member, 'Remove from workspace…');
+    const dialog = document.querySelector('dialog');
+    assert.match(dialog.textContent, /Stays with their other owners2 agents: Atlas, Orbit/);
+    assert.equal(dialog.textContent.includes('New owner of agents only they own'), false);
+    assert.equal(dialog.textContent.includes('Paused until an admin'), false);
+    await click(button(`Remove ${member.email}`));
+    assert.deepEqual(writes[0].body, { role: null, handover_to: 'owner' });
+  }, path => path.endsWith('/responsibilities')
+    ? { ok: true, data: { ...nothing, agents: [{ id: 'a', name: 'Atlas', alone: false }, { id: 'o', name: 'Orbit', alone: false }] } } : undefined);
 });
 
 test('A failed removal keeps the dialog open with the reason and allows a retry', async () => {

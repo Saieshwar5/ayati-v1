@@ -129,7 +129,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::shared_computers::SharedComputers),
             Box::new(super::context_compaction::ContextCompaction),
             Box::new(super::agent_learning::AgentLearning),
-            Box::new(super::single_owner::SingleOwner),
+            Box::new(super::agent_owners::AgentOwners),
         ]
     }
 }

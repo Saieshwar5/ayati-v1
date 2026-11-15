@@ -36,6 +36,7 @@ test('overview shows what it does and who can talk to it, without the old placeh
     assert.match(text, /Orders assistant · owned by Ravi Kumar/);
     assert.match(text, /Who can talk to itEveryone in the workspace/);
     assert.match(text, /OwnerRavi Kumar/);
+    assert.ok(document.querySelector('[aria-label="Change owner"]'), 'owners and admins change owners from Overview');
     assert.equal(text.includes('Not connected'), false);
     assert.equal(text.includes('Try a sample task'), false);
   }, { url, fetch: async path => response(read(path)) });
@@ -58,43 +59,110 @@ test('pause from the ⋯ menu saves once and leaves the people lists alone', asy
   } });
 });
 
-test('transfer owner sends the chosen person with the current revision', async () => {
-  const writes = [];
-  await reactFixture(async ({ render, button, click, change }) => {
-    await open(render);
-    await click(button('More actions for Atlas'));
-    await click(button('Transfer owner…'));
-    assert.equal(button('Transfer owner').disabled, true);
-    await change(document.querySelector('dialog select'), 'priya');
-    await click(button('Transfer owner'));
-    assert.deepEqual(writes, [{ path: `/api/identity/workspaces/${w}/agent-profiles/atlas/owner`, body: { owner: 'priya', revision: 5 } }]);
-    assert.match(document.body.textContent, /Priya Shah now owns Atlas/);
-  }, { url, fetch: async (path, options = {}) => {
-    if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); return response({ owner: 'priya', revision: 6 }); }
-    return response(read(path));
-  } });
+// Owners are equal: any owner adds or removes others; the last one stays (schema 122).
+const ravi = { id: 'owner', name: 'Ravi Kumar' }, priya = { id: 'priya', name: 'Priya Shah' };
+function ownersServer(writes, fail) {
+  let owners = [ravi], revision = 5;
+  return async (path, options = {}) => {
+    if (!options.body) return response(read(path));
+    const body = JSON.parse(options.body);
+    writes.push({ path, body });
+    if (fail?.(body)) return { ok: false, status: 409, json: async () => ({ error: 'Agent changed; reload before saving' }) };
+    if (body.add) owners = [...owners.filter(o => o.id !== body.add), body.add === 'priya' ? priya : ravi];
+    else owners = owners.filter(o => o.id !== body.remove);
+    revision++;
+    return response({ owners, revision });
+  };
+}
+
+test('every owner is listed in the header and Overview', async () => {
+  await reactFixture(async ({ render }) => {
+    await open(render, { agent: { ...agent, owners: [ravi, priya], is_owner: true } });
+    assert.match(document.body.textContent, /Orders assistant · owned by Ravi Kumar and Priya Shah/);
+    assert.match(document.body.textContent, /OwnersRavi Kumar and Priya Shah/);
+  }, { url, fetch: async path => response(read(path)) });
 });
 
-test('an agent whose owner left says so, cannot resume, and an admin gives it an owner', async () => {
+test('owners add and remove each other with the latest revision; the last owner stays', async () => {
   const writes = [];
-  const ownerless = { ...agent, owner_id: null, owner_name: 'Former member', needs_owner: true, settings: { ...settings, paused: true } };
+  await reactFixture(async ({ render, button, click, change, update }) => {
+    const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
+    await click(button('Change owner'));
+    assert.equal(document.querySelector('dialog h2').textContent, 'Atlas · Owners');
+    assert.equal(button('Stop being an owner').disabled, true, 'the last owner cannot be removed');
+    assert.match(document.querySelector('dialog').textContent, /Atlas needs at least one owner/);
+    assert.match(document.querySelector('dialog').textContent, /Every owner can change Atlas, approve its actions and see all its work/);
+    const select = document.querySelector('dialog select');
+    assert.deepEqual([...select.options].map(option => option.value), ['', 'priya'], 'existing owners are not offered');
+    assert.equal(button('Add owner').disabled, true);
+    await change(select, 'priya');
+    // A double click adds once.
+    await update(() => { button('Add owner').click(); button('Add owner').click(); });
+    assert.deepEqual(writes, [{ path: `/api/identity/workspaces/${w}/agent-profiles/atlas/owners`, body: { add: 'priya', revision: 5 } }]);
+    assert.match(document.querySelector('dialog').textContent, /Priya Shah is now an owner of Atlas/);
+    assert.equal(button('Stop being an owner').disabled, false);
+    // The next change carries the revision the server returned.
+    await click(button('Remove Priya Shah'));
+    assert.deepEqual(writes[1].body, { remove: 'priya', revision: 6 });
+    assert.equal(calls.saved, 0, 'the page reloads once, when the dialog closes');
+    await click(button('Done'));
+    assert.equal(calls.saved, 1);
+    assert.match(document.body.textContent, /Priya Shah is no longer an owner of Atlas/);
+  }, { url, fetch: ownersServer(writes) });
+});
+
+test('a failed change keeps the dialog and the chosen person', async () => {
+  const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
-    await open(render, { agent: ownerless });
+    const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
+    await click(button('Change owner'));
+    await change(document.querySelector('dialog select'), 'priya');
+    await click(button('Add owner'));
+    assert.match(document.querySelector('dialog').textContent, /Agent changed; reload before saving/);
+    assert.equal(document.querySelector('dialog select').value, 'priya');
+    await click(button('Done'));
+    assert.equal(calls.saved, 0, 'nothing changed, so nothing reloads');
+  }, { url, fetch: ownersServer(writes, () => true) });
+});
+
+test('an owner who stops being one is taken back to the reloaded page at once', async () => {
+  const writes = [];
+  await reactFixture(async ({ render, button, click, change }) => {
+    const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
+    await click(button('Change owner'));
+    await change(document.querySelector('dialog select'), 'priya');
+    await click(button('Add owner'));
+    await click(button('Stop being an owner'));
+    assert.deepEqual(writes[1].body, { remove: 'owner', revision: 6 });
+    assert.equal(calls.saved, 1);
+    assert.equal(document.querySelector('dialog'), null);
+    assert.match(document.body.textContent, /You stopped being an owner of Atlas/);
+  }, { url, fetch: ownersServer(writes) });
+});
+
+test('an agent whose last owner left says so, cannot resume, and an admin gives it an owner', async () => {
+  const writes = [];
+  const ownerless = { ...agent, owner_id: null, owner_name: 'Former member', owners: [], needs_owner: true, settings: { ...settings, paused: true } };
+  await reactFixture(async ({ render, button, click, change }) => {
+    const calls = await open(render, { agent: ownerless });
     assert.match(document.body.textContent, /Needs an owner/);
-    assert.match(document.body.textContent, /Orders assistant · its owner left the workspace/);
-    assert.match(document.querySelector('[role=note]').textContent, /Atlas’s owner left the workspace, so it is paused and takes no work/);
-    assert.match(document.body.textContent, /OwnerNone: its owner left/);
+    assert.match(document.body.textContent, /Orders assistant · its last owner left the workspace/);
+    assert.match(document.querySelector('[role=note]').textContent, /Atlas’s last owner left the workspace, so it is paused and takes no work/);
+    assert.match(document.body.textContent, /OwnerNone: its last owner left/);
     // Without an owner it can't be resumed: giving it one comes first.
     await click(button('More actions for Atlas'));
     assert.equal(button('Resume'), undefined);
     await click(button('Give it an owner…'));
     assert.equal(document.querySelector('dialog h2').textContent, 'Give Atlas an owner');
+    assert.match(document.querySelector('dialog').textContent, /starts again if it was working/);
     await change(document.querySelector('dialog select'), 'priya');
-    await click(button('Give owner'));
-    assert.deepEqual(writes, [{ path: `/api/identity/workspaces/${w}/agent-profiles/atlas/owner`, body: { owner: 'priya', revision: 5 } }]);
-    assert.match(document.body.textContent, /Priya Shah now owns Atlas/);
+    await click(button('Add owner'));
+    assert.deepEqual(writes, [{ path: `/api/identity/workspaces/${w}/agent-profiles/atlas/owners`, body: { add: 'priya', revision: 5 } }]);
+    await click(button('Done'));
+    assert.equal(calls.saved, 1);
+    assert.match(document.body.textContent, /Priya Shah is now an owner of Atlas/);
   }, { url, fetch: async (path, options = {}) => {
-    if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); return response({ owner: 'priya', revision: 6 }); }
+    if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); return response({ owners: [priya], revision: 6 }); }
     return response(read(path));
   } });
 });

@@ -1,6 +1,6 @@
 //! Pause or resume one agent from Activity (people-and-agents-first, Phase 1b).
-//! The agent's owner and admins may do it (schema 122: one owner per agent).
-//! An agent with no owner stays paused until an admin gives it one. The effect is the same as the pause switch
+//! The agent's owners and admins may do it (schema 122). An agent with no
+//! owner stays paused until an admin gives it one. The effect is the same as the pause switch
 //! on the Agents page: the agent takes no new work, and work people may no longer
 //! ask for stops.
 use super::*;
@@ -18,8 +18,8 @@ impl PgStore {
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let a = super::agent_profiles::stored(&tx, w, id).await?;
         ensure!(
-            admin || a["owner_id"] == user.id,
-            "Only the agent's owner or an admin can pause or resume it"
+            admin || super::agent_owners::owns(&tx, w, id, &user.id).await?,
+            "Only the agent's owners or an admin can pause or resume it"
         );
         ensure!(
             paused || !a["owner_id"].is_null(),

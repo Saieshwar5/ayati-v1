@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { identityRequest, workspaceId, workspaceSession } from '../workspace-context';
 import { Button, Dialog } from './ui';
 import { useMutation } from './requests';
-import { HandoverSummary, useResponsibilities } from './handover-summary';
+import { HandoverSummary, ownedAlone, useResponsibilities } from './handover-summary';
 import type { Member } from './people';
 
 export const personName = (member: Member) => member.display_name || member.email;
@@ -15,13 +15,14 @@ export function RemovePersonDialog({ member, members, close, removed }: {
   const choices = members.filter(person => person.id !== member.id);
   const you = workspaceSession?.user?.id;
   const [heir, setHeir] = useState(choices.some(person => person.id === you) ? you! : choices[0]?.id ?? '');
-  // Their agents pause with no owner unless the admin names one here (schema 122).
+  // Agents they own alone pause with no owner unless the admin names one here;
+  // agents with other owners stay with them (schema 122).
   const [owner, setOwner] = useState('');
   const mutation = useMutation();
   const name = personName(member);
   const named = (id: string) => { const person = choices.find(choice => choice.id === id); return person ? personName(person) : undefined; };
   const heirName = named(heir) ?? 'them';
-  const ownsAgents = Boolean(summary.data?.agents.length);
+  const ownsAgents = ownedAlone(summary.data).length > 0;
   const remove = () => void mutation.run(async () => {
     await identityRequest(`/workspaces/${workspaceId}/members/${member.id}`, { role: null, handover_to: heir, ...(ownsAgents && owner ? { agents_owner: owner } : {}) });
     await removed(ownsAgents && !owner
@@ -34,7 +35,7 @@ export function RemovePersonDialog({ member, members, close, removed }: {
   </>}>
     <p className="ui-help settings-remove-intro">{name} loses access to this workspace straight away: channels, agents and files. This is recorded in the Audit log.</p>
     <div className="ui-form">
-    {ownsAgents && <label className="ui-field">New owner of their agents<select value={owner} onChange={event => setOwner(event.target.value)}>
+    {ownsAgents && <label className="ui-field">New owner of agents only they own<select value={owner} onChange={event => setOwner(event.target.value)}>
       <option value="">Nobody yet: pause their agents</option>
       {choices.map(person => <option key={person.id} value={person.id}>{personName(person)}{person.id === you ? ' (you)' : ''}</option>)}
     </select></label>}

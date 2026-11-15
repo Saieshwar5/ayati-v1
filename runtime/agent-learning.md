@@ -52,7 +52,7 @@ several is proposed for every conversation. Usage is recorded as assignment
 ## Review
 
 Agents › the agent › Instructions › Knowledge › **Lessons from its work**, for the
-agent's owner and admins (the same people who change its notes):
+agent's owners and admins (the same people who change its notes):
 
 - Each lesson shows what kind it is (new, updates a note, disagrees with a
   note), the note it would change, why, and its evidence. Evidence text appears

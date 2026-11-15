@@ -16,6 +16,7 @@ mod agent_instructions_migration;
 mod agent_instructions_tests;
 mod agent_knowledge;
 pub(crate) mod agent_learning;
+pub(crate) mod agent_owners;
 mod agent_pause_switch;
 mod agent_profiles;
 mod agent_receipt_migration;
@@ -297,7 +298,6 @@ mod response_tests;
 mod responses;
 pub(crate) mod settings;
 mod shared_rooms;
-pub(crate) mod single_owner;
 mod skill_writing;
 #[cfg(test)]
 mod skill_writing_tests;
@@ -463,7 +463,6 @@ mod company_tests;
 
 #[cfg(test)]
 mod messaging_tests;
-pub(crate) use agent_audience::TransferAgent;
 pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use communications::EmailIncoming;
 pub(crate) use library::always::AlwaysRead;

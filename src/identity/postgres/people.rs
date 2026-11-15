@@ -201,7 +201,7 @@ impl PgStore {
                 let heir_name = super::member_handover::name(&tx, heir).await?;
                 // On older schemas agents still follow the person taking over.
                 let owner_name = match agents_owner {
-                    None if !super::single_owner::ready(&tx).await? => Some(heir_name.clone()),
+                    None if !super::agent_owners::ready(&tx).await? => Some(heir_name.clone()),
                     None => None,
                     Some(owner) => Some(super::member_handover::name(&tx, owner).await?),
                 };

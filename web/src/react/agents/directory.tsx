@@ -66,7 +66,7 @@ export function AgentsPage() {
     if (generation !== epoch.current) return;
     let chat = chats.find(c => c.kind === 'direct' && c.agents.includes(agent.id) && c.users.includes(workspaceSession?.user?.id ?? ''));
     if (!chat) {
-      if (agent.needs_owner) throw new Error('This agent’s owner left the workspace, so it is paused. An admin needs to give it a new owner.');
+      if (agent.needs_owner) throw new Error('This agent’s last owner left the workspace, so it is paused. An admin needs to give it a new owner.');
       if (agent.settings.paused) throw new Error('This agent is paused and has no direct conversation yet. Resume it before starting a conversation.');
       const result = await identityRequest<{ id: string }>(root, { id: crypto.randomUUID(), kind: 'direct', name: agent.name, description: '', users: [], agents: [agent.id] });
       chat = { id: result.id } as Conversation;

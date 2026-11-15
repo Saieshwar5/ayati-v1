@@ -220,8 +220,7 @@ async fn view(
     profile: &Value,
 ) -> Result<Value> {
     let found = address(db, w, agent, None).await?;
-    let manage =
-        profile["owner_id"] == actor.id.as_str() || role(db, w, &actor.id).await? == "Admin";
+    let manage = profile["is_owner"] == true || role(db, w, &actor.id).await? == "Admin";
     Ok(match found {
         Some(a) if a["enabled"] == true => {
             json!({"offered":offered,"state":"active","address":a["address"],"can_manage":manage})

@@ -1,5 +1,5 @@
 import { Button } from '../ui';
-import { audienceLabels, type Agent } from './model';
+import { audienceLabels, ownerNames, type Agent } from './model';
 import { useAgentRequests } from './work';
 import { RequestRow } from './request-row';
 import type { WorkspaceSection } from './workspace-tabs';
@@ -13,8 +13,8 @@ export function about(agent: Agent): string {
 
 /** Overview: what it does, your open requests, and key facts with Change links
  * (designs/agents-simplified 5). Approvals and weekly numbers arrive with Activity (M4). */
-export function AgentOverview({ agent, open, people }: {
-  agent: Agent; open: (section: WorkspaceSection) => void; people: () => void;
+export function AgentOverview({ agent, open, people, owners }: {
+  agent: Agent; open: (section: WorkspaceSection) => void; people: () => void; owners: () => void;
 }) {
   const requests = useAgentRequests(agent.id, 'mine', 'active');
   const fact = (label: string, value: string, change?: () => void, action = 'Change') => <div className="agent-fact">
@@ -35,7 +35,8 @@ export function AgentOverview({ agent, open, people }: {
     <aside className="agent-overview-side">
       <dl className="agent-key-facts">
         {fact('Who can talk to it', audienceLabels[agent.audience], agent.editable ? people : undefined)}
-        {fact('Owner', agent.needs_owner ? 'None: its owner left' : agent.owner_name ?? '…')}
+        {fact(agent.owners && agent.owners.length > 1 ? 'Owners' : 'Owner', agent.needs_owner ? 'None: its last owner left'
+          : agent.owners ? ownerNames(agent.owners) : agent.owner_name ?? '…', agent.editable ? owners : undefined)}
         {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}
         {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}

@@ -27,7 +27,7 @@ export function AgentSkills({ agent }: { agent: Agent }) {
       <SkillMenu name={skill.name} editable={editable} view={() => setViewing(skill)} remove={() => remove(skill)} />
     </li>)}</ul>
     <p className="ui-status" role="status">{mutation.status}</p>
-    {adding && <SkillPicker agent={agent.name} owner={agent.owner_id ?? ''} chosen={skills.map(s => s.id)} close={() => setAdding(false)}
+    {adding && <SkillPicker agent={agent.name} owners={agent.owners?.map(owner => owner.id) ?? (agent.owner_id ? [agent.owner_id] : [])} chosen={skills.map(s => s.id)} close={() => setAdding(false)}
       choose={async skill => { setData(await assignSkill(agent.id, skill.id, true)); }} />}
     {viewing && <SkillView id={viewing.id} close={() => setViewing(undefined)} />}
   </section>;

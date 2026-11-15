@@ -1,29 +1,31 @@
 import { identityRequest, workspaceId } from '../../../workspace-context';
-import type { Audience } from '../model';
+import type { Audience, Owner } from '../model';
 
 export type Member = { id: string; name: string; email?: string };
-/** Everyone in the workspace, for choosing selected people and a new owner. */
+/** Everyone in the workspace, for choosing selected people and owners. */
 export const loadMembers = () => identityRequest<{ users: Member[] }>(`/workspaces/${workspaceId}/chat-directory`);
 
 const choices: { value: Audience; label: (workspace: string) => string; help: (name: string) => string }[] = [
   { value: 'everyone', label: workspace => `Everyone in ${workspace}`, help: name => `Any member can message ${name} or add it to a channel.` },
   { value: 'selected', label: () => 'Selected people', help: name => `Choose who can message ${name}.` },
-  { value: 'only_me', label: () => 'Only me', help: name => `Only you can message ${name}. Admins can still see its settings and activity.` },
+  { value: 'only_me', label: () => 'Only me', help: name => `Only ${name}’s owners can message it. Admins can still see its settings and activity.` },
 ];
 
-/** Create step 3: who can talk to it, its owner and who sees its activity
- * (design 3-create-people). An agent has one owner (schema 122): its creator,
- * until it is handed to someone else. */
-export function PeopleStep({ name, workspace, me, owner = me, members, audience, people, setAudience, setPeople }: {
-  name: string; workspace: string; me: string; owner?: string | null; members?: Member[];
+/** Create step 3: who can talk to it, its owners and who sees its activity
+ * (design 3-create-people). Its creator is its first owner; owners are equal and
+ * more are added from the agent's page (schema 122). `owners` is unset while
+ * creating. */
+export function PeopleStep({ name, workspace, me, owners, members, audience, people, setAudience, setPeople }: {
+  name: string; workspace: string; me: string; owners?: Owner[]; members?: Member[];
   audience: Audience; people: string[];
   setAudience: (value: Audience) => void; setPeople: (ids: string[]) => void;
 }) {
   const display = name.trim() || 'this agent';
-  const others = (members ?? []).filter(member => member.id !== owner);
-  const mine = owner === me;
-  const person = members?.find(member => member.id === owner);
-  const ownerName = person?.name ?? (mine ? 'You' : owner ? 'Former member' : 'Nobody yet');
+  const creating = owners === undefined;
+  const listed = owners ?? [{ id: me, name: members?.find(member => member.id === me)?.name ?? 'You' }];
+  // Owners can always talk to it, so only other people are chosen.
+  const others = (members ?? []).filter(member => !listed.some(owner => owner.id === member.id));
+  const email = (id: string) => members?.find(member => member.id === id)?.email;
   return <div className="agent-create-people">
     <div className="agent-create-main">
       <fieldset className="agent-audience"><legend>Who can talk to {display}</legend>
@@ -41,19 +43,22 @@ export function PeopleStep({ name, workspace, me, owner = me, members, audience,
           {member.name}</label>)}
       </fieldset>}
       {audience !== 'only_me' && <p className="ui-help">In a channel, anyone in that channel can ask {display}.</p>}
-      <section className="agent-managers" aria-label="Owner">
-        <h3>Owner</h3>
-        <ul><li><span><strong>{ownerName}{mine && person && ' (you)'}</strong>{person?.email && <small>{person.email}</small>}</span>
-          <span className="agent-owner-tag">Owner</span></li></ul>
-        <p className="ui-help">{mine ? 'You change' : 'The owner changes'} {display}, approve{mine ? '' : 's'} its “Ask first” actions, see{mine ? '' : 's'} all its
-          activity and can pause it. Admins can do the same, and decide an approval the owner hasn’t answered in time.
-          If the owner leaves the workspace, {display} pauses until an admin gives it a new owner.</p>
+      <section className="agent-managers" aria-label="Owners">
+        <h3>Owners</h3>
+        {listed.length ? <ul>{listed.map(owner => <li key={owner.id}>
+          <span><strong>{owner.name}{owner.id === me && ' (you)'}</strong>{email(owner.id) && <small>{email(owner.id)}</small>}</span>
+          <span className="agent-owner-tag">Owner</span></li>)}</ul>
+          : <p className="ui-help">None: its last owner left the workspace.</p>}
+        <p className="ui-help">Owners are equal: each one changes {display}, approves its “Ask first” actions, sees all its
+          activity and can pause it, without asking the others. Admins can do the same, and decide an approval the owners
+          haven’t answered in time. {creating ? `You can add owners from ${display}’s page once it is created.` : `Add or remove owners from ${display}’s Overview.`}
+          {' '}If its last owner leaves the workspace, {display} pauses until an admin gives it a new owner.</p>
       </section>
     </div>
     <aside className="agent-create-side">
       <section className="agent-rules" aria-label={`Who sees ${display}’s activity`}>
         <h3>Who sees {display}’s activity</h3>
-        <dl><dt>{mine ? 'You, its owner' : 'Its owner'}</dt><dd>Everything {display} does.</dd>
+        <dl><dt>{creating ? 'You and other owners' : 'Its owners'}</dt><dd>Everything {display} does.</dd>
           <dt>Admins</dt><dd>Everything {display} does.</dd>
           <dt>Everyone else</dt><dd>Only their own requests.</dd></dl>
       </section>

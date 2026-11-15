@@ -13,14 +13,14 @@ pub(super) async fn agent_visible(
     let a = super::agent_profiles::stored(db, w, agent).await?;
     let private = a["audience"] == "only_me";
     ensure!(
-        !private || a["owner_id"] == user,
+        !private || super::agent_owners::owns(db, w, agent, user).await?,
         "Private agent approval unavailable"
     );
     Ok(private)
 }
 
 /// `person` may still decide this agent's "Ask first" actions: they are in the
-/// workspace and are the approver the current rules name (the agent's owner).
+/// workspace and are one of the agent's owners.
 pub(super) async fn require(
     db: &impl ConnectionTrait,
     w: &str,
@@ -30,32 +30,32 @@ pub(super) async fn require(
     role(db, w, person)
         .await
         .context("Approver authority changed")?;
-    let a = super::agent_profiles::stored(db, w, agent).await?;
-    ensure!(a["owner_id"] == person, "Approver authority changed");
+    ensure!(
+        super::agent_owners::owns(db, w, agent, person).await?,
+        "Approver authority changed"
+    );
     Ok(())
 }
 
-/// Whether `person` owns `agent`, and so decides its "Ask first" actions.
+/// Whether `person` is one of `agent`'s owners, and so decides its "Ask first" actions.
 pub(super) async fn owns(
     db: &impl ConnectionTrait,
     w: &str,
     agent: &str,
     person: &str,
 ) -> Result<bool> {
-    Ok(query(
-        db,
-        "SELECT 1 AS n FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND owner_id=$3",
-        vec![w.into(), agent.into(), person.into()],
-    )
-    .await?
-    .is_some())
+    super::agent_owners::owns(db, w, agent, person).await
 }
 
-/// Who could decide `a` now: the agent's owner, when they can see the request
-/// and are not its requester for an action that needs someone else. Empty when
-/// the agent has no owner; an admin then decides.
+/// Who could decide `a` now: the agent's owners who can see the request, except
+/// its requester for an action that needs someone else. Empty when none can; an
+/// admin then decides.
 pub(super) async fn deciders(db: &impl ConnectionTrait, w: &str, a: &Value) -> Result<Vec<Value>> {
-    let people = json_rows(db,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email)) AS data FROM relay_shared_agents g JOIN relay_users u ON u.id=g.owner_id JOIN relay_members m ON m.workspace=g.workspace AND m.user_id=g.owner_id WHERE g.workspace=$1 AND g.id=$2",vec![w.into(),a["agent"].as_str().unwrap_or_default().into()]).await?;
+    let people = if super::agent_owners::ready(db).await? {
+        super::agent_owners::listed(db, w, a["agent"].as_str().unwrap_or_default()).await?
+    } else {
+        json_rows(db,"SELECT jsonb_build_object('id',u.id,'name',COALESCE(u.display_name,u.email)) AS data FROM relay_shared_agents g JOIN relay_users u ON u.id=g.owner_id JOIN relay_members m ON m.workspace=g.workspace AND m.user_id=g.owner_id WHERE g.workspace=$1 AND g.id=$2",vec![w.into(),a["agent"].as_str().unwrap_or_default().into()]).await?
+    };
     let mut eligible = vec![];
     for person in people {
         let user = User {
@@ -87,10 +87,10 @@ pub(super) async fn backup_at(db: &impl ConnectionTrait, w: &str, a: &Value) -> 
     Ok(a["created"].as_i64().unwrap_or_default() + i64::from(hours) * 3600)
 }
 
-/// `user` may decide `a` now: the agent's owner; an admin once the backup delay
-/// has passed or when the owner can't decide (no owner, can't see the request,
-/// or asked for it themselves); never the requester when the action needs
-/// someone else.
+/// `user` may decide `a` now: any of the agent's owners; an admin once the
+/// backup delay has passed or when no owner can decide (none can see the
+/// request, or the only ones asked for it themselves); never the requester when
+/// the action needs someone else.
 pub(super) async fn may_decide(
     db: &impl ConnectionTrait,
     user: &User,
@@ -108,19 +108,19 @@ pub(super) async fn may_decide(
     }
     ensure!(
         role(db, w, &user.id).await? == "Admin",
-        "Only this agent's owner can decide"
+        "Only this agent's owners can decide"
     );
     ensure!(
         now() >= backup_at(db, w, a).await? || deciders(db, w, a).await?.is_empty(),
-        "The agent's owner decides first; admins can decide if they haven't after the backup delay"
+        "The agent's owners decide first; admins can decide if they haven't after the backup delay"
     );
     Ok(())
 }
 
 /// SQL condition, with the person as `$2`, for actions they may be asked to
 /// decide: they own the agent, or they are an admin and the backup delay has
-/// passed, the agent has no owner, or its owner asked for an action that needs
-/// someone else. Rust rechecks with `may_decide`.
+/// passed or no owner can decide (none, or only the requester of an action
+/// that needs someone else). Rust rechecks with `may_decide`.
 /// Upgrade tests read this on older schemas, where the approver alone decides.
 pub(super) async fn decider_clause(db: &impl ConnectionTrait) -> Result<&'static str> {
     let schema_47 = query(
@@ -131,8 +131,14 @@ pub(super) async fn decider_clause(db: &impl ConnectionTrait) -> Result<&'static
     .await?
     .context("Schema unavailable")?
     .try_get::<bool>("", "present")?;
+    // Schemas 47 to 121 had managers; schema 122 has owners.
+    if super::agent_owners::ready(db).await? {
+        return Ok(
+            "(relay_agent_owns(a.workspace,a.agent,$2) OR EXISTS(SELECT 1 FROM relay_members m JOIN relay_workspaces ws ON ws.id=m.workspace WHERE m.workspace=a.workspace AND m.user_id=$2 AND m.role='Admin' AND (a.created+ws.approval_backup_hours*3600<=floor(extract(epoch FROM clock_timestamp()))::bigint OR NOT EXISTS(SELECT 1 FROM relay_agent_owners o WHERE o.workspace=a.workspace AND o.agent=a.agent AND NOT (COALESCE((to_jsonb(a)->>'needs_other')::boolean,false) AND o.user_id=a.requester)))))",
+        );
+    }
     Ok(if schema_47 {
-        "(EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=a.workspace AND o.id=a.agent AND o.owner_id=$2) OR EXISTS(SELECT 1 FROM relay_members m JOIN relay_workspaces ws ON ws.id=m.workspace WHERE m.workspace=a.workspace AND m.user_id=$2 AND m.role='Admin' AND (a.created+ws.approval_backup_hours*3600<=floor(extract(epoch FROM clock_timestamp()))::bigint OR NOT EXISTS(SELECT 1 FROM relay_shared_agents o JOIN relay_members om ON om.workspace=o.workspace AND om.user_id=o.owner_id WHERE o.workspace=a.workspace AND o.id=a.agent AND NOT (COALESCE((to_jsonb(a)->>'needs_other')::boolean,false) AND o.owner_id=a.requester)))))"
+        "(a.approver=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.agent AND g.user_id=$2) OR EXISTS(SELECT 1 FROM relay_members m JOIN relay_workspaces ws ON ws.id=m.workspace WHERE m.workspace=a.workspace AND m.user_id=$2 AND m.role='Admin' AND (a.created+ws.approval_backup_hours*3600<=floor(extract(epoch FROM clock_timestamp()))::bigint OR NOT EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.agent))))"
     } else {
         "a.approver=$2"
     })

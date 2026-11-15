@@ -72,7 +72,7 @@ blocked one, "The agent couldn't continue: …".
   waiting, working, open and scheduled. My agents narrows it. At most 200 are listed.
 - **Task details**: what it promises (done when), who it's for, where, its steps (each
   request, opening its own details) and its result. **Mark done** and **Cancel task** are
-  for the person it's for, the agent's owner and admins; **Not a task** is for anyone
+  for the person it's for, the agent's owners and admins; **Not a task** is for anyone
   who can see it. Each close is in the audit log.
 - **Make this a task** on a request's details turns it into a commitment for the person who
   asked, kept open until someone closes it.

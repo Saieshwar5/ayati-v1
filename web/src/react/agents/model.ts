@@ -4,11 +4,24 @@ import type { ComputerOffer, ComputerSettings } from './computer/model';
 export const base = `/workspaces/${workspaceId}/agent-profiles`;
 export type Settings = { provider: string; instructions: string; escalation: string; successful_outcome?: string; routine?: string; avatar: string; memory: boolean; browser: boolean; web_search?: boolean; computer?: ComputerSettings; history: string; paused: boolean };
 export const defaults: Settings = { provider: '', instructions: '', escalation: '', successful_outcome: '', routine: '', avatar: 'spark', memory: false, browser: false, web_search: true, history: 'all', paused: false };
-/** Who can talk to an agent (D231): everyone in the workspace, selected people, or only its owner. */
+/** Who can talk to an agent (D231): everyone in the workspace, selected people, or only its owners. */
 export type Audience = 'everyone' | 'selected' | 'only_me';
 export type Agent = { id: string; name: string; role: string; model: string; audience: Audience; revision: number; settings: Settings; creator_name?: string; owner_name?: string; owner_id?: string; editable?: boolean; can_talk?: boolean; people?: string[]; pending?: number;
-  /** Its owner left the workspace: it stays paused until an admin gives it one (schema 122). */
+  /** Its owners, first added first: equal people who each change it, decide its
+   * approvals and see all its work (schema 122). `is_owner`: the viewer is one. */
+  owners?: Owner[]; is_owner?: boolean;
+  /** Its last owner left the workspace: it stays paused until an admin gives it one. */
   needs_owner?: boolean };
+export type Owner = { id: string; name: string };
+/** "A", "A and B", "A, B and C", or "A and 3 others". */
+export function ownerNames(owners: Owner[]): string {
+  const names = owners.map(owner => owner.name);
+  if (names.length > 3) return `${names[0]} and ${names.length - 1} others`;
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] ?? '';
+}
+/** Adds or removes one owner; the reply has the owners and the agent's new revision. */
+export const changeOwners = (agent: string, change: { add: string } | { remove: string }, revision: number) =>
+  identityRequest<{ owners: Owner[]; revision: number }>(`${base}/${agent}/owners`, { ...change, revision });
 export const audienceLabels: Record<Audience, string> = { everyone: 'Everyone in the workspace', selected: 'Selected people', only_me: 'Only me' };
 export type Directory = { agents: Agent[]; role: string; default_model: string; models?: { provider: string; model: string }[]; system_prompt: string; providers: { id: string; name: string; configured: boolean }[]; catalog?: Catalog; web_search?: boolean; computers?: ComputerOffer | null;
   /** The mail domain when this server offers agent email (runtime/email-channel.md). */

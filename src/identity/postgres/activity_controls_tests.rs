@@ -8,7 +8,7 @@ use super::super::*;
 async fn make_owner(db: &PgStore, w: &str, agent: &str, person: &User) {
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![w.into(), agent.into(), person.id.clone().into()],
     )
     .await

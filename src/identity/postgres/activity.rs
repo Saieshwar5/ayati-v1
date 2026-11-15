@@ -280,8 +280,7 @@ impl PgStore {
             LEFT JOIN relay_users u ON u.id=l.actor
             WHERE l.workspace=$1 AND l.action IN ('agent_profile_saved','agent_owner_changed') AND l.summary IS NOT NULL AND l.id<$5
               AND ($4::text IS NULL OR a.id=$4)
-              AND ($3 OR a.owner_id=$2 OR relay_agent_can_talk(a.workspace,a.id,$2)
-                OR a.owner_id=$2)
+              AND ($3 OR relay_agent_can_talk(a.workspace,a.id,$2) OR relay_agent_owns(a.workspace,a.id,$2))
             ORDER BY l.id DESC LIMIT 26",
             vec![w.into(), user.id.clone().into(), admin.into(), agent.map(str::to_owned).into(), before.unwrap_or(i64::MAX).into()]).await?;
         let more = records.len() > 25;

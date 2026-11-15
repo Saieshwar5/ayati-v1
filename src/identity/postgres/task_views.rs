@@ -51,7 +51,7 @@ impl PgStore {
             WHERE t.workspace=$1 AND t.outcome IS NULL AND {VISIBLE}
              AND s.status NOT IN ('done','failed','cancelled')
              AND ($4::text IS DISTINCT FROM 'mine' OR t.requester=$2
-              OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2))
+              OR relay_agent_owns(t.workspace,t.agent,$2))
             ORDER BY {ORDER},t.created_ms DESC LIMIT 201");
         let mut items = json_rows(
             &tx,
@@ -75,7 +75,7 @@ impl PgStore {
         let tx = self.activity_tx(w, false).await?;
         let admin = admin(&tx, w, user).await?;
         let sql = format!("SELECT jsonb_build_object({FIELDS},'waiting_on',{WAITING_ON},
-             'may_close',(t.requester=$2 OR $3 OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2))) AS data
+             'may_close',(t.requester=$2 OR $3 OR relay_agent_owns(t.workspace,t.agent,$2))) AS data
             FROM relay_tasks t CROSS JOIN LATERAL (SELECT relay_task_status(t.workspace,t.id) AS status) s
             JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent
             JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat
@@ -115,7 +115,7 @@ impl PgStore {
         let result = result.map(|r| line(r, 1000, "the result")).transpose()?;
         let tx = self.workspace_tx(w).await?;
         let admin = admin(&tx, w, user).await?;
-        let sql = format!("SELECT t.outcome,(t.requester=$2 OR $3 OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2)) AS may_close
+        let sql = format!("SELECT t.outcome,(t.requester=$2 OR $3 OR relay_agent_owns(t.workspace,t.agent,$2)) AS may_close
             FROM relay_tasks t WHERE t.workspace=$1 AND t.id=$4 AND {VISIBLE} FOR UPDATE");
         let row = query(
             &tx,

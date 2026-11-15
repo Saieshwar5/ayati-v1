@@ -14,11 +14,11 @@ WHERE j.workspace=$1
 -- owner and admins ($3).
 AND (j.payload->>'requester'=$2 OR c.visibility='public' OR $3
  OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)
- OR ag.owner_id=$2)
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 -- A panel update belongs to the panel's owner (its requester), the agent's
 -- owner and admins, never to everyone in the panel's source conversation.
 AND (k.kind<>'panel' OR j.payload->>'requester'=$2 OR $3
- OR ag.owner_id=$2)
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 -- Work that used Library sources stays with its requester.
 AND (j.payload->>'requester'=$2 OR NOT EXISTS(
  SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply))
@@ -32,7 +32,7 @@ AND ($11::text IS NULL OR k.kind=$11)
 -- My agents ($13='mine'): requests the person made, and the work of agents they
 -- own. It only narrows what the visibility rule above already allows.
 AND ($13::text IS DISTINCT FROM 'mine' OR j.payload->>'requester'=$2
- OR ag.owner_id=$2)
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 AND ($7::text IS NULL
  OR ($7='active' AND j.state<>'finished')
  OR ($7='waiting' AND j.state='waiting')

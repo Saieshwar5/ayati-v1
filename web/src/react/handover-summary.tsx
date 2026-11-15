@@ -5,7 +5,8 @@ import { useResource } from './requests';
 
 // What the server reports a person is responsible for (member_handover.rs).
 type Responsibilities = {
-  agents: { id: string; name: string }[]; private_agents: number; library_items: number; kept_library_items: number;
+  /** `alone`: they are its only owner (schema 122); other agents keep their other owners. */
+  agents: { id: string; name: string; alone?: boolean }[]; private_agents: number; library_items: number; kept_library_items: number;
   schedules: number; event_triggers: number; invitations: number;
 };
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -18,17 +19,24 @@ export function useResponsibilities(person: string) {
   return useResource(load);
 }
 
+/** Agents the person owns alone; the others stay with their other owners. */
+export const ownedAlone = (data?: Responsibilities) => (data?.agents ?? []).filter(agent => agent.alone !== false);
+
 /** What moves to the person taking over, what stays, what is paused and what is cancelled.
- * Agents go to `agentsOwner` when an admin names one; otherwise they have no owner
- * and pause until an admin gives them one (schema 122). `self` words it for the
- * person who is leaving. */
+ * Agents with other owners stay with them. Agents they own alone go to
+ * `agentsOwner` when an admin names one; otherwise they have no owner and pause
+ * until an admin gives them one (schema 122). `self` words it for the person who
+ * is leaving. */
 export function HandoverSummary({ summary, name, heirName, agentsOwner, self = false }: {
   summary: ReturnType<typeof useResponsibilities>; name: string; heirName: string; agentsOwner?: string; self?: boolean;
 }) {
   const data = summary.data;
   const who = self ? 'you' : name;
-  const agents = data !== undefined && data.agents.length > 0
-    && `${count(data.agents.length, 'agent', 'agents')}: ${data.agents.map(agent => agent.name).join(', ')}`;
+  const listed = (list: { name: string }[]) => list.length > 0
+    && `${count(list.length, 'agent', 'agents')}: ${list.map(agent => agent.name).join(', ')}`;
+  const alone = ownedAlone(data);
+  const agents = listed(alone);
+  const shared = listed((data?.agents ?? []).filter(agent => agent.alone === false));
   const library = data !== undefined && data.library_items > 0
     && count(data.library_items, 'Library item shared with everyone', 'Library items shared with everyone');
   const groups = data ? [
@@ -37,6 +45,8 @@ export function HandoverSummary({ summary, name, heirName, agentsOwner, self = f
       : [{ title: agentsOwner ? `Moves to ${agentsOwner}` : 'Paused until an admin gives them an owner', tone: agentsOwner ? 'moves' : 'paused', rows: lines(agents),
           note: agentsOwner ? undefined : `An agent works only while it has an owner. ${self ? 'An admin' : 'You or another admin'} can give each one a new owner from its page.` },
         { title: `Moves to ${heirName}`, tone: 'moves', rows: lines(library) }]),
+    { title: 'Stays with their other owners', tone: 'stays', rows: lines(shared),
+      note: `${self ? 'You' : name} stop${self ? '' : 's'} being one of their owners; they keep working.` },
     { title: 'Stays as it is', tone: 'stays', rows: lines(
       data.kept_library_items > 0 && count(data.kept_library_items, 'private or selected Library item', 'private or selected Library items')),
       note: `Never shared with ${heirName}, so they don’t move.` },

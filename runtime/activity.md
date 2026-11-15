@@ -34,14 +34,14 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
 
 An agent's **Activity** tab is History filtered to that agent, with its own
 search. Direct chats with an agent say "Activity with <agent> is visible to its
-owner and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
+owners and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
 which opens the same request details.
 
 ## Who sees what
 
 A request is visible to the person who asked, anyone who can see its conversation,
-the agent's owner, and admins. Work that used Library sources stays with its
-requester. Losing access to a channel hides its requests again. When the agent's owner or an
+every one of the agent's owners, and admins. Work that used Library sources stays with its
+requester. Losing access to a channel hides its requests again. When one of the agent's owners or an
 admin opens a request from a conversation they are not in, the details say so and
 the view is recorded in the audit log (`activity_private_viewed`).
 
@@ -50,7 +50,7 @@ the view is recorded in the audit log (`activity_private_viewed`).
 A Home panel refresh is a request of its own type, `panel` (it is linked in
 `relay_home_update_runs`), even when a routine starts it. It reads "Updated panel:
 <title>", names its panel and is filtered with Type → Panel updates. Only the panel's
-owner, the agent's owner and admins see it; being in the panel's source
+owner, the agent's owners and admins see it; being in the panel's source
 conversation is not enough. History folds routine updates into one line per panel per
 day ("Updated panel: Sales today · updated 12 times"), which expands to each update;
 an update that could not complete keeps its own line.
@@ -62,7 +62,7 @@ agents were paused, or access changed) never becomes a request, so it has its ow
 list: History → Type → **Events not handled**, newest first by arrival, with the
 recorded reason ("All agents were paused when this event arrived, so it was not
 handled."). Now shows "N events not handled today" with **See why**, which opens that
-list. Only the person who set up the trigger, the agent's owner and admins see an
+list. Only the person who set up the trigger, the agent's owners and admins see an
 event, and only its trigger's name, agent, time and reason: never the event's
 contents. My agents narrows it to triggers the person set up or agents they manage.
 
@@ -87,7 +87,7 @@ checks; the screen only hides what a person may not do.
   device, per person and workspace; the default is My agents.
 - **Pause or resume one agent** from its card: `POST
   /api/identity/workspaces/{w}/agent-profiles/{id}/pause` with `{"paused": bool}`.
-  The agent's owner and admins may do it (schema 122). An agent with no owner can't be resumed. It has the same
+  Any of the agent's owners and admins may do it (schema 122). An agent with no owner can't be resumed. It has the same
   effect as the Agents page's pause and writes the same readable audit sentence
   ("Meera paused Atlas"); asking for the state it already has changes nothing. The
   card shows the button only when `can_pause` is true. While all agents are paused
@@ -108,7 +108,7 @@ checks; the screen only hides what a person may not do.
 
 ## Supervising at scale (schema 61)
 
-People-and-agents-first, Phase 4. For the people who can fix an agent (its owner,
+People-and-agents-first, Phase 4. For the people who can fix an agent (its owners,
 and admins; with My agents, the agents they own):
 
 - **Needs fixing** on Now, grouped by cause, each with one fix:
@@ -162,7 +162,7 @@ and admins; with My agents, the agents they own):
 ## Review: getting better over time (schema 63)
 
 People-and-agents-first, Phase 5. Activity → **Progress** (`&tab=review`), for the people
-who can fix an agent (its owner and admins; My agents narrows it):
+who can fix an agent (its owners and admins; My agents narrows it):
 
 - **Measures, last 30 days**, per agent and per person: tasks done of all, failed, done
   on time of those with a due time, tasks that needed a person, **person-minutes** (from
@@ -250,7 +250,7 @@ Measured locally with 30 agents and 81,000 requests over 90 days
   others; retry only by the asker, once, never after an unconfirmed action);
   `activity_scope_tests` (My agents for an owner, an admin and an
   unknown scope across History, totals, export and Now); `activity_tests` (visibility for requester, conversation members,
-  the agent's owner, admins and after leaving a channel; private-view audit; paging without
+  the agent's owners, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
 - Web: `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,

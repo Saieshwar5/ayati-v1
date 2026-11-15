@@ -24,7 +24,7 @@ pub(super) mod wakeups;
 /// Who may see task `t` ($2 the person, $3 admin): the person it is for, anyone who
 /// can see its conversation, the agent's owner and admins.
 pub(super) const VISIBLE: &str = "(t.requester=$2 OR $3
- OR EXISTS(SELECT 1 FROM relay_shared_agents o WHERE o.workspace=t.workspace AND o.id=t.agent AND o.owner_id=$2)
+ OR relay_agent_owns(t.workspace,t.agent,$2)
  OR EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=t.workspace AND c.id=t.chat
   AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2))))";
 

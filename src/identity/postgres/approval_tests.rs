@@ -78,27 +78,10 @@ impl Setup {
         )
         .await;
     }
-    /// Makes `person` the agent's one owner.
+    /// Makes `person` the agent's only owner.
     async fn give_to(&self, person: &User) {
-        let revision = self
-            .db
-            .managed_agent(&self.owner, &self.w, &self.agent, true)
-            .await
-            .unwrap()["revision"]
-            .as_i64()
-            .unwrap();
-        self.db
-            .agent_transfer(
-                &self.owner,
-                &self.w,
-                &self.agent,
-                &super::agent_audience::TransferAgent {
-                    owner: person.id.clone(),
-                    revision,
-                },
-            )
-            .await
-            .unwrap();
+        execute(&self.db.db, "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
+            vec![self.w.clone().into(), self.agent.clone().into(), person.id.clone().into()]).await.unwrap();
     }
     async fn needs_someone_else(&self) {
         let revision: i64 = query(
@@ -188,7 +171,7 @@ async fn the_agents_owner_decides_and_the_first_decision_wins() {
         s.db.control_decide(&s.owner, &s.w, &s.agent, id, &decision("approve"))
             .await;
     let refusal = early.err().map(|e| e.to_string()).unwrap_or_default();
-    assert!(refusal.contains("owner decides first"), "{refusal}");
+    assert!(refusal.contains("owners decide first"), "{refusal}");
     // Someone in the conversation who doesn't own the agent cannot decide.
     execute(
         &s.db.db,
@@ -496,3 +479,6 @@ async fn request_changes_is_recorded_without_dispatch_and_opposite_decision_conf
 
 #[path = "approval_configuration_tests.rs"]
 mod configuration;
+
+#[path = "approval_owner_tests.rs"]
+mod owners;

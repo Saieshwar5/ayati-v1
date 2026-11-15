@@ -60,7 +60,7 @@ test('a failed create keeps the whole draft and a double click sends one request
   } });
 });
 
-test('starters only fill an empty box, selected people are sent, and the creator is the one owner', async () => {
+test('starters only fill an empty box, selected people are sent, and the creator is the first owner', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
     await open(render);
@@ -73,9 +73,11 @@ test('starters only fill an empty box, selected people are sent, and the creator
     await click(button('Continue'));
     await click(document.querySelector('input[value=selected]'));
     await click([...document.querySelectorAll('label')].find(node => node.textContent === 'Priya Shah').querySelector('input'));
-    const owner = document.querySelector('section[aria-label="Owner"]');
+    const owner = document.querySelector('section[aria-label="Owners"]');
     assert.match(owner.textContent, /Ravi Kumar \(you\)ravi@example\.testOwner/);
-    assert.match(owner.textContent, /If the owner leaves the workspace, Ledger pauses until an admin gives it a new owner/);
+    assert.match(owner.textContent, /Owners are equal/);
+    assert.match(owner.textContent, /You can add owners from Ledger’s page once it is created/);
+    assert.match(owner.textContent, /If its last owner leaves the workspace, Ledger pauses until an admin gives it a new owner/);
     assert.equal(document.querySelector('section[aria-label="Managers"]'), null);
     await click(button('Continue'));
     await click(button('Create agent'));

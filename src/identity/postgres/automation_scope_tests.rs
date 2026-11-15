@@ -161,12 +161,13 @@ async fn automation_membership_receipts_and_agent_pause_do_not_revive_on_restore
     let revision = db.managed_agent(&other, &w, &a, true).await.unwrap()["revision"]
         .as_i64()
         .unwrap();
-    db.agent_transfer(
+    db.change_agent_owners(
         &other,
         &w,
         &a,
-        &super::agent_audience::TransferAgent {
-            owner: owner.id.clone(),
+        &super::agent_owners::OwnersChange {
+            add: Some(owner.id.clone()),
+            remove: None,
             revision,
         },
     )

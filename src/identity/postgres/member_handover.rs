@@ -17,7 +17,22 @@ pub(super) async fn responsibilities(
     w: &str,
     person: &str,
 ) -> Result<Value> {
-    let agents = json_rows(db, "SELECT jsonb_build_object('id',id,'name',name) AS data FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 ORDER BY name,id", vec![w.into(), person.into()]).await?;
+    // Since schema 122 an agent may have several owners: only the ones this
+    // person owns alone pause or move when they go (`alone`).
+    let owners = super::agent_owners::ready(db).await?;
+    let mine = if owners {
+        "relay_agent_owns(a.workspace,a.id,$2)"
+    } else {
+        "a.owner_id=$2"
+    };
+    let alone = if owners {
+        "NOT EXISTS(SELECT 1 FROM relay_agent_owners o WHERE o.workspace=a.workspace AND o.agent=a.id AND o.user_id<>$2)"
+    } else {
+        "TRUE"
+    };
+    let agents = json_rows(db, &format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'alone',{alone}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND {mine} ORDER BY a.name,a.id"), vec![w.into(), person.into()]).await?;
+    let private_agents = query(db, &format!("SELECT count(*) AS count FROM relay_shared_agents a WHERE a.workspace=$1 AND {mine} AND {alone} AND a.audience='only_me'"), vec![w.into(), person.into()])
+        .await?.context("Workspace unavailable")?.try_get::<i64>("", "count")?;
     let count = |sql: &'static str| async move {
         query(db, sql, vec![w.into(), person.into()])
             .await?
@@ -27,7 +42,7 @@ pub(super) async fn responsibilities(
     };
     Ok(json!({
         "agents": agents,
-        "private_agents": count("SELECT count(*) AS count FROM relay_shared_agents WHERE workspace=$1 AND owner_id=$2 AND audience='only_me'").await?,
+        "private_agents": private_agents,
         "library_items": count("SELECT count(*) AS count FROM relay_library_items WHERE workspace=$1 AND steward=$2 AND visibility='workspace' AND NOT trashed").await?,
         "kept_library_items": count("SELECT count(*) AS count FROM relay_library_items WHERE workspace=$1 AND steward=$2 AND visibility<>'workspace' AND NOT trashed").await?,
         "schedules": count("SELECT count(*) AS count FROM relay_agent_schedules WHERE workspace=$1 AND principal=$2 AND state='enabled'").await?,
@@ -46,7 +61,7 @@ pub(super) async fn hand_over(
     heir: &str,
     new_owner: Option<&str>,
 ) -> Result<Vec<String>> {
-    super::single_owner::owner_leaves(tx, w, person, new_owner, heir).await?;
+    super::agent_owners::owner_leaves(tx, w, person, new_owner, heir).await?;
     execute(tx, "UPDATE relay_library_items SET steward=$3,access_revision=access_revision+1 WHERE workspace=$1 AND steward=$2 AND visibility='workspace'", vec![w.into(), person.into(), heir.into()]).await?;
     let cancelled = rows(tx, "UPDATE relay_invitations SET status='cancelled' WHERE workspace=$1 AND inviter=$2 AND status='pending' RETURNING provider", vec![w.into(), person.into()]).await?;
     Ok(cancelled
@@ -81,12 +96,18 @@ pub(super) fn removal_summary(
     before: &Value,
 ) -> String {
     let n = |key: &str| before[key].as_i64().unwrap_or(0);
-    let agents = before["agents"].as_array().map_or(0, |a| a.len() as i64);
+    let listed = before["agents"].as_array().cloned().unwrap_or_default();
+    // Agents with other owners stay with them; only ones owned alone move or pause.
+    let shared = listed.iter().filter(|a| a["alone"] == false).count() as i64;
+    let alone = listed.len() as i64 - shared;
     let mut parts = vec![match actor {
         Some(actor) => format!("{actor} removed {person}"),
         None => format!("{person} left the workspace"),
     }];
-    let agents = plural(agents, "agent", "agents");
+    if let Some(shared) = plural(shared, "agent stays", "agents stay") {
+        parts.push(format!("{shared} with their other owners"));
+    }
+    let agents = plural(alone, "agent", "agents");
     let library = plural(n("library_items"), "Library item", "Library items");
     if new_owner == Some(heir) {
         // One person takes both.
@@ -178,10 +199,10 @@ mod tests {
             removal_summary(Some("A"), "B", "A", None, &empty),
             "A removed B"
         );
-        let one = json!({"agents":[{"id":"a"}],"library_items":0});
+        let one = json!({"agents":[{"id":"a"},{"id":"b","alone":false}],"library_items":0});
         assert_eq!(
             removal_summary(None, "Ravi Kumar", "Arjun Mehta", None, &one),
-            "Ravi Kumar left the workspace; 1 agent paused until an admin gives them an owner"
+            "Ravi Kumar left the workspace; 1 agent stays with their other owners; 1 agent paused until an admin gives them an owner"
         );
         let both = json!({"agents":[{"id":"a"}],"library_items":2});
         assert_eq!(

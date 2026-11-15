@@ -30,7 +30,7 @@ async fn attention_shows_an_approval_to_the_agents_owner_who_can_see_its_source(
     // The approver owns the agent, so "Ask first" reaches them (schema 122).
     execute(
         &db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![
             w.clone().into(),
             job.agent.clone().into(),

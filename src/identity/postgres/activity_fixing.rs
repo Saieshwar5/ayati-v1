@@ -14,8 +14,8 @@ mod tests;
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
 pub(super) const FIXERS: &str =
     "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
- AND ($3 OR a.owner_id=$2)
- AND ($4::text IS DISTINCT FROM 'mine' OR a.owner_id=$2))";
+ AND ($3 OR relay_agent_owns(a.workspace,a.id,$2))
+ AND ($4::text IS DISTINCT FROM 'mine' OR relay_agent_owns(a.workspace,a.id,$2)))";
 pub(super) const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
 
 /// Each cause: rows of agent, agent_name, ref, detail, at.

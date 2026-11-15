@@ -169,9 +169,7 @@ impl PgStore {
             vec![]
         };
         tx.commit().await?;
-        Ok(
-            json!({"systems":systems,"can_connect":admin || profile["owner_id"] == user.id.as_str()}),
-        )
+        Ok(json!({"systems":systems,"can_connect":admin || profile["is_owner"] == true}))
     }
 }
 

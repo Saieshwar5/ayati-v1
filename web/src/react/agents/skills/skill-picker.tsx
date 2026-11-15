@@ -10,10 +10,10 @@ import './skills.css';
 
 /** Add skills to an agent (designs/chat-and-account 7–8, D245): one panel with a
  * search, short groups and flat rows where Add attaches at once, and Upload a skill
- * as a second step in the same panel. `owner` owns the agent; personal skills only
- * fit agents their owner owns (D234). */
-export function SkillPicker({ agent, owner, chosen, choose, close }: {
-  agent: string; owner: string; chosen: string[]; choose: (skill: Skill) => Promise<void> | void; close: () => void;
+ * as a second step in the same panel. `owners` are the agent's owners; a personal
+ * skill only fits agents its owner is an owner of (D234, schema 122). */
+export function SkillPicker({ agent, owners, chosen, choose, close }: {
+  agent: string; owners: string[]; chosen: string[]; choose: (skill: Skill) => Promise<void> | void; close: () => void;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const library = useResource(loadLibrary);
@@ -31,7 +31,7 @@ export function SkillPicker({ agent, owner, chosen, choose, close }: {
     setPending(skill.id);
     try { await choose(skill); } finally { setPending(undefined); }
   });
-  const openUpload = () => { adding.setStatus(''); draft.reset(admin && owner !== me); setUploading(true); };
+  const openUpload = () => { adding.setStatus(''); draft.reset(admin && !owners.includes(me)); setUploading(true); };
   // Back, Cancel and a finished upload return to the list, with focus on Upload a skill.
   const showList = () => { draft.reset(); flushSync(() => setUploading(false)); uploadButton.current?.focus(); };
   const addUploaded = () => void draft.save(async skill => {
@@ -55,7 +55,7 @@ export function SkillPicker({ agent, owner, chosen, choose, close }: {
   return <Dialog drawer title={uploading ? 'Upload a skill' : 'Add skills'} back={uploading ? showList : undefined} close={close}
     busy={draft.saving} footer={footer} initialFocus={search}>
     {uploading
-      ? <SkillUpload draft={draft} agent={name} admin={admin} shareNeeded={owner !== me} />
+      ? <SkillUpload draft={draft} agent={name} admin={admin} shareNeeded={!owners.includes(me)} />
       : <div className="skill-picker">
         <p className="ui-help">How-to steps {name} loads only when a request needs them.</p>
         <label className="skill-search"><SkillIcon name="search" />
@@ -68,7 +68,7 @@ export function SkillPicker({ agent, owner, chosen, choose, close }: {
           { title: 'Yours', skills: data.mine, empty: 'Skills you upload show here.' },
           ...(data.admin && data.others.length ? [{ title: 'Other people’s', skills: data.others, empty: '' }] : []),
         ]} row={skill => <SkillRow key={skill.id} skill={skill} mine={skill.owner_id === me}
-          usable={skill.shared || skill.owner_id === owner} added={chosen.includes(skill.id)}
+          usable={skill.shared || owners.includes(skill.owner_id)} added={chosen.includes(skill.id)}
           pending={pending === skill.id} busy={Boolean(pending)} add={() => add(skill)} />} />}
       </div>}
   </Dialog>;

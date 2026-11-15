@@ -152,3 +152,11 @@
 /* An agent's Activity tab is Activity filtered to it; say so and link to the whole. */
 .agent-filtered-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: var(--soft); font-size: 13px; color: var(--muted); }
 .agent-filtered-note a { color: var(--text); font-weight: 600; }
+/* Owners dialog: flat rows like the People step's, each with Remove on the right. */
+.agent-owner-list { list-style: none; margin: 0 0 8px; padding: 0; border-top: 1px solid var(--border); }
+.agent-owner-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.agent-owner-list strong { min-width: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.agent-owner-list .ui-button { flex: none; }
+.agent-owner-add { display: flex; align-items: flex-end; gap: 8px; margin: 16px 0 12px; }
+.agent-owner-add .ui-field { flex: 1; min-width: 0; }
+.agent-owner-add .ui-button { flex: none; }

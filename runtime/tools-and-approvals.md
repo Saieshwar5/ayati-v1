@@ -14,7 +14,7 @@ built in M3).
     everything else Ask first.
   - API: `POST /api/identity/workspaces/{w}/control/connector-rules` with
     `{connection, operation, mode, needs_other, revision}`.
-- **An agent's owner (or an admin)** switches connectors on for the agent and may
+- **Any of an agent's owners (or an admin)** switches connectors on for the agent and may
   make any action stricter on its **Tools** tab, or in create step 5 (Controls), where the agent suggests a mode and a reason for each action ([skills](skills.md#written-in-chat)).
   - `POST …/agent-profiles/{id}/control/tools` with `{connection, enabled}`.
   - `POST …/agent-profiles/{id}/control/rules` with `{connection, operation, mode, revision}`.
@@ -44,27 +44,28 @@ only make an action stricter.
 
 ## Who decides "Ask first"
 
-- **The agent's owner**, when they can see the request, decides it, in the
-  conversation, from Home attention or from the Tools tab (schema 122: one owner
-  per agent, no managers). The first decision wins; a repeat by the same person
-  returns it, and the opposite decision conflicts.
+- **Any of the agent's owners** who can see the request decides it, in the
+  conversation, from Home attention or from the Tools tab (schema 122: owners are
+  equal, and no owner needs another's agreement). The request shows who may
+  decide ("Waiting for Ravi or Meera"). The first decision wins; a repeat by the
+  same person returns it, and the opposite decision conflicts, whoever made it.
 - **The requester** can't approve when the action needs someone else.
 - **An admin** may decide after `relay_workspaces.approval_backup_hours` (4 by
-  default; its setting screen comes with M5), or straight away when the owner
-  can't decide: they can't see the request, or they asked for an action that
-  needs someone else.
+  default; its setting screen comes with M5), or straight away when no owner
+  can decide: none can see the request, or the only owner asked for an action
+  that needs someone else.
 - **Who decided** is stored in `decided_by`, and their authority is checked again
   just before dispatch.
-- **When the owner leaves** and the agent has no owner, nobody can decide what
-  it was waiting for, because it has no effective rules. Once an admin gives it
-  an owner, that person decides.
+- **When an owner leaves or is removed,** the other owners decide what the
+  agent is waiting for. When its last owner leaves, nobody can, because it has
+  no effective rules; once an admin gives it an owner, that person decides.
 - **Changing a conversation's members while work waits** still fences that work
   (versioned context).
 
 ## Who says what happened
 
-A write the provider didn't confirm holds the account's other writes until the
-agent's owner or an admin who can see it answers whether it happened (not
+A write the provider didn't confirm holds the account's other writes until one
+of the agent's owners or an admin who can see it answers whether it happened (not
 the requester when it needed someone else), or Cuckoo finds it at the provider.
 See [unconfirmed writes](connector-providers.md#unconfirmed-writes-schema-107).
 

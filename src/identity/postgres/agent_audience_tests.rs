@@ -1,3 +1,4 @@
+use super::agent_owners::OwnersChange;
 use super::tests::{chat, fixture, join, message, user, workspace};
 use super::*;
 use crate::identity::agents::config::{SaveAgent, Settings};
@@ -119,69 +120,35 @@ async fn who_can_talk_is_enforced_directly_and_channel_members_may_ask_there() {
     db.save_agent_profile(&admin, &w, &theirs).await.unwrap();
 }
 
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn owners_hand_agents_over_to_a_new_owner() {
-    let db = fixture().await;
-    let admin = user(&db, "transfer-admin").await;
-    let maker = user(&db, "transfer-maker").await;
-    let heir = user(&db, "transfer-heir").await;
-    let w = workspace(&db, &admin).await;
-    join(&db, &admin, &w, &maker, "Member").await;
-    join(&db, &admin, &w, &heir, "Member").await;
-    let a = agent("only_me");
-    db.save_agent_profile(&maker, &w, &a).await.unwrap();
-    let to = |owner: &User, revision| TransferAgent {
-        owner: owner.id.clone(),
+fn add(person: &User, revision: i64) -> OwnersChange {
+    OwnersChange {
+        add: Some(person.id.clone()),
+        remove: None,
         revision,
-    };
-
-    assert!(
-        db.agent_transfer(&heir, &w, &a.id, &to(&heir, 1))
-            .await
-            .is_err()
-    );
-    assert!(
-        db.agent_transfer(&maker, &w, &a.id, &to(&heir, 0))
-            .await
-            .is_err()
-    );
-    let outsider = user(&db, "transfer-outsider").await;
-    assert!(
-        db.agent_transfer(&maker, &w, &a.id, &to(&outsider, 1))
-            .await
-            .is_err()
-    );
-    let moved = db
-        .agent_transfer(&maker, &w, &a.id, &to(&heir, 1))
-        .await
-        .unwrap();
-    assert_eq!(moved["revision"], 2);
-    // An exact retry succeeds without a second change.
-    db.agent_transfer(&maker, &w, &a.id, &to(&heir, 1))
-        .await
-        .unwrap();
-
-    let owned = db.managed_agent(&heir, &w, &a.id, true).await.unwrap();
-    assert_eq!(owned["owner_id"], heir.id.as_str());
-    assert!(db.agent_access(&heir.id, &w, &a.id).await.unwrap());
-    assert!(!db.agent_access(&maker.id, &w, &a.id).await.unwrap());
-    assert!(db.managed_agent(&maker, &w, &a.id, false).await.is_err());
-    let summary: String = query(
+    }
+}
+fn remove(person: &User, revision: i64) -> OwnersChange {
+    OwnersChange {
+        add: None,
+        remove: Some(person.id.clone()),
+        revision,
+    }
+}
+async fn owner_ids(db: &PgStore, w: &str, agent: &str) -> Vec<String> {
+    rows(
         &db.db,
-        "SELECT summary FROM relay_audit WHERE workspace=$1 AND action='agent_owner_changed'",
-        vec![w.clone().into()],
+        "SELECT user_id FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 ORDER BY at,user_id",
+        vec![w.into(), agent.into()],
     )
     .await
     .unwrap()
-    .unwrap()
-    .try_get("", "summary")
-    .unwrap();
-    assert_eq!(
-        summary,
-        "transfer-maker@example.test made transfer-heir@example.test the owner of Atlas"
-    );
+    .iter()
+    .map(|row| row.try_get("", "user_id").unwrap())
+    .collect()
 }
+
+#[path = "agent_owners_tests.rs"]
+mod owners;
 
 async fn last_summary(db: &PgStore, w: &str) -> String {
     query(
@@ -213,31 +180,41 @@ async fn an_agent_whose_owner_leaves_pauses_until_an_admin_gives_it_an_owner() {
     let mut resting = agent("everyone");
     resting.settings.paused = true;
     db.save_agent_profile(&leaving, &w, &resting).await.unwrap();
+    // An agent they share with another owner keeps working with that owner.
+    let shared = agent("everyone");
+    db.save_agent_profile(&leaving, &w, &shared).await.unwrap();
+    db.change_agent_owners(&leaving, &w, &shared.id, &add(&next, 1))
+        .await
+        .unwrap();
 
     let before = db
         .member_responsibilities(&admin, &w, &leaving.id)
         .await
         .unwrap();
-    assert_eq!(before["agents"].as_array().unwrap().len(), 3);
-    // Removed without naming a new owner: every agent pauses with no owner.
+    assert_eq!(before["agents"].as_array().unwrap().len(), 4);
+    // Removed without naming a new owner: every agent they owned alone pauses
+    // with no owner.
     db.change(&admin, &w, &leaving.id, None, None)
         .await
         .unwrap();
     assert_eq!(
         last_summary(&db, &w).await,
-        "remove-admin@example.test removed remove-leaving@example.test; 3 agents paused until an admin gives them an owner"
+        "remove-admin@example.test removed remove-leaving@example.test; 1 agent stays with their other owners; 3 agents paused until an admin gives them an owner"
     );
     for a in [&mine, &running, &resting] {
         let left = db.managed_agent(&admin, &w, &a.id, true).await.unwrap();
         assert!(left["owner_id"].is_null());
         assert_eq!(left["settings"]["paused"], true);
     }
+    let kept = db.managed_agent(&next, &w, &shared.id, true).await.unwrap();
+    assert_eq!(kept["owner_id"], next.id.as_str());
+    assert_eq!(kept["settings"]["paused"], false);
     let listed = db.agent_profiles(&admin, &w).await.unwrap();
-    assert!(
-        listed
-            .iter()
-            .all(|a| a["needs_owner"] == true && a["owner_name"] == "Former member")
-    );
+    for a in &listed {
+        let alone = a["id"] != shared.id.as_str();
+        assert_eq!(a["needs_owner"], alone, "{a}");
+        assert_eq!(a["owners"].as_array().unwrap().is_empty(), alone);
+    }
     // Nobody talks to it or resumes it while it has no owner, not even an admin.
     assert!(
         db.chat_create(&next, &w, &direct(&running.id))
@@ -249,13 +226,9 @@ async fn an_agent_whose_owner_leaves_pauses_until_an_admin_gives_it_an_owner() {
     let mut resumed = running.clone();
     resumed.revision = 2;
     assert!(db.save_agent_profile(&admin, &w, &resumed).await.is_err());
-    // Only an admin gives it an owner.
-    let to = |revision| TransferAgent {
-        owner: next.id.clone(),
-        revision,
-    };
+    // Only an admin gives it an owner, since nobody owns it.
     assert!(
-        db.agent_transfer(&next, &w, &running.id, &to(2))
+        db.change_agent_owners(&next, &w, &running.id, &add(&next, 2))
             .await
             .is_err()
     );
@@ -263,7 +236,9 @@ async fn an_agent_whose_owner_leaves_pauses_until_an_admin_gives_it_an_owner() {
     // With an owner again, the agent that was running resumes; the one its
     // owner had paused, and the only-me agent, wait for their new owner.
     for a in [&mine, &running, &resting] {
-        db.agent_transfer(&admin, &w, &a.id, &to(2)).await.unwrap();
+        db.change_agent_owners(&admin, &w, &a.id, &add(&next, 2))
+            .await
+            .unwrap();
     }
     for (a, paused) in [(&mine, true), (&running, false), (&resting, true)] {
         let owned = db.managed_agent(&next, &w, &a.id, true).await.unwrap();
