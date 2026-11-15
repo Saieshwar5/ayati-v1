@@ -273,6 +273,7 @@ pub mod migration;
 mod migration_fixture;
 mod objects;
 pub(crate) mod operator;
+mod owner_view;
 mod people;
 mod rehearsal_context;
 mod rehearsal_history;

@@ -169,6 +169,18 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             let input = serde_json::from_value(arguments)?;
             pg.read_conversation_history(job, &input).await
         }
+        "search_my_work" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.search_my_work(job, &input).await
+        }
+        "suggest_lesson" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.suggest_lesson(job, &input).await
+        }
+        "read_my_work" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.read_my_work(job, &input).await
+        }
         "ask_question" => {
             let parsed =
                 serde_json::from_value::<crate::identity::interactions::model::Ask>(arguments);

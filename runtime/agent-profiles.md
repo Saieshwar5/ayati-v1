@@ -22,7 +22,8 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
   check). Its creator is the first. Every owner changes the agent, decides its
   "Ask first" actions, sees all its work in Activity (including requests from
   private chats), pauses it and adds or removes owners, without asking the
-  others. Admins have the same authority over every agent, and decide an
+  others. Each can also ask the agent itself about all its work, in their own
+  private chat with it ([owner view](owner-view.md)). Admins have the same authority over every agent, and decide an
   approval no owner can or has in time
   ([tools and approvals](tools-and-approvals.md#who-decides-ask-first)). The
   manager lists that existed before are kept in `relay_agent_former_managers` as

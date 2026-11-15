@@ -63,6 +63,10 @@ agent's owners and admins (the same people who change its notes):
   **Reject** keeps nothing. A decided lesson stays decided.
 - Approved notes say "Learned from its work". **Suggest lessons** switches
   learning off and on.
+- An owner or admin can also ask the agent for a lesson in their private chat
+  with it (`suggest_lesson`, [owner view](owner-view.md)). It appears here with
+  the evidence "An owner or admin asked for it", for every conversation, under
+  the same filter for names, addresses, numbers and amounts.
 
 ## Not built yet
 

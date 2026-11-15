@@ -1,6 +1,8 @@
 import { identityRequest, workspaceId, workspaceSession } from '../../workspace-context';
 import type { QuestionReference } from '../questions/model';
-export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null };
+export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null;
+  /** An agent the viewer is one of the owners of. */
+  yours?: boolean };
 /** `presence` holds who is online and their statuses (D245), read with the directory. */
 export type Directory = { users: Participant[]; agents: Participant[]; role: string; presence?: import('./presence').Presence[] };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
@@ -72,4 +74,12 @@ export function directPartner(chat: Conversation, directory: Directory): { kind:
   if (person) return { kind: 'user', who: person };
   const agent = directory.agents.find(agent => chat.agents.includes(agent.id));
   return agent ? { kind: 'agent', who: agent } : undefined;
+}
+/** The line at the top of a direct chat with an agent. Each conversation is its
+ * own room; only one of the agent's owners or an admin may ask it, here, about
+ * its work in every conversation (runtime/owner-view.md). */
+export function agentChatNote(name: string, yours: boolean, admin: boolean): string {
+  return yours || admin
+    ? `Only you read this chat. As ${yours ? 'one of its owners' : 'an admin'} you can ask ${name} about its work in every conversation: who asked, what it did and what is waiting.`
+    : `${name} keeps each conversation separate. Activity with ${name} is visible to its owners and admins.`;
 }

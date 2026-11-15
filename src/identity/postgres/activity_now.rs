@@ -149,6 +149,18 @@ impl PgStore {
         w: &str,
         reply: &str,
     ) -> Result<Value> {
+        self.request_details(user, w, reply, false).await
+    }
+
+    /// `asked_agent`: the person asked the agent itself about this request (the
+    /// owner view), not Activity; the audit line says so.
+    pub(in crate::identity::postgres) async fn request_details(
+        &self,
+        user: &User,
+        w: &str,
+        reply: &str,
+        asked_agent: bool,
+    ) -> Result<Value> {
         let tx = self.activity_tx(w, true).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
         let mut values = Filters::default().values_for(w, &user.id, admin);
@@ -211,7 +223,11 @@ impl PgStore {
                 Some(w),
                 "activity_private_viewed",
                 reply,
-                &format!("{actor} viewed a request in {conversation} from Activity"),
+                &if asked_agent {
+                    format!("{actor} asked {agent_name} about a request in {conversation}")
+                } else {
+                    format!("{actor} viewed a request in {conversation} from Activity")
+                },
             )
             .await?;
         }
