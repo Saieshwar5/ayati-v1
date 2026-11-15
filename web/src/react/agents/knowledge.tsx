@@ -5,11 +5,14 @@ import { useMutation, useResource } from '../requests';
 import { chatRequest, type Conversation } from '../chat/model';
 import { base, type Agent } from './model';
 import { ContextPreviewDialog } from './context-preview';
+import { LearnedLessons } from './learned-lessons';
 
 const loadConversations = () => chatRequest<{ chats: Conversation[] }>('/chats');
 type Note = {
   id: string; title: string; content: string; chat: string | null;
   source_message: string | null; revision: number; forgotten: boolean;
+  /** The lesson this note was approved from (schema 121). */
+  learned_from?: string | null;
 };
 type Draft = { note: Note; audience: string; existing: boolean };
 
@@ -58,7 +61,7 @@ export function Knowledge({ agent }: { agent: Agent }) {
     {!draft && <>
       {data?.notes.map(note => <article key={note.id}>
         <strong>{note.title}</strong>
-        <small>{note.chat ? 'Conversation only' : 'Every conversation with this agent'}</small>
+        <small>{note.chat ? 'Conversation only' : 'Every conversation with this agent'}{note.learned_from ? ' · Learned from its work' : ''}</small>
         <p>{note.content}</p>
         {agent.editable && <>
           <Button disabled={mutation.busy} onClick={() => {
@@ -73,6 +76,7 @@ export function Knowledge({ agent }: { agent: Agent }) {
       </article>)}
       {data && !data.notes.length && <p className="ui-help">No approved notes yet.</p>}
       {agent.editable && data && <Button disabled={mutation.busy} onClick={add}>Add approved note</Button>}
+      {agent.editable && <LearnedLessons agent={agent} saved={refresh} />}
     </>}
     {draft && agent.editable && <form className="ui-form" aria-label={draft.existing ? 'Edit approved note' : 'Add approved note'}
       onSubmit={event => {

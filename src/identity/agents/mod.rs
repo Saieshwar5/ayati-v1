@@ -2,6 +2,7 @@ pub(crate) mod computer_policy;
 mod computer_routes;
 pub(crate) mod computer_settings;
 pub(crate) mod config;
+mod learning_routes;
 pub(crate) mod system_prompt;
 pub(crate) mod workspace_computer_routes;
 use super::*;
@@ -16,6 +17,7 @@ use serde_json::{Value, json};
 pub(super) fn routes() -> Router<Shared> {
     computer_routes::routes()
         .merge(workspace_computer_routes::routes())
+        .merge(learning_routes::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/requests",
             get(requests),

@@ -17,6 +17,7 @@ mod handoffs;
 mod home_panels;
 mod identifier;
 pub(crate) use identifier::identifier;
+pub(crate) mod agent_learning;
 pub(crate) mod archive;
 pub(crate) mod computers;
 pub(crate) mod context_compaction;
@@ -256,6 +257,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     connectors::drift::start(app.clone());
     library::indexer::start(app.clone());
     context_compaction::start(app.clone());
+    agent_learning::start(app.clone());
     library::keeping::start(app.clone());
     computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;

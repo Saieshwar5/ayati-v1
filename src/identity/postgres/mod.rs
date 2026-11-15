@@ -15,6 +15,7 @@ mod agent_instructions_migration;
 #[cfg(test)]
 mod agent_instructions_tests;
 mod agent_knowledge;
+pub(crate) mod agent_learning;
 mod agent_pause_switch;
 mod agent_profiles;
 mod agent_receipt_migration;
