@@ -77,7 +77,7 @@ test('People who cannot answer see the action and who can', async () => {
   await reactFixture(async ({ render, button }) => {
     const dialog = await open(render);
     assert.equal(dialog.querySelector('.outcome-answers'), null);
-    assert.match(dialog.textContent, /Atlas’s managers and workspace admins can answer this\./);
+    assert.match(dialog.textContent, /Atlas’s owner and workspace admins can answer this\./);
     assert.equal(button('Save answer'), undefined);
   }, { url, fetch: async () => response(action({ settle: { can_settle: false, checks: [] } })) });
 });

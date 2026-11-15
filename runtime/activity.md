@@ -34,14 +34,14 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
 
 An agent's **Activity** tab is History filtered to that agent, with its own
 search. Direct chats with an agent say "Activity with <agent> is visible to its
-managers and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
+owners and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
 which opens the same request details.
 
 ## Who sees what
 
 A request is visible to the person who asked, anyone who can see its conversation,
-the agent's managers, and admins. Work that used Library sources stays with its
-requester. Losing access to a channel hides its requests again. When a manager or
+every one of the agent's owners, and admins. Work that used Library sources stays with its
+requester. Losing access to a channel hides its requests again. When one of the agent's owners or an
 admin opens a request from a conversation they are not in, the details say so and
 the view is recorded in the audit log (`activity_private_viewed`).
 
@@ -50,7 +50,7 @@ the view is recorded in the audit log (`activity_private_viewed`).
 A Home panel refresh is a request of its own type, `panel` (it is linked in
 `relay_home_update_runs`), even when a routine starts it. It reads "Updated panel:
 <title>", names its panel and is filtered with Type → Panel updates. Only the panel's
-owner, the agent's managers and admins see it; being in the panel's source
+owner, the agent's owners and admins see it; being in the panel's source
 conversation is not enough. History folds routine updates into one line per panel per
 day ("Updated panel: Sales today · updated 12 times"), which expands to each update;
 an update that could not complete keeps its own line.
@@ -62,18 +62,17 @@ agents were paused, or access changed) never becomes a request, so it has its ow
 list: History → Type → **Events not handled**, newest first by arrival, with the
 recorded reason ("All agents were paused when this event arrived, so it was not
 handled."). Now shows "N events not handled today" with **See why**, which opens that
-list. Only the person who set up the trigger, the agent's managers and admins see an
+list. Only the person who set up the trigger, the agent's owners and admins see an
 event, and only its trigger's name, agent, time and reason: never the event's
 contents. My agents narrows it to triggers the person set up or agents they manage.
 
 ## My agents
 
 `scope=mine` narrows History, totals, export and Now to the requests the person
-made and the work of agents they manage (`relay_agent_managers`); on Now, only the
-agents they manage get a card. `scope=all`, or no scope, keeps everything the
+made and the work of agents they own; on Now, only the agents they own get a
+card. `scope=all`, or no scope, keeps everything the
 visibility rule above allows. The scope only narrows; it never shows anything the
-person could not see. An admin is a manager of the agents they own, not of every
-agent, so an admin's Mine is their own agents and requests. The owner chose My
+person could not see. An admin owns only some agents, so an admin's Mine is their own agents and requests. The owner chose My
 agents as the screen's default for everyone (2026-11-01); the switch itself waits
 for an approved design.
 
@@ -88,7 +87,7 @@ checks; the screen only hides what a person may not do.
   device, per person and workspace; the default is My agents.
 - **Pause or resume one agent** from its card: `POST
   /api/identity/workspaces/{w}/agent-profiles/{id}/pause` with `{"paused": bool}`.
-  The agent's owner, its managers and admins may do it (D231). It has the same
+  Any of the agent's owners and admins may do it (schema 122). An agent with no owner can't be resumed. It has the same
   effect as the Agents page's pause and writes the same readable audit sentence
   ("Meera paused Atlas"); asking for the state it already has changes nothing. The
   card shows the button only when `can_pause` is true. While all agents are paused
@@ -109,8 +108,8 @@ checks; the screen only hides what a person may not do.
 
 ## Supervising at scale (schema 61)
 
-People-and-agents-first, Phase 4. For the people who can fix an agent (its owner,
-managers and admins; with My agents, the agents they manage):
+People-and-agents-first, Phase 4. For the people who can fix an agent (its owners,
+and admins; with My agents, the agents they own):
 
 - **Needs fixing** on Now, grouped by cause, each with one fix:
   - an account needs reconnecting (every agent using it; **Reconnect** in Settings for
@@ -163,7 +162,7 @@ managers and admins; with My agents, the agents they manage):
 ## Review: getting better over time (schema 63)
 
 People-and-agents-first, Phase 5. Activity → **Progress** (`&tab=review`), for the people
-who can fix an agent (owner, managers, admins; My agents narrows it):
+who can fix an agent (its owners and admins; My agents narrows it):
 
 - **Measures, last 30 days**, per agent and per person: tasks done of all, failed, done
   on time of those with a due time, tasks that needed a person, **person-minutes** (from
@@ -247,11 +246,11 @@ Measured locally with 30 agents and 81,000 requests over 90 days
 
 - PostgreSQL: `activity_panel_tests` (panel type, title and owner-only visibility),
   `activity_unhandled_tests` (reason, visibility, no contents, Now's count);
-  `activity_controls_tests` (pause by owner, manager and admin but not
+  `activity_controls_tests` (pause by the owner and an admin but not
   others; retry only by the asker, once, never after an unconfirmed action);
-  `activity_scope_tests` (My agents for a manager, an admin and an
+  `activity_scope_tests` (My agents for an owner, an admin and an
   unknown scope across History, totals, export and Now); `activity_tests` (visibility for requester, conversation members,
-  managers, admins and after leaving a channel; private-view audit; paging without
+  the agent's owners, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
 - Web: `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,

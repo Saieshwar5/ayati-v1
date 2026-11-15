@@ -291,7 +291,7 @@ impl PgStore {
         }
         match (settings.browser.as_str(), site) {
             ("block", _) => Ok(Some(super::computers::refused(
-                "Browsing is blocked for you. Tell the person a manager can allow it in your Tools tab.",
+                "Browsing is blocked for you. Tell the person your owner or an admin can allow it in your Tools tab.",
             ))),
             ("ask", Some(site)) => {
                 let name = self.computer_agent_name(job).await?;
@@ -334,7 +334,7 @@ impl PgStore {
         let site = host(tried["url"].as_str().unwrap_or(""));
         if settings.submit == "block" {
             return Ok(super::computers::refused(
-                "Pressing buttons and sending forms on websites is blocked for you. Tell the person a manager can allow it in your Tools tab.",
+                "Pressing buttons and sending forms on websites is blocked for you. Tell the person your owner or an admin can allow it in your Tools tab.",
             ));
         }
         let name = self.computer_agent_name(job).await?;

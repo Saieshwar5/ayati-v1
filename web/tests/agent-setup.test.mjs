@@ -39,7 +39,7 @@ test('instructions save once with the revision the draft started from and keep a
     assert.equal(document.querySelector('textarea').value, 'New words');
     fail = false; await click(button('Save changes'));
     assert.equal(writes.length, 2); assert.equal(writes[1].settings.instructions, 'New words'); assert.equal(saved, 1);
-    assert.equal(writes[1].people, undefined); assert.equal(writes[1].managers, undefined);
+    assert.equal(writes[1].people, undefined); assert.equal('managers' in writes[1], false);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (path.endsWith('/knowledge')) return { ok: true, json: async () => ({ notes: [] }) };

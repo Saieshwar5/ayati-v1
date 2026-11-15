@@ -126,7 +126,7 @@ async fn decide_routine(
             .await?,
     ))
 }
-/// Coming up: stop a booked follow-up (the person it's for, managers, admins).
+/// Coming up: stop a booked follow-up (the person it's for, the agent's owner, admins).
 async fn cancel_follow_up(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,
@@ -136,7 +136,7 @@ async fn cancel_follow_up(
     app.store.task_cancel_follow_up(&user, &w, &id).await?;
     Ok(Json(serde_json::json!({"cancelled": true})))
 }
-/// Needs fixing: dismiss something an agent reported (owners, managers, admins).
+/// Needs fixing: dismiss something an agent reported (owners, admins).
 async fn dismiss_need(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,

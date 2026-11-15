@@ -18,7 +18,6 @@ async fn only_me_agents_talk_only_to_their_owner_and_admins_can_see_them() {
         model: "test".into(),
         audience: "only_me".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings::default(),
     };
@@ -77,7 +76,6 @@ async fn managed_channel_context_and_memory_stay_within_their_audience() {
         model: "test".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             memory: true,
@@ -157,7 +155,6 @@ async fn agent_knowledge_and_avatars_enforce_owner_revision_and_workspace() {
         model: "test".into(),
         audience: "only_me".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings::default(),
     };

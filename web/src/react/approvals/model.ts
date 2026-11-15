@@ -1,7 +1,7 @@
 import { identityRequest, workspaceId } from '../../workspace-context';
 import type { Action } from '../agents/control-model';
 export type Approval = Action & { source_scope?: string | null; agent: string; agent_name: string; account_name: string; approver_name: string; can_decide: boolean; decision?: string | null;
-  /** Managers who can decide now (D231), when admins may step in, and who decided. */
+  /** The owner, when they can decide now; when admins may step in; and who decided. */
   deciders?: { id: string; name: string }[]; backup_at?: number; needs_other?: boolean; decided_by_name?: string | null;
   /** An unconfirmed write (schema 107): who may answer, what Cuckoo checked, and the answer. */
   settle?: Settle | null; settled?: Settled | null };

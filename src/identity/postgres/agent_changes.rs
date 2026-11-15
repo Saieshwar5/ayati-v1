@@ -9,7 +9,6 @@ use crate::identity::agents::config::SaveAgent;
 pub(super) struct ListChanges {
     pub narrowed: bool,
     pub people: bool,
-    pub managers: bool,
 }
 
 fn audience(value: &str) -> &'static str {
@@ -70,9 +69,6 @@ pub(super) fn summary(
     }
     if lists.people {
         parts.push("selected people".into());
-    }
-    if lists.managers {
-        parts.push("managers".into());
     }
     if old["model"] != after.model {
         parts.push(format!(
@@ -144,7 +140,6 @@ mod tests {
             model: "m1".into(),
             audience: "selected".into(),
             people: None,
-            managers: None,
             revision: 1,
             settings: Settings::default(),
         }
@@ -167,13 +162,13 @@ mod tests {
         next.settings.instructions = "SECRET PRICE LIST".into();
         next.role = "Order desk".into();
         let lists = ListChanges {
-            managers: true,
+            people: true,
             ..Default::default()
         };
         let text = summary("Arjun", Some(&old), &next, &lists);
         assert_eq!(
             text,
-            "Arjun changed Atlas: job title (“Orders” → “Order desk”); instructions; who can talk (Selected people → Everyone); managers"
+            "Arjun changed Atlas: job title (“Orders” → “Order desk”); instructions; who can talk (Selected people → Everyone); selected people"
         );
         assert!(!text.contains("SECRET"));
         let mut paused = saved();

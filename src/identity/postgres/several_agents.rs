@@ -124,7 +124,7 @@ async fn refusal(
 ) -> Result<Option<String>> {
     let here = query(
         tx,
-        "SELECT COALESCE((a.settings->>'paused')::BOOLEAN,FALSE) AS paused FROM relay_chat_agents x
+        "SELECT COALESCE((a.settings->>'paused')::BOOLEAN,FALSE) AS paused,a.owner_id IS NULL AS ownerless FROM relay_chat_agents x
          LEFT JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent
          WHERE x.workspace=$1 AND x.chat=$2 AND x.agent=$3",
         vec![w.into(), chat.into(), agent.into()],
@@ -133,12 +133,14 @@ async fn refusal(
     if !agent_access_in(tx, &user.id, w, agent, chat).await? {
         // Only an agent in this conversation, which its people already see, is
         // said to be paused.
-        let paused = here
-            .map(|row| row.try_get::<bool>("", "paused"))
-            .transpose()?
-            .unwrap_or(false);
-        return Ok(Some(if paused {
-            "This agent is paused. Its manager or an admin can resume it.".into()
+        let (paused, ownerless) = match &here {
+            Some(row) => (row.try_get("", "paused")?, row.try_get("", "ownerless")?),
+            None => (false, false),
+        };
+        return Ok(Some(if paused && ownerless {
+            "This agent's owner left the workspace, so it is paused until an admin gives it a new owner.".into()
+        } else if paused {
+            "This agent is paused. Its owner or an admin can resume it.".into()
         } else {
             "Agent is not shared with you".into()
         }));

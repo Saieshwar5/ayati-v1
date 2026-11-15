@@ -13,7 +13,7 @@
 >
 > **Updated 2026-10-31 (schema 47):** tools and approvals now follow
 > [agent tools and approvals](tools-and-approvals.md). Rules belong to the agent,
-> admins set safety per action and "Ask first" goes to the agent's managers. Where
+> admins set safety per action and "Ask first" goes to the agent's owners (equal, any one decides, since schema 122). Where
 > this page describes conversation rules, delegations, designated approvers or the
 > guided setup, it records the replaced model.
 

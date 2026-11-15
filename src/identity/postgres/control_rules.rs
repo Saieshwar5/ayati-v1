@@ -64,7 +64,7 @@ impl PgStore {
         Ok(json!({
             "connections": connections,
             "actions": visible_actions,
-            "can_manage": admin || profile["owner_id"] == user.id,
+            "can_manage": admin || profile["is_owner"] == true,
             "can_manage_connections": admin,
             "viewer": user.id,
         }))

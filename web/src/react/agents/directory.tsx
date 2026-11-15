@@ -66,6 +66,7 @@ export function AgentsPage() {
     if (generation !== epoch.current) return;
     let chat = chats.find(c => c.kind === 'direct' && c.agents.includes(agent.id) && c.users.includes(workspaceSession?.user?.id ?? ''));
     if (!chat) {
+      if (agent.needs_owner) throw new Error('This agent’s last owner left the workspace, so it is paused. An admin needs to give it a new owner.');
       if (agent.settings.paused) throw new Error('This agent is paused and has no direct conversation yet. Resume it before starting a conversation.');
       const result = await identityRequest<{ id: string }>(root, { id: crypto.randomUUID(), kind: 'direct', name: agent.name, description: '', users: [], agents: [agent.id] });
       chat = { id: result.id } as Conversation;
@@ -84,7 +85,7 @@ export function AgentsPage() {
         <AgentAvatar agent={creating} /><span><strong>New agent</strong><small>Not created yet</small></span>
       </Button>}
       {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={!creating && key === `m:${agent.id}` ? 'true' : undefined} disabled={Boolean(creating)} onClick={() => select(`m:${agent.id}`)}>
-        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small>{(agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
+        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small>{(agent.needs_owner || agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.needs_owner ? 'Needs an owner' : agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
       </Button>)}
       {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create your first agent.'}</p>}
     </div><footer>People, purpose and controlled work.</footer></aside>

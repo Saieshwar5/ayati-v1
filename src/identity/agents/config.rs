@@ -61,7 +61,7 @@ pub struct Settings {
     pub avatar: String,
     pub memory: bool,
     pub browser: bool,
-    /// Web search, on unless its owner or a manager switched it off (schema 102).
+    /// Web search, on unless its owner or an admin switched it off (schema 102).
     pub web_search: bool,
     /// The agent's computer (schema 103): off until its owner or an admin turns it on.
     pub computer: super::computer_settings::ComputerSettings,
@@ -142,9 +142,6 @@ pub struct SaveAgent {
     /// The selected people; `None` keeps the saved list.
     #[serde(default)]
     pub people: Option<Vec<String>>,
-    /// Managers; `None` keeps the saved list (the owner, for a new agent).
-    #[serde(default)]
-    pub managers: Option<Vec<String>>,
     pub revision: i64,
     pub settings: Settings,
 }
@@ -172,7 +169,7 @@ impl SaveAgent {
             ["everyone", "selected", "only_me"].contains(&self.audience.as_str()),
             "Choose who can talk to this agent"
         );
-        for list in [&self.people, &self.managers].into_iter().flatten() {
+        if let Some(list) = &self.people {
             ensure!(
                 list.len() <= 200 && list.iter().all(|id| !id.is_empty() && id.len() <= 200),
                 "Choose at most 200 people"

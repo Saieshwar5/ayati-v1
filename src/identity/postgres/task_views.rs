@@ -1,6 +1,6 @@
 //! Tasks for people: Activity's Open list, one task's details, closing a task, and
 //! "Make this a task" on a request. Visibility follows the task (`super::VISIBLE`):
-//! the person it is for, anyone who can see its conversation, the agent's managers
+//! the person it is for, anyone who can see its conversation, the agent's owner
 //! and admins. My agents narrows it to tasks for the person and agents they manage.
 use super::super::activity::{Filters, query_with, valid_scope};
 use super::super::*;
@@ -51,7 +51,7 @@ impl PgStore {
             WHERE t.workspace=$1 AND t.outcome IS NULL AND {VISIBLE}
              AND s.status NOT IN ('done','failed','cancelled')
              AND ($4::text IS DISTINCT FROM 'mine' OR t.requester=$2
-              OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=t.workspace AND g.agent=t.agent AND g.user_id=$2))
+              OR relay_agent_owns(t.workspace,t.agent,$2))
             ORDER BY {ORDER},t.created_ms DESC LIMIT 201");
         let mut items = json_rows(
             &tx,
@@ -75,7 +75,7 @@ impl PgStore {
         let tx = self.activity_tx(w, false).await?;
         let admin = admin(&tx, w, user).await?;
         let sql = format!("SELECT jsonb_build_object({FIELDS},'waiting_on',{WAITING_ON},
-             'may_close',(t.requester=$2 OR $3 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=t.workspace AND g.agent=t.agent AND g.user_id=$2))) AS data
+             'may_close',(t.requester=$2 OR $3 OR relay_agent_owns(t.workspace,t.agent,$2))) AS data
             FROM relay_tasks t CROSS JOIN LATERAL (SELECT relay_task_status(t.workspace,t.id) AS status) s
             JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent
             JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat
@@ -99,7 +99,7 @@ impl PgStore {
     }
 
     /// A person closes a task: done or cancelled (the person it is for, the agent's
-    /// managers, admins), or "Not a task" (anyone who can see it).
+    /// owner, admins), or "Not a task" (anyone who can see it).
     pub(crate) async fn task_close(
         &self,
         user: &User,
@@ -115,7 +115,7 @@ impl PgStore {
         let result = result.map(|r| line(r, 1000, "the result")).transpose()?;
         let tx = self.workspace_tx(w).await?;
         let admin = admin(&tx, w, user).await?;
-        let sql = format!("SELECT t.outcome,(t.requester=$2 OR $3 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=t.workspace AND g.agent=t.agent AND g.user_id=$2)) AS may_close
+        let sql = format!("SELECT t.outcome,(t.requester=$2 OR $3 OR relay_agent_owns(t.workspace,t.agent,$2)) AS may_close
             FROM relay_tasks t WHERE t.workspace=$1 AND t.id=$4 AND {VISIBLE} FOR UPDATE");
         let row = query(
             &tx,
@@ -132,7 +132,7 @@ impl PgStore {
         ensure!(current.is_none(), "That task is already closed");
         ensure!(
             outcome == "not_task" || row.try_get::<bool>("", "may_close")?,
-            "Only the person it is for, the agent's managers or an admin can close this task"
+            "Only the person it is for, the agent's owner or an admin can close this task"
         );
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_by=$5,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![w.into(), id.into(), outcome.into(), result.into(), user.id.clone().into()]).await?;

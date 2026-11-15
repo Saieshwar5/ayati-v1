@@ -30,7 +30,13 @@ impl PgStore {
         } else {
             ""
         };
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
+        // Every owner's name (schema 122); before, the one owner's.
+        let owners = if super::agent_owners::ready(&tx).await? {
+            "(SELECT string_agg(COALESCE(u.display_name,u.email),', ' ORDER BY o.at,o.user_id) FROM relay_agent_owners o JOIN relay_users u ON u.id=o.user_id WHERE o.workspace=a.workspace AND o.agent=a.id)"
+        } else {
+            "(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=a.owner_id)"
+        };
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',{owners}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }

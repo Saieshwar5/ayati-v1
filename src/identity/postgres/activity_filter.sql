@@ -11,14 +11,14 @@ CROSS JOIN LATERAL (SELECT CASE
  ELSE 'chat' END AS kind) k
 WHERE j.workspace=$1
 -- Who sees it: the requester, anyone who can see the conversation, the agent's
--- managers and admins ($3).
+-- owner and admins ($3).
 AND (j.payload->>'requester'=$2 OR c.visibility='public' OR $3
  OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)
- OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 -- A panel update belongs to the panel's owner (its requester), the agent's
--- managers and admins, never to everyone in the panel's source conversation.
+-- owner and admins, never to everyone in the panel's source conversation.
 AND (k.kind<>'panel' OR j.payload->>'requester'=$2 OR $3
- OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 -- Work that used Library sources stays with its requester.
 AND (j.payload->>'requester'=$2 OR NOT EXISTS(
  SELECT 1 FROM relay_library_sources s WHERE s.workspace=j.workspace AND s.reply=j.reply))
@@ -30,9 +30,9 @@ AND ($10::text IS NULL OR m.content ILIKE $10 OR c.name ILIKE $10 OR ag.name ILI
  OR EXISTS(SELECT 1 FROM (/*SOURCE*/) s WHERE s.content ILIKE $10))
 AND ($11::text IS NULL OR k.kind=$11)
 -- My agents ($13='mine'): requests the person made, and the work of agents they
--- manage. It only narrows what the visibility rule above already allows.
+-- own. It only narrows what the visibility rule above already allows.
 AND ($13::text IS DISTINCT FROM 'mine' OR j.payload->>'requester'=$2
- OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=j.workspace AND g.agent=ag.id AND g.user_id=$2))
+ OR relay_agent_owns(ag.workspace,ag.id,$2))
 AND ($7::text IS NULL
  OR ($7='active' AND j.state<>'finished')
  OR ($7='waiting' AND j.state='waiting')

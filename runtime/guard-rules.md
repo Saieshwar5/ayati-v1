@@ -127,7 +127,7 @@ company rule" or "Blocked by a company rule" with the rule and its facts. Agents
 each action's rules in plain words with their operations (`company_rules`), so they
 know a limit before they try.
 
-A held request follows the ordinary approval path: it goes to the agent's managers,
+A held request follows the ordinary approval path: it goes to the agent's owners,
 and approving it sends the exact fields once. This works even when the account's
 rule for that action is Allow: approval authority accepts an Allow rule for a request
 the Guard held (`approval_delivery::decision_authority`). Changing a rule does not
@@ -190,7 +190,7 @@ re-check requests already waiting.
   read-back; a member sees them read-only and can't save one; saves are audited; on an
   Allowed action the agent's normal write runs, the blocked one is denied and the held
   one waits with nothing sent; the approval dialog says "Held by a company rule" with
-  the fact used, and the agent's manager approves the exact write once. Screenshots at
+  the fact used, and one of the agent's owners approves the exact write once. Screenshots at
   desktop, 390 px and dark; no horizontal overflow.
 - Web (`tests/company-rules.test.mjs`): the read-back, one save per click burst, the
   draft kept after a failed save, the same rule identity on retry, text fields

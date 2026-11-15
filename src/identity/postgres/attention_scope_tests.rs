@@ -12,7 +12,7 @@ use serde_json::json;
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn attention_designated_approver_needs_source_but_not_agent_request_authority() {
+async fn attention_shows_an_approval_to_the_agents_owner_who_can_see_its_source() {
     let (db, owner, w, connection, job) = setup("ask").await;
     db.chat_finish(&job, "Initial work done", "complete")
         .await
@@ -27,18 +27,18 @@ async fn attention_designated_approver_needs_source_but_not_agent_request_author
     )
     .await
     .unwrap();
-    // The approver manages the agent, so "Ask first" reaches them (D231).
-    let mut profile = db
-        .managed_agent(&owner, &w, &job.agent, true)
-        .await
-        .unwrap();
-    profile["managers"] = json!([approver.id.clone()]);
-    let input: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
-        "id":job.agent,"name":profile["name"],"role":profile["role"],"model":profile["model"],
-        "audience":profile["audience"],"revision":profile["revision"],"settings":profile["settings"],
-        "managers":[approver.id.clone()]}))
+    // The approver owns the agent, so "Ask first" reaches them (schema 122).
+    execute(
+        &db.db,
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
+        vec![
+            w.clone().into(),
+            job.agent.clone().into(),
+            approver.id.clone().into(),
+        ],
+    )
+    .await
     .unwrap();
-    db.save_agent_profile(&owner, &w, &input).await.unwrap();
     db.chat_send(
         &owner,
         &w,
@@ -54,7 +54,7 @@ async fn attention_designated_approver_needs_source_but_not_agent_request_author
     db.chat_finish(&active, "Approval needed", "complete")
         .await
         .unwrap();
-    assert!(!db.agent_access(&approver.id, &w, &job.agent).await.unwrap());
+    // The agent's owner decides, so the approval waits in their attention only.
     let approved_queue = db.attention(&approver, &w, &Page::default()).await.unwrap();
     assert_eq!(approved_queue["items"].as_array().unwrap().len(), 1);
     assert!(

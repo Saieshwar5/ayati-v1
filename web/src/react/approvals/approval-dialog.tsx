@@ -63,7 +63,7 @@ function Deciders({ data }: { data: Approval }) {
   if (data.decided_by_name) return <p>{data.decision === 'approve' ? 'Approved' : data.decision === 'request_changes' ? 'Changes requested' : 'Rejected'} by <strong>{data.decided_by_name}</strong></p>;
   if (data.state !== 'pending') return null;
   return <>
-    <p role="status">{names.length ? <>Waiting for <strong>{either(names)}</strong></> : 'None of this agent’s managers can see this request, so an admin who can see it may decide.'}</p>
+    <p role="status">{names.length ? <>Waiting for <strong>{either(names)}</strong></> : 'No owner of this agent can decide this request, so an admin who can see it may decide.'}</p>
     {data.needs_other && <p className="ui-help">Someone other than the person who asked must approve.</p>}
     {names.length > 0 && backup && <p className="ui-help">If nobody decides by {backup}, an admin can.</p>}
   </>;

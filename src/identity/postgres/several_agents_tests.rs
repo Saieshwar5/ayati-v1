@@ -24,7 +24,6 @@ async fn agent(db: &PgStore, owner: &User, w: &str, name: &str) -> String {
         model: "fixture".into(),
         audience: "everyone".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),
@@ -312,7 +311,7 @@ async fn one_agent_that_cannot_take_it_refuses_the_whole_message_by_name() {
     let error = r.refused(&ask("stock?", &[("Nova", &r.nova)])).await;
     assert_eq!(
         error,
-        "This agent is paused. Its manager or an admin can resume it."
+        "This agent is paused. Its owner or an admin can resume it."
     );
 
     // An agent that used its monthly budget, named with the others refused.

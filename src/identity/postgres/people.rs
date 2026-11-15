@@ -92,9 +92,8 @@ impl PgStore {
         tx.commit().await?;
         Ok(provider)
     }
-    /// Changes a role, or removes the person when `assigned` is None. Removal hands
-    /// their agents and Library items to `heir` (default: the acting admin) and
-    /// returns provider invitation IDs to revoke after commit.
+    /// Changes a role, or removes the person without naming a new owner for
+    /// their agents (see `change_member`).
     pub async fn change(
         &self,
         user: &User,
@@ -102,6 +101,25 @@ impl PgStore {
         target: &str,
         assigned: Option<&str>,
         heir: Option<&str>,
+    ) -> Result<Vec<String>> {
+        self.change_member(user, workspace, target, assigned, heir, None)
+            .await
+    }
+
+    /// Changes a role, or removes the person when `assigned` is None. Removal hands
+    /// their Library items to `heir` (default: the acting admin). Their agents go
+    /// to `agents_owner` when an admin names one; otherwise, and whenever a person
+    /// leaves on their own, the agents have no owner and pause until an admin
+    /// gives them one (schema 122). Returns provider invitation IDs to revoke
+    /// after commit.
+    pub async fn change_member(
+        &self,
+        user: &User,
+        workspace: &str,
+        target: &str,
+        assigned: Option<&str>,
+        heir: Option<&str>,
+        agents_owner: Option<&str>,
     ) -> Result<Vec<String>> {
         ensure!(
             assigned.is_none_or(|r| ["Admin", "Member"].contains(&r)),
@@ -125,6 +143,17 @@ impl PgStore {
             .try_get("", "count")?;
             ensure!(count > 1, "A workspace must keep at least one admin");
         }
+        // Only an admin gives an agent its new owner, and only by naming one.
+        ensure!(
+            agents_owner.is_none() || (assigned.is_none() && !leaving),
+            "Only an admin chooses the new owner of a removed person's agents"
+        );
+        if let Some(owner) = agents_owner {
+            ensure!(owner != target, "Choose someone else to own their agents");
+            role(&tx, workspace, owner)
+                .await
+                .context("The new owner must be in this workspace")?;
+        }
         let heir = heir.unwrap_or(&user.id);
         let before = if assigned.is_none() {
             ensure!(heir != target, "Choose someone else to take over");
@@ -138,8 +167,8 @@ impl PgStore {
         let actor_name = super::member_handover::name(&tx, &user.id).await?;
         let target_name = super::member_handover::name(&tx, target).await?;
         // Pending approvals need no change: whoever may decide is checked when
-        // they decide (approval_authority::may_decide), so a removed manager's
-        // requests stay with the agent's other managers.
+        // they decide (approval_authority::may_decide), so a removed owner's
+        // requests go to the new owner, or to admins while there is none.
         execute(
             &tx,
             "DELETE FROM relay_member_app_sessions WHERE workspace=$1 AND user_id=$2",
@@ -155,7 +184,9 @@ impl PgStore {
             )
             .await?;
         } else {
-            providers = super::member_handover::hand_over(&tx, workspace, target, heir).await?;
+            providers =
+                super::member_handover::hand_over(&tx, workspace, target, heir, agents_owner)
+                    .await?;
             // Foreign keys revoke chat membership, resource grants and app sessions atomically.
             execute(
                 &tx,
@@ -168,10 +199,17 @@ impl PgStore {
         let summary = match (assigned, &before) {
             (None, Some(before)) => {
                 let heir_name = super::member_handover::name(&tx, heir).await?;
+                // On older schemas agents still follow the person taking over.
+                let owner_name = match agents_owner {
+                    None if !super::agent_owners::ready(&tx).await? => Some(heir_name.clone()),
+                    None => None,
+                    Some(owner) => Some(super::member_handover::name(&tx, owner).await?),
+                };
                 super::member_handover::removal_summary(
                     (!leaving).then_some(actor_name.as_str()),
                     &target_name,
                     &heir_name,
+                    owner_name.as_deref(),
                     before,
                 )
             }

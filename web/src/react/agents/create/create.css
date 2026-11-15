@@ -52,8 +52,6 @@
 .agent-managers li strong { display: block; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 .agent-managers li small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .agent-owner-tag { font-size: 11px; background: var(--selection); border-radius: 5px; padding: 3px 8px; }
-.agent-add-manager { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
-.agent-add-manager .ui-field { flex: 1; min-width: 200px; margin: 0; }
 @media (max-width: 760px) {
   .agent-create-header, .agent-create-body.agent-create-body, .agent-create-footer { padding-left: 18px; padding-right: 18px; }
   .agent-create-steps { padding: 8px 18px 14px; gap: 6px 16px; font-size: 13px; }

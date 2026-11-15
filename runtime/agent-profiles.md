@@ -3,27 +3,53 @@
 There is one agent type (D231, D233; schema 45). Creation and editing use
 `/api/identity/workspaces/{workspace}/agent-profiles`.
 
-## Who can talk to it, owners and managers
+## Who can talk to it, and its owners
 
 - **Everyone may create agents.** The per-person creator right and its
   `/control/creators` route were removed with `relay_agent_creators`.
-- **Who can talk to it** (`audience`) is `everyone`, `selected` (the owner,
-  admins and the people in `relay_chat_access`) or `only_me` (the owner alone).
+- **Who can talk to it** (`audience`) is `everyone`, `selected` (its owners,
+  admins and the people in `relay_chat_access`) or `only_me` (its owners alone).
   `relay_agent_can_talk(workspace, agent, person)` is the single definition.
   Saves may send `people` to replace the selected list; omitting it keeps it.
 - **In a channel or group** the agent belongs to, anyone who can see that
   conversation may ask a shared agent there (`agent_access_in`). Only-me agents
   cannot join channels, and choosing Only me is refused while the agent is in one.
-- **Seeing and changing:** the owner and admins see and change every agent,
+- **Seeing and changing:** its owners and admins see and change every agent,
   including only-me agents (admins cannot talk to someone else's only-me agent).
   Other members see the agents they can talk to.
-- **Managers** (`relay_agent_managers`) start as the owner; saves may send
-  `managers` (at least one workspace member). Approvals start using them in M3.
-- **Owner transfer:** `POST …/agent-profiles/{id}/owner` with `{owner, revision}`.
-  The new owner replaces the old one as a manager; the audit log records a
-  readable sentence. An exact retry by the previous owner succeeds.
-- **Removing a person** moves all their agents to the person taking over; only-me
-  agents move paused. An agent they managed alone falls back to its owner.
+- **Owners, all equal (schema 122).** An agent has one to ten owners
+  (`relay_agent_owners`; `relay_agent_owns(workspace, agent, person)` is the
+  check). Its creator is the first. Every owner changes the agent, decides its
+  "Ask first" actions, sees all its work in Activity (including requests from
+  private chats), pauses it and adds or removes owners, without asking the
+  others. Admins have the same authority over every agent, and decide an
+  approval no owner can or has in time
+  ([tools and approvals](tools-and-approvals.md#who-decides-ask-first)). The
+  manager lists that existed before are kept in `relay_agent_former_managers` as
+  a record and are no longer read; former managers did not become owners.
+- **Changing owners:** `GET …/agent-profiles/{id}/owners` returns `{owners,
+  can_change, revision}`; `POST` with `{add}` or `{remove}` and `revision`, by an
+  owner or an admin, changes one at a time and returns the owners and the new
+  revision. Adding someone already an owner, or removing someone who isn't,
+  changes nothing, so a retried request is harmless. The last owner can't be
+  removed. Removing an owner stops work for an only-me agent they may no longer
+  ask for. The audit log records a readable sentence for each change. In the app:
+  the agent's ⋯ menu › **Owners…**, or **Change** beside Owners on its Overview.
+  `relay_shared_agents.owner_id` is kept by triggers as the first owner (NULL
+  when there is none), for the tool-rule views and older code paths.
+- **Removing a person:** agents with other owners stay with them. For agents the
+  person owns alone, an admin may name a new owner (`agents_owner` beside
+  `handover_to`, which is who takes their Library items); those agents keep
+  working under that person, and an only-me agent moves paused for them to look
+  at. With no one named, and whenever a person leaves on their own, each agent
+  they owned alone has **no owner** and is paused.
+- **An agent with no owner** takes no work: it is paused, can't be resumed, has
+  no effective tool rules (an agent acts through its owners'), and approvals it
+  was waiting for can't be decided by anyone. The directory reports
+  `needs_owner`; admins see "Needs an owner" in the list and on its page. When an
+  admin adds an owner, an agent that was running when its last owner left
+  resumes; one its owner had paused, and an only-me agent, stay paused for the
+  new owner. Waiting approvals can then be decided again.
 - Narrowing who can talk, or pausing, stops queued and waiting work that the
   requester may no longer ask for.
 - Upgrade tests run this code on older schemas, where `scope` (private/workspace)

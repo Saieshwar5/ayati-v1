@@ -98,7 +98,7 @@ async fn checks(s: &Held, id: &str) -> Value {
 #[ignore = "requires disposable PostgreSQL"]
 async fn a_check_that_finds_the_write_settles_it_and_the_waiting_task_continues() {
     let s = setup("ask", false).await;
-    let id = s.unconfirmed("one", &s.owner).await;
+    let id = s.unconfirmed("one", &s.manager).await;
     let provider = Scripted::answering("happened");
     // The first check is about a minute after the provider didn't confirm it.
     assert_eq!(round(&s, &provider).await, Round::default());

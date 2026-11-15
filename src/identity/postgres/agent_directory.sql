@@ -5,8 +5,7 @@ SELECT to_jsonb(a) || jsonb_build_object(
  'can_talk',relay_agent_can_talk(a.workspace,a.id,$2),
  'people',(SELECT COALESCE(jsonb_agg(x.user_id ORDER BY x.user_id),'[]'::jsonb)
   FROM relay_chat_access x WHERE x.workspace=a.workspace AND x.agent=a.id),
- 'managers',(SELECT COALESCE(jsonb_agg(g.user_id ORDER BY g.at,g.user_id),'[]'::jsonb)
-  FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id),
+ 'needs_owner',a.owner_id IS NULL,
  'pending',(
   SELECT count(*) FROM relay_chat_jobs j
   JOIN relay_chats c ON c.workspace=j.workspace AND c.id=j.payload->>'chat'
@@ -28,6 +27,7 @@ SELECT to_jsonb(a) || jsonb_build_object(
 FROM relay_shared_agents a
 LEFT JOIN relay_users u ON u.id=a.creator_id
 LEFT JOIN relay_users o ON o.id=a.owner_id
--- Admins see every agent; others see their own and the agents they can talk to.
+-- Admins see every agent; others see their own and the agents they can talk to
+-- (since schema 122 every owner can talk to it).
 WHERE a.workspace=$1 AND (a.owner_id=$2 OR $3 OR relay_agent_can_talk(a.workspace,a.id,$2))
 ORDER BY a.created_at,a.id LIMIT 500

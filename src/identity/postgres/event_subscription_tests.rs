@@ -363,7 +363,7 @@ async fn an_app_trigger_needs_an_allowed_read_and_a_person_who_can_ask_the_agent
     join(&s.db, &s.owner, &s.w, &member, "Member").await;
     execute(
         &s.db.db,
-        "UPDATE relay_shared_agents SET owner_id=$3 WHERE workspace=$1 AND id=$2",
+        "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
         vec![
             s.w.clone().into(),
             s.agent.clone().into(),

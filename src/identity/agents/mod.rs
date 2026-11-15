@@ -43,8 +43,8 @@ pub(super) fn routes() -> Router<Shared> {
             post(prompt),
         )
         .route(
-            "/api/identity/workspaces/{w}/agent-profiles/{id}/owner",
-            post(transfer),
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/owners",
+            get(owners).post(change_owners),
         )
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/pause",
@@ -210,15 +210,27 @@ async fn prompt(
         "skills": skills,
     })))
 }
-async fn transfer(
+/// An agent's owners (schema 122): everyone who may see the agent reads them.
+async fn owners(
     State(app): State<Shared>,
     RoutePath((w, id)): RoutePath<(String, String)>,
     headers: HeaderMap,
-    Json(input): Json<crate::identity::postgres::TransferAgent>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agent_owners(&user, &w, &id).await?))
+}
+/// Adds or removes one owner: any owner or an admin.
+async fn change_owners(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::agent_owners::OwnersChange>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     Ok(Json(
-        app.store.agent_transfer(&user, &w, &id, &input).await?,
+        app.store
+            .change_agent_owners(&user, &w, &id, &input)
+            .await?,
     ))
 }
 #[derive(serde::Deserialize)]
@@ -226,7 +238,7 @@ async fn transfer(
 struct PauseAgent {
     paused: bool,
 }
-/// Pause or resume one agent: its owner, its managers or an admin (Activity's
+/// Pause or resume one agent: its owner or an admin (Activity's
 /// agent cards use this; the Agents page keeps its own pause switch).
 async fn pause(
     State(app): State<Shared>,

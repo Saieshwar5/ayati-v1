@@ -48,7 +48,6 @@ async fn the_preview_is_exactly_what_a_direct_request_gets() {
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 1,
         settings: Settings {
             provider: "openai".into(),

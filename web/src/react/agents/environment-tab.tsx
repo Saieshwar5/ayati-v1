@@ -46,7 +46,7 @@ function ProviderModelForm({ agent, directory, saved }: { agent: Agent; director
   const allowed = directory.models ?? [];
   const current = allowed.some(item => item.model === agent.model && (!agent.settings.provider || item.provider === agent.settings.provider));
   const save = () => void mutation.run(async () => {
-    await saveAgent({ ...agent, model: model.trim(), people: undefined, managers: undefined, settings: { ...agent.settings, provider } });
+    await saveAgent({ ...agent, model: model.trim(), people: undefined, settings: { ...agent.settings, provider } });
     mutation.setStatus('Model saved. New requests use it.');
     await saved();
   });

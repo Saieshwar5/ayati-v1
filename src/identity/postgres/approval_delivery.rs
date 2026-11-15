@@ -89,9 +89,9 @@ pub(super) async fn details(
 }
 pub(super) async fn deliver(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<()> {
     let a = action(db, w, id).await?;
-    // The request appears where it was asked, for the requester and every
-    // manager in that conversation. When no manager can see it, the record says
-    // so; an admin may then decide (approval_authority::may_decide).
+    // The request appears where it was asked, for the requester and the agent's
+    // owner when they are in that conversation. When the owner can't decide it,
+    // the record says so; an admin may then decide (approval_authority::may_decide).
     let target = a["chat"].as_str().unwrap();
     if !super::approval_authority::deciders(db, w, &a)
         .await?
@@ -102,7 +102,7 @@ pub(super) async fn deliver(db: &impl ConnectionTrait, w: &str, id: &str) -> Res
         execute(db,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,thread) VALUES($1,$2,$3,$4,'agent','Approval request','complete',$5,$6)",vec![message.clone().into(),w.into(),target.into(),a["agent"].as_str().unwrap().into(),now().into(),thread.into()]).await?;
         execute(db,"INSERT INTO relay_control_deliveries(workspace,action,chat,message,status) VALUES($1,$2,$3,$4,'channel')",vec![w.into(),id.into(),target.into(),message.into()]).await?;
     } else {
-        execute(db,"INSERT INTO relay_control_deliveries(workspace,action,status,reason) VALUES($1,$2,'inbox','None of this agent''s managers can see this conversation, so an admin who can see it may decide.')",vec![w.into(),id.into()]).await?;
+        execute(db,"INSERT INTO relay_control_deliveries(workspace,action,status,reason) VALUES($1,$2,'inbox','This agent''s owner can''t decide this request in this conversation, so an admin who can see it may decide.')",vec![w.into(),id.into()]).await?;
     }
     Ok(())
 }

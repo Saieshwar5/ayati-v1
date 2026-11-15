@@ -59,9 +59,14 @@ async fn setup() -> Setup {
     }
 }
 impl Setup {
-    /// Ask first, decided by the agent's managers: its owner and `approver`.
+    /// Ask first, decided by the agent's owner: `approver`, a member in the
+    /// conversation. `owner` stays the workspace admin who asks for the work.
     async fn configure(&self) {
-        self.managers(&[&self.owner.id, &self.approver.id]).await;
+        self.give_to(&self.approver).await;
+        self.ask_first().await;
+    }
+    /// Ask first on an agent still owned by the admin who asks for the work.
+    async fn ask_first(&self) {
         super::tool_test_support::grant(
             &self.db,
             &self.owner,
@@ -73,23 +78,10 @@ impl Setup {
         )
         .await;
     }
-    async fn managers(&self, people: &[&str]) {
-        let mut profile = self
-            .db
-            .managed_agent(&self.owner, &self.w, &self.agent, true)
-            .await
-            .unwrap();
-        profile["managers"] = json!(people);
-        profile["people"] = json!(null);
-        let input: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
-            "id":self.agent,"name":profile["name"],"role":profile["role"],"model":profile["model"],
-            "audience":profile["audience"],"revision":profile["revision"],"settings":profile["settings"],
-            "managers":people}))
-        .unwrap();
-        self.db
-            .save_agent_profile(&self.owner, &self.w, &input)
-            .await
-            .unwrap();
+    /// Makes `person` the agent's only owner.
+    async fn give_to(&self, person: &User) {
+        execute(&self.db.db, "WITH added AS (INSERT INTO relay_agent_owners(workspace,agent,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING) DELETE FROM relay_agent_owners WHERE workspace=$1 AND agent=$2 AND user_id<>$3",
+            vec![self.w.clone().into(), self.agent.clone().into(), person.id.clone().into()]).await.unwrap();
     }
     async fn needs_someone_else(&self) {
         let revision: i64 = query(
@@ -156,25 +148,31 @@ fn decision(value: &str) -> Decision {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn every_manager_may_decide_and_the_first_decision_wins() {
+async fn the_agents_owner_decides_and_the_first_decision_wins() {
     let s = setup().await;
     s.configure().await;
     let (_, a) = s.propose().await;
     let id = a["id"].as_str().unwrap();
     let details = s.db.approval_details(&s.approver, &s.w, id).await.unwrap();
     assert_eq!(details["can_decide"], true);
-    let mut names: Vec<_> = details["deciders"]
+    let names: Vec<_> = details["deciders"]
         .as_array()
         .unwrap()
         .iter()
         .map(|p| p["id"].as_str().unwrap().to_string())
         .collect();
-    // Managers added in the same second have no meaningful order.
-    names.sort();
-    let mut expected = [s.owner.id.clone(), s.approver.id.clone()];
-    expected.sort();
-    assert_eq!(names, expected);
-    // Someone in the conversation who doesn't manage the agent cannot decide.
+    assert_eq!(
+        names,
+        std::slice::from_ref(&s.approver.id),
+        "one owner decides"
+    );
+    // An admin who doesn't own the agent waits for its owner.
+    let early =
+        s.db.control_decide(&s.owner, &s.w, &s.agent, id, &decision("approve"))
+            .await;
+    let refusal = early.err().map(|e| e.to_string()).unwrap_or_default();
+    assert!(refusal.contains("owners decide first"), "{refusal}");
+    // Someone in the conversation who doesn't own the agent cannot decide.
     execute(
         &s.db.db,
         "INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3)",
@@ -197,16 +195,16 @@ async fn every_manager_may_decide_and_the_first_decision_wins() {
             .await
             .unwrap();
     assert!(approved.dispatch.is_some());
-    // The owner's later decision does not dispatch again, and cannot reverse it.
+    // A repeated decision does not dispatch again, and cannot reverse it.
     assert!(
-        s.db.control_decide(&s.owner, &s.w, &s.agent, id, &decision("approve"))
+        s.db.control_decide(&s.approver, &s.w, &s.agent, id, &decision("approve"))
             .await
             .unwrap()
             .dispatch
             .is_none()
     );
     assert!(
-        s.db.control_decide(&s.owner, &s.w, &s.agent, id, &decision("reject"))
+        s.db.control_decide(&s.approver, &s.w, &s.agent, id, &decision("reject"))
             .await
             .is_err()
     );
@@ -231,7 +229,7 @@ async fn someone_else_must_approve_and_admins_step_in_after_the_backup_delay() {
     s.needs_someone_else().await;
     let (_, a) = s.propose().await;
     let id = a["id"].as_str().unwrap();
-    // The owner asked, so only the other manager may approve.
+    // The admin asked, so they can't approve it; the agent's owner does.
     assert!(
         s.db.control_decide(&s.owner, &s.w, &s.agent, id, &decision("approve"))
             .await
@@ -244,11 +242,11 @@ async fn someone_else_must_approve_and_admins_step_in_after_the_backup_delay() {
         .await
         .unwrap();
 
-    // With only the requester managing it, an admin may decide straight away.
+    // When the agent's owner asked for it themselves, another admin may decide
+    // straight away.
     let s = setup().await;
-    s.configure().await;
+    s.ask_first().await;
     s.needs_someone_else().await;
-    s.managers(&[&s.owner.id]).await;
     let (_, a) = s.propose().await;
     let id = a["id"].as_str().unwrap();
     s.db.change(&s.owner, &s.w, &s.other.id, Some("Admin"), None)
@@ -270,7 +268,7 @@ async fn someone_else_must_approve_and_admins_step_in_after_the_backup_delay() {
         true
     );
 
-    // Otherwise an admin who isn't a manager waits for the backup delay.
+    // Otherwise an admin who isn't the owner waits for the backup delay.
     let s = setup().await;
     s.configure().await;
     let (_, a) = s.propose().await;
@@ -341,7 +339,7 @@ async fn the_request_card_is_a_reference_and_current_access_controls_its_details
     assert_eq!(cards.len(), 1);
     assert_eq!(cards[0]["approval"]["id"], id);
     assert_eq!(cards[0]["content"], "Approval request");
-    // The manager in the conversation decides here; the card names who decides.
+    // The agent's owner decides here, in the conversation; the card names them.
     assert_eq!(cards[0]["approval"]["may_decide"], true);
     assert!(
         !cards[0]["approval"]["waiting_for"]
@@ -355,7 +353,7 @@ async fn the_request_card_is_a_reference_and_current_access_controls_its_details
             .unwrap()
             .contains("PRIVATE_EXACT_ADDRESS")
     );
-    // A non-manager who joins later sees the card but not the request.
+    // Someone who joins later, and doesn't own the agent, sees the card but not the request.
     execute(
         &s.db.db,
         "INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3)",
@@ -390,7 +388,7 @@ async fn the_request_card_is_a_reference_and_current_access_controls_its_details
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn a_removed_manager_leaves_the_request_with_the_others_and_cannot_dispatch() {
+async fn an_owner_who_loses_access_cannot_dispatch_and_a_removed_owners_request_goes_to_admins() {
     let s = setup().await;
     s.configure().await;
     let (_, a) = s.propose().await;
@@ -419,13 +417,20 @@ async fn a_removed_manager_leaves_the_request_with_the_others_and_cannot_dispatc
     s.configure().await;
     let (_, a) = s.propose().await;
     let id = a["id"].as_str().unwrap();
+    // The agent's owner is removed with no new owner named. An agent acts
+    // through its owner's rules, so with none nothing can be approved, not
+    // even by an admin: what was waiting waits for the new owner.
     s.db.change(&s.owner, &s.w, &s.approver.id, None, None)
         .await
         .unwrap();
     let details = s.db.approval_details(&s.owner, &s.w, id).await.unwrap();
-    assert_eq!(details["state"], "pending");
-    assert_eq!(details["can_decide"], true);
-    assert_eq!(details["deciders"].as_array().unwrap().len(), 1);
+    assert_eq!(details["state"], "pending", "{details}");
+    assert_eq!(details["can_decide"], false);
+    assert!(details["deciders"].as_array().unwrap().is_empty());
+    s.give_to(&s.owner).await;
+    let details = s.db.approval_details(&s.owner, &s.w, id).await.unwrap();
+    assert_eq!(details["can_decide"], true, "{details}");
+    assert_eq!(details["deciders"][0]["id"], s.owner.id.as_str());
 }
 
 #[tokio::test]
@@ -474,3 +479,6 @@ async fn request_changes_is_recorded_without_dispatch_and_opposite_decision_conf
 
 #[path = "approval_configuration_tests.rs"]
 mod configuration;
+
+#[path = "approval_owner_tests.rs"]
+mod owners;

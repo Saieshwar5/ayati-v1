@@ -309,7 +309,7 @@ impl PgStore {
     pub(crate) async fn agent_skills(&self, user: &User, w: &str, agent: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let a = super::agent_profiles::managed_access(&tx, &user.id, w, agent, false).await?;
-        let editable = a["owner_id"] == user.id || role(&tx, w, &user.id).await? == "Admin";
+        let editable = a["is_owner"] == true || role(&tx, w, &user.id).await? == "Admin";
         let week = now() * 1000 - 7 * 24 * 3600 * 1000;
         let skills = json_rows(&tx, &format!("{LIST} JOIN relay_agent_skills x ON x.workspace=s.workspace AND x.skill=s.id AND x.agent=$2
             WHERE s.workspace=$1 ORDER BY s.name"), vec![w.into(), agent.into()]).await?;
@@ -340,8 +340,13 @@ impl PgStore {
         let s = visible(&tx, &user.id, w, skill, false).await?;
         let name = s["name"].as_str().unwrap_or_default().to_string();
         if on {
+            // A personal skill goes only on agents its owner is one of the owners of.
+            let theirs = match s["owner_id"].as_str() {
+                Some(person) => super::agent_owners::owns(&tx, w, agent, person).await?,
+                None => false,
+            };
             ensure!(
-                s["shared"] == true || s["owner_id"] == a["owner_id"],
+                s["shared"] == true || theirs,
                 "A personal skill can only be used on agents its owner owns; ask an admin to share it"
             );
             let budget = query(&tx, "SELECT count(*) AS n,COALESCE(sum(length(s.name)+length(s.description)),0) AS chars FROM relay_agent_skills x

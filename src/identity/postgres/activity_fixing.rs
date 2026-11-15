@@ -1,5 +1,5 @@
 //! Needs fixing and Coming up (people-and-agents-first, Phase 4 AC3, AC7). For the
-//! people who can fix an agent (its owner, managers and admins; My agents: the ones
+//! people who can fix an agent (its owner and admins; My agents: the ones
 //! they manage), what is wrong across their agents, grouped by cause with one fix
 //! each, and what runs or wakes in the next 24 hours.
 use super::super::super::*;
@@ -12,9 +12,10 @@ pub(in crate::identity::postgres) mod migration;
 mod tests;
 
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
-pub(super) const FIXERS: &str = "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
- AND ($3 OR a.owner_id=$2 OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2))
- AND ($4::text IS DISTINCT FROM 'mine' OR EXISTS(SELECT 1 FROM relay_agent_managers g WHERE g.workspace=a.workspace AND g.agent=a.id AND g.user_id=$2)))";
+pub(super) const FIXERS: &str =
+    "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
+ AND ($3 OR relay_agent_owns(a.workspace,a.id,$2))
+ AND ($4::text IS DISTINCT FROM 'mine' OR relay_agent_owns(a.workspace,a.id,$2)))";
 pub(super) const NOW: &str = "(extract(epoch FROM clock_timestamp())*1000)::bigint";
 
 /// Each cause: rows of agent, agent_name, ref, detail, at.
@@ -351,7 +352,7 @@ impl PgStore {
         )
     }
 
-    /// A manager, owner or admin dismisses something an agent reported.
+    /// The owner or an admin dismisses something an agent reported.
     pub(crate) async fn dismiss_need(&self, user: &User, w: &str, id: &str) -> Result<()> {
         let tx = self.workspace_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";

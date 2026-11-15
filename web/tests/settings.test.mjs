@@ -70,7 +70,9 @@ test('Members see counts and what admins can see, and leave naming who takes ove
     assert.equal(select.value,'lead','an admin takes over by default');
     assert.deepEqual([...select.options].map(option=>option.textContent),['Arjun Mehta (admin)']);
     const text=document.querySelector('dialog').textContent;
-    assert.match(text,/Moves to Arjun Mehta.*1 agent: Atlas/); assert.match(text,/Paused for review.*1 only-me agent/);
+    // A person leaving doesn't choose their agents' new owner: the agents pause for an admin.
+    assert.match(text,/Who takes over your Library items/);
+    assert.match(text,/Paused until an admin gives them an owner1 agent: Atlas/); assert.doesNotMatch(text,/Moves to Arjun Mehta.*agent/);
     await change(select,'lead');
     const leave=document.querySelector('dialog .settings-remove');
     await click(leave); await click(leave);

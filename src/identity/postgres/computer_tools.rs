@@ -138,7 +138,7 @@ impl PgStore {
         match settings.programs.as_str() {
             "block" => {
                 return Ok(super::computers::refused(
-                    "Running programs on your computer is blocked. Work with files only, or tell the person a manager can allow programs in your Tools tab.",
+                    "Running programs on your computer is blocked. Work with files only, or tell the person your owner or an admin can allow programs in your Tools tab.",
                 ));
             }
             "ask" => {

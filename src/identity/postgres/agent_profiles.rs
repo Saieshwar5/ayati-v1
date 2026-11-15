@@ -1,5 +1,6 @@
 use super::*;
 use crate::identity::agents::config::{SaveAgent, Settings};
+use serde_json::json;
 
 /// The saved agent row, without an access check.
 pub(super) async fn stored(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<Value> {
@@ -23,10 +24,11 @@ pub(super) async fn managed_access(
     manage: bool,
 ) -> Result<Value> {
     let member_role = role(db, w, user).await?;
-    let a = stored(db, w, id).await?;
-    // The owner and admins see and change every agent (D231/D233); others see the
-    // agents they can talk to.
-    let own = a["owner_id"] == user;
+    let mut a = stored(db, w, id).await?;
+    // Its owners and admins see and change an agent (schema 122: one or more
+    // equal owners); others see the agents they can talk to.
+    let own = super::agent_owners::owns(db, w, id, user).await?;
+    a["is_owner"] = json!(own);
     let admin = member_role == "Admin";
     if manage {
         ensure!(
@@ -61,6 +63,22 @@ impl PgStore {
         )
         .await?;
         super::event_access::pending_counts(&tx, user, w, &mut profiles).await?;
+        // Every owner of each agent (schema 122), and whether this person is one.
+        if super::agent_owners::ready(&tx).await? {
+            let owners = json_rows(&tx, "SELECT jsonb_build_object('agent',o.agent,'id',u.id,'name',COALESCE(u.display_name,u.email)) AS data
+                FROM relay_agent_owners o JOIN relay_users u ON u.id=o.user_id WHERE o.workspace=$1 ORDER BY o.at,o.user_id", vec![w.into()]).await?;
+            for profile in &mut profiles {
+                let theirs: Vec<Value> = owners
+                    .iter()
+                    .filter(|o| o["agent"] == profile["id"])
+                    .map(|o| json!({"id": o["id"], "name": o["name"]}))
+                    .collect();
+                let mine = theirs.iter().any(|o| o["id"] == user.id.as_str());
+                profile["is_owner"] = json!(mine);
+                profile["editable"] = json!(owner || mine);
+                profile["owners"] = json!(theirs);
+            }
+        }
         tx.commit().await?;
         Ok(profiles)
     }
@@ -104,6 +122,11 @@ impl PgStore {
                 pending == 0 || input.settings.paused,
                 "Wait for active work to finish or pause the agent first"
             );
+            // An agent whose owner left stays paused until it has one (schema 122).
+            ensure!(
+                input.settings.paused || !a["owner_id"].is_null(),
+                "This agent has no owner. Give it one before it can work again."
+            );
             if input.audience == "only_me" && a["audience"] != "only_me" {
                 super::agent_audience::not_in_channels(&tx, w, &input.id).await?;
             }
@@ -123,8 +146,7 @@ impl PgStore {
             let audience = column(&tx).await?;
             execute(&tx,&format!("INSERT INTO relay_shared_agents(workspace,id,name,role,model,{audience},owner_id,creator_id,revision,settings) VALUES($1,$2,$3,$4,$5,$6,$7,$7,1,$8)"),vec![w.into(),input.id.clone().into(),input.name.trim().into(),input.role.trim().into(),input.model.clone().into(),audience_value(audience,&input.audience).into(),user.id.clone().into(),settings.into()]).await?;
         }
-        let creating = old.is_none();
-        let lists = super::agent_audience::save_lists(&tx, &user.id, w, input, creating).await?;
+        let lists = super::agent_audience::save_lists(&tx, w, input).await?;
         narrowed |= lists.narrowed;
         if uuid::Uuid::parse_str(&input.settings.avatar).is_ok() {
             ensure!(

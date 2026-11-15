@@ -137,7 +137,7 @@ other write on that account is refused, Activity lists it under Needs review,
 and a task waiting for it stays waiting. Reconnecting keeps the account's
 connection, so it does not clear the hold.
 
-- **A person settles it.** The agent's current managers and workspace admins
+- **A person settles it.** Any of the agent's owners and workspace admins
   who can see the request answer whether it happened. The person who asked
   can't when the action needed someone else's approval.
   - `POST /api/identity/workspaces/{w}/control/actions/{id}/outcome` with

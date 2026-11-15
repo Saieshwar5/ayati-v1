@@ -220,6 +220,40 @@ async fn agents_use_shared_skills_or_their_owners_own_within_a_budget() {
             .iter()
             .all(|(name, _)| name != "quote-builder")
     );
+    // Once the member is one of its owners, their personal skill fits it.
+    let revision = db
+        .managed_agent(&admin, &w, &admins_agent, true)
+        .await
+        .unwrap()["revision"]
+        .as_i64()
+        .unwrap();
+    db.change_agent_owners(
+        &admin,
+        &w,
+        &admins_agent,
+        &super::super::agent_owners::OwnersChange {
+            add: Some(member.id.clone()),
+            remove: None,
+            revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        db.agent_skills(&member, &w, &admins_agent).await.unwrap()["editable"],
+        true
+    );
+    let added = db
+        .assign_skill(&member, &w, &admins_agent, &personal, true)
+        .await
+        .unwrap();
+    assert!(
+        added["skills"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|skill| skill["name"] == "my-steps")
+    );
 }
 
 #[tokio::test]

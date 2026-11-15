@@ -15,7 +15,6 @@ pub(super) async fn agent(db: &PgStore, owner: &User, w: &str) -> (String, Strin
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: 0,
         settings: Settings {
             provider: "openai".into(),

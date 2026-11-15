@@ -38,7 +38,7 @@ test('Open lists what needs a person first and a task closes as not a task once 
     const drawer = document.querySelector('dialog');
     assert.match(drawer.textContent, /Done when.*Acme has both quotes/);
     assert.match(drawer.textContent, /Prepare quotes for Acme/);
-    assert.equal(button('Mark done'), undefined, 'only the person it is for, managers and admins');
+    assert.equal(button('Mark done'), undefined, 'only the person it is for, the agent’s owner and admins');
     await update(() => { const node = button('Not a task'); node.click(); node.click(); });
     assert.equal(writes.length, 1);
     assert.ok(writes[0].path.endsWith('/activity/tasks/t-1/close'));

@@ -142,7 +142,7 @@ test('a failed turn keeps what was typed and says why; without a writer the step
 
 test('on the agent page, a proposed change shows as a diff and saves as the next version with its other files', async () => {
   const settings = { provider: '', instructions: 'You are Atlas.', escalation: '', avatar: 'robot-03', memory: false, browser: false, history: 'all', paused: false };
-  const agent = { id: 'atlas', name: 'Atlas', role: 'Orders assistant', model: 'fixture', audience: 'everyone', revision: 5, settings, editable: true, owner_id: 'owner', people: [], managers: ['owner'] };
+  const agent = { id: 'atlas', name: 'Atlas', role: 'Orders assistant', model: 'fixture', audience: 'everyone', revision: 5, settings, editable: true, owner_id: 'owner', people: [] };
   const skill = { id: 's1', name: 'refund-check', description: 'Use when a refund is asked', shared: false, owner_id: 'owner', owner_name: 'Ravi Kumar', version: 2, license: null, has_scripts: false, updated_ms: 1, files: 2, agents: ['atlas'] };
   const files = [{ path: 'SKILL.md', text: '---\nname: refund-check\ndescription: Use when a refund is asked\n---\n1. Ask Meera above 5000.\n' }, { path: 'references/policy.md', text: 'Returns within 7 days.' }];
   const asked = [], versions = [];

@@ -106,12 +106,20 @@ async fn candidates(
     cursor: &Cursor,
     exact: Option<&Acknowledge>,
 ) -> Result<Vec<QueryResult>> {
+    let mut sql = include_str!("attention.sql").replace(
+        "a.approver=$2",
+        super::approval_authority::decider_clause(tx).await?,
+    );
+    // Only-me agents' work belongs to all their owners (schema 122).
+    if super::agent_owners::ready(tx).await? {
+        sql = sql.replace(
+            "OR g.owner_id=$2)",
+            "OR relay_agent_owns(g.workspace,g.id,$2))",
+        );
+    }
     rows(
         tx,
-        &include_str!("attention.sql").replace(
-            "a.approver=$2",
-            super::approval_authority::decider_clause(tx).await?,
-        ),
+        &sql,
         vec![
             w.into(),
             user.id.clone().into(),

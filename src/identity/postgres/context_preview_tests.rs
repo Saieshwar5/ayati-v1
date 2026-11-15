@@ -11,7 +11,6 @@ async fn settings(db: &PgStore, owner: &User, w: &str, a: &str, settings: Settin
         model: "fixture".into(),
         audience: "selected".into(),
         people: None,
-        managers: None,
         revision: profile["revision"].as_i64().unwrap(),
         settings,
     };
