@@ -88,8 +88,12 @@ impl PgStore {
               (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id) AS people
             FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2 AND c.kind<>'direct' AND NOT c.work",
             vec![job.workspace.clone().into(), job.chat.clone().into()]).await?;
+        let Some(row) = row else {
+            tx.commit().await?;
+            return Ok(None);
+        };
+        let room = super::agent_teamwork::room(&tx, job).await?;
         tx.commit().await?;
-        let Some(row) = row else { return Ok(None) };
         let (name, kind, visibility, description, people): (String, String, String, String, i64) = (
             row.try_get("", "name")?,
             row.try_get("", "kind")?,
@@ -113,6 +117,7 @@ impl PgStore {
                 serde_json::to_string(&description.chars().take(300).collect::<String>())?
             ));
         }
+        text.push_str(&room);
         Ok(Some(text))
     }
 

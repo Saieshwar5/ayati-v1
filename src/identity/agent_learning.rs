@@ -113,6 +113,8 @@ shared conversations: what it said and how people answered, people's reactions t
 approve. Propose at most 5 lessons about how it should work. A lesson is a habit or a correction to a way of working that will \
 come up again. Never a fact that changes (prices, stock, dates, balances), and never about one particular person, customer or case. \
 Never write names, contact details, account or order numbers, ids or amounts. Skip one-offs and anything people were happy with. \
+When people correct which agent it should ask for a kind of work (\"ask Logistics for delivery dates, not Stock\"), that is a good \
+lesson: name the agent and the kind of work, never a person. \
 If an existing note already says it, propose nothing; if the signals change a note, use kind \"update\" with that note's id in \
 replaces; if they contradict a note, use kind \"conflict\" with its id. Answer with JSON only: {\"lessons\":[{\"title\":\"a short \
 name\",\"when\":\"the situation\",\"do\":\"what to do then\",\"why\":\"what in the signals shows this\",\"evidence\":[\"s1\"],\"kind\":\

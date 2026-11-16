@@ -328,6 +328,39 @@ test('a thread shows who took part, plain replies continue with the agent a pers
   }});
 });
 
+test('when an agent asked you in a thread, your reply answers it instead of asking it again', async () => {
+  const chats = [{id:'inventory',name:'Inventory',kind:'channel',description:'Stock',users:['owner','member'],agents:['assistant-two'],agent_replies:'thread'}];
+  const sent = [];
+  await reactFixture(async ({dom,render,click,update,change,submit}) => {
+    const setup = await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      await click([...document.querySelectorAll('.chat-directory a')].find(a=>a.textContent.includes('Inventory')));
+      await until(update,()=>document.querySelector('.chat-thread-line'));
+      await click(document.querySelector('.chat-thread-line'));
+      await until(update,()=>document.querySelector('.chat-thread-route'));
+      assert.match(document.querySelector('.chat-thread-route').textContent, /Your reply answers Ramesh’s question/);
+      await change(document.querySelector('textarea[aria-label="Reply in thread"]'),'Yes, Thursday.');
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===1);
+      assert.deepEqual([sent[0].agents,sent[0].thread],[undefined,'root']);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:[{id:'assistant-two',name:'Ramesh'}],role:'Admin'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/follow'))return response({following:true,chosen:false});
+    if(path.endsWith('/messages')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);sent.push(body);return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:10,sequence:10,chat:'inventory'}});}
+      return response({agents:['assistant-two'],messages:[
+        {id:'root',author:'member',name:'Priya',kind:'user',content:'[@Ramesh](mention:agent:assistant-two) quote 40 chairs',state:'sent',at:1,thread:null},
+        {id:'ask',author:'assistant-two',name:'Ramesh',kind:'agent',content:'[@Owner](mention:user:owner) can a courier deliver by Friday?',state:'complete',at:2,thread:'root'}]});
+    }
+    return response(dataFor(path));
+  }});
+});
+
 test('rebrands only the built-in guide while preserving custom agent names', async () => {
   const { displayAgentName } = await import('../src/agents.ts');
   for (const name of ['Ayati', 'Relay', 'Cuckoo']) {

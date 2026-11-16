@@ -57,7 +57,10 @@ async fn channel_tasks_list_their_eligible_helpers_and_other_conversations_get_n
     add_to_channel(&s.db, &s.w, &s.c, &c).await;
     let prepared = prepare(&s.db, &s.parent, 180).await.unwrap();
     let text = &prepared.instructions;
-    assert!(text.contains("when someone asks you to ask, get something from"));
+    // The decision order: itself first, then another agent's job on its own (schema 124).
+    assert!(text.contains("Decide in this order: (1) if you can do it yourself"));
+    assert!(text.contains("on your own or when someone asks you to"));
+    assert!(text.contains("you may ask two agents"));
     assert!(text.contains("write @Name in your reply: that does not reach it"));
     assert!(listed(text, &s.b) && listed(text, &c));
     assert!(!text.contains(&format!("(ID {})", s.a)), "never itself");

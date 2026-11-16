@@ -6,8 +6,9 @@ records executed local behavior and the remaining provider/cloud boundary.
 
 ## Product and authority contract
 
-A running workspace agent can explicitly ask another managed workspace agent for
-help in the same existing channel or group, where it was asked (the main timeline or
+A running workspace agent can ask another managed workspace agent for help (since
+schema 124 also on its own, when the work is clearly that agent's job, and two at once;
+see [people and agents working together](agent-teamwork.md)) in the same existing channel or group, where it was asked (the main timeline or
 that thread; [visible exchanges](#visible-in-the-conversation-schema-100-d246)). Ordinary chatter does not
 start work. There is no private direct-agent route or cross-channel publication.
 A human's original request remains the principal: both agents must participate and

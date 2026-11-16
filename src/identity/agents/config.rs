@@ -67,6 +67,10 @@ pub struct Settings {
     pub computer: super::computer_settings::ComputerSettings,
     pub history: String,
     pub paused: bool,
+    /// What it handles, one line, for people and other agents (schema 124).
+    pub handles: String,
+    /// Whether other agents in a channel may ask it for help (schema 124).
+    pub helper: bool,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -83,12 +87,15 @@ impl Default for Settings {
             computer: Default::default(),
             history: "all".into(),
             paused: false,
+            handles: String::new(),
+            helper: true,
         }
     }
 }
 impl Settings {
     pub fn validate(&self) -> Result<()> {
         self.computer.validate()?;
+        crate::identity::postgres::agent_teamwork::clean_handles(&self.handles)?;
         ensure!(
             !self.browser,
             "Browser access requires an isolated browser runtime; it is not available for this agent yet"

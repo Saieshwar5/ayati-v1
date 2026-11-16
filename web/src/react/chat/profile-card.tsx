@@ -45,6 +45,7 @@ export function ProfileDetails({ target, directory, chats, message }: {
       {person && <ProfilePresence id={person.id} name={person.name} />}
     </div>
     {message && !self && <div className="profile-card-actions"><Button primary onClick={() => message({ ...target, name: who.name })}>Message</Button></div>}
+    {(person ?? agent)?.handles && <ProfileLine label="Handles">{(person ?? agent)!.handles}</ProfileLine>}
     {person?.about && <ProfileLine label="About">{person.about}</ProfileLine>}
     {person?.email && <ProfileLine label="Email">{person.email}</ProfileLine>}
     {agent?.manager && <ProfileLine label="Owned by">{agent.manager}</ProfileLine>}

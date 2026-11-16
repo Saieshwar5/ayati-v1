@@ -110,11 +110,15 @@ impl PgStore {
         answer: &Value,
         model: &str,
     ) -> Result<bool> {
-        let Some(brief) = Brief::from_model(input.revision, answer, &input.eligible()) else {
+        let Some(mut brief) = Brief::from_model(input.revision, answer, &input.eligible()) else {
             return Ok(false);
         };
         let job = &input.job;
         let tx = self.workspace_tx(&job.workspace).await?;
+        let shared = super::shared_rooms::audience(&tx, &job.workspace, &job.chat)
+            .await?
+            .is_some();
+        brief.fade_roles(&tx, &job.workspace, shared).await?;
         if super::context_attempts::generation(&tx, job).await? != input.generation
             || super::working_context::latest(&tx, job).await?["revision"].as_i64()
                 != Some(input.revision)

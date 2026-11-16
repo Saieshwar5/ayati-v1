@@ -4,17 +4,21 @@ import { ChatComposer } from './attachments';
 import { requestAgents, type Mention } from './mentions';
 import type { Attachment } from './model';
 import { useEffect, useRef, useState } from 'react';
-import { storageScope } from '../../workspace-context';
+import { storageScope, workspaceSession } from '../../workspace-context';
 import { Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { filesOnlyContent, type Directory, type History, type Message } from './model';
 import { ChatMessage } from './message';
-import { continuingAgent, namesSomeone } from './thread-line';
+import { askedBy, continuingAgent, namesSomeone } from './thread-line';
 import { ThreadFollow } from './thread-follow';
 
 export function ChatThread({ chat, root, history, directory, close, people = [], focus, archived }: { archived?: boolean; focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void> }) {
   const transcript = useRef<HTMLDivElement>(null);
-  const continuing = continuingAgent(root, history.messages.filter(message => message.thread === root.id), history.agents);
+  const replies = history.messages.filter(message => message.thread === root.id);
+  const me = workspaceSession?.user?.id ?? '';
+  // An agent asked this person here: their reply answers it, not a new request.
+  const waiting = askedBy(replies, me);
+  const continuing = waiting ? undefined : continuingAgent(root, replies, history.agents);
   useEffect(() => {
     if (!focus) return;
     const target = [...(transcript.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])].find(node => node.dataset.messageId === focus);
@@ -50,7 +54,9 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
     <ThreadFollow chat={chat} thread={root.id} />
     <div className="chat-thread-root"><ChatMessage message={root} directory={directory} /></div>
     <div ref={transcript} role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
-    {!archived && <p className="chat-thread-route" role="note">{continuingName
+    {!archived && <p className="chat-thread-route" role="note">{waiting
+      ? <>Your reply answers <strong>{directory.agents.find(agent => agent.id === waiting)?.name ?? 'the agent'}</strong>’s question</>
+      : continuingName
       ? <>Replies go to <strong>{continuingName}</strong> · @mention someone to change</>
       : 'Replies go to the thread. @mention an agent to ask it.'}</p>}
     {archived && <p className="chat-archive-banner">This archived channel is closed to new thread replies. Your draft is kept.</p>}

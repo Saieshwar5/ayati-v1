@@ -47,7 +47,7 @@ async fn eligible_helpers(tx: &DatabaseTransaction, job: &Job) -> Result<Helpers
         lineage.push(h["sender"].as_str().unwrap().into());
         child = h["parent"].as_str().unwrap().into();
     }
-    let candidates = json_rows(tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await?;
+    let candidates = json_rows(tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'handles',COALESCE(a.settings->>'handles','')) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND COALESCE((a.settings->>'helper')::boolean,true) AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await?;
     let others = candidates.iter().filter(|c| c["id"] != job.agent).count();
     let mut agents = vec![];
     for candidate in candidates {
@@ -124,7 +124,12 @@ impl PgStore {
         super::handoff_controls::ready_for_new_work(&tx, job).await?;
         ensure!(query(&tx,"SELECT j.reply FROM relay_chat_jobs j WHERE j.workspace=$1 AND j.reply=$2 AND (EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply AND q.state='pending') OR EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=j.workspace AND a.job=j.reply AND a.state IN ('pending','executing','uncertain')))",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.is_none(),"Resolve the current question or operation before delegating another task");
         participant(&tx, job, &job.agent).await?;
-        participant(&tx, job, &input.agent).await?;
+        let helper = participant(&tx, job, &input.agent).await?;
+        // Its owners may keep it from being asked by other agents (schema 124).
+        ensure!(
+            helper["settings"]["helper"] != false,
+            "This agent doesn't take work from other agents"
+        );
         super::channel_lifecycle::accepting(&tx, &job.workspace, &job.chat).await?;
         ensure!(
             job.agent != input.agent,

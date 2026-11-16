@@ -37,6 +37,9 @@ struct SaveProfile {
     display_name: String,
     title: String,
     about: String,
+    /// What the person handles, one line (schema 124). Absent keeps it.
+    #[serde(default)]
+    handles: Option<String>,
 }
 
 async fn save(
@@ -46,11 +49,18 @@ async fn save(
     Json(input): Json<SaveProfile>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    Ok(Json(
-        app.store
-            .save_member_profile(&user, &w, &input.display_name, &input.title, &input.about)
-            .await?,
-    ))
+    if let Some(handles) = &input.handles {
+        crate::identity::postgres::agent_teamwork::clean_handles(handles)?;
+    }
+    let mut profile = app
+        .store
+        .save_member_profile(&user, &w, &input.display_name, &input.title, &input.about)
+        .await?;
+    if let Some(handles) = &input.handles {
+        app.store.save_member_handles(&user, &w, handles).await?;
+        profile["handles"] = serde_json::json!(handles.trim());
+    }
+    Ok(Json(profile))
 }
 
 async fn upload(

@@ -35,7 +35,7 @@ impl PgStore {
             anyhow::anyhow!("Run workspace-db migrate before starting Cuckoo PostgreSQL")
         })?;
         ensure!(
-            applied.len() == 123
+            applied.len() == 124
                 && applied[0].try_get::<String>("", "version")?
                     == "m20261020_000001_workspace_foundation"
                 && applied[1].try_get::<String>("", "version")?
@@ -252,7 +252,9 @@ impl PgStore {
                 && applied[121].try_get::<String>("", "version")?
                     == "m20261115_000122_agent_owners"
                 && applied[122].try_get::<String>("", "version")?
-                    == "m20261116_000123_channel_threads",
+                    == "m20261116_000123_channel_threads"
+                && applied[123].try_get::<String>("", "version")?
+                    == "m20261116_000124_agent_teamwork",
             "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())
