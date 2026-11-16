@@ -69,6 +69,27 @@ pub struct NewMessage {
     #[serde(default)]
     pub reply_to: Option<String>,
 }
+/// Forward a message to a person or an agent (schema 125).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Forward {
+    /// The new message's ID: the same ID retried sends it once.
+    pub id: String,
+    /// The ID a new direct chat gets when there is none with them yet.
+    pub chat: String,
+    pub to: Target,
+    #[serde(default)]
+    pub note: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Target {
+    /// `user` or `agent`.
+    pub kind: String,
+    pub id: String,
+}
+
 /// The most agents one message may ask (the owner's decision of 2026-11-07).
 pub const MAX_AGENTS: usize = 3;
 impl NewMessage {

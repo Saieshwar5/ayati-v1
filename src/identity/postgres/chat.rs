@@ -166,92 +166,10 @@ impl PgStore {
         workspace: &str,
         input: &NewChat,
     ) -> Result<String> {
-        ensure!(
-            uuid::Uuid::parse_str(&input.id).is_ok(),
-            "Invalid conversation ID"
-        );
-        ensure!(
-            !input.name.trim().is_empty() && input.name.len() <= 100,
-            "Use a conversation name of at most 100 characters"
-        );
-        ensure!(
-            input.users.len() <= 100 && input.agents.len() <= 20,
-            "Too many participants"
-        );
-        let direct_key = input.direct_key(&user.id)?;
         let tx = self.workspace_tx(workspace).await?;
-        role(&tx, workspace, &user.id).await?;
-        for member in &input.users {
-            role(&tx, workspace, member).await?;
-        }
-        for agent in &input.agents {
-            let personal = match super::agent_profiles::stored(&tx, workspace, agent).await {
-                Ok(profile) => profile["audience"] == "only_me",
-                Err(_) => false,
-            };
-            if personal {
-                ensure!(
-                    input.kind == "direct" && input.users.is_empty() && input.agents.len() == 1,
-                    "Only-me agents can only have a direct conversation with their owner"
-                );
-            }
-            ensure!(
-                agent_access(&tx, &user.id, workspace, agent).await?,
-                "Agent is not shared with you"
-            );
-        }
-        if let Some(key) = &direct_key
-            && let Some(row) = query(
-                &tx,
-                "SELECT id FROM relay_chats WHERE workspace=$1 AND direct_key=$2",
-                vec![workspace.into(), key.clone().into()],
-            )
-            .await?
-        {
-            let id: String = row.try_get("", "id")?;
-            access(&tx, user, workspace, &id).await?;
-            for member in &input.users {
-                access(
-                    &tx,
-                    &User {
-                        id: member.clone(),
-                        email: String::new(),
-                        display_name: None,
-                    },
-                    workspace,
-                    &id,
-                )
-                .await?;
-            }
-            return Ok(id);
-        }
-        execute(
-            &tx,
-            "INSERT INTO relay_chats(id,workspace,name,creator,kind,description,direct_key) VALUES($1,$2,$3,$4,$5,$6,$7)",
-            vec![
-                input.id.clone().into(),
-                workspace.into(),
-                input.name.trim().into(),
-                user.id.clone().into(),
-                input.kind.clone().into(),
-                input.description.trim().into(),
-                direct_key.into(),
-            ],
-        )
-        .await?;
-        for member in input.users.iter().chain(std::iter::once(&user.id)) {
-            execute(&tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),member.clone().into()]).await?;
-        }
-        for agent in &input.agents {
-            execute(&tx,"INSERT INTO relay_chat_agents(workspace,chat,agent,joined_sequence) VALUES($1,$2,$3,(SELECT COALESCE(max(sequence),0) FROM relay_chat_messages WHERE workspace=$1 AND chat=$2)) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),agent.clone().into()]).await?;
-        }
-        // Details shows when a channel was created from this entry. Direct
-        // messages are not recorded: admins never see who messages whom.
-        if input.kind != "direct" {
-            audit(&tx, &user.id, Some(workspace), "channel_created", &input.id).await?;
-        }
+        let id = chat_create_in(&tx, user, workspace, input).await?;
         tx.commit().await?;
-        Ok(input.id.clone())
+        Ok(id)
     }
     pub async fn chats(&self, user: &User, workspace: &str) -> Result<Value> {
         let tx = self.read_tx(workspace).await?;
@@ -378,6 +296,100 @@ impl PgStore {
         }
         Ok(true)
     }
+}
+
+/// Create a conversation inside `tx`, or find the existing direct one with the
+/// same two participants.
+pub(super) async fn chat_create_in(
+    tx: &DatabaseTransaction,
+    user: &User,
+    workspace: &str,
+    input: &NewChat,
+) -> Result<String> {
+    ensure!(
+        uuid::Uuid::parse_str(&input.id).is_ok(),
+        "Invalid conversation ID"
+    );
+    ensure!(
+        !input.name.trim().is_empty() && input.name.len() <= 100,
+        "Use a conversation name of at most 100 characters"
+    );
+    ensure!(
+        input.users.len() <= 100 && input.agents.len() <= 20,
+        "Too many participants"
+    );
+    let direct_key = input.direct_key(&user.id)?;
+    role(tx, workspace, &user.id).await?;
+    for member in &input.users {
+        role(tx, workspace, member).await?;
+    }
+    for agent in &input.agents {
+        let personal = match super::agent_profiles::stored(tx, workspace, agent).await {
+            Ok(profile) => profile["audience"] == "only_me",
+            Err(_) => false,
+        };
+        if personal {
+            ensure!(
+                input.kind == "direct" && input.users.is_empty() && input.agents.len() == 1,
+                "Only-me agents can only have a direct conversation with their owner"
+            );
+        }
+        ensure!(
+            agent_access(tx, &user.id, workspace, agent).await?,
+            "Agent is not shared with you"
+        );
+    }
+    if let Some(key) = &direct_key
+        && let Some(row) = query(
+            tx,
+            "SELECT id FROM relay_chats WHERE workspace=$1 AND direct_key=$2",
+            vec![workspace.into(), key.clone().into()],
+        )
+        .await?
+    {
+        let id: String = row.try_get("", "id")?;
+        access(tx, user, workspace, &id).await?;
+        for member in &input.users {
+            access(
+                tx,
+                &User {
+                    id: member.clone(),
+                    email: String::new(),
+                    display_name: None,
+                },
+                workspace,
+                &id,
+            )
+            .await?;
+        }
+        return Ok(id);
+    }
+    execute(
+            tx,
+            "INSERT INTO relay_chats(id,workspace,name,creator,kind,description,direct_key) VALUES($1,$2,$3,$4,$5,$6,$7)",
+            vec![
+                input.id.clone().into(),
+                workspace.into(),
+                input.name.trim().into(),
+                user.id.clone().into(),
+                input.kind.clone().into(),
+                input.description.trim().into(),
+                direct_key.into(),
+            ],
+        )
+        .await?;
+    for member in input.users.iter().chain(std::iter::once(&user.id)) {
+        execute(tx,"INSERT INTO relay_chat_people(workspace,chat,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),member.clone().into()]).await?;
+    }
+    for agent in &input.agents {
+        execute(tx,"INSERT INTO relay_chat_agents(workspace,chat,agent,joined_sequence) VALUES($1,$2,$3,(SELECT COALESCE(max(sequence),0) FROM relay_chat_messages WHERE workspace=$1 AND chat=$2)) ON CONFLICT DO NOTHING",vec![workspace.into(),input.id.clone().into(),agent.clone().into()]).await?;
+    }
+    // Details shows when a channel was created from this entry. Direct
+    // messages are not recorded: admins never see who messages whom.
+    if input.kind != "direct" {
+        audit(tx, &user.id, Some(workspace), "channel_created", &input.id).await?;
+    }
+    Ok(input.id.clone())
 }
 
 pub(super) async fn chats_in(

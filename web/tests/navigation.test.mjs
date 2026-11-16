@@ -368,3 +368,54 @@ test('rebrands only the built-in guide while preserving custom agent names', asy
     assert.equal(displayAgentName({ id: 'custom-agent', name }), name);
   }
 });
+
+test('in your own agent’s chat, mentioning another agent asks your agent to work with it in a thread', async () => {
+  const chats = [{id:'dm-mine',name:'My assistant',kind:'direct',description:'',users:['owner'],agents:['mine']}];
+  const sent = [];
+  await reactFixture(async ({dom,render,click,update,change,submit}) => {
+    const setup = await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      await click([...document.querySelectorAll('.chat-directory a')].find(a=>a.textContent.includes('My assistant')));
+      await until(update,()=>document.querySelector('.chat-thread-line'));
+      // The thread under the earlier request says the work there is done.
+      assert.match(document.querySelector('.chat-thread-line').getAttribute('aria-label'), /^Open thread: 4 replies · Done · last reply/);
+      // Other agents you may ask are offered, saying what a mention does here.
+      const box = document.querySelector('.chat-conversation textarea');
+      await change(box,'@HR');
+      const option = document.querySelector('[role=option]');
+      assert.match(option.textContent, /HR Desk.*Works with My assistant in a thread/);
+      await click(option);
+      await change(box, document.querySelector('.chat-conversation textarea').value+'check my leave too');
+      await submit(document.querySelector('.chat-conversation .message-composer'));
+      await until(update,()=>sent.length===1);
+      assert.deepEqual(sent[0].agents,['mine'],'your own agent is asked; it asks HR Desk');
+      assert.match(sent[0].content, /\[@HR Desk\]\(mention:agent:hr\)/);
+      // The thread: HR Desk is there only as a guest; plain replies go to your agent.
+      await click(document.querySelector('.chat-thread-line'));
+      await until(update,()=>document.querySelector('.chat-thread-route'));
+      assert.match(document.querySelector('dialog').textContent, /HR Desk joined this thread only\. It can’t see the rest of this chat/);
+      assert.match(document.querySelector('.chat-thread-route').textContent, /Replies go to My assistant/);
+      await change(document.querySelector('textarea[aria-label="Reply in thread"]'),'Thanks, share the letter.');
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===2);
+      assert.deepEqual([sent[1].agents,sent[1].thread],[['mine'],'root']);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'owner',name:'Ravi'}],agents:[{id:'mine',name:'My assistant',role:'Personal assistant',audience:'only_me',yours:true},{id:'hr',name:'HR Desk',role:'Pay and leave',audience:'everyone'}],role:'Member'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/follow'))return response({following:true,chosen:false});
+    if(path.endsWith('/messages')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);sent.push(body);return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:10+sent.length,sequence:10+sent.length,chat:'dm-mine'}});}
+      return response({agents:['mine'],messages:[
+        {id:'root',author:'owner',name:'Ravi',kind:'user',content:'[@HR Desk](mention:agent:hr) please fix my October pay.',state:'sent',at:1,thread:null},
+        {id:'ask',author:'mine',name:'My assistant',kind:'agent',content:'HR Desk, can you check the 5,600 difference?',state:'sent',at:2,thread:'root'},
+        {id:'hr-answer',author:'hr',name:'HR Desk',kind:'agent',content:'Approved for the November pay.',state:'complete',at:3,thread:'root'},
+        {id:'done',author:'mine',name:'My assistant',kind:'agent',content:'Done: 5,600 comes with November pay.',state:'complete',at:4,thread:'root'},
+        {id:'thanks',author:'owner',name:'Ravi',kind:'user',content:'Great.',state:'sent',at:5,thread:'root'}]});
+    }
+    return response(dataFor(path));
+  }});
+});

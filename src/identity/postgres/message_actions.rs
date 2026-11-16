@@ -70,6 +70,7 @@ impl PgStore {
             vec![w.into(), message.into(), now().into()],
         )
         .await?;
+        super::chat_intake::message_forwarding::erase(&tx, w, message).await?;
         for table in ["relay_message_reactions", "relay_agent_reactions"] {
             execute(
                 &tx,

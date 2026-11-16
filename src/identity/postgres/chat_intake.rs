@@ -3,6 +3,10 @@ use super::{chat::access, message_actions::agent_reactions, *};
 use crate::identity::chat::model::{Job, NewMessage};
 use serde_json::json;
 
+#[path = "message_forwarding.rs"]
+pub(super) mod message_forwarding;
+#[path = "reply_queue.rs"]
+mod reply_queue;
 #[path = "several_agents.rs"]
 pub(super) mod several_agents;
 #[cfg(test)]
@@ -88,7 +92,7 @@ impl PgStore {
     ) -> Result<Vec<Job>> {
         let tx = self.workspace_tx(workspace).await?;
         let jobs = self
-            .enqueue_chat_in(&tx, user, workspace, chat, input, class)
+            .enqueue_chat_in(&tx, user, workspace, chat, input, class, None)
             .await?;
         tx.commit().await?;
         Ok(jobs)
@@ -183,11 +187,34 @@ impl PgStore {
     ) -> Result<Option<Job>> {
         ensure!(input.agents.is_empty(), "This request asks one agent");
         Ok(self
-            .enqueue_chat_in(tx, user, w, chat, input, class)
+            .enqueue_chat_in(tx, user, w, chat, input, class, None)
             .await?
             .into_iter()
             .next())
     }
+    /// A person's message carrying a copy of another message they forward
+    /// (schema 125): an ordinary message, asking the agent it goes to.
+    pub(super) async fn forward_in(
+        &self,
+        tx: &DatabaseTransaction,
+        user: &User,
+        w: &str,
+        chat: &str,
+        input: &NewMessage,
+        forwarded: &Value,
+    ) -> Result<Vec<Job>> {
+        self.enqueue_chat_in(
+            tx,
+            user,
+            w,
+            chat,
+            input,
+            WorkClass::Interactive,
+            Some(forwarded),
+        )
+        .await
+    }
+    #[allow(clippy::too_many_arguments)]
     async fn enqueue_chat_in(
         &self,
         tx: &DatabaseTransaction,
@@ -196,6 +223,7 @@ impl PgStore {
         chat: &str,
         input: &NewMessage,
         class: WorkClass<'_>,
+        forwarded: Option<&Value>,
     ) -> Result<Vec<Job>> {
         ensure!(
             uuid::Uuid::parse_str(&input.id).is_ok(),
@@ -213,6 +241,21 @@ impl PgStore {
         } else {
             asked
         };
+        // In your chat with your own agent, mentioning other agents asks your
+        // agent to work with them in a thread under this message (schema 125).
+        let mut asked = asked;
+        let mut guests = vec![];
+        if class == WorkClass::Interactive
+            && let Some(own) =
+                super::thread_guests::personal_agent(tx, &user.id, workspace, chat).await?
+        {
+            let mentions = crate::identity::chat::mentions::parse(&input.content)?;
+            guests =
+                super::thread_guests::invited(tx, &user.id, workspace, &own, &mentions).await?;
+            if !guests.is_empty() {
+                asked = vec![own];
+            }
+        }
         if class != WorkClass::Communication {
             super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }
@@ -236,7 +279,7 @@ impl PgStore {
             };
         if let Some(row) = query(
             tx,
-            "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments FROM relay_chat_messages m WHERE id=$1",
+            "SELECT chat,author,kind,content,target,thread,to_jsonb(m)->>'reply_to' AS reply_to,attachments,to_jsonb(m)->'forwarded' AS forwarded FROM relay_chat_messages m WHERE id=$1",
             vec![input.id.clone().into()],
         )
         .await?
@@ -249,7 +292,8 @@ impl PgStore {
                     && row.try_get::<Option<String>>("", "target")? == target
                     && row.try_get::<Option<String>>("", "thread")? == input.thread
                     && row.try_get::<Option<String>>("", "reply_to")? == input.reply_to
-                    && row.try_get::<Value>("", "attachments")? == json!(input.attachments),
+                    && row.try_get::<Value>("", "attachments")? == json!(input.attachments)
+                    && row.try_get::<Option<Value>>("", "forwarded")?.filter(|v| !v.is_null()).as_ref() == forwarded,
                 "Message ID already used"
             );
             several_agents::replayed(
@@ -268,8 +312,14 @@ impl PgStore {
         // A handoff task may name other agents as plain text; only its target is
         // asked. Otherwise every mentioned agent must be asked, each checked
         // below against current membership and requester authority.
+        // Invited agents are mentioned without being asked: your agent asks them.
         if !matches!(class, WorkClass::Handoff(_)) {
-            crate::identity::chat::mentions::ensure_target(&mentions, &asked)?;
+            let named: Vec<_> = mentions
+                .iter()
+                .filter(|(kind, id)| !(kind == "agent" && guests.contains(id)))
+                .cloned()
+                .collect();
+            crate::identity::chat::mentions::ensure_target(&named, &asked)?;
         }
         mentioned_people_visible(tx, workspace, chat, &mentions).await?;
         ensure!(input.attachments.len() <= 8, "Attach at most eight files");
@@ -302,13 +352,22 @@ impl PgStore {
                 background: class.background(),
             },
         };
-        several_agents::admit(tx, user, workspace, chat, &asked, asking).await?;
+        several_agents::admit(
+            tx,
+            user,
+            workspace,
+            chat,
+            input.thread.as_deref(),
+            &asked,
+            asking,
+        )
+        .await?;
         // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.
-        let (columns, values) = if input.reply_to.is_some() {
-            (",reply_to", ",$11")
-        } else {
-            ("", "")
-        };
+        let (mut columns, mut values) = (String::new(), String::new());
+        if input.reply_to.is_some() {
+            columns.push_str(",reply_to");
+            values.push_str(",$11");
+        }
         let mut args: Vec<sea_orm::Value> = vec![
             input.id.clone().into(),
             workspace.into(),
@@ -324,7 +383,17 @@ impl PgStore {
         if let Some(quoted) = &input.reply_to {
             args.push(quoted.clone().into());
         }
+        // forwarded (schema 125) is only named when used, like reply_to.
+        if let Some(copy) = forwarded {
+            args.push(copy.clone().into());
+            columns.push_str(",forwarded");
+            values.push_str(&format!(",${}", args.len()));
+        }
         execute(tx,&format!("INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments{columns}) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9{values})"),args).await?;
+        if !guests.is_empty() {
+            let thread = input.thread.as_deref().unwrap_or(&input.id);
+            super::thread_guests::invite(tx, &user.id, workspace, chat, thread, &guests).await?;
+        }
         let mut jobs = Vec::with_capacity(asked.len());
         for agent in &asked {
             if let Some(emoji) = reaction {
@@ -348,105 +417,6 @@ impl PgStore {
             .await?;
         }
         Ok(jobs)
-    }
-    /// The agent's own queued reply and job for an accepted message, with its
-    /// delivered tick, and a front-desk answer when it is busy.
-    #[allow(clippy::too_many_arguments)]
-    async fn queue_reply(
-        &self,
-        tx: &DatabaseTransaction,
-        user: &User,
-        workspace: &str,
-        chat: &str,
-        input: &NewMessage,
-        agent: &str,
-        class: WorkClass<'_>,
-    ) -> Result<Job> {
-        let reply = uuid::Uuid::new_v4().to_string();
-        let kind: String = query(
-            tx,
-            "SELECT kind FROM relay_chats WHERE workspace=$1 AND id=$2",
-            vec![workspace.into(), chat.into()],
-        )
-        .await?
-        .context("Conversation missing")?
-        .try_get("", "kind")?;
-        let managed = query(
-            tx,
-            "SELECT settings FROM relay_shared_agents WHERE workspace=$1 AND id=$2 AND revision>0",
-            vec![workspace.into(), agent.into()],
-        )
-        .await?;
-        let settings: Option<Value> = managed.map(|r| r.try_get("", "settings")).transpose()?;
-        let context_limit: i64 = if settings.is_some() { 60 } else { 30 };
-        let context_thread = if settings.is_some() {
-            None
-        } else {
-            input
-                .thread
-                .as_deref()
-                .or_else(|| (kind != "direct").then_some(input.id.as_str()))
-        };
-        let since_join = settings
-            .as_ref()
-            .is_some_and(|s| s["history"] == "since_join");
-        let messages = super::conversation_context::recent(
-            tx,
-            super::conversation_context::RecentScope {
-                workspace,
-                chat,
-                agent,
-                thread: context_thread,
-                main_only: false,
-                since_join,
-                limit: context_limit,
-                before: i64::MAX,
-                request: &input.id,
-            },
-        )
-        .await?;
-        // In a channel or group several people read, the answer goes in a thread
-        // under the person's message unless the channel answers in the channel.
-        let reply_thread = super::channel_threads::reply_thread(
-            tx,
-            workspace,
-            chat,
-            &input.id,
-            input.thread.as_deref(),
-            class == WorkClass::Interactive,
-        )
-        .await?;
-        execute(tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.into(),now().into(),user.id.clone().into(),reply_thread.into()]).await?;
-        let job = Job {
-            claim: None,
-            reply,
-            chat: chat.into(),
-            workspace: workspace.into(),
-            requester: user.id.clone(),
-            agent: agent.into(),
-            prompt: super::conversation_context::prompt(&input.id, messages)?,
-        };
-        execute(
-            tx,
-            "INSERT INTO relay_chat_jobs(workspace,reply,payload,dispatch,run_seconds,work_class,request_message) VALUES($1,$2,$3,$4,$5,$6,$7)",
-            vec![
-                workspace.into(),
-                job.reply.clone().into(),
-                serde_json::to_value(&job)?.into(),
-                if self.pooled { "pooled" } else { "polling" }.into(),
-                (if self.pooled { self.assignment_seconds as i32 } else { 180 }).into(),
-                class.as_str().into(),
-                input.id.clone().into(),
-            ],
-        )
-        .await?;
-        super::agent_receipts::delivered(tx, workspace, chat, &input.id, &job.agent).await?;
-        // A person's request that queues behind the agent's other work gets a
-        // short answer from the front desk while the work lane stays busy.
-        if class == WorkClass::Interactive {
-            super::chat::front_desk::enqueue_if_busy(tx, self.pooled, user, &job, input).await?;
-        }
-        Ok(job)
     }
 }
 

@@ -62,6 +62,7 @@ pub(super) async fn admit(
     user: &User,
     w: &str,
     chat: &str,
+    thread: Option<&str>,
     asked: &[String],
     asking: Asking,
 ) -> Result<()> {
@@ -74,7 +75,7 @@ pub(super) async fn admit(
     }
     let mut refusals = Vec::new();
     for agent in asked {
-        if let Some(reason) = refusal(tx, user, w, chat, agent, asking).await? {
+        if let Some(reason) = refusal(tx, user, w, chat, thread, agent, asking).await? {
             refusals.push((agent, reason));
         }
     }
@@ -119,6 +120,7 @@ async fn refusal(
     user: &User,
     w: &str,
     chat: &str,
+    thread: Option<&str>,
     agent: &str,
     asking: Asking,
 ) -> Result<Option<String>> {
@@ -153,7 +155,8 @@ async fn refusal(
     {
         return Ok(Some(reason));
     }
-    if here.is_none() {
+    // An agent invited into this thread works here too (schema 125).
+    if here.is_none() && !super::super::thread_guests::is_guest(tx, w, chat, thread, agent).await? {
         return Ok(Some("Agent is not in this conversation".into()));
     }
     Ok(None)

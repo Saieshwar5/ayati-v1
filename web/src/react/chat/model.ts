@@ -52,6 +52,8 @@ export type Message = {
   door?: string | null; reactions?: { emoji: string; count: number; mine: boolean }[];
   /** Agents acknowledging an emoji-only message instead of answering it (schema 101, D246). */
   agent_reactions?: AgentReaction[];
+  /** The copy of another message this one forwards (schema 125). */
+  forwarded?: import('./forward-message').Forwarded | null;
 };
 export type AgentReaction = { agent: string; emoji: string; name?: string | null };
 export type History = { messages: Message[]; agents: string[]; next_before?: number | null };

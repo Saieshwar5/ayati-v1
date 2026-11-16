@@ -15,6 +15,10 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/chats/{chat}/messages/{message}/reactions",
             post(react),
         )
+        .route(
+            "/api/identity/workspaces/{w}/chats/{chat}/messages/{message}/forward",
+            post(forward),
+        )
 }
 
 #[derive(Deserialize)]
@@ -51,6 +55,28 @@ async fn delete(
     let user = identity(&app, &headers).await?;
     let stopped = app.store.delete_message(&user, &w, &chat, &message).await?;
     Ok(Json(json!({"ok":true,"stopped_requests":stopped})))
+}
+
+/// Forward a message to a person or an agent, in your direct chat with them
+/// (schema 125). Sending it to an agent asks that agent.
+async fn forward(
+    State(app): State<Shared>,
+    RoutePath((w, chat, message)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<model::Forward>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    if input.to.kind == "agent" {
+        super::super::collaboration::validate_agent(&app, &user, &w, &input.to.id).await?;
+    }
+    let (target, job) = app
+        .store
+        .forward_message(&user, &w, &chat, &message, &input)
+        .await?;
+    if job.is_some() {
+        app.runtimes.chat_wake.notify_one();
+    }
+    Ok(Json(json!({"ok":true,"chat":target})))
 }
 
 async fn react(

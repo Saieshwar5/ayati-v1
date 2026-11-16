@@ -46,6 +46,12 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const [thread, setThread] = useState<string>();
   const [busy, setBusy] = useState(false);
   const directAgent = chat.kind === 'direct' ? chat.agents[0] ?? '' : '';
+  const partner = directPartner(chat, directory);
+  // In your chat with your own agent, other agents you mention work with it in a
+  // thread under your message (schema 125).
+  const personal = partner?.kind === 'agent' && Boolean(partner.who.yours) && partner.who.audience === 'only_me';
+  const invitable = personal && partner ? directory.agents.filter(agent => agent.id !== partner.who.id && agent.audience !== 'only_me')
+    .map(agent => ({ ...agent, kind: 'agent' as const, note: `Works with ${partner.who.name} in a thread` })) : [];
   const draftKey = storageScope(`relay.chat.draft.${chat.id}`);
   const [draft, setDraft] = useState(() => { try { return sessionStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const messages = useRef<HTMLDivElement>(null);
@@ -156,7 +162,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     if (pending.current || (!draft.trim() && !attachments.length)) return false;
     pending.current = true; setBusy(true); setError('');
     let agents: string[];
-    try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
+    try { agents = requestAgents(draft, directAgent, personal); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
     // Replying to an agent's message asks that agent, unless the text names others.
     const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
     if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
@@ -197,7 +203,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   // Sending a message means you have caught up, so the line goes, as it does on reopening.
   const line = unreadStart && !timeline.some(message => message.author === viewer && (message.sequence ?? 0) > (openedAt.current ?? Infinity)) ? unreadStart : undefined;
   const title = conversationName(chat, directory);
-  const partner = directPartner(chat, directory);
+  const place = chat.kind === 'direct' ? 'Direct message' : chat.kind === 'group' ? 'Group' : `#${chat.name}`;
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
@@ -215,7 +221,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id)} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, history?.agents)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
@@ -228,10 +234,11 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
+        ...invitable,
       ]} />
     {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
-      <ChatThread focus={focus} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
+      <ChatThread focus={focus} direct={directAgent || undefined} invitable={invitable} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
     </ShowProfile.Provider>}
     {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
   </section></ManagedResults></ApprovalViewer>;
