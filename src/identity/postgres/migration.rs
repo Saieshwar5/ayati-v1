@@ -132,6 +132,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::agent_owners::AgentOwners),
             Box::new(super::channel_threads::ChannelThreads),
             Box::new(super::agent_teamwork::AgentTeamwork),
+            Box::new(super::thread_guests::ForwardingAndGuests),
         ]
     }
 }

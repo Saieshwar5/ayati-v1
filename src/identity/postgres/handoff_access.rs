@@ -154,7 +154,12 @@ pub(super) async fn execution_allowed(db: &impl ConnectionTrait, task: &Job) -> 
         {
             return Ok(false);
         }
-        if query(db,"SELECT j.reply FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply WHERE j.workspace=$1 AND j.reply=$2 AND j.state<>'finished' AND m.state='queued' AND EXISTS(SELECT 1 FROM relay_chat_agents a WHERE a.workspace=j.workspace AND a.chat=$3 AND a.agent=$4)",vec![task.workspace.clone().into(),ancestor.reply.clone().into(),task.chat.clone().into(),ancestor.agent.into()]).await?.is_none(){return Ok(false)}
+        if query(db,"SELECT j.reply FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply WHERE j.workspace=$1 AND j.reply=$2 AND j.state<>'finished' AND m.state='queued'",vec![task.workspace.clone().into(),ancestor.reply.clone().into()]).await?.is_none()
+            // A member of the chat, or a guest of the thread (schema 125).
+            || !super::thread_guests::takes_part(db, &task.workspace, &task.chat, &ancestor.agent, &ancestor.reply).await?
+        {
+            return Ok(false);
+        }
         parent = ancestor.reply;
     }
     Ok(parent == root(db, task).await?)

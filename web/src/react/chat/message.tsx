@@ -21,7 +21,10 @@ import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
 import { ThreadLine, type threadSummary } from './thread-line';
-export function ChatMessage({ message, directory, thread, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
+import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
+export function ChatMessage({ message, directory, thread, openThread, reply, quoted, place = '', compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string };
+  /** Where this message is, as a forward of it says (`Direct message`, `#orders`). */
+  place?: string }) {
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
@@ -35,13 +38,16 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const profile = (agent || person) && (() => showProfile({ kind: agent ? 'agent' : 'user', id: message.author }));
   const element = useSeen(message, own);
   const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
-  const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder ? '' : message.content;
+  // A forward without words of its own shows only what it forwards (schema 125).
+  const bareForward = Boolean(message.forwarded) && message.content === forwardedOnly;
+  const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder || bareForward ? '' : message.content;
   // Just a voice message: its time and ticks can share the transcript line.
   const voiceOnly = own && placeholder && message.attachments?.length === 1 && message.attachments[0].mime.startsWith('audio/');
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [keeping, setKeeping] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
   const reactions = useReactions(message);
   const cancel = useCancelReply(message);
   const deleted = message.state === 'deleted';
@@ -56,6 +62,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
+      {message.forwarded && <ForwardedBlock forwarded={message.forwarded} />}
       {text && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
       {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
       <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
@@ -70,9 +77,10 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
       {own && <div className="chat-message-meta">{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
     {thread && <ThreadLine summary={thread} directory={directory} open={openThread} />}
-    {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)}
+    {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)} forward={() => setForwarding(true)}
       details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}
+    {forwarding && <ForwardMessage message={message} name={name} place={place} directory={directory} close={() => setForwarding(false)} />}
     {keeping && <SaveAnswer message={message} close={() => setKeeping(false)} />}
     {inspecting && <RequestDetails reply={message.update_of ?? message.id} close={() => setInspecting(false)} />}
   </article>;

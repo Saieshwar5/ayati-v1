@@ -45,8 +45,9 @@ pub(super) fn for_me(param: &str, follows: bool) -> String {
 /// Where an agent's answer to `asking` goes: its own thread when the asking
 /// message is in one; otherwise a new thread under it in a channel or group
 /// several people read whose managers keep the default; otherwise the main
-/// timeline. Only a person's own message gets a new thread: schedules, events
-/// and doors keep their places.
+/// timeline. A message in a person's chat with their own agent that invited
+/// other agents is answered in a thread under it too. Only a person's own
+/// message gets a new thread: schedules, events and doors keep their places.
 pub(super) async fn reply_thread(
     tx: &impl ConnectionTrait,
     w: &str,
@@ -71,7 +72,11 @@ pub(super) async fn reply_thread(
     .await?
     .context("Conversation missing")?
     .try_get("", "threaded")?;
-    Ok(threaded.then(|| asking.to_owned()))
+    // A message that invited agents into its thread (schema 125) is answered there.
+    Ok(
+        (threaded || super::thread_guests::has_guests(tx, w, chat, asking).await?)
+            .then(|| asking.to_owned()),
+    )
 }
 
 impl PgStore {

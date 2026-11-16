@@ -78,7 +78,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
       {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} aria-disabled={blocked(item) || undefined} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
-        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? agentNote(item) : item.title || 'Person'}</small>
+        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? (item.note && !asked.has(item.id) && !blocked(item) ? item.note : agentNote(item)) : item.title || 'Person'}</small>
         {item.kind === 'user' && <MentionStatus id={item.id} />}
       </button>)}
     </div>}
