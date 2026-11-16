@@ -9,9 +9,12 @@ import { Dialog } from '../ui';
 import { useMutation } from '../requests';
 import { filesOnlyContent, type Directory, type History, type Message } from './model';
 import { ChatMessage } from './message';
+import { continuingAgent, namesSomeone } from './thread-line';
+import { ThreadFollow } from './thread-follow';
 
 export function ChatThread({ chat, root, history, directory, close, people = [], focus, archived }: { archived?: boolean; focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void> }) {
   const transcript = useRef<HTMLDivElement>(null);
+  const continuing = continuingAgent(root, history.messages.filter(message => message.thread === root.id), history.agents);
   useEffect(() => {
     if (!focus) return;
     const target = [...(transcript.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])].find(node => node.dataset.messageId === focus);
@@ -30,8 +33,9 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
       const attachments = (voice ? [...files, voice] : files).map(f => f.id);
       if (archived || !text.trim() && !attachments.length) return;
       let agents = requestAgents(text);
-      // In an agent's thread a reply asks that agent, unless the text names others.
-      if (!agents.length && root.kind === 'agent' && history.agents.includes(root.author)) agents = [root.author];
+      // A plain reply goes to the agent a person last asked here; naming anyone
+      // sends it only to whom it names.
+      if (!agents.length && continuing && !namesSomeone(text)) agents = [continuing];
       const asked = agents.length ? agents : undefined;
       const content = text || filesOnlyContent;
       if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, thread: root.id, agents: asked, attachments };
@@ -41,9 +45,14 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
     return sent;
   };
   const agents = directory.agents.filter(agent => history.agents.includes(agent.id));
+  const continuingName = continuing && directory.agents.find(agent => agent.id === continuing)?.name;
   return <Dialog title={archived ? 'Archived thread' : 'Thread'} drawer busy={mutation.busy} status={mutation.status} close={close}>
+    <ThreadFollow chat={chat} thread={root.id} />
     <div className="chat-thread-root"><ChatMessage message={root} directory={directory} /></div>
     <div ref={transcript} role="log" aria-label="Thread replies">{history.messages.filter(message => message.thread === root.id).map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
+    {!archived && <p className="chat-thread-route" role="note">{continuingName
+      ? <>Replies go to <strong>{continuingName}</strong> · @mention someone to change</>
+      : 'Replies go to the thread. @mention an agent to ask it.'}</p>}
     {archived && <p className="chat-archive-banner">This archived channel is closed to new thread replies. Your draft is kept.</p>}
     <ChatComposer chat={chat} files={files} setFiles={setFiles} value={text} change={update} send={send} disabled={mutation.busy || Boolean(archived)}
       sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…"

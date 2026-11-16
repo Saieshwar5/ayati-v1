@@ -399,7 +399,18 @@ impl PgStore {
             },
         )
         .await?;
-        execute(tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.into(),now().into(),user.id.clone().into(),input.thread.clone().into()]).await?;
+        // In a channel or group several people read, the answer goes in a thread
+        // under the person's message unless the channel answers in the channel.
+        let reply_thread = super::channel_threads::reply_thread(
+            tx,
+            workspace,
+            chat,
+            &input.id,
+            input.thread.as_deref(),
+            class == WorkClass::Interactive,
+        )
+        .await?;
+        execute(tx,"INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester,thread) VALUES($1,$2,$3,$4,'agent','','queued',$5,$6,$7)",vec![reply.clone().into(),workspace.into(),chat.into(),agent.into(),now().into(),user.id.clone().into(),reply_thread.into()]).await?;
         let job = Job {
             claim: None,
             reply,

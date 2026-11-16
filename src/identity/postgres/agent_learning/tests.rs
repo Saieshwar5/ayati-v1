@@ -124,11 +124,26 @@ async fn lessons_come_from_shared_conversations_and_reach_the_agent_only_when_ap
         "It goes by BlueDart.",
     )
     .await;
+    // The answer is in a thread under the question (schema 123), and so is the correction.
+    let thread: Option<String> = query(
+        &db.db,
+        "SELECT thread FROM relay_chat_messages WHERE workspace=$1 AND id=$2",
+        vec![w.clone().into(), first.reply.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "thread")
+    .unwrap();
+    assert!(thread.is_some());
     db.chat_send(
         &other,
         &w,
         &shared,
-        &message("That doesn't help, we need the delivery date", None),
+        &crate::identity::chat::model::NewMessage {
+            thread,
+            ..message("That doesn't help, we need the delivery date", None)
+        },
     )
     .await
     .unwrap();

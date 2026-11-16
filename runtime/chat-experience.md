@@ -197,10 +197,12 @@ Server design, write rate and privacy: [presence and status](reliable-messaging.
 
 ## Replies and media
 
-An agent requested in the main channel responds in the main channel timeline.
-Only an explicitly threaded request creates a threaded response. Quoting an agent's
-message asks that agent, and in a thread whose first message an agent wrote, a reply
-with no agent mention asks that agent; an explicit agent mention wins in both. The
+An agent requested in the main timeline of a channel or group several people read
+answers in a thread under the request, unless the channel's managers chose "In
+the channel" ([threads in channels](channel-threads.md), schema 123); elsewhere it
+answers in the main timeline. Quoting an agent's
+message asks that agent, and in a thread a reply that names nobody asks the agent a person last asked
+there (or the agent that started it); naming anyone wins. The
 server still checks that the person may ask that agent here. Existing stored
 threads remain untouched. Request context remains narrowly scoped as before; changing
 reply placement does not expose unrelated threads or private-agent memory. Shared

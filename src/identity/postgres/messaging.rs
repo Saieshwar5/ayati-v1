@@ -2,7 +2,13 @@ use super::*;
 use serde_json::json;
 
 // Used for both snapshot and live payloads, including updated receipts and media.
-pub(super) const MESSAGE: &str = "SELECT to_jsonb(m) - 'target' - 'requester' || jsonb_build_object('for_me',(strpos(m.content,'](mention:user:'||$3||')')>0 OR (m.kind='agent' AND m.requester=$3)),'reactions',(SELECT coalesce(jsonb_agg(jsonb_build_object('emoji',x.emoji,'count',x.n,'mine',x.mine) ORDER BY x.first,x.emoji),'[]'::jsonb) FROM (SELECT r.emoji,count(*) AS n,bool_or(r.user_id=$3) AS mine,min(r.at) AS first FROM relay_message_reactions r WHERE r.workspace=m.workspace AND r.message=m.id GROUP BY r.emoji) x),'agent_reactions',(SELECT coalesce(jsonb_agg(jsonb_build_object('agent',r.agent,'emoji',r.emoji,'name',a.name) ORDER BY r.at,r.agent),'[]'::jsonb) FROM relay_agent_reactions r LEFT JOIN relay_shared_agents a ON a.workspace=r.workspace AND a.id=r.agent WHERE r.workspace=m.workspace AND r.message=m.id),'name',CASE WHEN m.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=m.workspace AND a.id=m.author) ELSE COALESCE(u.display_name,u.email) END,'attachments',coalesce((SELECT jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'mime',o.mime,'size',o.size,'checksum',o.checksum)) FROM relay_objects o WHERE o.workspace=m.workspace AND o.chat=m.chat AND m.attachments @> jsonb_build_array(o.id)),'[]'::jsonb),'delivered',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id) ELSE 0 END,'seen',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND seen_at IS NOT NULL)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.seen_at IS NOT NULL) ELSE 0 END) AS data FROM relay_chat_messages m LEFT JOIN relay_users u ON u.id=m.author WHERE m.workspace=$1 AND m.id=$2";
+pub(super) const MESSAGE: &str = "SELECT to_jsonb(m) - 'target' - 'requester' || jsonb_build_object('for_me',/*FOR_ME*/,'reactions',(SELECT coalesce(jsonb_agg(jsonb_build_object('emoji',x.emoji,'count',x.n,'mine',x.mine) ORDER BY x.first,x.emoji),'[]'::jsonb) FROM (SELECT r.emoji,count(*) AS n,bool_or(r.user_id=$3) AS mine,min(r.at) AS first FROM relay_message_reactions r WHERE r.workspace=m.workspace AND r.message=m.id GROUP BY r.emoji) x),'agent_reactions',(SELECT coalesce(jsonb_agg(jsonb_build_object('agent',r.agent,'emoji',r.emoji,'name',a.name) ORDER BY r.at,r.agent),'[]'::jsonb) FROM relay_agent_reactions r LEFT JOIN relay_shared_agents a ON a.workspace=r.workspace AND a.id=r.agent WHERE r.workspace=m.workspace AND r.message=m.id),'name',CASE WHEN m.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=m.workspace AND a.id=m.author) ELSE COALESCE(u.display_name,u.email) END,'attachments',coalesce((SELECT jsonb_agg(jsonb_build_object('id',o.id,'name',o.name,'mime',o.mime,'size',o.size,'checksum',o.checksum)) FROM relay_objects o WHERE o.workspace=m.workspace AND o.chat=m.chat AND m.attachments @> jsonb_build_array(o.id)),'[]'::jsonb),'delivered',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id) ELSE 0 END,'seen',CASE WHEN m.author=$3 THEN (SELECT count(*) FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND seen_at IS NOT NULL)+(SELECT count(*) FROM relay_agent_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.seen_at IS NOT NULL) ELSE 0 END) AS data FROM relay_chat_messages m LEFT JOIN relay_users u ON u.id=m.author WHERE m.workspace=$1 AND m.id=$2";
+
+/// `MESSAGE` with its "for you" rule for this schema (`channel_threads::for_me`).
+pub(super) async fn message_sql(db: &impl ConnectionTrait) -> Result<String> {
+    let follows = super::channel_threads::ready(db).await?;
+    Ok(MESSAGE.replace("/*FOR_ME*/", &super::channel_threads::for_me("$3", follows)))
+}
 
 /// What the controller's listener tells this process's live streams.
 #[derive(Clone, Debug, PartialEq)]
@@ -27,7 +33,7 @@ impl PgStore {
         super::chat::access(&tx, user, w, chat).await?;
         let mut messages = json_rows(
             &tx,
-            MESSAGE,
+            &message_sql(&tx).await?,
             vec![w.into(), id.into(), user.id.clone().into()],
         )
         .await?;
@@ -142,7 +148,7 @@ impl PgStore {
         }
         if !ids.is_empty() {
             // One authorized batch read, not three queries per message per recipient.
-            let sql = MESSAGE.replace("m.id=$2", "m.id IN (SELECT jsonb_array_elements_text($2::jsonb)) AND EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=m.workspace AND c.id=m.chat AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)))");
+            let sql = message_sql(&tx).await?.replace("m.id=$2", "m.id IN (SELECT jsonb_array_elements_text($2::jsonb)) AND EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=m.workspace AND c.id=m.chat AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)))");
             let mut messages = json_rows(
                 &tx,
                 &sql,

@@ -124,6 +124,7 @@ pub(super) fn settings_input(
         description: None,
         visibility: visibility.into(),
         announcements,
+        agent_replies: None,
     }
 }
 pub(super) fn message(text: &str, agent: Option<&str>) -> NewMessage {

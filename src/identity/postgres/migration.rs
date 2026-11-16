@@ -130,6 +130,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::context_compaction::ContextCompaction),
             Box::new(super::agent_learning::AgentLearning),
             Box::new(super::agent_owners::AgentOwners),
+            Box::new(super::channel_threads::ChannelThreads),
         ]
     }
 }

@@ -11,6 +11,40 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/chats/{chat}/settings",
             post(settings),
         )
+        .route(
+            "/api/identity/workspaces/{w}/chats/{chat}/threads/{thread}/follow",
+            get(following).post(follow),
+        )
+}
+async fn following(
+    State(app): State<Shared>,
+    RoutePath((w, chat, thread)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .thread_following(&user, &w, &chat, &thread)
+            .await?,
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Follow {
+    following: bool,
+}
+async fn follow(
+    State(app): State<Shared>,
+    RoutePath((w, chat, thread)): RoutePath<(String, String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<Follow>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .follow_thread(&user, &w, &chat, &thread, input.following)
+            .await?,
+    ))
 }
 async fn list(
     State(app): State<Shared>,
@@ -78,6 +112,10 @@ pub(crate) struct ChannelSettings {
     pub description: Option<String>,
     pub visibility: String,
     pub announcements: bool,
+    /// Where agents answer: "thread" (under the asking message) or "channel".
+    /// Absent keeps the current choice (schema 123).
+    #[serde(default)]
+    pub agent_replies: Option<String>,
 }
 impl ChannelSettings {
     pub fn validate(&self) -> Result<()> {
@@ -95,6 +133,12 @@ impl ChannelSettings {
         check(
             self.description.as_deref().is_none_or(|v| v.len() <= 300),
             "Use a description of at most 300 characters",
+        )?;
+        check(
+            self.agent_replies
+                .as_deref()
+                .is_none_or(|v| ["thread", "channel"].contains(&v)),
+            "Agents answer in a thread or in the channel",
         )
     }
 }

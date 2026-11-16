@@ -226,6 +226,7 @@ async fn channel_managers_edit_name_description_and_posting_but_only_admins_chan
         description: description.map(str::to_owned),
         visibility: visibility.into(),
         announcements: true,
+        agent_replies: None,
     };
     // The creator, a Member, changes the name, description and who can post.
     db.channel_settings(

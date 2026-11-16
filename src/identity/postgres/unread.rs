@@ -72,7 +72,7 @@ impl PgStore {
              FROM {UNREAD_FROM}
              WHERE c.workspace=$1{hidden} AND {UNREAD_WHERE}
              GROUP BY m.chat",
-            for_me = super::chat_notifications::FOR_ME
+            for_me = super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?)
         );
         let items = json_rows(&tx, &sql, vec![w.into(), user.id.clone().into()]).await?;
         tx.commit().await?;

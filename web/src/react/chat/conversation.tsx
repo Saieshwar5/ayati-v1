@@ -12,10 +12,11 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternal
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { ChatMessage } from './message';
 import { ChatThread } from './thread';
+import { threadSummary } from './thread-line';
 import { mergeMessages, newerMessage } from './message-state';
 import { Button } from '../ui';
 import { errorMessage } from '../requests';
-import { agentChatNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
+import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ShowProfile, useShowProfile } from './profile-card';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
@@ -211,9 +212,10 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     }}>
       {olderCursor && <Button disabled={loadingOlder} onClick={() => void loadOlder(true)}>{loadingOlder ? 'Loading older messages…' : 'Load older messages'}</Button>}
       {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin')}</p>}
+      {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} replies={allMessages.filter(reply => reply.thread === message.id).length} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id)} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}

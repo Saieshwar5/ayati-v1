@@ -274,6 +274,60 @@ test('a reply in an agent thread asks that agent unless the reply mentions anoth
   }});
 });
 
+test('a thread shows who took part, plain replies continue with the agent a person asked, and following can be stopped', async () => {
+  const chats = [{id:'inventory',name:'Inventory',kind:'channel',description:'Stock',users:['owner','member'],agents:['assistant-two'],agent_replies:'thread'}];
+  const sent = [], follows = [];
+  await reactFixture(async ({dom,render,click,update,change,submit,button}) => {
+    const setup = await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      await click([...document.querySelectorAll('.chat-directory a')].find(a=>a.textContent.includes('Inventory')));
+      await until(update,()=>document.querySelector('.chat-thread-line'));
+      // The channel says how its agent answers; the thread line names the reply count.
+      assert.match(document.querySelector('.chat-agent-rule').textContent, /Ramesh answers when you @mention it, in a thread under your message/);
+      const line = document.querySelector('.chat-thread-line');
+      assert.match(line.getAttribute('aria-label'), /^Open thread: 1 reply · last reply/);
+      assert.equal(line.querySelectorAll('.chat-thread-face').length, 1);
+      await click(line);
+      await until(update,()=>document.querySelector('.chat-thread-follow'));
+      assert.match(document.querySelector('.chat-thread-route').textContent, /Replies go to Ramesh/);
+      const reply = () => document.querySelector('textarea[aria-label="Reply in thread"]');
+      // Priya asked Ramesh in her own message, so a plain reply goes to Ramesh.
+      await change(reply(),'And the reserved ones?');
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===1);
+      assert.deepEqual([sent[0].agents,sent[0].thread],[['assistant-two'],'root']);
+      // Naming a person sends it only to them.
+      await change(reply(),'@Pri');
+      await click(document.querySelector('dialog [role=option]'));
+      await submit(document.querySelector('dialog .message-composer'));
+      await until(update,()=>sent.length===2);
+      assert.equal(sent[1].agents, undefined);
+      // Stop following.
+      await click(button('Stop following'));
+      await until(update,()=>follows.length===1);
+      assert.deepEqual(follows[0], {following:false});
+      assert.match(document.querySelector('.chat-thread-follow').textContent, /You don’t get alerts for this thread/);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
+    path = new URL(path, 'http://localhost').pathname;
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'member',name:'Priya'}],agents:[{id:'assistant-two',name:'Ramesh'}],role:'Admin'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/follow')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);follows.push(body);return response({following:body.following,chosen:true});}
+      return response({following:true,chosen:false});
+    }
+    if(path.endsWith('/messages')){
+      if(options.method==='POST'){const body=JSON.parse(options.body);sent.push(body);return response({ok:true,message:{...body,author:'owner',kind:'user',state:'sent',at:10+sent.length,sequence:10+sent.length,chat:'inventory'}});}
+      return response({agents:['assistant-two'],messages:[
+        {id:'root',author:'member',name:'Priya',kind:'user',content:'[@Ramesh](mention:agent:assistant-two) how many boxes?',state:'sent',at:1,thread:null},
+        {id:'answer',author:'assistant-two',name:'Ramesh',kind:'agent',content:'Twelve boxes are in stock.',state:'complete',at:2,thread:'root'}]});
+    }
+    return response(dataFor(path));
+  }});
+});
+
 test('rebrands only the built-in guide while preserving custom agent names', async () => {
   const { displayAgentName } = await import('../src/agents.ts');
   for (const name of ['Ayati', 'Relay', 'Cuckoo']) {

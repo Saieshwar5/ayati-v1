@@ -214,6 +214,10 @@ pub(crate) async fn prepare_traced(
             prompt::PRIVATE_BY_MESSAGE
         });
     }
+    // A channel's name and purpose, so the agent knows what people ask it here.
+    if let Some(purpose) = db.conversation_purpose(job).await? {
+        request.push_str(&purpose);
+    }
     if identity["origin"] == "private_continuation" {
         instructions.push_str(prompt::PRIVATE_CONTINUATION);
     }

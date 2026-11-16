@@ -5,7 +5,9 @@ export type Participant = { id: string; name: string; email?: string; role?: str
   yours?: boolean };
 /** `presence` holds who is online and their statuses (D245), read with the directory. */
 export type Directory = { users: Participant[]; agents: Participant[]; role: string; presence?: import('./presence').Presence[] };
-export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
+export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean;
+  /** Where agents answer a question asked in the main channel (schema 123). */
+  agent_replies?: 'thread' | 'channel'; users: string[]; agents: string[]; archived?: boolean; archive_revision?: number; can_archive?: boolean;
   /** Channels only: who created it, when (Unix seconds; unknown for older channels) and which members manage it. */
   creator?: string; created_at?: number | null; managers?: string[];
   /** Seconds of the newest activity, as the server ordered the list (chat_activity.rs). */
@@ -83,3 +85,14 @@ export function agentChatNote(name: string, yours: boolean, admin: boolean): str
     ? `Only you read this chat. As ${yours ? 'one of its owners' : 'an admin'} you can ask ${name} about its work in every conversation: who asked, what it did and what is waiting.`
     : `${name} keeps each conversation separate. Activity with ${name} is visible to its owners and admins.`;
 }
+/** The line at the top of a channel or group with agents: how to get their
+ * help, and where they answer (schema 123). */
+export function agentRuleNote(names: string[], replies: 'thread' | 'channel' = 'thread'): string {
+  if (!names.length) return '';
+  const who = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  const it = names.length === 1 ? 'it' : 'them';
+  return replies === 'thread'
+    ? `${who} ${names.length === 1 ? 'answers' : 'answer'} when you @mention ${it}, in a thread under your message. Reply in that thread to keep going.`
+    : `${who} ${names.length === 1 ? 'answers' : 'answer'} in the channel when you @mention ${it}.`;
+}
+

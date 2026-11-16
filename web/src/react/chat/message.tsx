@@ -20,7 +20,8 @@ import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions }
 import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
-export function ChatMessage({ message, directory, replies, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; replies?: number; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
+import { ThreadLine, type threadSummary } from './thread-line';
+export function ChatMessage({ message, directory, thread, openThread, reply, quoted, compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string } }) {
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
@@ -68,7 +69,7 @@ export function ChatMessage({ message, directory, replies, openThread, reply, qu
       </>}
       {own && <div className="chat-message-meta">{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
-    {replies ? <button type="button" className="chat-thread-link chat-thread-count" aria-label={`${replies} ${replies === 1 ? 'reply' : 'replies'}`} title="Open thread" onClick={openThread}>{`${replies} ${replies === 1 ? 'reply' : 'replies'}`}</button> : null}
+    {thread && <ThreadLine summary={thread} directory={directory} open={openThread} />}
     {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)}
       details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}
