@@ -32,6 +32,7 @@ mod member_profiles;
 mod metrics;
 pub(crate) mod models;
 pub mod operator;
+mod person_asks;
 mod pictures;
 pub mod postgres;
 mod private_config;
@@ -258,6 +259,7 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
     library::indexer::start(app.clone());
     context_compaction::start(app.clone());
     agent_learning::start(app.clone());
+    person_asks::start(app.clone());
     library::keeping::start(app.clone());
     computers::sleeper::start(app.clone());
     transcription::start(app.clone())?;

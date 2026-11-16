@@ -2,7 +2,9 @@ import { identityRequest, workspaceId } from '../../workspace-context';
 import type { Catalog } from './catalog-model';
 import type { ComputerOffer, ComputerSettings } from './computer/model';
 export const base = `/workspaces/${workspaceId}/agent-profiles`;
-export type Settings = { provider: string; instructions: string; escalation: string; successful_outcome?: string; routine?: string; avatar: string; memory: boolean; browser: boolean; web_search?: boolean; computer?: ComputerSettings; history: string; paused: boolean };
+export type Settings = { provider: string; instructions: string; escalation: string; successful_outcome?: string; routine?: string; avatar: string; memory: boolean; browser: boolean; web_search?: boolean; computer?: ComputerSettings; history: string; paused: boolean;
+  /** What it handles, one line, and whether other agents may ask it for help (schema 124). */
+  handles?: string; helper?: boolean };
 export const defaults: Settings = { provider: '', instructions: '', escalation: '', successful_outcome: '', routine: '', avatar: 'spark', memory: false, browser: false, web_search: true, history: 'all', paused: false };
 /** Who can talk to an agent (D231): everyone in the workspace, selected people, or only its owners. */
 export type Audience = 'everyone' | 'selected' | 'only_me';

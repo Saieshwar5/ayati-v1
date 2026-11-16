@@ -131,7 +131,7 @@ async fn member_profile(db: &impl ConnectionTrait, w: &str, user: &str) -> Resul
     let row = query(
         db,
         "SELECT COALESCE(u.display_name,u.email) AS name,COALESCE(p.title,'') AS title,
-         COALESCE(p.about,'') AS about,p.photo FROM relay_users u
+         COALESCE(p.about,'') AS about,COALESCE(to_jsonb(p)->>'handles','') AS handles,p.photo FROM relay_users u
          LEFT JOIN relay_member_profiles p ON p.workspace=$1 AND p.user_id=u.id WHERE u.id=$2",
         vec![w.into(), user.into()],
     )
@@ -142,6 +142,7 @@ async fn member_profile(db: &impl ConnectionTrait, w: &str, user: &str) -> Resul
         "name": row.try_get::<String>("", "name")?,
         "title": row.try_get::<String>("", "title")?,
         "about": row.try_get::<String>("", "about")?,
+        "handles": row.try_get::<String>("", "handles")?,
         "photo": row.try_get::<Option<String>>("", "photo")?,
     }))
 }

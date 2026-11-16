@@ -2,7 +2,9 @@ import { identityRequest, workspaceId, workspaceSession } from '../../workspace-
 import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null;
   /** An agent the viewer is one of the owners of. */
-  yours?: boolean };
+  yours?: boolean;
+  /** What they handle, one line (schema 124). */
+  handles?: string };
 /** `presence` holds who is online and their statuses (D245), read with the directory. */
 export type Directory = { users: Participant[]; agents: Participant[]; role: string; presence?: import('./presence').Presence[] };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean;

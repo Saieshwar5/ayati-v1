@@ -126,7 +126,10 @@ pub(crate) async fn compact(
 
 fn instructions(shared: bool) -> String {
     let audience = if shared {
-        " Everyone in this conversation reads the summary."
+        " Everyone in this conversation reads the summary. Also keep who_handles_what (a list like the others): who in this \
+conversation repeatedly handles which kind of work, such as \"Arjun Patel handles courier and delivery problems\", only when at \
+least 2 messages show it, citing them; drop an entry when someone says it is not theirs. It guides whom to ask; it is never a \
+role, an approval or a permission."
     } else {
         ""
     };

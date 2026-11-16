@@ -208,6 +208,9 @@ pub(crate) async fn prepare_traced(
             format!("{} people", room.people)
         };
         instructions.push_str(&prompt::shared(&readers));
+        if questions {
+            instructions.push_str(prompt::PEOPLE);
+        }
         instructions.push_str(if questions {
             prompt::PRIVATE_BY_TOOL
         } else {

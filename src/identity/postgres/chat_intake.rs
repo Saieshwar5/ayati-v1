@@ -207,6 +207,12 @@ impl PgStore {
         );
         let asked = input.asked()?;
         access(tx, user, workspace, chat).await?;
+        // A person answering an agent that asked them answers its waiting task.
+        let asked = if class == WorkClass::Interactive {
+            super::agent_teamwork::answering(tx, workspace, chat, &user.id, input, asked).await?
+        } else {
+            asked
+        };
         if class != WorkClass::Communication {
             super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }

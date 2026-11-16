@@ -173,6 +173,10 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             let input = serde_json::from_value(arguments)?;
             pg.search_my_work(job, &input).await
         }
+        "ask_person" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.ask_person(job, &input).await
+        }
         "suggest_lesson" => {
             let input = serde_json::from_value(arguments)?;
             pg.suggest_lesson(job, &input).await

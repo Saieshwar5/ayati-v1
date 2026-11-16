@@ -15,6 +15,17 @@ export function continuingAgent(root: Message, replies: Message[], present: stri
   return agent && present.includes(agent) ? agent : undefined;
 }
 
+/** The agent waiting for this person's answer here: its latest message in the
+ * thread @mentions them and they haven't written since (schema 124). */
+export function askedBy(replies: Message[], me: string): string | undefined {
+  for (let i = replies.length - 1; i >= 0; i--) {
+    const message = replies[i];
+    if (message.kind !== 'agent' && message.author === me) return undefined;
+    if (message.kind === 'agent' && message.content.includes(`](mention:user:${me})`)) return message.author;
+  }
+  return undefined;
+}
+
 /** Whether a draft names anyone: then it goes only to whom it names. */
 export const namesSomeone = (text: string) => decodeMentions(text).mentions.length > 0;
 

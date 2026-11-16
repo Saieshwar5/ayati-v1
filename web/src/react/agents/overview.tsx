@@ -35,6 +35,7 @@ export function AgentOverview({ agent, open, people, owners }: {
     <aside className="agent-overview-side">
       <dl className="agent-key-facts">
         {fact('Who can talk to it', audienceLabels[agent.audience], agent.editable ? people : undefined)}
+        {agent.settings.handles && fact('Handles', agent.settings.handles)}
         {fact(agent.owners && agent.owners.length > 1 ? 'Owners' : 'Owner', agent.needs_owner ? 'None: its last owner left'
           : agent.owners ? ownerNames(agent.owners) : agent.owner_name ?? '…', agent.editable ? owners : undefined)}
         {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}

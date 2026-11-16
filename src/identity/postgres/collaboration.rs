@@ -42,7 +42,7 @@ impl PgStore {
         } else {
             "a.owner_id=$2"
         };
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','manager',{owners},'yours',{yours}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','handles',COALESCE(a.settings->>'handles',''),'manager',{owners},'yours',{yours}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }

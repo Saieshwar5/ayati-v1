@@ -18,13 +18,19 @@ export function IdentityDialog({ agent, close, saved }: Props) {
     await saveAgentWithPicture({ ...draft, people: undefined }, file, next => setDraft(old => ({ ...old, revision: next.revision, settings: next.settings })));
     await saved(`${draft.name.trim()} saved.`);
   });
-  return <Dialog title={`${agent.name} · Name and picture`} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={<>
+  return <Dialog title={`${agent.name} · Name, picture and role`} close={close} busy={mutation.busy} status={mutation.status} initialFocus={first} footer={<>
     <Button disabled={mutation.busy} onClick={close}>Cancel</Button>
     <Button primary disabled={mutation.busy || !draft.name.trim()} onClick={save}>Save</Button>
   </>}>
     <NameStep draft={draft} file={file} first={first} change={(key, value) => setDraft(old => ({ ...old, [key]: value }))}
       choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
       upload={setFile} reject={mutation.setStatus} />
+    <label className="ui-field">What it handles <small>one line people and other agents read to know when to ask it</small>
+      <input maxLength={160} value={draft.settings.handles ?? ''} placeholder="e.g. Stock levels, reservations, warehouse locations"
+        onChange={event => setDraft(old => ({ ...old, settings: { ...old.settings, handles: event.target.value } }))} /></label>
+    <label className="ui-check"><input type="checkbox" checked={draft.settings.helper !== false}
+      onChange={event => setDraft(old => ({ ...old, settings: { ...old.settings, helper: event.target.checked } }))} />
+      Other agents in a channel may ask {draft.name.trim() || 'it'} for help</label>
   </Dialog>;
 }
 

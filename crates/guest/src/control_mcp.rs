@@ -12,6 +12,7 @@ pub fn observed(name: &str, input: &Value) -> bool {
         Some(name @ ("search_my_work" | "read_my_work" | "suggest_lesson")) => {
             crate::work_schema::observed(name, input)
         }
+        Some("ask_person") => crate::people_schema::observed(input),
         Some("save_working_context") => crate::working_context_schema::observed(input),
         Some("operations" | "handoff_targets" | "personal_panels" | "continue_privately") => {
             input == &json!({})
@@ -124,6 +125,7 @@ impl ServerHandler for ControlTools {
     ) -> std::result::Result<ListToolsResult, ErrorData> {
         Ok(ListToolsResult{tools:vec![
             crate::question_schema::tool(),
+            crate::people_schema::tool(),
             crate::working_context_schema::tool(),
             crate::history_schema::search_tool(),
             crate::history_schema::read_tool(),

@@ -46,7 +46,7 @@ function AgentMenu({ name, paused, needsOwner, choose }: { name: string; paused:
       onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); toggle.current?.focus(); } }}>
       {/* Without an owner it can't resume; giving it one comes first. */}
       {!needsOwner && <button type="button" role="menuitem" onClick={() => pick('pause')}>{paused ? 'Resume' : 'Pause'}</button>}
-      <button type="button" role="menuitem" onClick={() => pick('identity')}>Name and picture…</button>
+      <button type="button" role="menuitem" onClick={() => pick('identity')}>Name, picture and role…</button>
       <button type="button" role="menuitem" onClick={() => pick('owners')}>{needsOwner ? 'Give it an owner…' : 'Owners…'}</button>
     </div>}
   </span>;

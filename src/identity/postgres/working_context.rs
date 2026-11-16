@@ -19,7 +19,13 @@ pub(crate) struct Brief {
     decisions: Vec<Entry>,
     questions: Vec<Entry>,
     corrections: Vec<Entry>,
+    /// In a shared room: who has handled what here, seen at least twice
+    /// (schema 124). A guide for whom to ask, never a role or a permission.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    who_handles_what: Vec<Entry>,
 }
+/// Repeated evidence: a "who handles what" entry cites at least this many messages.
+pub(super) const SEEN_TIMES: usize = 2;
 impl Brief {
     /// A summary from the automatic summarizer's answer (schema 120), kept to
     /// the same bounds as an agent's: entries citing anything outside `eligible`
@@ -53,10 +59,16 @@ impl Brief {
             decisions: list("decisions"),
             questions: list("questions"),
             corrections: list("corrections"),
+            who_handles_what: list("who_handles_what")
+                .into_iter()
+                .filter(|e| e.sources.len() >= SEEN_TIMES)
+                .collect(),
         };
         // Keep it under the byte limit by dropping the oldest decisions first.
         while serde_json::to_vec(&brief).ok()?.len() > 12000 {
-            if !brief.decisions.is_empty() {
+            if !brief.who_handles_what.is_empty() {
+                brief.who_handles_what.pop();
+            } else if !brief.decisions.is_empty() {
                 brief.decisions.remove(0);
             } else if !brief.corrections.is_empty() {
                 brief.corrections.remove(0);
@@ -73,6 +85,7 @@ impl Brief {
             .chain(&self.decisions)
             .chain(&self.questions)
             .chain(&self.corrections)
+            .chain(&self.who_handles_what)
             .flat_map(|entry| entry.sources.iter().cloned())
             .collect()
     }
@@ -81,13 +94,19 @@ impl Brief {
             self.revision >= 0
                 && self.decisions.len() <= 8
                 && self.questions.len() <= 8
-                && self.corrections.len() <= 8,
+                && self.corrections.len() <= 8
+                && self.who_handles_what.len() <= 8
+                && self
+                    .who_handles_what
+                    .iter()
+                    .all(|e| e.sources.len() >= SEEN_TIMES),
             "Summary exceeds supported bounds"
         );
         for entry in std::iter::once(&self.objective)
             .chain(&self.decisions)
             .chain(&self.questions)
             .chain(&self.corrections)
+            .chain(&self.who_handles_what)
         {
             ensure!(
                 !entry.text.trim().is_empty()
@@ -214,5 +233,75 @@ impl PgStore {
         execute(&tx,"INSERT INTO relay_working_context(workspace,agent,chat,requester,revision,task,claim,generation,cutoff,brief) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",vec![job.workspace.clone().into(),job.agent.clone().into(),job.chat.clone().into(),owner.into(),(revision+1).into(),job.reply.clone().into(),job.claim.clone().unwrap_or_default().into(),row.try_get::<Value>("","generation")?.into(),cutoff.into(),body.into()]).await?;
         tx.commit().await?;
         Ok(json!({"state":"saved","revision":revision+1}))
+    }
+}
+
+impl Brief {
+    /// Keeps "who handles what" only in a shared room, and only entries whose
+    /// newest evidence is from the last 30 days: old roles fade.
+    pub(super) async fn fade_roles(
+        &mut self,
+        db: &impl ConnectionTrait,
+        w: &str,
+        shared: bool,
+    ) -> Result<()> {
+        if !shared {
+            self.who_handles_what.clear();
+            return Ok(());
+        }
+        let mut kept = vec![];
+        for entry in std::mem::take(&mut self.who_handles_what) {
+            let newest: Option<i64> = query(db, "SELECT max(at) AS at FROM relay_chat_messages WHERE workspace=$1 AND id IN (SELECT jsonb_array_elements_text($2::jsonb))",
+                vec![w.into(), json!(entry.sources).into()]).await?
+                .and_then(|row| row.try_get("", "at").ok())
+                .flatten();
+            if newest.is_some_and(|at| at > now() - 30 * 24 * 3600) {
+                kept.push(entry);
+            }
+        }
+        self.who_handles_what = kept;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod roles_tests {
+    use super::*;
+    #[test]
+    fn who_handles_what_needs_repeated_cited_evidence() {
+        let eligible: BTreeSet<String> = ["m1", "m2", "m3"].iter().map(|s| s.to_string()).collect();
+        let answer = json!({
+            "objective": {"text": "Quote chairs", "sources": ["m1"]},
+            "decisions": [], "questions": [], "corrections": [],
+            "who_handles_what": [
+                {"text": "Arjun handles couriers", "sources": ["m1", "m2"]},
+                {"text": "Ravi handles refunds", "sources": ["m3"]},
+                {"text": "Kavya handles invoices", "sources": ["m3", "elsewhere"]}
+            ]
+        });
+        let brief = Brief::from_model(0, &answer, &eligible).unwrap();
+        let kept: Vec<&str> = brief
+            .who_handles_what
+            .iter()
+            .map(|e| e.text.as_str())
+            .collect();
+        assert_eq!(
+            kept,
+            ["Arjun handles couriers"],
+            "one sighting, or one citation left, is not enough"
+        );
+        assert!(brief.sources().contains("m2"));
+        // A summary without it reads as before and writes no empty list.
+        let plain = Brief::from_model(
+            0,
+            &json!({"objective": {"text": "x", "sources": ["m1"]}}),
+            &eligible,
+        )
+        .unwrap();
+        assert!(
+            !serde_json::to_string(&plain)
+                .unwrap()
+                .contains("who_handles_what")
+        );
     }
 }

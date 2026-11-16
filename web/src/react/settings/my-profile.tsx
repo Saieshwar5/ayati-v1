@@ -4,14 +4,14 @@ import { PersonFace } from '../faces';
 import { errorMessage, useMutation } from '../requests';
 import { Button } from '../ui';
 
-type MemberProfile = { id: string; name: string; title: string; about: string; photo: string | null };
+type MemberProfile = { id: string; name: string; title: string; about: string; handles?: string; photo: string | null };
 const PHOTO_LIMIT = 2 * 1024 * 1024;
 
 /** What colleagues see on your profile card and next to your messages. */
 export function MyProfile() {
   const user = workspaceSession?.user;
   const [saved, setSaved] = useState<MemberProfile>();
-  const [draft, setDraft] = useState({ name: '', title: '', about: '' });
+  const [draft, setDraft] = useState({ name: '', title: '', about: '', handles: '' });
   const [loadError, setLoadError] = useState('');
   const mutation = useMutation();
   const photo = useRef<HTMLInputElement>(null);
@@ -21,14 +21,14 @@ export function MyProfile() {
       const me = directory.users.find(item => item.id === user?.id);
       if (!me) return;
       setSaved(me);
-      setDraft({ name: user?.display_name || '', title: me.title, about: me.about });
+      setDraft({ name: user?.display_name || '', title: me.title, about: me.about, handles: me.handles ?? '' });
     }).catch(error => { if (!abort.signal.aborted) setLoadError(errorMessage(error)); });
     return () => abort.abort();
   }, [user?.id, user?.display_name]);
   if (!user) return null;
-  const changed = saved && (draft.name.trim() !== (user.display_name ?? '') || draft.title.trim() !== saved.title || draft.about.trim() !== saved.about);
+  const changed = saved && (draft.name.trim() !== (user.display_name ?? '') || draft.title.trim() !== saved.title || draft.about.trim() !== saved.about || draft.handles.trim() !== (saved.handles ?? ''));
   const save = () => mutation.run(async () => {
-    const next = await identityRequest<MemberProfile>(`/workspaces/${workspaceId}/my-profile`, { display_name: draft.name, title: draft.title, about: draft.about });
+    const next = await identityRequest<MemberProfile>(`/workspaces/${workspaceId}/my-profile`, { display_name: draft.name, title: draft.title, about: draft.about, handles: draft.handles });
     setSaved(next);
     // The account menu reads the same session object.
     user.display_name = next.name;
@@ -64,6 +64,7 @@ export function MyProfile() {
       </div>
       <label className="ui-field">Your name<input name="display_name" required maxLength={80} autoComplete="name" value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label>
       <label className="ui-field"><span>Job title <small>shown next to your name</small></span><input name="title" maxLength={80} placeholder="e.g. Design lead" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} /></label>
+      <label className="ui-field"><span>What you handle <small>one line agents read to know whom to ask</small></span><input name="handles" maxLength={160} placeholder="e.g. Prices, discounts, quotes over ₹50,000" value={draft.handles} onChange={event => setDraft({ ...draft, handles: event.target.value })} /></label>
       <label className="ui-field"><span>About <small>0–200 characters</small></span><textarea name="about" rows={3} maxLength={200} placeholder="What you work on and what people can ask you about." value={draft.about} onChange={event => setDraft({ ...draft, about: event.target.value })} /></label>
       <label className="ui-field"><span>Sign-in email <small>cannot be changed here</small></span><input type="email" readOnly value={user.email} /></label>
       <Button primary type="submit" disabled={!draft.name.trim() || !changed}>{mutation.busy ? 'Saving…' : 'Save profile'}</Button>

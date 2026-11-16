@@ -141,7 +141,7 @@ test('Profile is the one place to edit you, in the order of the design, with the
     assert.equal(document.querySelector('.settings-profile > p').textContent,'How colleagues and agents see you in Northstar. The only place to change these.');
     const form=document.querySelector('form.my-profile');
     assert.deepEqual([...form.querySelectorAll('label.ui-field')].map(label=>label.firstChild.textContent),
-      ['Your name','Job title shown next to your name','About 0–200 characters','Sign-in email cannot be changed here']);
+      ['Your name','Job title shown next to your name','What you handle one line agents read to know whom to ask','About 0–200 characters','Sign-in email cannot be changed here']);
     assert.deepEqual([...form.querySelectorAll('button')].map(node=>node.textContent),['Change photo','Save profile']);
     const email=form.querySelector('input[type=email]');
     assert.deepEqual([email.readOnly,email.value],[true,'person@test']);
@@ -158,7 +158,12 @@ test('Failed personal profile saves preserve the draft and require explicit retr
     assert.equal(form.elements.display_name.value,'Changed name');
     assert.match(form.textContent,/Save failed/);
     assert.equal(writes.length,1);
-    assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:''});
+    assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:'',handles:''});
+    // What you handle is saved with the rest, as one line for agents to read.
+    await change(form.elements.handles,'Prices, discounts');
+    await submit(form);
+    assert.equal(writes[1].body.handles,'Prices, discounts');
+    assert.equal(form.elements.handles.value,'Prices, discounts','the draft stays after a failed save');
   });
 });
 

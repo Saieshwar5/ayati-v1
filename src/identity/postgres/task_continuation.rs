@@ -11,13 +11,19 @@ pub(super) async fn suspend(
     text: &str,
     outcome: &str,
 ) -> Result<bool> {
+    // An agent waiting for a person it asked (schema 124) suspends too.
+    let asks_clause = if super::agent_teamwork::ready(tx).await? {
+        " OR EXISTS(SELECT 1 FROM relay_person_asks p WHERE p.workspace=$1 AND p.reply=$2 AND p.run_cycle=relay_chat_jobs.run_cycle)"
+    } else {
+        ""
+    };
     let handoff_clause = if super::handoff_access::exists(tx).await? {
         " OR EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=$1 AND h.parent=$2 AND h.run_cycle=relay_chat_jobs.run_cycle)"
     } else {
         ""
     };
     let sql = format!(
-        "SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND (EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=$1 AND a.job=$2 AND a.requires_approval AND a.run_cycle=relay_chat_jobs.run_cycle) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=$1 AND q.reply=$2 AND q.run_cycle=relay_chat_jobs.run_cycle){handoff_clause})"
+        "SELECT run_cycle FROM relay_chat_jobs WHERE workspace=$1 AND reply=$2 AND (EXISTS(SELECT 1 FROM relay_control_actions a WHERE a.workspace=$1 AND a.job=$2 AND a.requires_approval AND a.run_cycle=relay_chat_jobs.run_cycle) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=$1 AND q.reply=$2 AND q.run_cycle=relay_chat_jobs.run_cycle){handoff_clause}{asks_clause})"
     );
     let row = query(
         tx,
@@ -72,7 +78,9 @@ impl PgStore {
             "Task still has unanswered questions"
         );
         let handoffs = super::handoff_lifecycle::continuation(&tx, job).await?;
-        let data = json!({"version":1,"handoffs":handoffs,"cycle":checkpoint.try_get::<i32>("","cycle")?,"checkpoint":checkpoint.try_get::<String>("","text")?,"actions":actions,"questions":questions});
+        // What people it asked said: information, never approvals.
+        let people = self.person_asks(&tx, job).await?;
+        let data = json!({"version":1,"handoffs":handoffs,"people_asked":people,"cycle":checkpoint.try_get::<i32>("","cycle")?,"checkpoint":checkpoint.try_get::<String>("","text")?,"actions":actions,"questions":questions});
         let data = serde_json::to_string(&data)?;
         ensure!(
             data.len() <= 131072,
