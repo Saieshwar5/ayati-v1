@@ -21,7 +21,7 @@ impl PgStore {
         let row = query(
             &tx,
             "SELECT j.state AS job_state,j.payload->>'requester' AS requester,j.payload->>'agent' AS agent,
-              m.chat,m.state,r.id AS asked,r.content,r.thread,r.author,r.kind,COALESCE(r.attachments,'[]'::jsonb) AS attachments,
+              m.chat,m.state,r.id AS asked,r.content,COALESCE(r.thread,m.thread) AS thread,r.author,r.kind,COALESCE(r.attachments,'[]'::jsonb) AS attachments,
               EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.reply=j.reply)
                OR EXISTS(SELECT 1 FROM relay_event_deliveries d WHERE d.workspace=j.workspace AND d.reply=j.reply)
                OR EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=j.workspace AND h.child=j.reply) AS automatic,

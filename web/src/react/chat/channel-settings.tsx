@@ -4,11 +4,12 @@ import { Button } from '../ui';
 import { LockIcon } from './conversation-face';
 import { chatRequest, type Conversation } from './model';
 
-type Values = { name: string; description: string; visibility: 'public' | 'private'; announcements: boolean };
-const valuesOf = (chat: Conversation): Values => ({ name: chat.name, description: chat.description ?? '', visibility: chat.visibility ?? 'private', announcements: Boolean(chat.announcements) });
-const same = (a: Values, b: Values) => a.name === b.name && a.description === b.description && a.visibility === b.visibility && a.announcements === b.announcements;
+type Replies = 'thread' | 'channel';
+type Values = { name: string; description: string; visibility: 'public' | 'private'; announcements: boolean; replies: Replies };
+const valuesOf = (chat: Conversation): Values => ({ name: chat.name, description: chat.description ?? '', visibility: chat.visibility ?? 'private', announcements: Boolean(chat.announcements), replies: chat.agent_replies ?? 'thread' });
+const same = (a: Values, b: Values) => a.name === b.name && a.description === b.description && a.visibility === b.visibility && a.announcements === b.announcements && a.replies === b.replies;
 const changes = (draft: Values, saved: Values) => [draft.name.trim() !== saved.name.trim(), draft.description.trim() !== saved.description.trim(),
-  draft.visibility !== saved.visibility, draft.announcements !== saved.announcements].filter(Boolean).length;
+  draft.visibility !== saved.visibility, draft.announcements !== saved.announcements, draft.replies !== saved.replies].filter(Boolean).length;
 
 /**
  * Name, description, who can find it and who can post, saved together (D245
@@ -32,6 +33,7 @@ export function ChannelSettings({ chat, admin, changed }: { chat: Conversation; 
     await chatRequest(`/chats/${chat.id}/settings`, {
       name: draft.name.trim(), description: draft.description.trim(),
       visibility: admin ? draft.visibility : saved.visibility, announcements: draft.announcements,
+      ...(draft.replies !== saved.replies ? { agent_replies: draft.replies } : {}),
     });
     setDone(true);
     await changed();
@@ -69,6 +71,15 @@ export function ChannelSettings({ chat, admin, changed }: { chat: Conversation; 
         <span className="ui-help">{draft.announcements && !admin
           ? 'You are not a workspace admin, so you could not post either. Agents still reply when asked.'
           : 'Agents still reply when asked.'}</span>
+      </label>
+      <label className="ui-field">Agents answer
+        <select value={draft.replies} onChange={event => edit({ replies: event.target.value as Replies })}>
+          <option value="thread">In a thread under the question</option>
+          <option value="channel">In the channel</option>
+        </select>
+        <span className="ui-help">{draft.replies === 'thread'
+          ? 'Keeps the channel readable. Follow-ups in the thread go to the same agent.'
+          : 'Everyone sees every answer in the channel.'}</span>
       </label>
       <div className="chat-details-save">
         <Button primary type="submit" disabled={mutation.busy || !unsaved}>{mutation.busy ? 'Saving…' : 'Save changes'}</Button>

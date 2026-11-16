@@ -94,7 +94,19 @@ async fn the_front_desk_answers_a_request_that_queues_behind_other_work_in_the_a
     assert_eq!(run.id(), record["id"].as_str().unwrap());
     assert!(run.finish("{\"reply\": \"Sure — I'm in the middle of the September reconciliation; I'll pull Sharma's balance right after.\", \"answer_now\": false}").await);
     let posted = updates(&db, &second.reply).await;
-    assert_eq!(posted, vec![("Sure — I'm in the middle of the September reconciliation; I'll pull Sharma's balance right after.".to_string(), None)]);
+    // It is said where the answer will come: the thread under the question (schema 123).
+    let thread: Option<String> = query(
+        &db.db,
+        "SELECT thread FROM relay_chat_messages WHERE workspace=$1 AND id=$2",
+        vec![second.workspace.clone().into(), second.reply.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "thread")
+    .unwrap();
+    assert!(thread.is_some());
+    assert_eq!(posted, vec![("Sure — I'm in the middle of the September reconciliation; I'll pull Sharma's balance right after.".to_string(), thread)]);
     assert_eq!(
         desk(&second.reply).await.unwrap()["decision"],
         "acknowledged"

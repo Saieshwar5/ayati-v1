@@ -15,3 +15,13 @@ test('a direct chat with an agent says who may ask about its work in every conve
       'Atlas keeps each conversation separate. Activity with Atlas is visible to its owners and admins.');
   }, { url: 'http://localhost/w/11111111-1111-4111-8111-111111111111/?view=chat', fetch: async () => ({ ok: true, json: async () => ({}) }) });
 });
+
+test('a channel says how its agents answer: in a thread by default, or in the channel', async () => {
+  await reactFixture(async () => {
+    const { agentRuleNote } = await import('../src/react/chat/model.ts');
+    assert.equal(agentRuleNote(['Ledger']), 'Ledger answers when you @mention it, in a thread under your message. Reply in that thread to keep going.');
+    assert.equal(agentRuleNote(['Ledger', 'Atlas', 'Stock'], 'channel'), 'Ledger, Atlas and Stock answer in the channel when you @mention them.');
+    assert.equal(agentRuleNote([]), '');
+  }, { url: 'http://localhost/w/11111111-1111-4111-8111-111111111111/?view=chat', fetch: async () => ({ ok: true, json: async () => ({}) }) });
+});
+

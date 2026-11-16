@@ -43,6 +43,8 @@ Main product contracts:
 - [Connected systems](runtime/connected-systems.md): an agent's owner connects the
   company's own MCP server from the agent's Tools tab and reviews each tool;
   developers start from the [connected systems guide](runtime/connected-systems-guide.md).
+- [Threads in channels](runtime/channel-threads.md): agents answer in a thread
+  under the question, follow-ups continue with them, and people follow their threads.
 - [The owner view](runtime/owner-view.md): each conversation with an agent is
   its own room; its owners and admins can ask it about all its work, in their
   private chat.

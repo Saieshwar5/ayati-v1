@@ -5,10 +5,6 @@ use serde_json::json;
 
 pub const LEVELS: [&str; 3] = ["all", "mentions", "none"];
 
-/// Matches unread messages that mention the person or answer their request.
-pub(super) const FOR_ME: &str =
-    "(strpos(m.content,'](mention:user:'||$2||')')>0 OR (m.kind='agent' AND m.requester=$2))";
-
 impl PgStore {
     pub async fn chat_notify_levels(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;

@@ -260,6 +260,14 @@ impl PgStore {
         let name = input.name.as_deref().map(str::trim);
         let description = input.description.as_deref().map(str::trim);
         execute(&tx,"UPDATE relay_chats SET visibility=$3,announcements=$4,name=coalesce($5,name),description=coalesce($6,description) WHERE workspace=$1 AND id=$2 AND kind<>'direct'",vec![w.into(),chat.into(),visibility.clone().into(),announcements.into(),name.into(),description.into()]).await?;
+        if let Some(replies) = &input.agent_replies {
+            ensure!(
+                super::channel_threads::ready(&tx).await?,
+                "Run workspace-db migrate to choose where agents answer"
+            );
+            execute(&tx, "UPDATE relay_chats SET agent_replies=$3 WHERE workspace=$1 AND id=$2 AND kind<>'direct'",
+                vec![w.into(), chat.into(), replies.clone().into()]).await?;
+        }
         super::task_revocation::inaccessible(&tx, w).await?;
         audit(
             &tx,

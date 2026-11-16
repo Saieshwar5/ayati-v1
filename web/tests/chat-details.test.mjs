@@ -289,6 +289,13 @@ test('a creator who is not an admin edits the name, description and who can post
     assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders', description: 'Slots, dispatch and invoices.', visibility: 'public', announcements: true } }]);
     assert.match(panel().querySelector('.chat-details-description').textContent, /Slots, dispatch and invoices\./);
     assert.match(panel().textContent, /Saved\./);
+    // Agents answer in a thread by default; choosing the channel sends only that change.
+    const answers = [...panel().querySelectorAll('.chat-details-form select')].at(-1);
+    assert.equal(answers.value, 'thread');
+    await change(answers, 'channel');
+    assert.match(panel().textContent, /Everyone sees every answer in the channel/);
+    await click(inPanel('Save changes'));
+    assert.deepEqual(writes[1].body, { name: 'orders', description: 'Slots, dispatch and invoices.', visibility: 'public', announcements: true, agent_replies: 'channel' });
   }, { url: `${base}&conversation=orders`, fetch: api({ user: 'meera', role: 'Member', chats: () => [current, general, direct],
     post: (path, body) => { writes.push({ path, body }); current = { ...current, ...body }; return response({ ok: true }); } }) });
 });

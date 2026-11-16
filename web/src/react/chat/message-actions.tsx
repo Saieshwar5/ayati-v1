@@ -84,12 +84,11 @@ export function MessageToolbar({ message, own, reactions, cancel, reply, openThr
   return <div ref={bar} className={`chat-message-toolbar${upward ? ' opens-up' : ''}`} role="toolbar" aria-label="Message actions">
     {deliverable && QUICK.map(emoji => <button type="button" key={emoji} className="chat-message-tool" disabled={reactions.busy} aria-label={`React ${emoji}`} title={`React ${emoji}`} onClick={() => reactions.toggle(emoji)}>{emoji}</button>)}
     {deliverable && <ReactionPicker open={picking} setOpen={open => { place(); setPicking(open); }} choose={reactions.toggle} busy={reactions.busy} />}
-    {quote && <button type="button" className="chat-message-tool" aria-label="Reply" title="Reply" onClick={quote}>↩</button>}
-    {!quote && openThread && <button type="button" className="chat-message-tool" aria-label="Reply in thread" title="Reply in thread" onClick={openThread}>↩</button>}
+    {quote && <button type="button" className="chat-message-tool" aria-label="Reply" title="Reply: quote it in the conversation" onClick={quote}>↩</button>}
+    {openThread && <button type="button" className="chat-message-tool chat-thread-tool" aria-label="Reply in thread" title="Reply in thread" onClick={openThread}><ThreadIcon /></button>}
     {stored && <span className="chat-message-more">
       <button type="button" className="chat-message-tool" aria-label="More actions" aria-expanded={more} title={copied ? 'Link copied' : 'More'} onClick={() => { place(); setMore(!more); }}>⋯</button>
       {more && <span className="chat-message-menu" role="menu">
-        {quote && openThread && <button type="button" role="menuitem" onClick={() => { setMore(false); openThread(); }}>Reply in thread</button>}
         {own && <button type="button" role="menuitem" onClick={() => { setMore(false); edit(); }}>Edit message</button>}
         {details && <button type="button" role="menuitem" onClick={() => { setMore(false); details(); }}>See what it did</button>}
         <button type="button" role="menuitem" onClick={() => void copy()}>Copy link</button>
@@ -129,6 +128,11 @@ export function DeleteMessage({ message, close }: { message: Message; close: () 
   </Dialog>;
 }
 
+function ThreadIcon() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" /><path d="M19 9h1a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v3l-3.5-3H12" />
+  </svg>;
+}
 function SmileIcon() {
   return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
     <circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01" />

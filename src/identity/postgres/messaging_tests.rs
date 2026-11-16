@@ -126,6 +126,8 @@ async fn inline_mentions_and_timeline_agent_replies_keep_access_and_context_boun
         vec![agent.clone()],
     )
     .await;
+    // This channel keeps agents' answers in the main timeline (schema 123).
+    answers_in_channel(&db, &w, &c).await;
     db.chat_send(&owner, &w, &c, &message("UNRELATED-CONTEXT", None))
         .await
         .unwrap();
@@ -282,6 +284,8 @@ async fn a_reply_in_an_agents_thread_asks_it_only_when_the_person_may_ask_it() {
         vec![shared.clone(), private.clone()],
     )
     .await;
+    // Answers stay in the main timeline, so an agent's answer can start a thread.
+    answers_in_channel(&db, &w, &c).await;
     // Only its owner may ask this agent, even in a shared conversation.
     execute(
         &db.db,
@@ -326,4 +330,15 @@ async fn a_reply_in_an_agents_thread_asks_it_only_when_the_person_may_ask_it() {
     denied.thread = Some(roots[1].clone());
     let refused = db.chat_send(&member, &w, &c, &denied).await.unwrap_err();
     assert!(refused.to_string().contains("not shared with you"));
+}
+
+/// The channel's managers chose "Agents answer in the channel" (schema 123).
+async fn answers_in_channel(db: &PgStore, w: &str, c: &str) {
+    execute(
+        &db.db,
+        "UPDATE relay_chats SET agent_replies='channel' WHERE workspace=$1 AND id=$2",
+        vec![w.into(), c.into()],
+    )
+    .await
+    .unwrap();
 }

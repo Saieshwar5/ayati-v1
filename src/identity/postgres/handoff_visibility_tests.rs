@@ -249,6 +249,8 @@ async fn group_rooms_hand_off_with_the_channel_rules_and_direct_messages_cannot(
         (child.chat.as_str(), child.requester.as_str()),
         (group.as_str(), member.id.as_str())
     );
+    // The hand-off is asked where the parent answers: the thread under the
+    // person's question (schema 123).
     assert_eq!(
         thread_of(
             &s.db,
@@ -256,7 +258,12 @@ async fn group_rooms_hand_off_with_the_channel_rules_and_direct_messages_cannot(
             &request_of(&s.db, &receipt).await
         )
         .await,
-        None
+        thread_of(&s.db, "relay_chat_messages", &parent.reply).await
+    );
+    assert!(
+        thread_of(&s.db, "relay_chat_messages", &parent.reply)
+            .await
+            .is_some()
     );
     assert!(
         s.db.request_handoff(&child, &request(&s.a, "back"))
