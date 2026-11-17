@@ -254,21 +254,6 @@ impl PgStore {
         } else {
             asked
         };
-        // In your chat with your own agent, mentioning other agents asks your
-        // agent to work with them in a thread under this message (schema 125).
-        let mut asked = asked;
-        let mut guests = vec![];
-        if class == WorkClass::Interactive
-            && let Some(own) =
-                super::thread_guests::personal_agent(tx, &user.id, workspace, chat).await?
-        {
-            let mentions = crate::identity::chat::mentions::parse(&input.content)?;
-            guests =
-                super::thread_guests::invited(tx, &user.id, workspace, &own, &mentions).await?;
-            if !guests.is_empty() {
-                asked = vec![own];
-            }
-        }
         if class != WorkClass::Communication {
             super::communications::access::ordinary_chat(tx, workspace, chat).await?;
         }
@@ -325,14 +310,8 @@ impl PgStore {
         // A handoff task may name other agents as plain text; only its target is
         // asked. Otherwise every mentioned agent must be asked, each checked
         // below against current membership and requester authority.
-        // Invited agents are mentioned without being asked: your agent asks them.
         if !matches!(class, WorkClass::Handoff(_)) {
-            let named: Vec<_> = mentions
-                .iter()
-                .filter(|(kind, id)| !(kind == "agent" && guests.contains(id)))
-                .cloned()
-                .collect();
-            crate::identity::chat::mentions::ensure_target(&named, &asked)?;
+            crate::identity::chat::mentions::ensure_target(&mentions, &asked)?;
         }
         mentioned_people_visible(tx, workspace, chat, &mentions).await?;
         ensure!(input.attachments.len() <= 8, "Attach at most eight files");
@@ -365,16 +344,7 @@ impl PgStore {
                 background: class.background(),
             },
         };
-        several_agents::admit(
-            tx,
-            user,
-            workspace,
-            chat,
-            input.thread.as_deref(),
-            &asked,
-            asking,
-        )
-        .await?;
+        several_agents::admit(tx, user, workspace, chat, &asked, asking).await?;
         // reply_to (schema 40) is only named when used, so unquoted sends also work on older schemas.
         let (mut columns, mut values) = (String::new(), String::new());
         if input.reply_to.is_some() {
@@ -403,10 +373,6 @@ impl PgStore {
             values.push_str(&format!(",${}", args.len()));
         }
         execute(tx,&format!("INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,target,thread,attachments{columns}) VALUES($1,$2,$3,$4,$10,$5,'sent',$6,$7,$8,$9{values})"),args).await?;
-        if !guests.is_empty() {
-            let thread = input.thread.as_deref().unwrap_or(&input.id);
-            super::thread_guests::invite(tx, &user.id, workspace, chat, thread, &guests).await?;
-        }
         let mut jobs = Vec::with_capacity(asked.len());
         for agent in &asked {
             if let Some(emoji) = reaction {

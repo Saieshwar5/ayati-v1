@@ -332,10 +332,18 @@ pub(super) async fn authorize(db: &impl ConnectionTrait, job: &Job, running: boo
         super::source_access::allowed(db, job).await?,
         "Library source access changed"
     );
-    // A member of the chat, or an agent invited into this task's thread (schema 125).
     ensure!(
-        super::thread_guests::takes_part(db, &job.workspace, &job.chat, &job.agent, &job.reply)
-            .await?,
+        query(
+            db,
+            "SELECT agent FROM relay_chat_agents WHERE workspace=$1 AND chat=$2 AND agent=$3",
+            vec![
+                job.workspace.clone().into(),
+                job.chat.clone().into(),
+                job.agent.clone().into()
+            ]
+        )
+        .await?
+        .is_some(),
         "Agent left this conversation"
     );
     let row=query(db,"SELECT j.state,j.claim,(j.lease_until>floor(extract(epoch FROM clock_timestamp()))::bigint) AS lease_active,m.state AS message_state,j.payload FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply WHERE j.workspace=$1 AND j.reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?.context("Task unavailable")?;

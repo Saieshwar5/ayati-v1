@@ -315,7 +315,6 @@ mod task_continuation;
 mod task_continuation_tests;
 mod task_revocation;
 mod tasks;
-pub(crate) mod thread_guests;
 pub(crate) mod transcripts;
 mod unread;
 mod web_reads;

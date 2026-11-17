@@ -138,10 +138,7 @@ fn collect_ids(value: &Value, ids: &mut BTreeSet<String>) {
     }
 }
 pub(super) async fn latest(tx: &DatabaseTransaction, job: &Job) -> Result<Value> {
-    // An agent invited into one thread reads no brief of the chat (schema 125).
-    if !super::context_attempts::exists(tx).await?
-        || super::thread_guests::guest_only(tx, &job.workspace, &job.chat, &job.agent).await?
-    {
+    if !super::context_attempts::exists(tx).await? {
         return Ok(json!({"revision":0,"available":false}));
     }
     // A shared room has one brief everyone in it reads; otherwise it is the requester's.

@@ -46,9 +46,9 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   (`assistants::own_room`). Library-source answers, withdrawn notes and Home
   panel updates keep their rules.
 
-Mentioning another agent in your assistant's chat still works as before
-([invited agents](forwarding-and-invited-agents.md)); it will be replaced by
-work threads.
+To have your assistant work with another agent, use a thread (below). The
+older way, mentioning an agent in your assistant's chat to invite it into a
+thread there, was removed with schema 130.
 
 ## Threads (schema 128)
 

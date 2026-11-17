@@ -31,16 +31,6 @@ pub(super) async fn recent(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> 
 /// The same eligible messages as `recent`, without its prompt-size bound: the
 /// automatic summarizer reads more than one prompt holds (schema 120).
 pub(super) async fn gather(tx: &DatabaseTransaction, scope: RecentScope<'_>) -> Result<Vec<Value>> {
-    // An agent invited into a thread reads that thread and nothing else (schema 125).
-    super::thread_guests::confine(
-        tx,
-        scope.workspace,
-        scope.chat,
-        scope.agent,
-        scope.thread,
-        scope.main_only,
-    )
-    .await?;
     let exclusions = source_exclusions(tx).await?;
     let sql = format!(
         "SELECT jsonb_build_object('id',m.id,'sequence',m.sequence,

@@ -24,6 +24,19 @@ mod tests;
 /// Stored as the content of a forward sent to a person without a message of its own.
 pub(crate) const NO_NOTE: &str = "Forwarded message";
 
+/// Whether schema 125 is applied. Upgrade tests run this code on older schemas.
+async fn ready(db: &impl ConnectionTrait) -> Result<bool> {
+    Ok(query(
+        db,
+        "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
+           AND table_name='relay_chat_messages' AND column_name='forwarded') AS ready",
+        vec![],
+    )
+    .await?
+    .context("Missing schema check")?
+    .try_get("", "ready")?)
+}
+
 /// Where the forwarded message was, as its reader is told.
 fn place(kind: &str, name: &str) -> String {
     match kind {
@@ -104,10 +117,7 @@ impl PgStore {
         ensure!(input.note.len() <= 4000, "Your message is too long");
         let note = input.note.trim();
         let tx = self.workspace_tx(w).await?;
-        ensure!(
-            super::thread_guests::ready(&tx).await?,
-            "Forwarding is not available yet"
-        );
+        ensure!(ready(&tx).await?, "Forwarding is not available yet");
         super::chat::access(&tx, user, w, chat).await?;
         let forwarded = copy(&tx, w, chat, message).await?;
         let name = if input.to.kind == "agent" {
@@ -174,7 +184,7 @@ pub(in crate::identity::postgres) async fn erase(
     w: &str,
     message: &str,
 ) -> Result<()> {
-    if super::thread_guests::ready(tx).await? {
+    if ready(tx).await? {
         execute(
             tx,
             "UPDATE relay_chat_messages SET forwarded=NULL WHERE workspace=$1 AND id=$2",
@@ -183,4 +193,51 @@ pub(in crate::identity::postgres) async fn erase(
         .await?;
     }
     Ok(())
+}
+
+pub(crate) use migration::{ForwardingAndGuests, GuestsRemoved};
+mod migration {
+    use sea_orm_migration::prelude::*;
+    pub(crate) struct ForwardingAndGuests;
+    impl MigrationName for ForwardingAndGuests {
+        fn name(&self) -> &str {
+            "m20261116_000125_forwarding_and_guests"
+        }
+    }
+    #[async_trait::async_trait]
+    impl MigrationTrait for ForwardingAndGuests {
+        async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+            m.get_connection()
+                .execute_unprepared(include_str!("forwarding_and_guests.sql"))
+                .await?;
+            Ok(())
+        }
+        async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+            Err(DbErr::Custom(
+                "Forwarding requires a forward migration".into(),
+            ))
+        }
+    }
+    /// Schema 130: agents invited into a thread of a private chat are gone;
+    /// an assistant's threads (schema 128) do that job.
+    pub(crate) struct GuestsRemoved;
+    impl MigrationName for GuestsRemoved {
+        fn name(&self) -> &str {
+            "m20261117_000130_thread_guests_removed"
+        }
+    }
+    #[async_trait::async_trait]
+    impl MigrationTrait for GuestsRemoved {
+        async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+            m.get_connection()
+                .execute_unprepared("DROP TABLE relay_thread_guests;")
+                .await?;
+            Ok(())
+        }
+        async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+            Err(DbErr::Custom(
+                "Removing thread guests requires a forward migration".into(),
+            ))
+        }
+    }
 }

@@ -29,13 +29,8 @@ export function askedBy(replies: Message[], me: string): string | undefined {
 /** Whether a draft names anyone: then it goes only to whom it names. */
 export const namesSomeone = (text: string) => decodeMentions(text).mentions.length > 0;
 
-/** Where the work in a thread stands, shown only in a thread with invited agents
- * (schema 125): someone must answer, or every agent there has finished. */
-export type ThreadState = 'needs_you' | 'done';
-
-/** A thread at a glance, from the replies loaded with the conversation. `present`
- * are the conversation's own agents; any other agent there was invited into it. */
-export function threadSummary(messages: Message[], root: string, present?: string[]) {
+/** A thread at a glance, from the replies loaded with the conversation. */
+export function threadSummary(messages: Message[], root: string) {
   const replies = messages.filter(message => message.thread === root && message.state !== 'deleted');
   const shown = replies.filter(message => message.kind !== 'agent' || message.content || message.state !== 'queued');
   const people: { kind: 'user' | 'agent'; id: string }[] = [];
@@ -43,17 +38,11 @@ export function threadSummary(messages: Message[], root: string, present?: strin
     const kind = message.kind === 'agent' ? 'agent' : 'user';
     if (!people.some(p => p.id === message.author)) people.push({ kind, id: message.author });
   }
-  const working = [...new Set(replies.filter(m => m.kind === 'agent' && m.state === 'queued').map(m => m.author))];
-  const invited = present !== undefined && replies.some(m => m.kind === 'agent' && !present.includes(m.author));
-  const waiting = replies.some(m => m.progress?.state === 'input' || m.progress?.state === 'approval');
-  const finished = replies.some(m => m.kind === 'agent' && m.state === 'complete');
-  const state: ThreadState | undefined = !invited ? undefined : waiting ? 'needs_you' : !working.length && finished ? 'done' : undefined;
   return {
     count: shown.length,
     people,
     last: shown.length ? shown[shown.length - 1].at : undefined,
-    working,
-    state,
+    working: [...new Set(replies.filter(m => m.kind === 'agent' && m.state === 'queued').map(m => m.author))],
   };
 }
 
@@ -68,19 +57,17 @@ const ago = (at: number) => {
 /** Under a message with a thread: faces, count, when the last reply came and
  * which agent is working there. Opens the thread. */
 export function ThreadLine({ summary, directory, open }: { summary: ReturnType<typeof threadSummary>; directory: Directory; open?: () => void }) {
-  const { count, people, last, working, state } = summary;
+  const { count, people, last, working } = summary;
   if (!count && !working.length) return null;
   const name = (id: string) => directory.agents.find(agent => agent.id === id)?.name ?? 'Agent';
   const replies = `${count} ${count === 1 ? 'reply' : 'replies'}`;
   const busy = working.length ? `${working.map(name).join(' and ')} ${working.length === 1 ? 'is' : 'are'} working…` : '';
-  const status = state === 'done' ? 'Done' : state === 'needs_you' ? 'Needs you' : '';
-  const label = [count ? replies : '', status, busy, count && last ? `last reply ${ago(last)}` : ''].filter(Boolean).join(' · ');
+  const label = [count ? replies : '', busy, count && last ? `last reply ${ago(last)}` : ''].filter(Boolean).join(' · ');
   return <button type="button" className="chat-thread-link chat-thread-count chat-thread-line" aria-label={`Open thread: ${label}`} title="Open thread" onClick={open}>
     <span className="chat-thread-faces" aria-hidden="true">{people.slice(0, 3).map(person => person.kind === 'agent'
       ? <AgentFace key={person.id} agent={directory.agents.find(a => a.id === person.id) ?? { id: person.id, name: name(person.id) }} className="chat-thread-face" />
       : <PersonFace key={person.id} person={directory.users.find(u => u.id === person.id) ?? { id: person.id, name: 'Former member' }} className="chat-thread-face" />)}</span>
     {count > 0 && <strong>{replies}</strong>}
-    {status && <span className={`chat-thread-state${state === 'done' ? ' done' : ''}`}>{status}</span>}
     {busy && <span className="chat-thread-working">{busy}</span>}
     {count > 0 && last !== undefined && <span className="chat-thread-last">last reply {ago(last)}</span>}
   </button>;
