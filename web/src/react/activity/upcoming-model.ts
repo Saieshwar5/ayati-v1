@@ -8,11 +8,10 @@ type Base = { id: string; agent: string; agent_name: string; title: string };
 export type UpcomingSchedule = Base & { kind: 'schedule'; at: number | null; state: 'enabled' | 'paused' | 'blocked'; revision: number;
   interval_seconds: number | null; timezone: string; detail: string; by: string; own: boolean };
 export type UpcomingTrigger = Base & { kind: 'trigger'; source: string | null; state: 'enabled' | 'paused' | 'blocked'; revision: number; detail: string; by: string; own: boolean };
-export type UpcomingAppTrigger = Base & { kind: 'app_trigger'; app: string; app_name: string; change: 'added' | 'changed'; by: string | null; manages: boolean };
 export type UpcomingFollowUp = Base & { kind: 'follow_up'; at: number };
 export type UpcomingDue = Base & { kind: 'due'; at: number };
 export type UpcomingTask = UpcomingFollowUp | UpcomingDue;
-export type UpcomingItem = UpcomingSchedule | UpcomingTrigger | UpcomingAppTrigger | UpcomingFollowUp | UpcomingDue;
+export type UpcomingItem = UpcomingSchedule | UpcomingTrigger | UpcomingFollowUp | UpcomingDue;
 
 export const loadUpcoming = (scope: Scope) => identityRequest<{ items: UpcomingItem[] }>(`/workspaces/${workspaceId}/activity/upcoming?scope=${scope}`);
 
@@ -20,7 +19,7 @@ export type Filter = 'all' | 'schedules' | 'triggers' | 'follow_ups';
 export const filters: [Filter, string][] = [['all', 'All'], ['schedules', 'Schedules'], ['triggers', 'Triggers'], ['follow_ups', 'Follow-ups']];
 const inFilter = (item: UpcomingItem, filter: Filter) => filter === 'all'
   || (filter === 'schedules' && item.kind === 'schedule')
-  || (filter === 'triggers' && (item.kind === 'trigger' || item.kind === 'app_trigger'))
+  || (filter === 'triggers' && item.kind === 'trigger')
   || (filter === 'follow_ups' && (item.kind === 'follow_up' || item.kind === 'due'));
 
 /** Items grouped for reading: by day of their next time, then paused ones, then
@@ -39,7 +38,7 @@ export function grouped(items: UpcomingItem[], filter: Filter, search: string): 
   }
   const paused = shown.filter(item => item.kind === 'schedule' && (item.state !== 'enabled' || item.at === null));
   if (paused.length) groups.push(['Paused', paused]);
-  const always = shown.filter(item => item.kind === 'trigger' || item.kind === 'app_trigger');
+  const always = shown.filter(item => item.kind === 'trigger');
   if (always.length) groups.push(['Always on', always]);
   return groups;
 }

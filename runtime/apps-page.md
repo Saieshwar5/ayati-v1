@@ -4,7 +4,8 @@
 connected, what agents may do with each action and which agents use it. Connections moved
 here from Settings. From the Apps plan (`proj-docs/apps/`, AP1–AP2, draft decision D243).
 Built 2026-11-05. Company systems (link apps), people access and requests were added
-the same day (schema 75), and [built apps](built-apps.md) after them (schema 78). The
+the same day (schema 75). Built apps (schemas 78–86) were removed in schema 126 (see
+[below](#built-apps-removed-schema-126)). The
 approved [connector screens](../designs/connector-screens/README.md) replaced the
 "Add and manage apps" drawer on 2026-11-08: each service is managed in its own panel,
 and Add app is one catalog for every way to connect.
@@ -108,7 +109,7 @@ which checks who may open it first; the system keeps its own sign-in.
   pause in typing, each search aborting the last and late answers ignored; **Load more**
   follows `next_cursor`), tiles with the kinds of action and their state, then
   **Other ways to add**: MCP server (shown as next, not yet actionable), Your company's
-  app and Build an app. A connected tile opens its panel. Members see **Request** on
+  app. A connected tile opens its panel. Members see **Request** on
   each tile, sent as an app suggestion under the app's name (`POST …/apps/requests`),
   and Suggest another app.
 - **Connect** (`connect-dialog.tsx`) shows the starting rules first (Cuckoo's safe
@@ -186,10 +187,25 @@ draft agent is kept, and the list reloads on Done.
   owner; a member asks for access (desktop, 390 px without overflow); the owner approves
   and Cuckoo then redirects the member to it; openings are audited; dark mode.
 
+## Built apps removed (schema 126)
+
+Cuckoo used to let people build small apps inside it (a code store with versions,
+publish checks, a sandboxed runner, app data with roles, agents acting in apps and
+app events that started agent work). They were removed on 2026-11-17: Apps now holds
+connected services and links to the company's own systems, and agents work in the
+tools a company already uses.
+
+- Schema 126 drops every `relay_built_app*` table: apps, files, versions, records,
+  roles, agent rules and runs, watchers and waiting events. Work an app event already
+  started stays as ordinary conversation history. Schemas 78–86 stay in the history.
+- The `/apps/built/…` routes, the "Built here" filter, **Build an app**, app triggers
+  on Automations and in Activity › Upcoming, and the agent tools `my_apps`,
+  `app_files`, `read_app_file`, `write_app_file`, `app_actions` and `run_app_action`
+  are gone. Old `?view=apps&run=…` links open the Apps list.
+- The last version with built apps is tagged `built-apps-last`.
+
 ## Not yet
 
 - Self-service MCP servers (shown in Add app as next) and API descriptions for company
   systems (agents using them).
-- Built apps reading and writing data, the builder agent and manifest actions (see
-  [built apps](built-apps.md)).
 - A Computers page in Settings (no computers feature exists yet).

@@ -2,7 +2,6 @@
 //! own; a schedule posting in a conversation is seen only by people in it.
 use crate::identity::postgres::automation_tests::{schedule, setup};
 use crate::identity::postgres::tests::{chat, join, user};
-use crate::identity::postgres::{AppRelease, AppWatch, NewApp};
 use serde_json::Value;
 
 fn titles(page: &Value, kind: &str) -> Vec<String> {
@@ -58,34 +57,6 @@ async fn upcoming_lists_what_runs_on_its_own_for_the_people_who_may_see_it() {
         .unwrap();
     assert_eq!(paused["state"], "paused");
 
-    // An app trigger on the agent.
-    let app = uuid::Uuid::new_v4().to_string();
-    let new_app = NewApp {
-        id: app.clone(),
-        name: "Leave".into(),
-        description: String::new(),
-        audience: "everyone".into(),
-        people: vec![],
-        template: "leave".into(),
-    };
-    db.built_app_create(&owner, &w, &new_app).await.unwrap();
-    let release = AppRelease {
-        note: String::new(),
-        revision: 1,
-    };
-    db.built_app_publish(&owner, &w, &app, &release)
-        .await
-        .unwrap();
-    let watch = AppWatch {
-        collection: "requests".into(),
-        kind: "added".into(),
-        agent: Some(agent.clone()),
-        instructions: "Tell me who asked.".into(),
-    };
-    db.built_app_watch_set(&owner, &w, &app, &watch)
-        .await
-        .unwrap();
-
     let mine = db.activity_upcoming(&owner, &w, None).await.unwrap();
     let mut listed = titles(&mine, "schedule");
     listed.sort();
@@ -102,7 +73,6 @@ async fn upcoming_lists_what_runs_on_its_own_for_the_people_who_may_see_it() {
         .unwrap();
     assert_eq!(private_row["state"], "paused");
     assert_eq!(private_row["own"], true);
-    assert_eq!(titles(&mine, "app_trigger"), vec!["New requests in Leave"]);
 
     let theirs = db.activity_upcoming(&admin, &w, Some("all")).await.unwrap();
     assert_eq!(

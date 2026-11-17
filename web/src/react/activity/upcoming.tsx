@@ -2,14 +2,13 @@ import { useCallback, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
 import { AgentFace } from '../faces';
-import { workspaceUrl } from '../../workspace-context';
 import { agentSectionUrl } from '../agents/workspace-tabs';
 import { cadence } from '../agents/automation/model';
 import { clock, taskUrl, type Scope } from './model';
 import { useLive } from './use-live';
 import { cancel, filters, grouped, loadUpcoming, setRunning, type Filter, type UpcomingItem, type UpcomingSchedule } from './upcoming-model';
 
-const kindLabel: Record<UpcomingItem['kind'], string> = { schedule: 'Schedule', trigger: 'Trigger', app_trigger: 'Trigger', follow_up: 'Follow-up', due: 'Due' };
+const kindLabel: Record<UpcomingItem['kind'], string> = { schedule: 'Schedule', trigger: 'Trigger', follow_up: 'Follow-up', due: 'Due' };
 type Undo = { label: string; item: UpcomingSchedule; revision: number };
 
 /** Activity › Upcoming (designs/automations-simplified 3): everything agents will do
@@ -51,7 +50,6 @@ export function UpcomingView({ scope, search }: { scope: Scope; search: string }
 function about(item: UpcomingItem): string {
   if (item.kind === 'schedule') return [item.state === 'blocked' ? 'Blocked' : item.state === 'paused' ? 'Paused' : cadence(item.interval_seconds), `set up by ${item.own ? 'you' : item.by}`].join(' · ');
   if (item.kind === 'trigger') return [item.state === 'enabled' ? item.source ?? 'When something happens' : item.state === 'paused' ? 'Paused' : 'Blocked', `set up by ${item.own ? 'you' : item.by}`].join(' · ');
-  if (item.kind === 'app_trigger') return `Added from ${item.app_name}`;
   return item.kind === 'follow_up' ? 'The agent checks back on this task' : 'This task is due';
 }
 
@@ -61,7 +59,6 @@ function Actions({ item, busy, act }: { item: UpcomingItem; busy: boolean; act: 
     <Button disabled={busy} onClick={() => act(async () => { await cancel(item); return undefined; }, `Follow-up for ${item.title} cancelled; the task stays open.`)}>Cancel follow-up</Button>
     <a href={taskUrl(item.id)}>Open task</a></span>;
   if (item.kind === 'due') return <span className="activity-actions"><a href={taskUrl(item.id)}>Open task</a></span>;
-  if (item.kind === 'app_trigger') return <span className="activity-actions"><a href={workspaceUrl('/?view=apps')}>{item.manages ? 'Change' : 'Open'} in Apps</a></span>;
   if (item.state === 'enabled') return <span className="activity-actions">
     <Button disabled={busy} onClick={() => act(async () => {
       const result = await setRunning(item, false);

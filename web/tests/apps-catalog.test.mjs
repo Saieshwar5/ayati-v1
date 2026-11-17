@@ -91,8 +91,9 @@ test('Members request a service instead of connecting it; admins see Connect and
   } });
   const chosen = [];
   await reactFixture(async ({ render, click, button }) => {
-    await open(render, { connect: app => chosen.push(app.id), others: { addSystem() {}, build() {} } });
-    assert.match(document.querySelector('.catalog-nav').textContent, /MCP serverNext.*Your company's app.*Build an app/);
+    await open(render, { connect: app => chosen.push(app.id), others: { addSystem() {} } });
+    assert.match(document.querySelector('.catalog-nav').textContent, /MCP serverNext.*Your company's app/);
+    assert.doesNotMatch(document.querySelector('.catalog-nav').textContent, /Build an app/);
     assert.match(document.querySelector('.catalog-tile:nth-child(2)').textContent, /Connect3 actions/);
     await click(button('Connect Outlook'));
     assert.deepEqual(chosen, ['outlook']);

@@ -402,7 +402,7 @@ impl PgStore {
         refused: &str,
     ) -> Result<Option<Value>> {
         let tx = self.read_tx(&job.workspace).await?;
-        let answer = super::built_apps::asking::answered(&tx, job, key, &specification).await?;
+        let answer = answered(&tx, job, key, &specification).await?;
         tx.commit().await?;
         Ok(match answer {
             Some(true) => None,
@@ -443,4 +443,33 @@ impl PgStore {
         tx.commit().await?;
         Ok(())
     }
+}
+
+/// Whether the person answered this question: none while unasked or waiting, yes only
+/// for the exact question Cuckoo wrote, answered by the person the agent works for.
+async fn answered(
+    tx: &DatabaseTransaction,
+    job: &Job,
+    key: &str,
+    specification: &Value,
+) -> Result<Option<bool>> {
+    let Some(row) = query(tx, "SELECT state,specification,answer,answered_by FROM relay_task_questions WHERE workspace=$1 AND reply=$2 AND request_key=$3", vec![job.workspace.clone().into(), job.reply.clone().into(), key.into()]).await? else {
+        return Ok(None);
+    };
+    let state: String = row.try_get("", "state")?;
+    if state == "pending" {
+        return Ok(None);
+    }
+    let asked: Value = row.try_get("", "specification")?;
+    let same = asked["title"] == specification["title"]
+        && asked["options"] == specification["options"]
+        && asked["description"] == specification["description"];
+    let answer: Option<Value> = row.try_get("", "answer")?;
+    let by: Option<String> = row.try_get("", "answered_by")?;
+    Ok(Some(
+        state == "answered"
+            && same
+            && by.as_deref() == Some(job.requester.as_str())
+            && answer.is_some_and(|a| a["choices"] == json!(["yes"])),
+    ))
 }

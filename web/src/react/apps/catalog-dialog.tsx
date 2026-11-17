@@ -6,11 +6,11 @@ import type { CatalogApp } from './apps-model';
 import { AppLetter, CheckIcon, KindChips } from './app-marks';
 import './catalog.css';
 
-type OtherWays = { addSystem?: () => void; build?: () => void; suggest?: () => void };
+type OtherWays = { addSystem?: () => void; suggest?: () => void };
 
 /** Add app (designs/connector-screens 2): every kind of connection in one dialog.
  * Services come from Cuckoo's catalog, searched and paged by the server; below them
- * MCP servers (next), the company's own apps and built apps. Members browse the same
+ * MCP servers (next) and the company's own apps. Members browse the same
  * catalog and request an app instead of connecting it. */
 export function CatalogDialog({ canManage, close, connect, open, others = {} }: {
   canManage: boolean; close: () => void; connect: (app: CatalogApp) => void; open?: (connection: string) => void; others?: OtherWays;
@@ -22,7 +22,7 @@ export function CatalogDialog({ canManage, close, connect, open, others = {} }: 
   const total = catalog.categories?.reduce((sum, item) => sum + item.count, 0);
   const leave = (next?: () => void) => next && (() => { close(); next(); });
   const ways: [string, (() => void) | undefined, ReactNode][] = [
-    ["Your company's app", leave(others.addSystem), <LinkMark />], ['Suggest another app', leave(others.suggest), <LinkMark />], ['Build an app', leave(others.build), <BuildMark />]];
+    ["Your company's app", leave(others.addSystem), <LinkMark />], ['Suggest another app', leave(others.suggest), <LinkMark />]];
   return <Dialog title={canManage ? 'Add app' : 'Request an app'} close={close}>
     <div className="catalog">
       <nav className="catalog-nav" aria-label="Add app">
@@ -82,5 +82,4 @@ function TileAction({ app, canManage, connect, open, request }: {
 const mark = (path: string) => <svg className="mark-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>;
 const ServerMark = () => mark('M3 3.5h10v4H3zM3 8.5h10v4H3zM5.5 5.5h.01M5.5 10.5h.01');
 const LinkMark = () => mark('M7 9a2.5 2.5 0 0 0 3.5 0l2-2A2.5 2.5 0 0 0 9 3.5l-.7.7M9 7a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 7 12.5l.7-.7');
-const BuildMark = () => mark('M5.5 5 2.5 8l3 3M10.5 5l3 3-3 3M9 3.5l-2 9');
 const InfoMark = () => mark('M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 7.5V11M8 5h.01');

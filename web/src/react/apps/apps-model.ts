@@ -16,14 +16,7 @@ export type WorkspaceApp = { id: string; server: string; name: string; kind: 'se
 export type CompanySystem = { id: string; kind: 'link'; name: string; description: string; audience: 'everyone' | 'selected'; revision: number;
   can_open: boolean; url?: string | null; owner?: string | null; owner_name?: string | null; can_decide: boolean;
   people?: { id: string; name: string }[] | null; requested: boolean };
-/** An app built in Cuckoo (BA1): drafts show only to their builder and admins. */
-export type BuiltApp = { id: string; kind: 'built'; name: string; description: string; audience: 'everyone' | 'selected'; version: number | null; draft_revision: number;
-  builder_name: string; is_builder: boolean; can_open: boolean; can_manage: boolean; people?: { id: string; name: string }[] | null;
-  versions?: { version: number; note: string; at: number }[] | null; helpers?: { id: string; name: string }[] | null };
-export type AppCheck = { check: string; message: string };
-export type AppFiles = { files: { path: string; size: number; content: string }[]; draft_revision: number; checks: AppCheck[];
-  preview_errors?: { message: string; at: number }[] };
-export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; built?: BuiltApp[]; can_manage: boolean; requests_waiting: number };
+export type AppsView = { apps: WorkspaceApp[]; systems: CompanySystem[]; can_manage: boolean; requests_waiting: number };
 export type AppRequestRow = { id: string; kind: 'access' | 'suggestion'; app?: string | null; app_name?: string | null; name: string; url: string; reason: string; created: number; requester: string };
 /** One service in the Add app catalog, under Cuckoo's own names. */
 export type CatalogApp = { id: string; name: string; description: string; category: string; kinds: Meaning[]; actions: number;
@@ -41,9 +34,6 @@ export function loadCatalog(search: { query: string; category: string; cursor?: 
 export const connectApp = (app: string, request: string) => identityRequest<{ redirect_url?: string; connection?: string }>(`${base()}/connect`, { app, request });
 /** Opening goes through Cuckoo, which checks access before sending the browser on. */
 export const openUrl = (id: string) => `/api/identity${base()}/systems/${encodeURIComponent(id)}/open`;
-export const builtPath = (id: string, path = '') => `/built/${encodeURIComponent(id)}${path}`;
-export const frameUrl = (id: string, preview: boolean) => `/api/identity${base()}${builtPath(id, `/run${preview ? '?preview=true' : ''}`)}`;
-export const downloadUrl = (id: string, version: number) => `/api/identity${base()}${builtPath(id, `/download?version=${version}`)}`;
 
 /** Today's `status` stands in for `state` until the server sends it. */
 export const appState = (app: { state?: AppState; status?: string }): AppState => app.state ?? (app.status === 'reconnect' ? 'reconnect' : 'ok');

@@ -49,7 +49,8 @@ sample answers to its requests (no server), at 1440 × 900.
 
 ## What stays
 
-The Apps page layout, filters, company apps, built apps and requests; the
+The Apps page layout, filters, company apps and requests (built apps were removed
+in schema 126); the
 five-step agent setup; Allow / Ask first / Block and the five kinds; Controls;
 reconnect through the provider's page; members' read-only view; light and dark
 themes and phone layouts. No screen names Composio or any provider except the

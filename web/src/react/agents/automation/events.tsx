@@ -7,8 +7,7 @@ import { subscribeChanges } from '../../chat/live';
 import { CreateEvent } from './event-create';
 import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
-import { loadEvents, type AppTrigger, type EventTrigger } from './event-model';
-import { workspaceUrl } from '../../../workspace-context';
+import { loadEvents, type EventTrigger } from './event-model';
 /** "When something happens": the agent's triggers. `start` opens a new one from
  * "New automation"; `finished` is told when that dialog closes. */
 export function EventTriggers({ agent, start = false, finished }: { agent: string; start?: boolean; finished?: () => void }) {
@@ -106,8 +105,7 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
           <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
         </article>
       ))}
-      {r.data?.app_triggers?.map((t) => <AppTriggerRow key={`${t.app}/${t.collection}/${t.kind}`} trigger={t} />)}
-      {r.data && !r.data.triggers.length && !r.data.app_triggers?.length && <p className="ui-help">No triggers yet.</p>}
+      {r.data && !r.data.triggers.length && <p className="ui-help">No triggers yet.</p>}
       <div className="automation-tools">
         <Button ref={button} onClick={() => void r.refresh().catch(() => {})}>Refresh triggers</Button>
       </div>
@@ -133,25 +131,5 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
         <EventReview key={open.trigger.id} agent={agent} trigger={open.trigger} close={close} saved={r.refresh} />
       )}
     </section>
-  );
-}
-
-/** A trigger set up from an app (Apps › When something happens). It is listed with the
- * agent's other triggers, and its builder or an admin changes it in the app. */
-function AppTriggerRow({ trigger: t }: { trigger: AppTrigger }) {
-  const name = `${t.kind === 'added' ? 'New' : 'Changed'} ${t.collection} in ${t.app_name}`;
-  return (
-    <article className="routine-row" aria-label={`Trigger: ${name}`}>
-      <header>
-        <h4>{name}</h4>
-        <span className="ui-badge">Added from {t.app_name}</span>
-      </header>
-      <p className="routine-instructions">{t.instructions}</p>
-      {t.by && <p>Set up by {t.by}</p>}
-      <p className="ui-help">
-        {t.manages ? 'Change or stop it' : 'Its builder or an admin changes it'} on{' '}
-        <a href={workspaceUrl('/?view=apps')}>Apps › {t.app_name}</a>.
-      </p>
-    </article>
   );
 }
