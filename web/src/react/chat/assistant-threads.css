@@ -39,3 +39,6 @@
 .chat-draft > div { display: flex; gap: 6px; }
 .chat-threads label small { font-weight: 400; }
 .chat-thread-manage + .chat-thread-manage { margin-top: 0; }
+.chat-threads > label.ui-check { display: flex; align-items: flex-start; gap: 10px; }
+.chat-threads > label.ui-check input { flex: none; width: auto; margin-top: 3px; }
+.chat-threads > label.ui-check span { display: grid; gap: 3px; }
