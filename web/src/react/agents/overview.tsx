@@ -34,15 +34,15 @@ export function AgentOverview({ agent, open, people, owners }: {
     </div>
     <aside className="agent-overview-side">
       <dl className="agent-key-facts">
-        {fact('Who can talk to it', audienceLabels[agent.audience], agent.editable ? people : undefined)}
+        {agent.assistant ? fact('Who can talk to it', 'Only its owner') : fact('Who can talk to it', audienceLabels[agent.audience], agent.editable ? people : undefined)}
         {agent.settings.handles && fact('Handles', agent.settings.handles)}
         {fact(agent.owners && agent.owners.length > 1 ? 'Owners' : 'Owner', agent.needs_owner ? 'None: its last owner left'
-          : agent.owners ? ownerNames(agent.owners) : agent.owner_name ?? '…', agent.editable ? owners : undefined)}
+          : agent.owners ? ownerNames(agent.owners) : agent.owner_name ?? '…', agent.editable && !agent.assistant ? owners : undefined)}
         {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}
         {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}
         {fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
-        <EmailFact agent={agent} />
+        {!agent.assistant && <EmailFact agent={agent} />}
       </dl>
     </aside>
   </div>;

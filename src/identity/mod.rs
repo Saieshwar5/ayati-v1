@@ -2,6 +2,7 @@
 mod activity;
 mod activity_review;
 mod agents;
+mod assistants;
 mod attention;
 mod automations;
 pub(crate) mod aws_signing;

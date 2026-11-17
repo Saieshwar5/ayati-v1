@@ -419,3 +419,31 @@ test('in your own agent’s chat, mentioning another agent asks your agent to wo
     return response(dataFor(path));
   }});
 });
+
+test('your assistant sits first in the chat list, in its own section, and says who can see it', async () => {
+  const chats = [
+    {id:'dm-hr',name:'HR Desk',kind:'direct',description:'',users:['owner'],agents:['hr']},
+    {id:'dm-mine',name:'Ayati',kind:'direct',description:'',users:['owner'],agents:['mine']}];
+  await reactFixture(async ({dom,render,click,update}) => {
+    const setup = await prepare(dom);
+    try {
+      await render(setup.WorkspaceApplication);
+      await until(update,()=>document.querySelector('.chat-contact'));
+      const sections = [...document.querySelectorAll('.chat-directory-scroll section')];
+      assert.equal(sections[0].getAttribute('aria-label'), 'Your assistant');
+      assert.match(sections[0].textContent, /Your assistant.*Ayati/);
+      const direct = sections.find(section => section.textContent.includes('Direct messages'));
+      assert.match(direct.textContent, /HR Desk/);
+      assert.equal(direct.textContent.includes('Ayati'), false, 'listed once, not again under Direct messages');
+      await click(sections[0].querySelector('a.chat-contact'));
+      await until(update,()=>document.querySelector('.chat-visibility-note'));
+      assert.match(document.querySelector('.chat-visibility-note').textContent, /Ayati is your assistant\. Only you can talk to it\. You and workspace admins can see its work\./);
+    } finally { await setup.cleanup(); }
+  },{url:`http://localhost${base}?view=chat`,fetch:async path=>{
+    path = new URL(path, 'http://localhost').pathname;
+    if(path.endsWith('/chat-directory'))return response({users:[{id:'owner',name:'Ravi'}],agents:[{id:'hr',name:'HR Desk',role:'Pay and leave',audience:'everyone'},{id:'mine',name:'Ayati',role:'Your assistant',audience:'only_me',yours:true,assistant:true}],role:'Member'});
+    if(path.endsWith('/chats'))return response({chats});
+    if(path.endsWith('/messages'))return response({agents:['mine'],messages:[]});
+    return response(dataFor(path));
+  }});
+});

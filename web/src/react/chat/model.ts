@@ -3,6 +3,8 @@ import type { QuestionReference } from '../questions/model';
 export type Participant = { id: string; name: string; email?: string; role?: string; audience?: 'everyone' | 'selected' | 'only_me'; title?: string; about?: string; photo?: string | null; avatar?: string | null; manager?: string | null;
   /** An agent the viewer is one of the owners of. */
   yours?: boolean;
+  /** A member's own assistant (schema 127); with `yours`, the viewer's. */
+  assistant?: boolean;
   /** What they handle, one line (schema 124). */
   handles?: string };
 /** `presence` holds who is online and their statuses (D245), read with the directory. */
@@ -84,7 +86,8 @@ export function directPartner(chat: Conversation, directory: Directory): { kind:
 /** The line at the top of a direct chat with an agent. Each conversation is its
  * own room; only one of the agent's owners or an admin may ask it, here, about
  * its work in every conversation (runtime/owner-view.md). */
-export function agentChatNote(name: string, yours: boolean, admin: boolean): string {
+export function agentChatNote(name: string, yours: boolean, admin: boolean, assistant = false): string {
+  if (assistant && yours) return `${name} is your assistant. Only you can talk to it. You and workspace admins can see its work.`;
   return yours || admin
     ? `Only you read this chat. As ${yours ? 'one of its owners' : 'an admin'} you can ask ${name} about its work in every conversation: who asked, what it did and what is waiting.`
     : `${name} keeps each conversation separate. Activity with ${name} is visible to its owners and admins.`;

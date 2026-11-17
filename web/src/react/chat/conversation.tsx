@@ -217,7 +217,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       if (node.scrollTop < olderThreshold) void loadOlder();
     }}>
       {olderCursor && <Button disabled={loadingOlder} onClick={() => void loadOlder(true)}>{loadingOlder ? 'Loading older messages…' : 'Load older messages'}</Button>}
-      {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin')}</p>}
+      {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin', Boolean(partner.who.assistant))}</p>}
       {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}

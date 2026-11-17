@@ -79,6 +79,18 @@ impl PgStore {
                 profile["owners"] = json!(theirs);
             }
         }
+        // A member's own assistant says so (schema 127).
+        if super::assistants::ready(&tx).await? {
+            let assistants = json_rows(
+                &tx,
+                "SELECT to_jsonb(agent) AS data FROM relay_assistants WHERE workspace=$1",
+                vec![w.into()],
+            )
+            .await?;
+            for profile in &mut profiles {
+                profile["assistant"] = json!(assistants.contains(&profile["id"]));
+            }
+        }
         tx.commit().await?;
         Ok(profiles)
     }
@@ -101,6 +113,7 @@ impl PgStore {
         .await?;
         if old.is_some() {
             let a = managed_access(&tx, &user.id, w, &input.id, true).await?;
+            super::assistants::keep_private(&tx, w, input).await?;
             self.computer_allowed(input, a["settings"]["computer"]["on"] == true)?;
             let settings = merged_guidance(&input.settings, &a["settings"])?;
             // An exact retry after a lost response succeeds without changing revision again.

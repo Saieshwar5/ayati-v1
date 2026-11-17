@@ -1,4 +1,5 @@
 import { identityRequest, workspaceId } from '../../../workspace-context';
+import { useState } from 'react';
 import type { Audience, Owner } from '../model';
 
 export type Member = { id: string; name: string; email?: string };
@@ -21,6 +22,10 @@ export function PeopleStep({ name, workspace, me, owners, members, audience, peo
   setAudience: (value: Audience) => void; setPeople: (ids: string[]) => void;
 }) {
   const display = name.trim() || 'this agent';
+  // Private agents are assistants now (schema 127). "Only me" stays offered only
+  // for an agent that was saved that way before.
+  const [wasPrivate] = useState(audience === 'only_me');
+  const offered = choices.filter(choice => choice.value !== 'only_me' || wasPrivate);
   const creating = owners === undefined;
   const listed = owners ?? [{ id: me, name: members?.find(member => member.id === me)?.name ?? 'You' }];
   // Owners can always talk to it, so only other people are chosen.
@@ -29,7 +34,7 @@ export function PeopleStep({ name, workspace, me, owners, members, audience, peo
   return <div className="agent-create-people">
     <div className="agent-create-main">
       <fieldset className="agent-audience"><legend>Who can talk to {display}</legend>
-        {choices.map(choice => <label key={choice.value} className="agent-audience-choice">
+        {offered.map(choice => <label key={choice.value} className="agent-audience-choice">
           <input type="radio" name="audience" value={choice.value} checked={audience === choice.value} onChange={() => setAudience(choice.value)} />
           <span><strong>{choice.label(workspace)}</strong><small>{choice.help(display)}</small></span>
         </label>)}

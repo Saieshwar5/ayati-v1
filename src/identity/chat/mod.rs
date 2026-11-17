@@ -105,6 +105,7 @@ async fn directory(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let _role = workspaces::membership(&app, &user, &workspace).await?;
+    super::assistants::ensure(&app, &user, &workspace).await;
     let agents = super::collaboration::agents(&app, &user, &workspace).await?;
     let mut directory = app.store.directory(&user, &workspace).await?;
     directory["agents"] = json!(agents);
@@ -140,6 +141,8 @@ async fn list(
     headers: axum::http::HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    // Every member has an assistant and a chat with it (schema 127).
+    super::assistants::ensure(&app, &user, &workspace).await;
     Ok(Json(organization::chats(&app, &user, &workspace).await?))
 }
 async fn create(

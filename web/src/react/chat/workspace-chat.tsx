@@ -84,8 +84,11 @@ export function WorkspaceChat({ href }: { href: string }) {
       {count > 0 && <small className={`chat-unread${mentioned[chat.id] ? ' chat-unread-mention' : ''}`} aria-label={`${count} unread messages${mentioned[chat.id] ? `, ${mentioned[chat.id]} for you` : ''}`}>{count}</small>}
     </a><PinButton pin={{ kind: 'chat', id: chat.id }} name={name} preferences={preferences} busy={pins.busy} toggle={pins.toggle} /></div>;
   };
+  // Your own assistant's chat sits first, above everything else (schema 127).
+  const mine = directory?.agents.find(agent => agent.assistant && agent.yours)?.id;
+  const assistantChat = mine ? chats.find(chat => chat.kind === 'direct' && chat.agents.length === 1 && chat.agents[0] === mine && chat.users.length === 1) : undefined;
   const activePinned = preferences?.pins.flatMap(pin => {
-    const chat = chats.find(chat => chat.id === pin.id && !chat.archived);
+    const chat = chats.find(chat => chat.id === pin.id && !chat.archived && chat.id !== assistantChat?.id);
     return chat ? [contact(chat)] : [];
   }) ?? [];
   const archived = order.chats.filter(chat => chat.archived && chat.kind !== 'direct');
@@ -111,10 +114,10 @@ export function WorkspaceChat({ href }: { href: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       </Button>
     </header>
-      <div className="chat-directory-scroll"><AlertsPrompt />{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
+      <div className="chat-directory-scroll"><AlertsPrompt />{assistantChat && <section aria-label="Your assistant"><header><h2>Your assistant</h2></header>{contact(assistantChat)}</section>}{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
         {order.chats.filter(chat => chat.kind !== 'direct' && !chat.archived && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
         {!chats.some(chat => chat.kind !== 'direct' && !chat.archived) && <p className="chat-help">Organize work with your team.</p>}
-      </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{order.chats.filter(chat => chat.kind === 'direct' && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
+      </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{order.chats.filter(chat => chat.kind === 'direct' && chat.id !== assistantChat?.id && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
       </section>{archived.length > 0 && <section><header><Button className="chat-archive-toggle" aria-expanded={archivedVisible} onClick={() => showArchived(value => !value)}>Archived channels ({archived.length})</Button></header>{archivedVisible && archived.map(contact)}</section>}</div>
       <Button className="chat-people-button" disabled={!directory} onClick={() => showPeople(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0" /><rect x="15" y="9" width="7" height="6" rx="2" /></svg>

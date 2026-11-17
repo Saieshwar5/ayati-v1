@@ -85,7 +85,7 @@ export function AgentsPage() {
         <AgentAvatar agent={creating} /><span><strong>New agent</strong><small>Not created yet</small></span>
       </Button>}
       {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={!creating && key === `m:${agent.id}` ? 'true' : undefined} disabled={Boolean(creating)} onClick={() => select(`m:${agent.id}`)}>
-        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small>{(agent.needs_owner || agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.needs_owner ? 'Needs an owner' : agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
+        <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.assistant ? (agent.is_owner ? 'Your assistant' : `${agent.owner_name ?? 'A member'}’s assistant`) : agent.role}</small>{(agent.needs_owner || agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.needs_owner ? 'Needs an owner' : agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
       </Button>)}
       {data && !filtered.length && <p className="ui-empty">{query ? 'No matching agents.' : 'Create your first agent.'}</p>}
     </div><footer>People, purpose and controlled work.</footer></aside>
