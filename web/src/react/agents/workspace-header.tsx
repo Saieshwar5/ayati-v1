@@ -5,7 +5,9 @@ export type AgentAction = 'pause' | 'identity' | 'owners';
 
 /** The agent page header: picture, name, status, job title and owners, with
  * Open in Chat and the ⋯ menu (designs/agents-simplified 5). */
-export function AgentWorkspaceHeader({ name, title, avatar, paused, owner, needsOwner = false, editable, busy, back, openChat, choose }: {
+export function AgentWorkspaceHeader({ name, title, avatar, paused, owner, needsOwner = false, assistant = false, editable, busy, back, openChat, choose }: {
+  /** A member's own assistant: it has one owner for good. */
+  assistant?: boolean;
   name: string; title: string; avatar: ReactNode; paused: boolean; owner?: string; needsOwner?: boolean; editable: boolean; busy: boolean;
   /** `owner`: its owners' names, such as "A and B". */
   back: () => void; openChat: () => void; choose: (action: AgentAction) => void;
@@ -20,14 +22,14 @@ export function AgentWorkspaceHeader({ name, title, avatar, paused, owner, needs
       </div>
       <div className="agent-header-actions">
         <Button primary disabled={busy} onClick={openChat}>Open in Chat</Button>
-        {editable && <AgentMenu name={name} paused={paused} needsOwner={needsOwner} choose={choose} />}
+        {editable && <AgentMenu name={name} paused={paused} needsOwner={needsOwner} assistant={assistant} choose={choose} />}
       </div>
     </div>
   </header>;
 }
 
 /** ⋯ actions for its owners and admins: pause or resume, rename, owners. */
-function AgentMenu({ name, paused, needsOwner, choose }: { name: string; paused: boolean; needsOwner: boolean; choose: (action: AgentAction) => void }) {
+function AgentMenu({ name, paused, needsOwner, assistant, choose }: { name: string; paused: boolean; needsOwner: boolean; assistant: boolean; choose: (action: AgentAction) => void }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ function AgentMenu({ name, paused, needsOwner, choose }: { name: string; paused:
       {/* Without an owner it can't resume; giving it one comes first. */}
       {!needsOwner && <button type="button" role="menuitem" onClick={() => pick('pause')}>{paused ? 'Resume' : 'Pause'}</button>}
       <button type="button" role="menuitem" onClick={() => pick('identity')}>Name, picture and role…</button>
-      <button type="button" role="menuitem" onClick={() => pick('owners')}>{needsOwner ? 'Give it an owner…' : 'Owners…'}</button>
+      {!assistant && <button type="button" role="menuitem" onClick={() => pick('owners')}>{needsOwner ? 'Give it an owner…' : 'Owners…'}</button>}
     </div>}
   </span>;
 }

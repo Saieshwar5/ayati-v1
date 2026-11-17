@@ -132,8 +132,12 @@ impl MigratorTrait for Migrator {
             Box::new(super::agent_owners::AgentOwners),
             Box::new(super::channel_threads::ChannelThreads),
             Box::new(super::agent_teamwork::AgentTeamwork),
-            Box::new(super::thread_guests::ForwardingAndGuests),
+            Box::new(super::chat_intake::message_forwarding::ForwardingAndGuests),
             Box::new(super::built_apps_migration::BUILT_APPS_REMOVED),
+            Box::new(super::assistants::Assistants),
+            Box::new(super::assistants::threads::AssistantThreads),
+            Box::new(super::assistants::settings::AssistantSettings),
+            Box::new(super::chat_intake::message_forwarding::GuestsRemoved),
         ]
     }
 }

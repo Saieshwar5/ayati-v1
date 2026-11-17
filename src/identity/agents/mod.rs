@@ -113,6 +113,7 @@ async fn list(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let role = workspaces::membership(&app, &user, &w).await?;
+    super::assistants::ensure(&app, &user, &w).await;
     let (models, default_model) = app.store.workspace_models(&user, &w).await?;
     Ok(Json(
         json!({"agents":app.store.agent_profiles(&user,&w).await?,"role":role,"system_prompt":SYSTEM_GUIDE,"providers":[{"id":"openai","name":"OpenAI","configured":hosting::provider_configured(&app, "openai")},{"id":"fireworks-ai","name":"Fireworks","configured":hosting::provider_configured(&app, "fireworks-ai")}],"default_model":super::models::default_model(&app, default_model),"models":models,"catalog":super::models::offered(&app)?,"web_search":app.store.web_search.is_some(),"computers":app.store.computers.as_ref().map(|c| c.offered()),
@@ -127,6 +128,12 @@ async fn save(
     Json(input): Json<SaveAgent>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    // Private agents are assistants now: one per member, made by Cuckoo. An
+    // "Only me" agent saved before schema 127 can still be changed.
+    check(
+        input.audience != "only_me" || !app.store.agent_is_new(&w, &input.id).await?,
+        "Your assistant is your private agent. New agents are for people in the workspace.",
+    )?;
     Ok(Json(app.store.save_agent_profile(&user, &w, &input).await?))
 }
 #[derive(serde::Deserialize)]

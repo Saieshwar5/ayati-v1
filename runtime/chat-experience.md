@@ -38,8 +38,6 @@ who already have access. The server validates membership on a new send within th
 write transaction. Every mentioned agent must be one the message asks, and each passes
 the existing requester and channel checks; a message that mentions an agent without
 asking it is refused with a message saying so. Multiple human mentions are supported.
-The one exception is your own only-me agent's chat, where a mentioned agent is
-invited to work with your agent in a thread ([invited agents](forwarding-and-invited-agents.md)).
 Ordinary `@text` does not dispatch work. An edit checks the
 mentions it adds with the same rules (people who can read the conversation, well-formed
 identities). An edit never asks an agent, so adding an agent mention is refused with

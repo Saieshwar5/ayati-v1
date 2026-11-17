@@ -171,6 +171,7 @@ mod computer_turn_tests;
 mod computer_turns;
 pub(crate) use computer_live::LiveInput;
 pub(crate) mod agent_teamwork;
+pub(crate) mod assistants;
 pub(crate) mod channel_threads;
 #[cfg(test)]
 mod computer_tests;
@@ -314,7 +315,6 @@ mod task_continuation;
 mod task_continuation_tests;
 mod task_revocation;
 mod tasks;
-pub(crate) mod thread_guests;
 pub(crate) mod transcripts;
 mod unread;
 mod web_reads;

@@ -196,10 +196,6 @@ async fn input(
         return Ok(None);
     };
     let job: Job = serde_json::from_value(row.try_get("", "payload")?)?;
-    // An agent invited into one thread keeps no summary of the chat (schema 125).
-    if super::thread_guests::guest_only(tx, w, &job.chat, &job.agent).await? {
-        return Ok(None);
-    }
     // A paused workspace or a spent budget makes no model calls for its agents.
     if super::settings::pause::paused(tx, w).await?
         || super::model_budgets::budget_reached(tx, w, &job.agent)

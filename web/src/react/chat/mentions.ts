@@ -1,4 +1,4 @@
-export type Mention = { id: string; name: string; kind: 'user' | 'agent'; photo?: string | null; avatar?: string | null; title?: string; role?: string; note?: string };
+export type Mention = { id: string; name: string; kind: 'user' | 'agent'; photo?: string | null; avatar?: string | null; title?: string; role?: string };
 export type MentionRange = Mention & { start: number; end: number };
 const pattern = /\[@([^\]\n]+)\]\(mention:(user|agent):([a-zA-Z0-9_-]+)\)/g;
 export function decodeMentions(source: string): { text: string; mentions: MentionRange[] } {
@@ -36,14 +36,11 @@ export function mentionedAgents(source: string): string[] {
   return [...new Set(decodeMentions(source).mentions.filter(m => m.kind === 'agent').map(m => m.id))];
 }
 /** The agents a draft asks: those it mentions, at most `maxAgents`. A direct
- * message with an agent asks that agent, and only it. In your chat with your own
- * agent (`invites`), other agents you mention work with it in a thread (schema 125). */
-export function requestAgents(source: string, direct = '', invites = false): string[] {
+ * message with an agent asks that agent, and only it. */
+export function requestAgents(source: string, direct = ''): string[] {
   const agents = mentionedAgents(source);
   if (direct) {
-    const others = agents.filter(id => id !== direct);
-    if (others.length && !invites) throw new Error('A direct message asks only its own agent. Ask other agents in a channel.');
-    if (others.length > 2) throw new Error('Mention at most two agents to work with your agent.');
+    if (agents.some(id => id !== direct)) throw new Error('A direct message asks only its own agent. Ask other agents in a channel.');
     return [direct];
   }
   if (agents.length > maxAgents) throw new Error(`Ask at most ${maxAgents} agents in one message. Send another message for the others.`);

@@ -32,11 +32,7 @@ impl PgStore {
         .await?;
         let settings: Option<Value> = managed.map(|r| r.try_get("", "settings")).transpose()?;
         let context_limit: i64 = if settings.is_some() { 60 } else { 30 };
-        let guest = super::thread_guests::guest_only(tx, workspace, chat, agent).await?;
-        let context_thread = if guest {
-            // A guest reads its own thread only (schema 125).
-            input.thread.as_deref()
-        } else if settings.is_some() {
+        let context_thread = if settings.is_some() {
             None
         } else {
             input

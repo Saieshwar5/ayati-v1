@@ -47,9 +47,10 @@ Main product contracts:
   here, agents asking other agents on their own and asking people in the thread.
 - [Threads in channels](runtime/channel-threads.md): agents answer in a thread
   under the question, follow-ups continue with them, and people follow their threads.
-- [Forwarding and invited agents](runtime/forwarding-and-invited-agents.md): forward
-  a message to a person or an agent; in your own agent's chat, mention another
-  agent to have your agent work with it in a thread only you and they read.
+- [Assistants](runtime/assistants.md): every member has one private agent of their
+  own, made for them and first in Chat; new agents are for the team.
+- [Forwarding](runtime/forwarding.md): forward a message to a person or an agent,
+  in your direct chat with them.
 - [The owner view](runtime/owner-view.md): each conversation with an agent is
   its own room; its owners and admins can ask it about all its work, in their
   private chat.

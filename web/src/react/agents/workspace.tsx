@@ -36,7 +36,7 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
   const done = async (message: string) => { setDialog(undefined); await saved(); mutation.setStatus(message); };
   return <section className="agent-workspace" aria-label={`${agent.name} workspace`}>
     <AgentWorkspaceHeader name={agent.name} title={agent.role} avatar={<AgentAvatar agent={agent} />} paused={agent.settings.paused}
-      owner={agent.owners ? ownerNames(agent.owners) : agent.owner_name} needsOwner={Boolean(agent.needs_owner)} editable={Boolean(agent.editable)} busy={busy || mutation.busy} back={back} openChat={openChat} choose={choose} />
+      owner={agent.owners ? ownerNames(agent.owners) : agent.owner_name} needsOwner={Boolean(agent.needs_owner)} assistant={Boolean(agent.assistant)} editable={Boolean(agent.editable)} busy={busy || mutation.busy} back={back} openChat={openChat} choose={choose} />
     {mutation.status && <p className="agent-page-notice" role="status">{mutation.status}</p>}
     {agent.needs_owner && <p className="agent-page-notice" role="note">{agent.name}’s last owner left the workspace, so it is paused and takes no work.{' '}
       {agent.editable

@@ -5,6 +5,8 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
 
 ## Who can talk to it, and its owners
 
+- **Since schema 127** new agents can't be Only me: every member has an
+  [assistant](assistants.md) instead. Agents saved as Only me before keep working.
 - **Everyone may create agents.** The per-person creator right and its
   `/control/creators` route were removed with `relay_agent_creators`.
 - **Who can talk to it** (`audience`) is `everyone`, `selected` (its owners,

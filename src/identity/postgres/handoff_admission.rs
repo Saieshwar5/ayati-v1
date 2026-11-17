@@ -11,9 +11,7 @@ mod guidance_tests;
 #[path = "handoff_visibility_tests.rs"]
 pub(super) mod visibility_tests;
 /// `agent` may take part in a handoff for `job`'s person here: a managed shared
-/// agent in the same channel or group that the person may ask. In a person's
-/// chat with their own agent, a thread with invited agents (schema 125) works the
-/// same way: their own agent and those agents take part. Other direct messages
+/// agent in the same channel or group that the person may ask. Direct messages
 /// and email or WhatsApp threads have no handoffs.
 async fn participant(db: &DatabaseTransaction, job: &Job, agent: &str) -> Result<Value> {
     let user = User {
@@ -24,9 +22,6 @@ async fn participant(db: &DatabaseTransaction, job: &Job, agent: &str) -> Result
     super::chat::access(db, &user, &job.workspace, &job.chat).await?;
     super::communications::access::ordinary_chat(db, &job.workspace, &job.chat).await?;
     let profile = super::agent_profiles::stored(db, &job.workspace, agent).await?;
-    if let Some(thread) = super::thread_guests::job_thread(db, job).await? {
-        return invited_participant(db, job, agent, &thread, profile).await;
-    }
     ensure!(
         profile["audience"] != "only_me" && profile["revision"].as_i64().is_some_and(|r| r > 0),
         "Handoffs require managed shared agents"
@@ -36,38 +31,6 @@ async fn participant(db: &DatabaseTransaction, job: &Job, agent: &str) -> Result
         "Original requester lacks this agent's request permission"
     );
     ensure!(query(db,"SELECT a.agent FROM relay_chat_agents a JOIN relay_chats c ON c.workspace=a.workspace AND c.id=a.chat WHERE a.workspace=$1 AND a.chat=$2 AND a.agent=$3 AND c.kind IN ('channel','group') AND (NOT c.announcements OR EXISTS(SELECT 1 FROM relay_members m WHERE m.workspace=$1 AND m.user_id=$4 AND m.role='Admin'))",vec![job.workspace.clone().into(),job.chat.clone().into(),agent.into(),job.requester.clone().into()]).await?.is_some(),"Both agents must be in the same channel or group");
-    Ok(profile)
-}
-/// In a thread with invited agents: the person's own agent, or an agent they
-/// invited into this thread that they may still ask.
-async fn invited_participant(
-    db: &DatabaseTransaction,
-    job: &Job,
-    agent: &str,
-    thread: &str,
-    profile: Value,
-) -> Result<Value> {
-    ensure!(
-        profile["revision"].as_i64().is_some_and(|r| r > 0),
-        "Handoffs require managed agents"
-    );
-    let own =
-        super::thread_guests::personal_agent(db, &job.requester, &job.workspace, &job.chat).await?;
-    if own.as_deref() == Some(agent) {
-        return Ok(profile);
-    }
-    ensure!(
-        profile["audience"] != "only_me",
-        "Handoffs require managed shared agents"
-    );
-    ensure!(
-        super::chat::agent_access(db, &job.requester, &job.workspace, agent).await?,
-        "Original requester lacks this agent's request permission"
-    );
-    ensure!(
-        super::thread_guests::is_guest(db, &job.workspace, &job.chat, Some(thread), agent).await?,
-        "Only agents invited into this thread can help here"
-    );
     Ok(profile)
 }
 /// Managed shared agents in this channel or group that `job` may hand work to now.
@@ -84,14 +47,7 @@ async fn eligible_helpers(tx: &DatabaseTransaction, job: &Job) -> Result<Helpers
         lineage.push(h["sender"].as_str().unwrap().into());
         child = h["parent"].as_str().unwrap().into();
     }
-    // In a thread with invited agents (schema 125), those agents are the helpers.
-    let invited = super::thread_guests::job_thread(tx, job).await?;
-    let place = if invited.is_some() {
-        "EXISTS(SELECT 1 FROM relay_thread_guests g WHERE g.workspace=a.workspace AND g.chat=$2 AND g.thread=$3 AND g.agent=a.id)"
-    } else {
-        "EXISTS(SELECT 1 FROM relay_chat_agents p WHERE p.workspace=a.workspace AND p.chat=$2 AND p.agent=a.id) AND $3::text IS NULL"
-    };
-    let candidates = json_rows(tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'handles',COALESCE(a.settings->>'handles','')) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND {place} AND a.audience<>'only_me' AND COALESCE((a.settings->>'helper')::boolean,true) AND a.revision>0 ORDER BY a.name,a.id LIMIT 100"),vec![job.workspace.clone().into(),job.chat.clone().into(),invited.clone().into()]).await?;
+    let candidates = json_rows(tx,"SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'handles',COALESCE(a.settings->>'handles','')) AS data FROM relay_shared_agents a JOIN relay_chat_agents p ON p.workspace=a.workspace AND p.agent=a.id WHERE a.workspace=$1 AND p.chat=$2 AND a.audience<>'only_me' AND COALESCE((a.settings->>'helper')::boolean,true) AND a.revision>0 ORDER BY a.name,a.id LIMIT 100",vec![job.workspace.clone().into(),job.chat.clone().into()]).await?;
     let others = candidates.iter().filter(|c| c["id"] != job.agent).count();
     let mut agents = vec![];
     for candidate in candidates {
@@ -111,11 +67,7 @@ async fn eligible_helpers(tx: &DatabaseTransaction, job: &Job) -> Result<Helpers
             Err(_) => {}
         }
     }
-    Ok(Helpers {
-        agents,
-        others,
-        invited: invited.is_some(),
-    })
+    Ok(Helpers { agents, others })
 }
 impl PgStore {
     pub(crate) async fn handoff_targets(&self, job: &Job) -> Result<Value> {

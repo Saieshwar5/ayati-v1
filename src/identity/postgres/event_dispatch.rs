@@ -117,7 +117,7 @@ impl PgStore {
         };
         if query(&tx,&format!("SELECT j.reply FROM relay_event_deliveries d JOIN relay_chat_jobs j ON j.workspace=d.workspace AND j.reply=d.reply WHERE d.workspace=$1 AND d.trigger_id=$2 AND j.state<>'finished'{one_subject} LIMIT 1"),vec![w.into(),data["id"].as_str().unwrap().into(),subject.clone().into()]).await?.is_some(){tx.commit().await?;return Ok(false)}
         execute(&tx,"UPDATE relay_event_deliveries SET checked_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-        let input = NewMessage {
+        let mut input = NewMessage {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             agent: Some(agent.into()),
@@ -141,7 +141,27 @@ impl PgStore {
         } else {
             None
         };
+        let own = if per_subject.is_none() && memory {
+            // An assistant has one room: the run is a thread there (schema 127).
+            super::assistants::run_place(
+                &nested,
+                w,
+                agent,
+                &super::event_access::principal(&data)?.id,
+                &format!("trigger:{}", data["id"].as_str().unwrap_or_default()),
+                &format!(
+                    "Trigger: {}",
+                    data["input"]["name"].as_str().unwrap_or("Event")
+                ),
+            )
+            .await?
+        } else {
+            None
+        };
         let target = if let Some(room) = per_subject {
+            room
+        } else if let Some((room, thread)) = own {
+            input.thread = Some(thread);
             room
         } else if memory {
             super::automation_memory::event_room(&nested, w, &data).await?

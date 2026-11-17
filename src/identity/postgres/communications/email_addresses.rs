@@ -57,6 +57,10 @@ impl PgStore {
             profile["revision"].as_i64().unwrap_or(0) > 0,
             "Save the agent before switching on email"
         );
+        ensure!(
+            !super::super::assistants::is_assistant(&tx, w, agent).await?,
+            "An assistant has no email address of its own"
+        );
         match address(&tx, w, agent, Some(domain)).await? {
             Some(found) if found["enabled"] == true => {}
             Some(found) => {

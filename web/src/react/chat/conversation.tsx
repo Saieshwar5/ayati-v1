@@ -18,6 +18,8 @@ import { Button } from '../ui';
 import { errorMessage } from '../requests';
 import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ShowProfile, useShowProfile } from './profile-card';
+import { ThreadBanner } from './assistant-threads';
+import { AssistantDraft } from './assistant-draft';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
@@ -47,11 +49,6 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const [busy, setBusy] = useState(false);
   const directAgent = chat.kind === 'direct' ? chat.agents[0] ?? '' : '';
   const partner = directPartner(chat, directory);
-  // In your chat with your own agent, other agents you mention work with it in a
-  // thread under your message (schema 125).
-  const personal = partner?.kind === 'agent' && Boolean(partner.who.yours) && partner.who.audience === 'only_me';
-  const invitable = personal && partner ? directory.agents.filter(agent => agent.id !== partner.who.id && agent.audience !== 'only_me')
-    .map(agent => ({ ...agent, kind: 'agent' as const, note: `Works with ${partner.who.name} in a thread` })) : [];
   const draftKey = storageScope(`relay.chat.draft.${chat.id}`);
   const [draft, setDraft] = useState(() => { try { return sessionStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
   const messages = useRef<HTMLDivElement>(null);
@@ -154,6 +151,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     list.scrollTop = list.scrollHeight;
     [...list.querySelectorAll<HTMLElement>('[data-message-id]')].at(-1)?.focus({ preventScroll: true });
   };
+  const draftSent = useRef<(message: string) => void>(undefined);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   /** Resolves true once the message is in the outbox; a voice recording joins the draft's files. */
   const send = async (voice?: Attachment): Promise<boolean> => {
@@ -162,7 +160,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     if (pending.current || (!draft.trim() && !attachments.length)) return false;
     pending.current = true; setBusy(true); setError('');
     let agents: string[];
-    try { agents = requestAgents(draft, directAgent, personal); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
+    try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
     // Replying to an agent's message asks that agent, unless the text names others.
     const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
     if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
@@ -173,6 +171,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     const submission = attempt.current;
     try {
       await enqueue(chat.id, submission);
+      draftSent.current?.(submission.id);
       if (!alive.current) return true;
       updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
       return true;
@@ -210,6 +209,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
       level={level} levelChanged={levelChanged} details={details} />
     <ConnectionBanner status={connection} />
+    <ThreadBanner chat={chat.id} assistantName={directory.agents.find(agent => agent.assistant && agent.yours)?.name ?? 'Your assistant'} />
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {
       const node = messages.current!, distance = node.scrollHeight - node.scrollTop - node.clientHeight;
@@ -217,11 +217,11 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       if (node.scrollTop < olderThreshold) void loadOlder();
     }}>
       {olderCursor && <Button disabled={loadingOlder} onClick={() => void loadOlder(true)}>{loadingOlder ? 'Loading older messages…' : 'Load older messages'}</Button>}
-      {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin')}</p>}
+      {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin', Boolean(partner.who.assistant))}</p>}
       {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, history?.agents)} place={place} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}<ChatMessage focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
@@ -229,16 +229,16 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
+    {!chat.archived && <AssistantDraft chat={chat.id} name={directory.agents.find(agent => agent.assistant && agent.yours)?.name ?? 'your assistant'} instruction={draft} use={updateDraft} sent={draftSent} />}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
-        ...invitable,
       ]} />
     {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
-      <ChatThread focus={focus} direct={directAgent || undefined} invitable={invitable} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
+      <ChatThread focus={focus} direct={directAgent || undefined} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
     </ShowProfile.Provider>}
     {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
   </section></ManagedResults></ApprovalViewer>;

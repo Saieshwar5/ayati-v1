@@ -1,0 +1,44 @@
+/* Assistant threads (schema 128): rows under your assistant, the banner in a chat, and the dialog. */
+.chat-thread-rows { display: grid; gap: 1px; margin: 0 0 4px 22px; padding-left: 8px; border-left: 1px solid var(--border); }
+.chat-thread-row, .chat-thread-rows .chat-thread-manage { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 8px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 13px; text-align: left; text-decoration: none; cursor: pointer; }
+.chat-thread-row:hover, .chat-thread-rows .chat-thread-manage:hover { background: var(--soft); color: var(--text); }
+.chat-thread-row[aria-current=page] { background: var(--selection); color: var(--text); }
+.chat-thread-row span { display: grid; min-width: 0; color: var(--text); }
+.chat-thread-row span, .chat-thread-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-thread-row small { color: var(--muted); font-size: 11.5px; }
+.chat-thread-row svg, .chat-thread-manage svg { flex: none; }
+.chat-thread-rows .chat-thread-manage { justify-content: flex-start; width: 100%; }
+.chat-thread-manage .chat-unread { margin-left: auto; }
+.chat-thread-banners { display: grid; gap: 6px; padding: 8px 16px 0; }
+.chat-thread-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--soft); font-size: 13px; }
+.chat-thread-banner > svg { flex: none; color: var(--muted); }
+.chat-thread-banner > span { flex: 1; min-width: 200px; }
+.chat-thread-banner small, .chat-thread-banner q { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.chat-thread-banner q { padding-left: 8px; border-left: 2px solid var(--border-control); color: var(--text); quotes: none; white-space: pre-wrap; }
+.chat-thread-banner.stopped { background: var(--warning-bg); }
+.ui-dialog:has(.chat-threads) { width: min(560px, calc(100vw - 32px)); }
+.chat-threads { display: grid; gap: 12px; }
+.chat-threads h3 { margin: 4px 0; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.chat-threads > label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
+.chat-threads select, .chat-threads input, .chat-threads textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
+.chat-threads textarea { min-height: 84px; resize: vertical; }
+.chat-thread-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 0; border-top: 1px solid var(--border); }
+.chat-thread-item > span { flex: 1; min-width: 180px; display: grid; gap: 2px; font-size: 13px; }
+.chat-thread-item small { color: var(--muted); font-size: 12px; }
+.chat-thread-item q { color: var(--muted); font-size: 12.5px; quotes: none; white-space: pre-wrap; }
+/* The private mark on your own message that your assistant wrote. */
+.chat-assisted { display: flex; align-items: center; gap: 5px; margin: 4px 0 0; color: var(--muted); font-size: 11.5px; }
+/* Asking your assistant for a draft, above the message box. */
+.chat-draft-ask { display: flex; align-items: center; gap: 8px; padding: 0 16px 4px; }
+.chat-draft-ask .ui-button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-color: transparent; background: none; color: var(--muted); font-size: 12px; }
+.chat-draft-ask .ui-button:hover { background: var(--soft); color: var(--text); }
+.chat-draft { display: grid; gap: 8px; margin: 0 16px 8px; padding: 10px 12px; border: 1px dashed var(--border-control); border-radius: 10px; background: var(--soft); font-size: 13px; }
+.chat-draft header { display: flex; align-items: center; gap: 6px; }
+.chat-draft header small { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+.chat-draft p { margin: 0; white-space: pre-wrap; max-height: 180px; overflow: auto; }
+.chat-draft > div { display: flex; gap: 6px; }
+.chat-threads label small { font-weight: 400; }
+.chat-thread-manage + .chat-thread-manage { margin-top: 0; }
+.chat-threads > label.ui-check { display: flex; align-items: flex-start; gap: 10px; }
+.chat-threads > label.ui-check input { flex: none; width: auto; margin-top: 3px; }
+.chat-threads > label.ui-check span { display: grid; gap: 3px; }

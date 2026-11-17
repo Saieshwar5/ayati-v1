@@ -12,6 +12,8 @@ export type Agent = { id: string; name: string; role: string; model: string; aud
   /** Its owners, first added first: equal people who each change it, decide its
    * approvals and see all its work (schema 122). `is_owner`: the viewer is one. */
   owners?: Owner[]; is_owner?: boolean;
+  /** A member's own assistant (schema 127): private to them, with no other owners. */
+  assistant?: boolean;
   /** Its last owner left the workspace: it stays paused until an admin gives it one. */
   needs_owner?: boolean };
 export type Owner = { id: string; name: string };

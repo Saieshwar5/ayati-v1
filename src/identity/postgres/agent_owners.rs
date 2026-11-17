@@ -145,6 +145,10 @@ impl PgStore {
             ready(&tx).await?,
             "Run workspace-db migrate to change owners"
         );
+        ensure!(
+            !super::assistants::is_assistant(&tx, w, agent).await?,
+            "An assistant belongs to one person and has no other owners"
+        );
         let name = a["name"].as_str().unwrap_or("an agent").to_owned();
         let actor = super::member_handover::name(&tx, &user.id).await?;
         let mut done = None;

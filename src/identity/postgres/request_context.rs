@@ -48,18 +48,7 @@ impl PgStore {
                 before,
                 request: id,
             };
-            // An agent invited into this thread reads it and nothing else (schema 125).
-            let guest =
-                super::thread_guests::guest_only(&tx, &job.workspace, &job.chat, &job.agent)
-                    .await?;
             let mut messages = match (managed, in_thread.as_deref()) {
-                (true, Some(thread)) if guest => {
-                    let mut replies =
-                        super::conversation_context::gather(&tx, scope(Some(thread), false, most))
-                            .await?;
-                    super::conversation_context::bound_to(&mut replies, budget)?;
-                    replies
-                }
                 // A request in a thread reads that thread first, then the latest
                 // of the main timeline; other threads stay out.
                 (true, Some(thread)) => {
