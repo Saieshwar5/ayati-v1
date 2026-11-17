@@ -6,8 +6,6 @@ import { navigate } from '../../navigation';
 import { loadConnections } from '../settings/workspace-connections-model';
 import { forgetConnecting, loadApps, needsYou, peekConnecting, toMs, type CatalogApp, type CompanySystem } from './apps-model';
 import { RequestDialog, RequestsDrawer, SystemForm, SystemPanel } from './company-apps';
-import { BuiltForm, BuiltPanel } from './built-apps';
-import { AppRunner } from './built-app-runner';
 import { AppCard, type Card } from './app-card';
 import { PlusIcon } from './app-marks';
 import { ServicePanel } from './service-panel';
@@ -15,18 +13,16 @@ import { CatalogDialog } from './catalog-dialog';
 import { ConnectDialog, ConnectedDialog } from './connect-dialog';
 import './apps.css';
 
-type Filter = 'all' | 'built' | 'systems' | 'services';
+type Filter = 'all' | 'systems' | 'services';
 /** Back from a provider's sign-in page (`connected=1` or `connect_error=1`), or connected at once. */
 type Arrival = { result: 'connected' | 'failed'; app?: string };
 
 /** Apps (apps-page plan, AP1–AP3; designs/connector-screens): the company's own
- * systems, apps built here and every connected service with what agents may do.
+ * systems and every connected service with what agents may do.
  * Everyone reads it and opens or requests apps; admins add and manage them, each
  * service in its own panel. */
 export function AppsPage({ href }: { href: string }) {
-  const url = new URL(href);
-  const running = url.searchParams.get('run');
-  return running ? <AppRunner id={running} preview={url.searchParams.get('preview') === '1'} /> : <AppsList url={url} />;
+  return <AppsList url={new URL(href)} />;
 }
 
 function arrivalFrom(url: URL): Arrival | undefined {
@@ -51,7 +47,6 @@ function AppsList({ url }: { url: URL }) {
   const [adding, setAdding] = useState(false);
   const [connecting, setConnecting] = useState<CatalogApp>();
   const [editing, setEditing] = useState<CompanySystem | 'new'>();
-  const [building, setBuilding] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const rulesHeading = useRef<HTMLHeadingElement>(null);
@@ -70,7 +65,6 @@ function AppsList({ url }: { url: URL }) {
   const needs = data?.apps.filter(needsYou).length ?? 0;
   const matches = (name: string) => !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase());
   const cards: Card[] = [
-    ...(['all', 'built'].includes(filter) && !needsOnly ? (data?.built ?? []).filter(b => matches(b.name)).map(built => ({ key: `built:${built.id}`, built })) : []),
     ...(!['all', 'systems'].includes(filter) || needsOnly ? [] : (data?.systems ?? []).filter(s => matches(s.name)).map(system => ({ key: `system:${system.id}`, system }))),
     ...(!['all', 'services'].includes(filter) ? [] : (data?.apps ?? []).filter(app => !needsOnly || needsYou(app)).filter(app => matches(app.name)).map(service => ({ key: `service:${service.id}`, service }))),
   ];
@@ -79,7 +73,7 @@ function AppsList({ url }: { url: URL }) {
     ?? (data?.apps ?? []).filter(app => app.connected).sort((a, b) => toMs(b.connected!.at) - toMs(a.connected!.at))[0];
   const preferred = connectedApp ? `service:${connectedApp.id}` : attention ? cards.find(card => card.service && needsYou(card.service))?.key : undefined;
   const current = cards.find(card => card.key === (selected ?? preferred)) ?? cards[0];
-  const total = (data?.apps.length ?? 0) + (data?.systems.length ?? 0) + (data?.built?.length ?? 0);
+  const total = (data?.apps.length ?? 0) + (data?.systems.length ?? 0);
   const changeRules = () => {
     if (connectedApp) setSelected(`service:${connectedApp.id}`);
     setArrival(undefined);
@@ -93,12 +87,11 @@ function AppsList({ url }: { url: URL }) {
           <label className="apps-search"><span className="visually-hidden">Search apps</span>
             <input type="search" placeholder="Search apps" value={query} onChange={event => setQuery(event.target.value)} /></label>
           {!!data?.requests_waiting && <Button onClick={() => setDeciding(true)}>{data.requests_waiting} request{data.requests_waiting === 1 ? '' : 's'}</Button>}
-          {data && <Button onClick={() => setBuilding(true)}>Build an app</Button>}
           {data && <Button primary onClick={() => setAdding(true)}>{data.can_manage ? <><PlusIcon />Add app</> : 'Request an app'}</Button>}
         </div></header>
       <div className="apps-filters" role="group" aria-label="Show">
-        {(['all', 'built', 'systems', 'services'] as Filter[]).map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
-          {{ all: 'All', built: 'Built here', systems: 'Your systems', services: 'Services' }[option]}</button>)}
+        {(['all', 'systems', 'services'] as Filter[]).map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)}>
+          {{ all: 'All', systems: 'Your systems', services: 'Services' }[option]}</button>)}
         {needs > 0 && <button type="button" className="apps-needs" aria-pressed={needsOnly} onClick={() => setNeedsOnly(on => !on)}><span aria-hidden="true" />{needs} need{needs === 1 ? 's' : ''} you</button>}
       </div>
       {arrival?.result === 'failed' && <div className="apps-notice" role="alert"><span>The sign-in didn’t finish, so nothing was connected.</span>
@@ -111,20 +104,18 @@ function AppsList({ url }: { url: URL }) {
       <ul className="apps-grid">{cards.map(card => <li key={card.key}>
         <AppCard card={card} selected={current?.key === card.key} select={() => setSelected(card.key)} /></li>)}</ul>
     </div>
-    {current?.built && <BuiltPanel app={current.built} changed={refresh} />}
     {current?.system && <SystemPanel app={current.system} canManage={Boolean(data?.can_manage)} changed={refresh} edit={() => setEditing(current.system)} />}
     {current?.service && <ServicePanel key={current.service.id} app={current.service} canManage={Boolean(data?.can_manage)} control={control.data} controlError={control.error}
       retryControl={() => void control.refresh().catch(() => {})} changed={changed} rulesHeading={rulesHeading}
       disconnected={message => { setNotice(message); setSelected(undefined); refresh(); }} />}
     {adding && data && <CatalogDialog canManage={data.can_manage} close={() => setAdding(false)} connect={app => { setAdding(false); setConnecting(app); }}
       open={connection => { setFilter('all'); setNeedsOnly(false); setSelected(`service:${connection}`); }}
-      others={data.can_manage ? { addSystem: () => setEditing('new'), build: () => setBuilding(true) } : { suggest: () => setSuggesting(true), build: () => setBuilding(true) }} />}
+      others={data.can_manage ? { addSystem: () => setEditing('new') } : { suggest: () => setSuggesting(true) }} />}
     {connecting && <ConnectDialog app={connecting} close={() => setConnecting(undefined)}
       connected={() => { setArrival({ result: 'connected', app: connecting.id }); setConnecting(undefined); refresh(); }} />}
     {arrival?.result === 'connected' && data && <ConnectedDialog app={connectedApp} close={() => setArrival(undefined)} changeRules={changeRules}
       chooseAgents={() => { setArrival(undefined); navigate(workspaceUrl('/?view=agents')); }} />}
     {editing && <SystemForm app={editing === 'new' ? undefined : editing} close={() => setEditing(undefined)} saved={refresh} />}
-    {building && <BuiltForm close={() => setBuilding(false)} saved={id => { setFilter('built'); setSelected(`built:${id}`); refresh(); }} />}
     {suggesting && <RequestDialog close={() => setSuggesting(false)} sent={refresh} />}
     {deciding && <RequestsDrawer close={() => setDeciding(false)} changed={refresh} />}
   </main>;

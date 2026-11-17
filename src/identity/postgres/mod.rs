@@ -446,14 +446,13 @@ async fn manager(db: &impl ConnectionTrait, workspace: &str, actor: &str) -> Res
     Ok(role)
 }
 mod audit_write;
-mod built_apps;
+mod built_apps_migration;
+#[cfg(test)]
+mod built_apps_removed_tests;
 mod statements;
 use statements::{execute, json_rows, query, rows};
 mod company_apps;
 use audit_write::{audit, audit_with_summary};
-pub(crate) use built_apps::{
-    AgentRule, AppFile, AppRelease, AppWatch, DataRequest, Helper, NewApp, PreviewError, RoleChange,
-};
 pub(crate) use company_apps::{AppDecision, AppRequest, CompanyApp};
 
 #[cfg(test)]

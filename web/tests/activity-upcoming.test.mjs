@@ -19,7 +19,6 @@ const items = [
   schedule('s3', 'Bank reconciliation', { agent: 'ledger', agent_name: 'Ledger', by: 'Meera Iyer', own: false, at: now + 7200000 }),
   { kind: 'follow_up', id: 't1', agent: 'nova', agent_name: 'Nova', title: 'Check if Sharma replied', at: now + 5400000 },
   { kind: 'trigger', id: 'e1', agent: 'atlas', agent_name: 'Atlas', title: 'New order in Zoho Books', source: 'Zoho Books · order created', state: 'enabled', revision: 3, detail: '', by: 'Ravi Kumar', own: true },
-  { kind: 'app_trigger', agent: 'atlas', agent_name: 'Atlas', id: 'returns', app: 'returns', app_name: 'Returns', change: 'added', collection: 'returns', title: 'New returns in Returns', by: 'Kavya', manages: false },
 ];
 
 async function open(render, update) {
@@ -40,12 +39,11 @@ test('Upcoming groups what runs by day, then paused, then always on, and filters
     const groups = [...document.querySelectorAll('.activity-upcoming h2')].map(h => h.textContent);
     assert.deepEqual(groups.slice(-2), ['Paused', 'Always on']);
     const order = [...document.querySelectorAll('.activity-upcoming li strong')].map(s => s.textContent);
-    assert.deepEqual(order, ['Morning stock check', 'Check if Sharma replied', 'Bank reconciliation', 'Month-end report', 'New order in Zoho Books', 'New returns in Returns']);
+    assert.deepEqual(order, ['Morning stock check', 'Check if Sharma replied', 'Bank reconciliation', 'Month-end report', 'New order in Zoho Books']);
     assert.match(row('Morning stock check').textContent, /Schedule · Atlas · Every day · set up by you/);
-    assert.match(row('New returns in Returns').textContent, /Trigger · Atlas · Added from Returns.*Open in Apps/);
     assert.equal(within(row('Morning stock check'), 'Edit in Atlas').getAttribute('href'), `/w/${w}/?view=agents&selected=atlas&section=automations`);
     await click(button('Triggers'));
-    assert.deepEqual([...document.querySelectorAll('.activity-upcoming li strong')].map(s => s.textContent), ['New order in Zoho Books', 'New returns in Returns']);
+    assert.deepEqual([...document.querySelectorAll('.activity-upcoming li strong')].map(s => s.textContent), ['New order in Zoho Books']);
   }, { url, fetch: async path => {
     reads.push(path);
     if (path.endsWith('/session')) return response(session);

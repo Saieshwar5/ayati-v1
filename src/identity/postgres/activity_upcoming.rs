@@ -54,33 +54,6 @@ impl PgStore {
                   AND (t.requester=$2 OR t.agent IN (SELECT id FROM f))
                 ORDER BY 1 LIMIT 100"), args()).await?);
         }
-        let agents: Vec<String> = json_rows(
-            &tx,
-            &format!("{FIXERS} SELECT to_jsonb(id) AS data FROM f"),
-            args(),
-        )
-        .await?
-        .into_iter()
-        .filter_map(|v| v.as_str().map(str::to_owned))
-        .collect();
-        for mut t in
-            super::super::super::built_apps::app_triggers_for(&tx, user, w, &agents).await?
-        {
-            // An app trigger's own kind says which records start it: added or changed.
-            t["change"] = t["kind"].take();
-            t["kind"] = json!("app_trigger");
-            t["title"] = json!(format!(
-                "{} {} in {}",
-                if t["change"] == "changed" {
-                    "Changed"
-                } else {
-                    "New"
-                },
-                t["collection"].as_str().unwrap_or_default(),
-                t["app_name"].as_str().unwrap_or_default()
-            ));
-            items.push(t);
-        }
         tx.commit().await?;
         Ok(json!({"items": items}))
     }

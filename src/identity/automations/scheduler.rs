@@ -30,7 +30,6 @@ pub(crate) async fn start(app: Shared) {
                     pg.dispatch_events().await,
                     crate::identity::events::subscriptions::sweep(pg).await,
                     pg.dispatch_library_arrivals().await,
-                    pg.dispatch_app_events().await,
                     pg.reconcile_handoffs().await,
                     pg.dispatch_task_wakeups().await,
                     pg.dispatch_panel_updates().await,

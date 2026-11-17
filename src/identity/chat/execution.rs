@@ -148,15 +148,6 @@ pub(crate) async fn prepare_traced(
     if control_tools && db.computer_on(&job.workspace, &job.agent).await? {
         instructions.push_str(prompt::COMPUTER);
     }
-    if control_tools && db.built_app_actions_offered(job).await? {
-        instructions.push_str(prompt::APP_ACTIONS);
-    }
-    if control_tools && db.built_app_agent_helps(job).await? {
-        instructions.push_str(&format!(
-            "\n{}",
-            super::super::built_apps::files::BUILDER_GUIDE
-        ));
-    }
     if let Some(said) = db.front_desk_said(job).await? {
         instructions.push_str(&prompt::front_desk(&said));
     }

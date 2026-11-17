@@ -5,7 +5,6 @@ mod agents;
 mod attention;
 mod automations;
 pub(crate) mod aws_signing;
-pub(crate) mod built_apps;
 mod chat;
 mod collaboration;
 mod communications;
@@ -282,7 +281,6 @@ fn router(app: Shared) -> Router {
         .merge(chat::routes())
         .merge(interactions::routes())
         .merge(library::routes())
-        .merge(built_apps::routes())
         .merge(models::routes())
         .merge(collaboration::routes())
         .merge(communications::routes())
@@ -399,11 +397,6 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
     let library_preview = path.starts_with("/api/identity/workspaces/")
         && path.contains("/library/")
         && path.ends_with("/download");
-    // A built app's document runs in its own opaque origin (CSP sandbox, no
-    // allow-same-origin), with every network request blocked.
-    let built_app_frame = path.starts_with("/api/identity/workspaces/")
-        && path.contains("/apps/built/")
-        && path.ends_with("/run");
     let reading = matches!(
         *request.method(),
         axum::http::Method::GET | axum::http::Method::HEAD
@@ -440,10 +433,6 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
                 .parse()
                 .unwrap(),
         );
-        return response;
-    }
-    if built_app_frame {
-        h.insert("content-security-policy", "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'".parse().unwrap());
         return response;
     }
     if guide_document {

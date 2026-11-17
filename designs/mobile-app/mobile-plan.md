@@ -120,7 +120,7 @@ WorkOS.
 | Sign in, choose a workspace, sign out, devices | Creating and editing agents, tools and rules |
 | Home: business clock, Needs you summary, agents working now, saved panels (read-only), panel detail | Arranging and creating Home panels |
 | Chats: DMs with agents and people, channels, threads | Settings, People, company rules, Usage |
-| Conversation: messages, live replies and task progress, Stop | Apps and built apps |
+| Conversation: messages, live replies and task progress, Stop | Apps |
 | Photos and files (send, view, download); voice notes with transcript | Library management |
 | Approvals and questions, inline and in Needs me | Watching or taking over an agent's computer or browser |
 | Agents list and profile; start a conversation | Activity beyond Needs me |

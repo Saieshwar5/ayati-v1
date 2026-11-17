@@ -1,22 +1,15 @@
 import { AgentFace } from '../faces';
-import { agoText, appColour, appState, dayName, type BuiltApp, type CompanySystem, type WorkspaceApp } from './apps-model';
+import { agoText, appColour, appState, dayName, type CompanySystem, type WorkspaceApp } from './apps-model';
 import { AppLetter, PauseIcon, RefreshIcon } from './app-marks';
 import { LinkIcon } from './company-apps';
-import { BuiltIcon } from './built-apps';
 
-export type Card = { key: string; built?: BuiltApp; system?: CompanySystem; service?: WorkspaceApp };
+export type Card = { key: string; system?: CompanySystem; service?: WorkspaceApp };
 
 /** One tile on Apps. A service names the one thing that needs attention, and when
  * it was last used (designs/connector-screens 1 and 6). */
 export function AppCard({ card, selected, select }: { card: Card; selected: boolean; select: () => void }) {
   return <button type="button" className="app-card" aria-pressed={selected} onClick={select}>
-    {card.built ? <>
-      <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.built.id) }}><BuiltIcon /></span>
-        {!card.built.version && <span className="app-status quiet">{card.built.versions?.length ? 'Offline' : 'Draft'}</span>}</span>
-      <span className="app-name">{card.built.name}</span>
-      <span className="app-line">{card.built.description || `Built by ${card.built.builder_name}`}</span>
-      <span className="app-foot"><span>{card.built.audience === 'everyone' ? 'Everyone' : 'Chosen people'}</span><span>Built here</span></span>
-    </> : card.system ? <>
+    {card.system ? <>
       <span className="app-card-top"><span className="app-icon" style={{ background: appColour(card.system.id) }}><LinkIcon /></span>
         {!card.system.can_open && <span className="app-status quiet">{card.system.requested ? 'Requested' : 'No access'}</span>}</span>
       <span className="app-name">{card.system.name}</span>

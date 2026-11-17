@@ -72,7 +72,7 @@ bar; Back returns to the same scroll position.
 **Opens the web app instead:**
 - creating and editing agents, tools and rules;
 - Settings, People, company rules, Usage;
-- Apps, built apps;
+- Apps;
 - arranging and creating Home panels;
 - Library management;
 - watching or taking over an agent's computer or browser.
