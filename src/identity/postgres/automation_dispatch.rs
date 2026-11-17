@@ -96,7 +96,7 @@ impl PgStore {
             at >= data["next_ms"].as_i64().unwrap(),
             "Routine timing moved backwards"
         );
-        let input = NewMessage {
+        let mut input = NewMessage {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             content: format!(
@@ -118,6 +118,19 @@ impl PgStore {
                 .as_str()
                 .context("Missing panel source")?
                 .to_owned()
+        } else if let Some((room, thread)) = super::assistants::run_place(
+            &intake,
+            w,
+            agent,
+            &person.id,
+            &format!("schedule:{id}"),
+            &format!("Schedule: {}", data["name"].as_str().unwrap_or("Schedule")),
+        )
+        .await?
+        {
+            // An assistant has one room: the run is a thread there (schema 127).
+            input.thread = Some(thread);
+            room
         } else {
             super::work_rooms::room(&intake, w, &data).await?
         };

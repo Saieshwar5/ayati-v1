@@ -30,6 +30,22 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
 - **When its owner leaves** the workspace, the existing rule applies: an agent
   with no owner is paused and takes no work; its record stays for admins.
 
+## One room (second piece)
+
+- **Schedules and triggers run in its room.** An assistant's schedule or event
+  trigger never opens a work room. Its first run adds one line to the room
+  ("Schedule: Delivery review", "Trigger: New mail"), and every run is a thread
+  under that line (`relay_assistant_threads`): the request and the assistant's
+  reply. A run reads the room and the earlier runs. Its Memory setting is not
+  used, because there is one room. Triggers with per-subject memory keep their
+  subject rooms.
+- **It remembers what its tools told it.** For other agents, a reply built from
+  a tool call or an event is left out of later context, because being in a
+  conversation is not permission to reuse a source. In an assistant's own room
+  its owner is the only reader, so those replies stay in its memory
+  (`assistants::own_room`). Library-source answers, withdrawn notes and Home
+  panel updates keep their rules.
+
 Mentioning another agent in your assistant's chat still works as before
 ([invited agents](forwarding-and-invited-agents.md)); it will be replaced by
 work threads.
@@ -50,12 +66,15 @@ visit.
   later one, a second member's own, the name, audience and flags, one direct
   chat, another member unable to talk to it or see it; renaming, and refusals
   for opening it to others, adding an owner, an email address and a channel.
+- PostgreSQL `assistants::tests`, second piece: a schedule's runs as one thread in
+  the room with no work room, the second run reading the first; a tool-built
+  reply remembered by an assistant and still left out for another agent.
 - Web `tests/navigation.test.mjs` (the first section, not repeated under Direct
   messages, the chat's line) and `tests/assistant-people.test.mjs` (no Only me
   for a new agent; kept for one saved that way).
 
 ## Not built yet
 
-A setup page, one room for its schedules and triggers, memory of what its tools
-told it, the "about you" memory, asking it from any message box, suggestions,
+A setup page, runs that stay quiet when nothing changed, forgetting what a
+disconnected account told it, the "about you" memory, asking it from any message box, suggestions,
 work threads, regular checks, and the admin switches.

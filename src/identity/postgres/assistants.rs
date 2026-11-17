@@ -56,6 +56,80 @@ pub(super) async fn flag(db: &impl ConnectionTrait) -> Result<&'static str> {
     })
 }
 
+/// SQL for "message `m` is in an assistant's own room": its chat with its owner.
+/// There its owner is the only reader, so what its tools and events told it
+/// stays in its memory (conversation_context.rs).
+pub(super) async fn own_room(db: &impl ConnectionTrait, m: &str) -> Result<String> {
+    Ok(if ready(db).await? {
+        format!(
+            "EXISTS(SELECT 1 FROM relay_assistants s JOIN relay_chat_agents x ON x.workspace=s.workspace AND x.agent=s.agent WHERE s.workspace={m}.workspace AND x.chat={m}.chat)"
+        )
+    } else {
+        "FALSE".into()
+    })
+}
+
+/// Where an assistant's schedule or trigger runs: its owner's chat with it, in
+/// the automation's own thread, opened under one line that names it. `None`
+/// for any other agent, which runs in a work room.
+pub(super) async fn run_place(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: &str,
+    person: &str,
+    automation: &str,
+    title: &str,
+) -> Result<Option<(String, String)>> {
+    if !is_assistant(tx, w, agent).await? {
+        return Ok(None);
+    }
+    if let Some(row) = query(
+        tx,
+        "SELECT chat,thread FROM relay_assistant_threads WHERE workspace=$1 AND agent=$2 AND automation=$3",
+        vec![w.into(), agent.into(), automation.into()],
+    )
+    .await?
+    {
+        return Ok(Some((row.try_get("", "chat")?, row.try_get("", "thread")?)));
+    }
+    let Some(row) = query(
+        tx,
+        "SELECT c.id FROM relay_chats c
+         JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id AND x.agent=$2
+         JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3
+         JOIN relay_assistants s ON s.workspace=c.workspace AND s.agent=x.agent AND s.user_id=p.user_id
+         WHERE c.workspace=$1 AND c.kind='direct' AND NOT c.work",
+        vec![w.into(), agent.into(), person.into()],
+    )
+    .await?
+    else {
+        return Ok(None);
+    };
+    let chat: String = row.try_get("", "id")?;
+    let thread = uuid::Uuid::new_v4().to_string();
+    execute(
+        tx,
+        "INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at,requester) VALUES($1,$2,$3,$4,'agent',$5,'complete',$6,$7)",
+        vec![
+            thread.clone().into(),
+            w.into(),
+            chat.clone().into(),
+            agent.into(),
+            title.chars().take(200).collect::<String>().into(),
+            now().into(),
+            person.into(),
+        ],
+    )
+    .await?;
+    execute(
+        tx,
+        "INSERT INTO relay_assistant_threads(workspace,agent,automation,chat,thread) VALUES($1,$2,$3,$4,$5)",
+        vec![w.into(), agent.into(), automation.into(), chat.clone().into(), thread.clone().into()],
+    )
+    .await?;
+    Ok(Some((chat, thread)))
+}
+
 /// An assistant keeps its fixed rules when its profile is saved.
 pub(super) async fn keep_private(
     db: &impl ConnectionTrait,

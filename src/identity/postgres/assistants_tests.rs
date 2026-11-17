@@ -158,3 +158,178 @@ async fn an_assistant_keeps_its_fixed_rules() {
     );
     assert!(!db.agent_is_new(&w, &mine).await.unwrap());
 }
+
+async fn text(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Option<String> {
+    query(&db.db, &format!("SELECT ({sql})::text AS v"), args)
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "v")
+        .unwrap()
+}
+
+/// The queued job in `chat`, claimed as an executor would.
+async fn queued(db: &PgStore, chat: &str) -> crate::identity::chat::model::Job {
+    let payload: Value = query(
+        &db.db,
+        "SELECT j.payload FROM relay_chat_jobs j WHERE j.payload->>'chat'=$1 AND j.state='queued'",
+        vec![chat.into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "payload")
+    .unwrap();
+    super::super::handoff_tests::claim(db, &serde_json::from_value(payload).unwrap()).await
+}
+
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn an_assistants_schedule_runs_as_a_thread_in_its_one_room() {
+    let mut db = fixture().await;
+    db.pooled = true;
+    let ravi = user(&db, "ravi").await;
+    let w = workspace(&db, &ravi).await;
+    let mine = made(&db, &ravi, &w).await;
+    let room = text(
+        &db,
+        "SELECT chat FROM relay_chat_agents WHERE agent=$1",
+        vec![mine.clone().into()],
+    )
+    .await
+    .unwrap();
+    let mut input = super::super::automation_tests::schedule(&room, Some(3600));
+    input.chat = None;
+    db.save_schedule(&ravi, &w, &mine, &input).await.unwrap();
+    assert_eq!(db.dispatch_schedules_at(input.first_ms).await.unwrap(), 1);
+
+    // No work room: the run is in the room, in a thread under one line.
+    assert_eq!(
+        count(
+            &db,
+            "relay_chats WHERE workspace=$1 AND work",
+            vec![w.clone().into()]
+        )
+        .await,
+        0
+    );
+    let thread = text(
+        &db,
+        "SELECT thread FROM relay_assistant_threads WHERE agent=$1",
+        vec![mine.clone().into()],
+    )
+    .await
+    .unwrap();
+    let line = db.chat_messages(&ravi, &w, &room).await.unwrap();
+    let all = line["messages"].as_array().unwrap();
+    let root = all.iter().find(|m| m["id"] == thread.as_str()).unwrap();
+    assert_eq!(root["content"], "Schedule: Delivery review");
+    assert!(root["thread"].is_null());
+    let run: Vec<_> = all
+        .iter()
+        .filter(|m| m["thread"] == thread.as_str())
+        .collect();
+    assert_eq!(run.len(), 2, "the run's request and the assistant's reply");
+    // The next run joins the same thread.
+    let job = queued(&db, &room).await;
+    assert_eq!(job.chat, room);
+    db.chat_finish(&job, "Nothing late today.", "complete")
+        .await
+        .unwrap();
+    assert_eq!(
+        db.dispatch_schedules_at(input.first_ms + 3_600_000)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        count(
+            &db,
+            "relay_assistant_threads WHERE agent=$1",
+            vec![mine.clone().into()]
+        )
+        .await,
+        1
+    );
+    assert_eq!(
+        count(
+            &db,
+            "relay_chat_messages WHERE chat=$1 AND thread=$2",
+            vec![room.clone().into(), thread.clone().into()]
+        )
+        .await,
+        4
+    );
+    // The second run reads the first one's answer: one room, one memory.
+    let next = queued(&db, &room).await;
+    assert!(next.prompt.contains("Nothing late today."));
+}
+
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn an_assistant_remembers_what_its_tools_told_it_and_other_agents_do_not() {
+    let db = fixture().await;
+    let ravi = user(&db, "ravi").await;
+    let w = workspace(&db, &ravi).await;
+    let mine = made(&db, &ravi, &w).await;
+    let shared = uuid::Uuid::new_v4().to_string();
+    db.save_agent_profile(&ravi, &w, &profile(&shared, "HR Desk", "everyone", 0))
+        .await
+        .unwrap();
+    db.db
+        .execute_unprepared(&format!(
+            "INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES('{w}','mailer',true,1);
+             INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint) VALUES('{w}','mail','mailer','{{\"id\":\"mailer\",\"name\":\"Mail\",\"operations\":[]}}','fp')"
+        ))
+        .await
+        .unwrap();
+    for (agent, expected) in [(mine, true), (shared, false)] {
+        let chat = db
+            .chat_create(
+                &ravi,
+                &w,
+                &NewChat {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "Direct".into(),
+                    kind: "direct".into(),
+                    description: String::new(),
+                    users: vec![],
+                    agents: vec![agent.clone()],
+                },
+            )
+            .await
+            .unwrap();
+        let job = db
+            .chat_send(
+                &ravi,
+                &w,
+                &chat,
+                &message("Read my payslip mail", Some(&agent)),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        // The reply was built from a tool call.
+        execute(&db.db, "INSERT INTO relay_control_actions(id,workspace,agent,chat,job,requester,request_id,connection,operation,arguments,title,effect,rule_revision,connection_revision,approver,state,created,updated,run_cycle,requires_approval) VALUES($1,$2,$3,$4,$5,$6,'r','mail','mail.read','{}','Read mail','read',1,1,$6,'completed',1,1,0,false)",
+            vec![uuid::Uuid::new_v4().to_string().into(), w.clone().into(), agent.clone().into(), chat.clone().into(), job.reply.clone().into(), ravi.id.clone().into()]).await.unwrap();
+        let running = db.claim_job().await.unwrap().unwrap();
+        db.chat_finish(&running, "Your payslip shows 62,400.", "complete")
+            .await
+            .unwrap();
+        let later = db
+            .chat_send(
+                &ravi,
+                &w,
+                &chat,
+                &message("What did it show?", Some(&agent)),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            later.prompt.contains("62,400"),
+            expected,
+            "assistant: {expected}"
+        );
+    }
+}

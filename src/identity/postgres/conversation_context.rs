@@ -155,9 +155,12 @@ async fn own_exclusions(db: &impl ConnectionTrait, m: &str) -> Result<String> {
     if super::context_attempts::exists(db).await? {
         clauses.push_str(&format!(" AND NOT EXISTS(SELECT 1 FROM relay_context_attempts ca WHERE ca.workspace={m}.workspace AND ca.task={m}.id AND ca.generation<>COALESCE((SELECT jsonb_agg(jsonb_build_array(e.category,e.agent,e.chat,e.revision) ORDER BY e.category,e.agent,e.chat) FROM relay_context_epochs e WHERE e.workspace=ca.workspace AND (e.agent='' OR e.agent=ca.agent) AND (e.chat='' OR e.chat=ca.chat)),'[]'::jsonb))"));
     }
+    // In an assistant's own room its owner is the only reader, so what its
+    // tools and events told it stays in its memory (schema 127).
+    let own = super::assistants::own_room(db, m).await?;
     if super::event_access::exists(db).await? {
         clauses.push_str(&format!(
-            " AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace={m}.workspace AND e.reply={m}.id)"
+            " AND ({own} OR NOT EXISTS(SELECT 1 FROM relay_event_deliveries e WHERE e.workspace={m}.workspace AND e.reply={m}.id))"
         ));
     }
     for (table, reply_column) in [
@@ -181,6 +184,8 @@ async fn own_exclusions(db: &impl ConnectionTrait, m: &str) -> Result<String> {
                 clauses.push_str(&format!(" AND NOT EXISTS(SELECT 1 FROM relay_library_sources s JOIN relay_chat_messages r ON r.workspace=s.workspace AND r.id=s.reply WHERE s.workspace={m}.workspace AND r.chat={m}.chat AND {m}.sequence<=r.sequence)"));
             } else if table == "relay_agent_knowledge" {
                 clauses.push_str(&format!(" AND NOT EXISTS(SELECT 1 FROM relay_agent_knowledge k WHERE k.workspace={m}.workspace AND k.source_message={m}.id AND (k.forgotten OR k.revision>0))"));
+            } else if table == "relay_control_actions" {
+                clauses.push_str(&format!(" AND ({own} OR NOT EXISTS(SELECT 1 FROM {table} s WHERE s.workspace={m}.workspace AND s.{reply_column}={m}.id))"));
             } else {
                 clauses.push_str(&format!(" AND NOT EXISTS(SELECT 1 FROM {table} s WHERE s.workspace={m}.workspace AND s.{reply_column}={m}.id)"));
             }
