@@ -18,6 +18,8 @@ import { Button } from '../ui';
 import { errorMessage } from '../requests';
 import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ShowProfile, useShowProfile } from './profile-card';
+import { ThreadBanner } from './assistant-threads';
+import { AssistantDraft } from './assistant-draft';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
@@ -154,6 +156,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     list.scrollTop = list.scrollHeight;
     [...list.querySelectorAll<HTMLElement>('[data-message-id]')].at(-1)?.focus({ preventScroll: true });
   };
+  const draftSent = useRef<(message: string) => void>(undefined);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
   /** Resolves true once the message is in the outbox; a voice recording joins the draft's files. */
   const send = async (voice?: Attachment): Promise<boolean> => {
@@ -173,6 +176,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     const submission = attempt.current;
     try {
       await enqueue(chat.id, submission);
+      draftSent.current?.(submission.id);
       if (!alive.current) return true;
       updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
       return true;
@@ -210,6 +214,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
       level={level} levelChanged={levelChanged} details={details} />
     <ConnectionBanner status={connection} />
+    <ThreadBanner chat={chat.id} assistantName={directory.agents.find(agent => agent.assistant && agent.yours)?.name ?? 'Your assistant'} />
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {
       const node = messages.current!, distance = node.scrollHeight - node.scrollTop - node.clientHeight;
@@ -229,6 +234,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
+    {!chat.archived && <AssistantDraft chat={chat.id} name={directory.agents.find(agent => agent.assistant && agent.yours)?.name ?? 'your assistant'} instruction={draft} use={updateDraft} sent={draftSent} />}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…"
       candidates={[

@@ -192,6 +192,19 @@ impl PgStore {
             .into_iter()
             .next())
     }
+    /// A message a member's assistant wrote for them in a thread (schema 128):
+    /// an ordinary message from the member, asking the agent it goes to.
+    pub(super) async fn as_owner_in(
+        &self,
+        tx: &DatabaseTransaction,
+        user: &User,
+        w: &str,
+        chat: &str,
+        input: &NewMessage,
+    ) -> Result<Vec<Job>> {
+        self.enqueue_chat_in(tx, user, w, chat, input, WorkClass::Interactive, None)
+            .await
+    }
     /// A person's message carrying a copy of another message they forward
     /// (schema 125): an ordinary message, asking the agent it goes to.
     pub(super) async fn forward_in(

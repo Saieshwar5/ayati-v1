@@ -14,9 +14,13 @@ use crate::identity::{
     chat::model::NewChat,
 };
 
+#[path = "assistant_settings.rs"]
+pub(crate) mod settings;
 #[cfg(test)]
 #[path = "assistants_tests.rs"]
 mod tests;
+#[path = "assistant_threads.rs"]
+pub(crate) mod threads;
 
 /// What a new assistant is called until its owner renames it.
 pub(crate) const NAME: &str = "Ayati";
@@ -160,6 +164,23 @@ impl PgStore {
         )
         .await?;
         Ok(row.map(|row| row.try_get("", "agent")).transpose()?)
+    }
+
+    /// Whether this task is an assistant working for its own person.
+    pub(crate) async fn works_for_its_person(
+        &self,
+        w: &str,
+        agent: &str,
+        person: &str,
+    ) -> Result<bool> {
+        Ok(ready(&self.db).await?
+            && query(
+                &self.db,
+                "SELECT 1 AS found FROM relay_assistants WHERE workspace=$1 AND agent=$2 AND user_id=$3",
+                vec![w.into(), agent.into(), person.into()],
+            )
+            .await?
+            .is_some())
     }
 
     /// Whether a new agent with this id would be created by saving it.

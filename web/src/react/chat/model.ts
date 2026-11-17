@@ -56,6 +56,8 @@ export type Message = {
   agent_reactions?: AgentReaction[];
   /** The copy of another message this one forwards (schema 125). */
   forwarded?: import('./forward-message').Forwarded | null;
+  /** On your own message only: the thread that sent it, and whether your assistant wrote it (schema 128). */
+  assisted?: import('./assistant-threads-model').Assisted | null;
 };
 export type AgentReaction = { agent: string; emoji: string; name?: string | null };
 export type History = { messages: Message[]; agents: string[]; next_before?: number | null };

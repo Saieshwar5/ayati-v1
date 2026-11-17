@@ -22,6 +22,7 @@ import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
 import { ThreadLine, type threadSummary } from './thread-line';
 import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
+import { ThreadIcon } from './assistant-threads';
 export function ChatMessage({ message, directory, thread, openThread, reply, quoted, place = '', compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string };
   /** Where this message is, as a forward of it says (`Direct message`, `#orders`). */
   place?: string }) {
@@ -71,6 +72,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
       {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
+      {own && message.assisted?.by === 'assistant' && <p className="chat-assisted" title="Only you and workspace admins can see this"><ThreadIcon />Written by {directory.agents.find(item => item.id === message.assisted?.agent)?.name ?? 'your assistant'} · {message.assisted.title}</p>}
       {!own && edited}
       <ReactionBar message={message} reactions={reactions} directory={directory} />
       </>}

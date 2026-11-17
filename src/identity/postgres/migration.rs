@@ -135,6 +135,8 @@ impl MigratorTrait for Migrator {
             Box::new(super::thread_guests::ForwardingAndGuests),
             Box::new(super::built_apps_migration::BUILT_APPS_REMOVED),
             Box::new(super::assistants::Assistants),
+            Box::new(super::assistants::threads::AssistantThreads),
+            Box::new(super::assistants::settings::AssistantSettings),
         ]
     }
 }

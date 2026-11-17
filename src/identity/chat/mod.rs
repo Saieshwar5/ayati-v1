@@ -1,4 +1,6 @@
 pub(crate) mod asked_together;
+mod assistant_settings;
+mod assistant_threads;
 pub(super) mod execution;
 pub(crate) mod mentions;
 mod message_actions;
@@ -25,6 +27,8 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(task_progress::routes())
         .merge(organization::routes())
         .merge(message_actions::routes())
+        .merge(assistant_threads::routes())
+        .merge(assistant_settings::routes())
         .merge(notifications::routes())
         .merge(presence::routes())
         .route(
