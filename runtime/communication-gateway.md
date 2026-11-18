@@ -1,5 +1,13 @@
 # Communication gateway (schema 54)
 
+> **Agent email was removed on 2026-11-18 (schema 131).** Each agent could have
+> its own Cuckoo mail address through Amazon SES (schema 113). That version,
+> with its doc `runtime/email-channel.md`, is kept at the Git tag
+> `agent-email-last`. Schema 131 switches off live email endpoints, cancels
+> unsent replies and drops `relay_email_addresses` and `relay_email_messages`.
+> Where this page says email is a door with proven identity, no live transport
+> is one today: the only live transport is the Communication MCP.
+
 One gateway carries messages between agents and the places people write
 from. Each live transport is an adapter behind one contract; everything else
 is shared. The first live transport is the **Communication MCP**: a small MCP
@@ -203,11 +211,11 @@ tab needs an approved design.
 - **Contacts and verification** (G3): pairing, one-time codes, assurance levels.
 - **Knowledge audiences and actions tied to the asker** (G4). No public
   endpoint should open before G3 and G4.
-- **Native email.** Agents' native channels are Cuckoo Chat and email on a
-  Cuckoo mail domain through Amazon SES ([the email channel](email-channel.md));
-  people reach agents on phones through Cuckoo's own mobile app. Third-party
-  messengers (WhatsApp, Telegram) were removed on 2026-11-14 (schema 114).
-- **Webhook ingress** for other transports. Email reads SES's queue.
+- **Native channels.** Agents' native channel is Cuckoo Chat; people reach
+  agents on phones through Cuckoo's own mobile app. Third-party messengers
+  (WhatsApp, Telegram) were removed on 2026-11-14 (schema 114) and agent email
+  on 2026-11-18 (schema 131).
+- **Webhook ingress** for other transports.
 - **For developers:** a doorbell notification, attachments, a TypeScript
   template and `ayati transport check`.
 - **Group conversations.**

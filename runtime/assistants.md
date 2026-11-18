@@ -11,8 +11,8 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   rename it (⋯ › Name, picture and role…), uses the workspace's default model,
   and has its own computer and browser where this Cuckoo has computers.
 - **Private to its owner.** Only its owner can talk to it. It can't be opened to
-  other people, has no other owners (the Owners menu and link are hidden), joins
-  no channel and has no email address. The server refuses each of these.
+  other people, has no other owners (the Owners menu and link are hidden), and
+  joins no channel. The server refuses each of these.
 - **Admins see its work**, as for any agent: its requests show in Activity for
   its owner and admins, and opening one from a chat they are not in is recorded
   in the audit log ([activity](activity.md#who-sees-what)). Admins can't talk
@@ -135,7 +135,7 @@ visit.
 - PostgreSQL `assistants::tests`: one assistant from two requests at once and a
   later one, a second member's own, the name, audience and flags, one direct
   chat, another member unable to talk to it or see it; renaming, and refusals
-  for opening it to others, adding an owner, an email address and a channel.
+  for opening it to others, adding an owner and a channel.
 - PostgreSQL `assistants::tests`, second piece: a schedule's runs as one thread in
   the room with no work room, the second run reading the first; a tool-built
   reply remembered by an assistant and still left out for another agent.

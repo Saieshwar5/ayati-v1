@@ -131,3 +131,26 @@ impl MigrationTrait for AgentEmail {
         ))
     }
 }
+
+/// Schema 131: agent email removed. Its tables go and live email endpoints
+/// are switched off.
+pub(crate) struct EmailRemoved;
+impl MigrationName for EmailRemoved {
+    fn name(&self) -> &str {
+        "m20261118_000131_agent_email_removed"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for EmailRemoved {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("email_removed.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Removing agent email requires a forward migration".into(),
+        ))
+    }
+}
