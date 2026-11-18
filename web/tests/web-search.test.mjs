@@ -35,40 +35,6 @@ const fetcher = writes => async (path, options = {}) => {
   return response({ ...body, revision: 1 });
 };
 
-test('a new agent searches the web unless its creator switches it off in Tools', async () => {
-  for (const switchOff of [false, true]) {
-    const writes = [];
-    await reactFixture(async fixture => {
-      await create(fixture, true, switchOff);
-      assert.equal(writes.length, 1);
-      assert.equal(writes[0].settings.web_search, !switchOff);
-    }, { url, fetch: fetcher(writes) });
-  }
-  const writes = [];
-  await reactFixture(async fixture => {
-    const { render, button, click, change } = fixture;
-    const context = await import('../src/workspace-context.ts');
-    await context.enterWorkspace();
-    const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
-    await render(AgentCreate, { start: newAgent(directory), directory, webSearch: true, close() {}, created: async () => {} });
-    await change(field('Name'), 'Iris');
-    await click(button('Continue'));
-    const built = document.querySelector('[aria-labelledby="agent-built-in-title"]');
-    assert.match(built.textContent, /Built into Cuckoo/);
-    assert.match(built.textContent, /Iris lists the pages it used under each answer/);
-    assert.equal(webSwitch().checked, true);
-    assert.doesNotMatch(document.body.textContent, /tavily|exa|perplexity|parallel/i);
-  }, { url, fetch: fetcher(writes) });
-});
-
-test('without web search set up, the create step shows only the admin’s apps', async () => {
-  const writes = [];
-  await reactFixture(async fixture => {
-    await create(fixture, false, false);
-    assert.equal(document.querySelector('[aria-labelledby="agent-built-in-title"]'), null);
-  }, { url, fetch: fetcher(writes) });
-});
-
 const agent = { id: 'atlas', name: 'Atlas', role: 'Orders', model: 'm', audience: 'everyone', revision: 3, settings: { avatar: 'spark', paused: false }, editable: true };
 const controls = { can_manage: true, connections: [], actions: [], execution_available: true };
 

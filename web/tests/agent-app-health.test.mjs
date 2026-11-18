@@ -25,61 +25,6 @@ async function setup(render, change, click, button) {
   await click(button('Continue'));
 }
 
-test('The Tools step shows each app’s health; a member asks an admin for another app', async () => {
-  const sent = [];
-  await reactFixture(async ({ render, change, click, button }) => {
-    await setup(render, change, click, button);
-    assert.deepEqual(tags(), { Gmail: 'Writes paused', 'Zoho Books': 'Needs reconnecting', Slack: 'Paused by Cuckoo', 'Google Calendar': '' });
-    assert.match(document.querySelector('[aria-label="About these apps"]').textContent, /Writes paused means one earlier action needs checking\. Iris can still read\./);
-    assert.doesNotMatch(document.body.textContent, /Settings → Connections|You’re an admin/);
-    assert.match(document.querySelector('.need-app').textContent, /Need another app\?Your admin gets the request on the Apps page\./);
-    await click(button('Ask an admin'));
-    await change(document.querySelector('[aria-label="App name"]'), 'Tally');
-    await click(button('Send suggestion'));
-    assert.deepEqual({ ...sent[0], id: undefined }, { id: undefined, name: 'Tally', url: '', reason: '' });
-    assert.match(document.querySelector('.need-app').textContent, /Sent\. Your admin decides on the Apps page\./);
-    assert.match(document.querySelector('.agent-create-steps [aria-current=step]').textContent, /Tools/, 'still on the Tools step');
-  }, { url, fetch: async (path, options = {}) => {
-    if (path.endsWith('/session')) return session('Member');
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], role: 'Member' });
-    if (path.endsWith('/control/available')) return response({ connections, execution_available: true });
-    if (path.endsWith('/apps/requests')) { sent.push(JSON.parse(options.body)); return response({ id: 'r', state: 'pending' }); }
-    return response({});
-  } });
-});
-
-test('An admin connects an app from the Tools step in a new tab and keeps the draft agent', async () => {
-  let connected = false; const writes = [];
-  await reactFixture(async ({ render, change, click, button, navigation }) => {
-    await setup(render, change, click, button);
-    assert.match(document.querySelector('[aria-label="About these apps"]').textContent, /You’re an admin: you can also connect an app here without losing this draft\./);
-    await click(button('Connect an app'));
-    assert.equal(document.querySelector('dialog[open] h2').textContent, 'Add app');
-    await click(button('Connect Outlook'));
-    assert.match(document.querySelector('dialog[open]').textContent, /Opens Outlook in a new tab/);
-    await click(button('Continue to Outlook →'));
-    assert.equal(writes.length, 1);
-    assert.deepEqual(navigation, [], 'this page stays');
-    const link = [...document.querySelectorAll('dialog[open] a')].find(a => a.textContent === 'Open Outlook sign-in');
-    assert.equal(link.href, 'https://connect.example.test/outlook'); assert.equal(link.target, '_blank'); assert.match(link.rel, /noopener/);
-    connected = true;
-    await click(button('Done'));
-    assert.equal(document.querySelector('dialog[open]'), null);
-    assert.ok(tags().Outlook !== undefined, 'the new app is listed');
-    await click(button('Back'));
-    assert.equal(field('Name').value, 'Iris', 'the draft is kept');
-  }, { url, fetch: async (path, options = {}) => {
-    if (path.endsWith('/session')) return session('Admin');
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], role: 'Admin' });
-    if (path.endsWith('/control/available')) return response({ connections: connected ? [...connections, connection('outlook', 'Outlook')] : connections, execution_available: true });
-    if (path.endsWith('/control/connections')) return response({ servers: [], systems: [], connections: [], safety: [], people: [], viewer: 'owner', execution_available: true });
-    if (path.includes('/apps/catalog')) return response({ categories: [], next_cursor: null, can_manage: true,
-      apps: [{ id: 'outlook', name: 'Outlook', description: 'Email', category: 'email_calendar', kinds: ['read'], actions: 2, state: 'available', connection: null }] });
-    if (path.endsWith('/apps/connect')) { writes.push(JSON.parse(options.body)); return response({ redirect_url: 'https://connect.example.test/outlook' }); }
-    return response({});
-  } });
-});
-
 const agent = { id: 'atlas', name: 'Atlas', role: 'Orders', model: 'm', audience: 'everyone', revision: 1, settings: {}, editable: true };
 const controls = extra => ({ can_manage: true, can_manage_connections: true, viewer: 'owner', execution_available: true, connections, actions: [
   { id: 'u1', connection: 'gmail', operation: 'gmail.send', title: 'Send an email', effect: 'write', arguments: {}, state: 'uncertain', result: null, chat: 'c', thread: null, job: 'j', approver: 'owner', created: 1, updated: 1 }], ...extra });

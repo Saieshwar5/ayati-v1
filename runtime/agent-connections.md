@@ -46,6 +46,15 @@ Connections tab, or the workspace), who connected it and when, when it was
 last used and whether it needs a new sign-in. **Remove** disconnects any of
 them. `GET …/apps` gives each app's `owner` and `revision` for this.
 
+## Creating an agent
+
+Three steps: **Name and picture**, **What it does** (ground rules and skills,
+with the setup chat) and **People**. The Tools and Controls steps are gone:
+a new agent starts with web search and its computer and browser on where this
+Cuckoo offers them (with the internet, under the workspace's limits) and the
+workspace's default model, and its apps and MCP servers are added on its
+Connections tab once it exists. A member's assistant starts the same way.
+
 ## API
 
 - `GET …/apps/catalog?agent={id}`: the catalog for one agent; `state` is
@@ -85,4 +94,3 @@ them. `GET …/apps` gives each app's `owner` and `revision` for this.
   for admins come later.
 - The company's own machines are still added by an admin in Settings ›
   Computers. A simple webhook per agent and one-step MCP setup are not built.
-- Creating an agent still has five steps and offers only workspace connections.
