@@ -9,7 +9,7 @@ one sidebar with two groups.
 | You | Profile, Preferences, Help | Profile, Preferences, Help |
 | Workspace | This workspace, Company rules (read-only), Usage (their own) | Workspace, People, Company rules, Usage, Billing, Audit log |
 
-Connections moved to the [Apps page](apps-page.md); `section=connections` links open it.
+Connections (admins) lists every app and MCP server connected in the workspace with the agent it belongs to, and removes apps ([an agent's own connections](agent-connections.md)).
 
 - **Company rules** (everyone reads, admins edit): conditions on agent actions;
   see [company rules](guard-rules.md).

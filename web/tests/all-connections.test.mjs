@@ -14,7 +14,7 @@ const response = data => ({ ok: true, json: async () => data });
 
 test('every connection shows whose it is, and Remove sends one request for that agent’s connection', async () => {
   const writes = [];
-  let apps = [app('c1', 'Gmail', { id: 'nova', name: 'Nova' }), app('c2', 'Slack', null, { state: 'reconnect' })];
+  let apps = [app('c1', 'Gmail', { id: 'nova', name: 'Nova' }), app('c2', 'Payroll', { id: 'hr', name: 'HR Desk' }, { provider: 'system', state: 'reconnect' })];
   await reactFixture(async ({ render, update }) => {
     const { AllConnections } = await import('../src/react/settings/all-connections.tsx');
     await render(AllConnections);
@@ -22,7 +22,8 @@ test('every connection shows whose it is, and Remove sends one request for that 
     assert.equal(rows.length, 2);
     assert.match(rows[0].textContent, /Gmail.*c1@example\.test.*by Ravi Kumar.*not used yet/);
     assert.match(rows[0].querySelector('a').getAttribute('href'), /view=agents&selected=nova&section=connections$/);
-    assert.match(rows[1].textContent, /Slack.*Shared by the workspace.*Needs a new sign-in.*Workspace/);
+    assert.match(rows[1].textContent, /Payroll.*MCP server.*Needs a new sign-in.*HR Desk/);
+    assert.equal(rows[1].querySelector('button'), null, 'an MCP server is removed on its agent’s page');
     const remove = rows[0].querySelector('button');
     assert.equal(remove.getAttribute('aria-label'), 'Remove Gmail from Nova');
     apps = [apps[1]];

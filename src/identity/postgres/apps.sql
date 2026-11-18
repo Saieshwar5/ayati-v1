@@ -6,7 +6,8 @@
 SELECT jsonb_build_object(
  'id',c.id,'server',c.server,'name',c.definition->>'name','kind','service','provider',c.provider,
  -- The agent it belongs to (schema 132), for the admins' list of every connection.
- 'revision',c.revision,'owner',(SELECT jsonb_build_object('id',o.id,'name',o.name) FROM relay_shared_agents o WHERE o.workspace=c.workspace AND o.id=c.agent),
+ 'revision',c.revision,'owner',(SELECT jsonb_build_object('id',o.id,'name',o.name) FROM relay_shared_agents o WHERE o.workspace=c.workspace
+   AND o.id=COALESCE(c.agent,(SELECT y.agent FROM relay_connected_systems y WHERE y.workspace=c.workspace AND y.connection=c.id AND NOT y.removed))),
  'account',CASE WHEN $2 THEN c.definition->>'account' END,
  'status',CASE WHEN EXISTS(SELECT 1 FROM relay_connector_reconnects n WHERE n.workspace=c.workspace AND n.connection=c.id) THEN 'reconnect' ELSE 'connected' END,
  'state',relay_connection_state(c.workspace,c.id,c.provider),

@@ -1,4 +1,4 @@
-import { ToolsTab } from './tools-tab';
+import { AppConnections } from './app-connections';
 import type { Agent, Directory } from './model';
 import { SystemsSection } from './systems/systems-section';
 import { ComputerCard } from './computer/computer-card';
@@ -9,7 +9,7 @@ import { WebSearchCard } from './web-search';
  * Apps its owner signs in to, the company's MCP servers, its computer and
  * browser, and Cuckoo's built-in tools. Nothing here is shared with another agent. */
 export function ConnectionsTab({ agent, directory, saved, focus }: { agent: Agent; directory: Directory; saved: () => Promise<void>; focus?: string }) {
-  return <ToolsTab agent={agent} saved={saved} focus={focus} groups={<>
+  return <AppConnections agent={agent} focus={focus}>
     <SystemsSection agent={agent} />
     {directory.computers && <section className="agent-connection-group" aria-label="Computers">
       <h3 className="agent-group-label">Computers</h3>
@@ -20,5 +20,5 @@ export function ConnectionsTab({ agent, directory, saved, focus }: { agent: Agen
       <h3 className="agent-group-label">Built in</h3>
       <WebSearchCard agent={agent} saved={saved} />
     </section>}
-  </>} />;
+  </AppConnections>;
 }

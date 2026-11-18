@@ -60,7 +60,6 @@ test('an own app has one rule set its owner changes, with no admin limit and no 
   await reactFixture(async ({ render, update, click }) => {
     await show(render);
     const app = document.querySelector('[aria-label="Gmail"]');
-    assert.match(app.textContent, /Nova’s own account/);
     assert.equal(app.textContent.includes('admin limit'), false);
     assert.equal(app.querySelector('[role=switch]'), null, 'it is this agent’s alone: nothing to switch');
     const allow = app.querySelector('[aria-label="Send an email rule"] input[value=allow]');

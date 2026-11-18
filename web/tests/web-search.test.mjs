@@ -38,11 +38,11 @@ const fetcher = writes => async (path, options = {}) => {
 const agent = { id: 'atlas', name: 'Atlas', role: 'Orders', model: 'm', audience: 'everyone', revision: 3, settings: { avatar: 'spark', paused: false }, editable: true };
 const controls = { can_manage: true, connections: [], actions: [], execution_available: true };
 
-test('the Tools tab switch saves once, keeps the agent on after a failed save, and reports the result', async () => {
+test('the web search switch saves once, keeps the agent on after a failed save, and reports the result', async () => {
   const saves = []; let release; let fail = true; let refreshed = 0;
   await reactFixture(async ({ render, click, update }) => {
-    const { ToolsTab } = await import('../src/react/agents/tools-tab.tsx');
-    await render(ToolsTab, { agent, webSearch: true, saved: async () => { refreshed++; } });
+    const { WebSearchCard } = await import('../src/react/agents/web-search.tsx');
+    await render(WebSearchCard, { agent, saved: async () => { refreshed++; } });
     // Saved before web search existed: no setting means on.
     assert.equal(webSwitch().checked, true);
     assert.match(document.body.textContent, /Atlas can search the web and read public pages/);
@@ -71,8 +71,8 @@ test('the Tools tab switch saves once, keeps the agent on after a failed save, a
 
 test('people who cannot change the agent see web search but cannot switch it', async () => {
   await reactFixture(async ({ render }) => {
-    const { ToolsTab } = await import('../src/react/agents/tools-tab.tsx');
-    await render(ToolsTab, { agent: { ...agent, editable: false, settings: { ...agent.settings, web_search: false } }, webSearch: true, saved: async () => {} });
+    const { WebSearchCard } = await import('../src/react/agents/web-search.tsx');
+    await render(WebSearchCard, { agent: { ...agent, editable: false, settings: { ...agent.settings, web_search: false } }, saved: async () => {} });
     assert.equal(webSwitch().disabled, true);
     assert.equal(webSwitch().checked, false);
     assert.match(document.body.textContent, /Off: Atlas answers from its apps and the Library only/);

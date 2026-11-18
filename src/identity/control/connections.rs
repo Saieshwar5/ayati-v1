@@ -99,6 +99,12 @@ async fn connect(
         let revoked = connectors::routes::release(&w, released).await;
         return Ok(Json(json!({"saved":true,"provider_revoked":revoked})));
     }
+    // Every connection belongs to an agent (schema 133); this endpoint still
+    // disconnects, and reconnects an agent's own.
+    check(
+        input.agent.is_some(),
+        "Connect apps on an agent's Connections tab",
+    )?;
     check(
         execution_available(&app)?,
         "Business tools need controller-managed execution; ask your operator to enable it",

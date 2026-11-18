@@ -109,7 +109,7 @@ test('navigation interception leaves workspace switches, downloads and other des
     const current = new URL(dom.window.location.href);
     // Links to removed local screens land on Home instead of a dead view.
     assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'home');
-    assert.equal(workspacePage(new URL('?view=apps', current)), 'apps');
+    assert.equal(workspacePage(new URL('?view=apps', current)), 'settings', 'the Apps page is gone; old links open Settings');
     // Connections moved from Settings to Apps; old links open Apps.
     assert.equal(workspacePage(new URL('?view=settings&section=connections', current)), 'settings', 'admins’ list of every connection');
     assert.equal(workspacePage(new URL('?view=users', current)), 'settings');

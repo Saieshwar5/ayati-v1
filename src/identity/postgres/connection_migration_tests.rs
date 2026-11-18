@@ -24,8 +24,9 @@ async fn connection_upgrade_keeps_the_agent_rule_through_role_changes() {
     let (chat, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     execute(&db.db, r#"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint) VALUES($1,'account','orders','{"id":"orders","operations":[{"id":"order.read","title":"Read","tool":"read","effect":"read","schema":{}}]}','old-reviewed')"#, vec![w.clone().into()]).await.unwrap();
     execute(&db.db, "INSERT INTO relay_control_rules(workspace,agent,connection,operation,mode,approver,revision,chat) VALUES($1,$2,'account','order.read','allow',$3,4,$4)", vec![w.clone().into(), agent.clone().into(), owner.id.clone().into(), chat.clone().into()]).await.unwrap();
-    db.migrate().await.unwrap();
-    db.migrate().await.unwrap();
+    // The connection here was the workspace's; it becomes its one agent's so schema 133 keeps it.
+    super::connection_owners::migrate_keeping_connections(&db).await;
+    super::connection_owners::migrate_keeping_connections(&db).await;
     db.verify_schema().await.unwrap();
     // Schema 47: the agent keeps the connector and its own rule.
     assert!(db.control_enabled(&w, &agent).await.unwrap());

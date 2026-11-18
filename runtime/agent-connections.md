@@ -1,4 +1,4 @@
-# An agent's own connections (schema 132)
+# An agent's own connections (schemas 132 and 133)
 
 Built 2026-11-18. First part of moving everything an agent can reach onto the
 agent's own page, so the Apps page can go. Approved design: "Worker Page
@@ -23,9 +23,15 @@ Redesign" (shown 2026-11-18).
   (`relay_control_systems.approved = false`) can't be connected by an owner. An
   app nobody decided about is allowed the first time an owner connects it.
 - **Signing in again and disconnecting** happen on the same tab, by the owners.
-- A connection without an agent is the workspace's, as before: operators' own
-  MCP servers and accounts connected before schema 132. Those keep working and
-  still show on every agent with their switch and the admin's limit.
+- **Every connection belongs to an agent (schema 133).** The workspace's shared
+  connections, connected by an admin on the old Apps page, were switched off by
+  schema 133 as a new revision, with every agent's switch and rule for them
+  removed, so waiting work on them is cancelled. Owners connect the app again on
+  their agent's page. New connections without an agent are refused by the API
+  (`POST …/apps/connect` and `POST …/control/connections`). A connected system
+  (an MCP server added on one agent's page) was already tied to its agent and
+  is untouched. The accounts stay at their provider (Composio, Pipedream) until
+  someone removes them there.
 
 ## The agent page
 
@@ -40,11 +46,12 @@ connected systems), **Computers** (the agent's computer and what it may do),
 
 ## Admins: every connection in one list
 
-**Apps left the main menu.** Settings › Connections (admins) lists every app
-connected in the workspace: the account, whose it is (the agent, linked to its
-Connections tab, or the workspace), who connected it and when, when it was
-last used and whether it needs a new sign-in. **Remove** disconnects any of
-them. `GET …/apps` gives each app's `owner` and `revision` for this.
+**There is no Apps page any more.** Settings › Connections (admins) lists every
+app and MCP server connected in the workspace: the account, the agent it belongs
+to (linked to its Connections tab), who connected it and when, when it was last
+used and whether it needs a new sign-in. **Remove** disconnects an app; an MCP
+server is removed on its agent's page. `GET …/apps` gives each one's `owner`
+and `revision` for this. Old links to `?view=apps` open Settings.
 
 ## Creating an agent
 
@@ -61,7 +68,7 @@ Connections tab once it exists. A member's assistant starts the same way.
   `connected` when that agent has its own connection, and `can_manage` is true
   for its owners and admins.
 - `POST …/apps/connect` with `{app, request, agent}`: the agent's owner or an
-  admin; without `agent` it is the workspace's and admin only, as before. The
+  admin; `agent` is required. The
   sign-in returns to `/?view=agents&selected={agent}&section=connections`.
 - `POST …/control/connections` with `{id, server, enabled: false, revision,
   agent}` disconnects an own connection.
@@ -76,6 +83,8 @@ Connections tab once it exists. A member's assistant starts the same way.
   don't own or gives a connection to another agent; the owner changes its rule
   and disconnects it and another member can't; a request can't claim it as the
   workspace's; an admin's switched-off app is refused.
+- PostgreSQL `connector_routing::tests::the_upgrade_records_who_connected_an_account_and_later_ends_the_shared_connection`:
+  schema 133 switches a shared connection off as a new revision and removes its switch.
 - Web `tests/all-connections.test.mjs`: the list, whose each is, one Remove
   request, none for people who can't manage.
 - Web `tests/agent-connections.test.mjs`: the agent's catalog, one connect
@@ -88,9 +97,12 @@ Connections tab once it exists. A member's assistant starts the same way.
 - Not verified against the real Composio or Pipedream service: that one
   workspace user can hold several accounts of the same app. The fake provider
   used in tests allows it.
-- The old Apps page is out of the menu but still opens by link (Settings ›
-  Connections links to it) for workspace connections made before, operators'
-  own MCP servers and company systems. Deleting it and an allowed-apps list
-  for admins come later.
+- Operators' own MCP servers (the operator file) and company systems (links to
+  the company's own web apps) have no screen now that the Apps page is gone.
+  An agent's owner adds an MCP server on the agent's page instead.
+- An allowed-apps list for admins. Today an admin's earlier "no" to an app
+  still blocks it, but there is no screen to set one.
+- The store still accepts a connection without an agent (many tests use it);
+  only the API refuses it.
 - The company's own machines are still added by an admin in Settings ›
   Computers. A simple webhook per agent and one-step MCP setup are not built.

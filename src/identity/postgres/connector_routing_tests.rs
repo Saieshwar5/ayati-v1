@@ -355,7 +355,7 @@ async fn another_or_unproven_account_or_a_changed_review_starts_over() {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn the_upgrade_keeps_connections_and_records_who_connected_them_without_fencing_work() {
+async fn the_upgrade_records_who_connected_an_account_and_later_ends_the_shared_connection() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
     let schema = format!("relay_routing_upgrade_{}", uuid::Uuid::new_v4().simple());
@@ -402,17 +402,29 @@ async fn the_upgrade_keeps_connections_and_records_who_connected_them_without_fe
         (Some(owner.id.as_str()), Some(1234))
     );
     assert!(row["identity"].is_null());
+    // Schema 133 ends the workspace's shared connections: this one is switched
+    // off as a new revision, its agent's switch is gone and its work is fenced.
     assert_eq!(
-        (row["revision"].as_i64(), row["provider"].as_str()),
-        (Some(1), Some("composio"))
+        (
+            row["revision"].as_i64(),
+            row["enabled"].as_bool(),
+            row["provider"].as_str()
+        ),
+        (Some(2), Some(false), Some("composio"))
     );
     let epochs_after = fenced(query(&db.db, epochs, vec![w.clone().into()]).await.unwrap());
-    assert_eq!(
-        epochs_after, epochs_before,
-        "recording history fences nothing"
-    );
+    assert!(epochs_after >= epochs_before);
+    let switches = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_agent_connections WHERE workspace=$1",
+        vec![w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get::<i64>("", "n")
+    .unwrap();
+    assert_eq!(switches, 0);
     let apps = db.workspace_apps(&owner, &w).await.unwrap();
-    assert_eq!(apps["apps"][0]["connected"]["at"], 1234);
-    assert_eq!(apps["apps"][0]["state"], "ok");
-    assert_eq!(apps["apps"][0]["agents"].as_array().unwrap().len(), 1);
+    assert_eq!(apps["apps"], serde_json::json!([]));
 }

@@ -78,9 +78,10 @@ async fn connect(
     Json(input): Json<ConnectApp>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    // Every connection belongs to an agent (schema 133).
     check(
-        input.agent.is_some() || app.store.role(&w, &user.id).await? == "Admin",
-        "Only workspace admins can connect apps",
+        input.agent.is_some(),
+        "Connect apps on an agent's Connections tab",
     )?;
     check(
         execution_available(&app)?,

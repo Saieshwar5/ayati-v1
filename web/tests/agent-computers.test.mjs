@@ -88,12 +88,12 @@ test('people who cannot change the agent see its computer read-only, and a pendi
   }, { url, fetch: async () => response(asleep) });
 });
 
-test('the Tools tab saves internet and program controls together, with websites checked', async () => {
+test('the computer’s controls save internet and programs together, with websites checked', async () => {
   const saves = [];
   await reactFixture(async ({ render, button, click, change }) => {
-    const { ToolsTab } = await import('../src/react/agents/tools-tab.tsx');
+    const { ComputerToolsCard } = await import('../src/react/agents/computer/computer-controls.tsx');
     const on = { ...agent, settings: { ...agent.settings, computer: asleep.settings } };
-    await render(ToolsTab, { agent: on, computers: true, saved: async () => {} });
+    await render(ComputerToolsCard, { agent: on, saved: async () => {} });
     assert.match(document.body.textContent, /Atlas’s computer can’t reach any website/);
     assert.equal(button('Save computer controls').disabled, true);
     await click(radio('Internet', 'Only these websites'));
