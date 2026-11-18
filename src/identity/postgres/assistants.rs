@@ -232,8 +232,12 @@ impl PgStore {
             provider: provider.into(),
             ..Default::default()
         };
-        // Its own computer and browser, where this Cuckoo has computers.
+        // Its own computer and browser with the internet, where this Cuckoo has
+        // computers. The workspace's limits still apply.
         settings.computer.on = self.computers.is_some();
+        if settings.computer.on {
+            settings.computer.internet = "any".into();
+        }
         self.save_agent_profile(
             user,
             w,

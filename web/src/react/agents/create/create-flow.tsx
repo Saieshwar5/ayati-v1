@@ -18,7 +18,7 @@ import { SkillPicker } from '../skills/skill-picker';
 import { SkillIcon } from '../skills/skill-icons';
 import { BuiltInTools, searchesWeb, WebSearchChoice } from '../web-search';
 import { ComputerChoice } from '../computer/computer-choice';
-import { computerOf, type ComputerOffer } from '../computer/model';
+import { computerOf, type ComputerOffer, computerDefaults } from '../computer/model';
 import './create.css';
 
 const steps = ['Name and picture', 'Tools', 'Skills', 'People', 'Controls'];
@@ -37,8 +37,11 @@ export function newAgent(directory: Directory): Agent {
   // A catalog model never names a provider: Cuckoo chooses who serves it.
   const provider = directory.catalog?.catalog_on ? ''
     : directory.models?.find(choice => choice.model === directory.default_model)?.provider ?? defaults.provider;
+  // Every new agent has its own computer and browser where this Cuckoo offers
+  // them, with the internet on; the workspace's limits still apply.
+  const computer = directory.computers ? { ...computerDefaults, on: true, internet: 'any' as const } : undefined;
   return { id, name: '', role: '', model: directory.default_model, audience: 'everyone', revision: 0,
-    settings: { ...defaults, provider, avatar: defaultRobot(id) }, editable: true };
+    settings: { ...defaults, provider, avatar: defaultRobot(id), ...(computer ? { computer } : {}) }, editable: true };
 }
 
 /** Create an agent in five short steps (designs/agent-built-skills): name, the

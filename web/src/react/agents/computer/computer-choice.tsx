@@ -2,8 +2,8 @@ import { computerDefaults, perHour, sizeFacts, sizeNames, type ComputerOffer, ty
 import './computer.css';
 
 /** Create step 2 (designs/agent-computers 7): the computer sits with the other tools,
- * off by default. Switching it on grants nothing yet: what the agent may do on it is
- * chosen in Controls. Nothing is made or charged until the agent first uses it. */
+ * on for a new agent. What the agent may do on it is chosen in Controls. Nothing is
+ * made or charged until the agent first uses it. */
 export function ComputerChoice({ name, offer, value, change }: {
   name: string; offer: ComputerOffer; value?: ComputerSettings; change: (next: ComputerSettings) => void;
 }) {
@@ -15,7 +15,7 @@ export function ComputerChoice({ name, offer, value, change }: {
   return <li className="agent-computer-choice">
     <span className="agent-app-text"><strong>Computer</strong>
       <small>{name}’s own Linux computer for files and programs: read and convert documents, work through data, run scripts</small>
-      <span className="agent-app-kinds"><span className="agent-kind change">Changes files</span><span className="agent-kind">Off unless you switch it on</span></span>
+      <span className="agent-app-kinds"><span className="agent-kind change">Changes files</span><span className="agent-kind">{settings.on ? 'With a browser' : 'Off'}</span></span>
       {settings.on && <label className="ui-field">Size<select value={size} onChange={event => change({ ...settings, size: event.target.value })}>
         {sizes.map(s => <option key={s.size} value={s.size}>{sizeNames[s.size] ?? s.size} · {perHour(s.usd_per_hour)}</option>)}
       </select></label>}
