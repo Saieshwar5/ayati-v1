@@ -6,7 +6,7 @@
 //! - one per member and workspace, made the first time they open Chat, named
 //!   Ayati until they rename it;
 //! - it stays private to its owner: its audience can't change, it has no other
-//!   owners, joins no channel and has no email address;
+//!   owners, and joins no channel;
 //! - its owner and admins see its work in Activity, like any agent's.
 use super::*;
 use crate::identity::{

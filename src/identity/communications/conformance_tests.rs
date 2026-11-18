@@ -75,7 +75,6 @@ fn outgoing(key: &str, text: &str) -> Outgoing {
         conversation: "D-U-ravi".into(),
         thread: None,
         text: text.into(),
-        mail: None,
     }
 }
 

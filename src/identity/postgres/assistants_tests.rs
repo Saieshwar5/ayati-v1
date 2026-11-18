@@ -1,5 +1,5 @@
 //! Every member's assistant (schema 127): one each, made once, private to its
-//! owner, with no other owners, no email address and no place in a channel.
+//! owner, with no other owners and no place in a channel.
 use super::super::{tests::*, *};
 use super::NAME;
 use crate::identity::{
@@ -127,12 +127,6 @@ async fn an_assistant_keeps_its_fixed_rules() {
         .await
         .unwrap_err();
     assert!(owners.to_string().contains("no other owners"));
-    // No email address.
-    let email = db
-        .email_activate(&ravi, &w, &mine, "mail.example.test")
-        .await
-        .unwrap_err();
-    assert!(email.to_string().contains("no email address"));
     // No channel.
     let channel = db
         .chat_create(

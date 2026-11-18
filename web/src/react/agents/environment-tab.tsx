@@ -10,7 +10,6 @@ import { ComputerCard } from './computer/computer-card';
 const later = [
   { title: 'Computer', text: 'A computer it can use for files and programs.' },
   { title: 'Browser', text: 'A browser it can use, with you able to watch and take over.' },
-  { title: 'Email', text: 'Its own email address.' },
   { title: 'Phone', text: 'Its own phone number for calls.' },
 ];
 

@@ -5,11 +5,7 @@ use super::*;
 pub(super) mod access;
 mod delivery;
 #[cfg(test)]
-mod door_room_tests;
-mod email_addresses;
-mod email_people;
-#[cfg(test)]
-mod email_tests;
+mod email_removed_tests;
 mod endpoints;
 #[cfg(test)]
 mod gateway_tests;
@@ -22,4 +18,3 @@ pub(super) mod outbox;
 mod recovery_tests;
 #[cfg(test)]
 mod whatsapp_removed_tests;
-pub(crate) use email_people::Incoming as EmailIncoming;

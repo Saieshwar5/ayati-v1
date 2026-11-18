@@ -27,9 +27,7 @@ export function ownerNames(owners: Owner[]): string {
 export const changeOwners = (agent: string, change: { add: string } | { remove: string }, revision: number) =>
   identityRequest<{ owners: Owner[]; revision: number }>(`${base}/${agent}/owners`, { ...change, revision });
 export const audienceLabels: Record<Audience, string> = { everyone: 'Everyone in the workspace', selected: 'Selected people', only_me: 'Only me' };
-export type Directory = { agents: Agent[]; role: string; default_model: string; models?: { provider: string; model: string }[]; system_prompt: string; providers: { id: string; name: string; configured: boolean }[]; catalog?: Catalog; web_search?: boolean; computers?: ComputerOffer | null;
-  /** The mail domain when this server offers agent email (runtime/email-channel.md). */
-  email?: string | null };
+export type Directory = { agents: Agent[]; role: string; default_model: string; models?: { provider: string; model: string }[]; system_prompt: string; providers: { id: string; name: string; configured: boolean }[]; catalog?: Catalog; web_search?: boolean; computers?: ComputerOffer | null };
 export const loadAgents = () => identityRequest<Directory>(base);
 export function saveAgent(agent: Agent) {
   const { id, name, role, model, audience, people, revision, settings } = agent;
