@@ -105,16 +105,19 @@ impl PgStore {
         ensure!(count < 50, "A workspace can connect up to 50 systems");
         let server = crate::identity::connectors::systems::server_name(&input.id);
         let name = input.name.trim();
-        execute(&tx, "INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,true,1)",
-            vec![w.into(), server.clone().into()]).await?;
+        // A member's MCP server waits for an admin's yes (schema 134): until
+        // then it is saved and reviewed but nothing is sent to it.
+        let admin = role(&tx, w, &user.id).await? == "Admin";
+        execute(&tx, "INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,$3,1)",
+            vec![w.into(), server.clone().into(), admin.into()]).await?;
         execute(&tx, "INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint,provider,binding,connected_by,connected_at) VALUES($1,$2,$3,$4,$5,'system',$6,$7,$8)",
             vec![w.into(), input.id.clone().into(), server.clone().into(), reviewed.definition(&server, name).into(),
                 reviewed.fingerprint(&server, name)?.into(), reviewed.binding.clone().into(), user.id.clone().into(), now().into()]).await?;
         save_rules(&tx, user, w, &input.id, &input.tools).await?;
         execute(&tx, "INSERT INTO relay_agent_connections(workspace,agent,connection,revision,enabled_by,at) VALUES($1,$2,$3,nextval('relay_control_revision'),$4,$5)",
             vec![w.into(), agent.into(), input.id.clone().into(), user.id.clone().into(), now().into()]).await?;
-        execute(&tx, "INSERT INTO relay_connected_systems(workspace,connection,agent,name,tools,request_hash,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)",
-            vec![w.into(), input.id.clone().into(), agent.into(), name.into(), serde_json::to_value(&input.tools)?.into(), hash.into(), user.id.clone().into()]).await?;
+        execute(&tx, "INSERT INTO relay_connected_systems(workspace,connection,agent,name,tools,request_hash,created_by,waiting) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+            vec![w.into(), input.id.clone().into(), agent.into(), name.into(), serde_json::to_value(&input.tools)?.into(), hash.into(), user.id.clone().into(), (!admin).into()]).await?;
         audit(
             &tx,
             &user.id,
@@ -194,7 +197,8 @@ impl PgStore {
     }
 
     /// Switches a system off (nothing is sent to it, waiting approvals stop) or
-    /// on again, or removes it for good.
+    /// on again, or removes it for good. An admin answers a member's waiting
+    /// system with `allow`, or `decline`, which removes it (schema 134).
     pub(crate) async fn change_system(
         &self,
         user: &User,
@@ -205,7 +209,7 @@ impl PgStore {
         change: &str,
     ) -> Result<Value> {
         ensure!(
-            ["on", "off", "remove"].contains(&change),
+            ["on", "off", "remove", "allow", "decline"].contains(&change),
             "Choose on, off or remove"
         );
         let tx = self.workspace_tx(w).await?;
@@ -215,6 +219,35 @@ impl PgStore {
             system["revision"] == revision,
             "This system changed; reload before saving"
         );
+        if ["allow", "decline"].contains(&change) {
+            ensure!(
+                role(&tx, w, &user.id).await? == "Admin",
+                "Only admins allow an MCP server for the workspace"
+            );
+            let server = system["server"].as_str().context("Missing server")?;
+            ensure!(
+                execute(&tx, "UPDATE relay_connected_systems SET waiting=false WHERE workspace=$1 AND connection=$2 AND waiting", vec![w.into(), id.into()]).await? == 1,
+                "This MCP server was already answered"
+            );
+            if change == "allow" {
+                execute(&tx, "UPDATE relay_control_systems SET approved=true,revision=revision+1 WHERE workspace=$1 AND server=$2", vec![w.into(), server.into()]).await?;
+                crate::identity::postgres::allowed_apps::decided(&tx, w, server, &user.id, "")
+                    .await?;
+                execute(&tx, "UPDATE relay_connected_systems SET revision=revision+1 WHERE workspace=$1 AND connection=$2", vec![w.into(), id.into()]).await?;
+                audit(
+                    &tx,
+                    &user.id,
+                    Some(w),
+                    "connected_system_allow",
+                    &format!("{agent}/{id}"),
+                )
+                .await?;
+                tx.commit().await?;
+                return Ok(json!({"id":id,"state":"allow"}));
+            }
+        }
+        let declined = change == "decline";
+        let change = if declined { "remove" } else { change };
         let enabled = change == "on";
         execute(&tx, "UPDATE relay_control_connections SET enabled=$3,revision=revision+1 WHERE workspace=$1 AND id=$2",
             vec![w.into(), id.into(), enabled.into()]).await?;
@@ -235,11 +268,14 @@ impl PgStore {
             &tx,
             &user.id,
             Some(w),
-            &format!("connected_system_{change}"),
+            &format!(
+                "connected_system_{}",
+                if declined { "decline" } else { change }
+            ),
             &format!("{agent}/{id}"),
         )
         .await?;
         tx.commit().await?;
-        Ok(json!({"id":id,"state":change}))
+        Ok(json!({"id":id,"state":if declined { "decline" } else { change }}))
     }
 }

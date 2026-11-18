@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { AttentionBoundary } from './attention/boundary';
 import { WorkRecords } from './work-records';
 import { useAttention } from './attention/use-attention';
+import { AppRequestNotices } from './apps/app-request-notices';
 import '../home.css';
 
 const WorkspacePanels = lazy(() => import('./home-panels/panels').then(module => ({ default: module.WorkspacePanels })));
@@ -33,6 +34,7 @@ export function HomePage() {
   const attention = useAttention('needs_you', null);
   return <main className="home" aria-label="Home">
     <Suspense fallback={null}><HomeHints page={attention.data} /></Suspense>
+    <AppRequestNotices />
     <div className="home-standard-panels">
       <BusinessClock />
       <div className="home-notifications-host"><AttentionBoundary>

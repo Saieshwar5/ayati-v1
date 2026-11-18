@@ -9,7 +9,8 @@ export type ListedTool = {
   supported: boolean; reason: string | null; fields: string[];
 };
 export type ToolChoice = { name: string; kind: 'read' | 'write'; rule: Mode; /** "Needs the subject" (C3). */ subject?: boolean };
-export type SystemState = 'connected' | 'changed' | 'unreachable' | 'off';
+/** `waiting`: a member connected it and an admin hasn't allowed it yet (schema 134). */
+export type SystemState = 'connected' | 'changed' | 'unreachable' | 'off' | 'waiting';
 export type System = {
   id: string; name: string; url: string; has_key: boolean; tools: ToolChoice[]; revision: number;
   state: SystemState; held: string[]; last_call_ms: number | null; created_by: string | null;
@@ -27,11 +28,11 @@ export const connectSystem = (agent: string, input: { id: string; name: string; 
 export const savedTools = (agent: string, id: string) => identityRequest<{ tools: ListedTool[] }>(path(agent, `/${id}/tools`), {});
 export const reviewSystem = (agent: string, id: string, input: { revision: number; tools: ToolChoice[]; key?: string }) =>
   identityRequest<System>(path(agent, `/${id}/review`), input);
-export const changeSystem = (agent: string, id: string, revision: number, change: 'on' | 'off' | 'remove') =>
+export const changeSystem = (agent: string, id: string, revision: number, change: 'on' | 'off' | 'remove' | 'allow' | 'decline') =>
   identityRequest<{ id: string; state: string }>(path(agent, `/${id}/state`), { revision, change });
 
 export const stateLabels: Record<SystemState, string> = {
-  connected: 'Connected', changed: 'Changed since it was reviewed', unreachable: 'Cannot reach', off: 'Off',
+  connected: 'Connected', changed: 'Changed since it was reviewed', unreachable: 'Cannot reach', off: 'Off', waiting: 'Waiting for an admin',
 };
 /** The starting rule for a tool: reads are allowed, changes and unknowns ask first. */
 export const startingRule = (kind: 'read' | 'write' | null): Mode => kind === 'read' ? 'allow' : 'ask';

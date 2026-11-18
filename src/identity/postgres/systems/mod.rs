@@ -128,6 +128,7 @@ async fn tiles(db: &impl ConnectionTrait, w: &str, agent: &str) -> Result<Vec<Va
             'enabled',c.enabled,'url',c.binding->>'url','has_key',c.binding->>'key' IS NOT NULL,'created_ms',s.created_ms,
             'created_by',COALESCE(u.display_name,u.email),'reviewed_ms',s.reviewed_ms,
             'events_on',COALESCE((to_jsonb(s)->>'events_on')::boolean,false),
+            'waiting',COALESCE((to_jsonb(s)->>'waiting')::boolean,false),
             'last_call_ms',(SELECT max(k.started_ms) FROM relay_connector_calls k WHERE k.workspace=s.workspace AND k.app=c.server),
             'held',COALESCE((SELECT jsonb_agg(d.operation ORDER BY d.operation) FROM relay_connector_drift d
                 WHERE d.workspace=s.workspace AND d.connection=s.connection AND d.fingerprint=c.fingerprint AND d.status IN ('missing','changed')
@@ -142,7 +143,10 @@ async fn tiles(db: &impl ConnectionTrait, w: &str, agent: &str) -> Result<Vec<Va
         WHERE s.workspace=$1 AND s.agent=$2 AND NOT s.removed ORDER BY s.created_ms,s.connection",
         vec![w.into(), agent.into()]).await?;
     for tile in &mut tiles {
-        let state = if tile["enabled"] != true {
+        let state = if tile["waiting"] == true {
+            // A member connected it; an admin hasn't said yes yet (schema 134).
+            "waiting"
+        } else if tile["enabled"] != true {
             "off"
         } else if tile["held"].as_array().is_some_and(|h| !h.is_empty()) {
             "changed"

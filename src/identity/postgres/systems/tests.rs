@@ -261,3 +261,90 @@ async fn another_agents_owner_cannot_take_a_connected_system() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_members_system_waits_for_an_admin_before_the_agent_can_use_it() {
+    fake_system::secrets();
+    let fake = FakeSystem::start().await;
+    let (db, owner, w, _c, _agent) = super::super::automation_tests::setup().await;
+    let member = user(&db, "system-member").await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let (_, agent) = super::super::executor_slot_tests::agent(&db, &member, &w).await;
+    let input = studyhub(&fake.url);
+    let reviewed = reviewed(&w, &input).await;
+    // The member's own agent: the system is saved and reviewed, but waits.
+    let saved = db
+        .connect_system(&member, &w, &agent, &input, &reviewed)
+        .await
+        .unwrap();
+    assert_eq!(saved["state"], "waiting");
+    let offered = |tools: Value| {
+        tools["connections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == input.id.as_str())
+    };
+    assert!(!offered(
+        db.control_snapshot(&member, &w, &agent).await.unwrap()
+    ));
+    // Admins see what waits, with its address; the member can't answer it.
+    let list = db.allowed_apps(&owner, &w, &[]).await.unwrap();
+    assert_eq!(
+        (
+            list["systems"][0]["name"].as_str(),
+            list["systems"][0]["url"].as_str(),
+            list["systems"][0]["tools"].as_i64()
+        ),
+        (Some("StudyHub"), Some(fake.url.as_str()), Some(3))
+    );
+    assert_eq!(
+        db.app_requests(&owner, &w).await.unwrap()["systems_waiting"],
+        1
+    );
+    assert_eq!(
+        db.app_requests(&member, &w).await.unwrap()["systems_waiting"],
+        0
+    );
+    assert!(
+        db.change_system(&member, &w, &agent, &input.id, 1, "allow")
+            .await
+            .is_err()
+    );
+    // An admin's yes makes it usable; answering twice is refused.
+    db.change_system(&owner, &w, &agent, &input.id, 1, "allow")
+        .await
+        .unwrap();
+    let tiles = db.agent_systems(&member, &w, &agent).await.unwrap();
+    assert_eq!(tiles["systems"][0]["state"], "connected");
+    assert!(offered(
+        db.control_snapshot(&member, &w, &agent).await.unwrap()
+    ));
+    assert!(
+        db.change_system(&owner, &w, &agent, &input.id, 2, "allow")
+            .await
+            .is_err()
+    );
+    assert!(
+        db.allowed_apps(&owner, &w, &[]).await.unwrap()["systems"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    // An admin's no removes a waiting system.
+    let second = studyhub(&fake.url);
+    let reviewed = self::reviewed(&w, &second).await;
+    db.connect_system(&member, &w, &agent, &second, &reviewed)
+        .await
+        .unwrap();
+    assert_eq!(
+        db.change_system(&owner, &w, &agent, &second.id, 1, "decline")
+            .await
+            .unwrap()["state"],
+        "decline"
+    );
+    let left = db.agent_systems(&member, &w, &agent).await.unwrap();
+    assert_eq!(left["systems"].as_array().unwrap().len(), 1);
+}

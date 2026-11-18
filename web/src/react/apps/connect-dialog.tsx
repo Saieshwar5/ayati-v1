@@ -11,7 +11,7 @@ import './catalog.css';
  * own sign-in page in this tab. The sign-in returns to the agent's Connections
  * tab. A retry of the same app reuses the request id, so the server answers once. */
 export function ConnectDialog({ app, agent, close, connected }: {
-  app: Pick<CatalogApp, 'id' | 'name' | 'kinds'>; agent: { id: string; name: string }; close: () => void; connected: (connection?: string) => void;
+  app: Pick<CatalogApp, 'id' | 'name' | 'kinds' | 'allowance'>; agent: { id: string; name: string }; close: () => void; connected: (connection?: string) => void;
 }) {
   const mutation = useMutation();
   const request = useRef<string>(undefined);
@@ -34,6 +34,7 @@ export function ConnectDialog({ app, agent, close, connected }: {
         <span>{meanings[kind]}<small>Every action of this kind</small></span><RulePreview mode={safeDefault(kind)} />
       </li>)}</ul>
       <div><h3>Sign in</h3><p>Next you’ll sign in on {app.name}’s own page. Use the account {agent.name} should work in.</p></div>
+      {app.allowance && app.allowance !== 'allowed' && <p className="connect-notice">Adding {app.name} also allows it for this workspace: other people can then add it to their own agents.</p>}
       <p className="connect-notice"><LockMark /><span>Only {agent.name} can use this {app.name} account. Cuckoo checks every action against these rules before it runs.</span></p>
     </div>
   </Dialog>;

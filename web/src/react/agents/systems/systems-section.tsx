@@ -37,11 +37,12 @@ export function SystemsSection({ agent }: { agent: Agent }) {
           <span className={`system-state ${system.state}`}>{stateLabels[system.state]}</span></span>
           <small>{system.tools.length} {system.tools.length === 1 ? 'tool' : 'tools'} on · {system.url}{system.last_call_ms ? ` · last call ${new Date(system.last_call_ms).toLocaleString()}` : ' · no calls yet'}</small>
           {system.state === 'changed' && <small className="agent-tool-health">{system.held.length} {system.held.length === 1 ? 'tool changed' : 'tools changed'} since the last review and {system.held.length === 1 ? 'is' : 'are'} held. The others work.</small>}
+          {system.state === 'waiting' && <small className="agent-tool-health">An admin must allow this MCP server before it can be used. Nothing is sent to it until then.</small>}
           {system.state === 'unreachable' && <small className="agent-tool-health">Cuckoo couldn’t reach it at the last check. Check the address or the key.</small>}
         </span>
         {canConnect && <span className="system-actions">
           <Button disabled={m.busy} onClick={() => setReviewing(system)}>{system.state === 'changed' ? `Review ${system.held.length} ${system.held.length === 1 ? 'tool' : 'tools'}` : 'Review tools'}</Button>
-          <Button disabled={m.busy} onClick={() => change(system, system.state === 'off' ? 'on' : 'off', system.state === 'off' ? `${system.name} is on.` : `${system.name} is off. Nothing is sent to it.`)}>{system.state === 'off' ? 'Switch on' : 'Switch off'}</Button>
+          {system.state !== 'waiting' && <Button disabled={m.busy} onClick={() => change(system, system.state === 'off' ? 'on' : 'off', system.state === 'off' ? `${system.name} is on.` : `${system.name} is off. Nothing is sent to it.`)}>{system.state === 'off' ? 'Switch on' : 'Switch off'}</Button>}
           <Button disabled={m.busy} onClick={() => setRemoving(system)}>Remove</Button>
         </span>}
       </header>

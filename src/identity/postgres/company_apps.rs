@@ -55,6 +55,9 @@ pub(crate) struct AppRequest {
     /// A catalog app the member asks admins to connect (Add app's Request).
     #[serde(default)]
     pub connector: Option<String>,
+    /// The agent the catalog app is wanted for (schema 134).
+    #[serde(default)]
+    pub agent: Option<String>,
     #[serde(default)]
     pub name: String,
     #[serde(default)]
@@ -66,6 +69,9 @@ pub(crate) struct AppRequest {
 #[serde(deny_unknown_fields)]
 pub(crate) struct AppDecision {
     pub action: String,
+    /// The admin's words to the person who asked (schema 134).
+    #[serde(default)]
+    pub note: String,
 }
 
 /// May this person open the app: everyone, the people chosen, its owner, or an admin.
@@ -278,8 +284,29 @@ impl PgStore {
                 let id = input.connector.as_deref().unwrap_or_default();
                 let catalog =
                     crate::identity::connectors::curated::app(id).context("App unavailable")?;
+                // Asking is for an app nobody decided about (schema 134).
+                let approved = query(
+                    &tx,
+                    "SELECT approved FROM relay_control_systems WHERE workspace=$1 AND server=$2",
+                    vec![w.into(), id.into()],
+                )
+                .await?
+                .map(|r| r.try_get::<bool>("", "approved"))
+                .transpose()?;
+                ensure!(
+                    approved != Some(true),
+                    "{} is already allowed. Add it on your agent's Connections tab",
+                    catalog.name
+                );
+                ensure!(
+                    approved != Some(false),
+                    "A workspace admin switched this app off for the workspace"
+                );
+                if let Some(agent) = &input.agent {
+                    super::workspace_connections::authority(&tx, w, &user.id, Some(agent)).await?;
+                }
                 ensure!(query(&tx, "SELECT 1 AS waiting FROM relay_app_requests WHERE workspace=$1 AND connector=$2 AND requester=$3 AND state='pending'", vec![w.into(), id.into(), user.id.clone().into()]).await?.is_none(), "You already asked; an admin decides");
-                execute(&tx, "INSERT INTO relay_app_requests(workspace,id,kind,name,connector,reason,requester,created) VALUES($1,$2,'suggestion',$3,$4,$5,$6,$7)", vec![w.into(), input.id.clone().into(), catalog.name.clone().into(), id.into(), input.reason.trim().into(), user.id.clone().into(), now().into()]).await?;
+                execute(&tx, "INSERT INTO relay_app_requests(workspace,id,kind,name,connector,reason,requester,created,agent) VALUES($1,$2,'suggestion',$3,$4,$5,$6,$7,$8)", vec![w.into(), input.id.clone().into(), catalog.name.clone().into(), id.into(), input.reason.trim().into(), user.id.clone().into(), now().into(), input.agent.clone().into()]).await?;
                 format!("Asked to connect \"{}\"", catalog.name)
             }
             None => {
@@ -300,13 +327,30 @@ impl PgStore {
         Ok(json!({"id":input.id,"state":"pending"}))
     }
 
-    /// Waiting requests this person decides: all for admins, their apps' for owners.
+    /// Waiting requests this person decides: all for admins, their apps' for
+    /// owners. `mine` is the viewer's own requests for catalog apps: those
+    /// waiting, and the answers of the last seven days.
     pub(crate) async fn app_requests(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
-        let requests = json_rows(&tx, "SELECT jsonb_build_object('id',r.id,'kind',r.kind,'app',r.app,'connector',r.connector,'app_name',a.name,'name',r.name,'url',r.url,'reason',r.reason,'created',r.created,'requester',COALESCE(u.display_name,u.email)) AS data FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester WHERE r.workspace=$1 AND r.state='pending' AND ($3 OR (r.kind='access' AND a.owner=$2)) ORDER BY r.created,r.id LIMIT 200", vec![w.into(), user.id.clone().into(), admin.into()]).await?;
+        let requests = json_rows(&tx, "SELECT jsonb_build_object('id',r.id,'kind',r.kind,'app',r.app,'connector',r.connector,'app_name',a.name,'name',r.name,'url',r.url,'reason',r.reason,'created',r.created,'requester',COALESCE(u.display_name,u.email),
+              'agent',r.agent,'agent_name',g.name) AS data
+            FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester
+            LEFT JOIN relay_shared_agents g ON g.workspace=r.workspace AND g.id=r.agent
+            WHERE r.workspace=$1 AND r.state='pending' AND ($3 OR (r.kind='access' AND a.owner=$2)) ORDER BY r.created,r.id LIMIT 200", vec![w.into(), user.id.clone().into(), admin.into()]).await?;
+        let mine = json_rows(&tx, "SELECT jsonb_build_object('id',r.id,'connector',r.connector,'name',r.name,'state',r.state,'note',r.note,'created',r.created,'decided',r.decided,
+              'agent',r.agent,'agent_name',g.name) AS data
+            FROM relay_app_requests r LEFT JOIN relay_shared_agents g ON g.workspace=r.workspace AND g.id=r.agent
+            WHERE r.workspace=$1 AND r.requester=$2 AND r.connector IS NOT NULL AND (r.state='pending' OR r.decided>$3)
+            ORDER BY COALESCE(r.decided,r.created) DESC,r.id LIMIT 20", vec![w.into(), user.id.clone().into(), (now() - 7 * 86_400).into()]).await?;
+        // MCP servers members connected that wait for an admin (schema 134).
+        let systems: i64 = if admin {
+            query(&tx, "SELECT count(*) AS n FROM relay_connected_systems WHERE workspace=$1 AND waiting AND NOT removed", vec![w.into()]).await?.context("Count")?.try_get("", "n")?
+        } else {
+            0
+        };
         tx.commit().await?;
-        Ok(json!({"requests":requests}))
+        Ok(json!({"requests":requests,"mine":mine,"can_decide":admin,"systems_waiting":systems}))
     }
 
     /// Approving an access request lets that person open the app; approving a
@@ -322,9 +366,10 @@ impl PgStore {
             ["approve", "decline"].contains(&input.action.as_str()),
             "Approve or decline the request"
         );
+        let note = super::allowed_apps::note(&input.note)?;
         let tx = self.workspace_tx(w).await?;
         let admin = role(&tx, w, &user.id).await? == "Admin";
-        let request = json_rows(&tx, "SELECT jsonb_build_object('kind',r.kind,'app',r.app,'state',r.state,'requester',r.requester,'owner',a.owner,'app_name',a.name,'name',r.name,'who',COALESCE(u.display_name,u.email)) AS data FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester WHERE r.workspace=$1 AND r.id=$2", vec![w.into(), id.into()]).await?.into_iter().next().context("Request unavailable")?;
+        let request = json_rows(&tx, "SELECT jsonb_build_object('kind',r.kind,'app',r.app,'connector',r.connector,'state',r.state,'requester',r.requester,'owner',a.owner,'app_name',a.name,'name',r.name,'who',COALESCE(u.display_name,u.email)) AS data FROM relay_app_requests r LEFT JOIN relay_company_apps a ON a.workspace=r.workspace AND a.id=r.app JOIN relay_users u ON u.id=r.requester WHERE r.workspace=$1 AND r.id=$2", vec![w.into(), id.into()]).await?.into_iter().next().context("Request unavailable")?;
         ensure!(
             admin || (request["kind"] == "access" && request["owner"] == user.id.as_str()),
             "The app's owner or an admin decides this request"
@@ -340,9 +385,22 @@ impl PgStore {
             execute(&tx, "INSERT INTO relay_company_app_people(workspace,app,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", vec![w.into(), app.into(), request["requester"].as_str().unwrap_or("").into()]).await?;
         }
         let state = if approve { "approved" } else { "declined" };
-        execute(&tx, "UPDATE relay_app_requests SET state=$3,decided_by=$4,decided=$5 WHERE workspace=$1 AND id=$2", vec![w.into(), id.into(), state.into(), user.id.clone().into(), now().into()]).await?;
+        // Saying yes to a catalog app allows it for the workspace, which
+        // answers everyone who asked for it (schema 134).
+        if let (true, Some(app)) = (approve, request["connector"].as_str()) {
+            execute(&tx,"INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,true,1) ON CONFLICT(workspace,server) DO UPDATE SET approved=true,revision=relay_control_systems.revision+1",vec![w.into(),app.into()]).await?;
+            super::allowed_apps::decided(&tx, w, app, &user.id, "").await?;
+            super::allowed_apps::settle_requests(&tx, w, app, true, &user.id, note).await?;
+        }
+        execute(&tx, "UPDATE relay_app_requests SET state=$3,decided_by=$4,decided=$5,note=$6 WHERE workspace=$1 AND id=$2", vec![w.into(), id.into(), state.into(), user.id.clone().into(), now().into(), note.into()]).await?;
         let who = request["who"].as_str().unwrap_or("someone");
-        let summary = if request["kind"] == "access" {
+        let summary = if request["connector"].is_string() {
+            format!(
+                "{} \"{}\" for the workspace, as {who} asked",
+                if approve { "Allowed" } else { "Declined" },
+                request["name"].as_str().unwrap_or("")
+            )
+        } else if request["kind"] == "access" {
             format!(
                 "{} {who}'s request to open \"{}\"",
                 if approve { "Approved" } else { "Declined" },

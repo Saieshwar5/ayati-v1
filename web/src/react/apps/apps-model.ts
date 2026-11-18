@@ -16,7 +16,10 @@ export type WorkspaceApp = { id: string; server: string; name: string; kind: 'se
   owner?: { id: string; name: string } | null; revision?: number };
 /** One service in the Add app catalog, under Cuckoo's own names. */
 export type CatalogApp = { id: string; name: string; description: string; category: string; kinds: Meaning[]; actions: number;
-  state: 'connected' | 'available' | 'requested'; connection: string | null };
+  /** `ask`: nobody decided, so a member asks an admin; `requested`: the viewer asked;
+   * `blocked`: an admin switched it off, with `note` (schema 134). Admins see `available`. */
+  state: 'connected' | 'available' | 'requested' | 'ask' | 'blocked'; connection: string | null;
+  allowance?: 'allowed' | 'undecided' | 'blocked'; note?: string | null };
 export type CatalogPage = { categories: { id: string; name: string; count: number }[]; apps: CatalogApp[]; next_cursor: string | null; can_manage: boolean };
 const base = () => `/workspaces/${workspaceId}/apps`;
 /** Every connected app and MCP server in the workspace, for the admins' list in Settings. */

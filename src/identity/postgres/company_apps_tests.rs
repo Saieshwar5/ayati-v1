@@ -27,6 +27,7 @@ fn ask(app: Option<&str>, name: &str) -> AppRequest {
         id: uuid::Uuid::new_v4().to_string(),
         app: app.map(str::to_owned),
         connector: None,
+        agent: None,
         name: name.into(),
         url: String::new(),
         reason: "For deliveries".into(),
@@ -129,7 +130,8 @@ async fn company_apps_open_only_for_people_allowed_and_requests_go_to_their_owne
             &w,
             &request.id,
             &AppDecision {
-                action: "approve".into()
+                action: "approve".into(),
+                note: String::new(),
             }
         )
         .await
@@ -141,6 +143,7 @@ async fn company_apps_open_only_for_people_allowed_and_requests_go_to_their_owne
         &request.id,
         &AppDecision {
             action: "approve".into(),
+            note: String::new(),
         },
     )
     .await
@@ -151,7 +154,8 @@ async fn company_apps_open_only_for_people_allowed_and_requests_go_to_their_owne
             &w,
             &request.id,
             &AppDecision {
-                action: "decline".into()
+                action: "decline".into(),
+                note: String::new(),
             }
         )
         .await
@@ -186,7 +190,8 @@ async fn company_apps_open_only_for_people_allowed_and_requests_go_to_their_owne
             &w,
             &suggestion.id,
             &AppDecision {
-                action: "approve".into()
+                action: "approve".into(),
+                note: String::new(),
             }
         )
         .await
@@ -198,6 +203,7 @@ async fn company_apps_open_only_for_people_allowed_and_requests_go_to_their_owne
         &suggestion.id,
         &AppDecision {
             action: "approve".into(),
+            note: String::new(),
         },
     )
     .await
