@@ -18,7 +18,9 @@ function Icon({ name }: { name: WorkspacePage }) {
 }
 
 export function WorkspaceShell({ page, children }: { page: WorkspacePage; children: ReactNode }) {
-  const pages: WorkspacePage[] = ['home', 'chat', 'activity', 'agents', 'library', 'apps', 'settings'];
+  // Apps left the menu (schema 132): an agent's connections are on its own page,
+  // and admins see every connection under Settings. The old page still opens by link.
+  const pages: WorkspacePage[] = ['home', 'chat', 'activity', 'agents', 'library', 'settings'];
   return <div className="workspace-shell"><aside className="workspace-rail">
     <a className="workspace-brand" href={workspaceUrl('/')} aria-label="Cuckoo home"><Brand symbol /></a>
     <nav aria-label="Workspace">{pages.map(name => {

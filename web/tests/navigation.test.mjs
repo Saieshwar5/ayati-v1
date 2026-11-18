@@ -62,7 +62,7 @@ test('sidebar navigation retains the shell, handles rapid changes and cleans fea
       await render(setup.WorkspaceApplication);
       await until(update, () => document.querySelector('.home'));
       const rail = document.querySelector('.workspace-rail');
-      assert.ok(rail.querySelector('[title=Apps]'), 'Apps sits in the rail (apps-page plan)');
+      assert.equal(rail.querySelector('[title=Apps]'), null, 'Apps left the rail: connections are on each agent’s page');
       for (const [label, selector] of [['Chat', '.workspace-chat'], ['Settings', '.settings-page'], ['Home', '.home']]) {
         await click(rail.querySelector(`[title=${label}]`));
         assert.equal(document.querySelector('.workspace-rail'), rail);
@@ -111,7 +111,7 @@ test('navigation interception leaves workspace switches, downloads and other des
     assert.equal(workspacePage(new URL('?agent=assistant-two', current)), 'home');
     assert.equal(workspacePage(new URL('?view=apps', current)), 'apps');
     // Connections moved from Settings to Apps; old links open Apps.
-    assert.equal(workspacePage(new URL('?view=settings&section=connections', current)), 'apps');
+    assert.equal(workspacePage(new URL('?view=settings&section=connections', current)), 'settings', 'admins’ list of every connection');
     assert.equal(workspacePage(new URL('?view=users', current)), 'settings');
     assert.equal(workspacePage(new URL('?view=account', current)), 'settings', 'My account was removed (D245)');
     assert.ok(localDestination('?view=apps', current));

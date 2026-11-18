@@ -11,7 +11,9 @@ export type AppState = 'ok' | 'reconnect' | 'writes_paused' | 'paused';
 export type WorkspaceApp = { id: string; server: string; name: string; kind: 'service'; provider: string; account?: string | null; status: 'connected' | 'reconnect';
   actions: { id: string; title: string; meaning: Meaning; mode: Mode }[]; agents: AgentIdentity[]; rules: number;
   state?: AppState; paused_action?: string | null; last_used?: { at: number; agent_name: string } | null;
-  connected?: { at: number; by_name: string } | null; via?: string };
+  connected?: { at: number; by_name: string } | null; via?: string;
+  /** The agent it belongs to (schema 132); none for a workspace connection. */
+  owner?: { id: string; name: string } | null; revision?: number };
 /** A company system (AP2/AP3): opens through Cuckoo for the people allowed. */
 export type CompanySystem = { id: string; kind: 'link'; name: string; description: string; audience: 'everyone' | 'selected'; revision: number;
   can_open: boolean; url?: string | null; owner?: string | null; owner_name?: string | null; can_decide: boolean;

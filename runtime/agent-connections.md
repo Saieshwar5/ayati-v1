@@ -38,6 +38,14 @@ Connections has four groups: **Apps** (with Add app), **MCP servers** (the
 connected systems), **Computers** (the agent's computer and what it may do),
 **Built in** (web search).
 
+## Admins: every connection in one list
+
+**Apps left the main menu.** Settings › Connections (admins) lists every app
+connected in the workspace: the account, whose it is (the agent, linked to its
+Connections tab, or the workspace), who connected it and when, when it was
+last used and whether it needs a new sign-in. **Remove** disconnects any of
+them. `GET …/apps` gives each app's `owner` and `revision` for this.
+
 ## API
 
 - `GET …/apps/catalog?agent={id}`: the catalog for one agent; `state` is
@@ -59,6 +67,8 @@ connected systems), **Computers** (the agent's computer and what it may do),
   don't own or gives a connection to another agent; the owner changes its rule
   and disconnects it and another member can't; a request can't claim it as the
   workspace's; an admin's switched-off app is refused.
+- Web `tests/all-connections.test.mjs`: the list, whose each is, one Remove
+  request, none for people who can't manage.
 - Web `tests/agent-connections.test.mjs`: the agent's catalog, one connect
   request and the sign-in page; the own app's rules without an admin limit or a
   switch; disconnect; sign in again; no controls for people who can't change
@@ -69,9 +79,10 @@ connected systems), **Computers** (the agent's computer and what it may do),
 - Not verified against the real Composio or Pipedream service: that one
   workspace user can hold several accounts of the same app. The fake provider
   used in tests allows it.
-- The Apps page is still in the menu. Workspace connections made there still
-  work. Removing the page, an admin's list of every connection and an
-  allowed-apps list come next.
+- The old Apps page is out of the menu but still opens by link (Settings ›
+  Connections links to it) for workspace connections made before, operators'
+  own MCP servers and company systems. Deleting it and an allowed-apps list
+  for admins come later.
 - The company's own machines are still added by an admin in Settings ›
   Computers. A simple webhook per agent and one-step MCP setup are not built.
 - Creating an agent still has five steps and offers only workspace connections.

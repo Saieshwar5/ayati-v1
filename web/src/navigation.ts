@@ -8,8 +8,8 @@ export function workspacePage(url: URL): WorkspacePage {
   if (requested === 'company' || requested === 'feedback' || requested === 'account') return 'settings';
   if (requested === 'chat') return 'chat';
   if (requested === 'activity') return 'activity';
-  // Connections moved from Settings to Apps (apps-page plan); old links still arrive.
-  if (requested === 'apps' || (requested === 'settings' && url.searchParams.get('section') === 'connections')) return 'apps';
+  // Apps is no longer in the menu; its page still opens by link for older workspace connections.
+  if (requested === 'apps') return 'apps';
   return requested === 'agents' || requested === 'library' || requested === 'settings' ? requested : 'home';
 }
 export function localDestination(href: string, current = new URL(window.location.href)): URL | undefined {
