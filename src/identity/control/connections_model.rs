@@ -15,6 +15,9 @@ pub(crate) struct WorkspaceConnection {
     pub server: String,
     pub enabled: bool,
     pub revision: i64,
+    /// The agent this connection belongs to (schema 132); none for the workspace's.
+    #[serde(default)]
+    pub agent: Option<String>,
 }
 
 /// The admin's rule for one connector action (Settings → Connections).

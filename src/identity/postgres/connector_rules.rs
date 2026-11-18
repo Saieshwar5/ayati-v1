@@ -52,7 +52,17 @@ impl PgStore {
             "Invalid rule"
         );
         let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        // An agent's own connection has one rule set, its owners' (schema 132).
+        let owner: Option<String> = query(
+            &tx,
+            "SELECT agent FROM relay_control_connections WHERE workspace=$1 AND id=$2",
+            vec![w.into(), input.connection.clone().into()],
+        )
+        .await?
+        .map(|r| r.try_get("", "agent"))
+        .transpose()?
+        .flatten();
+        super::workspace_connections::authority(&tx, w, &user.id, owner.as_deref()).await?;
         workspace_mode(&tx, w, &input.connection, &input.operation).await?;
         let old = query(&tx,"SELECT mode,needs_other,revision FROM relay_connector_rules WHERE workspace=$1 AND connection=$2 AND operation=$3",vec![w.into(),input.connection.clone().into(),input.operation.clone().into()]).await?;
         let actual = old

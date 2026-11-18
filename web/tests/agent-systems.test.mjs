@@ -39,7 +39,7 @@ test('connecting a system reviews each tool and saves one exact request without 
       await setup();
       const { SystemsSection } = await import('../src/react/agents/systems/systems-section.tsx');
       await render(SystemsSection, { agent });
-      await click(button('Connect a system'));
+      await click(button('＋ Add MCP server'));
       await change(field('Name'), 'StudyHub');
       await change(field('MCP address'), 'https://studyhub.example/mcp');
       await change(field('Key'), 'secret-studyhub-key');
@@ -92,7 +92,7 @@ test('a changed system shows its held tools; members see tiles but cannot change
       assert.match(document.body.textContent, /Changed since it was reviewed/);
       assert.match(document.body.textContent, /1 tool changed since the last review and is held/);
       assert.match(document.body.textContent, /get_marks.*Reads · Allow · held/);
-      assert.equal([...document.querySelectorAll('button')].some((b) => /Review|Connect a system|Switch off|Remove/.test(b.textContent)), false);
+      assert.equal([...document.querySelectorAll('button')].some((b) => /Review|Add MCP server|Switch off|Remove/.test(b.textContent)), false);
     },
     {
       url,

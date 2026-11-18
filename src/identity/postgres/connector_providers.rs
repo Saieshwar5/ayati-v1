@@ -18,6 +18,8 @@ pub(crate) struct SignIn {
     pub provider: String,
     pub binding: Value,
     pub revision: i64,
+    /// The agent the connection will belong to (schema 132).
+    pub agent: Option<String>,
 }
 
 /// What a sign-in records when it starts.
@@ -40,11 +42,11 @@ impl PgStore {
     ) -> Result<()> {
         crate::identity::worker_control::model::uuid(start.id)?;
         let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        super::workspace_connections::authority(&tx, w, &user.id, input.agent.as_deref()).await?;
         super::workspace_connections::approved(&tx, w, &input.server).await?;
-        execute(&tx, "INSERT INTO relay_connector_sign_ins(id,workspace,connection,server,provider,binding,revision,started_by,created,expires) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+        execute(&tx, "INSERT INTO relay_connector_sign_ins(id,workspace,connection,server,provider,binding,revision,started_by,created,expires,agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
             vec![start.id.into(), w.into(), input.id.clone().into(), input.server.clone().into(), start.provider.into(),
-                start.binding.clone().into(), input.revision.into(), user.id.clone().into(), crate::identity::user::now().into(), start.expires.into()]).await?;
+                start.binding.clone().into(), input.revision.into(), user.id.clone().into(), crate::identity::user::now().into(), start.expires.into(), input.agent.clone().into()]).await?;
         audit(
             &tx,
             &user.id,
@@ -61,7 +63,7 @@ impl PgStore {
     /// before it expires.
     pub(crate) async fn connector_sign_in(&self, user: &User, id: &str) -> Result<SignIn> {
         crate::identity::worker_control::model::uuid(id)?;
-        let row = query(&self.db, "SELECT workspace,connection,server,provider,binding,revision,expires FROM relay_connector_sign_ins WHERE id=$1 AND started_by=$2 AND state='waiting'",
+        let row = query(&self.db, "SELECT workspace,connection,server,provider,binding,revision,expires,agent FROM relay_connector_sign_ins WHERE id=$1 AND started_by=$2 AND state='waiting'",
             vec![id.into(), user.id.clone().into()]).await?.context("This sign-in is no longer open. Connect the account again.")?;
         ensure!(
             row.try_get::<i64>("", "expires")? > crate::identity::user::now(),
@@ -74,9 +76,16 @@ impl PgStore {
             provider: row.try_get("", "provider")?,
             binding: row.try_get("", "binding")?,
             revision: row.try_get("", "revision")?,
+            agent: row.try_get("", "agent")?,
         };
         let tx = self.read_tx(&sign_in.workspace).await?;
-        manager(&tx, &sign_in.workspace, &user.id).await?;
+        super::workspace_connections::authority(
+            &tx,
+            &sign_in.workspace,
+            &user.id,
+            sign_in.agent.as_deref(),
+        )
+        .await?;
         tx.commit().await?;
         Ok(sign_in)
     }

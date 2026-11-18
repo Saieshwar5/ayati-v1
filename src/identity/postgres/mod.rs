@@ -86,6 +86,7 @@ mod communications;
 mod connection;
 #[cfg(test)]
 mod connection_migration_tests;
+mod connection_owners;
 pub(crate) mod connector_calls;
 pub(crate) mod connector_providers;
 pub(crate) mod connector_routing;

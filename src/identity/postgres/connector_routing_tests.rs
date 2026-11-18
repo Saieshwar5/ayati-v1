@@ -66,6 +66,7 @@ impl Setup {
             server: "gmail".into(),
             enabled: true,
             revision,
+            agent: None,
         };
         let origin = "http://127.0.0.1:1";
         let Started::SignIn(url) = connect::start(

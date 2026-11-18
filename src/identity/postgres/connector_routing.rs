@@ -120,6 +120,10 @@ pub(crate) struct CatalogQuery {
     pub category: String,
     #[serde(default)]
     pub cursor: String,
+    /// List the catalog for this agent: an app is connected when this agent
+    /// has its own connection of it (schema 132).
+    #[serde(default)]
+    pub agent: Option<String>,
 }
 
 /// How a connect request starts.
@@ -159,7 +163,13 @@ impl PgStore {
             "Unknown category"
         );
         let tx = self.read_tx(w).await?;
-        let admin = role(&tx, w, &user.id).await? == "Admin";
+        // An agent's own catalog is managed by its owners; the workspace's by admins.
+        let admin = match &input.agent {
+            Some(agent) => super::workspace_connections::authority(&tx, w, &user.id, Some(agent))
+                .await
+                .is_ok(),
+            None => role(&tx, w, &user.id).await? == "Admin",
+        };
         let listed: Value = offers
             .iter()
             .map(|o| json!({"id":o.id,"operations":o.operations}))
@@ -170,9 +180,9 @@ impl PgStore {
                 FROM jsonb_array_elements(COALESCE(c.definition->'operations',o.operations)) op),
               'actions',jsonb_array_length(COALESCE(c.definition->'operations',o.operations))) AS data
             FROM jsonb_to_recordset($3::jsonb) AS o(id text, operations jsonb)
-            LEFT JOIN relay_control_connections c ON c.workspace=$1 AND c.server=o.id AND c.enabled
+            LEFT JOIN relay_control_connections c ON c.workspace=$1 AND c.server=o.id AND c.enabled AND c.agent IS NOT DISTINCT FROM $4
              AND EXISTS(SELECT 1 FROM relay_control_systems s WHERE s.workspace=c.workspace AND s.server=c.server AND s.approved)",
-            vec![w.into(), user.id.clone().into(), listed.into()]).await?;
+            vec![w.into(), user.id.clone().into(), listed.into(), input.agent.clone().into()]).await?;
         tx.commit().await?;
         let facts: std::collections::HashMap<String, Value> = facts
             .into_iter()
@@ -233,19 +243,22 @@ impl PgStore {
         Ok(json!({"categories":categories,"apps":apps,"next_cursor":next,"can_manage":admin}))
     }
 
-    /// Starts one-step connect for an admin: approves the app and picks the
-    /// connection to connect. A repeated `request` returns its saved answer.
+    /// Starts one-step connect: approves the app and picks the connection to
+    /// connect. For the workspace it is an admin's; for `agent` it is its
+    /// owners' or an admin's, and the connection belongs to that agent
+    /// (schema 132). A repeated `request` returns its saved answer.
     pub(crate) async fn connector_connect_begin(
         &self,
         user: &User,
         w: &str,
         request: &str,
         app: &str,
+        agent: Option<&str>,
     ) -> Result<Begun> {
         crate::identity::worker_control::model::uuid(request)?;
         crate::identity::identifier(app)?;
         let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        super::workspace_connections::authority(&tx, w, &user.id, agent).await?;
         if let Some(row) = query(&tx, "SELECT app,requested_by,answer FROM relay_connector_connects WHERE workspace=$1 AND request=$2", vec![w.into(), request.into()]).await? {
             ensure!(
                 row.try_get::<String>("", "requested_by")? == user.id
@@ -272,14 +285,19 @@ impl PgStore {
         .await?
         .map(|r| r.try_get::<bool>("", "approved"))
         .transpose()?;
+        // An admin's "no" to an app stands: an agent's owner can't undo it.
+        ensure!(
+            approved != Some(false) || role(&tx, w, &user.id).await? == "Admin",
+            "A workspace admin switched this app off for the workspace"
+        );
         if approved != Some(true) {
             execute(&tx,"INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,true,1) ON CONFLICT(workspace,server) DO UPDATE SET approved=true,revision=relay_control_systems.revision+1",vec![w.into(),app.into()]).await?;
             audit(&tx, &user.id, Some(w), "control_system_approval_saved", app).await?;
         }
         let (connection, revision) = match query(
             &tx,
-            "SELECT id,revision FROM relay_control_connections WHERE workspace=$1 AND server=$2",
-            vec![w.into(), app.into()],
+            "SELECT id,revision FROM relay_control_connections WHERE workspace=$1 AND server=$2 AND agent IS NOT DISTINCT FROM $3",
+            vec![w.into(), app.into(), agent.map(str::to_owned).into()],
         )
         .await?
         {
@@ -289,8 +307,8 @@ impl PgStore {
             ),
             None => (uuid::Uuid::new_v4().to_string(), 0),
         };
-        execute(&tx, "INSERT INTO relay_connector_connects(workspace,request,app,connection,requested_by,created) VALUES($1,$2,$3,$4,$5,$6)",
-            vec![w.into(), request.into(), app.into(), connection.clone().into(), user.id.clone().into(), now().into()]).await?;
+        execute(&tx, "INSERT INTO relay_connector_connects(workspace,request,app,connection,requested_by,created,agent) VALUES($1,$2,$3,$4,$5,$6,$7)",
+            vec![w.into(), request.into(), app.into(), connection.clone().into(), user.id.clone().into(), now().into(), agent.map(str::to_owned).into()]).await?;
         tx.commit().await?;
         Ok(Begun::Start {
             connection,

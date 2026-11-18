@@ -37,14 +37,14 @@ test('selected team workspace keeps selection while searching and does not creat
     assert.equal(button('Open agent Tara'), undefined);
     assert.ok(button('Open agent Meera'));
     assert.equal(writes.length, 0);
-    // The six tabs of D233; the old "Not connected" placeholders are gone.
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Activity', 'Instructions', 'Tools', 'Automations', 'Environment']);
+    // Five tabs: Activity sits in Overview, Tools became Connections and Environment Settings.
+    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings']);
     assert.equal(document.body.textContent.includes('Not connected'), false);
     await click(button('Instructions'));
     assert.match(document.querySelector('[role=tabpanel]').textContent, /What Tara knows/);
     await update(() => button('Instructions').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
-    assert.equal(document.activeElement, button('Tools'));
-    assert.equal(button('Tools').getAttribute('aria-selected'), 'true');
+    assert.equal(document.activeElement, button('Connections'));
+    assert.equal(button('Connections').getAttribute('aria-selected'), 'true');
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') writes.push(path);

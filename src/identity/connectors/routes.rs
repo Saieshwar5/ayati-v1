@@ -45,7 +45,14 @@ async fn returned(
     let Ok(sign_in) = app.store.connector_sign_in(&user, &id).await else {
         return Redirect::to("/").into_response();
     };
-    let page = format!("/w/{}/?view=apps&manage=1", sign_in.workspace);
+    // An agent's own connection returns to that agent's Connections.
+    let page = match &sign_in.agent {
+        Some(agent) => format!(
+            "/w/{}/?view=agents&selected={agent}&section=connections",
+            sign_in.workspace
+        ),
+        None => format!("/w/{}/?view=apps&manage=1", sign_in.workspace),
+    };
     let finished = match named(&sign_in.provider) {
         Ok(provider) => finish_sign_in(&app.store, &user, &id, sign_in, provider.as_ref()).await,
         Err(error) => Err(error),
@@ -88,6 +95,7 @@ pub(crate) async fn finish_sign_in(
             server: sign_in.server.clone(),
             enabled: true,
             revision: sign_in.revision,
+            agent: sign_in.agent.clone(),
         };
         let verified = Verified {
             definition: account.definition,

@@ -25,13 +25,18 @@ export type CatalogPage = { categories: { id: string; name: string; count: numbe
 const base = () => `/workspaces/${workspaceId}/apps`;
 export const loadApps = () => identityRequest<AppsView>(base());
 export const appsRequest = <T>(path: string, body?: unknown) => identityRequest<T>(`${base()}${path}`, body);
-export function loadCatalog(search: { query: string; category: string; cursor?: string | null }, signal: AbortSignal) {
+/** With `agent`, an app counts as connected when that agent has its own
+ * connection of it (schema 132). */
+export function loadCatalog(search: { query: string; category: string; cursor?: string | null; agent?: string }, signal: AbortSignal) {
   const params = new URLSearchParams({ query: search.query, category: search.category });
   if (search.cursor) params.set('cursor', search.cursor);
+  if (search.agent) params.set('agent', search.agent);
   return identityRequest<CatalogPage>(`${base()}/catalog?${params}`, undefined, signal);
 }
-/** Approves the app, applies Cuckoo's safe rules and starts sign-in, in one request. */
-export const connectApp = (app: string, request: string) => identityRequest<{ redirect_url?: string; connection?: string }>(`${base()}/connect`, { app, request });
+/** Approves the app, applies Cuckoo's safe rules and starts sign-in, in one request.
+ * With `agent` the connection belongs to that agent alone and its owner may make it. */
+export const connectApp = (app: string, request: string, agent?: string) =>
+  identityRequest<{ redirect_url?: string; connection?: string }>(`${base()}/connect`, agent ? { app, request, agent } : { app, request });
 /** Opening goes through Cuckoo, which checks access before sending the browser on. */
 export const openUrl = (id: string) => `/api/identity${base()}/systems/${encodeURIComponent(id)}/open`;
 

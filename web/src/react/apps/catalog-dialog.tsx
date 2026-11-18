@@ -12,12 +12,14 @@ type OtherWays = { addSystem?: () => void; suggest?: () => void };
  * Services come from Cuckoo's catalog, searched and paged by the server; below them
  * MCP servers (next) and the company's own apps. Members browse the same
  * catalog and request an app instead of connecting it. */
-export function CatalogDialog({ canManage, close, connect, open, others = {} }: {
+export function CatalogDialog({ canManage, close, connect, open, others = {}, agent }: {
   canManage: boolean; close: () => void; connect: (app: CatalogApp) => void; open?: (connection: string) => void; others?: OtherWays;
+  /** List the catalog for this agent: connected means this agent's own connection. */
+  agent?: string;
 }) {
   const [text, setText] = useState('');
   const [category, setCategory] = useState('');
-  const catalog = useCatalog(text, category);
+  const catalog = useCatalog(text, category, agent);
   const [requesting, setRequesting] = useState<CatalogApp>();
   const total = catalog.categories?.reduce((sum, item) => sum + item.count, 0);
   const leave = (next?: () => void) => next && (() => { close(); next(); });

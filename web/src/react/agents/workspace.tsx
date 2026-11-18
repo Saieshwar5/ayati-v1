@@ -6,7 +6,7 @@ import { ownerNames, saveAgent, type Agent, type Directory } from './model';
 import { AgentAvatar } from './avatar';
 import { AgentWorkspaceHeader, type AgentAction } from './workspace-header';
 import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
-import { ToolsTab } from './tools-tab';
+import { ConnectionsTab } from './connections-tab';
 import { HistoryView } from '../activity/history';
 import '../activity/activity.css';
 import { AutomationLauncher } from './automation/launcher';
@@ -23,6 +23,7 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
   saved: () => Promise<void>;
 }) {
   const [dialog, setDialog] = useState<AgentAction | 'people'>();
+  const [activity, showActivity] = useState(false);
   const mutation = useMutation();
   const choose = (action: AgentAction) => {
     if (action !== 'pause') { setDialog(action); return; }
@@ -45,14 +46,17 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
     <WorkspaceTabs selected={section} select={selectSection} />
     <div id="agent-workspace-panel" className="agent-workspace-panel" role="tabpanel" aria-label={section} tabIndex={0}>
       {section === 'Overview' && <AgentOverview agent={agent} open={selectSection} people={() => setDialog('people')} owners={() => setDialog('owners')} />}
-      {section === 'Activity' && <>
-        <p className="agent-filtered-note">Showing {agent.name} only: the same list as Activity, filtered to one agent.{' '}
+      {section === 'Overview' && <section className="agent-overview-activity" aria-label="Activity">
+        <header className="agent-section-heading"><h3>Activity</h3>
+          <Button aria-expanded={activity} onClick={() => showActivity(shown => !shown)}>{activity ? 'Hide activity' : 'Show activity'}</Button></header>
+        {/* Read only when asked for: the list is long and Overview opens often. */}
+        {activity && <><p className="agent-filtered-note">Showing {agent.name} only: the same list as Activity, filtered to one agent.{' '}
           <a href={workspaceUrl('/?view=activity&tab=history')}>Open all activity</a></p>
-        <HistoryView key={agent.id} agent={agent.id} /></>}
+          <HistoryView key={agent.id} agent={agent.id} /></>}</section>}
       {section === 'Instructions' && <InstructionsTab key={agent.id} agent={agent} rules={directory.system_prompt} saved={saved} />}
-      {section === 'Tools' && <ToolsTab key={agent.id} agent={agent} webSearch={Boolean(directory.web_search)} computers={Boolean(directory.computers)} saved={saved} focus={focus} />}
+      {section === 'Connections' && <ConnectionsTab key={agent.id} agent={agent} directory={directory} saved={saved} focus={focus} />}
       {section === 'Automations' && <AutomationLauncher agent={agent} openChat={openChat} />}
-      {section === 'Environment' && <EnvironmentTab key={agent.id} agent={agent} directory={directory} saved={saved} />}
+      {section === 'Settings' && <EnvironmentTab key={agent.id} agent={agent} directory={directory} saved={saved} />}
     </div>
     {dialog === 'people' && <PeopleDialog agent={agent} close={() => setDialog(undefined)} saved={done} />}
     {dialog === 'identity' && <IdentityDialog agent={agent} close={() => setDialog(undefined)} saved={done} />}

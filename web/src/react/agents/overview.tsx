@@ -24,7 +24,7 @@ export function AgentOverview({ agent, open, people, owners }: {
     <div className="agent-overview-main">
       <section><h3>About</h3><p className="agent-responsibility">{about(agent) || 'No instructions yet.'}</p></section>
       <section>
-        <header className="agent-section-heading"><h3>Your open requests</h3><Button onClick={() => open('Activity')}>Open activity</Button></header>
+        <header className="agent-section-heading"><h3>Your open requests</h3></header>
         {requests.error && <p role="alert">{requests.error}</p>}
         {!requests.data && !requests.error && <p role="status">Loading work…</p>}
         {requests.data?.requests.slice(0, 5).map(request => <RequestRow key={request.id} request={request} refresh={requests.refresh} compact />)}
@@ -37,8 +37,8 @@ export function AgentOverview({ agent, open, people, owners }: {
         {agent.settings.handles && fact('Handles', agent.settings.handles)}
         {fact(agent.owners && agent.owners.length > 1 ? 'Owners' : 'Owner', agent.needs_owner ? 'None: its last owner left'
           : agent.owners ? ownerNames(agent.owners) : agent.owner_name ?? '…', agent.editable && !agent.assistant ? owners : undefined)}
-        {fact('Model', agent.model, () => open('Environment'), agent.editable ? 'Change' : 'View')}
-        {fact('Tools', 'Rules for each action', () => open('Tools'), 'View')}
+        {fact('Model', agent.model, () => open('Settings'), agent.editable ? 'Change' : 'View')}
+        {fact('Connections', 'Apps, MCP servers and computers', () => open('Connections'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}
         {fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
       </dl>

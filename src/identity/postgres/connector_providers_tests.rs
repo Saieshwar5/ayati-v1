@@ -59,6 +59,7 @@ impl Setup {
             server: "gmail".into(),
             enabled: true,
             revision,
+            agent: None,
         }
     }
     /// Starts a sign-in the way the Connections endpoint does; returns its id

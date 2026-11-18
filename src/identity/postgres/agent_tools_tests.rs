@@ -50,6 +50,7 @@ async fn setup() -> Setup {
         server: "orders".into(),
         enabled: true,
         revision: 0,
+        agent: None,
     };
     db.control_system(
         &owner,

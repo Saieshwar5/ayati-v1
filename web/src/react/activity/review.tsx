@@ -36,7 +36,7 @@ export function ReviewView({ scope }: { scope: Scope }) {
       <ul className="activity-list">{data.suggestions!.map(s => <li key={`${s.agent}.${s.connection}.${s.operation}`}>
         <span className="activity-main"><strong>{s.agent_name} asked {s.approved} times to {s.title.toLowerCase()}, and each was approved.</strong>
           <small>Suggestion: let {s.agent_name} do it without asking. It can never go beyond your admin’s rule.</small></span>
-        <a className="ui-button primary" href={agentSectionUrl(s.agent, 'Tools', `${s.connection}/${s.operation}`)}>Review in {s.agent_name} › Tools</a>
+        <a className="ui-button primary" href={agentSectionUrl(s.agent, 'Connections', `${s.connection}/${s.operation}`)}>Review in {s.agent_name} › Connections</a>
         <Button disabled={m.busy} onClick={() => act('/rule-suggestions', { agent: s.agent, connection: s.connection, operation: s.operation, accept: false }, 'It keeps asking.')}>Keep asking</Button>
       </li>)}</ul></section>}
     <section aria-label="How agents are doing"><h2 className="activity-group">Last 30 days</h2>

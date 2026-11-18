@@ -9,7 +9,7 @@ import { reactFixture } from './react-fixture.mjs';
 const w = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${w}/?view=agents`;
 const session = { user: { id: 'owner', email: 'owner@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
-const agent = { id: 'agent', name: 'Nova', role: 'Help customers', model: 'fixture', audience: 'everyone', revision: 3, editable: true, settings: {} };
+const agent = { id: 'agent', name: 'Nova', role: 'Help customers', model: 'fixture', audience: 'everyone', revision: 3, editable: true, settings: { instructions: 'Help customers with orders.' } };
 const response = data => ({ ok: true, status: 200, json: async () => data });
 
 async function openPane(render) {
@@ -40,7 +40,9 @@ test('old and linked tab names open Automations', async () => {
   const { sectionNamed, agentSectionUrl } = await import('../src/react/agents/workspace-tabs.tsx');
   assert.equal(sectionNamed('Schedules'), 'Automations', 'a saved "Schedules" tab still opens');
   assert.equal(sectionNamed('automations'), 'Automations');
-  assert.equal(sectionNamed('tools'), 'Tools');
+  assert.equal(sectionNamed('tools'), 'Connections', 'a link to the old Tools tab opens Connections');
+  assert.equal(sectionNamed('environment'), 'Settings');
+  assert.equal(sectionNamed('activity'), 'Overview');
   assert.equal(sectionNamed('nonsense'), undefined);
   assert.match(agentSectionUrl('a b', 'Automations'), /\?view=agents&selected=a%20b&section=automations$/);
 });
@@ -70,13 +72,15 @@ test('people who only talk to the agent are pointed to Chat, and a manager sees 
   } });
 });
 
-test('an agent’s Activity tab says it is a filtered view and links to all of Activity', async () => {
-  await reactFixture(async ({ render }) => {
+test('an agent’s activity opens on Overview when asked, as a filtered view that links to all of Activity', async () => {
+  await reactFixture(async ({ render, click, button }) => {
     const context = await import('../src/workspace-context.ts');
     await context.enterWorkspace();
     const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
     await render(AgentWorkspace, { agent, directory: { agents: [agent], role: 'Admin', default_model: 'fixture', system_prompt: '', providers: [] },
-      back() {}, openChat() {}, busy: false, section: 'Activity', selectSection() {}, saved: async () => {} });
+      back() {}, openChat() {}, busy: false, section: 'Overview', selectSection() {}, saved: async () => {} });
+    assert.equal(document.querySelector('.agent-filtered-note'), null, 'the list is read only when asked for');
+    await click(button('Show activity'));
     const note = document.querySelector('.agent-filtered-note');
     assert.match(note.textContent, /Showing Nova only: the same list as Activity, filtered to one agent\. Open all activity/);
     assert.equal(note.querySelector('a').getAttribute('href'), `/w/${w}/?view=activity&tab=history`);

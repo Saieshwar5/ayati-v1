@@ -67,6 +67,7 @@ impl Setup {
             server: "gmail".into(),
             enabled: true,
             revision,
+            agent: None,
         };
         self.db
             .connection_preflight(&self.owner, &self.w, &input)

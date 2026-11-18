@@ -80,6 +80,7 @@ pub(crate) async fn start(
     }
 }
 
+#[cfg(test)]
 /// One-step connect from Add app: approves `app`, then starts connecting it
 /// with the safe default rules (reads allowed, deletes blocked, everything else
 /// asks first). The same `request` returns the same answer: `{redirect_url}` or
@@ -93,7 +94,26 @@ pub(crate) async fn connect_app(
     request: &str,
     provider: &dyn ConnectorProvider,
 ) -> Result<Value> {
-    let (connection, revision) = match store.connector_connect_begin(user, w, request, app).await? {
+    connect_app_for(store, origin, user, w, app, request, None, provider).await
+}
+
+/// [`connect_app`] for the workspace (`agent` none, an admin) or for one
+/// agent, whose owners connect it and whose own the connection becomes.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn connect_app_for(
+    store: &PgStore,
+    origin: &str,
+    user: &User,
+    w: &str,
+    app: &str,
+    request: &str,
+    agent: Option<&str>,
+    provider: &dyn ConnectorProvider,
+) -> Result<Value> {
+    let (connection, revision) = match store
+        .connector_connect_begin(user, w, request, app, agent)
+        .await?
+    {
         Begun::Answered(answer) => return Ok(answer),
         Begun::Start {
             connection,
@@ -105,6 +125,7 @@ pub(crate) async fn connect_app(
         server: app.into(),
         enabled: true,
         revision,
+        agent: agent.map(str::to_owned),
     };
     let answer = match start(store, origin, user, w, &input, provider).await {
         Ok(Started::Connected) => json!({"connection": connection}),

@@ -8,15 +8,20 @@ import { CheckIcon } from './app-marks';
 import './catalog.css';
 
 type Row = { key: string; title: string; note: string; mode: Mode };
+const noServers = async (): Promise<{ servers: { id: string; operations: { id: string; title: string; effect: string }[] }[] }> => ({ servers: [] });
 
 /** Connect (designs/connector-screens 3): approve, apply Cuckoo's safe rules and start
  * sign-in in one request, with the starting rules shown first. A retry of the same app
  * reuses the request id, so the server answers it once. `keepPage` opens sign-in in a
  * new tab, so a draft on this page (a new agent) is kept. */
-export function ConnectDialog({ app, keepPage = false, close, connected }: {
+export function ConnectDialog({ app, keepPage = false, close, connected, agent }: {
   app: Pick<CatalogApp, 'id' | 'name' | 'kinds'>; keepPage?: boolean; close: () => void; connected: (connection?: string) => void;
+  /** Connect it for this agent alone, by its owner (schema 132). */
+  agent?: { id: string; name: string };
 }) {
-  const control = useResource(loadConnections);
+  // The list of every app's actions is the admins'; an agent's owner sees one row per kind.
+  const control = useResource(agent ? noServers : loadConnections);
+  const who = agent?.name ?? 'agents';
   const mutation = useMutation();
   const request = useRef<string>(undefined);
   const [signIn, setSignIn] = useState<string>();
@@ -27,7 +32,7 @@ export function ConnectDialog({ app, keepPage = false, close, connected }: {
     : app.kinds.map((kind: Meaning) => ({ key: kind, title: meanings[kind], note: 'Every action of this kind', mode: safeDefault(kind) }));
   const start = () => void mutation.run(async () => {
     request.current ??= crypto.randomUUID();
-    const result = await connectApp(app.id, request.current);
+    const result = await connectApp(app.id, request.current, agent?.id);
     if (result.redirect_url && keepPage) { setSignIn(result.redirect_url); return; }
     if (result.redirect_url) { rememberConnecting(app.id); setLeaving(true); location.assign(result.redirect_url); return; }
     connected(result.connection);
@@ -39,17 +44,17 @@ export function ConnectDialog({ app, keepPage = false, close, connected }: {
       <Button disabled={busy} onClick={close}>Cancel</Button>
       <Button primary disabled={busy} onClick={start}>{leaving ? `Opening ${app.name}…` : `Continue to ${app.name} →`}</Button></>}>
     {signIn ? <div className="connect">
-      <p>Sign in on {app.name}’s own page, in a new tab. Use the account agents should work in. This page stays as it is.</p>
+      <p>Sign in on {app.name}’s own page, in a new tab. Use the account {who} should work in. This page stays as it is.</p>
       <a className="ui-button primary" href={signIn} target="_blank" rel="noopener noreferrer">Open {app.name} sign-in</a>
       <p className="ui-help">When you have signed in, come back here and choose Done.</p>
     </div> : <div className="connect">
-      <div><h3>What agents could do</h3><p className="ui-help">These start with safe rules. You can change any of them after connecting.</p></div>
+      <div><h3>What {who} could do</h3><p className="ui-help">These start with safe rules. You can change any of them after connecting.</p></div>
       {!control.data && !control.error && <p role="status">Loading {app.name}’s actions…</p>}
       {(control.data || control.error) && <ul className="connect-rules" aria-label="Starting rules">{rows.map(row => <li key={row.key}>
         <span>{row.title}<small>{row.note}</small></span><RulePreview mode={row.mode} />
       </li>)}</ul>}
-      <div><h3>Sign in</h3><p>Next you’ll sign in on {app.name}’s own page. Use the account agents should work in. A shared company account is best, so it keeps working when people change roles.</p></div>
-      <p className="connect-notice"><LockMark /><span>No agent can use {app.name} until its owner switches it on. Cuckoo checks every action against these rules before it runs.</span></p>
+      <div><h3>Sign in</h3><p>Next you’ll sign in on {app.name}’s own page. Use the account {who} should work in.{!agent && ' A shared company account is best, so it keeps working when people change roles.'}</p></div>
+      <p className="connect-notice"><LockMark /><span>{agent ? `Only ${agent.name} can use this ${app.name} account.` : `No agent can use ${app.name} until its owner switches it on.`} Cuckoo checks every action against these rules before it runs.</span></p>
     </div>}
   </Dialog>;
 }
