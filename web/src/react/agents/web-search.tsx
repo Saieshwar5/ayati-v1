@@ -6,8 +6,6 @@ import { saveAgent, type Agent, type Settings } from './model';
  * before it existed have no setting and are on (designs/web-search). */
 export const searchesWeb = (settings: Settings) => settings.web_search !== false;
 
-const about = 'Search the web and read public pages to answer questions';
-
 /** Connections tab: the agent's web search switch, for its owner and admins. */
 export function WebSearchCard({ agent, saved }: { agent: Agent; saved: () => Promise<void> }) {
   const mutation = useMutation();
