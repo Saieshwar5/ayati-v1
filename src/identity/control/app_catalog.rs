@@ -64,6 +64,10 @@ struct ConnectApp {
     app: String,
     /// The client's id for this click: a repeat returns the same answer.
     request: String,
+    /// Connect it for this agent, as its own (schema 132). Without it the
+    /// connection is the workspace's and only an admin may make it.
+    #[serde(default)]
+    agent: Option<String>,
 }
 /// Approves the app and starts connecting it: `{redirect_url}` for the app's
 /// sign-in page, or `{connection}` when verified at once.
@@ -74,9 +78,10 @@ async fn connect(
     Json(input): Json<ConnectApp>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
+    // Every connection belongs to an agent (schema 133).
     check(
-        app.store.role(&w, &user.id).await? == "Admin",
-        "Only workspace admins can connect apps",
+        input.agent.is_some(),
+        "Connect apps on an agent's Connections tab",
     )?;
     check(
         execution_available(&app)?,
@@ -84,13 +89,14 @@ async fn connect(
     )?;
     let provider = connectors::provider_for(&app.store, &w, &input.app).await?;
     Ok(Json(
-        connectors::connect::connect_app(
+        connectors::connect::connect_app_for(
             &app.store,
             &app.config.origin,
             &user,
             &w,
             &input.app,
             &input.request,
+            input.agent.as_deref(),
             provider.as_ref(),
         )
         .await?,

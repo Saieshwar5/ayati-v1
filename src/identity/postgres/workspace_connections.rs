@@ -53,6 +53,25 @@ pub(super) fn stale_revision(actual: i64, expected: i64, same: bool) -> Result<b
     Ok(false)
 }
 
+/// Who may connect, change or disconnect a connection: an agent's own is its
+/// owners' and admins'; the workspace's is the admins' (schema 132).
+pub(super) async fn authority(
+    db: &impl ConnectionTrait,
+    w: &str,
+    user: &str,
+    agent: Option<&str>,
+) -> Result<()> {
+    match agent {
+        Some(agent) => {
+            super::agent_profiles::managed_access(db, user, w, agent, true).await?;
+        }
+        None => {
+            manager(db, w, user).await?;
+        }
+    }
+    Ok(())
+}
+
 pub(super) async fn approved(db: &impl ConnectionTrait, w: &str, server: &str) -> Result<()> {
     ensure!(query(db,"SELECT server FROM relay_control_systems WHERE workspace=$1 AND server=$2 AND approved",vec![w.into(),server.into()]).await?.is_some(), "A workspace admin must approve this system first");
     Ok(())
@@ -219,15 +238,17 @@ impl PgStore {
     ) -> Result<Option<Released>> {
         crate::identity::worker_control::model::uuid(&input.id)?;
         let tx = self.workspace_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        authority(&tx, w, &user.id, input.agent.as_deref()).await?;
         if input.enabled {
             approved(&tx, w, &input.server).await?;
         }
-        let old=query(&tx,"SELECT id,server,fingerprint,enabled,revision,provider,binding,definition,identity FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR server=$3)",vec![w.into(),input.id.clone().into(),input.server.clone().into()]).await?;
+        let old=query(&tx,"SELECT id,server,agent,fingerprint,enabled,revision,provider,binding,definition,identity FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR (server=$3 AND agent IS NOT DISTINCT FROM $4))",vec![w.into(),input.id.clone().into(),input.server.clone().into(),input.agent.clone().into()]).await?;
         if let Some(row) = &old {
+            // The saved row says whose it is; a request can't claim another's.
             ensure!(
                 row.try_get::<String>("", "id")? == input.id
-                    && row.try_get::<String>("", "server")? == input.server,
+                    && row.try_get::<String>("", "server")? == input.server
+                    && row.try_get::<Option<String>>("", "agent")? == input.agent,
                 "Connection already exists; reload before connecting"
             );
         }
@@ -271,8 +292,8 @@ impl PgStore {
                 Some(row) => same_account(row, verified, identity.as_deref())?,
                 None => false,
             };
-            execute(&tx,"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint,provider,binding,identity,connected_by,connected_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(workspace,id) DO UPDATE SET definition=excluded.definition,fingerprint=excluded.fingerprint,provider=excluded.provider,binding=excluded.binding,identity=excluded.identity,connected_by=excluded.connected_by,connected_at=excluded.connected_at,enabled=true,revision=relay_control_connections.revision+1",
-                vec![w.into(),input.id.clone().into(),input.server.clone().into(),verified.definition.clone().into(),verified.fingerprint.clone().into(),verified.provider.clone().into(),verified.binding.clone().into(),identity.into(),user.id.clone().into(),now().into()]).await?;
+            execute(&tx,"INSERT INTO relay_control_connections(workspace,id,server,definition,fingerprint,provider,binding,identity,connected_by,connected_at,agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(workspace,id) DO UPDATE SET definition=excluded.definition,fingerprint=excluded.fingerprint,provider=excluded.provider,binding=excluded.binding,identity=excluded.identity,connected_by=excluded.connected_by,connected_at=excluded.connected_at,enabled=true,revision=relay_control_connections.revision+1",
+                vec![w.into(),input.id.clone().into(),input.server.clone().into(),verified.definition.clone().into(),verified.fingerprint.clone().into(),verified.provider.clone().into(),verified.binding.clone().into(),identity.into(),user.id.clone().into(),now().into(),input.agent.clone().into()]).await?;
             execute(
                 &tx,
                 "DELETE FROM relay_connector_reconnects WHERE workspace=$1 AND connection=$2",
@@ -290,6 +311,12 @@ impl PgStore {
             super::control_rules::invalidate(&tx, w, &input.id, None, None).await?;
         } else if old.is_some() {
             reset_connection(&tx, w, &input.id).await?;
+        }
+        // An agent's own connection is on for that agent and no other.
+        if input.enabled
+            && let Some(agent) = &input.agent
+        {
+            execute(&tx,"INSERT INTO relay_agent_connections(workspace,agent,connection,revision,enabled_by,at) VALUES($1,$2,$3,nextval('relay_control_revision'),$4,$5) ON CONFLICT DO NOTHING",vec![w.into(),agent.clone().into(),input.id.clone().into(),user.id.clone().into(),now().into()]).await?;
         }
         audit(
             &tx,
@@ -314,12 +341,13 @@ impl PgStore {
         input: &WorkspaceConnection,
     ) -> Result<()> {
         let tx = self.read_tx(w).await?;
-        manager(&tx, w, &user.id).await?;
+        authority(&tx, w, &user.id, input.agent.as_deref()).await?;
         approved(&tx, w, &input.server).await?;
-        let row=query(&tx,"SELECT id,revision FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR server=$3)",vec![w.into(),input.id.clone().into(),input.server.clone().into()]).await?;
+        let row=query(&tx,"SELECT id,agent,revision FROM relay_control_connections WHERE workspace=$1 AND (id=$2 OR (server=$3 AND agent IS NOT DISTINCT FROM $4))",vec![w.into(),input.id.clone().into(),input.server.clone().into(),input.agent.clone().into()]).await?;
         if let Some(row) = row {
             ensure!(
-                row.try_get::<String>("", "id")? == input.id,
+                row.try_get::<String>("", "id")? == input.id
+                    && row.try_get::<Option<String>>("", "agent")? == input.agent,
                 "Connection already exists; reload before connecting"
             );
             let rev = row.try_get::<i64>("", "revision")?;

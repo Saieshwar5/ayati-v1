@@ -2,15 +2,19 @@ import { useId, useRef } from 'react';
 import { Button } from '../ui';
 import { workspaceUrl } from '../../workspace-context';
 
-export const workspaceSections = ['Overview', 'Activity', 'Instructions', 'Tools', 'Automations', 'Environment'] as const;
+export const workspaceSections = ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings'] as const;
 export type WorkspaceSection = typeof workspaceSections[number];
-/** A saved or linked section name; "Schedules" was the Automations tab's old name. */
+// Older links and saved choices: Tools became Connections, Environment became
+// Settings, Activity is part of Overview, and Schedules was Automations' first name.
+const formerNames: Record<string, string> = { schedules: 'automations', tools: 'connections', environment: 'settings', activity: 'overview' };
+/** A saved or linked section name, under its current or an earlier name. */
 export function sectionNamed(value: string | null | undefined): WorkspaceSection | undefined {
-  const name = value?.toLowerCase() === 'schedules' ? 'automations' : value?.toLowerCase();
+  const lower = value?.toLowerCase();
+  const name = lower ? formerNames[lower] ?? lower : lower;
   return workspaceSections.find(section => section.toLowerCase() === name);
 }
 /** A link that opens one agent on one tab, e.g. from Activity or Chat; `action`
- * ("connection/operation") picks out one rule on the Tools tab. */
+ * ("connection/operation") picks out one rule on the Connections tab. */
 export const agentSectionUrl = (agent: string, section: WorkspaceSection, action?: string) =>
   workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}${action ? `&action=${encodeURIComponent(action)}` : ''}`);
 export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection; select: (section: WorkspaceSection) => void }) {

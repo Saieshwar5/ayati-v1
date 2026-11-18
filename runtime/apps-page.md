@@ -1,4 +1,12 @@
-# Apps page (first part)
+# Apps page (removed)
+
+> **The Apps page was removed on 2026-11-18 (schema 133).** Every app connection
+> now belongs to one agent and is added on that agent's Connections tab; admins
+> list and remove every connection under Settings › Connections. The workspace's
+> shared connections were switched off by schema 133. Company systems (links to
+> the company's own web apps) and app requests have no screen any more; their
+> tables and routes remain. See [an agent's own connections](agent-connections.md).
+> What follows describes the page as it was.
 
 **Apps** is in the rail between Library and Settings. It shows every service the company
 connected, what agents may do with each action and which agents use it. Connections moved

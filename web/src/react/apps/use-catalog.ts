@@ -9,7 +9,7 @@ const keyOf = (query: string, category: string) => `${category}\n${query}`;
 /** Server-side search and paging for the Add app catalog. Typing waits for a short
  * pause; each new search aborts the one before, and an answer for an older search,
  * category or page is ignored, so it can never replace the current list. */
-export function useCatalog(text: string, category: string) {
+export function useCatalog(text: string, category: string, agent?: string) {
   const [query, setQuery] = useState(text.trim());
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(text.trim()), 250);
@@ -25,7 +25,7 @@ export function useCatalog(text: string, category: string) {
     const controller = new AbortController();
     pageRequest.current?.abort(); pageRequest.current = undefined;
     setPaging({ busy: false, error: '' });
-    loadCatalog({ query, category }, controller.signal).then(page => {
+    loadCatalog({ query, category, agent }, controller.signal).then(page => {
       if (controller.signal.aborted) return;
       setShown({ key, apps: page.apps, next: page.next_cursor, error: '' });
       setCategories(page.categories);
@@ -33,7 +33,7 @@ export function useCatalog(text: string, category: string) {
       if (!controller.signal.aborted) setShown({ key, apps: [], next: null, error: errorMessage(failure) });
     });
     return () => controller.abort();
-  }, [query, category, attempt]);
+  }, [query, category, attempt, agent]);
   useEffect(() => () => pageRequest.current?.abort(), []);
   const key = keyOf(query, category);
   const current = shown.key === key;
@@ -43,7 +43,7 @@ export function useCatalog(text: string, category: string) {
     const controller = new AbortController();
     pageRequest.current = controller;
     setPaging({ busy: true, error: '' });
-    loadCatalog({ query, category, cursor: shown.next }, controller.signal).then(page => {
+    loadCatalog({ query, category, cursor: shown.next, agent }, controller.signal).then(page => {
       if (controller.signal.aborted) return;
       setShown(old => old.key !== key ? old
         : { ...old, apps: [...old.apps, ...page.apps.filter(app => !old.apps.some(seen => seen.id === app.id))], next: page.next_cursor });

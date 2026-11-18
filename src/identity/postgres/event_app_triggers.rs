@@ -286,7 +286,7 @@ impl PgStore {
     ) -> Result<Vec<Value>> {
         let tx = self.read_tx(w).await?;
         super::super::agent_profiles::managed_access(&tx, &user.id, w, agent, true).await?;
-        let ids = rows(&tx, "SELECT c.id FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.enabled AND s.approved ORDER BY c.server,c.id LIMIT 50", vec![w.into()]).await?;
+        let ids = rows(&tx, "SELECT c.id FROM relay_control_connections c JOIN relay_control_systems s ON s.workspace=c.workspace AND s.server=c.server WHERE c.workspace=$1 AND c.enabled AND s.approved AND (c.agent IS NULL OR c.agent=$2) ORDER BY c.server,c.id LIMIT 50", vec![w.into(), agent.into()]).await?;
         let mut choices = vec![];
         for row in ids {
             let id: String = row.try_get("", "id")?;

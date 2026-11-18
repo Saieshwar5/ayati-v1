@@ -17,7 +17,7 @@ const names = () => [...document.querySelectorAll('.catalog-tile strong')].map(n
 const search = path => Object.fromEntries(new URL(path, 'http://localhost').searchParams);
 async function open(render, props = {}) {
   const { CatalogDialog } = await import('../src/react/apps/catalog-dialog.tsx');
-  await render(CatalogDialog, { canManage: true, close() {}, connect() {}, ...props });
+  await render(CatalogDialog, { agent: 'nova', close() {}, connect() {}, ...props });
 }
 
 test('Search waits for a pause in typing, and an older answer never replaces a newer one', async () => {
@@ -55,7 +55,7 @@ test('Load more asks once for the next page; a category starts over and drops a 
     assert.deepEqual(names(), ['Gmail', 'Outlook', 'Zoho Books']);
     assert.equal(button('Load more'), undefined, 'no more pages');
     await click([...document.querySelectorAll('.catalog-nav button')].find(node => node.textContent.startsWith('Accounting')));
-    assert.deepEqual(asked.at(-1), { query: '', category: 'accounting' });
+    assert.deepEqual(asked.at(-1), { query: '', category: 'accounting', agent: 'nova' });
     assert.deepEqual(names(), ['Razorpay']);
     assert.equal([...document.querySelectorAll('.catalog-nav [aria-pressed=true]')].map(node => node.textContent).join(), 'Accounting and payments1');
     // A page that arrives after the category changed is dropped.
@@ -71,31 +71,17 @@ test('Load more asks once for the next page; a category starts over and drops a 
   } });
 });
 
-test('Members request a service instead of connecting it; admins see Connect and the other ways to add', async () => {
-  const sent = [];
+
+test('The catalog is read for the agent; a connected app says so and the others can be connected', async () => {
+  const chosen = [], reads = [];
   await reactFixture(async ({ render, click, button }) => {
-    await open(render, { canManage: false, others: { suggest() {}, build() {} } });
-    assert.equal(document.querySelector('dialog[open] h2').textContent, 'Request an app');
-    assert.equal(button('Connect Outlook'), undefined);
-    assert.match(document.querySelector('.catalog-tile:nth-child(2)').textContent, /RequestAdmins decide/);
-    assert.match(document.querySelector('.catalog-tile:nth-child(3)').textContent, /RequestedYou asked/);
-    assert.doesNotMatch(document.querySelector('.catalog-nav').textContent, /MCP server|Your company's app/);
-    await click(button('Request Outlook'));
-    assert.equal(document.querySelectorAll('dialog[open]')[1].querySelector('h2').textContent, 'Request Outlook');
-    await click(button('Send request'));
-    assert.deepEqual({ ...sent[0], id: undefined }, { id: undefined, name: 'Outlook', url: '', reason: '' });
-    assert.match(sent[0].id, /^[0-9a-f-]{36}$/);
-  }, { url, fetch: async (path, options = {}) => {
-    if (options.body) { sent.push(JSON.parse(options.body)); return response({ id: 'r', state: 'pending' }); }
-    return response({ ...page([tile('gmail', 'Gmail', { state: 'connected', connection: 'c1' }), tile('outlook', 'Outlook'), tile('slack', 'Slack', { state: 'requested' })]), can_manage: false });
-  } });
-  const chosen = [];
-  await reactFixture(async ({ render, click, button }) => {
-    await open(render, { connect: app => chosen.push(app.id), others: { addSystem() {} } });
-    assert.match(document.querySelector('.catalog-nav').textContent, /MCP serverNext.*Your company's app/);
-    assert.doesNotMatch(document.querySelector('.catalog-nav').textContent, /Build an app/);
-    assert.match(document.querySelector('.catalog-tile:nth-child(2)').textContent, /Connect3 actions/);
+    await open(render, { connect: app => chosen.push(app.id) });
+    assert.equal(document.querySelector('dialog[open] h2').textContent, 'Add app');
+    assert.ok(reads.every(path => search(path).agent === 'nova'), 'every read names the agent');
+    assert.match(document.querySelector('.catalog-tile:nth-child(1)').textContent, /Connected/);
+    assert.equal(button('Connect Gmail'), undefined);
     await click(button('Connect Outlook'));
     assert.deepEqual(chosen, ['outlook']);
-  }, { url, fetch: async () => response(page([tile('gmail', 'Gmail', { state: 'connected', connection: 'c1' }), tile('outlook', 'Outlook')])) });
+    assert.match(document.querySelector('.catalog-help').textContent, /add an MCP server instead/);
+  }, { url, fetch: async path => { reads.push(path); return response(page([tile('gmail', 'Gmail', { state: 'connected', connection: 'c1' }), tile('outlook', 'Outlook')])); } });
 });

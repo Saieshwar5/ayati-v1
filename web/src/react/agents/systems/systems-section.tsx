@@ -28,8 +28,8 @@ export function SystemsSection({ agent }: { agent: Agent }) {
   const canConnect = data?.can_connect === true;
   // Nothing to show to people who can't connect one, or while it can't load.
   if (!canConnect && !systems.length) return null;
-  return <section className="agent-systems" aria-label="Your systems">
-    <h3 className="agent-group-label">Your systems</h3>
+  return <section className="agent-systems" aria-label="MCP servers">
+    <h3 className="agent-group-label">MCP servers</h3>
     <p className="ui-status" role="status">{m.busy ? 'Saving…' : m.status}</p>
     {systems.map(system => <article key={system.id} className="agent-tool system-tile" aria-label={system.name}>
       <header>
@@ -52,7 +52,7 @@ export function SystemsSection({ agent }: { agent: Agent }) {
       <ul className="system-tile-tools">{system.tools.map(tool => <li key={tool.name}><span>{tool.name}</span>
         <small>{tool.kind === 'read' ? 'Reads' : 'Changes'} · {modes[tool.rule]}{system.held.includes(tool.name) ? ' · held' : ''}</small></li>)}</ul>
     </article>)}
-    {canConnect && <Button onClick={() => setConnecting(true)}>Connect a system</Button>}
+    {canConnect && <Button onClick={() => setConnecting(true)}>＋ Add MCP server</Button>}
     {connecting && <ConnectSystem agent={agent.id} agentName={agent.name} close={() => setConnecting(false)} saved={() => refresh()} />}
     {events && <EventsDialog agent={agent.id} system={events} canChange={canConnect} close={() => setEvents(undefined)} changed={() => refresh()} />}
     {automating && <SystemAutomationDialog agent={agent.id} agentName={agent.name} system={automating} close={() => setAutomating(undefined)} saved={async () => {}} />}

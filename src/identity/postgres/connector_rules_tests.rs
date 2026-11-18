@@ -37,7 +37,8 @@ async fn schema_47_keeps_the_strictest_delegated_limit_and_asks_waiting_work_aga
         )
         .await
         .unwrap();
-    db.migrate().await.unwrap();
+    // The connection here was the workspace's; it becomes its one agent's so schema 133 keeps it.
+    super::connection_owners::migrate_keeping_connections(&db).await;
     db.verify_schema().await.unwrap();
 
     let one = |sql: &'static str| {

@@ -48,3 +48,8 @@
 .agent-tool-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 /* A rule opened from a suggestion in Activity › Review. */
 .agent-tool-action-suggested { border-radius: 8px; outline: 2px solid var(--focus); outline-offset: 4px; }
+
+/* Connections: a group's heading with its Add button on the right. */
+.agent-group-head { align-items: center; justify-content: space-between; }
+.agent-group-head .ui-button { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.agent-connection-group { display: grid; gap: 10px; }

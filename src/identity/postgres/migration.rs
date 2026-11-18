@@ -139,6 +139,8 @@ impl MigratorTrait for Migrator {
             Box::new(super::assistants::settings::AssistantSettings),
             Box::new(super::chat_intake::message_forwarding::GuestsRemoved),
             Box::new(super::communications::migration::EmailRemoved),
+            Box::new(super::connection_owners::ConnectionOwners),
+            Box::new(super::connection_owners::SharedConnectionsEnded),
         ]
     }
 }

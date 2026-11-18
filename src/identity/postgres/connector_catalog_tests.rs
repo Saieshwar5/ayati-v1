@@ -30,6 +30,7 @@ async fn page(
         query: query.into(),
         category: category.into(),
         cursor: cursor.into(),
+        agent: None,
     };
     s.db.connector_catalog(viewer, &s.w, offers, &input)
         .await
@@ -199,6 +200,7 @@ async fn the_catalog_searches_filters_and_pages_with_connected_apps_first() {
         query: q.into(),
         category: c.into(),
         cursor: k.into(),
+        agent: None,
     };
     for input in [
         bad("", "toys", ""),

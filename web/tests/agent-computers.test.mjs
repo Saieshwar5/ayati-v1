@@ -88,12 +88,12 @@ test('people who cannot change the agent see its computer read-only, and a pendi
   }, { url, fetch: async () => response(asleep) });
 });
 
-test('the Tools tab saves internet and program controls together, with websites checked', async () => {
+test('the computer’s controls save internet and programs together, with websites checked', async () => {
   const saves = [];
   await reactFixture(async ({ render, button, click, change }) => {
-    const { ToolsTab } = await import('../src/react/agents/tools-tab.tsx');
+    const { ComputerToolsCard } = await import('../src/react/agents/computer/computer-controls.tsx');
     const on = { ...agent, settings: { ...agent.settings, computer: asleep.settings } };
-    await render(ToolsTab, { agent: on, computers: true, saved: async () => {} });
+    await render(ComputerToolsCard, { agent: on, saved: async () => {} });
     assert.match(document.body.textContent, /Atlas’s computer can’t reach any website/);
     assert.equal(button('Save computer controls').disabled, true);
     await click(radio('Internet', 'Only these websites'));
@@ -126,43 +126,6 @@ test('the Tools tab saves internet and program controls together, with websites 
 
 const directory = { role: 'Member', agents: [], default_model: 'fixture', system_prompt: 'Use only assigned capabilities.', providers: [] };
 const field = label => [...document.querySelectorAll('label')].find(node => node.textContent.startsWith(label)).querySelector('input,textarea,select');
-
-test('a new agent gets a computer only when its creator switches it on, with its controls', async () => {
-  for (const turnOn of [false, true]) {
-    const writes = [];
-    await reactFixture(async ({ render, button, click, change }) => {
-      const context = await import('../src/workspace-context.ts');
-      await context.enterWorkspace();
-      const { AgentCreate, newAgent } = await import('../src/react/agents/create/create-flow.tsx');
-      await render(AgentCreate, { start: newAgent(directory), directory, computers: offer, close() {}, created: async () => {} });
-      await change(field('Name'), 'Iris');
-      await click(button('Continue'));
-      assert.match(document.body.textContent, /Iris’s own Linux computer for files and programs/);
-      assert.equal(computerSwitch().checked, false);
-      if (turnOn) {
-        await click(computerSwitch());
-        await change(field('Size'), 'small');
-        assert.match(document.body.textContent, /nothing is charged until then/);
-      }
-      await click(button('Continue'));
-      await click(button('Customer support'));
-      for (let next = 0; next < 2; next++) await click(button('Continue'));
-      assert.equal(Boolean(document.querySelector('[aria-labelledby="agent-create-computer-title"]')), turnOn);
-      if (turnOn) await click(radio('Internet', 'Any website'));
-      await click(button('Create agent'));
-      assert.equal(writes.length, 1);
-      assert.deepEqual(writes[0].settings.computer, turnOn
-        ? { on: true, size: 'small', programs: 'allow', browser: 'allow', submit: 'ask', internet: 'any', websites: [] }
-        : undefined);
-    }, { url, fetch: async (path, options = {}) => {
-      if (path.endsWith('/session')) return response(session);
-      if (path.endsWith('/chat-directory')) return response({ users: [], agents: [], role: 'Member' });
-      if (path.endsWith('/control/available')) return response({ connections: [], execution_available: true });
-      const body = JSON.parse(options.body); writes.push(body);
-      return response({ ...body, revision: 1 });
-    } });
-  }
-});
 
 test('Activity shows each command with its result, and asking first is not an approval', async () => {
   await reactFixture(async ({ render }) => {

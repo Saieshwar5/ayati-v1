@@ -5,9 +5,13 @@ import { base } from './model';
 
 export type Mode = 'allow' | 'ask' | 'block';
 /** One connector action with the admin's rule, the agent's own rule and the result. */
-export type ToolOperation = { id: string; title: string; effect: 'read' | 'write'; meaning?: Meaning; workspace_mode: Mode; needs_other: boolean; agent_mode: Mode | null; mode: Mode; revision: number };
+export type ToolOperation = { id: string; title: string; effect: 'read' | 'write'; meaning?: Meaning; workspace_mode: Mode; needs_other: boolean; agent_mode: Mode | null; mode: Mode; revision: number;
+  /** The revision of the connection's own rule, for an agent's own app (schema 132). */
+  rule_revision?: number };
 /** `state` arrives with schema 108; without it the connection is shown as working. */
-export type ToolConnection = { id: string; server: string; name?: string | null; account?: string | null; revision: number; on: boolean; operations: ToolOperation[]; state?: AppState; /** `system` for a connected system (schema 116), shown under Your systems. */ provider?: string };
+export type ToolConnection = { id: string; server: string; name?: string | null; account?: string | null; revision: number; on: boolean; operations: ToolOperation[]; state?: AppState;
+  /** This agent's own connection: its owner connected it and only this agent uses it (schema 132). */
+  own?: boolean; /** `system` for a connected system (schema 116), shown under Your systems. */ provider?: string };
 export type Action = { id: string; connection: string; operation: string; title: string; effect: string; arguments: unknown; state: string; result: unknown; chat: string; thread: string | null; job: string; approver: string; created: number; updated: number; requester_name?: string; conversation_name?: string; decision?: string | null; delivery?: { status: string; reason?: string | null } | null; guard?: Guard | null };
 /** The company rule that held or blocked this exact request, with the facts it used. */
 export type Guard = { rule: string; effect?: 'ask' | 'block'; trial?: { rule: string; effect: 'ask' | 'block'; summary: string }[]; summary: string; known: boolean; matched: number;

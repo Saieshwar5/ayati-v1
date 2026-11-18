@@ -23,6 +23,6 @@ const root = `/workspaces/${workspaceId}/control`;
 export const loadConnections = () => identityRequest<WorkspaceConnectionsData>(`${root}/connections`);
 /** Removing approval also disconnects the app's account and releases it at its provider. */
 export const approveSystem = (input: SystemApproval) => identityRequest<ConnectResult>(`${root}/systems`, input);
-export const connectAccount = (input: { id: string; server: string; enabled: boolean; revision: number }) => identityRequest<ConnectResult>(`${root}/connections`, input);
+export const connectAccount = (input: { id: string; server: string; enabled: boolean; revision: number; agent?: string }) => identityRequest<ConnectResult>(`${root}/connections`, input);
 export const saveConnectorRule = (input: { connection: string; operation: string; mode: Mode; needs_other: boolean; revision: number }) => identityRequest(`${root}/connector-rules`, input);
 export const saveMeaning = (input: { connection: string; operation: string; meaning: Meaning; revision: number }) => identityRequest<{ saved: boolean; revision: number }>(`${root}/action-meanings`, input);

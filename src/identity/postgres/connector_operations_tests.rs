@@ -50,6 +50,7 @@ pub(super) async fn setup() -> Setup {
         server: "gmail".into(),
         enabled: true,
         revision: 0,
+        agent: None,
     };
     db.connection_preflight(&owner, &w, &input).await.unwrap();
     let id = uuid::Uuid::new_v4().to_string();

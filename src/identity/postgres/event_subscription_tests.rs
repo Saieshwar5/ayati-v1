@@ -84,6 +84,7 @@ impl Setup {
             server: "gmail".into(),
             enabled: true,
             revision,
+            agent: None,
         };
         self.db
             .connection_preflight(&self.owner, &self.w, &input)
@@ -333,6 +334,7 @@ async fn reconnecting_breaks_subscriptions_and_disconnecting_removes_them() {
         server: "gmail".into(),
         enabled: false,
         revision,
+        agent: None,
     };
     s.db.workspace_connection_bind(&s.owner, &s.w, &off, None)
         .await

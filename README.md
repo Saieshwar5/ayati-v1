@@ -49,6 +49,8 @@ Main product contracts:
   under the question, follow-ups continue with them, and people follow their threads.
 - [Assistants](runtime/assistants.md): every member has one private agent of their
   own, made for them and first in Chat; new agents are for the team.
+- [An agent's own connections](runtime/agent-connections.md): an agent's owner
+  connects apps for that agent alone on its Connections tab; five tabs on the agent page.
 - [Forwarding](runtime/forwarding.md): forward a message to a person or an agent,
   in your direct chat with them.
 - [The owner view](runtime/owner-view.md): each conversation with an agent is

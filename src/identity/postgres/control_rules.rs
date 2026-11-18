@@ -119,6 +119,12 @@ impl PgStore {
                 !system || role(&tx, w, &user.id).await? == "Admin",
                 "Only an admin can give another agent a system connected to one agent"
             );
+            // An agent's own app connection is never another agent's (schema 132).
+            ensure!(
+                query(&tx, "SELECT 1 AS found FROM relay_control_connections WHERE workspace=$1 AND id=$2 AND agent IS NOT NULL AND agent<>$3",
+                    vec![w.into(), input.connection.clone().into(), agent.into()]).await?.is_none(),
+                "This connection belongs to another agent. Connect the app for this agent."
+            );
             execute(&tx,"INSERT INTO relay_agent_connections(workspace,agent,connection,revision,enabled_by,at) VALUES($1,$2,$3,nextval('relay_control_revision'),$4,$5) ON CONFLICT DO NOTHING",vec![w.into(),agent.into(),input.connection.clone().into(),user.id.clone().into(),now().into()]).await?;
         } else {
             execute(&tx,"DELETE FROM relay_agent_connections WHERE workspace=$1 AND agent=$2 AND connection=$3",vec![w.into(),agent.into(),input.connection.clone().into()]).await?;
