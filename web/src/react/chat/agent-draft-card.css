@@ -1,0 +1,26 @@
+/* A new agent your assistant drafted in chat (schema 139): a bordered card under its reply. */
+.agent-draft-card { display: grid; margin-top: 8px; max-width: 560px; box-sizing: border-box; border: 1px solid var(--border-panel); border-radius: 14px; background: var(--surface); overflow: hidden; font-size: 13.5px; }
+.agent-draft-card > header { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.agent-draft-card > header > span:nth-child(2) { display: grid; min-width: 0; }
+.agent-draft-card > header strong { font-size: 16px; }
+.agent-draft-card small { color: var(--muted); font-size: 12.5px; }
+.agent-draft-face { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; overflow: hidden; }
+.agent-draft-face img { display: block; width: 100%; height: 100%; }
+.agent-draft-badge { margin-left: auto; padding: 3px 10px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.agent-draft-badge.created { background: var(--selection); color: var(--success); }
+.agent-draft-part { display: grid; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.agent-draft-part h4 { margin: 0; font-size: 12.5px; }
+.agent-draft-part h4 small { font-weight: 400; margin-left: 6px; }
+.agent-draft-part p, .agent-draft-part ul { margin: 0; }
+.agent-draft-part ul { padding-left: 18px; }
+.agent-draft-part pre { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--soft); font: inherit; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; }
+.agent-draft-part summary { cursor: pointer; padding: 3px 0; }
+.agent-draft-part summary span, .agent-draft-part p span { color: var(--muted); margin-left: 6px; }
+.agent-draft-part details pre { margin: 4px 0 6px; }
+.agent-draft-notes { margin: 0; padding: 8px 14px 8px 30px; border-top: 1px solid var(--border); background: var(--warning-bg); color: var(--warning); font-size: 12.5px; }
+.agent-draft-card > footer { display: grid; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--soft); }
+.agent-draft-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.agent-draft-actions a.ui-button { text-decoration: none; }
+.agent-draft-error { margin: 0; padding: 8px 14px; border-top: 1px solid var(--border); color: var(--danger); }
+.agent-draft-replaced { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.agent-draft-replaced .agent-draft-face { width: 22px; height: 22px; }

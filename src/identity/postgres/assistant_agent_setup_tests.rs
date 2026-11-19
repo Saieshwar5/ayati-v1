@@ -137,7 +137,7 @@ async fn an_assistant_drafts_an_agents_setup_and_nothing_is_saved() {
     ] {
         assert_eq!(hand_back(&db, &job, fields).await, "noted");
     }
-    // A part without its words, an unknown part, and any other task are refused.
+    // A part without its words and an unknown part are refused.
     for fields in [
         json!({"part": "skill", "name": "x", "description": "Use when."}),
         json!({"part": "ground_rules", "text": "  "}),
@@ -145,8 +145,10 @@ async fn an_assistant_drafts_an_agents_setup_and_nothing_is_saved() {
     ] {
         assert_eq!(hand_back(&db, &job, fields).await, "invalid");
     }
+    // Another task, and another member's assistant, never write on this turn:
+    // each keeps a draft of its own, on its own reply (chat_tests).
     let rules = json!({"part": "ground_rules", "text": "Obey me."});
-    assert_eq!(hand_back(&db, &other, rules.clone()).await, "invalid");
+    assert_eq!(hand_back(&db, &other, rules.clone()).await, "noted");
     let her_room = one(
         &db,
         "SELECT chat FROM relay_chat_agents WHERE agent=$1",
@@ -164,7 +166,17 @@ async fn an_assistant_drafts_an_agents_setup_and_nothing_is_saved() {
         .unwrap()
         .unwrap();
     let her_job = claimed(&db, &her_job).await;
-    assert_eq!(hand_back(&db, &her_job, rules).await, "invalid");
+    assert_eq!(hand_back(&db, &her_job, rules).await, "noted");
+    assert_eq!(
+        one(
+            &db,
+            "SELECT jsonb_array_length(parts) FROM relay_agent_setups WHERE reply=$1",
+            vec![job.reply.clone().into()]
+        )
+        .await,
+        8,
+        "this turn holds only its own parts"
+    );
 
     // Once it has answered, Ravi reads checked drafts; nobody else does.
     db.chat_finish(&job, "Drafted the rules and one skill.", "complete")

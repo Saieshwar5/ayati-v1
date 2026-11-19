@@ -7,7 +7,8 @@ export type ChatMessage = { role: 'person' | 'agent'; text: string };
 /** A written skill not saved yet. `id` is the key saving uses; it changes with
  * the content, so a retry of the same text saves one skill. */
 export type DraftSkill = { key: string; id: string; name: string; description: string; steps: string };
-export type WrittenSkill = { name: string; description: string; steps: string; text: string };
+/** `id` comes with a draft made in chat: the skill's own, the same on every read. */
+export type WrittenSkill = { name: string; description: string; steps: string; text: string; id?: string };
 export type LibraryPick = { id: string; name: string; description: string };
 /** `job_title` and `used` come only from a member's assistant: a title for an
  * agent that has none, and what it relied on from its memory or the Library. */
@@ -33,8 +34,12 @@ const help = `/workspaces/${workspaceId}/assistant/agent-setup`;
 export const loadAssistantHelp = () => identityRequest<AssistantHelp>(help);
 /** `id` is the turn's own: the same id asks once. */
 export const askAssistant = (id: string, setup: WriterRequest) => identityRequest<{ reply: string }>(help, { id, setup });
+/** What a draft made in your chat with your assistant adds: the new agent's
+ * name and id, whether it exists already, and whether a later reply carried
+ * the draft on. */
+export type ChatDraft = { from?: 'chat'; name?: string | null; agent_id?: string; created?: boolean; replaced?: boolean };
 export const readAssistantAnswer = (reply: string, signal?: AbortSignal) =>
-  identityRequest<{ state: string } & Partial<WriterAnswer>>(`${help}/${encodeURIComponent(reply)}`, undefined, signal);
+  identityRequest<{ state: string } & Partial<WriterAnswer> & ChatDraft>(`${help}/${encodeURIComponent(reply)}`, undefined, signal);
 export const saveSkillVersion = (id: string, version: number, files: SkillFile[]) =>
   identityRequest<SkillDetail>(`/workspaces/${workspaceId}/skills/${encodeURIComponent(id)}/versions`, { version, files });
 
