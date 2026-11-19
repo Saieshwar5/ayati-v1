@@ -56,7 +56,8 @@ async fn returned(
             sign_in.workspace
         ),
     };
-    let finished = match named(&sign_in.provider) {
+    // The app may be one this workspace's admins added.
+    let finished = match super::named_for(&app.store, &sign_in.workspace, &sign_in.provider).await {
         Ok(provider) => finish_sign_in(&app.store, &user, &id, sign_in, provider.as_ref()).await,
         Err(error) => Err(error),
     };

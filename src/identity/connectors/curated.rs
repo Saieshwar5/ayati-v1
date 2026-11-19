@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 pub(crate) struct Catalog {
     pub apps: Vec<CatalogApp>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CatalogApp {
     pub id: String,
@@ -36,7 +36,7 @@ pub(crate) struct CatalogApp {
 /// `arguments` only, and the field of its answer that holds the account's stable
 /// identity, such as the mailbox address. Reconnecting the same identity keeps
 /// the account's rules.
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct IdentityRead {
     pub tool: String,
@@ -46,7 +46,7 @@ pub(crate) struct IdentityRead {
     pub field: String,
 }
 /// The categories of the Add app catalog, in screen order: (id, name).
-pub(crate) const CATEGORIES: [(&str, &str); 9] = [
+pub(crate) const CATEGORIES: [(&str, &str); 10] = [
     ("email_calendar", "Email and calendar"),
     ("files", "Files and documents"),
     ("sales", "Sales and customers"),
@@ -55,20 +55,22 @@ pub(crate) const CATEGORIES: [(&str, &str); 9] = [
     ("projects", "Projects and tasks"),
     ("support", "Support"),
     ("shops", "Shops"),
+    // Apps an admin added from the library that fit none of the above.
+    ("other", "Other apps"),
     // Systems the company runs, reached through operator-configured MCP servers.
     ("company", "Your company's systems"),
 ];
 /// An app event, such as "New email". Like an action, each provider maps it to
 /// its own trigger and field names; only the mapped scalar fields (at most
 /// eight) ever reach an agent.
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Trigger {
     pub id: String,
     pub title: String,
     pub providers: BTreeMap<String, Binding>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Action {
     pub id: String,
@@ -81,7 +83,7 @@ pub(crate) struct Action {
 }
 /// How one provider runs an action: its tool, and Cuckoo field names mapped to
 /// the provider's. Only these fields are ever offered to an agent.
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Binding {
     pub tool: String,

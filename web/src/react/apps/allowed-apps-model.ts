@@ -1,11 +1,14 @@
 import { identityRequest, workspaceId } from '../../workspace-context';
+import type { AddedFact } from './added-apps-model';
 
 /** What the workspace's admins decided about an app (schema 134): members add
  * allowed apps, ask for undecided ones and can't use blocked ones. */
 export type Allowance = 'allowed' | 'undecided' | 'blocked';
 /** One app Cuckoo offers, in the admins' Allowed apps list. */
 export type AllowedApp = { id: string; name: string; description: string; category: string; allowance: Allowance; note: string; revision: number;
-  decided: { at: number; by_name: string } | null; connections: number; waiting: number };
+  decided: { at: number; by_name: string } | null; connections: number; waiting: number;
+  /** Set for an app the admins added from the library (schema 135). */
+  added?: AddedFact | null };
 /** A member's request for a catalog app, waiting for an admin. */
 export type AppRequest = { id: string; kind: 'access' | 'suggestion'; connector: string | null; name: string; reason: string; created: number;
   requester: string; agent: string | null; agent_name: string | null };
@@ -18,7 +21,7 @@ export type WaitingSystem = { id: string; name: string; url: string; tools: numb
 export type AppRequests = { requests: AppRequest[]; mine?: MyAppRequest[]; can_decide?: boolean; systems_waiting?: number };
 
 const base = () => `/workspaces/${workspaceId}/apps`;
-export const loadAllowedApps = () => identityRequest<{ apps: AllowedApp[]; systems?: WaitingSystem[] }>(`${base()}/allowed`);
+export const loadAllowedApps = () => identityRequest<{ apps: AllowedApp[]; systems?: WaitingSystem[]; library?: boolean }>(`${base()}/allowed`);
 /** Allows an app for the workspace, or switches it off, which disconnects every agent's connection of it. */
 export const saveAllowance = (input: { app: string; allowed: boolean; note: string; revision: number }) =>
   identityRequest<{ saved: true; provider_revoked: boolean }>(`${base()}/allowed`, input);

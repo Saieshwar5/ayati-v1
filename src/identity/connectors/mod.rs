@@ -12,9 +12,12 @@
 //! (`composio`) and Pipedream Connect (`pipedream`). The provider is chosen per
 //! app and workspace ([`routing`]), so one app can move to another provider, or
 //! to a connector Cuckoo builds itself, without touching the others.
+pub(crate) mod added;
 mod composio;
+mod composio_account;
 mod composio_api;
 mod composio_call;
+mod composio_library;
 pub(crate) mod composio_triggers;
 #[cfg(test)]
 mod conformance_tests;
@@ -23,6 +26,8 @@ pub(crate) mod curated;
 pub(crate) mod drift;
 #[cfg(test)]
 pub(crate) mod fake_composio;
+#[cfg(test)]
+mod fake_composio_library;
 #[cfg(test)]
 mod fake_mcp;
 #[cfg(test)]
@@ -163,6 +168,16 @@ pub(crate) struct Capabilities {
     pub find_outcome: bool,
     /// Events can be subscribed to (see the trigger methods).
     pub triggers: bool,
+    /// Admins can add apps from the provider's library (see the library methods).
+    pub library: bool,
+}
+
+/// One action an admin chose for an app they add, and whether it only reads.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LibraryPick {
+    pub tool: String,
+    pub effect: String,
 }
 
 /// Whether an unconfirmed write happened, as far as the provider can tell.
@@ -265,6 +280,23 @@ pub(crate) trait ConnectorProvider: Send + Sync {
     async fn unsubscribe(&self, _saved: &Saved<'_>, _subscription: &str) -> Result<()> {
         anyhow::bail!("This connector provider has no events")
     }
+    /// Apps in the provider's library matching `query`, for admins to add.
+    async fn library(&self, _query: &str) -> Result<Value> {
+        anyhow::bail!("This connector provider has no library")
+    }
+    /// One page of a library app's actions to review.
+    async fn library_actions(
+        &self,
+        _app: &str,
+        _query: &str,
+        _page: Option<&str>,
+    ) -> Result<Value> {
+        anyhow::bail!("This connector provider has no library")
+    }
+    /// The app to save for the admin's choices, read from the library now.
+    async fn library_app(&self, _app: &str, _picks: &[LibraryPick]) -> Result<added::AddedApp> {
+        anyhow::bail!("This connector provider has no library")
+    }
     /// Verify a delivery's signature and time window on the raw body with
     /// `secret` (the project's or the subscription's), then read it.
     fn parse_delivery(
@@ -289,6 +321,21 @@ pub(crate) fn composio_for_tests(fake: &fake_composio::FakeComposio) -> Arc<dyn 
         })
         .unwrap(),
     )
+}
+
+/// The same, as a workspace whose admins added `apps` uses it.
+#[cfg(test)]
+pub(crate) fn composio_with_added(
+    fake: &fake_composio::FakeComposio,
+    apps: &[added::AddedApp],
+) -> Arc<dyn ConnectorProvider> {
+    let settings = composio::Settings {
+        base: fake.base.clone(),
+        key_file: fake.key_file.clone(),
+        auth_configs: Default::default(),
+    };
+    let apps = apps.iter().map(|a| a.catalog()).collect();
+    Arc::new(composio::Composio::new(settings).unwrap().with_added(apps))
 }
 
 /// A Pipedream provider against a local fake, for tests outside this module.

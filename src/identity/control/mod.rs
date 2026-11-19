@@ -1,5 +1,6 @@
 //! Shared-workspace authority boundary for supported, reviewed remote MCP operations.
 mod app_catalog;
+mod app_library;
 mod approvals;
 pub(crate) mod broker;
 pub(crate) mod catalog;
@@ -23,6 +24,7 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .merge(connections::routes())
         .merge(app_catalog::routes())
+        .merge(app_library::routes())
         .merge(approvals::routes())
         .merge(guard::routes())
         .merge(outcomes::routes())

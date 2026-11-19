@@ -32,7 +32,7 @@ pub(crate) struct Released {
     pub server: String,
     pub binding: Value,
 }
-fn released(row: &sea_orm::QueryResult) -> Result<Option<Released>> {
+pub(super) fn released(row: &sea_orm::QueryResult) -> Result<Option<Released>> {
     let binding: Option<Value> = row.try_get("", "binding")?;
     Ok(match binding {
         Some(binding) => Some(Released {

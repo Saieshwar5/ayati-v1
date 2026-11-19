@@ -272,6 +272,7 @@ impl ConnectorProvider for Pipedream {
             idempotency_key: false,
             find_outcome: false,
             triggers: true,
+            library: false,
         }
     }
 

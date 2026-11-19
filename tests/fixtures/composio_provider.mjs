@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { library, libraryTool } from './composio_library.mjs';
 
 // A local stand-in for Composio's v3.1 API and its hosted sign-in page, shaped
 // like the documented answers. Account answers carry a token on purpose:
@@ -54,6 +55,7 @@ export async function composioProvider() {
       if (request.method === 'DELETE') { accounts.delete(account.id); removed.push(account.id); return send({ success: true }); }
       return send({ id: account.id, status: account.status, toolkit: { slug: account.toolkit }, auth_config: { id: account.config, is_disabled: false }, is_disabled: false, alias: null, state: { authScheme: 'OAUTH2', val: { access_token: COMPOSIO_TOKEN } }, params: {} });
     }
+    if (request.method === 'GET' && library(api, url, send)) return;
     if (api.startsWith('tools/execute/')) {
       const account = accounts.get(body.connected_account_id);
       if (account?.status !== 'ACTIVE' || body.version !== VERSION) return send({ data: {}, error: 'not active', successful: false });
@@ -62,6 +64,7 @@ export async function composioProvider() {
     }
     if (api.startsWith('tools/')) {
       const slug = api.slice(6), schema = tools[slug];
+      if (libraryTool(slug)) return send(libraryTool(slug));
       if (!schema) return send({}, 404);
       return send({ slug, name: slug, description: '', toolkit: { slug: 'gmail', name: 'Gmail', logo: '' }, input_parameters: schema, output_parameters: {}, no_auth: false, available_versions: [VERSION], version: VERSION, scopes: [], scope_requirements: null, tags: [], is_deprecated: false });
     }

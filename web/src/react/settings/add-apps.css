@@ -1,0 +1,20 @@
+/* Add more apps (schema 135): search the library, then review one app's actions. */
+.ui-dialog:has(.add-apps) { width: min(680px, calc(100vw - 32px)); height: min(720px, calc(100dvh - 32px)); }
+.ui-dialog:has(.add-apps) .ui-dialog-body { flex: 1; overflow: auto; overscroll-behavior: contain; }
+.add-apps { display: grid; gap: 14px; align-content: start; font-size: 14px; }
+.add-apps p { margin: 0; line-height: 1.5; }
+.add-apps-search { display: flex; gap: 8px; }
+.add-apps-search input { flex: 1; min-width: 0; }
+.add-apps-list { list-style: none; margin: 0; padding: 0; }
+.add-apps-list[aria-busy="true"] { opacity: .6; }
+.add-apps-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+.add-apps-list li > :first-child { flex: 1 1 240px; min-width: 0; display: grid; }
+.add-apps-list strong { font-weight: 600; overflow-wrap: anywhere; }
+.add-apps-list small { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.add-apps-tag { padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.add-apps-pick { display: flex !important; grid-template-columns: none; gap: 10px; align-items: flex-start; cursor: pointer; }
+.add-apps-pick input { margin-top: 3px; flex: none; }
+.add-apps-pick > span { display: grid; min-width: 0; }
+.add-apps-list li.unavailable strong { color: var(--muted); font-weight: 500; }
+.add-apps-count { color: var(--muted); font-size: 13px; }
+.add-apps-more { justify-self: center; }

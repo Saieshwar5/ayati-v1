@@ -5,6 +5,7 @@ to their agents. Members add the allowed apps, ask for the others, and see the
 admin's answer. The decision lives in Cuckoo, not at a provider (Composio,
 Pipedream): a provider knows one Cuckoo project, not each workspace's admins.
 Builds on [an agent's own connections](agent-connections.md).
+Admins can also [add apps from the provider's library](added-apps.md) (schema 135).
 
 ## The three states of an app
 
@@ -102,4 +103,5 @@ is sent to it. An admin answers it in Settings › Connections: **Allow**, or
   tile on the agent's page changes.
 - No setting to let members add any app without asking, and no limit on which
   account (for example only company email addresses) may sign in.
-- Requests for an app outside Cuckoo's catalog have no screen.
+- Requests for an app outside Cuckoo's catalog have no screen; an admin
+  [adds the app](added-apps.md) instead.

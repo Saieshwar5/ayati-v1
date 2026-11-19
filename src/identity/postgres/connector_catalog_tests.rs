@@ -172,7 +172,7 @@ async fn the_catalog_searches_filters_and_pages_with_connected_apps_first() {
         .iter()
         .map(|c| c["count"].as_i64().unwrap())
         .collect();
-    assert_eq!(counts, [1, 21, 20, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(counts, [1, 21, 20, 0, 0, 0, 0, 0, 0, 0]);
     let cursor = first["next_cursor"].as_str().unwrap();
     let second = page(&s, &s.owner, &offers, "", "", cursor).await;
     assert!(second["next_cursor"].is_null());

@@ -17,6 +17,7 @@ pub(super) fn routes() -> Router<Shared> {
 
 /// The catalog apps this workspace can connect now, each through its route.
 async fn offers(store: &crate::identity::postgres::PgStore, w: &str) -> Result<Vec<Offer>> {
+    let added = store.added_apps(w).await?;
     Ok(connectors::apps(store, w)
         .await?
         .into_iter()
@@ -27,8 +28,14 @@ async fn offers(store: &crate::identity::postgres::PgStore, w: &str) -> Result<V
                 .map(|o| json!({"id":o.id,"title":o.title,"tool":o.tool,"effect":o.effect}))
                 .collect();
             // Apps outside Cuckoo's catalog are the operator's own MCP servers.
-            let (description, category) = match connectors::curated::app(&app.id) {
-                Some(catalog) => (catalog.description.clone(), catalog.category.clone()),
+            let about = connectors::curated::app(&app.id)
+                .map(|c| (c.description.clone(), c.category.clone()))
+                .or_else(|| {
+                    let added = added.iter().find(|a| a.id == app.id)?;
+                    Some((added.description.clone(), added.category.clone()))
+                });
+            let (description, category) = match about {
+                Some(about) => about,
                 None => (
                     app.account
                         .clone()
@@ -116,7 +123,17 @@ async fn allowed(
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
     let offered = offers(&app.store, &w).await?;
-    Ok(Json(app.store.allowed_apps(&user, &w, &offered).await?))
+    let mut listed = app.store.allowed_apps(&user, &w, &offered).await?;
+    // Apps the admins added carry their review, so Settings can change or remove them.
+    let facts = app.store.added_apps_facts(&w).await?;
+    if let Some(apps) = listed["apps"].as_array_mut() {
+        for item in apps {
+            let fact = item["id"].as_str().and_then(|id| facts.get(id)).cloned();
+            item["added"] = fact.unwrap_or(Value::Null);
+        }
+    }
+    listed["library"] = json!(connectors::library().is_some());
+    Ok(Json(listed))
 }
 /// An admin allows an app for the workspace, or switches it off with a note.
 /// Switching off disconnects every agent's connection of it.

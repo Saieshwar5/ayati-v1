@@ -52,7 +52,7 @@ export function CatalogDialog({ agent, close, connect }: { agent: string; close:
         </li>)}</ul>
         {catalog.next && <Button className="catalog-more" disabled={catalog.paging.busy} onClick={catalog.more}>{catalog.paging.busy ? 'Loading…' : 'Load more'}</Button>}
         {catalog.paging.error && <p role="alert">{catalog.paging.error}</p>}
-        <p className="catalog-help"><InfoMark /><span>Can’t find an app? Cuckoo adds apps to this list over time. For your company’s own system, add an MCP server instead.</span></p>
+        <p className="catalog-help"><InfoMark /><span>Can’t find an app? An admin can add more apps in Settings, Connections. For your company’s own system, add an MCP server instead.</span></p>
       </div>
     </div>
     {asking && <RequestAppDialog app={asking} agent={agent} close={() => ask(undefined)} sent={() => { ask(undefined); catalog.reload(); }} />}

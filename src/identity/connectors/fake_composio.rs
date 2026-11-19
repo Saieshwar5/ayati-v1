@@ -42,7 +42,7 @@ pub(crate) struct Fake {
 }
 /// The mailbox every fake account signs in as, unless a test changes it.
 pub(crate) const MAILBOX: &str = "orders@example.test";
-type Shared = Arc<Mutex<Fake>>;
+pub(super) type Shared = Arc<Mutex<Fake>>;
 
 pub(crate) struct FakeComposio {
     pub base: String,
@@ -81,6 +81,7 @@ impl FakeComposio {
                 "/api/v3.1/webhook_subscriptions/{id}",
                 axum::routing::patch(update_webhook),
             )
+            .merge(super::fake_composio_library::routes())
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}/api/v3.1/", listener.local_addr().unwrap());
@@ -111,7 +112,7 @@ impl FakeComposio {
     }
 }
 
-fn keyed(state: &Shared, headers: &HeaderMap) -> Result<(), StatusCode> {
+pub(super) fn keyed(state: &Shared, headers: &HeaderMap) -> Result<(), StatusCode> {
     state.lock().unwrap().requests += 1;
     if headers.get("x-api-key").and_then(|v| v.to_str().ok()) == Some(KEY) {
         return Ok(());
@@ -278,6 +279,13 @@ async fn tool(
     } else {
         return Err(StatusCode::NOT_FOUND);
     };
+    // A library tool of an app an admin added.
+    if let Some(mut described) = super::fake_composio_library::described(&slug, &version) {
+        if changed {
+            described["input_parameters"]["properties"]["body"] = json!({"type":"object"});
+        }
+        return Ok(Json(described));
+    }
     let input = schema(&slug, changed).ok_or(StatusCode::NOT_FOUND)?;
     let mut versions = vec![VERSION.to_owned()];
     versions.extend(latest.map(|(v, _)| v));
