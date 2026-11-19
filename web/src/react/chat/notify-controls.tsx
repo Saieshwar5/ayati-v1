@@ -3,6 +3,7 @@ import { useMutation } from '../requests';
 import { Button } from '../ui';
 import { chatRequest, type Conversation } from './model';
 import { alertsSupported, defaultLevel, dismissPrompt, promptDismissed, rememberLevel, type Level } from './notifications';
+import { refreshUnread } from './unread-counts';
 
 const CHOICES: { level: Level; label: string; short: string; help: (direct: boolean) => string }[] = [
   { level: 'all', label: 'All new messages', short: 'All messages', help: direct => direct ? 'Default for direct messages' : 'Every message here' },
@@ -19,7 +20,7 @@ export function NotifyMenu({ chat, level, changed, labelled = false }: { chat: C
   const choice = CHOICES.find(item => item.level === current)!;
   const choose = (next: Level) => void mutation.run(async () => {
     await chatRequest(`/chats/${chat.id}/notifications`, { level: next });
-    rememberLevel(chat.id, next); changed(next); setOpen(false);
+    rememberLevel(chat.id, next); refreshUnread(); changed(next); setOpen(false);
   });
   // Escape closes only this menu, not the panel or dialog around it.
   return <span className={`chat-notify${labelled ? ' chat-notify-labelled' : ''}`}

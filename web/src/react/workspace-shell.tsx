@@ -3,6 +3,7 @@ import { currentWorkspace, workspaceUrl, workspaceSession } from '../workspace-c
 import { Brand } from './ui';
 import { AccountMenu } from './account-menu';
 import { PauseBanner } from './activity/agents-pause';
+import { ChatNavLabel } from './chat/nav-unread';
 
 export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'settings';
 function Icon({ name }: { name: WorkspacePage }) {
@@ -25,7 +26,7 @@ export function WorkspaceShell({ page, children }: { page: WorkspacePage; childr
     <nav aria-label="Workspace">{pages.map(name => {
       const label = name[0].toUpperCase() + name.slice(1);
       return <a key={name} className={`workspace-nav nav-${name}`} href={workspaceUrl(`/?view=${name}`)} title={label}
-        aria-current={page === name ? 'page' : undefined}><Icon name={name} /><span>{label}</span></a>;
+        aria-current={page === name ? 'page' : undefined}><Icon name={name} />{name === 'chat' ? <ChatNavLabel /> : <span>{label}</span>}</a>;
     })}</nav>
     <AccountMenu />
   </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}

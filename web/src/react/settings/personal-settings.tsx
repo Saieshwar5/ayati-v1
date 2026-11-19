@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { chatRequest } from '../chat/model';
 import { useMutation, useResource } from '../requests';
 import { setNotifyDefaults } from '../chat/notifications';
+import { refreshUnread } from '../chat/unread-counts';
 import { currentWorkspace, workspaceSession } from '../../workspace-context';
 import { MyProfile } from './my-profile';
 
@@ -46,7 +47,7 @@ function NotificationDefaults() {
   const save = (change: Partial<Saved>) => {
     if (!data) return;
     const next = { ...data, ...change };
-    void mutation.run(async () => { resource.setData(await chatRequest<Saved>('/preferences', next)); setNotifyDefaults(next); mutation.setStatus('Saved.'); });
+    void mutation.run(async () => { resource.setData(await chatRequest<Saved>('/preferences', next)); setNotifyDefaults(next); refreshUnread(); mutation.setStatus('Saved.'); });
   };
   return <><section className="settings-notifications" aria-label="Notifications"><h3>Notifications</h3>
     {resource.error && <p role="alert">{resource.error}</p>}

@@ -11,6 +11,13 @@ Feature specifications still govern permissions, persistence and execution.
 - Keep the quiet global navigation rail visible across Home, Chat, Activity, Agents,
   Library, Apps and Settings. It sits on the light grey outer canvas, without its own
   capsule, enclosing border or shadow. The selected feature uses a graphite tile.
+- The rail's Chat icon carries a small count of unread chat messages on every page,
+  so a message is noticed outside Chat. It is the accent colour, and red when
+  something is for you (an @mention or an agent's reply to your request), like the
+  conversation list; on the selected tile it inverts. It stops at 99+ and disappears
+  when everything is read. Muted conversations add only what is for you. The link's
+  accessible name says the count ("Chat, 3 unread messages, 1 for you"). No other
+  rail item has a count: Home and Activity already show what needs you.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
   transparent 1 px border to preserve content geometry. Keep the 12 px desktop
