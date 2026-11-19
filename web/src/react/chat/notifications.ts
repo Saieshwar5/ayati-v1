@@ -19,6 +19,8 @@ const levels = new Map<string, Level>();
 const chats = new Map<string, Conversation>();
 const alerted = new Set<string>();
 const RECENT_SECONDS = 120;
+// The tiled icon stays visible in light and dark notification centres.
+const ALERT_ICON = '/brand/cuckoo-favicon.svg';
 
 /** Keep alerts in step when the person changes a level on this page. */
 export function rememberLevel(chat: string, level: Level) { levels.set(chat, level); }
@@ -74,7 +76,7 @@ async function show(change: Change) {
   alerted.add(message.id);
   const author = message.name ?? 'Someone';
   const alert = new Notification(chat!.kind === 'direct' ? author : `${author} in #${chat!.name}`, {
-    body: message.state === 'deleted' ? '' : alertText(message.content) || 'Sent a file', tag: message.id, icon: '/brand/cuckoo-symbol.svg',
+    body: message.state === 'deleted' ? '' : alertText(message.content) || 'Sent a file', tag: message.id, icon: ALERT_ICON,
   });
   alert.onclick = () => { window.focus(); navigate(workspaceUrl(`/?view=chat&conversation=${id}&message=${message.id}`)); alert.close(); };
 }
@@ -92,7 +94,7 @@ async function approvals(silent: boolean) {
       if (item.kind !== 'approval' || item.status === 'uncertain' || knownApprovals.has(item.id)) continue;
       knownApprovals.add(item.id);
       if (silent || item.read) continue;
-      const alert = new Notification(`${item.agent_name} needs an approval`, { body: item.title.slice(0, 140), tag: `approval-${item.id}`, icon: '/brand/cuckoo-symbol.svg' });
+      const alert = new Notification(`${item.agent_name} needs an approval`, { body: item.title.slice(0, 140), tag: `approval-${item.id}`, icon: ALERT_ICON });
       alert.onclick = () => { window.focus(); navigate(workspaceUrl('/?view=activity&tab=needs')); alert.close(); };
     }
   } catch { /* The next approval change retries. */ }

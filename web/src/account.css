@@ -2,7 +2,7 @@
 .access-loading { padding: 32px; color: var(--muted); }
 .access-page { min-height: 100dvh; background: var(--canvas); color: var(--text); }
 .access-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; padding: 0 clamp(16px, 3vw, 32px); border-bottom: 1px solid var(--border); background: var(--surface); }
-.access-logo { width: 116px; height: 28px; }
+.access-logo { width: 115px; height: 28px; }
 .access-account { position: relative; }
 .access-account-button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 5px 12px 5px 6px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
 .access-account-text { display: grid; text-align: left; min-width: 0; }
@@ -42,7 +42,7 @@
 /* Sign in: what Cuckoo is on the left, signing in on the right. */
 .access-sign-in { display: grid; grid-template-columns: minmax(320px, 44%) 1fr; min-height: 100dvh; background: var(--surface); }
 .access-story { display: grid; align-content: center; gap: 22px; padding: 64px clamp(32px, 5vw, 72px); background: #17191d; color: #fff; }
-.access-story-mark { width: 44px; height: 30px; background: #fff !important; }
+.access-story-mark { width: 35px; height: 30px; background: #fff !important; }
 .access-story h1 { color: #fff; font-size: clamp(30px, 3.4vw, 40px) !important; line-height: 1.15; max-width: 480px; }
 .access-story > p { margin: 0; color: #a9b0bc; font-size: 16px; line-height: 1.5; max-width: 460px; }
 .access-story ul { display: grid; gap: 16px; margin: 8px 0 0; padding: 0; list-style: none; }

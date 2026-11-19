@@ -24,7 +24,8 @@ Feature specifications still govern permissions, persistence and execution.
   Use the selective inner-border hierarchy below; avoid nested elevated page containers.
 - Keep workspace switching, account identity and sign-out inside the bottom
   account menu. Do not restore a permanent email/workspace/sign-out header.
-- Use Cuckoo's approved bird/C mark and lowercase wordmark. Ayati remains an
+- Use Cuckoo's Pop mark (bird leaning out of the ring) and lowercase wordmark
+  ([branding](cuckoo-brand.md)). Ayati remains an
   internal repository and runtime name; do not replace internal identifiers as a visual cleanup.
 
 ## Color, hierarchy and components
