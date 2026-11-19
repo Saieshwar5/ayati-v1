@@ -164,8 +164,23 @@ impl PgStore {
         user: &User,
         w: &str,
         input: &SystemApproval,
-    ) -> Result<Option<Released>> {
+    ) -> Result<Vec<Released>> {
+        self.control_system_noted(user, w, input, "").await
+    }
+
+    /// An admin allows an app for the workspace or switches it off, with a
+    /// note members see (schema 134). Switching off disconnects every agent's
+    /// connection of it; allowing or switching off answers every waiting
+    /// request for it. Returns the provider accounts no longer used.
+    pub(crate) async fn control_system_noted(
+        &self,
+        user: &User,
+        w: &str,
+        input: &SystemApproval,
+        note: &str,
+    ) -> Result<Vec<Released>> {
         crate::identity::identifier(&input.server)?;
+        let note = super::allowed_apps::note(note)?;
         let tx = self.workspace_tx(w).await?;
         manager(&tx, w, &user.id).await?;
         let old = query(
@@ -186,13 +201,22 @@ impl PgStore {
             == Some(input.approved);
         if stale_revision(actual, input.revision, same)? {
             tx.commit().await?;
-            return Ok(None);
+            return Ok(vec![]);
         }
-        let mut released_account = None;
+        let mut released_accounts = vec![];
         execute(&tx,"INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,$3,1) ON CONFLICT(workspace,server) DO UPDATE SET approved=excluded.approved,revision=relay_control_systems.revision+1",vec![w.into(),input.server.clone().into(),input.approved.into()]).await?;
-        if !input.approved && let Some(row)=query(&tx,"UPDATE relay_control_connections SET enabled=false,revision=revision+1 WHERE workspace=$1 AND server=$2 RETURNING id,server,provider,binding",vec![w.into(),input.server.clone().into()]).await? {
-            reset_connection(&tx,w,&row.try_get::<String>("","id")?).await?;
-            released_account = released(&row)?;
+        super::allowed_apps::decided(&tx, w, &input.server, &user.id, note).await?;
+        super::allowed_apps::settle_requests(&tx, w, &input.server, input.approved, &user.id, note)
+            .await?;
+        if !input.approved {
+            // Every agent's own connection of the app ends (schema 132 allows several).
+            let ended = rows(&tx,
+                "UPDATE relay_control_connections SET enabled=false,revision=revision+1 WHERE workspace=$1 AND server=$2 AND enabled RETURNING id,server,provider,binding",
+                vec![w.into(), input.server.clone().into()]).await?;
+            for row in &ended {
+                reset_connection(&tx, w, &row.try_get::<String>("", "id")?).await?;
+                released_accounts.extend(released(row)?);
+            }
         }
         audit(
             &tx,
@@ -203,7 +227,7 @@ impl PgStore {
         )
         .await?;
         tx.commit().await?;
-        Ok(released_account)
+        Ok(released_accounts)
     }
 
     /// Saves an operator-configured MCP account (or disconnects one).

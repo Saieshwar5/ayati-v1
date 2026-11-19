@@ -5,7 +5,7 @@
 //! the per-action rules (`connector_rules.rs`).
 #[cfg(test)]
 #[path = "connection_owners_tests.rs"]
-mod tests;
+pub(super) mod tests;
 
 /// For upgrade tests written when connections were the workspace's: migrates
 /// to the current schema with each such connection given to the one agent that

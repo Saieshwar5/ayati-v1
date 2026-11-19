@@ -129,7 +129,9 @@
 .settings-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 0; border-top:1px solid var(--border); }
 .settings-row:last-child { border-bottom:1px solid var(--border); }
 .settings-row > span:first-child { display:grid; gap:2px; min-width:0; }
-.settings-row small { color:var(--muted); font-size:13px; }
+.settings-row small { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+.settings-row-actions { display:flex; flex-wrap:wrap; gap:8px; flex:none; }
+.settings-subheading { margin:18px 0 6px; font-size:14px; font-weight:600; }
 .settings-row select { width:auto; min-width:220px; }
 .settings-notifications h3 { margin:28px 0 8px; }
 .settings-help-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:20px; align-items:start; margin-top:16px; }

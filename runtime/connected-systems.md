@@ -10,7 +10,8 @@ For developers building such a server, see the
 ## What is built
 
 - **Who.** The agent's owner and workspace admins connect, review, switch off
-  and remove. Anyone who may see the agent's tools sees its systems' tiles,
+  and remove. Since schema 134 a member's new system waits for an admin's
+  yes before the agent can use it ([allowed apps](allowed-apps.md)). Anyone who may see the agent's tools sees its systems' tiles,
   never a key. The server refuses everyone else.
 - **Connecting** (`POST …/agent-profiles/{agent}/systems/preview`, then
   `POST …/systems`). Step 1 takes a name, an MCP address and an optional key;

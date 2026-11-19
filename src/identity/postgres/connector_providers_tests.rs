@@ -392,7 +392,10 @@ async fn a_sign_in_that_fails_or_expires_saves_nothing_and_cleans_up_at_the_prov
             },
         )
         .await
-        .unwrap()
         .unwrap();
-    assert_eq!(released.binding["account"].as_str(), Some(fresh.as_str()));
+    assert_eq!(released.len(), 1);
+    assert_eq!(
+        released[0].binding["account"].as_str(),
+        Some(fresh.as_str())
+    );
 }

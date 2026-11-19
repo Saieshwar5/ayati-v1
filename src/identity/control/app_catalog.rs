@@ -9,6 +9,10 @@ pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route("/api/identity/workspaces/{w}/apps/catalog", get(catalog))
         .route("/api/identity/workspaces/{w}/apps/connect", post(connect))
+        .route(
+            "/api/identity/workspaces/{w}/apps/allowed",
+            get(allowed).post(allow),
+        )
 }
 
 /// The catalog apps this workspace can connect now, each through its route.
@@ -101,4 +105,44 @@ async fn connect(
         )
         .await?,
     ))
+}
+
+/// Settings › Connections for admins: every app Cuckoo offers, with the
+/// admins' decision about it (schema 134).
+async fn allowed(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let offered = offers(&app.store, &w).await?;
+    Ok(Json(app.store.allowed_apps(&user, &w, &offered).await?))
+}
+/// An admin allows an app for the workspace, or switches it off with a note.
+/// Switching off disconnects every agent's connection of it.
+async fn allow(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::allowed_apps::AppAllowance>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    check(
+        app.store.role(&w, &user.id).await? == "Admin",
+        "Only admins choose the workspace's apps",
+    )?;
+    if input.allowed {
+        connectors::provider_for(&app.store, &w, &input.app).await?;
+    }
+    let approval = connections_model::SystemApproval {
+        server: input.app.clone(),
+        approved: input.allowed,
+        revision: input.revision,
+    };
+    let released = app
+        .store
+        .control_system_noted(&user, &w, &approval, &input.note)
+        .await?;
+    let revoked = connections::release_all(&w, released).await;
+    Ok(Json(json!({"saved":true,"provider_revoked":revoked})))
 }

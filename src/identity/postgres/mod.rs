@@ -50,6 +50,7 @@ mod automation_memory;
 #[cfg(test)]
 mod automation_memory_tests;
 pub(crate) use automation_memory::MEMORY;
+pub(crate) mod allowed_apps;
 mod automation_migration;
 #[cfg(test)]
 mod automation_migration_tests;

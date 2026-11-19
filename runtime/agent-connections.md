@@ -20,8 +20,9 @@ Redesign" (shown 2026-11-18).
   as for any new app: reading allowed, deleting blocked, the rest asks first.
   There is no admin limit above them and no second, per-agent rule.
 - **The admin's "no" stands.** An app an admin switched off for the workspace
-  (`relay_control_systems.approved = false`) can't be connected by an owner. An
-  app nobody decided about is allowed the first time an owner connects it.
+  (`relay_control_systems.approved = false`) can't be connected by an owner.
+  Since schema 134 a member connects only apps an admin allowed and asks for the
+  others; see [allowed apps](allowed-apps.md).
 - **Signing in again and disconnecting** happen on the same tab, by the owners.
 - **Every connection belongs to an agent (schema 133).** The workspace's shared
   connections, connected by an admin on the old Apps page, were switched off by
@@ -100,8 +101,6 @@ Connections tab once it exists. A member's assistant starts the same way.
 - Operators' own MCP servers (the operator file) and company systems (links to
   the company's own web apps) have no screen now that the Apps page is gone.
   An agent's owner adds an MCP server on the agent's page instead.
-- An allowed-apps list for admins. Today an admin's earlier "no" to an app
-  still blocks it, but there is no screen to set one.
 - The store still accepts a connection without an agent (many tests use it);
   only the API refuses it.
 - The company's own machines are still added by an admin in Settings ›

@@ -31,6 +31,8 @@
 .catalog-state.ok { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
 button.catalog-state { cursor: pointer; }
 button.catalog-state:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.catalog-tile-note { margin: 0; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.request-reason { min-height: 84px; }
 .catalog-more { justify-self: center; }
 .catalog-help { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--receipt-seen) 8%, var(--surface)); color: var(--text); font-size: 13.5px; }
 .catalog-help .mark-icon { margin-top: 2px; color: var(--receipt-seen); }

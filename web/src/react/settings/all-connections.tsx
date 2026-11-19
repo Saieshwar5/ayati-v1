@@ -1,10 +1,19 @@
+import { useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { agoText, appState, dayName, loadApps, type WorkspaceApp } from '../apps/apps-model';
 import { agentSectionUrl } from '../agents/workspace-tabs';
 import { connectAccount } from './workspace-connections-model';
+import { AllowedApps } from './allowed-apps';
 
 const problems: Record<string, string> = { reconnect: 'Needs a new sign-in', writes_paused: 'Writes paused', paused: 'Paused by Cuckoo' };
+
+/** Settings › Connections: which apps the workspace allows, then every
+ * connection. Switching an app off ends its connections, so the list is read again. */
+export function ConnectionsSettings() {
+  const [version, setVersion] = useState(0);
+  return <><AllowedApps changed={() => setVersion(n => n + 1)} /><AllConnections key={version} /></>;
+}
 
 /** Settings › Connections, for admins: every app and MCP server connected in
  * the workspace, the agent it belongs to, and Remove for apps (schemas 132 and

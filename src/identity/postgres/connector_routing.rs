@@ -134,10 +134,17 @@ pub(crate) enum Begun {
     Start { connection: String, revision: i64 },
 }
 
-/// Connected first, then by name.
-fn sort_key(app: &Value) -> (bool, String, String) {
+/// Connected first, then what can be added now, then what must be asked for.
+fn group(state: &Value) -> u8 {
+    match state.as_str() {
+        Some("connected") => 0,
+        Some("available") => 1,
+        _ => 2,
+    }
+}
+fn sort_key(app: &Value) -> (u8, String, String) {
     (
-        app["state"] != "connected",
+        group(&app["state"]),
         app["name"].as_str().unwrap_or_default().to_lowercase(),
         app["id"].as_str().unwrap_or_default().to_owned(),
     )
@@ -164,17 +171,20 @@ impl PgStore {
         );
         let tx = self.read_tx(w).await?;
         // An agent's own catalog is managed by its owners; the workspace's by admins.
+        let workspace_admin = role(&tx, w, &user.id).await? == "Admin";
         let admin = match &input.agent {
             Some(agent) => super::workspace_connections::authority(&tx, w, &user.id, Some(agent))
                 .await
                 .is_ok(),
-            None => role(&tx, w, &user.id).await? == "Admin",
+            None => workspace_admin,
         };
         let listed: Value = offers
             .iter()
             .map(|o| json!({"id":o.id,"operations":o.operations}))
             .collect();
         let facts = json_rows(&tx, "SELECT jsonb_build_object('id',o.id,'connection',c.id,
+              'approved',(SELECT s.approved FROM relay_control_systems s WHERE s.workspace=$1 AND s.server=o.id),
+              'note',(SELECT s.note FROM relay_control_systems s WHERE s.workspace=$1 AND s.server=o.id),
               'requested',EXISTS(SELECT 1 FROM relay_app_requests r WHERE r.workspace=$1 AND r.connector=o.id AND r.requester=$2 AND r.state='pending'),
               'kinds',(SELECT COALESCE(jsonb_agg(DISTINCT CASE WHEN c.id IS NULL THEN relay_guess_meaning(op) ELSE relay_action_meaning($1,c.id,op) END),'[]'::jsonb)
                 FROM jsonb_array_elements(COALESCE(c.definition->'operations',o.operations)) op),
@@ -192,12 +202,23 @@ impl PgStore {
             .iter()
             .filter_map(|offer| Some((offer, facts.get(&offer.id)?)))
             .map(|(offer, fact)| {
+                // What the admins decided (schema 134). Admins add any app,
+                // which allows it; members ask for one nobody decided about.
+                let allowance = match fact["approved"].as_bool() {
+                    Some(true) => "allowed",
+                    Some(false) => "blocked",
+                    None => "undecided",
+                };
                 let state = if !fact["connection"].is_null() {
                     "connected"
+                } else if workspace_admin || allowance == "allowed" {
+                    "available"
+                } else if allowance == "blocked" {
+                    "blocked"
                 } else if fact["requested"] == true {
                     "requested"
                 } else {
-                    "available"
+                    "ask"
                 };
                 let kinds: Vec<&str> = MEANINGS
                     .iter()
@@ -210,7 +231,8 @@ impl PgStore {
                     .collect();
                 json!({"id":offer.id,"name":offer.name,"description":offer.description,
                     "category":offer.category,"kinds":kinds,"actions":fact["actions"],
-                    "state":state,"connection":fact["connection"]})
+                    "state":state,"connection":fact["connection"],"allowance":allowance,
+                    "note":if allowance == "blocked" { fact["note"].clone() } else { Value::Null }})
             })
             .filter(|app| {
                 query_text.is_empty()
@@ -236,7 +258,7 @@ impl PgStore {
             let last = apps.last().unwrap();
             format!(
                 "{}.{}",
-                u8::from(last["state"] != "connected"),
+                group(&last["state"]),
                 last["id"].as_str().unwrap_or_default()
             )
         });
@@ -285,13 +307,14 @@ impl PgStore {
         .await?
         .map(|r| r.try_get::<bool>("", "approved"))
         .transpose()?;
-        // An admin's "no" to an app stands: an agent's owner can't undo it.
-        ensure!(
-            approved != Some(false) || role(&tx, w, &user.id).await? == "Admin",
-            "A workspace admin switched this app off for the workspace"
-        );
+        // A member connects only what an admin allowed; an admin's own
+        // connecting allows the app for the workspace (schema 134).
+        let admin = role(&tx, w, &user.id).await? == "Admin";
+        super::allowed_apps::may_connect(approved, admin, app)?;
         if approved != Some(true) {
             execute(&tx,"INSERT INTO relay_control_systems(workspace,server,approved,revision) VALUES($1,$2,true,1) ON CONFLICT(workspace,server) DO UPDATE SET approved=true,revision=relay_control_systems.revision+1",vec![w.into(),app.into()]).await?;
+            super::allowed_apps::decided(&tx, w, app, &user.id, "").await?;
+            super::allowed_apps::settle_requests(&tx, w, app, true, &user.id, "").await?;
             audit(&tx, &user.id, Some(w), "control_system_approval_saved", app).await?;
         }
         let (connection, revision) = match query(
@@ -332,13 +355,17 @@ impl PgStore {
     }
 }
 
-/// Where the previous page ended: `<0 connected | 1 other>.<app id>`.
-fn cursor_key(cursor: &str, offers: &[Offer]) -> Result<(bool, String, String)> {
+/// Where the previous page ended: `<0 connected | 1 available | 2 other>.<app id>`.
+fn cursor_key(cursor: &str, offers: &[Offer]) -> Result<(u8, String, String)> {
     let (group, id) = cursor.split_once('.').context("Invalid catalog cursor")?;
-    ensure!(["0", "1"].contains(&group), "Invalid catalog cursor");
+    let group: u8 = group
+        .parse()
+        .ok()
+        .filter(|g| *g <= 2)
+        .context("Invalid catalog cursor")?;
     let offer = offers
         .iter()
         .find(|o| o.id == id)
         .context("The catalog changed; reload it")?;
-    Ok((group == "1", offer.name.to_lowercase(), offer.id.clone()))
+    Ok((group, offer.name.to_lowercase(), offer.id.clone()))
 }

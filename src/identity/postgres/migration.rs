@@ -141,6 +141,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::communications::migration::EmailRemoved),
             Box::new(super::connection_owners::ConnectionOwners),
             Box::new(super::connection_owners::SharedConnectionsEnded),
+            Box::new(super::allowed_apps::AllowedApps),
         ]
     }
 }

@@ -205,7 +205,7 @@ async fn the_catalog_searches_filters_and_pages_with_connected_apps_first() {
     for input in [
         bad("", "toys", ""),
         bad(&"x".repeat(101), "", ""),
-        bad("", "", "2.app_01"),
+        bad("", "", "3.app_01"),
         bad("", "", "1.gone"),
     ] {
         assert!(
@@ -221,6 +221,7 @@ async fn the_catalog_searches_filters_and_pages_with_connected_apps_first() {
         id: id.into(),
         app: None,
         connector: Some("google_drive".into()),
+        agent: None,
         name: String::new(),
         url: String::new(),
         reason: "For invoices".into(),

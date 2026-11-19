@@ -13,16 +13,16 @@ use std::sync::Arc;
 
 const ORIGIN: &str = "http://127.0.0.1:1";
 
-struct Setup {
-    db: PgStore,
-    admin: User,
-    ravi: User,
-    priya: User,
-    w: String,
-    sales: String,
-    hr: String,
-    fake: FakeComposio,
-    provider: Arc<dyn ConnectorProvider>,
+pub(crate) struct Setup {
+    pub db: PgStore,
+    pub admin: User,
+    pub ravi: User,
+    pub priya: User,
+    pub w: String,
+    pub sales: String,
+    pub hr: String,
+    pub fake: FakeComposio,
+    pub provider: Arc<dyn ConnectorProvider>,
 }
 
 async fn agent(db: &PgStore, owner: &User, w: &str, name: &str) -> String {
@@ -43,7 +43,16 @@ async fn agent(db: &PgStore, owner: &User, w: &str, name: &str) -> String {
     input.id
 }
 
+/// A workspace whose admin already allowed Gmail (schema 134), so the
+/// agents' owners can connect it.
 async fn setup() -> Setup {
+    let s = undecided().await;
+    s.decide("gmail", true, 0, "").await.unwrap();
+    s
+}
+
+/// Two members with an agent each, and no app decided about yet.
+pub(crate) async fn undecided() -> Setup {
     let db = fixture().await;
     let admin = user(&db, "owner-admin").await;
     let ravi = user(&db, "owner-ravi").await;
@@ -69,8 +78,27 @@ async fn setup() -> Setup {
 }
 
 impl Setup {
+    /// The admin allows `app` for the workspace, or switches it off.
+    pub(crate) async fn decide(
+        &self,
+        app: &str,
+        approved: bool,
+        revision: i64,
+        note: &str,
+    ) -> anyhow::Result<usize> {
+        let input = SystemApproval {
+            server: app.into(),
+            approved,
+            revision,
+        };
+        Ok(self
+            .db
+            .control_system_noted(&self.admin, &self.w, &input, note)
+            .await?
+            .len())
+    }
     /// Connects Gmail for `agent` as `who` and signs in at the provider.
-    async fn connect(&self, who: &User, agent: &str) -> anyhow::Result<String> {
+    pub(crate) async fn connect(&self, who: &User, agent: &str) -> anyhow::Result<String> {
         let request = uuid::Uuid::new_v4().to_string();
         let answer = connect_app_for(
             &self.db,
@@ -101,13 +129,13 @@ impl Setup {
             .await?;
         Ok(row.try_get("", "connection")?)
     }
-    async fn tools(&self, who: &User, agent: &str) -> Vec<Value> {
+    pub(crate) async fn tools(&self, who: &User, agent: &str) -> Vec<Value> {
         self.db.control_snapshot(who, &self.w, agent).await.unwrap()["connections"]
             .as_array()
             .unwrap()
             .clone()
     }
-    async fn stored(&self, id: &str) -> Value {
+    pub(crate) async fn stored(&self, id: &str) -> Value {
         query(
             &self.db.db,
             "SELECT to_jsonb(c) AS data FROM relay_control_connections c WHERE id=$1",

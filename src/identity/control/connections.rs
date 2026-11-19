@@ -77,8 +77,20 @@ async fn approve(
         crate::identity::connectors::provider_for(&app.store, &w, &input.server).await?;
     }
     let released = app.store.control_system(&user, &w, &input).await?;
-    let revoked = crate::identity::connectors::routes::release(&w, released).await;
+    let revoked = release_all(&w, released).await;
     Ok(Json(json!({"saved":true,"provider_revoked":revoked})))
+}
+/// Asks each provider to revoke an account Cuckoo stopped using; false when
+/// any of them did not confirm.
+pub(super) async fn release_all(
+    w: &str,
+    released: Vec<crate::identity::postgres::workspace_connections::Released>,
+) -> bool {
+    let mut revoked = true;
+    for account in released {
+        revoked &= crate::identity::connectors::routes::release(w, Some(account)).await;
+    }
+    revoked
 }
 /// Connects an account, or disconnects one. An operator-configured account is
 /// verified at once; an app that signs in through its provider returns the
