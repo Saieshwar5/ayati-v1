@@ -201,3 +201,52 @@ test('a provider being tested, or never checked for drift, says so; the switch s
     assert.match(card('composio'), /Off: “Composio incident”/);
   }, { url: 'http://localhost/control.html?section=providers', fetch });
 });
+
+const eventsPath = '/admin/connector-events/composio';
+const events = { provider: 'composio', set_up: false, setup: null, webhook_url: 'https://app.example/hooks/composio',
+  public_origin: true, secrets_key: true, configured: true };
+const eventsCard = () => document.querySelector('[aria-label="App events from Composio"]');
+
+test('app events say what is missing, and setting up sends once and shows where events go', async () => {
+  let current = { ...events, secrets_key: false };
+  const { writes, fetch } = server({
+    get: path => path.endsWith(eventsPath) ? ok(current) : null,
+    post: () => ok({ ...events, set_up: true, saved: true,
+      setup: { webhook_url: events.webhook_url, changed: Date.now(), changed_by: 'Asha Operator' } }),
+  });
+  await reactFixture(async ({ render, button, click, update }) => {
+    const { ControlApp } = await import('../src/control/app.tsx'); await render(ControlApp); await update();
+    assert.match(eventsCard().textContent, /NOT SET UP/);
+    assert.match(eventsCard().textContent, /Set AYATI_SECRETS_KEY_FILE/);
+    assert.equal(button('Set up app events').disabled, true);
+    assert.equal(writes.length, 0);
+  }, { url: 'http://localhost/control.html?section=providers', fetch });
+  current = events;
+  await reactFixture(async ({ render, button, click, update }) => {
+    const { ControlApp } = await import('../src/control/app.tsx'); await render(ControlApp); await update();
+    assert.match(eventsCard().textContent, /Events will go to https:\/\/app\.example\/hooks\/composio/);
+    const go = button('Set up app events');
+    await update(() => { go.click(); go.click(); });
+    assert.deepEqual(writes, [{ path: `/api/identity${eventsPath}`, body: {} }], 'a double click sends once');
+    assert.match(eventsCard().textContent, /SET UP/);
+    assert.doesNotMatch(eventsCard().textContent, /NOT SET UP/);
+    assert.match(eventsCard().textContent, /Events go to https:\/\/app\.example\/hooks\/composio.*by Asha Operator/);
+    assert.ok(button('Set up again'));
+  }, { url: 'http://localhost/control.html?section=providers', fetch });
+});
+
+test('a failed set-up shows the reason, and a moved server asks to set up again', async () => {
+  const moved = { ...events, set_up: true, setup: { webhook_url: 'https://old.example/hooks/composio', changed: Date.now(), changed_by: null } };
+  const { fetch } = server({
+    get: path => path.endsWith(eventsPath) ? ok(moved) : null,
+    post: () => fail('Composio did not answer in time; try again', 500),
+  });
+  await reactFixture(async ({ render, button, click, update }) => {
+    const { ControlApp } = await import('../src/control/app.tsx'); await render(ControlApp); await update();
+    assert.match(eventsCard().textContent, /MOVED/);
+    assert.match(eventsCard().textContent, /Set up again to move events here/);
+    await click(button('Set up again'));
+    assert.match(eventsCard().querySelector('[role=alert]').textContent, /Composio did not answer in time/);
+    assert.match(eventsCard().textContent, /MOVED/, 'the saved state is unchanged');
+  }, { url: 'http://localhost/control.html?section=providers', fetch });
+});

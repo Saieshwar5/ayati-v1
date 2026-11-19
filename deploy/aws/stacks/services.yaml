@@ -72,7 +72,18 @@ Parameters:
   WorkerCaSecretArn:
     Type: String
     AllowedPattern: 'arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/worker-control-ca-.+'
+  # Optional controller-only keys (`env.sh secret`); an empty ARN leaves that feature off:
+  # agent computers (E2B), app connections (Composio), web search (Exa), and the key
+  # that seals stored secrets such as Composio's event signing secret.
+  E2bSecretArn: {Type: String, Default: '', AllowedPattern: '(arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/e2b-api-key-.+)?'}
+  ComposioSecretArn: {Type: String, Default: '', AllowedPattern: '(arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/composio-api-key-.+)?'}
+  ExaSecretArn: {Type: String, Default: '', AllowedPattern: '(arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/exa-api-key-.+)?'}
+  SealingSecretArn: {Type: String, Default: '', AllowedPattern: '(arn:aws:secretsmanager:ap-south-1:[0-9]{12}:secret:ayati/secrets-key-.+)?'}
 Conditions:
+  Computers: {Fn::Not: [{Fn::Equals: [{Ref: E2bSecretArn}, '']}]}
+  Connectors: {Fn::Not: [{Fn::Equals: [{Ref: ComposioSecretArn}, '']}]}
+  WebSearch: {Fn::Not: [{Fn::Equals: [{Ref: ExaSecretArn}, '']}]}
+  Sealing: {Fn::Not: [{Fn::Equals: [{Ref: SealingSecretArn}, '']}]}
   Openai: {Fn::Equals: [{Ref: ModelProvider}, openai]}
   Transcription: {Fn::Not: [{Fn::Equals: [{Ref: TranscriptionModel}, '']}]}
 Rules:
@@ -294,12 +305,21 @@ Resources:
               printf '%s\n' "$WORKER_SERVER_KEY" > /run/ayati/server.key;
               if [ -n "$MODEL_KEY" ]; then printf '%s\n' "$MODEL_KEY" > /run/ayati/model-key; fi;
               if [ -n "$TRANSCRIPTION_PROVIDER" ]; then printf '[{"provider":"%s","base_url":"%s","key_file":"/run/ayati/model-key"}]\n' "$TRANSCRIPTION_PROVIDER" "$TRANSCRIPTION_BASE_URL"; else echo '[]'; fi > /run/ayati/model-providers.json;
+              if [ -n "$E2B_KEY" ]; then printf '%s\n' "$E2B_KEY" > /run/ayati/e2b-key; printf '%s\n' "$COMPUTERS" > /run/ayati/computers.json; fi;
+              if [ -n "$COMPOSIO_KEY" ]; then printf '%s\n' "$COMPOSIO_KEY" > /run/ayati/composio-key; printf '%s\n' "$CONNECTORS" > /run/ayati/connectors.json; fi;
+              if [ -n "$EXA_KEY" ]; then printf '%s\n' "$EXA_KEY" > /run/ayati/exa-key; printf '%s\n' "$WEB_SEARCH" > /run/ayati/web-search.json; fi;
+              if [ -n "$SEALING_KEY" ]; then printf '%s\n' "$SEALING_KEY" > /run/ayati/secrets-key; fi;
               chown 10001:10001 /run/ayati/* /var/lib/ayati /tmp;
               chmod 700 /var/lib/ayati /tmp
           Environment:
             - {Name: DB_HOST, Value: {Fn::ImportValue: {Fn::Sub: '${Environment}-DatabaseHost'}}}
             - Fn::If: [Transcription, {Name: TRANSCRIPTION_PROVIDER, Value: {Fn::Select: [0, {Fn::Split: [':', {Ref: TranscriptionModel}]}]}}, {Ref: 'AWS::NoValue'}]
             - Fn::If: [Transcription, {Name: TRANSCRIPTION_BASE_URL, Value: {Ref: TranscriptionBaseUrl}}, {Ref: 'AWS::NoValue'}]
+            # The providers files (runtime/agent-computers.md, agent-connections.md, web-search.md).
+            # Sizes match the E2B templates built by tools/computer-provider-check/e2b_template.py.
+            - {Name: COMPUTERS, Value: '{"sizes":[{"size":"small","cpu":1,"memory_gb":2,"disk_gb":10,"usd_per_hour":0.09,"routes":[{"provider":"e2b","image":"cuckoo-computer-small","usd_per_hour":0.06}]},{"size":"standard","cpu":2,"memory_gb":4,"disk_gb":10,"usd_per_hour":0.17,"routes":[{"provider":"e2b","image":"cuckoo-computer-standard","usd_per_hour":0.1}]},{"size":"large","cpu":4,"memory_gb":8,"disk_gb":10,"usd_per_hour":0.33,"routes":[{"provider":"e2b","image":"cuckoo-computer-large","usd_per_hour":0.2}]}],"providers":[{"provider":"e2b","key_file":"/run/ayati/e2b-key"}],"sleep_after_minutes":5,"longest_work_minutes":55}'}
+            - {Name: CONNECTORS, Value: '{"providers":[{"provider":"composio","key_file":"/run/ayati/composio-key"}]}'}
+            - {Name: WEB_SEARCH, Value: '{"search":["exa"],"read":["exa"],"providers":[{"provider":"exa","key_file":"/run/ayati/exa-key","search_usd_per_1k":7,"read_usd_per_1k":1}]}'}
           Secrets:
             - Name: RUNTIME_PASSWORD
               ValueFrom: {Fn::Sub: ['${Arn}:password::', {Arn: {Fn::ImportValue: {Fn::Sub: '${Environment}-RuntimeSecretArn'}}}]}
@@ -310,6 +330,10 @@ Resources:
             - Name: WORKER_SERVER_KEY
               ValueFrom: {Fn::Sub: '${WorkerServerSecretArn}:private_key::'}
             - Fn::If: [Transcription, {Name: MODEL_KEY, ValueFrom: {Ref: ModelSecretArn}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Computers, {Name: E2B_KEY, ValueFrom: {Ref: E2bSecretArn}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Connectors, {Name: COMPOSIO_KEY, ValueFrom: {Ref: ComposioSecretArn}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [WebSearch, {Name: EXA_KEY, ValueFrom: {Ref: ExaSecretArn}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Sealing, {Name: SEALING_KEY, ValueFrom: {Ref: SealingSecretArn}}, {Ref: 'AWS::NoValue'}]
           MountPoints:
             - {SourceVolume: private, ContainerPath: /run/ayati}
             - {SourceVolume: scratch, ContainerPath: /var/lib/ayati}
@@ -357,6 +381,10 @@ Resources:
             # The key stays in its file: the controller refuses model keys in its environment.
             - {Name: AYATI_MODEL_PROVIDERS_FILE, Value: /run/ayati/model-providers.json}
             - Fn::If: [Transcription, {Name: AYATI_TRANSCRIPTION_MODEL, Value: {Ref: TranscriptionModel}}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Computers, {Name: AYATI_COMPUTER_PROVIDERS_FILE, Value: /run/ayati/computers.json}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Connectors, {Name: AYATI_CONNECTOR_PROVIDERS_FILE, Value: /run/ayati/connectors.json}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [WebSearch, {Name: AYATI_WEB_SEARCH_PROVIDERS_FILE, Value: /run/ayati/web-search.json}, {Ref: 'AWS::NoValue'}]
+            - Fn::If: [Sealing, {Name: AYATI_SECRETS_KEY_FILE, Value: /run/ayati/secrets-key}, {Ref: 'AWS::NoValue'}]
           Secrets:
             - Name: WORKOS_API_KEY
               ValueFrom: {Ref: WorkosSecretArn}

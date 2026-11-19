@@ -11,6 +11,8 @@ PERMANENT (stack ayati-foundation, about $2/month)
   Route 53 zone dev.cuckoo.onl      wildcard certificate
   secrets ayati/workos-api-key, ayati/model-api-key,
           ayati/worker-control-server, ayati/worker-control-ca
+          optional: ayati/e2b-api-key, ayati/composio-api-key,
+          ayati/exa-api-key, ayati/secrets-key
 
 KEPT BETWEEN WINDOWS (stack ayati-dev-keep and snapshots; removed by `forget --yes`)
   keep      files bucket, database passwords
@@ -163,6 +165,45 @@ AYATI_TRANSCRIPTION_BASE_URL=https://audio-prod.us-virginia-1.direct.fireworks.a
   Executors are unchanged.
 - The controller's execution role may read that secret (`roles.yaml`); the task gets it
   only when transcription is on. Recordings are sent to the provider.
+
+## Computers, connected apps, web search and app events (optional)
+
+Four more keys switch these on. Each is stored once, from a private file that holds
+the key alone on one line. A missing key leaves that feature off; nothing else changes.
+
+```sh
+deploy/aws/env.sh secret e2b-api-key ~/.config/cuckoo/keys/e2b            # agent computers
+deploy/aws/env.sh secret composio-api-key ~/.config/cuckoo/keys/composio  # Gmail, Calendar, Sheets, Drive
+deploy/aws/env.sh secret exa-api-key ~/.config/cuckoo/keys/exa            # web search and page reading
+deploy/aws/env.sh secret secrets-key                                      # the sealing key, made once
+deploy/aws/env.sh secrets                                                 # which are stored (never the values)
+```
+
+Then run `up` (or `wake` when parked), not `deploy` or `ship`: the first time,
+`roles.yaml` must let the controller read the new secrets.
+
+- **Controllers only.** The controller's `prepare` container writes each key to
+  `/run/ayati/*` and writes the providers files from values in `services.yaml`
+  (`COMPUTERS`, `CONNECTORS`, `WEB_SEARCH`); the controller gets
+  `AYATI_COMPUTER_PROVIDERS_FILE`, `AYATI_CONNECTOR_PROVIDERS_FILE`,
+  `AYATI_WEB_SEARCH_PROVIDERS_FILE` and `AYATI_SECRETS_KEY_FILE`. Executors never
+  hold these keys. A Rust check (`identity::cloud_template_tests`) parses those values
+  with the controller's own parsers, because a broken file stops the controller at start.
+- **Computers** need three E2B templates, built once with the same key
+  ([agent computers](../../runtime/agent-computers.md), step 3):
+  `cuckoo-computer-small`, `-standard` and `-large`. Sizes and prices in `COMPUTERS`
+  are test values: check E2B's prices, the plan's disk size and its longest sandbox
+  time (`longest_work_minutes` is 55, under the one-hour limit of E2B's free plan).
+- **Connected apps** use the Composio project key (it starts with `ak_`); each
+  workspace is the Composio user `cuckoo-<workspace id>`.
+- **The sealing key** (`ayati/secrets-key`, 64 hex characters) locks secrets kept in
+  PostgreSQL. `secret secrets-key` refuses to replace it: a new key could not open
+  what is stored. Deleting it means setting up app events again.
+- **App events** (a new email starts an agent) need Composio, the sealing key and one
+  action by a Cuckoo operator after the controller is up: open
+  `https://<host>/control.html`, Providers, **App events**, **Set up app events**. That
+  points Composio's one project webhook at `https://<host>/hooks/composio` and keeps
+  its signing secret sealed. Do it again if the hostname changes.
 
 ## Known limits (first windows)
 

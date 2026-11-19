@@ -5,7 +5,7 @@
 #
 #   env.sh unlock CODE          deployer session from an MFA code (8 hours)
 #   env.sh foundation [--with-certificate]
-#   env.sh secret workos-api-key|model-api-key FILE
+#   env.sh secret NAME FILE | secret secrets-key | secrets   provider keys (secrets.sh)
 #   env.sh worker-tls           new worker-control CA, certificate and key
 #   env.sh image                build, push and remember the image digest
 #   env.sh up [--fresh]         create the environment (restoring the last snapshot)
@@ -82,33 +82,6 @@ foundation() {
     output ayati-foundation NameServers | tr ',' '\n'
 }
 
-put_secret() {  # put_secret <name> <value-file>
-    if deploy_aws secretsmanager describe-secret --secret-id "ayati/$1" >/dev/null 2>&1; then
-        deploy_aws secretsmanager put-secret-value --secret-id "ayati/$1" --secret-string "file://$2" >/dev/null
-    else
-        deploy_aws secretsmanager create-secret --name "ayati/$1" --secret-string "file://$2" \
-            --tags Key=ayati:layer,Value=permanent >/dev/null
-    fi
-    echo "Stored ayati/$1."
-}
-
-secret() {
-    case "${1:-}" in workos-api-key|model-api-key) ;; *) echo "Unknown secret" >&2; exit 2 ;; esac
-    [ -r "${2:-}" ] || { echo "Unreadable value file" >&2; exit 2; }
-    put_secret "$1" "$2"
-}
-
-# Executors trust only this private CA; the controller holds the key (worker-control.md).
-worker_tls() {
-    local work
-    work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
-    "$root/tools/worker-control-certs.sh" "$work/tls" worker-control.ayati.internal >/dev/null
-    jq -n --arg key "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')" \
-        --rawfile certificate "$work/tls/server.pem" --rawfile private_key "$work/tls/server.key" \
-        '{key: $key, certificate: $certificate, private_key: $private_key}' > "$work/server.json"
-    put_secret worker-control-server "$work/server.json"
-    put_secret worker-control-ca "$work/tls/ca.pem"
-}
 
 image() {
     local release repo digest
@@ -164,7 +137,9 @@ services() {  # services <controllers> <executors>
         TranscriptionModel="${AYATI_TRANSCRIPTION_MODEL:-}" TranscriptionBaseUrl="${AYATI_TRANSCRIPTION_BASE_URL:-}" \
         WorkosSecretArn="$(secret_arn workos-api-key)" ModelSecretArn="$(secret_arn model-api-key)" \
         WorkerServerSecretArn="$(secret_arn worker-control-server)" \
-        WorkerCaSecretArn="$(secret_arn worker-control-ca)"
+        WorkerCaSecretArn="$(secret_arn worker-control-ca)" \
+        E2bSecretArn="$(optional_arn e2b-api-key)" ComposioSecretArn="$(optional_arn composio-api-key)" \
+        ExaSecretArn="$(optional_arn exa-api-key)" SealingSecretArn="$(optional_arn secrets-key)"
 }
 
 # The services' current tasks. ECS reports a service at zero while its old tasks
@@ -457,6 +432,8 @@ cost() {
                  printf "%8.2f  total (Cost Explorer lags about a day)\n", total}' | sort -rn
 }
 
+# shellcheck source=secrets.sh
+. "$here/secrets.sh"
 # shellcheck source=cycle.sh
 . "$here/cycle.sh"
 
@@ -465,6 +442,7 @@ case "$command" in
     unlock) unlock "$@" ;;
     foundation) require_session; foundation "$@" ;;
     secret) require_session; secret "$@" ;;
+    secrets) require_session; secrets ;;
     worker-tls) require_session; worker_tls ;;
     image) require_session; image ;;
     up) up "$@" ;;

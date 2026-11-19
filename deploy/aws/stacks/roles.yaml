@@ -53,6 +53,11 @@ Resources:
                   - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, WorkerServer]}}]}
                   # Voice-note transcription: written to a key file only when it is on.
                   - {Fn::Sub: ['arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Name}-*', {Name: {Fn::FindInMap: [Secrets, Names, Model]}}]}
+                  # Optional controller-only keys: computers, app connections, web search, sealing.
+                  - {Fn::Sub: 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ayati/e2b-api-key-*'}
+                  - {Fn::Sub: 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ayati/composio-api-key-*'}
+                  - {Fn::Sub: 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ayati/exa-api-key-*'}
+                  - {Fn::Sub: 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ayati/secrets-key-*'}
   ExecutorExecution:
     Type: AWS::IAM::Role
     Properties:
