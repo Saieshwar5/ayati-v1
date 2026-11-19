@@ -3,6 +3,8 @@ export type ResponseReference = {
   schema: 1; id: string; version: string; sequence: number;
   state: 'complete' | 'draft' | 'interrupted'; characters: number; bytes: number;
   long: boolean; available: boolean;
+  /** Set when the reply holds a page; the reply text then excludes it. */
+  page?: import('../pages/page-format').PageSummary;
 };
 export type SavedResponse = ResponseReference & { body: string; format: 'markdown' };
 export type SavedFile = { id: string; name: string; size: number; mime: string; checksum: string };
@@ -13,7 +15,7 @@ export type ResultSource = {
   file: (id: string) => string;
   subscribe?: (check: (scope?: string | null) => void) => () => void;
 };
-export type Selection = { kind: 'response'; id: string } | { kind: 'file'; id: string; name: string };
+export type Selection = { kind: 'response'; id: string } | { kind: 'page'; id: string } | { kind: 'file'; id: string; name: string };
 export const query = (path: string, values: Record<string, string | boolean>) => `${path}${path.includes('?') ? '&' : '?'}${new URLSearchParams(Object.entries(values).map(([key, value]) => [key, String(value)]))}`;
 export function responsePreview(text: string, reference?: ResponseReference) {
   const characters = [...text];

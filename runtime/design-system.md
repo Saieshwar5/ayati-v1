@@ -234,6 +234,12 @@ New saved versions load explicitly so reading does not jump. Keep images as smal
 thumbnails until opened in a fit/zoom viewer. See [saved reading](result-reading.md)
 for source authority, supported files and current limits.
 
+A reply may carry one page: a bordered card inside the response box (small picture,
+PAGE label, title, sections and reading time) that opens a near-full-window reading
+view with an "On this page" list, soft callouts, framed tables, Home panel charts
+and step diagrams. Pages are for reading only; questions and approvals stay in
+Chat. See [pages in agent replies](agent-pages.md).
+
 ## Agents and people management
 
 Agents follows the selected **B / Agent workspace** concept: a searchable flat

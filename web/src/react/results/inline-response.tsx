@@ -4,12 +4,14 @@ import { Button } from '../ui';
 import { CornerIcon } from './corner-icon';
 import { responsePreview, query, type ResponseReference, type ResultSource } from './model';
 import { useSavedResponse } from './use-saved-response';
+import { PageCard } from '../pages/page-card';
+import { pageSummary, splitPage } from '../pages/page-format';
 import './results.css';
 
 type Props = { id: string; text: string; reference?: ResponseReference; source?: ResultSource;
-  reading?: (key: string, open: boolean) => void; openReader?: () => void };
+  reading?: (key: string, open: boolean) => void; openReader?: () => void; openPage?: () => void };
 
-export function InlineResponse({ id, text, reference, source, reading, openReader }: Props) {
+export function InlineResponse({ id, text, reference, source, reading, openReader, openPage }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [overflow, setOverflow] = useState(false);
   const content = useRef<HTMLDivElement>(null);
@@ -17,7 +19,10 @@ export function InlineResponse({ id, text, reference, source, reading, openReade
   const restore = useRef(false);
   const key = useId();
   const bodyId = useId();
-  const preview = responsePreview(text, reference);
+  // Compact history already took the page out; a full or streamed reply still holds it.
+  const reply = splitPage(text);
+  const page = reply.page ? pageSummary(reply.page) : reference?.page;
+  const preview = responsePreview(reply.text, reference);
   useLayoutEffect(() => {
     if (expanded || !content.current) return;
     const node = content.current;
@@ -46,7 +51,8 @@ export function InlineResponse({ id, text, reference, source, reading, openReade
     {expanded && <button type="button" className="response-corner response-collapse-top" aria-label="Collapse response from top"
       title="Collapse response" aria-expanded="true" aria-controls={bodyId} onClick={toggle}><CornerIcon /></button>}
     {expanded && source ? <InlineBody id={id} source={source} bodyId={bodyId} openReader={openReader} /> :
-      <div id={bodyId} ref={content} className="message-markdown response-excerpt" dangerouslySetInnerHTML={{ __html: messageHtml(preview.text) }} />}
+      preview.text ? <div id={bodyId} ref={content} className="message-markdown response-excerpt" dangerouslySetInnerHTML={{ __html: messageHtml(preview.text) }} /> : null}
+    {page && <PageCard page={page} open={source && reference?.available !== false ? openPage : undefined} />}
     {readable && <button type="button" className="response-corner" aria-label={expanded ? 'Collapse response' : 'Expand response'}
       title={reference?.available === false ? 'Response exceeds the reading size limit' : expanded ? 'Collapse response' : 'Expand response'}
       disabled={!expanded && (!source || reference?.available === false)} aria-expanded={expanded} aria-controls={bodyId} onClick={toggle}>
@@ -68,7 +74,7 @@ function InlineBody({ id, source, bodyId, openReader }: { id: string; source: Re
     {error && <p role="alert">{error} <Button disabled={busy} onClick={update}>Retry</Button></p>}
     {!data && !error && <p role="status">Loading saved response…</p>}
     {data && <>
-      <div className="message-markdown inline-response-body" aria-label="Saved response content" dangerouslySetInnerHTML={{ __html: messageHtml(data.body) }} />
+      <div className="message-markdown inline-response-body" aria-label="Saved response content" dangerouslySetInnerHTML={{ __html: messageHtml(splitPage(data.body).text) }} />
       <div className="inline-response-tools">
         <button type="button" aria-label="Copy response" title="Copy response" onClick={() => void navigator.clipboard.writeText(data.body)
           .then(() => setStatus('Response copied.')).catch(() => setStatus('Copy failed. Select and copy the response text.'))}>

@@ -177,6 +177,10 @@ pub(crate) async fn prepare_traced(
         instructions.push_str(prompt::HOME_PANELS);
         instructions.push_str(prompt::QUESTIONS);
     }
+    // Other platforms show the reply as plain text, so pages stay in Cuckoo Chat.
+    if !db.asked_from_outside(job).await? {
+        instructions.push_str(prompt::PAGES);
+    }
     let (identity, current_request) = db.request_context(job).await?;
     instructions.push_str(prompt::REQUEST_IDENTITY);
     let mut request = format!(
