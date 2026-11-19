@@ -114,5 +114,13 @@ another process produced; that a schedule fires once; that losing the work
 controller mid-reply loses nothing; and that schedules still run with web down.
 The settings are covered by unit tests in `src/config/role.rs`.
 
+First run, 2026-11-19 (debug build, PostgreSQL 16.15, scripted provider, one
+shared host): all nine checks passed in 34 seconds. Work picked up four requests
+110-136 ms after web accepted them, measured from the send to the job leaving
+the queue. The existing single-process journeys (`multi_controller`,
+`controller_drain`, `executor_pool`, `reply_stream`) gave the same results as
+unchanged `main`. The load matrix (`tools/run-agent-load.py`) has not been run
+split, so there is no capacity comparison between the two modes yet.
+
 AWS is not changed yet: [deploy/aws](../deploy/aws/README.md) still runs one
 `controller` service with the default role.
