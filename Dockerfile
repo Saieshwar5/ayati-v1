@@ -13,6 +13,8 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY src/ ./src/
+# Embedded in the controller (computers/mod.rs): the browser helper it installs on agent computers.
+COPY deploy/agent-computer/cuckoo-browser.mjs ./deploy/agent-computer/cuckoo-browser.mjs
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --locked --release --bin ayati -j "$BUILD_JOBS" && cp target/release/ayati /ayati

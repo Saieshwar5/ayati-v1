@@ -13,6 +13,7 @@
 !web/package.json
 !web/package-lock.json
 !web/index.html
+!web/control.html
 !web/tsconfig.json
 !web/vite.config.ts
 !web/src/
@@ -26,6 +27,8 @@
 !tools/patches/goose-1.54.0-preparation.patch
 !deploy/
 !deploy/container-entrypoint.sh
+!deploy/agent-computer/
+!deploy/agent-computer/cuckoo-browser.mjs
 !integrations/
 !integrations/aws_bridge/
 !integrations/aws_bridge/*.py
