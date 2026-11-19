@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation } from '../requests';
-import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-context';
+import { identityRequest, workspaceId } from '../../workspace-context';
 import { openAgentChat } from '../chat/direct-conversation';
-import type { AttentionPage } from '../attention/model';
-
-/** Home's one line (HP7): "3 things need you →", only when something does. */
-export function NeedsYouLine({ page }: { page?: AttentionPage | null }) {
-  const waiting = page?.items.filter(item => item.kind !== 'outcome').length ?? 0;
-  if (!waiting) return null;
-  return <a className="home-needs-line" href={workspaceUrl('/?view=activity&tab=needs')}>
-    {waiting}{page?.next_before ? '+' : ''} {waiting === 1 && !page?.next_before ? 'thing needs' : 'things need'} you <span aria-hidden="true">→</span></a>;
-}
 
 type Suggestion = { agent: string; agent_name: string; ask: string; count: number };
 const hidden = (): string[] => { try { return JSON.parse(localStorage.getItem('home-panel-suggestions-hidden') ?? '[]'); } catch { return []; } };

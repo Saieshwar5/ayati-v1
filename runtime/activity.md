@@ -184,7 +184,8 @@ who can fix an agent (its owners and admins; My agents narrows it):
   went_wrong, learned, suggestion?}`, once per request. Review lists the last 30 days'
   reviews with any suggested change and a link to set up the agent.
 
-Home (HP7): a one-line "N things need you →" when anything does; "You asked Nova “How
+Home (HP7): the Notifications panel's "N need you →" is the one count of what is
+waiting (the separate line above the panels was removed as a duplicate); "You asked Nova “How
 many orders today?” 4 times lately — Ask for a panel" from the person's own repeated
 questions in the last 14 days (at most three, "Not now" per device); and "2 panels
 haven't changed in two weeks · Hide them".

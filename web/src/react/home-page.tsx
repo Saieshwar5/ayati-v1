@@ -7,7 +7,7 @@ import { AppRequestNotices } from './apps/app-request-notices';
 import '../home.css';
 
 const WorkspacePanels = lazy(() => import('./home-panels/panels').then(module => ({ default: module.WorkspacePanels })));
-const HomeHints = lazy(() => import('./home-panels/home-hints').then(module => ({ default: ({ page }: { page?: import('./attention/model').AttentionPage | null }) => <><module.NeedsYouLine page={page} /><module.PanelSuggestions /></> })));
+const PanelSuggestions = lazy(() => import('./home-panels/home-hints').then(module => ({ default: module.PanelSuggestions })));
 const HomeAttention = lazy(() => import('./attention/home-attention').then(module => ({ default: module.HomeAttention })));
 
 /** Device time until the workspace has a shared business location setting. */
@@ -33,7 +33,7 @@ export function HomePage() {
   // One read of what needs you, shared by Notifications and every panel's "needs you".
   const attention = useAttention('needs_you', null);
   return <main className="home" aria-label="Home">
-    <Suspense fallback={null}><HomeHints page={attention.data} /></Suspense>
+    <Suspense fallback={null}><PanelSuggestions /></Suspense>
     <AppRequestNotices />
     <div className="home-standard-panels">
       <BusinessClock />
