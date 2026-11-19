@@ -33,7 +33,7 @@ test('alerts follow each level: all, @mentions and replies, or nothing',async()=
 });
 
 test('the sidebar marks counts that are for you and muted conversations; the bell saves a level once',async()=>{
-  const writes=[];let finish;
+  const writes=[];let finish,unreadReads=0;
   await reactFixture(async({render,click,update})=>{
     await start();const {WorkspaceChat}=await import('../src/react/chat/workspace-chat.tsx');
     await render(WorkspaceChat,{href:`${url}&conversation=orders`});
@@ -47,12 +47,14 @@ test('the sidebar marks counts that are for you and muted conversations; the bel
     const nothing=[...document.querySelectorAll('[role=menuitemradio]')].find(b=>b.textContent.startsWith('Nothing'));
     await update(()=>{nothing.click();nothing.click();});
     assert.deepEqual(writes,[{path:`/api/identity/workspaces/${w}/chats/orders/notifications`,body:{level:'none'}}]);
+    const readsBefore=unreadReads;
     await update(()=>finish(response({ok:true,level:'none'})));
     assert.equal(document.querySelector('.chat-notify-button').getAttribute('aria-label'),'Notifications: Nothing');
+    assert.equal(unreadReads,readsBefore+1,'muting changes what the rail counts, so unread is read again');
     assert.ok(row('orders').querySelector('.chat-muted'));
   },{url:`${url}&conversation=orders`,fetch:async(path,options={})=>{
     if(options.method==='POST'){writes.push({path,body:JSON.parse(options.body)});return new Promise(resolve=>{finish=resolve;});}
     return response(path.endsWith('/session')?session:path.endsWith('/chat-directory')?directory:path.endsWith('/chats')?{chats:[orders,quiet,direct],preferences:{available:true,revision:0,pins:[]}}
-      :path.endsWith('/chat-notifications')?{levels:{quiet:'none'}}:path.endsWith('/unread')?{unread:[{chat:'orders',count:4,mentions:1}]}:path.includes('/messages')?{messages:[],agents:[]}:{});
+      :path.endsWith('/chat-notifications')?{levels:{quiet:'none'}}:path.endsWith('/unread')?(unreadReads++,{unread:[{chat:'orders',count:4,mentions:1}]}):path.includes('/messages')?{messages:[],agents:[]}:{});
   }});
 });

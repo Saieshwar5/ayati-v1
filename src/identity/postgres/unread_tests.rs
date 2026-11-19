@@ -3,6 +3,7 @@ use super::super::{
     tests::{chat, fixture, join, message, settings_input, user, workspace},
     *,
 };
+use crate::identity::chat::model::NewChat;
 use crate::identity::chat::organization_model::Lifecycle;
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
@@ -254,4 +255,84 @@ async fn history_marks_exactly_the_messages_the_unread_count_counts() {
         .await
         .unwrap();
     assert!(marked(&db, &member, &w, &c).await.is_empty(), "archived");
+}
+
+/// Whether this person's unread in one conversation is marked muted.
+async fn muted(db: &PgStore, person: &User, w: &str, chat: &str) -> bool {
+    db.unread(person, w).await.unwrap()["unread"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["chat"] == chat)
+        .expect("the conversation has unread messages")["muted"]
+        .as_bool()
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn unread_says_which_conversations_the_person_muted() {
+    use crate::identity::postgres::settings::preferences::Preferences;
+    let db = fixture().await;
+    let owner = user(&db, "unread-muted-owner").await;
+    let member = user(&db, "unread-muted-member").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let channel = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
+    let other = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
+    let direct = db
+        .chat_create(
+            &owner,
+            &w,
+            &NewChat {
+                kind: "direct".into(),
+                description: String::new(),
+                id: uuid::Uuid::new_v4().to_string(),
+                name: "Direct".into(),
+                users: vec![member.id.clone()],
+                agents: vec![],
+            },
+        )
+        .await
+        .unwrap();
+    for c in [&channel, &other, &direct] {
+        db.chat_send(&owner, &w, c, &message("Hello", None))
+            .await
+            .unwrap();
+    }
+    for c in [&channel, &other, &direct] {
+        assert!(
+            !muted(&db, &member, &w, c).await,
+            "nothing is muted at first"
+        );
+    }
+
+    // The person's own choice for one conversation, and only theirs.
+    db.set_chat_notify(&member, &w, &channel, "none")
+        .await
+        .unwrap();
+    assert!(muted(&db, &member, &w, &channel).await);
+    assert!(!muted(&db, &member, &w, &other).await);
+    assert_eq!(count(&db, &member, &w, &channel).await, 1, "still counted");
+    db.chat_send(&member, &w, &channel, &message("Reply", None))
+        .await
+        .unwrap();
+    assert!(
+        !muted(&db, &owner, &w, &channel).await,
+        "muting is personal"
+    );
+
+    // Channels default to Nothing: every channel without its own choice is
+    // muted, a channel set louder is not, and direct messages always notify.
+    let quiet = Preferences {
+        channel_level: "none".into(),
+        ..Preferences::default()
+    };
+    db.save_preferences(&member, &w, &quiet).await.unwrap();
+    db.set_chat_notify(&member, &w, &channel, "all")
+        .await
+        .unwrap();
+    assert!(!muted(&db, &member, &w, &channel).await, "own choice wins");
+    assert!(muted(&db, &member, &w, &other).await, "the default applies");
+    assert!(!muted(&db, &member, &w, &direct).await, "direct messages");
 }

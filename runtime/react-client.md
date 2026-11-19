@@ -8,7 +8,9 @@ server API contracts, authentication, and workspace boundaries.
 ## Converted
 
 - `web/src/main.tsx`: React root, route selection and startup.
-- `web/src/react/workspace-shell.tsx`: persistent quiet rail and branding.
+- `web/src/react/workspace-shell.tsx`: persistent quiet rail and branding. Its Chat
+  icon shows the workspace's unread count (`chat/nav-unread.tsx`), from the same
+  read as the conversation list.
 - `web/src/react/workspace-application.tsx`, `web/src/navigation.ts`: same-workspace
   feature navigation with browser history and native identity/workspace changes.
 - `web/src/react/chat/`: persistent workspace directory, channel/DM conversations,

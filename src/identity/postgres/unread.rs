@@ -7,6 +7,9 @@
 //! older than the person's access: for a public channel, joining the workspace;
 //! for a private conversation, the later of joining the workspace and being
 //! added to it. A person who joins today starts with nothing unread.
+//!
+//! Each count also says whether the person muted that conversation. Muting never
+//! changes a count; the rail's Chat icon uses it to stay quiet (runtime/reliable-messaging.md).
 use super::*;
 use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaManager};
 use serde_json::json;
@@ -67,14 +70,28 @@ impl PgStore {
         role(&tx, w, &user.id).await?;
         // The same conversations Chat lists (chats_in), minus archived ones.
         let hidden = super::work_rooms::hidden(&tx).await?;
+        // `muted` is the person's bell at Nothing: their own choice for the
+        // conversation, or else their default (direct messages always notify).
+        // A conversation has one kind and one saved level per person, so the
+        // grouping still gives one row per conversation.
+        let channel_level = super::settings::preferences::defaults(&tx, w, &user.id)
+            .await?
+            .channel_level;
         let sql = format!(
-            "SELECT jsonb_build_object('chat',m.chat,'count',count(*),'mentions',count(*) FILTER (WHERE {for_me})) AS data
+            "SELECT jsonb_build_object('chat',m.chat,'count',count(*),'mentions',count(*) FILTER (WHERE {for_me}),
+               'muted',coalesce(n.level,CASE WHEN c.kind='direct' THEN 'all' ELSE $3 END)='none') AS data
              FROM {UNREAD_FROM}
+             LEFT JOIN relay_chat_notify n ON n.workspace=c.workspace AND n.chat=c.id AND n.user_id=$2
              WHERE c.workspace=$1{hidden} AND {UNREAD_WHERE}
-             GROUP BY m.chat",
+             GROUP BY m.chat,c.kind,n.level",
             for_me = super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?)
         );
-        let items = json_rows(&tx, &sql, vec![w.into(), user.id.clone().into()]).await?;
+        let items = json_rows(
+            &tx,
+            &sql,
+            vec![w.into(), user.id.clone().into(), channel_level.into()],
+        )
+        .await?;
         tx.commit().await?;
         Ok(json!({"unread":items}))
     }

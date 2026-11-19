@@ -99,6 +99,16 @@ a change that can affect them (a message change from someone else, an access cha
 a reset), one read at a time; receipts and reactions on your own messages, agent pauses
 and panel access do not trigger a read.
 
+One read serves the whole workspace (`web/src/react/chat/unread-counts.ts`): the
+rail's Chat icon and the conversation list share it, so the count is live on every
+page and opening Chat makes no second request. Each `/unread` entry also carries
+`muted`: the person's bell for that conversation is Nothing, by their own choice or
+their channel default (direct messages always notify). Muting never changes a count.
+The rail adds every unread message of an unmuted conversation, and from a muted one
+only what is for you. Changing a bell or the channel default on this page reads the
+counts again; a change made on another device shows with the next read. A server
+without the flag mutes nothing.
+
 ## Presence and status (schema 98, D245)
 
 Presence rides on the same stream; no browser timer sends heartbeats. While a person's
