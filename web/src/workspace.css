@@ -44,7 +44,9 @@ body { color: var(--text); background: var(--canvas); }
 button, input, textarea, select { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 a { color: var(--accent); }
-.workspace-shell { display: flex; height: 100dvh; padding: 12px; gap: 16px; background: var(--canvas); }
+/* The shell is the window: only pages inside it scroll. Clipping here keeps absolutely positioned
+   content (such as hidden screen-reader labels) from making the document itself scrollable. */
+.workspace-shell { position: relative; overflow: clip; display: flex; height: 100dvh; padding: 12px; gap: 16px; background: var(--canvas); }
 .workspace-rail { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 8px 10px; gap: 12px; background: transparent; overflow-y: auto; }
 .workspace-rail nav { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .workspace-nav { color: var(--muted); min-height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font-size: .6875rem; }
