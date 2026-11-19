@@ -9,9 +9,12 @@ which connects out to Cuckoo and asks for work, so no ports are opened.
 
 ## How an admin sets it up
 
-1. **Settings › Computers › Your computers**: type a name (*Office PC*) and press
-   **Add computer**. Cuckoo shows a one-time code and the command to run, once.
-   The code works once, for 15 minutes.
+Everything is on the agent's page; there is no Settings page for computers.
+
+1. **Agents › an agent › Connections › Your own computer**: type a name (*Office PC*)
+   and press **Add computer**. Cuckoo shows a one-time code and the command to run,
+   once. The code works once, for 15 minutes. A machine added from one agent's page
+   is listed on every agent's page.
 2. On the machine, with Python 3.9+ and bash (Git for Windows on Windows), run
    the command shown:
 
@@ -22,13 +25,14 @@ which connects out to Cuckoo and asks for work, so no ports are opened.
    The connector swaps the code for a lasting key, kept in
    `~/.cuckoo-connector/<id>.key` (readable by that account only). Later starts
    need only `--server` and `--computer`.
-3. **Choose agents**: an agent uses one computer at most, so choosing it here
-   moves it off any other. Its Environment tab then says which machine it works on.
+3. **Where the agent works**: on each agent's page, choose the machine or Cuckoo's
+   computer (`POST …/agent-profiles/{id}/computer/own` with `{"computer": id or null}`).
+   An agent uses one computer at most, so choosing one moves it off any other.
 
 **New code** replaces a lost key or a new machine: the old key stops at once.
 **Remove** stops new work at once, abandons queued work and signs the connector
-out. Files on the machine stay there. Only admins see these controls; members see
-the list.
+out. Files on the machine stay there. Only admins see these controls and choose
+where an agent works; members see the list once a machine exists.
 
 ## What agents can do there
 
@@ -75,13 +79,14 @@ machine you run; the workspace's network and the account's permissions do.
 ## Checks
 
 - Postgres (`shared_computers/tests.rs`): admin-only add, one-time code shown
-  once and refused on reuse, choose agents, commands and files through the relay
+  once and refused on reuse, admin-only choice per agent and back to Cuckoo's, commands and files through the relay
   (base64 file content), the browser refused, busy and offline messages, remove
   refuses the connector, unanswered work abandoned with the late answer ignored,
   and a new code stopping the old key.
 - Routes: only the three connector hooks skip the Origin check.
-- Web (`web/tests/workspace-computers.test.mjs`): one add for a double click, the
-  code dialog, choosing agents, removal failure keeping the row, members read-only.
+- Web (`web/tests/own-computers.test.mjs`): one add for a double click, the code
+  dialog, choosing the machine for the agent and back, a failed choice and a failed
+  removal changing nothing, members read-only, and the note on Cuckoo's computer card.
 - Connector (`python3 -m unittest discover -s tools/cuckoo-connector`): path
   confinement including links, the list format, commands with `HOME` mapped,
   timeouts, and sign-in → next → done against a stand-in server with the key file

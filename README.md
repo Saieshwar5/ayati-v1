@@ -63,7 +63,8 @@ Main product contracts:
 - [Agents learn from their work](runtime/agent-learning.md): once a day Cuckoo
   proposes lessons from shared conversations; maintainers approve them as notes.
 - [Your own computers](runtime/workspace-computers.md): admins add a machine the
-  workspace runs; the Cuckoo Connector on it takes chosen agents' commands and files.
+  workspace runs and choose it on an agent's page; the Cuckoo Connector on it takes
+  that agent's commands and files.
 - [Web search](runtime/web-search.md): agents search the web and read pages through
   Cuckoo's own tools, answered by interchangeable search services and cited under
   the answer.

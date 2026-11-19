@@ -15,11 +15,7 @@ export type ComputerOffer = { sleep_after_minutes: number; sizes: ComputerSize[]
 
 export type ComputerStatus = {
   configured: boolean;
-  /** The workspace's own computer this agent uses instead (Settings → Computers). */
-  workspace_computer?: string | null;
   settings: ComputerSettings;
-  /** The workspace's limits (Settings → Computers). */
-  policy?: { allowed: boolean; sizes: string[] };
   computer: null | { size: string; state: 'asleep' | 'awake' | 'deleting'; awake_since: number | null; last_used: number; created_at: number; problem: string | null; in_use: boolean };
   month: { seconds: number; charge_usd: number };
   sleep_after_minutes: number | null;

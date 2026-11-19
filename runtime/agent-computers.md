@@ -7,8 +7,8 @@ while the agent works; asleep, it keeps its files and costs nothing. People neve
 which provider runs it. Designed in [designs/agent-computers](../designs/agent-computers/README.md);
 the provider check is in [agent-computer-providers](agent-computer-providers.md).
 First slice (server and screens) built 2026-11-08.
-An admin can instead give chosen agents a machine the workspace runs itself; see
-[your own computers](workspace-computers.md).
+An admin can instead choose, on the agent's page, a machine the workspace runs itself;
+see [your own computers](workspace-computers.md).
 
 ## Turning it on
 
@@ -107,25 +107,16 @@ Each request works in `requests/<reply id>` in the agent's home folder. Paths st
 there; `shared/` is kept for every request. Absolute paths and `..` are refused. The
 provider's name never appears in a tool result.
 
-## Workspace limits (schema 105)
+## No workspace-wide settings
 
-Admins set them in **Settings → Computers**; every member can read them
-(`GET/POST /api/identity/workspaces/{w}/computer-policy`). An agent's own settings can
-only be stricter: wherever the computer is used, Cuckoo applies the stricter of the two.
+An agent's computer follows only that agent's own settings, on its page. There is no
+Settings → Computers page and no workspace limit on top (removed 2026-11-19, to keep
+one predictable place). Schema 105's `relay_computer_policies` table stays in existing
+databases but nothing reads it, so limits saved earlier no longer apply.
 
-- **Allow computers** off stops every agent's computer from its next use, removes the
-  prompt section, and tells agents an admin switched it off. Files are kept.
-- **Sizes** agents may use; a computer at a size no longer allowed doesn't start.
-- **Internet:** `any` leaves it to agents' owners; `listed` limits every computer to
-  the workspace's websites (an agent set to any website gets that list; a listed agent
-  keeps only its websites inside it, so `books.zoho.in` stays under `*.zoho.in`);
-  `none` cuts every computer off.
-- The loosest **programs**, **browsing** and **pressing buttons** rules.
-- **Computers awake at once** (`max_awake`, 0 for no limit): when that many are
-  working, other agents' computers wait in line to wake.
-
-Changes are audited and apply from each computer's next use. Admins also see each agent's computer:
-its size, state, requests waiting, and this month's working time and charge.
+What still stops computers for more than one agent: the monthly budgets, and the
+operator's **Pause all computers** below. An admin can change any agent's computer on
+that agent's page.
 
 ## Operating computers
 
@@ -249,8 +240,8 @@ Screens (designs/agent-computers 1, 7 and 8):
 - **Environment → Watch live** for its owner and admins while it works; a hand-over
   question's **Take over the browser** opens the same view with control, and its
   **Done, give back** and **I can't do it** answer the question.
-- **Settings → Computers** for admins: the workspace limits above. The Environment card
-  shows sizes the workspace doesn't allow and when an admin switched computers off.
+- **Agent → Connections → Your own computer** for admins: the workspace's own machines
+  and whether this agent works on one ([your own computers](workspace-computers.md)).
 - **Create, step 2 (Tools):** a Computer switch with the size, off by default.
   **Step 5 (Controls):** the same Internet and programs controls when it is on.
 - **Activity → request details:** each command with how it finished and its output
@@ -282,11 +273,8 @@ Screens (designs/agent-computers 1, 7 and 8):
   page on E2B, then the live picture streamed and stopped through the Rust adapter.
 - PostgreSQL turn tests (`postgres::computer_turn_tests`): a second request told its
   place, then getting the computer when the first finishes; the reply's computer
-  line; a command cut short before its request's time ends; the awake-at-once limit
-  and admins' per-agent view; operators' view and the pause switch.
-- PostgreSQL policy test (`postgres::computer_policy_tests`): members can't change the
-  limits; a disallowed size refused; programs asked first; any website narrowed to the
-  workspace's list on the computer's network; switched off; audited.
+  line; a command cut short before its request's time ends; operators' view and the
+  pause switch.
 - PostgreSQL browser tests (`postgres::computer_browser_tests`) need a local Chromium
   in `AYATI_TEST_CHROMIUM`: pages as text, typing, menus, passwords refused, buttons
   asked first then allowed, the browsing and button controls, Activity steps, and a

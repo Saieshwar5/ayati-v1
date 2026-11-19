@@ -1,5 +1,5 @@
-//! A workspace's own computers (B3, D248). Admins add them in Settings ›
-//! Computers; the Cuckoo Connector on each machine signs in once with a
+//! A workspace's own computers (B3, D248). Admins add them on an agent's
+//! Connections tab; the Cuckoo Connector on each machine signs in once with a
 //! one-time code and then asks for work under `/hooks/computers/{id}/…` with
 //! its key. No cookie authorizes those hooks. See runtime/workspace-computers.md.
 use super::*;
@@ -14,10 +14,6 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/workspace-computers/{id}/code",
             post(new_code),
-        )
-        .route(
-            "/api/identity/workspaces/{w}/workspace-computers/{id}/agents",
-            post(choose),
         )
         .route(
             "/api/identity/workspaces/{w}/workspace-computers/{id}/remove",
@@ -63,8 +59,6 @@ async fn add(
 #[derive(serde::Deserialize)]
 struct Revision {
     revision: i64,
-    #[serde(default)]
-    agents: Vec<String>,
 }
 
 async fn new_code(
@@ -77,20 +71,6 @@ async fn new_code(
     Ok(Json(
         app.store
             .new_computer_code(&user, &w, &id, body.revision)
-            .await?,
-    ))
-}
-
-async fn choose(
-    State(app): State<Shared>,
-    RoutePath((w, id)): RoutePath<(String, String)>,
-    headers: HeaderMap,
-    Json(body): Json<Revision>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    Ok(Json(
-        app.store
-            .choose_computer_agents(&user, &w, &id, body.revision, &body.agents)
             .await?,
     ))
 }

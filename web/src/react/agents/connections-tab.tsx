@@ -3,18 +3,28 @@ import type { Agent, Directory } from './model';
 import { SystemsSection } from './systems/systems-section';
 import { ComputerCard } from './computer/computer-card';
 import { ComputerToolsCard } from './computer/computer-controls';
+import { OwnComputerCard, loadOwnComputers, ownComputerOf } from './computer/own-computers';
+import { useResource } from '../requests';
 import { WebSearchCard } from './web-search';
 
 /** Connections: everything this agent can reach, each its own (schema 132).
  * Apps its owner signs in to, the company's MCP servers, its computer and
- * browser, and Cuckoo's built-in tools. Nothing here is shared with another agent. */
+ * browser, and Cuckoo's built-in tools. Nothing here is shared with another agent.
+ * Everything about an agent's computer is here, including the workspace's own
+ * machines: there is no workspace-wide computer setting. */
 export function ConnectionsTab({ agent, directory, saved, focus }: { agent: Agent; directory: Directory; saved: () => Promise<void>; focus?: string }) {
+  const own = useResource(loadOwnComputers);
+  // Admins can always add a machine; members see the card once one exists.
+  const showOwn = Boolean(own.data && (own.data.can_change || own.data.computers?.length));
   return <AppConnections agent={agent} focus={focus}>
     <SystemsSection agent={agent} />
-    {directory.computers && <section className="agent-connection-group" aria-label="Computers">
+    {(directory.computers || showOwn) && <section className="agent-connection-group" aria-label="Computers">
       <h3 className="agent-group-label">Computers</h3>
-      <ComputerCard key={agent.id} agent={agent} offer={directory.computers} saved={saved} />
-      <ComputerToolsCard agent={agent} saved={saved} />
+      {directory.computers && <>
+        <ComputerCard key={agent.id} agent={agent} offer={directory.computers} saved={saved} ownComputer={ownComputerOf(own.data, agent.id)?.name} />
+        <ComputerToolsCard agent={agent} saved={saved} />
+      </>}
+      {showOwn && <OwnComputerCard key={`own-${agent.id}`} agent={agent} view={own.data!} cuckoo={Boolean(directory.computers)} refresh={own.refresh} />}
     </section>}
     {directory.web_search && <section className="agent-connection-group" aria-label="Built in">
       <h3 className="agent-group-label">Built in</h3>
