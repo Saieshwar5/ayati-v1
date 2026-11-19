@@ -11,6 +11,7 @@ mod agent_audience_migration;
 #[cfg(test)]
 mod agent_audience_tests;
 mod agent_changes;
+pub(crate) mod agent_drafts;
 mod agent_instructions_migration;
 #[cfg(test)]
 mod agent_instructions_tests;

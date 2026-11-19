@@ -3,7 +3,7 @@
 //! skills as drafts. It has no tools and nothing is saved here: the browser shows
 //! the drafts and saves them only when the person does, through the ordinary
 //! skill routes and their checks. Needs `AYATI_SKILL_WRITER_MODEL`.
-mod answer;
+pub(crate) mod answer;
 #[cfg(test)]
 mod answer_tests;
 pub(crate) mod controls;
@@ -77,7 +77,7 @@ pub(crate) struct Request {
     pub focus: Option<String>,
 }
 impl Request {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         ensure!(
             self.name.len() <= 80 && self.role.chars().count() <= 80,
             "The name or job title is too long"

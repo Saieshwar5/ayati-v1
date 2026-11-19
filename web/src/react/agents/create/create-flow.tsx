@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../ui';
 import { useMutation, useResource } from '../../requests';
 import { currentWorkspace, workspaceSession } from '../../../workspace-context';
@@ -13,6 +13,7 @@ import { skillText, type DraftSkill, type LibraryPick } from '../skills/writer-m
 import { SkillPicker } from '../skills/skill-picker';
 import { SkillIcon } from '../skills/skill-icons';
 import { computerDefaults } from '../computer/model';
+import type { SavedDraft } from './saved-draft';
 import './create.css';
 
 const steps = ['Name and picture', 'What it does', 'People'];
@@ -42,21 +43,43 @@ export function newAgent(directory: Directory): Agent {
  * web search and its computer are on where this Cuckoo offers them, the model
  * is the workspace's, and apps and MCP servers are added on its Connections
  * tab, where each belongs to this agent alone (schema 132). Retrying after a
- * failure updates the same agent. */
-export function AgentCreate({ start, close, created }: {
+ * failure updates the same agent.
+ *
+ * With `keep`, what the person has so far is kept after each step and each
+ * change to the skills (schema 139), and `resume` carries on from a kept draft;
+ * `discard` drops it once the agent is created or cancelled. Keeping creates
+ * nothing, and a failure to keep never blocks the steps. */
+export function AgentCreate({ start, close, created, resume, keep, discard }: {
   start: Agent; close: () => void; created: (id: string) => Promise<void>;
+  resume?: SavedDraft; keep?: (draft: SavedDraft) => Promise<void>; discard?: (id: string) => Promise<void>;
 }) {
   const me = workspaceSession?.user?.id ?? '';
   const [draft, setDraft] = useState(start);
   const [file, setFile] = useState<File>();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(resume?.step ?? 0);
   const [audience, setAudience] = useState<Audience>(start.audience);
-  const [people, setPeople] = useState<string[]>([]);
+  const [people, setPeople] = useState<string[]>(resume?.people ?? []);
   const members = useResource(loadMembers);
-  const [skills, setSkills] = useState<LibraryPick[]>([]);
-  const [drafts, setDrafts] = useState<DraftSkill[]>([]);
-  const writing = useSkillWriting();
-  const addSkills = (picks: LibraryPick[]) => setSkills(old => [...old, ...picks.filter(pick => !old.some(skill => skill.id === pick.id))]);
+  const [skills, setSkills] = useState<LibraryPick[]>(resume?.library ?? []);
+  const [drafts, setDrafts] = useState<DraftSkill[]>(() => (resume?.skills ?? []).map(skill => ({ ...skill, key: skill.id })));
+  const writing = useSkillWriting(resume?.messages);
+  // Each step and each change to the skills asks for the draft to be kept; it
+  // is sent once the change is on screen, so what is kept is what is shown.
+  const [keepPoint, setKeepPoint] = useState(0);
+  const [notKept, setNotKept] = useState(false);
+  const changed = () => setKeepPoint(point => point + 1);
+  const shown = useRef<SavedDraft>(undefined);
+  shown.current = { id: draft.id, name: draft.name, role: draft.role, avatar: draft.settings.avatar, instructions: draft.settings.instructions,
+    audience: audience === 'selected' ? 'selected' : 'everyone', people: audience === 'selected' ? people : [], step,
+    skills: drafts.map(({ id, name, description, steps }) => ({ id, name, description, steps })), library: skills,
+    messages: writing.messages.slice(-40).map(({ role, text }) => ({ role, text })) };
+  useEffect(() => {
+    if (!keepPoint || !keep || !shown.current) return;
+    let current = true;
+    keep(shown.current).then(() => { if (current) setNotKept(false); }, () => { if (current) setNotKept(true); });
+    return () => { current = false; };
+  }, [keepPoint, keep]);
+  const addSkills = (picks: LibraryPick[]) => { setSkills(old => [...old, ...picks.filter(pick => !old.some(skill => skill.id === pick.id))]); changed(); };
   const [pickingSkills, setPickingSkills] = useState(false);
   const mutation = useMutation();
   const first = useRef<HTMLInputElement>(null);
@@ -73,12 +96,14 @@ export function AgentCreate({ start, close, created }: {
       await assignSkill(draft.id, saved.id, true);
     }
     for (const skill of skills) await assignSkill(draft.id, skill.id, true);
+    // The agent exists now; a draft that could not be dropped is dropped on the next visit's Cancel.
+    await discard?.(draft.id).catch(() => {});
     await created(draft.id);
   });
   return <section className="agent-create" aria-labelledby="agent-create-title">
     <header className="agent-create-header">
       <h2 id="agent-create-title">New agent</h2>
-      <Button disabled={mutation.busy} onClick={close}>Cancel</Button>
+      <Button disabled={mutation.busy} onClick={() => { void discard?.(draft.id).catch(() => {}); close(); }}>Cancel</Button>
     </header>
     <ol className="agent-create-steps" aria-label="Steps">{steps.map((title, index) =>
       <li key={title} aria-current={index === step ? 'step' : undefined} className={index < step ? 'done' : undefined}>
@@ -89,10 +114,10 @@ export function AgentCreate({ start, close, created }: {
         choose={robot => { setFile(undefined); setDraft(old => ({ ...old, settings: { ...old.settings, avatar: robot } })); }}
         upload={setFile} reject={mutation.setStatus} />}
       {step === 1 && <SkillsStep name={draft.name} title={draft.role} text={draft.settings.instructions}
-        apps={false} connections={[]} writing={writing} drafts={drafts} setDrafts={setDrafts} library={skills} reuse={addSkills}
+        apps={false} connections={[]} writing={writing} drafts={drafts} setDrafts={setDrafts} library={skills} reuse={addSkills} changed={changed}
         change={(text, title) => setDraft(old => ({ ...old, role: title ?? old.role, settings: { ...old.settings, instructions: text } }))}>
         <div className="skill-chips">{skills.map(skill => <span key={skill.id} className="skill-chip"><SkillIcon name="book" />{skill.name}
-          <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => setSkills(old => old.filter(s => s.id !== skill.id))}>×</button></span>)}
+          <button type="button" aria-label={`Remove ${skill.name}`} onClick={() => { setSkills(old => old.filter(s => s.id !== skill.id)); changed(); }}>×</button></span>)}
           <Button onClick={() => setPickingSkills(true)}>＋ Add skills</Button></div>
       </SkillsStep>}
       {step === 2 && <PeopleStep name={draft.name} workspace={currentWorkspace()?.name ?? 'this workspace'} me={me}
@@ -102,12 +127,13 @@ export function AgentCreate({ start, close, created }: {
     {pickingSkills && <SkillPicker agent={draft.name} owners={[me]} chosen={skills.map(s => s.id)} close={() => setPickingSkills(false)}
       choose={({ id, name, description }) => addSkills([{ id, name, description }])} />}
     <footer className="agent-create-footer">
-      {step > 0 && <Button disabled={mutation.busy} onClick={() => setStep(step - 1)}>Back</Button>}
+      {step > 0 && <Button disabled={mutation.busy} onClick={() => { setStep(step - 1); changed(); }}>Back</Button>}
       {step < steps.length - 1
-        ? <Button primary disabled={!ready[step]} onClick={() => { mutation.setStatus(''); setStep(step + 1); }}>Continue</Button>
+        ? <Button primary disabled={!ready[step]} onClick={() => { mutation.setStatus(''); setStep(step + 1); changed(); }}>Continue</Button>
         : <Button primary disabled={mutation.busy || !ready.every(Boolean)} onClick={() => void submit()}>Create agent</Button>}
       <p className="ui-help">{hints[step]}</p>
       <p className="ui-status" role="status">{mutation.busy ? 'Creating…' : mutation.status}</p>
+      {notKept && <p className="ui-help" role="status">Your progress couldn’t be saved, so it stays in this tab only.</p>}
     </footer>
   </section>;
 }

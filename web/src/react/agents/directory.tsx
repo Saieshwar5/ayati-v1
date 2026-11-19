@@ -3,6 +3,7 @@ import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { defaults, loadAgents, type Agent } from './model';
 import { AgentCreate, newAgent } from './create/create-flow';
+import { agentFrom, discardDraft, keepDraft, loadSavedDraft, type SavedDraft } from './create/saved-draft';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
 import { AgentAvatar } from './avatar';
@@ -31,7 +32,16 @@ export function AgentsPage() {
   };
   const [section, setSection] = useState<WorkspaceSection>(() => linkedSection ?? savedSection(selectedKey));
   const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState<Agent>();
+  // New agent: a fresh one, or the one this person had started and not created (schema 139).
+  const kept = useResource(loadSavedDraft);
+  const [creating, setCreating] = useState<{ agent: Agent; resume?: SavedDraft }>();
+  const begin = () => {
+    if (!data) return;
+    const fresh = newAgent(data);
+    setCreating(kept.data ? { agent: agentFrom(kept.data, fresh), resume: kept.data } : { agent: fresh });
+    setShowProfile(true);
+  };
+  const ended = () => { setCreating(undefined); kept.setData(undefined); };
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
@@ -75,14 +85,17 @@ export function AgentsPage() {
   };
   return <div id="app" className={`agents-page${showProfile ? ' show-agent-profile' : ''}`}>
     <aside className="agent-roster" aria-label="Agent team"><header><h1>Agents</h1>
-      <Button primary disabled={!data || Boolean(creating)} onClick={() => { setCreating(newAgent(data!)); setShowProfile(true); }}>＋ New agent</Button>
+      <Button primary disabled={!data || Boolean(creating)} onClick={begin}>＋ New agent</Button>
     </header>
     <input className="ui-search" type="search" aria-label="Find an agent" placeholder="Search agents" value={query} onChange={e => setQuery(e.target.value)} />
     {error && <p role="alert">{error}<Button onClick={() => void refresh().catch(() => {})}>Retry agents</Button></p>}
     {!data && !error && <p role="status">Loading agents…</p>}
     <div className="agent-roster-scroll"><h2>Your team <small>{filtered.length}</small></h2>
       {creating && <Button className="agent-team-row" aria-current="true" onClick={() => setShowProfile(true)}>
-        <AgentAvatar agent={creating} /><span><strong>New agent</strong><small>Not created yet</small></span>
+        <AgentAvatar agent={creating.agent} /><span><strong>New agent</strong><small>Not created yet</small></span>
+      </Button>}
+      {!creating && kept.data && data && <Button className="agent-team-row" aria-label={`Continue setting up ${kept.data.name || 'your new agent'}`} onClick={begin}>
+        <AgentAvatar agent={agentFrom(kept.data, newAgent(data))} /><span><strong>{kept.data.name || 'New agent'}</strong><small>Not created yet · Continue</small></span>
       </Button>}
       {filtered.map(agent => <Button className="agent-team-row" key={agent.id} aria-label={`Open agent ${agent.name}`} aria-current={!creating && key === `m:${agent.id}` ? 'true' : undefined} disabled={Boolean(creating)} onClick={() => select(`m:${agent.id}`)}>
         <AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.assistant ? (agent.is_owner ? 'Your assistant' : `${agent.owner_name ?? 'A member'}’s assistant`) : agent.role}</small>{(agent.needs_owner || agent.settings.paused || Boolean(agent.pending)) && <small className="agent-roster-state">{agent.needs_owner ? 'Needs an owner' : agent.settings.paused ? 'Paused' : `${agent.pending} in progress`}</small>}</span>
@@ -91,8 +104,8 @@ export function AgentsPage() {
     </div><footer>People, purpose and controlled work.</footer></aside>
     <main className="agent-selected" aria-label="Selected agent">
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
-      {creating && data && <AgentCreate key={creating.id} start={creating} close={() => setCreating(undefined)}
-        created={async id => { setCreating(undefined); await refresh(); select(`m:${id}`); }} />}
+      {creating && data && <AgentCreate key={creating.agent.id} start={creating.agent} resume={creating.resume} keep={keepDraft} discard={discardDraft} close={ended}
+        created={async id => { ended(); await refresh(); select(`m:${id}`); }} />}
       {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} focus={`m:${selected.id}` === `m:${initial}` ? linkedAction : undefined} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>

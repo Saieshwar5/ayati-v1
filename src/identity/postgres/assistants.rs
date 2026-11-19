@@ -18,6 +18,8 @@ use crate::identity::{
 pub(crate) mod memory;
 #[path = "assistant_settings.rs"]
 pub(crate) mod settings;
+#[path = "assistant_agent_setup.rs"]
+pub(crate) mod setup;
 #[cfg(test)]
 #[path = "assistants_tests.rs"]
 mod tests;

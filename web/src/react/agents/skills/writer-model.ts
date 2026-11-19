@@ -9,8 +9,10 @@ export type ChatMessage = { role: 'person' | 'agent'; text: string };
 export type DraftSkill = { key: string; id: string; name: string; description: string; steps: string };
 export type WrittenSkill = { name: string; description: string; steps: string; text: string };
 export type LibraryPick = { id: string; name: string; description: string };
+/** `job_title` and `used` come only from a member's assistant: a title for an
+ * agent that has none, and what it relied on from its memory or the Library. */
 export type WriterAnswer = { reply: string; ground_rules: string | null; skills: WrittenSkill[]; remove: string[];
-  reuse: LibraryPick[]; missing_apps: string[]; notes: string[] };
+  reuse: LibraryPick[]; missing_apps: string[]; notes: string[]; job_title?: string | null; used?: string[] };
 export type WriterRequest = { name: string; role: string; agent?: string; connections?: string[]; ground_rules: string;
   skills: { name: string; description: string; steps: string; saved?: boolean }[]; messages: ChatMessage[]; focus?: string };
 
@@ -23,6 +25,16 @@ export const suggestControls = (request: ControlsRequest, signal?: AbortSignal) 
   identityRequest<{ suggestions: ControlSuggestion[]; by: 'writer' | 'rules' }>(`${path}/controls`, request, signal);
 export const loadWriter = () => identityRequest<{ available: boolean; guide: string }>(path);
 export const askWriter = (request: WriterRequest) => identityRequest<WriterAnswer>(path, request);
+
+/** The member's own assistant as the helper (schema 139). It is asked in its own
+ * room; the drafts are read once it has answered, and nothing is saved by either. */
+export type AssistantHelp = { available: boolean; assistant?: { id: string; name: string; avatar?: string | null }; guide?: string };
+const help = `/workspaces/${workspaceId}/assistant/agent-setup`;
+export const loadAssistantHelp = () => identityRequest<AssistantHelp>(help);
+/** `id` is the turn's own: the same id asks once. */
+export const askAssistant = (id: string, setup: WriterRequest) => identityRequest<{ reply: string }>(help, { id, setup });
+export const readAssistantAnswer = (reply: string, signal?: AbortSignal) =>
+  identityRequest<{ state: string } & Partial<WriterAnswer>>(`${help}/${encodeURIComponent(reply)}`, undefined, signal);
 export const saveSkillVersion = (id: string, version: number, files: SkillFile[]) =>
   identityRequest<SkillDetail>(`/workspaces/${workspaceId}/skills/${encodeURIComponent(id)}/versions`, { version, files });
 

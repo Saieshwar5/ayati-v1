@@ -18,8 +18,8 @@ type Proposal = { key: string } & (
 const main = (files: SkillFile[]) => files.find(file => file.path === 'SKILL.md')?.text ?? '';
 
 /** Change with chat on the Instructions tab (designs/agent-built-skills 5). The
- * owner or an admin says what changed; the writer proposes each change as a
- * diff, and nothing changes until they apply it. Ground rules go into the
+ * owner or an admin says what changed; their own assistant, or else the skill
+ * writer, proposes each change as a diff, and nothing changes until they apply it. Ground rules go into the
  * instructions box, to be saved there. Without `takeRules` (a member's own
  * assistant, whose rules are a short list) only skills are proposed. */
 export function AgentSkillChat({ agent, rules, takeRules, changed }: {
@@ -97,7 +97,9 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
     {applying.status && <p className="setup-chat-error" role="alert">{applying.status}</p>}
   </section>;
   if (writing.loading || !writing.available) return null;
-  return <SetupChat name={agent.name} title={`Change with ${agent.name}`} subtitle={`Private · only ${agent.name}’s owner and admins`} writing={writing} submit={submit} extra={list || undefined}
+  const helper = writing.helper?.name;
+  return <SetupChat name={helper ?? agent.name} title={`Change with ${helper ?? agent.name}`} writing={writing} submit={submit} extra={list || undefined}
+    subtitle={helper && helper !== agent.name ? `Your assistant · only you see this chat` : `Private · only ${agent.name}’s owner and admins`}
     greeting={`Tell me what changed, and I’ll propose new ${takeRules ? 'ground rules or skills' : 'skills'} for ${agent.name}. Nothing changes until you apply it.`} />;
 }
 
