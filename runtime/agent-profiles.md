@@ -58,6 +58,39 @@ There is one agent type (D231, D233; schema 45). Creation and editing use
 - Upgrade tests run this code on older schemas, where `scope` (private/workspace)
   and per-person grants still decide.
 
+## An unfinished agent is kept (schema 139)
+
+Built 2026-11-19. New agent keeps what you have so far on the server, so a
+reload or another device carries on from it. Before, everything lived in the
+browser tab.
+
+- **What is kept:** the name, job title, chosen picture, ground rules, who can
+  talk to it, the step you are on, the skills written and picked, and the last
+  40 messages of the setup chat. An uploaded photo is not kept.
+- **When:** on Continue and Back, and whenever the skills change (a helper's
+  answer, an edit, a removal, a pick). Typing alone keeps nothing. If keeping
+  fails the steps go on and a line says the progress stays in this tab.
+- **One per person and workspace, theirs alone.** The Agents list shows it to
+  them as "<name> · Not created yet · Continue", and **＋ New agent** opens it.
+  Nobody else, admins included, has a route to it.
+- **It is not an agent.** Keeping creates no agent, skill or conversation.
+  The agent is made only by the ordinary save on Create agent, which then
+  drops the draft. **Cancel** drops it too.
+
+`GET …/agent-draft` returns `{draft}` or `{draft: null}`; `POST` with the draft
+replaces it (the fields are checked: a valid id, name and job title within
+their limits, `everyone` or `selected`, at most 20 written and 20 picked
+skills, 40 messages); `POST …/agent-draft/discard` with `{id}` drops the draft
+with that id and leaves a newer one. Table `relay_agent_drafts`, added by
+`m20261119_000139_agent_setups`.
+
+Checks: PostgreSQL `agent_drafts::tests` (replaced on saving again, read back
+whole, each member's own, an outsider refused, another member's or an older
+id's discard dropping nothing, fields that can't become an agent refused,
+nothing created) and web `tests/agent-draft.test.mjs` (kept once per step and
+never on opening or typing, a failure to keep not blocking, dropped on
+create; carrying on from a kept draft; the Agents row, Cancel dropping it).
+
 ## Job title, instructions and change records (schema 46)
 
 - `role` is the **job title** shown under the name (at most 80 characters, may be

@@ -15,12 +15,13 @@ type Waiting = { reply: string; person: Shown; setup: Setup; apply: (answer: Wri
  * The helper is the member's own assistant where it can work (schema 139),
  * otherwise the skill writer, otherwise nobody. The assistant is asked in its
  * own room and its drafts are read every two seconds until it has answered;
- * the writer answers at once. Neither saves anything. */
-export function useSkillWriting() {
+ * the writer answers at once. Neither saves anything. `earlier` is a
+ * conversation kept with a draft, to carry on from. */
+export function useSkillWriting(earlier?: ChatMessage[]) {
   const writer = useResource(loadWriter);
   const help = useResource(loadAssistantHelp);
   const assistant = help.data?.available ? help.data.assistant : undefined;
-  const [messages, setMessages] = useState<Shown[]>([]);
+  const [messages, setMessages] = useState<Shown[]>(() => (earlier ?? []).map(message => ({ ...message, key: crypto.randomUUID() })));
   const [notes, setNotes] = useState<string[]>([]);
   const [used, setUsed] = useState<string[]>([]);
   const [composer, setComposer] = useState('');

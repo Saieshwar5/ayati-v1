@@ -30,6 +30,14 @@ pub(super) fn routes() -> Router<Shared> {
             get(list).post(save),
         )
         .route(
+            "/api/identity/workspaces/{w}/agent-draft",
+            get(draft).post(keep_draft),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/agent-draft/discard",
+            post(discard_draft),
+        )
+        .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/context-preview",
             get(context_preview),
         )
@@ -132,6 +140,41 @@ async fn save(
         "Your assistant is your private agent. New agents are for people in the workspace.",
     )?;
     Ok(Json(app.store.save_agent_profile(&user, &w, &input).await?))
+}
+/// The agent the member is still setting up in New agent (schema 139): theirs
+/// alone, and not an agent until they create it.
+async fn draft(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agent_draft(&user, &w).await?))
+}
+async fn keep_draft(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::identity::postgres::agent_drafts::AgentDraft>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.save_agent_draft(&user, &w, &input).await?;
+    Ok(Json(json!({"ok":true})))
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DiscardDraft {
+    id: String,
+}
+async fn discard_draft(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: HeaderMap,
+    Json(input): Json<DiscardDraft>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.discard_agent_draft(&user, &w, &input.id).await?;
+    Ok(Json(json!({"ok":true})))
 }
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -77,8 +77,10 @@ assistant exists and is not paused). `POST` with `{id, setup}` (`setup` is the
 skill writer's request) returns `{chat, reply}`; the same id asks once.
 `GET …/assistant/agent-setup/{reply}` returns `{state}` while it works, then
 the writer's answer plus `job_title` and `used`. Apply
-`m20261119_000139_agent_setups` (one table) with the administrator migration
-procedure before starting this version.
+`m20261119_000139_agent_setups` (two tables: these turns, and the
+[unfinished agent](agent-profiles.md#an-unfinished-agent-is-kept-schema-139)
+New agent keeps) with the administrator migration procedure before starting
+this version.
 
 Checks: PostgreSQL `assistants::setup::tests` (availability; one turn asked
 once in the Agent setup thread; the setup given to that task only; parts kept,
@@ -94,10 +96,11 @@ are, and how long a turn takes compared with the writer's single call, are
 unmeasured.
 
 Limits: a setup turn has all of the assistant's usual tools; it is told to do
-nothing else, but a task is not yet limited to reading. The draft and the
-panel's conversation still live in the browser until Create agent, so a reload
-loses them (the turns stay in the Agent setup thread). Asking for an agent
-from your ordinary chat with your assistant is not built.
+nothing else, but a task is not yet limited to reading. A turn still being
+written when the page is reloaded is not picked up again (it stays in the
+Agent setup thread). After Create agent nothing yet lists the apps the
+assistant said the agent needs. Asking for an agent from your ordinary chat
+with your assistant is not built.
 
 ## Memory (schema 138)
 

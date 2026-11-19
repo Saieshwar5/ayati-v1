@@ -11,11 +11,13 @@ import { starters, untouched } from './starters';
  * Ground rules (always on) and skills (opened only when needed); nothing is
  * saved until Create agent. Without a helper both are written by hand.
  * `children`: skills added from the library. */
-export function SkillsStep({ name, title, text, change, apps, connections, writing, drafts, setDrafts, library, reuse, children }: {
+export function SkillsStep({ name, title, text, change, apps, connections, writing, drafts, setDrafts, library, reuse, changed, children }: {
   name: string; title: string; text: string; change: (text: string, title?: string) => void;
   apps: boolean; connections: string[]; writing: SkillWriting;
   drafts: DraftSkill[]; setDrafts: (update: (old: DraftSkill[]) => DraftSkill[]) => void;
-  library: LibraryPick[]; reuse: (picks: LibraryPick[]) => void; children?: ReactNode;
+  library: LibraryPick[]; reuse: (picks: LibraryPick[]) => void;
+  /** The drafts changed (a helper's answer, an edit, a removal): New agent keeps them. */
+  changed?: () => void; children?: ReactNode;
 }) {
   const [note, setNote] = useState('');
   const [previewing, setPreviewing] = useState(false);
@@ -40,14 +42,14 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
     if (answer.ground_rules || suggested) change(answer.ground_rules ?? text, suggested);
     setDrafts(old => applyAnswer(old, answer));
     if (answer.reuse.length) reuse(answer.reuse);
-    setFocus(undefined);
+    setFocus(undefined); changed?.();
   });
   const ask = (draft: DraftSkill) => { setFocus(draft.name); writing.setComposer(`About ${draft.name}: `); input.current?.focus(); };
   const saveDraft = (fields: Pick<DraftSkill, 'name' | 'description' | 'steps'>) => {
     const changing = editing;
     setDrafts(old => changing === 'new' || !changing ? [...old, newDraft(fields)]
       : old.map(draft => draft.key === changing.key ? { ...draft, ...fields, id: crypto.randomUUID() } : draft));
-    setEditing(undefined);
+    setEditing(undefined); changed?.();
   };
   const starterRow = <div className="agent-starters" role="group" aria-label="Start from">
     <span>Start from</span>
@@ -66,7 +68,7 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
         <span className="draft-actions">
           <Button onClick={() => setEditing(draft)} aria-label={`Edit ${draft.name}`}>Edit</Button>
           {chat && <Button onClick={() => ask(draft)} aria-label={`Ask ${helper ?? display} about ${draft.name}`}>Ask {helper ?? display}</Button>}
-          <Button onClick={() => setDrafts(old => old.filter(item => item.key !== draft.key))} aria-label={`Remove ${draft.name}`}>Remove</Button>
+          <Button onClick={() => { setDrafts(old => old.filter(item => item.key !== draft.key)); changed?.(); }} aria-label={`Remove ${draft.name}`}>Remove</Button>
         </span>
       </li>)}</ul>}
       {children}
