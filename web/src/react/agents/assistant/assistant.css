@@ -1,0 +1,27 @@
+/* A member's own assistant on its agent page: notes, rules and regular checks. */
+.assistant-memory { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.assistant-memory-add select, .assistant-memory-editing select { min-width: 0; max-width: 45%; }
+.assistant-memory h3 { margin-bottom: 0; }
+.assistant-memory-group h4 { margin: 10px 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); }
+.assistant-memory ul { list-style: none; margin: 0; padding: 0; }
+.assistant-memory li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.assistant-memory li > span:first-child { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.assistant-memory-actions { display: flex; gap: 6px; flex: none; }
+.assistant-memory-add, .assistant-memory-editing { display: flex; gap: 8px; }
+.assistant-memory-add { margin-top: 6px; }
+.assistant-memory-add input, .assistant-memory-editing input { flex: 1; min-width: 0; }
+.assistant-memory-add input, .assistant-memory-add select, .assistant-memory-editing input, .assistant-memory-editing select { padding: 10px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
+.assistant-memory-ended summary { cursor: pointer; font-size: 13px; color: var(--muted); min-height: 32px; }
+.assistant-memory-ended li > span:first-child { color: var(--muted); }
+.assistant-rules, .assistant-checks { border-top: 1px solid var(--border); padding-top: 18px; }
+.assistant-rule-list { list-style: none; margin: 10px 0; padding: 0; }
+.assistant-rule-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.assistant-rule-list span { min-width: 0; overflow-wrap: anywhere; }
+.assistant-rule-list .ui-button { flex: none; }
+.assistant-rule-add { display: flex; gap: 8px; }
+.assistant-rule-add input { flex: 1; min-width: 0; padding: 10px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
+.assistant-checks { border-top: 0; padding-top: 0; margin-bottom: 24px; max-width: 620px; }
+.assistant-checks .ui-check span, .assistant-memory .ui-check span { display: grid; gap: 3px; }
+.assistant-memory .ui-check { padding: 6px 0; }
+.assistant-checks textarea { min-height: 0; }
+@media (max-width: 600px) { .assistant-rule-add, .assistant-memory-add, .assistant-memory-editing, .assistant-memory li { flex-direction: column; align-items: stretch; } }

@@ -14,7 +14,12 @@ pub fn observed(name: &str, input: &Value) -> bool {
         }
         Some("ask_person") => crate::people_schema::observed(input),
         Some(
-            name @ ("suggest_thread" | "thread_reply" | "finish_thread" | "remember_about_person"),
+            name @ ("suggest_thread"
+            | "thread_reply"
+            | "finish_thread"
+            | "remember_about_person"
+            | "search_memory"
+            | "forget_memory"),
         ) => crate::thread_schema::observed(name, input),
         Some("save_working_context") => crate::working_context_schema::observed(input),
         Some("operations" | "handoff_targets" | "personal_panels" | "continue_privately") => {

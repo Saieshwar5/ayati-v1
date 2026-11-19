@@ -17,7 +17,10 @@ export function sectionNamed(value: string | null | undefined): WorkspaceSection
  * ("connection/operation") picks out one rule on the Connections tab. */
 export const agentSectionUrl = (agent: string, section: WorkspaceSection, action?: string) =>
   workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}${action ? `&action=${encodeURIComponent(action)}` : ''}`);
-export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection; select: (section: WorkspaceSection) => void }) {
+/** `labels` renames a tab on screen; links and saved choices keep the section's own name. */
+export function WorkspaceTabs({ selected, select, labels = {} }: {
+  selected: WorkspaceSection; select: (section: WorkspaceSection) => void; labels?: Partial<Record<WorkspaceSection, string>>;
+}) {
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   return <div className="agent-workspace-tabs" role="tablist" aria-label="Agent workspace sections">
@@ -28,6 +31,6 @@ export function WorkspaceTabs({ selected, select }: { selected: WorkspaceSection
           : event.key === 'ArrowLeft' ? (index + workspaceSections.length - 1) % workspaceSections.length
             : event.key === 'Home' ? 0 : event.key === 'End' ? workspaceSections.length - 1 : -1;
         if (next >= 0) { event.preventDefault(); select(workspaceSections[next]); buttons.current[next]?.focus(); }
-      }}>{section}</Button>)}
+      }}>{labels[section] ?? section}</Button>)}
   </div>;
 }

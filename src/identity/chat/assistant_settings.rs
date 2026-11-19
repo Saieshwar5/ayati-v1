@@ -1,6 +1,7 @@
 //! Routes for what a member's assistant knows about them, its regular checks,
 //! and drafts it writes for them (schema 129).
 use super::*;
+use crate::identity::postgres::assistants::memory::SaveMemory;
 use crate::identity::postgres::assistants::settings::{DraftRequest, SaveSettings};
 
 pub(super) fn routes() -> Router<Shared> {
@@ -8,6 +9,14 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/assistant/settings",
             get(read).post(save),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/assistant/memories",
+            get(memories).post(remember),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/assistant/memories/{id}/{change}",
+            post(change_memory),
         )
         .route("/api/identity/workspaces/{w}/assistant/drafts", post(draft))
         .route(
@@ -46,6 +55,46 @@ async fn save(
     Ok(Json(json!({"ok":true})))
 }
 
+/// The member's own memory list: what their assistant remembers about them.
+async fn memories(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.assistant_memories(&user, &w).await?))
+}
+
+/// The member adds a line or changes one of theirs; the same id saves once.
+async fn remember(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<SaveMemory>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    app.store.save_assistant_memory(&user, &w, &input).await?;
+    Ok(Json(json!({"ok":true})))
+}
+
+/// `remove` deletes a line for good; `restore` brings back one the assistant ended.
+async fn change_memory(
+    State(app): State<Shared>,
+    RoutePath((w, id, change)): RoutePath<(String, String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let restore = match change.as_str() {
+        "restore" => true,
+        "remove" => false,
+        _ => return Err(anyhow::anyhow!("Unknown memory change").into()),
+    };
+    app.store
+        .change_assistant_memory(&user, &w, &id, restore)
+        .await?;
+    Ok(Json(json!({"ok":true})))
+}
+
 /// Ask the assistant for a reply to send in a conversation. Nothing is posted there.
 async fn draft(
     State(app): State<Shared>,
@@ -75,8 +124,12 @@ async fn used(
     Json(input): Json<Used>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    app.store
+    if app
+        .store
         .draft_used(&user, &w, &reply, &input.message)
-        .await?;
+        .await?
+    {
+        app.runtimes.chat_wake.notify_one();
+    }
     Ok(Json(json!({"ok":true})))
 }
