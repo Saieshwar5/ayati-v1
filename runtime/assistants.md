@@ -1,4 +1,4 @@
-# Assistants: every member's own agent (schemas 127 to 137)
+# Assistants: every member's own agent (schemas 127 to 138)
 
 Built 2026-11-17, the first piece of the personal assistant plan. Agents work
 for the team; **your assistant works for you**. Concept screens for the whole
@@ -30,6 +30,81 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
 - **When its owner leaves** the workspace, the existing rule applies: an agent
   with no owner is paused and takes no work; its record stays for admins.
 
+## Memory (schema 138)
+
+Built 2026-11-19. An assistant's long-term memory: what it remembers about
+its person and their work across tasks. It replaces the two note texts of
+schema 129. Design notes from reading Mem0, Letta, Graphiti, LangMem and
+Anthropic's memory tool are at the end of this section.
+
+- **One short line per memory** (up to 300 characters, at most 500 current
+  lines a person), in five kinds: `about` (who they are), `style` (how they
+  write), `ways` (how they want things done), `people` (who they work with)
+  and `work` (lasting facts: projects, dates, decisions).
+- **Added, never rewritten.** The assistant keeps a line with
+  `remember_about_person {kind, text}` (the same words are kept once) and ends
+  one that stopped being true with `forget_memory {memory}`, then keeps the
+  new one. An ended line stays, unused, for its person to bring back or
+  delete. A model never edits or erases a line.
+- **In every task.** Current lines are given to the assistant with each
+  request, steady kinds first (about, style, ways, people, work) and newest
+  first, up to 6,000 characters, each as `[name] kind: text`. When more exist
+  the text says how many, and the assistant finds them with
+  `search_memory {query}` (any of the words, ranked, 15 lines).
+- **Information, never instructions.** The lines are labelled so. A kind that
+  is not one of the five is refused, and only a person writes rules.
+- **Where it learns from.** While working with its person (`chat`); from an
+  edited draft and from looking back (`review`); and lines its person writes
+  (`you`). Each line shows its source and date.
+- **Looking back.** About every 20 hours the controller checks, in code, what
+  the person and the assistant said in their own conversation since the last
+  look (not the threads of its schedules, checks, drafts or earlier looks).
+  Nothing from the person: no run. Otherwise one background run in the "What
+  I learned" thread is shown up to 40 messages (600 characters each) and may
+  keep up to five lines and end stale ones; it answers in one sentence. A
+  paused assistant or a full queue is tried again an hour later.
+- **Its person's alone.** They read, add, change, remove and bring back lines
+  under **Memory** on the assistant's page. Removing deletes for good. Nobody
+  else, admins included, has a route to them; another member's assistant
+  finds nothing and can end nothing.
+- **Switch.** *Keep learning on its own* (the `learn` setting of schema 137)
+  turns off both the edit learning and looking back. The assistant still
+  keeps what its person tells it to remember.
+
+`GET …/assistant/memories` returns `{memories, ended, most}`; `POST` with
+`{id, kind, text}` adds a line or changes the person's own (the same id saves
+once); `POST …/assistant/memories/{id}/remove` and `…/restore`.
+`…/assistant/settings` no longer carries `about` and `style`. Tables:
+`relay_assistant_memories`; `relay_assistant_settings` gains `reflected`,
+`reflect_next_ms` and `reflect_job`. Apply `m20261119_000138_assistant_memory`
+with the administrator migration procedure before starting this version: it
+copies each line of the old two texts into memory and leaves the old columns
+unread.
+
+Checks: PostgreSQL `assistants::memory::tests` (a person's line saved once
+and private; a fact kept once by the assistant, given with every task and
+found by a word; a wrong kind refused; another member's assistant finding and
+ending nothing; a line ended, brought back, changed and removed; the overflow
+note; looking back only when its person said something, one run at a time,
+its line marked `review`, never at its own look, and off with learning),
+guest `thread_schema`, and web `tests/assistant-page.test.mjs`. The page was
+looked at in a browser against canned API answers. **Not run with a real
+model**: whether it keeps the right things is unproven.
+
+Why it is built this way, and not by adding one of those projects: they are
+Python or TypeScript services with their own vector or graph store, and
+would need Cuckoo's per-person access rules built a second time. From them:
+a small always-present memory plus search (Letta); a background pass over
+recent work (Letta, LangMem); add-only writes, which Mem0 moved to after
+letting a model update and delete; ending a contradicted fact instead of
+erasing it (Graphiti); and a recorded source for every line, kept apart from
+instructions, against planted memories.
+
+Limits: search is by words, not meaning (the Library's pgvector search is
+not used yet); a line's source says who wrote it, not which message taught
+it; nothing learned from connected apps is marked as less trusted; looking
+back does not yet propose skills.
+
 ## Set up on its agent page (2026-11-19)
 
 An assistant is set up where every agent is: its page in Agents. The separate
@@ -38,9 +113,9 @@ of your chat with it now opens that page.
 
 - **About you** is the assistant's name for the Instructions tab (an admin
   looking at someone else's assistant sees it as **Rules and skills**):
-  - *What it knows about you* and *How you write*, shown to its person only.
-    The texts belong to the member, not the agent, so an admin never reads
-    them and the page does not ask for them on someone else's assistant.
+  - **Memory** (above), shown to its person only. It belongs to the member,
+    not the agent, so an admin never reads it and the page does not ask for
+    it on someone else's assistant.
   - **Rules** in place of the instructions box: short lines (up to 300
     characters, at most 40), added and removed one at a time, each saved at
     once. They are kept as the agent's `settings.instructions`, one rule per
@@ -57,16 +132,15 @@ of your chat with it now opens that page.
 - **Connections** and **Settings** (apps, MCP servers, computer, model, usage
   and budgets) are the ordinary tabs, unchanged.
 - **Overview** says who it works for and counts its rules.
-- `POST …/assistant/settings` now takes any subset of `{about, style, checks,
-  every_minutes, checklist}` and keeps the fields left out, so the notes and
-  the checks save separately and neither overwrites the other.
+- `POST …/assistant/settings` takes any subset of `{checks, every_minutes,
+  checklist, learn}` and keeps the fields left out, so each part of the page
+  saves its own.
 
 Checks: PostgreSQL `an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting`
 (a save of some fields keeps the others) and web `tests/assistant-page.test.mjs`
-(notes and checks each send only their own fields and keep a failed draft;
-a rule added once despite a double submit, kept on a failed save, removed; the
-tab's name; an admin sees no notes and the page never reads them). Not yet
-checked in a live browser.
+(checks send only their own fields; a rule added once despite a double
+submit, kept on a failed save, removed; the tab's name; an admin sees no
+memory and the page never reads it).
 
 ## Learning from your edits (schema 137)
 
@@ -75,17 +149,17 @@ Built 2026-11-19. The first way an assistant gets better on its own.
 - **The signal.** When you send a message your assistant drafted and the text
   differs from its draft (more than spacing), the assistant is shown both
   texts once. A draft sent as written teaches nothing and starts no run.
-- **What it does.** One run in a "What I learned from your edits" thread in
-  its room, as background work. It may keep up to two short lines with
+- **What it does.** One run in the "What I learned" thread in its room, as
+  background work. It may keep up to two short lines with
   `remember_about_person` (how you write, or something lasting about you) and
   answers in one sentence what it kept, so you can see why a line appeared.
   A one-off change of facts is to be ignored.
-- **Yours to see and undo.** What it keeps lands in *What it knows about you*
-  and *How you write* on its page, where you edit or remove any line. Unlike a
+- **Yours to see and undo.** What it keeps lands in its [memory](#memory-schema-138),
+  where you edit or remove any line. Unlike a
   team agent's [lessons](agent-learning.md), nothing waits for approval,
   because the notes reach only your own assistant. They are given to it as
   information, never instructions; rules are only ever added by you.
-- **Switch.** *Learn from my edits* under About you, on by default
+- **Switch.** *Keep learning on its own* under Memory, on by default
   (`relay_assistant_settings.learn`, sent as `learn` to `…/assistant/settings`).
 - **Never in the way.** The private record on your sent message is saved
   first. A paused assistant, a full queue or a used-up budget means that edit
@@ -219,10 +293,8 @@ starting this version; startup never applies migrations.
   back what you had typed. You edit and send it yourself. The message is yours;
   only you see your assistant's mark beside its time, and an Audit line records
   that a drafted message was sent.
-- **What it knows about you.** Two short texts, given to your assistant with
-  every task: *about you* and *how you write*. Your assistant adds one line at a
-  time with `remember_about_person` (kept once, never secrets); you read and
-  edit both on your assistant's page in Agents, under **About you**.
+- **What it knows about you.** Until schema 138 two short texts, *about you*
+  and *how you write*; now its [memory](#memory-schema-138).
 - **Regular checks.** Off until you turn it on under **Automations** on that
   page, with how often (30 minutes
   to once a day) and an optional checklist. At each check the controller looks
@@ -231,8 +303,8 @@ starting this version; startup never applies migrations.
   Otherwise your assistant runs once, in one "Regular check" thread in its
   room, and tells you what needs you and what it suggests. It answers nobody.
 
-`GET/POST …/assistant/settings` (`{about, style, checks, every_minutes,
-checklist}`; a save may send any of them), `POST …/assistant/drafts` (`{id, chat, thread, instruction}` returns
+`GET/POST …/assistant/settings` (`{checks, every_minutes, checklist, learn}`;
+a save may send any of them), `POST …/assistant/drafts` (`{id, chat, thread, instruction}` returns
 `{chat, reply}`), `GET …/assistant/drafts/{reply}` (`{state, text}`) and
 `POST …/assistant/drafts/{reply}/used` (`{message}`). Table
 `relay_assistant_settings`.
@@ -286,9 +358,10 @@ visit.
 
 ## Not built yet
 
-- Learning from more than draft edits: a chat you stopped it in, corrections
-  in its own chat, and proposing a skill when you ask for the same kind of
-  work again.
+- Learning from a chat you stopped it in and from refused approvals, and
+  proposing a skill when you ask for the same kind of work again.
+- Memory search by meaning, a link from a line to the message that taught
+  it, and lower trust for lines learned from connected apps.
 - Hiding what an assistant read in its person's own apps (mail, calendar)
   from admins in Activity. Today admins see an assistant's work like any
   agent's.

@@ -14,6 +14,8 @@ use crate::identity::{
     chat::model::NewChat,
 };
 
+#[path = "assistant_memory.rs"]
+pub(crate) mod memory;
 #[path = "assistant_settings.rs"]
 pub(crate) mod settings;
 #[cfg(test)]

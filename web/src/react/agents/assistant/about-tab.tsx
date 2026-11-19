@@ -5,14 +5,14 @@ import { AgentSkills } from '../skills/agent-skills';
 import { AgentSkillChat } from '../skills/agent-skill-chat';
 import { AlwaysRead } from '../../library/always-read';
 import { EverythingItReceives, SystemPromptCard } from '../system-prompt';
-import { AboutYou } from './about-you';
+import { AssistantMemory } from './memory';
 import { AssistantRules } from './rules';
 import './assistant.css';
 
-/** A member's own assistant, in place of the Instructions tab: what it knows
- * about its person, its rules and its skills. There is no instructions box:
- * rules are short lines kept as the agent's instructions, one per line. The
- * notes about a person are theirs alone, so an admin looking at someone
+/** A member's own assistant, in place of the Instructions tab: its memory of
+ * its person, its rules and its skills. There is no instructions box:
+ * rules are short lines kept as the agent's instructions, one per line. Its
+ * memory of a person is theirs alone, so an admin looking at someone
  * else's assistant sees its rules and skills only. */
 export function AssistantAboutTab({ agent, rules, saved }: { agent: Agent; rules: string; saved: () => Promise<void> }) {
   // The revision the list was last saved at, so a save never overwrites a newer change.
@@ -36,7 +36,7 @@ export function AssistantAboutTab({ agent, rules, saved }: { agent: Agent; rules
   };
   return <div className="agent-instructions-tab">
     <div className="agent-create-main">
-      {agent.is_owner && <AboutYou name={agent.name} />}
+      {agent.is_owner && <AssistantMemory name={agent.name} />}
       <AssistantRules name={agent.name} text={text} editable={Boolean(agent.editable)} busy={mutation.busy} status={mutation.status} save={save} />
       <AgentSkills key={skillsRevision} agent={agent} />
       <AlwaysRead agent={agent} />
