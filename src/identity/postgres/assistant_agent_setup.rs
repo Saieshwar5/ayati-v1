@@ -13,6 +13,8 @@
 //!   them through the ordinary agent and skill routes.
 //! - **Rules stay a person's.** For someone's assistant no ground rules are
 //!   drafted: only its person writes them.
+//! - **Or asked for in chat.** In its own chat with its person the assistant
+//!   may begin a draft for a new agent itself (assistant_agent_setup_chat.rs).
 use super::super::*;
 use crate::identity::chat::model::{Job, NewMessage};
 use crate::identity::skill_writer::{Request as Setup, answer, guide};
@@ -20,6 +22,11 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashSet;
 
+#[path = "assistant_agent_setup_chat.rs"]
+pub(in crate::identity::postgres) mod chat;
+#[cfg(test)]
+#[path = "assistant_agent_setup_chat_tests.rs"]
+mod chat_tests;
 #[cfg(test)]
 #[path = "assistant_agent_setup_tests.rs"]
 mod tests;
@@ -28,7 +35,7 @@ mod tests;
 const MOST_PARTS: i32 = 40;
 /// The most bytes of skill steps the assistant is shown in one turn.
 const STEPS_SHOWN: usize = 24_000;
-const NOT_A_SETUP: &str = "Use this only in a task where your person asks for help setting up an agent in New agent or on an agent's page.";
+const NOT_A_SETUP: &str = "Use this only for your own person: when they ask you in your chat with them for a new agent, or for help in New agent or on an agent's page.";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -84,7 +91,7 @@ fn kept(input: &Part) -> std::result::Result<Value, &'static str> {
         "remove_skill" | "reuse_skill" | "needs_app" => name
             .map(|name| json!({"part": input.part, "name": name}))
             .ok_or("Send its name."),
-        "job_title" | "used" => text
+        "name" | "job_title" | "used" => text
             .map(|text| json!({"part": input.part, "text": text}))
             .ok_or("Send it as text."),
         _ => Err("Unknown part."),
@@ -95,6 +102,8 @@ fn kept(input: &Part) -> std::result::Result<Value, &'static str> {
 #[derive(Default)]
 struct Drafted {
     raw: answer::Raw,
+    /// The agent's name, when its assistant chose one in chat.
+    name: Option<String>,
     job_title: Option<String>,
     used: Vec<String>,
     notes: Vec<String>,
@@ -125,9 +134,18 @@ fn drafted(parts: &[Value], reply: String, rules: bool) -> Drafted {
                     steps: text(part, "text"),
                 });
             }
-            "remove_skill" => out.raw.remove.push(text(part, "name")),
+            "remove_skill" => {
+                // It also drops a skill drafted earlier in these parts.
+                let name = answer::slug(&text(part, "name"));
+                out.raw.skills.retain(|s| answer::slug(&s.name) != name);
+                out.raw.remove.push(name);
+            }
             "reuse_skill" => out.raw.reuse.push(text(part, "name")),
             "needs_app" => out.raw.missing_apps.push(text(part, "name")),
+            "name" => {
+                out.name =
+                    Some(answer::one_line(&text(part, "text"), 80)).filter(|name| !name.is_empty());
+            }
             "job_title" => {
                 out.job_title = Some(answer::one_line(&text(part, "text"), 80))
                     .filter(|title| !title.is_empty());
@@ -290,8 +308,13 @@ impl PgStore {
         )
         .await?;
         Ok(match row {
-            Some(row) => Some(guide::assistant_setup(&row.try_get::<Value>("", "shown")?)),
-            None => None,
+            Some(row) => match row.try_get::<Value>("", "shown")? {
+                // A draft it began itself in chat has no setup to show.
+                Value::Null => None,
+                shown => Some(guide::assistant_setup(&shown)),
+            },
+            // An ordinary task in its own chat: the draft it made there earlier.
+            None => chat::carried(&self.db, job).await?,
         })
     }
 
@@ -304,26 +327,33 @@ impl PgStore {
         if !ready(&tx).await? {
             return Ok(invalid(NOT_A_SETUP));
         }
-        // Only the turn's own assistant, working for the member who asked.
-        let Some(row) = query(
-            &tx,
-            "SELECT jsonb_array_length(s.parts) AS parts FROM relay_agent_setups s
-             JOIN relay_assistants a ON a.workspace=s.workspace AND a.user_id=s.user_id AND a.agent=$3
-             WHERE s.workspace=$1 AND s.reply=$2 AND s.user_id=$4 FOR UPDATE OF s",
-            vec![
-                job.workspace.clone().into(),
-                job.reply.clone().into(),
-                job.agent.clone().into(),
-                job.requester.clone().into(),
-            ],
-        )
-        .await?
-        else {
-            return Ok(invalid(NOT_A_SETUP));
-        };
         let part = match kept(input) {
             Ok(part) => part,
             Err(message) => return Ok(invalid(message)),
+        };
+        // Only the turn's own assistant, working for the member who asked.
+        let turn = || {
+            query(
+                &tx,
+                "SELECT jsonb_array_length(s.parts) AS parts FROM relay_agent_setups s
+                 JOIN relay_assistants a ON a.workspace=s.workspace AND a.user_id=s.user_id AND a.agent=$3
+                 WHERE s.workspace=$1 AND s.reply=$2 AND s.user_id=$4 FOR UPDATE OF s",
+                vec![
+                    job.workspace.clone().into(),
+                    job.reply.clone().into(),
+                    job.agent.clone().into(),
+                    job.requester.clone().into(),
+                ],
+            )
+        };
+        let row = match turn().await? {
+            Some(row) => Some(row),
+            // In its own chat with its person it may begin a draft itself.
+            None if chat::begin(&tx, job).await? => turn().await?,
+            None => None,
+        };
+        let Some(row) = row else {
+            return Ok(invalid(NOT_A_SETUP));
         };
         if row.try_get::<i32>("", "parts")? >= MOST_PARTS {
             return Ok(
@@ -372,6 +402,7 @@ impl PgStore {
             .collect();
         let Drafted {
             raw,
+            name,
             job_title,
             used,
             notes,
@@ -380,17 +411,49 @@ impl PgStore {
             row.try_get("", "content")?,
             request["rules"] != false,
         );
-        let mut answer = answer::checked(
-            raw,
-            request["name"].as_str().unwrap_or_default(),
-            &own,
-            &context,
-        );
+        // A draft begun in chat is for a new agent the assistant named.
+        let in_chat = request["from"] == "chat";
+        let agent_name = match (&name, in_chat) {
+            (Some(name), true) => name.as_str(),
+            _ => request["name"].as_str().unwrap_or_default(),
+        };
+        let mut answer = answer::checked(raw, agent_name, &own, &context);
         answer.notes.extend(notes);
         let mut out = serde_json::to_value(answer)?;
         out["state"] = json!("complete");
         out["job_title"] = json!(job_title);
         out["used"] = json!(used);
+        if in_chat {
+            let agent = request["agent_id"].as_str().unwrap_or_default();
+            out["from"] = json!("chat");
+            out["name"] = json!(name);
+            out["agent_id"] = json!(agent);
+            out["created"] = json!(!self.agent_is_new(w, agent).await?);
+            // A later reply carried this draft on: Chat shows that one.
+            out["replaced"] = json!(
+                query(
+                    &self.db,
+                    "SELECT 1 AS found FROM relay_agent_setups s JOIN relay_agent_setups n ON n.workspace=s.workspace AND n.user_id=s.user_id
+                       AND n.request->>'agent_id'=s.request->>'agent_id' AND jsonb_array_length(n.parts)>0 AND (n.created_ms,n.reply)>(s.created_ms,s.reply)
+                     WHERE s.workspace=$1 AND s.reply=$2 LIMIT 1",
+                    vec![w.into(), reply.into()],
+                )
+                .await?
+                .is_some()
+            );
+            // Each skill's own id, the same on every read, so creating twice saves it once.
+            for skill in out["skills"].as_array_mut().into_iter().flatten() {
+                let seed = format!("{reply}\n{}", skill["name"].as_str().unwrap_or_default());
+                let hash = ring::digest::digest(&ring::digest::SHA256, seed.as_bytes());
+                let mut bytes = [0u8; 16];
+                bytes.copy_from_slice(&hash.as_ref()[..16]);
+                skill["id"] = json!(
+                    uuid::Builder::from_random_bytes(bytes)
+                        .into_uuid()
+                        .to_string()
+                );
+            }
+        }
         Ok(out)
     }
 }

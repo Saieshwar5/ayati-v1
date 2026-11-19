@@ -53,14 +53,16 @@ stays as the fallback, and without either both are written by hand.
 - **Handed back in parts.** `write_agent_setup {part, name?, description?,
   text?}`, one call per part: `ground_rules`, `skill`, `remove_skill`,
   `reuse_skill`, `needs_app`, `job_title` (only suggested when the agent has
-  none) and `used` (one line it relied on from its memory or the Library,
-  shown as "What Ayati used" so you can check it). At most 40 parts a turn.
+  none), `used` (one line it relied on from its memory or the Library,
+  shown as "What Ayati used" so you can check it) and, in chat only, `name`.
+  At most 40 parts a turn.
 - **Nothing is saved by it.** Parts are kept on the turn
   (`relay_agent_setups`). Reading a turn runs the skill writer's checks: valid
   names, free in the workspace, a SKILL.md that passes the upload checks. You
   review the drafts in the same boxes as before and save through the ordinary
   agent and skill routes: Create agent, or one proposal at a time on a saved
-  agent. The tool is refused in any other task and for anyone else's turn.
+  agent. A part is kept only on the reply it was handed back with: no other
+  task, and nobody else's assistant, can write on your turn.
 - **Rules stay a person's.** When the agent being changed is someone's
   assistant, no ground rules are drafted, and one handed back anyway is left
   out with a note.
@@ -98,9 +100,61 @@ unmeasured.
 Limits: a setup turn has all of the assistant's usual tools; it is told to do
 nothing else, but a task is not yet limited to reading. A turn still being
 written when the page is reloaded is not picked up again (it stays in the
-Agent setup thread). After Create agent nothing yet lists the apps the
-assistant said the agent needs. Asking for an agent from your ordinary chat
-with your assistant is not built.
+Agent setup thread). After Create agent in New agent nothing yet lists the
+apps the assistant said the agent needs.
+
+### Asked for in your chat with it
+
+Built 2026-11-19. You can ask your assistant for a new agent in your ordinary
+chat with it ("I need an agent that chases unpaid invoices"), with no form.
+
+- **It drafts on its reply.** Its instructions now say how: with
+  `write_agent_setup` it hands back a `name`, a job title, ground rules,
+  skills, the apps the job needs and what it used. The first part begins a
+  draft on that reply. This works only in its own chat with its own person:
+  not for another agent, in another conversation, or in the threads of its
+  schedules, checks, drafts and setup turns.
+- **A card under the reply, for you alone,** shows the whole draft: every
+  ground rule, each skill with its steps, the apps and what it used. Nobody
+  else gets the card, and nothing exists yet.
+- **You create it.** **Create agent** on the card saves the agent and its
+  skills through the ordinary routes, with you as its owner and everyone in
+  the workspace able to talk to it; the card says so first. The agent's id and
+  each skill's id come with the draft, so creating again after a failure
+  updates the same agent and saves each skill once. Afterwards the card reads
+  Created and links to its Connections tab and its page.
+- **Or review it first.** **Review in New agent** opens the same draft in the
+  three steps (`?view=agents&setup=<reply>`), where it is edited, kept and
+  created as any new agent.
+- **Changes carry on.** "Make it more formal" in a later message changes only
+  those parts: for a day, until the agent exists, the next reply starts from
+  the draft before it, under the same agent id, and is shown that draft with
+  its request. The earlier card then reads "earlier draft, replaced by the
+  one below", and Create on a card checks for a newer draft first.
+- **What it can't do** is unchanged: it creates nothing, connects no apps and
+  sets no controls.
+
+A chat message carries `agent_setup: true` for the person the draft is for.
+`GET …/assistant/agent-setup/{reply}` adds `from: "chat"`, `name`, `agent_id`,
+`created`, `replaced` and an `id` on each skill.
+
+Checks: PostgreSQL `assistants::setup::chat_tests` (a draft begun on the
+reply, its card for its person only, stable ids, a change carrying on under
+the same agent, a dropped skill, the earlier draft marked replaced, created
+through the ordinary save, a new draft afterwards, nothing carried after a
+day; refused for another agent and in the drafts thread) and web
+`tests/agent-draft-card.test.mjs` (the whole draft shown, one save despite a
+double click, a failed save kept and retried, the created state, nothing
+while the reply is written, a replaced and an unnamed draft, the Agents
+link). The card was looked at in a browser with canned answers. **Not run
+with a real model**: whether the assistant reaches for the tool when asked,
+and how good its drafts are, is unproven.
+
+Limits: only new agents (to change a saved agent's skills, use its
+Instructions tab); a card already on screen learns that it was replaced when
+the page is read again or when Create is pressed; an agent created from the
+card whose skills then fail to save shows as Created after a reload, with
+the missing skills to add on its page.
 
 ## Memory (schema 138)
 

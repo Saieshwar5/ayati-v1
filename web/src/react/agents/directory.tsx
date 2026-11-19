@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { defaults, loadAgents, type Agent } from './model';
 import { AgentCreate, newAgent } from './create/create-flow';
-import { agentFrom, discardDraft, keepDraft, loadSavedDraft, type SavedDraft } from './create/saved-draft';
+import { agentFrom, discardDraft, keepDraft, loadChatDraft, loadSavedDraft, type SavedDraft } from './create/saved-draft';
 import { identityRequest, storageScope, workspaceId, workspaceUrl, workspaceSession } from '../../workspace-context';
 import type { Conversation } from '../chat/model';
 import { AgentAvatar } from './avatar';
@@ -42,6 +42,16 @@ export function AgentsPage() {
     setShowProfile(true);
   };
   const ended = () => { setCreating(undefined); kept.setData(undefined); };
+  // A link from a draft your assistant made in chat ("Review in New agent") opens it here.
+  const linkedDraft = new URLSearchParams(location.search).get('setup');
+  const fromChat = useResource(useCallback(async () => linkedDraft ? loadChatDraft(linkedDraft) : undefined, [linkedDraft]));
+  const ready = Boolean(data);
+  useEffect(() => {
+    if (!fromChat.data || !data) return;
+    setCreating({ agent: agentFrom(fromChat.data, newAgent(data)), resume: fromChat.data });
+    setShowProfile(true);
+  // Opened once per draft, when both it and the directory are here.
+  }, [fromChat.data, ready]);
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;
