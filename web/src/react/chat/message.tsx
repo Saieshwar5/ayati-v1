@@ -6,6 +6,7 @@ import { filesOnlyContent, type Directory, type Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
 import { RoutineCard } from './routine-proposal';
+import { AgentDraftCard } from './agent-draft-card';
 import { ReplyProgress, useCancelReply } from './reply-progress';
 import { QuotedMessage } from './quoted-message';
 import { QuestionCards } from '../questions/card';
@@ -75,6 +76,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
       {message.approval && <ApprovalCard reference={message.approval} />}
       {message.task && <TaskChip task={message.task} />}
       {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
+      {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
       {!own && edited}

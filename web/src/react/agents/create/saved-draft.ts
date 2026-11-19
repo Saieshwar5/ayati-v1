@@ -1,6 +1,7 @@
 import { identityRequest, workspaceId } from '../../../workspace-context';
 import type { Agent, Audience } from '../model';
-import type { ChatMessage, LibraryPick } from '../skills/writer-model';
+import { readAssistantAnswer, type ChatMessage, type LibraryPick } from '../skills/writer-model';
+import { defaultRobot } from '../../faces';
 
 /** New agent as far as the person got (schema 139). It is kept on the server,
  * one per person and workspace, so a reload or another device does not lose
@@ -25,6 +26,17 @@ export async function loadSavedDraft(): Promise<SavedDraft | undefined> {
 export const keepDraft = async (draft: SavedDraft) => { await identityRequest(path, draft); };
 /** Drops the draft with this id; a newer one is kept. */
 export const discardDraft = async (id: string) => { await identityRequest(`${path}/discard`, { id }); };
+
+/** A draft your assistant made in your chat with it, to review in New agent.
+ * Nothing when it is not finished, not from chat, or its agent already exists. */
+export async function loadChatDraft(reply: string): Promise<SavedDraft | undefined> {
+  const draft = await readAssistantAnswer(reply);
+  if (draft.state !== 'complete' || draft.from !== 'chat' || !draft.agent_id || draft.created) return undefined;
+  return { id: draft.agent_id, name: draft.name ?? '', role: draft.job_title ?? '', avatar: defaultRobot(draft.agent_id),
+    instructions: draft.ground_rules ?? '', audience: 'everyone', people: [], step: draft.name ? 1 : 0,
+    skills: (draft.skills ?? []).map(({ id, name, description, steps }) => ({ id: id ?? crypto.randomUUID(), name, description, steps })),
+    library: draft.reuse ?? [], messages: [] };
+}
 
 /** The agent a kept draft carries on from, on top of a fresh one's defaults. */
 export function agentFrom(saved: SavedDraft, fresh: Agent): Agent {
