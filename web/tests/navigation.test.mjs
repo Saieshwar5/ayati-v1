@@ -376,7 +376,7 @@ test('rebrands only the built-in guide while preserving custom agent names', asy
   }
 });
 
-test('your assistant sits first in the chat list, in its own section, and says who can see it', async () => {
+test('your assistant is the first row in the chat list, once, and says who can see it', async () => {
   const chats = [
     {id:'dm-hr',name:'HR Desk',kind:'direct',description:'',users:['owner'],agents:['hr']},
     {id:'dm-mine',name:'Ayati',kind:'direct',description:'',users:['owner'],agents:['mine']}];
@@ -387,7 +387,8 @@ test('your assistant sits first in the chat list, in its own section, and says w
       await until(update,()=>document.querySelector('.chat-contact'));
       const sections = [...document.querySelectorAll('.chat-directory-scroll section')];
       assert.equal(sections[0].getAttribute('aria-label'), 'Your assistant');
-      assert.match(sections[0].textContent, /Your assistant.*Ayati/);
+      assert.match(sections[0].textContent, /^Ayati/, 'one row: no heading and nothing under it');
+      assert.equal(sections[0].querySelectorAll('a, button:not(.chat-pin-button)').length, 1);
       const direct = sections.find(section => section.textContent.includes('Direct messages'));
       assert.match(direct.textContent, /HR Desk/);
       assert.equal(direct.textContent.includes('Ayati'), false, 'listed once, not again under Direct messages');

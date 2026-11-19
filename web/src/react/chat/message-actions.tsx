@@ -6,6 +6,7 @@ import { AgentFace } from '../faces';
 import { chatRequest, type AgentReaction, type Directory, type Message } from './model';
 import type { useCancelReply } from './reply-progress';
 import { ForwardIcon } from './forward-message';
+import { AssistantMark } from './assistant-threads';
 import './message-actions.css';
 
 /** Must match the server's fixed set (postgres/message_actions.rs). */
@@ -58,8 +59,10 @@ function ReactionPicker({ open, setOpen, choose, busy }: { open: boolean; setOpe
 }
 
 /** Appears on hover or focus: quick reactions, reply in thread and More. */
-export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove, details, keep, forward }: {
+export function MessageToolbar({ message, own, reactions, cancel, reply, openThread, edit, remove, details, keep, forward, takeOver }: {
   forward?: () => void;
+  /** Hand this direct chat over to your assistant, starting from this message (schema 136). */
+  takeOver?: { label: string; open: () => void };
   message: Message; own: boolean; reactions: ReturnType<typeof useReactions>; cancel: ReturnType<typeof useCancelReply>;
   reply?: () => void; openThread?: () => void; edit: () => void; remove: () => void;
   /** Save the message as a Library page (LB5). */
@@ -89,6 +92,7 @@ export function MessageToolbar({ message, own, reactions, cancel, reply, openThr
     {quote && <button type="button" className="chat-message-tool" aria-label="Reply" title="Reply: quote it in the conversation" onClick={quote}>↩</button>}
     {deliverable && forward && <button type="button" className="chat-message-tool chat-forward-tool" aria-label="Forward" title="Forward to a person or an agent" onClick={forward}><ForwardIcon /></button>}
     {openThread && <button type="button" className="chat-message-tool chat-thread-tool" aria-label="Reply in thread" title="Reply in thread" onClick={openThread}><ThreadIcon /></button>}
+    {deliverable && takeOver && <button type="button" className="chat-message-tool chat-takeover-tool" aria-label={takeOver.label} title={takeOver.label} onClick={takeOver.open}><AssistantMark size={16} /></button>}
     {stored && <span className="chat-message-more">
       <button type="button" className="chat-message-tool" aria-label="More actions" aria-expanded={more} title={copied ? 'Link copied' : 'More'} onClick={() => { place(); setMore(!more); }}>⋯</button>
       {more && <span className="chat-message-menu" role="menu">

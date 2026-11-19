@@ -9,6 +9,8 @@ export type AssistantThread = {
   title: string; opening: string; chat: string | null;
   state: 'suggested' | 'running' | 'stopped'; detail: string; sent: number;
   origin: 'assistant' | 'owner'; updated_ms: number;
+  /** A chat handed over from a message (schema 136): what you asked, and the message it started from. */
+  instruction?: string; anchor?: string | null; created_ms?: number;
   /** Your assistant is writing its next message. */
   working: boolean;
   /** Where your assistant keeps its notes on this thread, in your chat with it. */
@@ -48,3 +50,12 @@ export function useAssistantThreads(assistant: string | undefined, room: string 
 
 export const setThreadState = (id: string, state: 'running' | 'stopped' | 'deleted') =>
   chatRequest(`/assistant/threads/${encodeURIComponent(id)}/state`, { state });
+
+/** Hand a direct chat over from one of the other side's messages; the same ID starts once. */
+export const takeOver = (id: string, chat: string, message: string, instruction: string) =>
+  chatRequest<{ chat: string }>('/assistant/take-over', { id, chat, message, instruction });
+/** The thread to show for a chat: the running one, else the latest stopped one. */
+export function threadIn(threads: AssistantThread[], chat: string) {
+  const here = threads.filter(thread => thread.chat === chat && thread.state !== 'suggested');
+  return here.find(thread => thread.state === 'running') ?? here[0];
+}

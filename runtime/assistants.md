@@ -17,9 +17,9 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   its owner and admins, and opening one from a chat they are not in is recorded
   in the audit log ([activity](activity.md#who-sees-what)). Admins can't talk
   to someone else's assistant.
-- **First in Chat.** Your assistant's chat sits in its own section, "Your
-  assistant", above Channels, and is not repeated under Direct messages. Its
-  chat says: "Ayati is your assistant. Only you can talk to it. You and
+- **First in Chat.** Your assistant's chat is the first row of the chat list,
+  above Channels, with no heading and nothing under it (2026-11-19), and is not
+  repeated under Direct messages. Its chat says: "Ayati is your assistant. Only you can talk to it. You and
   workspace admins can see its work."
 - **No new "Only me" agents.** New agents are for everyone or selected people.
   An agent saved as Only me before keeps working and keeps that choice when
@@ -57,12 +57,13 @@ person for you about one matter**, until you stop it.
 
 - **Your assistant only suggests a thread** (`suggest_thread`: who, a short title
   and the opening message). The suggestion shows at the top of your chat with
-  your assistant and in the Threads window. Nothing is sent until you press
-  **Start thread**. You can also write a thread yourself with **New thread**.
+  your assistant. Nothing is sent until you press **Start**. You start one
+  yourself by [handing a chat over from a message](#handing-a-chat-over-from-a-message-schema-136).
 - **Every message is yours.** The opening message and every answer your
   assistant sends (`thread_reply`) are ordinary messages from you in your direct
   chat with that agent or person. They read them as written by you. Only you see
-  the line "Written by Ayati · <title>" under such a message
+  your assistant's mark and name beside the time of such a message (its title
+  on hover)
   (`relay_chat_messages.assisted`, returned to its author only); admins have the
   same record in the database and the Audit log lines below.
 - **It runs on its own.** While a thread runs, each answer from the other side
@@ -70,15 +71,20 @@ person for you about one matter**, until you stop it.
   the answer), one run at a time, as a thread named "Thread: <title> · <name>"
   in your chat with it. That thread holds its notes and what it tells you. You can
   write in the chat with the other side yourself at any time.
-- **Stop, resume, delete.** A banner at the top of the chat where a thread runs
-  says so and has **Stop**. A stopped thread sends nothing; **Resume** hands
+- **Stop, resume, delete.** A pill in the header of the chat where a thread runs
+  says "<name> is replying" (or "is writing…") and has **Stop**; pressing its
+  words shows what you asked and how many messages it sent. A stopped thread
+  shows "<name> stopped" with **Resume** and **Delete** and sends nothing; **Resume** hands
   your assistant whatever arrived meanwhile. **Delete** removes the thread and
   your assistant's notes about it; the messages already sent stay, as yours.
   Your assistant ends a thread itself with `finish_thread` when the matter is
   settled.
-- **Where threads show:** under your assistant in the chat list (each running
-  thread opens the chat it runs in), **Threads** there opens the window with
-  suggested, running and stopped threads.
+- **Where threads show:** a green mark on that chat's row in the chat list
+  (grey once stopped), the pill in that chat's header, and a strip at the top
+  of your assistant's own chat listing every chat it replies in, with Open,
+  Stop, Resume and Delete. The Threads window and the rows under your
+  assistant were removed on 2026-11-19; "thread" is no longer a word in the
+  interface, where it means replies under a message.
 - **Limits:** one running thread per chat; a thread is never with an assistant
   or with yourself; your assistant can only write in your threads, only while
   they run; after 30 sent messages a thread stops and waits for you; the same
@@ -88,25 +94,63 @@ person for you about one matter**, until you stop it.
   decision or information you did not agree to share.
 
 `GET/POST /api/identity/workspaces/{w}/assistant/threads` (`{id, kind, counterpart,
-title, opening}` creates and starts) and `POST …/assistant/threads/{id}/state`
+title, opening}` creates and starts; the web client no longer calls it) and `POST …/assistant/threads/{id}/state`
 with `{state: "running"|"stopped"|"deleted"}`. Tables `relay_work_threads` and
 `relay_work_thread_sends`.
 
+## Handing a chat over from a message (schema 136)
+
+Built 2026-11-19. The earlier way to start a thread yourself (a form asking who,
+a title and a first message you wrote) is gone from the interface.
+
+- **From a message.** In a direct chat with one person or one agent, each
+  message the other side sent has your assistant's mark on its toolbar: "Let
+  <name> take over from here". It is not offered on your own messages, in
+  channels, groups, your assistant's own chat, archived chats or while a thread
+  already runs in that chat.
+- **One instruction.** A small window quotes the message and asks "What should
+  <name> do?" (up to 1000 characters). No title, no first message.
+- **The assistant writes the first reply.** The thread is saved running in that
+  chat with `instruction` and `anchor` (the chosen message). Nothing is sent for
+  you first. `handled` is set just before the anchor, so the scheduler hands
+  the assistant that message and everything after it at once, with "What your
+  person asked you to do there: …". Its first `thread_reply` goes out as yours
+  without you reading it first; Stop, the 30-message limit and the Audit log
+  line ("Handed the chat with <name> to their assistant: …") are the controls.
+- **In the conversation** a thin line, "<name> took over from here", sits above
+  the anchor message. Only you see it.
+- The title used in lists, the Audit log and the mark on sent messages is the
+  instruction on one line, cut to 80 characters.
+
+`POST …/assistant/take-over` with `{id, chat, message, instruction}` returns
+`{chat}`; the same ID starts once. The server derives the other side from the
+chat and refuses a message that is not theirs, a chat that is not a two-sided
+direct chat you can read, another member's assistant, and a second running
+thread in the chat. Thread listings add `instruction`, `anchor` and
+`created_ms`. Apply `m20261119_000136_assistant_thread_takeover` (two columns on
+`relay_work_threads`) with the administrator migration procedure before
+starting this version; startup never applies migrations.
+
 ## Drafts, notes about you and regular checks (schema 129)
 
-- **Draft with Ayati.** Above the message box of every conversation except
-  your assistant's own, **Draft with <name>** asks your assistant for a reply.
-  What you have typed is sent along as "what I want to say". Your assistant
-  reads the last 20 messages you can read there (without the restricted
-  sources that agents never keep) and writes the draft in a "Drafts" thread in
-  its own room. **Nothing is posted in the conversation.** The draft shows above
-  the message box, to you only; **Use draft** puts it in the box, and you edit
-  and send it yourself. The message is yours; only you see "Written by <name> ·
-  Draft" under it, and an Audit line records that a drafted message was sent.
+- **Draft with Ayati.** In the message box of every conversation except your
+  assistant's own, the assistant's mark beside Attach (**Draft with <name>**)
+  asks your assistant for a reply. What you have typed is sent along as "what I
+  want to say". Your assistant reads the last 20 messages you can read there
+  (without the restricted sources that agents never keep) and writes the draft
+  in a "Drafts" thread in its own room. **Nothing is posted in the
+  conversation.** A line on top of the message box says "<name> is writing a
+  draft…" with Cancel; the finished draft is written into the box (since
+  2026-11-19, replacing the separate card and **Use draft**), with "Draft from
+  <name> · Only you see this. Edit it, then send." and **Discard**, which puts
+  back what you had typed. You edit and send it yourself. The message is yours;
+  only you see your assistant's mark beside its time, and an Audit line records
+  that a drafted message was sent.
 - **What it knows about you.** Two short texts, given to your assistant with
   every task: *about you* and *how you write*. Your assistant adds one line at a
   time with `remember_about_person` (kept once, never secrets); you read and
-  edit both under **About you & checks** below your assistant in the chat list.
+  edit both in **Assistant settings**, the sliders button in the header of
+  your chat with your assistant.
 - **Regular checks.** Off until you turn it on there, with how often (30 minutes
   to once a day) and an optional checklist. At each check the controller looks
   in code for messages people sent you directly or with an @mention since the
@@ -150,16 +194,23 @@ visit.
   one running thread per chat, refusals for someone else's thread or assistant,
   and the 30-message stop.
 - Guest `thread_schema` and web `tests/assistant-threads.test.mjs` (the
-  suggestion and one start, stop/resume/delete, a new thread kept on failure,
-  the mark only on your own message).
+  suggestion and one start; the header pill, list mark and strip with
+  stop/resume/delete; a hand-over offered only on the other side's message,
+  kept with its ID on failure; the mark only on your own message).
+- PostgreSQL `a_chat_handed_over_from_a_message_starts_with_the_assistants_own_reply`:
+  refusals (your own message, no instruction, a missing message, a chat you
+  can't read), nothing sent at the start, one start for a retried ID, one
+  running thread per chat, the instruction and anchor message handed to the
+  assistant, its reply sent as the member, and resume without an opening.
 
 - PostgreSQL `assistants::settings::tests`: notes given with every task and
   each person's own, a line kept once, a draft asked once with nothing posted,
   refused for a chat you can't read, read only by its person, the record on
   your sent message only; a check that does not run when nothing is new, runs
   once for a new direct message, one at a time, and always with a checklist.
-- Web `tests/assistant-draft.test.mjs` (one request, shown before use, used only
-  when chosen; settings kept on a failed save).
+- Web `tests/assistant-draft.test.mjs` (one request, your words kept while it
+  writes, the draft written into the box, Discard restoring them; settings kept
+  on a failed save).
 
 ## Not built yet
 

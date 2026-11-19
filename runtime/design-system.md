@@ -209,6 +209,19 @@ Stop where supported. Closing a tool does not hand back browser control or resum
 work. See [Unified Chat](unified-chat.md) for current channel/thread capabilities,
 access boundaries and remaining work; a visual component grants no authority.
 
+Your assistant in Chat (2026-11-19, [assistants](assistants.md)): one four-point
+mark (`AssistantMark`) stands for everything it does for you. Its chat is the
+first row of the list with no heading or sub-rows. A chat it replies in carries
+the mark on its row (`--online` while running, `--muted` once stopped) and a
+pill in the header with Stop, or Resume and Delete; under 760 px the pill keeps
+the mark and its buttons and drops its words. Messages it wrote show the mark
+and its name beside the time. The mark on a message's toolbar hands the chat
+over from that message; the mark beside Attach in the message box asks for a
+draft, which is written into the box under a one-line bar. Its settings open
+from the sliders button in its own chat's header. Do not restore a banner
+across the conversation, a row above the message box or rows under the
+assistant in the list.
+
 Personal Pinned rows appear once above Channels and Direct messages, in pin-time
 order. Pin controls are keyboard/touch accessible and keep unread/selected state.
 With a mouse, an unpinned row shows its ☆ on hover or focus. Touch screens show
