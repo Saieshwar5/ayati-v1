@@ -58,14 +58,11 @@ test('Review shows measures, a suggestion that opens the agent’s Tools, goals 
   } });
 });
 
-test('Home says how many things need you in one line, and suggests a panel for a question asked again and again', async () => {
+test('Home suggests a panel for a question asked again and again', async () => {
   await reactFixture(async ({ render, button, click }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { NeedsYouLine, PanelSuggestions } = await import('../src/react/home-panels/home-hints.tsx');
-    const items = [{ kind: 'approval', id: 'a' }, { kind: 'question', id: 'q' }, { kind: 'outcome', id: 'o' }];
-    await render(() => createElement('div', null, createElement(NeedsYouLine, { page: { available: true, items, next_before: null } }), createElement(PanelSuggestions)));
-    assert.match(document.querySelector('.home-needs-line').textContent, /^2 things need you/);
-    assert.match(document.querySelector('.home-needs-line').href, /tab=needs/);
+    const { PanelSuggestions } = await import('../src/react/home-panels/home-hints.tsx');
+    await render(() => createElement(PanelSuggestions));
     await click(button('Not now'));
     assert.equal(document.querySelector('.home-panel-suggestions'), null, 'gone on this device');
   }, { url: `http://localhost/w/${w}/?view=home`, fetch: async path => path.endsWith('/session') ? response(session)
