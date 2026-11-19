@@ -8,6 +8,7 @@ use super::*;
 use serde::Deserialize;
 use serde_json::json;
 
+pub(crate) mod added;
 #[cfg(test)]
 #[path = "allowed_apps_tests.rs"]
 mod tests;

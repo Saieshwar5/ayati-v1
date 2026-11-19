@@ -73,6 +73,17 @@ impl ComposioApi {
         path: &str,
         body: Option<&Value>,
     ) -> Result<Reply> {
+        self.send_up_to(method, path, body, MAX_RESPONSE).await
+    }
+
+    /// As [`Self::send`], for the few answers that are long lists (the library).
+    pub(super) async fn send_up_to(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&Value>,
+        most: usize,
+    ) -> Result<Reply> {
         let mut request = self
             .client
             .request(method, self.base.join(path)?)
@@ -93,7 +104,7 @@ impl ComposioApi {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|_| anyhow::anyhow!("Composio's answer was interrupted"))?;
             ensure!(
-                bytes.len() + chunk.len() <= MAX_RESPONSE,
+                bytes.len() + chunk.len() <= most,
                 "Composio's answer was too large"
             );
             bytes.extend_from_slice(&chunk);

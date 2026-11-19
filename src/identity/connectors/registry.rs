@@ -99,6 +99,12 @@ pub(crate) fn pipedream() -> Option<providers_file::Pipedream> {
 /// The providers this controller offers now: the operator MCP file always, and
 /// Composio when its key is configured.
 pub(super) fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
+    providers_with(vec![])
+}
+
+/// The providers, also offering `added`: the apps one workspace's admins added
+/// from a library (schema 135).
+fn providers_with(added: Vec<curated::CatalogApp>) -> Vec<Arc<dyn ConnectorProvider>> {
     let Some(settings) = SETTINGS.get() else {
         return vec![
             Arc::new(mcp_servers::McpServers::new(
@@ -115,7 +121,7 @@ pub(super) fn providers() -> Vec<Arc<dyn ConnectorProvider>> {
     ];
     if let Some(composio) = composio_from(settings) {
         match composio::Composio::new(composio) {
-            Ok(provider) => providers.push(Arc::new(provider)),
+            Ok(provider) => providers.push(Arc::new(provider.with_added(added))),
             Err(error) => tracing::warn!("Composio connectors are unavailable: {error}"),
         }
     }
@@ -211,11 +217,39 @@ pub(crate) async fn routes_for(store: &PgStore, workspace: &str) -> Result<routi
     })
 }
 
+/// The providers as one workspace uses them: with the apps its admins added.
+async fn providers_for(
+    store: &PgStore,
+    workspace: &str,
+) -> Result<Vec<Arc<dyn ConnectorProvider>>> {
+    let added = store.added_apps(workspace).await?;
+    Ok(providers_with(added.iter().map(|a| a.catalog()).collect()))
+}
+
+/// A provider by name, as `workspace` uses it. Connecting an app and finishing
+/// its sign-in need this; a saved connection works with [`named`].
+pub(crate) async fn named_for(
+    store: &PgStore,
+    workspace: &str,
+    name: &str,
+) -> Result<Arc<dyn ConnectorProvider>> {
+    providers_for(store, workspace)
+        .await?
+        .into_iter()
+        .find(|p| p.name() == name)
+        .context("This connector provider is not configured on this server")
+}
+
+/// The provider whose library admins add apps from, when one is configured.
+pub(crate) fn library() -> Option<Arc<dyn ConnectorProvider>> {
+    providers().into_iter().find(|p| p.capabilities().library)
+}
+
 /// Every app offered to the workspace: one per catalog app through its routed
-/// provider, plus the operator's MCP servers.
+/// provider, the apps its admins added, plus the operator's MCP servers.
 pub(crate) async fn apps(store: &PgStore, workspace: &str) -> Result<Vec<App>> {
     let routes = routes_for(store, workspace).await?;
-    routing::apps_with(&providers(), workspace, &routes)
+    routing::apps_with(&providers_for(store, workspace).await?, workspace, &routes)
 }
 
 /// The provider that connects `app` for this workspace now.
@@ -225,5 +259,10 @@ pub(crate) async fn provider_for(
     app: &str,
 ) -> Result<Arc<dyn ConnectorProvider>> {
     let routes = routes_for(store, workspace).await?;
-    routing::provider_with(&providers(), workspace, app, &routes)
+    routing::provider_with(
+        &providers_for(store, workspace).await?,
+        workspace,
+        app,
+        &routes,
+    )
 }

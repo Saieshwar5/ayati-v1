@@ -4,11 +4,12 @@
 //! Every call first checks that the account is still active and the pinned tool
 //! still means the same thing; the agent never sees Composio.
 use super::{
-    Account, App, Call, Capabilities, Connect, ConnectorProvider, Delivery, Refusal, Saved,
-    Subscription,
+    Account, App, Call, Capabilities, Connect, ConnectorProvider, Delivery, LibraryPick, Refusal,
+    Saved, Subscription,
+    added::AddedApp,
     composio_api::{self, ComposioApi, Reply},
     composio_call::ComposioCall,
-    composio_triggers,
+    composio_library, composio_triggers,
     curated::{self, CatalogApp},
     fingerprint,
 };
@@ -44,15 +45,20 @@ impl Settings {
 }
 
 pub(super) struct Composio {
-    api: ComposioApi,
-    auth_configs: BTreeMap<String, String>,
+    pub(super) api: ComposioApi,
+    pub(super) auth_configs: BTreeMap<String, String>,
+    /// Apps this workspace's admins added from the library (schema 135), when
+    /// the provider was built for a workspace.
+    added: Vec<CatalogApp>,
 }
 
 /// Composio's identity for a connected account, saved on the connection.
-struct Binding {
-    account: String,
-    auth_config: String,
-    user: String,
+pub(super) struct Binding {
+    pub(super) account: String,
+    pub(super) auth_config: String,
+    pub(super) user: String,
+    /// The toolkit of an app an admin added; built-in apps name theirs in the catalog.
+    toolkit: Option<String>,
 }
 impl Binding {
     fn parse(value: Option<&Value>, workspace: &str) -> Result<Self> {
@@ -64,6 +70,10 @@ impl Binding {
             account: text("account")?,
             auth_config: text("auth_config")?,
             user: text("user")?,
+            toolkit: match value.get("toolkit") {
+                Some(_) => Some(text("toolkit")?),
+                None => None,
+            },
         };
         ensure!(binding.user == user(workspace), Refusal::Changed);
         Ok(binding)
@@ -75,7 +85,7 @@ fn user(workspace: &str) -> String {
     format!("cuckoo-{workspace}")
 }
 
-enum State {
+pub(super) enum State {
     Active,
     Pending,
     Broken,
@@ -90,11 +100,24 @@ impl Composio {
         Ok(Self {
             api: ComposioApi::new(&settings.base, settings.key_file)?,
             auth_configs: settings.auth_configs,
+            added: vec![],
         })
     }
 
-    fn app(id: &str) -> Result<(&'static CatalogApp, &'static str)> {
-        let app = curated::app(id).context("This connector is not offered on this server")?;
+    /// The same provider, also offering the apps a workspace's admins added.
+    pub(super) fn with_added(mut self, apps: Vec<CatalogApp>) -> Self {
+        self.added = apps
+            .into_iter()
+            .filter(|app| app.providers.contains_key(NAME) && curated::app(&app.id).is_none())
+            .collect();
+        self
+    }
+
+    /// A built-in app, or one this workspace's admins added, with its toolkit.
+    fn app(&self, id: &str) -> Result<(&CatalogApp, &str)> {
+        let app = curated::app(id)
+            .or_else(|| self.added.iter().find(|a| a.id == id))
+            .context("This connector is not offered on this server")?;
         let toolkit = app
             .providers
             .get(NAME)
@@ -102,121 +125,26 @@ impl Composio {
         Ok((app, toolkit.as_str()))
     }
 
-    /// The auth config to sign in with for `toolkit`.
-    async fn auth_config(&self, toolkit: &str) -> Result<String> {
-        if let Some(config) = self.auth_configs.get(toolkit) {
-            return Ok(config.clone());
+    /// The toolkit of a saved connection: the catalog's for a built-in app, the
+    /// one saved on the connection for an app an admin added.
+    fn toolkit(binding: &Binding, app: &str) -> Result<String, Refusal> {
+        match curated::app(app) {
+            Some(catalog) => catalog.providers.get(NAME).cloned(),
+            None => binding.toolkit.clone(),
         }
-        let list = self
-            .api
-            .request(
-                Method::GET,
-                &format!("auth_configs?toolkit_slug={toolkit}&limit=50"),
-                None,
-            )
-            .await?;
-        let enabled: Vec<&str> = list["items"]
-            .as_array()
-            .context("Composio omitted auth configs")?
-            .iter()
-            .filter(|c| c["status"] == "ENABLED" && slug_is(&c["toolkit"]["slug"], toolkit))
-            .filter_map(|c| c["id"].as_str())
-            .collect();
-        match enabled.as_slice() {
-            [one] => Ok(composio_api::id(one)?.to_owned()),
-            [] => {
-                let created = self
-                    .api
-                    .request(
-                        Method::POST,
-                        "auth_configs",
-                        Some(&json!({"toolkit":{"slug":toolkit},"auth_config":{"type":"use_composio_managed_auth"}})),
-                    )
-                    .await?;
-                Ok(composio_api::id(
-                    created["auth_config"]["id"]
-                        .as_str()
-                        .context("Composio omitted the auth config")?,
-                )?
-                .to_owned())
-            }
-            _ => anyhow::bail!(
-                "Several Composio auth configs exist for {toolkit}; choose one in AYATI_COMPOSIO_AUTH_CONFIGS"
-            ),
-        }
+        .ok_or(Refusal::Changed)
     }
 
-    /// The account's state at Composio. Only the fields Cuckoo needs are read;
-    /// the rest of Composio's answer can carry tokens and is dropped here.
-    async fn state(&self, binding: &Binding, toolkit: &str) -> Result<State> {
-        let account = match self
-            .api
-            .send(
-                Method::GET,
-                &format!("connected_accounts/{}", binding.account),
-                None,
-            )
-            .await?
-        {
-            Reply::Ok(account) => account,
-            Reply::Status(404) => return Ok(State::Broken),
-            Reply::Status(code) => {
-                anyhow::bail!("Composio refused the account check (HTTP {code})")
-            }
+    /// The action and Composio binding `operation` was reviewed against: the
+    /// catalog's for a built-in app, while this release still maps it to the
+    /// same tool; the saved operation's own for an app an admin added.
+    fn reviewed(app: &str, operation: &Operation) -> Option<(curated::Action, curated::Binding)> {
+        let Some(catalog) = curated::app(app) else {
+            return Some(super::added::reviewed(operation));
         };
-        ensure!(
-            account["id"] == binding.account.as_str()
-                && slug_is(&account["toolkit"]["slug"], toolkit)
-                && account["auth_config"]["id"] == binding.auth_config.as_str(),
-            Refusal::Changed
-        );
-        if account["is_disabled"] == true || account["auth_config"]["is_disabled"] == true {
-            return Ok(State::Broken);
-        }
-        Ok(match account["status"].as_str() {
-            Some("ACTIVE") => State::Active,
-            Some("INITIALIZING" | "INITIATED") => State::Pending,
-            _ => State::Broken,
-        })
-    }
-
-    async fn tool(&self, slug: &str, version: Option<&str>) -> Result<Value> {
-        self.find_tool(slug, version)
-            .await?
-            .context("Composio has no such tool")
-    }
-
-    /// The tool at `version` (its newest without one), or `None` when Composio
-    /// no longer has it.
-    async fn find_tool(&self, slug: &str, version: Option<&str>) -> Result<Option<Value>> {
-        let path = match version {
-            Some(v) => format!(
-                "tools/{}?version={}",
-                composio_api::id(slug)?,
-                composio_api::id(v)?
-            ),
-            None => format!("tools/{}", composio_api::id(slug)?),
-        };
-        match self.api.send(Method::GET, &path, None).await? {
-            Reply::Ok(tool) => {
-                ensure!(tool["slug"] == slug, "Composio returned a different tool");
-                Ok(Some(tool))
-            }
-            Reply::Status(404) => Ok(None),
-            Reply::Status(code) => anyhow::bail!("Composio refused the request (HTTP {code})"),
-        }
-    }
-
-    /// The catalog's action and Composio binding `operation` was reviewed
-    /// against, while this release still maps it to the same tool.
-    fn reviewed(
-        app: &str,
-        operation: &Operation,
-    ) -> Option<(&'static curated::Action, &'static curated::Binding)> {
-        let (app, _) = Self::app(app).ok()?;
-        let action = app.actions.iter().find(|a| a.id == operation.id)?;
+        let action = catalog.actions.iter().find(|a| a.id == operation.id)?;
         let binding = action.providers.get(NAME)?;
-        (binding.tool == operation.tool).then_some((action, binding))
+        (binding.tool == operation.tool).then(|| (action.clone(), binding.clone()))
     }
 
     /// Cuckoo's actions for `app`, each reviewed against Composio's current tool.
@@ -270,12 +198,6 @@ impl Composio {
     }
 }
 
-fn slug_is(value: &Value, toolkit: &str) -> bool {
-    value
-        .as_str()
-        .is_some_and(|s| s.eq_ignore_ascii_case(toolkit))
-}
-
 #[async_trait::async_trait]
 impl ConnectorProvider for Composio {
     fn name(&self) -> &'static str {
@@ -287,13 +209,24 @@ impl ConnectorProvider for Composio {
             revoke: true,
             list_fields: true,
             triggers: true,
+            library: true,
             ..Capabilities::default()
         }
+    }
+    async fn library(&self, query: &str) -> Result<Value> {
+        composio_library::search(&self.api, query).await
+    }
+    async fn library_actions(&self, app: &str, query: &str, page: Option<&str>) -> Result<Value> {
+        composio_library::actions(&self.api, app, query, page).await
+    }
+    async fn library_app(&self, app: &str, picks: &[LibraryPick]) -> Result<AddedApp> {
+        composio_library::build(&self.api, app, picks).await
     }
     fn apps(&self, _workspace: &str) -> Result<Vec<App>> {
         Ok(curated::catalog()
             .apps
             .iter()
+            .chain(&self.added)
             .filter(|app| app.providers.contains_key(NAME))
             .map(|app| App {
                 id: app.id.clone(),
@@ -319,7 +252,7 @@ impl ConnectorProvider for Composio {
     }
 
     async fn connect(&self, workspace: &str, app: &str, callback: &str) -> Result<Connect> {
-        let (_, toolkit) = Self::app(app)?;
+        let (_, toolkit) = self.app(app)?;
         let auth_config = self.auth_config(toolkit).await?;
         let link = self
             .api
@@ -345,16 +278,28 @@ impl ConnectorProvider for Composio {
                 || (self.api.is_fixture() && url.host_str() == Some("127.0.0.1")),
             "Composio returned an insecure sign-in page"
         );
+        let mut binding =
+            json!({"account":account,"auth_config":auth_config,"user":user(workspace)});
+        if curated::app(app).is_none() {
+            binding["toolkit"] = json!(toolkit);
+        }
         Ok(Connect::SignIn {
-            binding: json!({"account":account,"auth_config":auth_config,"user":user(workspace)}),
+            binding,
             url: url.into(),
             expires: crate::identity::user::now() + SIGN_IN_SECONDS,
         })
     }
 
     async fn finish(&self, workspace: &str, app: &str, value: &Value) -> Result<Account> {
-        let (catalog, toolkit) = Self::app(app)?;
+        let (catalog, toolkit) = self.app(app)?;
         let binding = Binding::parse(Some(value), workspace)?;
+        ensure!(
+            binding
+                .toolkit
+                .as_deref()
+                .is_none_or(|saved| saved == toolkit),
+            Refusal::Changed
+        );
         // Composio may still be completing the sign-in when the person returns.
         let mut attempt = 0;
         loop {
@@ -389,7 +334,7 @@ impl ConnectorProvider for Composio {
         let Some((action, reviewed)) = Self::reviewed(saved.server, operation) else {
             return Ok(json!({"version":operation.version,"schema":null,"latest":null}));
         };
-        let reduce = |tool: &Value| curated::project(action, reviewed, &tool["input_parameters"]);
+        let reduce = |tool: &Value| curated::project(&action, &reviewed, &tool["input_parameters"]);
         let pinned = match operation.version.as_deref() {
             Some(version) => self.find_tool(&operation.tool, Some(version)).await?,
             None => None,
@@ -425,10 +370,10 @@ impl ConnectorProvider for Composio {
 
     async fn prepare(&self, saved: &Saved<'_>, operation: &Operation) -> Result<Box<dyn Call>> {
         let binding = Binding::parse(saved.binding, saved.workspace)?;
-        let (_, toolkit) = Self::app(saved.server).map_err(|_| Refusal::Changed)?;
+        let toolkit = Self::toolkit(&binding, saved.server)?;
         let (action, reviewed) =
             Self::reviewed(saved.server, operation).context(Refusal::Changed)?;
-        match self.state(&binding, toolkit).await? {
+        match self.state(&binding, &toolkit).await? {
             State::Active => {}
             _ => return Err(Refusal::NeedsReconnect.into()),
         }
@@ -439,7 +384,7 @@ impl ConnectorProvider for Composio {
             .await?
             .context(Refusal::Changed)?;
         ensure!(
-            curated::project(action, reviewed, &tool["input_parameters"]).as_ref()
+            curated::project(&action, &reviewed, &tool["input_parameters"]).as_ref()
                 == Some(&operation.schema),
             Refusal::Changed
         );
@@ -447,7 +392,7 @@ impl ConnectorProvider for Composio {
             api: self.api.clone(),
             body: json!({"connected_account_id":binding.account,"user_id":binding.user,"version":operation.version}),
             tool: operation.tool.clone(),
-            fields: reviewed.fields.clone(),
+            fields: reviewed.fields,
         }))
     }
 
@@ -460,14 +405,16 @@ impl ConnectorProvider for Composio {
         _webhook: &str,
     ) -> Result<Subscription> {
         let binding = Binding::parse(saved.binding, saved.workspace)?;
-        let (app, toolkit) = Self::app(saved.server).map_err(|_| Refusal::Changed)?;
+        // Only built-in apps have events.
+        let app = curated::app(saved.server).ok_or(Refusal::Changed)?;
+        let toolkit = Self::toolkit(&binding, saved.server)?;
         ensure!(
             app.triggers
                 .iter()
                 .any(|t| t.providers.get(NAME).is_some_and(|b| b.tool == trigger)),
             Refusal::Changed
         );
-        match self.state(&binding, toolkit).await? {
+        match self.state(&binding, &toolkit).await? {
             State::Active => {}
             _ => return Err(Refusal::NeedsReconnect.into()),
         }

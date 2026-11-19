@@ -79,6 +79,9 @@ ever offered to an agent.
 | GitHub | Find, Read issues; Create an issue, Comment | `github` |
 | Linear | Find, Read issues, List teams; Create an issue, Comment | `linear` |
 
+A workspace's admins can add more apps from Composio's library, for that
+workspace only: see [added apps](added-apps.md).
+
 The last six were added 2026-11-19 through Composio only. Each action's fields
 were checked against Composio's tool definitions of that day; no account of
 these apps has been connected yet. They have no identity read, so reconnecting
