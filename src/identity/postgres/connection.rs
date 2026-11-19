@@ -6,13 +6,20 @@ use std::time::Duration;
 
 impl PgStore {
     pub async fn connect(url: &str) -> Result<Self> {
+        Self::connect_sized(url, 10).await
+    }
+    /// A controller's pool; each role sets its own size (`AYATI_DATABASE_CONNECTIONS`).
+    pub(super) async fn connect_for(config: &crate::config::Controller) -> Result<Self> {
+        Self::connect_sized(&config.database_url, config.database_connections).await
+    }
+    async fn connect_sized(url: &str, connections: u32) -> Result<Self> {
         ensure!(
             url.starts_with("postgres://") || url.starts_with("postgresql://"),
             "Use a PostgreSQL database URL"
         );
         let mut options = ConnectOptions::new(url);
         options
-            .max_connections(10)
+            .max_connections(connections)
             .min_connections(1)
             .connect_timeout(Duration::from_secs(10))
             .acquire_timeout(Duration::from_secs(10))

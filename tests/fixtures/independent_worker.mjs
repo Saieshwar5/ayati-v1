@@ -165,7 +165,11 @@ export async function workerFixture(t, options = {}) {
       // Simulation employees may create workspaces without an invite code; tests of
       // the code rule pass their own list (or an empty one) through apiEnv.
       AYATI_PLATFORM_ADMINS: Array.from({ length: 20 }, (_, n) => `employee${n}@company.example.test`).join(','),
-      ...controllerControl, ...options.apiEnv,
+      ...controllerControl,
+      // A web controller serves no executors and must hold none of their settings.
+      ...(options.apiRole === 'web' ? { AYATI_CONTROLLER_ROLE: 'web', AYATI_WORKER_CONTROL_URL: undefined,
+        AYATI_WORKER_CONTROL_KEY_FILE: undefined } : {}),
+      ...options.apiEnv,
     });
     await until(async () => {
       assert.equal(api.child.exitCode, null, api.logs);
@@ -251,7 +255,9 @@ export async function workerFixture(t, options = {}) {
         AYATI_WORKER_CONTROL_URL: controlUrl, ...options.apiEnv, ...extra });
       await until(async () => {
         assert.equal(record.child.exitCode, null, record.logs);
-        try { return (await fetch(at + '/api/identity/simulation', { headers: { Connection: 'close' } })).ok; }
+        // A work controller serves no pages, only health checks.
+        const probe = extra.AYATI_CONTROLLER_ROLE === 'work' ? '/health/ready' : '/api/identity/simulation';
+        try { return (await fetch(at + probe, { headers: { Connection: 'close' } })).ok; }
         catch { return false; }
       }, 'Controller replica did not start');
       return { record, base: at, controlUrl, request: requestAt(at) };

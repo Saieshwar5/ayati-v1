@@ -32,7 +32,8 @@ local-owner files, browser sessions and shell tools are not inherited.
 Pinned SeaORM and sea-orm-migration 2.0.4 (MIT OR Apache-2.0) use PostgreSQL through
 SQLx 0.9 and the existing Tokio runtime. SeaORM entities cover stable account and
 workspace records; parameterized SQL handles explicit authorization transactions
-and queue claims. One pool per backend has at most ten connections.
+and queue claims. One pool per backend has at most ten connections
+(`AYATI_DATABASE_CONNECTIONS`, set per [controller role](controller-roles.md)).
 This increment was exercised with PostgreSQL 18.6.
 
 Install PostgreSQL server and client tools with your operating system package

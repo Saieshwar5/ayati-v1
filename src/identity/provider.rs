@@ -50,6 +50,13 @@ impl Provider {
             trusted: Default::default(),
         }
     }
+    /// A work controller serves no browser and signs nobody in.
+    pub(super) fn absent() -> Self {
+        Self {
+            client_id: "absent".into(),
+            ..Self::simulation()
+        }
+    }
     #[cfg(test)]
     pub(super) fn test_provider() -> Self {
         Self {

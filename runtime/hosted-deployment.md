@@ -27,6 +27,10 @@ flowchart LR
   API --> Objects[(Private S3 objects)]
 ```
 
+The API can be split into a web and a work service with
+`AYATI_CONTROLLER_ROLE` and `deploy/compose.roles.yaml`
+([controller roles](controller-roles.md)).
+
 One image starts with `identity`, `executor`, or `workspace-db migrate`. Each API
 replica and executor gets its own temporary writable directory. Accounts, sessions,
 workspaces, conversations, jobs, agent profiles, avatars and Library pages live in
@@ -62,6 +66,8 @@ for migrations, API and workers in a release.
 | Setting | Purpose |
 | --- | --- |
 | `AYATI_PUBLIC_ORIGIN` | Canonical HTTPS origin, such as `https://workspace.example.com`; no path, credentials, query or fragment |
+| `AYATI_CONTROLLER_ROLE` | `all` (default), `web` or `work`: which parts of the controller this process runs ([controller roles](controller-roles.md)) |
+| `AYATI_DATABASE_CONNECTIONS` | Most PostgreSQL connections this process holds: 10 by default, 2–200 |
 | `AYATI_BIND_ADDRESS` | Explicit internal listening IP; `0.0.0.0` for a private container network |
 | `RELAY_DATABASE_URL` | Restricted runtime PostgreSQL URL; use provider-required TLS and private networking |
 | `AYATI_WORKER_CONTROL_URL`, `AYATI_WORKER_CONTROL_KEY_FILE` | Worker-control origin (`https://` on a private network, or loopback `http://`) and bootstrap key, on the API and every executor ([worker control](worker-control.md)) |

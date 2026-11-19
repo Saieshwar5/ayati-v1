@@ -4,7 +4,7 @@
 use super::{Common, Reader, WorkerControl, absolute};
 use anyhow::Result;
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
 };
 
@@ -32,6 +32,10 @@ impl Execution {
 #[derive(Clone)]
 pub struct Controller {
     pub common: Common,
+    /// The parts this process runs: all of them, or only web or only work.
+    pub role: super::Role,
+    /// The most PostgreSQL connections this process holds.
+    pub database_connections: u32,
     /// Canonical browser origin: the HTTPS public origin, or local loopback HTTP.
     pub origin: String,
     pub bind: IpAddr,
@@ -151,6 +155,8 @@ impl Controller {
 
     pub(crate) fn read(env: &mut Reader, simulation: bool) -> Result<Self> {
         let common = Common::read(env);
+        let role = super::Role::read(env);
+        role.refuse_other_secrets(env);
         let (origin, bind) = origin(env, common.port);
         let hosted = origin.starts_with("https://");
         let database_url = if simulation {
@@ -159,7 +165,8 @@ impl Controller {
             env.required("RELAY_DATABASE_URL")
         }
         .unwrap_or_default();
-        let workos = if simulation {
+        // Only a process that serves the browser signs people in.
+        let workos = if simulation || !role.web() {
             None
         } else {
             let key = env
@@ -188,8 +195,13 @@ impl Controller {
                     Execution::Pooled
                 }
             };
-        let worker_control = WorkerControl::read(env, true);
-        if execution == Execution::Pooled && worker_control.is_none() {
+        if execution == Execution::Scripted && role != super::Role::All {
+            env.problem("Scripted replies run in one process; leave AYATI_CONTROLLER_ROLE unset");
+        }
+        // Only a process that serves executors listens for them.
+        let worker_control = role.work().then(|| WorkerControl::read(env, true));
+        let worker_control = worker_control.flatten();
+        if role.work() && execution == Execution::Pooled && worker_control.is_none() {
             env.problem(
                 "Pooled execution needs AYATI_WORKER_CONTROL_URL and AYATI_WORKER_CONTROL_KEY_FILE",
             );
@@ -213,6 +225,8 @@ impl Controller {
             env.problem("Hosted files require private S3 storage, not CUCKOO_LIBRARY_LOCAL_ROOT");
         }
         let config = Self {
+            role,
+            database_connections: env.number("AYATI_DATABASE_CONNECTIONS", 10, 2..=200),
             origin,
             bind,
             database_url,
@@ -263,22 +277,30 @@ impl Controller {
         if config.model_catalog_file.is_some() && config.model_providers_file.is_none() {
             env.problem("The model catalog needs AYATI_MODEL_PROVIDERS_FILE");
         }
-        if (config.library_embedding_model.is_some() || config.library_summary_model.is_some())
-            && config.model_providers_file.is_none()
-        {
-            env.problem("Library models need AYATI_MODEL_PROVIDERS_FILE");
-        }
-        if config.transcription_model.is_some() && config.model_providers_file.is_none() {
-            env.problem("AYATI_TRANSCRIPTION_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
-        }
-        if config.skill_writer_model.is_some() && config.model_providers_file.is_none() {
-            env.problem("AYATI_SKILL_WRITER_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
-        }
-        if config.context_summary_model.is_some() && config.model_providers_file.is_none() {
-            env.problem("AYATI_CONTEXT_SUMMARY_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
-        }
-        if config.learning_model.is_some() && config.model_providers_file.is_none() {
-            env.problem("AYATI_LEARNING_MODEL needs AYATI_MODEL_PROVIDERS_FILE");
+        let library =
+            config.library_embedding_model.is_some() || config.library_summary_model.is_some();
+        for (set, name) in [
+            (library, "Library models need"),
+            (
+                config.transcription_model.is_some(),
+                "AYATI_TRANSCRIPTION_MODEL needs",
+            ),
+            (
+                config.skill_writer_model.is_some(),
+                "AYATI_SKILL_WRITER_MODEL needs",
+            ),
+            (
+                config.context_summary_model.is_some(),
+                "AYATI_CONTEXT_SUMMARY_MODEL needs",
+            ),
+            (
+                config.learning_model.is_some(),
+                "AYATI_LEARNING_MODEL needs",
+            ),
+        ] {
+            if set && config.model_providers_file.is_none() {
+                env.problem(format!("{name} AYATI_MODEL_PROVIDERS_FILE"));
+            }
         }
         env.refuse(&["AYATI_EXECUTOR_SLOTS"], "The controller");
         // Model keys belong on executors (.env.executor locally).
@@ -426,44 +448,6 @@ fn worker_listener(
     (listen, tls)
 }
 
-/// HTTPS public origin (behind a TLS proxy) or loopback-only local HTTP.
-fn origin(env: &mut Reader, port: u16) -> (String, IpAddr) {
-    let local = IpAddr::V4(Ipv4Addr::LOCALHOST);
-    let bind = match env.text("AYATI_BIND_ADDRESS").map(|v| v.parse::<IpAddr>()) {
-        None => local,
-        Some(Ok(bind)) => bind,
-        Some(Err(_)) => {
-            env.problem("AYATI_BIND_ADDRESS must be an IP address");
-            local
-        }
-    };
-    let Some(origin) = env.text("AYATI_PUBLIC_ORIGIN") else {
-        if bind != local {
-            env.problem("A non-default bind address requires an HTTPS AYATI_PUBLIC_ORIGIN");
-        }
-        return (format!("http://127.0.0.1:{port}"), bind);
-    };
-    match reqwest::Url::parse(&origin) {
-        Ok(url)
-            if url.scheme() == "https"
-                && url.host_str().is_some()
-                && url.username().is_empty()
-                && url.password().is_none()
-                && url.path() == "/"
-                && url.query().is_none()
-                && url.fragment().is_none() =>
-        {
-            (url.origin().ascii_serialization(), bind)
-        }
-        _ => {
-            env.problem(
-                "AYATI_PUBLIC_ORIGIN must be an HTTPS origin without credentials, path or query",
-            );
-            (format!("http://127.0.0.1:{port}"), bind)
-        }
-    }
-}
-
 #[cfg(test)]
 impl Controller {
     /// Local defaults for HTTP tests that build an `App` directly.
@@ -480,6 +464,9 @@ impl Controller {
         config
     }
 }
+
+mod origin;
+use origin::origin;
 
 #[cfg(test)]
 mod tests;

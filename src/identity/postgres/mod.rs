@@ -385,7 +385,7 @@ impl PgStore {
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
     pub(crate) async fn open(config: &crate::config::Controller) -> Result<Self> {
-        let mut store = Self::connect(&config.database_url).await?;
+        let mut store = Self::connect_for(config).await?;
         store.pooled = config.execution == crate::config::Execution::Pooled;
         store.assignment_seconds = config.pool.run_seconds;
         store.handoff_wait_seconds = config.handoff_wait_seconds;

@@ -40,6 +40,7 @@ mod process_lock;
 mod profile;
 mod provider;
 mod rehearsals;
+mod role_startup;
 mod routes;
 mod secrets;
 mod settings;
@@ -218,8 +219,11 @@ fn configure_process(config: &crate::config::Controller) -> Result<()> {
 
 pub async fn serve(config: crate::config::Controller) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let (client_id, key) = config.workos.clone().context("WorkOS is not configured")?;
-    let provider = Provider::new(client_id, key)?;
+    let provider = match config.workos.clone() {
+        Some((client_id, key)) => Provider::new(client_id, key)?,
+        None if !config.role.web() => Provider::absent(),
+        None => anyhow::bail!("WorkOS is not configured"),
+    };
     let listener = tokio::net::TcpListener::bind((config.bind, config.common.port))
         .await
         .context("Identity port is in use. Stop the other server or choose AYATI_PORT")?;
@@ -247,24 +251,13 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
         simulation: None,
     });
     tracing::info!("Identity workspace: {}/?view=account", app.config.origin);
-    let control = worker_control::start(app.clone()).await?;
-    chat::start_dispatcher(app.clone());
-    automations::start(app.clone()).await;
-    communications::gateway::start(app.clone());
-    control::outcome_checks::start(app.clone());
-    metrics::start(app.clone());
-    data_cleanup::start(app.clone());
-    connectors::drift::start(app.clone());
-    library::indexer::start(app.clone());
-    context_compaction::start(app.clone());
-    agent_learning::start(app.clone());
-    person_asks::start(app.clone());
-    library::keeping::start(app.clone());
-    computers::sleeper::start(app.clone());
-    transcription::start(app.clone())?;
+    let control = role_startup::start(&app).await?;
     shutdown::serve(app, listener, control).await
 }
 fn router(app: Shared) -> Router {
+    if !app.config.role.web() {
+        return role_startup::health_router(app);
+    }
     Router::new()
         .merge(agents::routes())
         .merge(activity::routes())
