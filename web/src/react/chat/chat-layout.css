@@ -52,7 +52,6 @@
 @media(forced-colors:active) { .workspace-chat .message-composer:focus-within { outline:2px solid Highlight; outline-offset:2px; } }
 
 .ui-dialog:has(.chat-thread-root) .chat-message .chat-avatar { width:36px; height:36px; flex-basis:36px; }
-.ui-dialog:has(.chat-thread-root) .message-composer { min-height:60px; padding:10px; box-shadow:0 5px 18px var(--shadow-deep); }
 @media(pointer:coarse) { .workspace-chat .chat-directory .ui-icon { min-width:44px; min-height:44px; } .workspace-chat .chat-thread-action { min-width:44px; min-height:44px; } }
 
 .workspace-chat .chat-directory .chat-unread { min-width:20px; padding:2px 6px; border-radius:10px; background:var(--accent); color:var(--on-accent); text-align:center; font-size:11px; font-weight:600; }

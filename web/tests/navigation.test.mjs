@@ -305,10 +305,17 @@ test('a thread shows who took part, plain replies continue with the agent a pers
       await until(update,()=>sent.length===2);
       assert.equal(sent[1].agents, undefined);
       // Stop following.
-      await click(button('Stop following'));
+      // The reply box stays outside the scrolling messages, with the follow button beside its note.
+      assert.equal(document.querySelector('.chat-thread-scroll .message-composer'), null);
+      assert.ok(document.querySelector('.chat-thread-reply .message-composer'));
+      assert.match(document.querySelector('.chat-thread-divider').textContent, /^\d+ repl/);
+      assert.equal(button('Following').getAttribute('aria-pressed'), 'true');
+      await click(button('Following'));
       await until(update,()=>follows.length===1);
       assert.deepEqual(follows[0], {following:false});
-      assert.match(document.querySelector('.chat-thread-follow').textContent, /You don’t get alerts for this thread/);
+      await until(update,()=>button('Follow'));
+      assert.equal(button('Follow').getAttribute('aria-pressed'), 'false');
+      assert.match(button('Follow').title, /You don’t get alerts for this thread/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async(path,options={})=>{
     path = new URL(path, 'http://localhost').pathname;
