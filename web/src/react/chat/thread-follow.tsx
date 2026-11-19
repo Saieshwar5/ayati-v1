@@ -23,9 +23,15 @@ export function ThreadFollow({ chat, thread }: { chat: string; thread: string })
   const change = () => void mutation.run(async () => {
     setState(await chatRequest<Following>(path, { following: !state.following }));
   });
-  return <div className="chat-thread-follow">
-    <span>{state.following ? 'You get alerts for new replies here.' : 'You don’t get alerts for this thread.'}</span>
-    <Button disabled={mutation.busy} onClick={change}>{state.following ? 'Stop following' : 'Follow'}</Button>
+  // The label is the state; the sentence stays available as the button's description.
+  const about = state.following ? 'You get alerts for new replies here.' : 'You don’t get alerts for this thread.';
+  return <span className="chat-thread-follow">
+    <Button aria-pressed={state.following} title={about} disabled={mutation.busy} onClick={change}><BellIcon />{state.following ? 'Following' : 'Follow'}</Button>
     {mutation.status && <span role="alert">{mutation.status}</span>}
-  </div>;
+  </span>;
+}
+
+function BellIcon() {
+  return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9ZM10 20a2 2 0 0 0 4 0" /></svg>;
 }

@@ -169,6 +169,11 @@ attachments and voice controls must reserve transcript space rather than cover
 messages. Keep own time and delivery indicators together on a predictable metadata
 line; omit the repeated own name/avatar. Retain visible reply counts and reveal
 ordinary reply actions on hover/focus, keeping them available on touch devices.
+The thread drawer keeps its reply box at the bottom: only the messages scroll, opening at
+the newest reply, under a "No replies yet" or "N replies" divider. The routing note and a
+compact Follow / Following button sit on one line above the reply box. The message toolbar
+always grows leftward from the message's right edge, on your own messages too, so a short
+message never pushes it past the edge of the conversation.
 The message toolbar sits beside a message on hover or focus (on its top edge on
 phones): three quick reactions, a reaction picker, reply in thread and More.
 More offers Edit and Delete only on your own messages, plus Copy link. Reactions
