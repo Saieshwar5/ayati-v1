@@ -1,6 +1,5 @@
 //! Taking turns on an agent's computer (schema 106): one request holds it at a time and
-//! others wait in line, oldest first, instead of being turned away; a workspace may
-//! also limit how many computers are awake at once. Hand-overs keep a picture of the
+//! others wait in line, oldest first, instead of being turned away. Hand-overs keep a picture of the
 //! page the person is asked to help with, and operators can pause every computer.
 //! See runtime/agent-computers.md.
 use super::*;
@@ -60,14 +59,13 @@ pub(super) enum Turn {
 
 impl PgStore {
     /// Takes the agent's computer for this request, waiting in line while another
-    /// request holds it or the workspace's limit of awake computers is reached.
+    /// request holds it.
     pub(super) async fn computer_turn(
         &self,
         job: &Job,
         size: &str,
         provider: &str,
         image: &str,
-        max_awake: u32,
         hold_seconds: i64,
     ) -> Result<Turn> {
         let started = Instant::now();
@@ -101,14 +99,7 @@ impl PgStore {
             let ahead: i64 = query(&tx, "SELECT count(*)::bigint AS ahead FROM relay_computer_waits o WHERE o.workspace=$1 AND o.agent=$2 AND o.reply<>$3
                   AND o.since < COALESCE((SELECT since FROM relay_computer_waits WHERE workspace=$1 AND agent=$2 AND reply=$3), $4+1)",
                 vec![w.into(), agent.into(), reply.into(), at.into()]).await?.context("Line unavailable")?.try_get("", "ahead")?;
-            let full = state != "awake"
-                && max_awake > 0
-                && {
-                    let awake: i64 = query(&tx, "SELECT count(*)::bigint AS awake FROM relay_computers WHERE workspace=$1 AND agent<>$2 AND state='awake'",
-                    vec![w.into(), agent.into()]).await?.context("Count unavailable")?.try_get("", "awake")?;
-                    awake >= i64::from(max_awake)
-                };
-            if !busy && ahead == 0 && !full {
+            if !busy && ahead == 0 {
                 execute(
                     &tx,
                     "DELETE FROM relay_computer_waits WHERE workspace=$1 AND agent=$2 AND reply=$3",
@@ -125,18 +116,12 @@ impl PgStore {
                 vec![w.into(), agent.into(), reply.into(), at.into()]).await?;
             tx.commit().await?;
             if started.elapsed() >= WAIT {
-                return Ok(Turn::Refused(super::computers::unavailable(
-                    &if full && !busy {
-                        format!(
-                            "Too many computers are working in this workspace right now (the limit is {max_awake}). You keep your place; try again in a minute, or answer without it."
-                        )
-                    } else {
-                        let place = ahead + 1;
-                        format!(
-                            "Your computer is busy with another request; you are number {place} in line and keep your place. Try again in a minute, or answer without it."
-                        )
-                    },
-                )));
+                return Ok(Turn::Refused(super::computers::unavailable(&{
+                    let place = ahead + 1;
+                    format!(
+                        "Your computer is busy with another request; you are number {place} in line and keep your place. Try again in a minute, or answer without it."
+                    )
+                })));
             }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }

@@ -53,12 +53,31 @@ async fn a_chosen_agent_works_on_the_workspaces_own_computer_through_its_connect
     assert!(again["code"].is_null());
 
     let list = s.db.workspace_computers(&s.owner, &s.w).await.unwrap();
-    let revision = list["computers"][0]["revision"].as_i64().unwrap();
     assert_eq!(list["computers"][0]["state"], "waiting");
     assert!(!list.to_string().contains(&code));
-    s.db.choose_computer_agents(&s.owner, &s.w, &id, revision, &[s.agent.clone()])
-        .await
-        .unwrap();
+    // Only admins choose where an agent works, on that agent's page.
+    let denied =
+        s.db.choose_agent_computer(&member, &s.w, &s.agent, Some(&id))
+            .await;
+    assert!(denied.unwrap_err().to_string().contains("Only admins"));
+    let choose = |computer: Option<String>| {
+        let (db, owner, w, agent) = (s.db.clone(), s.owner.clone(), s.w.clone(), s.agent.clone());
+        async move {
+            db.choose_agent_computer(&owner, &w, &agent, computer.as_deref())
+                .await
+        }
+    };
+    choose(Some(id.clone())).await.unwrap();
+    // Choosing none puts it back on Cuckoo's computers; an unknown machine is refused.
+    choose(None).await.unwrap();
+    let back =
+        s.db.computer_status(&s.owner, &s.w, &s.agent)
+            .await
+            .unwrap();
+    assert!(back["workspace_computer"].is_null(), "{back}");
+    let unknown = choose(Some(uuid::Uuid::new_v4().to_string())).await;
+    assert!(unknown.unwrap_err().to_string().contains("was removed"));
+    choose(Some(id.clone())).await.unwrap();
     let status =
         s.db.computer_status(&s.owner, &s.w, &s.agent)
             .await
@@ -254,11 +273,7 @@ async fn unanswered_work_is_abandoned_and_a_new_code_replaces_the_old_key() {
             .as_str()
             .unwrap()
             .to_owned();
-    let revision =
-        s.db.workspace_computers(&s.owner, &s.w).await.unwrap()["computers"][0]["revision"]
-            .as_i64()
-            .unwrap();
-    s.db.choose_computer_agents(&s.owner, &s.w, &id, revision, &[s.agent.clone()])
+    s.db.choose_agent_computer(&s.owner, &s.w, &s.agent, Some(&id))
         .await
         .unwrap();
     let key = s.db.machine_sign_in(&id, &code, "macos").await.unwrap()["key"]

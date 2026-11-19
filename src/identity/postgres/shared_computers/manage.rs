@@ -1,5 +1,6 @@
-//! Settings › Computers › Your computers: admins add a machine (a one-time
-//! code for its connector), choose which agents use it, and remove it.
+//! A workspace's own computers, managed from an agent's Connections tab:
+//! admins add a machine (a one-time code for its connector), choose for each
+//! agent whether it works there, and remove it.
 use super::{digest, listing};
 use crate::identity::postgres::*;
 use serde_json::json;
@@ -129,37 +130,41 @@ impl PgStore {
         Ok(json!({"id":id,"code":code,"expires_minutes":CODE_MS / 60_000}))
     }
 
-    /// Chooses the agents that use this machine. An agent uses one computer
-    /// at most, so choosing it here moves it from any other machine.
-    pub(crate) async fn choose_computer_agents(
+    /// Chooses where one agent works: one of the workspace's own computers,
+    /// or none of them, which leaves it Cuckoo's computer if that is on.
+    pub(crate) async fn choose_agent_computer(
         &self,
         user: &User,
         w: &str,
-        id: &str,
-        revision: i64,
-        agents: &[String],
+        agent: &str,
+        computer: Option<&str>,
     ) -> Result<Value> {
-        ensure!(agents.len() <= 50, "Choose at most 50 agents");
         let tx = self.workspace_tx(w).await?;
         admin(&tx, w, user).await?;
-        let changed = execute(&tx, "UPDATE relay_workspace_computers SET revision=revision+1 WHERE workspace=$1 AND id=$2 AND revision=$3 AND NOT removed",
-            vec![w.into(), id.into(), revision.into()]).await?;
-        ensure!(changed == 1, "This computer changed; reload before saving");
-        execute(
-            &tx,
-            "DELETE FROM relay_workspace_computer_agents WHERE workspace=$1 AND computer=$2",
-            vec![w.into(), id.into()],
-        )
-        .await?;
-        for agent in agents {
-            super::super::agent_profiles::stored(&tx, w, agent).await?;
-            execute(&tx, "INSERT INTO relay_workspace_computer_agents(workspace,agent,computer,chosen_by) VALUES($1,$2,$3,$4)
-                ON CONFLICT(workspace,agent) DO UPDATE SET computer=excluded.computer,chosen_by=excluded.chosen_by,chosen_ms=excluded.chosen_ms",
-                vec![w.into(), agent.clone().into(), id.into(), user.id.clone().into()]).await?;
+        super::super::agent_profiles::stored(&tx, w, agent).await?;
+        match computer {
+            Some(id) => {
+                ensure!(
+                    query(&tx, "SELECT 1 AS found FROM relay_workspace_computers WHERE workspace=$1 AND id=$2 AND NOT removed",
+                        vec![w.into(), id.into()]).await?.is_some(),
+                    "This computer was removed; reload before choosing"
+                );
+                execute(&tx, "INSERT INTO relay_workspace_computer_agents(workspace,agent,computer,chosen_by) VALUES($1,$2,$3,$4)
+                    ON CONFLICT(workspace,agent) DO UPDATE SET computer=excluded.computer,chosen_by=excluded.chosen_by,chosen_ms=excluded.chosen_ms",
+                    vec![w.into(), agent.into(), id.into(), user.id.clone().into()]).await?;
+            }
+            None => {
+                execute(
+                    &tx,
+                    "DELETE FROM relay_workspace_computer_agents WHERE workspace=$1 AND agent=$2",
+                    vec![w.into(), agent.into()],
+                )
+                .await?;
+            }
         }
-        audit(&tx, &user.id, Some(w), "workspace_computer_agents", id).await?;
+        audit(&tx, &user.id, Some(w), "workspace_computer_agents", agent).await?;
         tx.commit().await?;
-        Ok(json!({"id":id,"agents":agents}))
+        Ok(json!({"agent":agent,"computer":computer}))
     }
 
     /// Removes a machine: new work stops at once and its connector is refused.

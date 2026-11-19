@@ -1,7 +1,7 @@
 //! Your own computer (schema 119, B3 of agent building blocks, D248). A
 //! workspace adds a machine it runs itself; the Cuckoo Connector on it signs in
 //! once with a one-time code, then connects outward to take work, so no ports
-//! are opened. Admins choose which agents use it. Each agent uses one computer:
+//! are opened. Admins choose it for an agent on that agent's page. Each agent uses one computer:
 //! none, Cuckoo's or one of these. One request holds the machine at a time,
 //! and each agent works in its own folder there. Commands, files and the
 //! Programs rule are the same as on Cuckoo's computers; the browser stays on

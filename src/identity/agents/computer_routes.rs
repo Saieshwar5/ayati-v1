@@ -23,8 +23,8 @@ pub(super) fn routes() -> Router<Shared> {
             get(live),
         )
         .route(
-            "/api/identity/workspaces/{w}/computer-policy",
-            get(policy).post(save_policy),
+            "/api/identity/workspaces/{w}/agent-profiles/{id}/computer/own",
+            post(own),
         )
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/computer/live/input",
@@ -50,6 +50,28 @@ async fn reset(
     let user = identity(&app, &headers).await?;
     app.store.computer_reset(&user, &w, &id).await?;
     Ok(Json(app.store.computer_status(&user, &w, &id).await?))
+}
+
+#[derive(serde::Deserialize)]
+struct Own {
+    /// One of the workspace's own computers, or none for Cuckoo's.
+    computer: Option<String>,
+}
+
+/// An admin chooses where the agent works: one of the workspace's own
+/// computers, or Cuckoo's. See runtime/workspace-computers.md.
+async fn own(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Own>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .choose_agent_computer(&user, &w, &id, body.computer.as_deref())
+            .await?,
+    ))
 }
 
 /// The browser's live picture as server-sent events: first whether the viewer controls
@@ -111,28 +133,5 @@ async fn input(
         app.store
             .computer_live_input(&user, &w, &id, &event)
             .await?,
-    ))
-}
-
-/// Settings → Computers: the workspace's limits, for every member to read.
-async fn policy(
-    State(app): State<Shared>,
-    RoutePath(w): RoutePath<String>,
-    headers: HeaderMap,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    Ok(Json(app.store.computer_policy(&user, &w).await?))
-}
-
-/// Admins change the limits; they apply from each computer's next use.
-async fn save_policy(
-    State(app): State<Shared>,
-    RoutePath(w): RoutePath<String>,
-    headers: HeaderMap,
-    Json(input): Json<super::computer_policy::ComputerPolicy>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    Ok(Json(
-        app.store.save_computer_policy(&user, &w, &input).await?,
     ))
 }
