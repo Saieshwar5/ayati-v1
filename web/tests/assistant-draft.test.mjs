@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { createElement, useState } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 
-// Drafts and "about you" (schema 129): a draft is asked for once and written into the
-// message box for you alone, where you edit, send or discard it; settings keep your words
-// when saving fails.
+// Drafts (schema 129): a draft is asked for once and written into the message box for you
+// alone, where you edit, send or discard it. What your assistant knows about you is on its
+// agent page (assistant-page.test.mjs).
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=chat&conversation=dm-priya`;
 const session = { user: { id: 'ravi', email: 'ravi@example.test' }, workspaces: [{ id: w, name: 'Northwind', role: 'Member' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
@@ -63,25 +63,4 @@ test('a draft is asked for once with what you typed, written into the message bo
     assert.equal(document.querySelector('.composer-notice'), null);
     assert.equal(ask().disabled, false, 'ready for another');
   }, { url, fetch: server(writes) });
-});
-
-test('what your assistant knows about you is yours to edit; a failed save keeps your words', async () => {
-  const writes = [];
-  await reactFixture(async ({ render, click, change }) => {
-    await (await import('../src/workspace-context.ts')).enterWorkspace();
-    const { AssistantSettings } = await import('../src/react/chat/assistant-settings.tsx');
-    await render(() => createElement(AssistantSettings, { name: 'Ayati', close() {} }));
-    const dialog = document.querySelector('dialog'), areas = () => [...dialog.querySelectorAll('textarea')];
-    assert.equal(areas()[0].value, 'Head of sales.');
-    assert.equal(areas().length, 2, 'the checklist shows only with checks on');
-    await change(areas()[1], 'Short and friendly.');
-    await click(dialog.querySelector('input[type=checkbox]'));
-    assert.equal(areas().length, 3);
-    await change(dialog.querySelector('select'), '60');
-    await click(button(dialog, 'Save'));
-    assert.match(dialog.textContent, /too long to keep/);
-    assert.equal(areas()[1].value, 'Short and friendly.');
-    await click(button(dialog, 'Save'));
-    assert.deepEqual(writes[1], { path: '/assistant/settings', body: { about: 'Head of sales.', style: 'Short and friendly.', checks: true, every_minutes: 60, checklist: '' } });
-  }, { url, fetch: server(writes, { fail: 1 }) });
 });

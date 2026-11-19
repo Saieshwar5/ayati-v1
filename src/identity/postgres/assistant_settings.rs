@@ -25,11 +25,12 @@ mod tests;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaveSettings {
-    pub about: String,
-    pub style: String,
-    pub checks: bool,
-    pub every_minutes: i32,
-    pub checklist: String,
+    // Each part of the agent page saves its own fields; one left out is kept.
+    pub about: Option<String>,
+    pub style: Option<String>,
+    pub checks: Option<bool>,
+    pub every_minutes: Option<i32>,
+    pub checklist: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -134,12 +135,17 @@ impl PgStore {
         w: &str,
         input: &SaveSettings,
     ) -> Result<()> {
+        let length = |text: &Option<String>| text.as_deref().map_or(0, str::len);
         ensure!(
-            input.about.len() <= 6000 && input.style.len() <= 3000 && input.checklist.len() <= 3000,
+            length(&input.about) <= 6000
+                && length(&input.style) <= 3000
+                && length(&input.checklist) <= 3000,
             "That is too long to keep"
         );
         ensure!(
-            (30..=1440).contains(&input.every_minutes),
+            input
+                .every_minutes
+                .is_none_or(|minutes| (30..=1440).contains(&minutes)),
             "Check between every 30 minutes and once a day"
         );
         let tx = self.workspace_tx(w).await?;
@@ -148,23 +154,33 @@ impl PgStore {
             ready(&tx).await?,
             "Assistant settings are not available yet"
         );
+        // The row is made with its defaults first, so a save of some fields
+        // keeps the others, including a line the assistant has just added.
         execute(
             &tx,
-            "INSERT INTO relay_assistant_settings(workspace,user_id,about,style,checks,every_minutes,checklist,next_ms)
-             VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $5 THEN (extract(epoch FROM clock_timestamp())*1000)::bigint+$6::bigint*60000 END)
-             ON CONFLICT(workspace,user_id) DO UPDATE SET about=$3,style=$4,checks=$5,every_minutes=$6,checklist=$7,
-               next_ms=CASE WHEN NOT $5 THEN NULL
-                 WHEN relay_assistant_settings.checks AND relay_assistant_settings.every_minutes=$6 THEN relay_assistant_settings.next_ms
-                 ELSE (extract(epoch FROM clock_timestamp())*1000)::bigint+$6::bigint*60000 END,
-               updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint",
+            "INSERT INTO relay_assistant_settings(workspace,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+            vec![w.into(), user.id.clone().into()],
+        )
+        .await?;
+        execute(
+            &tx,
+            "UPDATE relay_assistant_settings s SET about=n.about,style=n.style,checks=n.checks,every_minutes=n.every_minutes,checklist=n.checklist,
+               next_ms=CASE WHEN NOT n.checks THEN NULL
+                 WHEN s.checks AND s.every_minutes=n.every_minutes THEN s.next_ms
+                 ELSE (extract(epoch FROM clock_timestamp())*1000)::bigint+n.every_minutes::bigint*60000 END,
+               updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
+             FROM (SELECT COALESCE($3::text,about) AS about,COALESCE($4::text,style) AS style,COALESCE($5::boolean,checks) AS checks,
+                 COALESCE($6::integer,every_minutes) AS every_minutes,COALESCE($7::text,checklist) AS checklist
+               FROM relay_assistant_settings WHERE workspace=$1 AND user_id=$2) n
+             WHERE s.workspace=$1 AND s.user_id=$2",
             vec![
                 w.into(),
                 user.id.clone().into(),
-                input.about.trim().into(),
-                input.style.trim().into(),
+                input.about.as_deref().map(|text| text.trim().to_owned()).into(),
+                input.style.as_deref().map(|text| text.trim().to_owned()).into(),
                 input.checks.into(),
                 input.every_minutes.into(),
-                input.checklist.trim().into(),
+                input.checklist.as_deref().map(|text| text.trim().to_owned()).into(),
             ],
         )
         .await?;

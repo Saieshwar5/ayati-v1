@@ -53,11 +53,11 @@ async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String
 }
 fn settings(about: &str, checks: bool, checklist: &str) -> SaveSettings {
     SaveSettings {
-        about: about.into(),
-        style: "Short and friendly.".into(),
-        checks,
-        every_minutes: 60,
-        checklist: checklist.into(),
+        about: Some(about.into()),
+        style: Some("Short and friendly.".into()),
+        checks: Some(checks),
+        every_minutes: Some(60),
+        checklist: Some(checklist.into()),
     }
 }
 fn draft_for(chat: &str, id: &str) -> DraftRequest {
@@ -107,6 +107,41 @@ async fn an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting
         "",
         "each person's own"
     );
+
+    // The agent page saves one part at a time: fields left out are kept.
+    let checks_only = SaveSettings {
+        about: None,
+        style: None,
+        checks: Some(true),
+        every_minutes: Some(120),
+        checklist: None,
+    };
+    db.save_assistant_settings(&ravi, &w, &checks_only)
+        .await
+        .unwrap();
+    let kept = db.assistant_settings(&ravi, &w).await.unwrap();
+    assert_eq!(kept["about"], "Head of sales.");
+    assert_eq!(kept["style"], "Short and friendly.");
+    assert_eq!(kept["checks"], true);
+    assert_eq!(kept["every_minutes"], 120);
+    let notes_only = SaveSettings {
+        about: Some("Head of sales.".into()),
+        style: None,
+        checks: None,
+        every_minutes: None,
+        checklist: None,
+    };
+    db.save_assistant_settings(&ravi, &w, &notes_only)
+        .await
+        .unwrap();
+    assert_eq!(
+        db.assistant_settings(&ravi, &w).await.unwrap()["checks"],
+        true,
+        "saving notes leaves regular checks as they were"
+    );
+    db.save_assistant_settings(&ravi, &w, &settings("Head of sales.", false, ""))
+        .await
+        .unwrap();
 
     // A draft for a chat Ravi can read: asked in his assistant's room, nothing posted in the chat.
     let chat = direct_with(&db, &priya, &w, &ravi).await;

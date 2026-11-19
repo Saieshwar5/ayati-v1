@@ -30,6 +30,44 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
 - **When its owner leaves** the workspace, the existing rule applies: an agent
   with no owner is paused and takes no work; its record stays for admins.
 
+## Set up on its agent page (2026-11-19)
+
+An assistant is set up where every agent is: its page in Agents. The separate
+**Assistant settings** window in Chat is gone; the sliders button in the header
+of your chat with it now opens that page.
+
+- **About you** is the assistant's name for the Instructions tab (an admin
+  looking at someone else's assistant sees it as **Rules and skills**):
+  - *What it knows about you* and *How you write*, shown to its person only.
+    The texts belong to the member, not the agent, so an admin never reads
+    them and the page does not ask for them on someone else's assistant.
+  - **Rules** in place of the instructions box: short lines (up to 300
+    characters, at most 40), added and removed one at a time, each saved at
+    once. They are kept as the agent's `settings.instructions`, one rule per
+    line, so they reach the assistant as its instructions and saving follows
+    the profile's revision rule. Instructions written before show as one rule
+    per line. Only a person adds a rule: the assistant has no tool that
+    writes its own rules, because something it read could then set a standing
+    instruction.
+  - **Skills** and the documents it always reads, as for any agent. *Change
+    with <name>* proposes skills only. Approved notes, lessons from shared
+    work and channel history are not shown: an assistant joins no channel.
+- **Automations** starts with **Regular checks** for its person, above its
+  schedules and triggers.
+- **Connections** and **Settings** (apps, MCP servers, computer, model, usage
+  and budgets) are the ordinary tabs, unchanged.
+- **Overview** says who it works for and counts its rules.
+- `POST …/assistant/settings` now takes any subset of `{about, style, checks,
+  every_minutes, checklist}` and keeps the fields left out, so the notes and
+  the checks save separately and neither overwrites the other.
+
+Checks: PostgreSQL `an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting`
+(a save of some fields keeps the others) and web `tests/assistant-page.test.mjs`
+(notes and checks each send only their own fields and keep a failed draft;
+a rule added once despite a double submit, kept on a failed save, removed; the
+tab's name; an admin sees no notes and the page never reads them). Not yet
+checked in a live browser.
+
 ## One room (second piece)
 
 - **Schedules and triggers run in its room.** An assistant's schedule or event
@@ -149,9 +187,9 @@ starting this version; startup never applies migrations.
 - **What it knows about you.** Two short texts, given to your assistant with
   every task: *about you* and *how you write*. Your assistant adds one line at a
   time with `remember_about_person` (kept once, never secrets); you read and
-  edit both in **Assistant settings**, the sliders button in the header of
-  your chat with your assistant.
-- **Regular checks.** Off until you turn it on there, with how often (30 minutes
+  edit both on your assistant's page in Agents, under **About you**.
+- **Regular checks.** Off until you turn it on under **Automations** on that
+  page, with how often (30 minutes
   to once a day) and an optional checklist. At each check the controller looks
   in code for messages people sent you directly or with an @mention since the
   last check. **Nothing new and no checklist: no run and no line in the room.**
@@ -159,7 +197,7 @@ starting this version; startup never applies migrations.
   room, and tells you what needs you and what it suggests. It answers nobody.
 
 `GET/POST …/assistant/settings` (`{about, style, checks, every_minutes,
-checklist}`), `POST …/assistant/drafts` (`{id, chat, thread, instruction}` returns
+checklist}`; a save may send any of them), `POST …/assistant/drafts` (`{id, chat, thread, instruction}` returns
 `{chat, reply}`), `GET …/assistant/drafts/{reply}` (`{state, text}`) and
 `POST …/assistant/drafts/{reply}/used` (`{message}`). Table
 `relay_assistant_settings`.
@@ -209,8 +247,7 @@ visit.
   your sent message only; a check that does not run when nothing is new, runs
   once for a new direct message, one at a time, and always with a checklist.
 - Web `tests/assistant-draft.test.mjs` (one request, your words kept while it
-  writes, the draft written into the box, Discard restoring them; settings kept
-  on a failed save).
+  writes, the draft written into the box, Discard restoring them).
 
 ## Not built yet
 

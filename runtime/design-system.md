@@ -217,8 +217,9 @@ pill in the header with Stop, or Resume and Delete; under 760 px the pill keeps
 the mark and its buttons and drops its words. Messages it wrote show the mark
 and its name beside the time. The mark on a message's toolbar hands the chat
 over from that message; the mark beside Attach in the message box asks for a
-draft, which is written into the box under a one-line bar. Its settings open
-from the sliders button in its own chat's header. Do not restore a banner
+draft, which is written into the box under a one-line bar. The sliders button
+in its own chat's header opens its page in Agents, where everything about it is
+set up ([About you, rules, regular checks](assistants.md#set-up-on-its-agent-page-2026-11-19)). Do not restore a banner
 across the conversation, a row above the message box or rows under the
 assistant in the list.
 

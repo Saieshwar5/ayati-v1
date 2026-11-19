@@ -1,0 +1,14 @@
+/* A member's own assistant on its agent page: notes, rules and regular checks. */
+.assistant-about { display: grid; gap: 8px; }
+.assistant-about textarea { min-height: 0; }
+.assistant-rules, .assistant-checks { border-top: 1px solid var(--border); padding-top: 18px; }
+.assistant-rule-list { list-style: none; margin: 10px 0; padding: 0; }
+.assistant-rule-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.assistant-rule-list span { min-width: 0; overflow-wrap: anywhere; }
+.assistant-rule-list .ui-button { flex: none; }
+.assistant-rule-add { display: flex; gap: 8px; }
+.assistant-rule-add input { flex: 1; min-width: 0; padding: 10px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
+.assistant-checks { border-top: 0; padding-top: 0; margin-bottom: 24px; max-width: 620px; }
+.assistant-checks .ui-check span { display: grid; gap: 3px; }
+.assistant-checks textarea { min-height: 0; }
+@media (max-width: 600px) { .assistant-rule-add { flex-direction: column; } }

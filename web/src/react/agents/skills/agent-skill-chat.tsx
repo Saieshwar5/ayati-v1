@@ -20,9 +20,10 @@ const main = (files: SkillFile[]) => files.find(file => file.path === 'SKILL.md'
 /** Change with chat on the Instructions tab (designs/agent-built-skills 5). The
  * owner or an admin says what changed; the writer proposes each change as a
  * diff, and nothing changes until they apply it. Ground rules go into the
- * instructions box, to be saved there. */
+ * instructions box, to be saved there. Without `takeRules` (a member's own
+ * assistant, whose rules are a short list) only skills are proposed. */
 export function AgentSkillChat({ agent, rules, takeRules, changed }: {
-  agent: Agent; rules: string; takeRules: (text: string) => void; changed: () => void;
+  agent: Agent; rules: string; takeRules?: (text: string) => void; changed: () => void;
 }) {
   const writing = useSkillWriting();
   const saved = useRef<Saved[] | undefined>(undefined);
@@ -41,7 +42,7 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
     const current = saved.current ?? [];
     const key = () => crypto.randomUUID();
     const next: Proposal[] = [];
-    if (answer.ground_rules && answer.ground_rules.trim() !== rules.trim()) next.push({ key: key(), kind: 'rules', after: answer.ground_rules });
+    if (takeRules && answer.ground_rules && answer.ground_rules.trim() !== rules.trim()) next.push({ key: key(), kind: 'rules', after: answer.ground_rules });
     for (const { name, description, steps } of answer.skills) {
       const skill = current.find(item => item.name === name);
       next.push(skill ? { key: key(), kind: 'change', skill, description, steps } : { key: key(), kind: 'new', name, description, steps });
@@ -58,7 +59,7 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
   const apply = (proposal: Proposal) => void applying.run(async () => {
     let result = '';
     if (proposal.kind === 'rules') {
-      takeRules(proposal.after);
+      takeRules?.(proposal.after);
       result = 'Now in the instructions box. Save changes to keep it.';
     } else if (proposal.kind === 'change') {
       const { skill } = proposal;
@@ -97,7 +98,7 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
   </section>;
   if (writing.loading || !writing.available) return null;
   return <SetupChat name={agent.name} title={`Change with ${agent.name}`} subtitle={`Private · only ${agent.name}’s owner and admins`} writing={writing} submit={submit} extra={list || undefined}
-    greeting={`Tell me what changed, and I’ll propose new ground rules or skills for ${agent.name}. Nothing changes until you apply it.`} />;
+    greeting={`Tell me what changed, and I’ll propose new ${takeRules ? 'ground rules or skills' : 'skills'} for ${agent.name}. Nothing changes until you apply it.`} />;
 }
 
 function action(proposal: Proposal, agent: string) {

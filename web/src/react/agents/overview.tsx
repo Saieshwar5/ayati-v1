@@ -3,6 +3,7 @@ import { audienceLabels, ownerNames, type Agent } from './model';
 import { useAgentRequests } from './work';
 import { RequestRow } from './request-row';
 import type { WorkspaceSection } from './workspace-tabs';
+import { rulesOf } from './assistant/rules';
 
 /** The first readable lines of the instructions, without the section headings. */
 export function about(agent: Agent): string {
@@ -16,13 +17,16 @@ export function AgentOverview({ agent, open, people, owners }: {
   agent: Agent; open: (section: WorkspaceSection) => void; people: () => void; owners: () => void;
 }) {
   const requests = useAgentRequests(agent.id, 'mine', 'active');
+  const rules = rulesOf(agent.settings.instructions).length;
   const fact = (label: string, value: string, change?: () => void, action = 'Change') => <div className="agent-fact">
     <dt>{label}</dt><dd>{value}</dd>
     {change && <Button className="agent-fact-change" aria-label={`${action} ${label.toLowerCase()}`} onClick={change}>{action}</Button>}
   </div>;
   return <div className="agent-overview">
     <div className="agent-overview-main">
-      <section><h3>About</h3><p className="agent-responsibility">{about(agent) || 'No instructions yet.'}</p></section>
+      <section><h3>About</h3><p className="agent-responsibility">{agent.assistant
+        ? `${agent.name} works for ${agent.is_owner ? 'you' : agent.owner_name ?? 'one member'} alone: it drafts replies, takes over a chat when asked, runs schedules and triggers, and checks what needs its person.`
+        : about(agent) || 'No instructions yet.'}</p></section>
       <section>
         <header className="agent-section-heading"><h3>Your open requests</h3></header>
         {requests.error && <p role="alert">{requests.error}</p>}
@@ -40,7 +44,9 @@ export function AgentOverview({ agent, open, people, owners }: {
         {fact('Model', agent.model, () => open('Settings'), agent.editable ? 'Change' : 'View')}
         {fact('Connections', 'Apps, MCP servers and computers', () => open('Connections'), 'View')}
         {fact('Automations', 'Schedules and triggers', () => open('Automations'), 'View')}
-        {fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
+        {agent.assistant
+          ? fact('Rules and skills', rules === 1 ? '1 rule' : `${rules} rules`, () => open('Instructions'), agent.editable ? 'Change' : 'View')
+          : fact('Knows', agent.settings.memory ? 'Uses approved notes' : 'Approved notes are off', () => open('Instructions'), 'View')}
       </dl>
     </aside>
   </div>;

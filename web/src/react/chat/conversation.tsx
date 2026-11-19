@@ -21,7 +21,7 @@ import { ShowProfile, useShowProfile } from './profile-card';
 import { AssistantRoom, ThreadPill, TookOverLine } from './assistant-threads';
 import { threadIn, useThreads } from './assistant-threads-model';
 import { useAssistantDraft } from './assistant-draft';
-import { AssistantSettingsButton } from './assistant-settings';
+import { AssistantSettingsLink } from './assistant-settings';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
@@ -219,7 +219,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
       level={level} levelChanged={levelChanged} details={details}
-      extra={chat.id === room ? <AssistantSettingsButton name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
+      extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
     <ConnectionBanner status={connection} />
     {chat.id === room && <AssistantRoom assistantName={assistantName} />}
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
