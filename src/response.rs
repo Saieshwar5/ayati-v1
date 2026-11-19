@@ -26,9 +26,24 @@ fn excerpt(text: &str) -> String {
     text.chars().take(EXCERPT_CHARS).collect()
 }
 pub(crate) fn reference(id: &str, text: &str, state: &str, sequence: i64) -> Value {
-    json!({"schema":1,"id":id,"version":checksum(text.as_bytes()),"sequence":sequence,
+    let reply = crate::response_page::split(text);
+    let mut result = json!({"schema":1,"id":id,"version":checksum(text.as_bytes()),"sequence":sequence,
       "state":match state {"complete"|"sent"=>"complete","queued"|"streaming"=>"draft",_=>"interrupted"},
-      "characters":text.chars().count(),"bytes":text.len(),"long":long(text),"available":text.len()<=MAX_BODY})
+      "characters":text.chars().count(),"bytes":text.len(),"long":long(&reply.text),"available":text.len()<=MAX_BODY});
+    // A page is read in its own view, so only the words around it count as the reply.
+    if let Some(page) = &reply.page {
+        result["page"] = page.summary();
+    }
+    result
+}
+/// What Chat shows for a saved reply: the words around its page, shortened when long.
+fn shown(text: &str) -> Option<String> {
+    let reply = crate::response_page::split(text);
+    if long(&reply.text) {
+        Some(excerpt(&reply.text))
+    } else {
+        reply.page.is_some().then(|| reply.text.into_owned())
+    }
 }
 pub(crate) fn body(
     id: &str,
@@ -75,14 +90,11 @@ pub(crate) fn compact_message(message: &mut Value) {
     if !message["response"].is_object() {
         message["response"] = data;
     }
-    if let Some(text) = message["content"].as_str().filter(|text| long(text)) {
-        message["content"] = json!(excerpt(text));
+    if let Some(text) = message["content"].as_str().and_then(shown) {
+        message["content"] = json!(text);
     }
-    if let Some(text) = message["progress"]["text"]
-        .as_str()
-        .filter(|text| long(text))
-    {
-        message["progress"]["text"] = json!(excerpt(text));
+    if let Some(text) = message["progress"]["text"].as_str().and_then(shown) {
+        message["progress"]["text"] = json!(text);
     }
 }
 pub(crate) fn compact_history(page: &mut Value) {
@@ -130,6 +142,28 @@ mod tests {
             body("reply", &text, "queued", 9, false).unwrap()["body"],
             text
         );
+    }
+    #[test]
+    fn a_reply_with_a_page_shows_its_words_and_describes_the_page() {
+        let text = format!(
+            "Courier B is the best fit.\n\n<page title=\"Courier comparison\">\n## Cost\n{}\n</page>",
+            "word ".repeat(900)
+        );
+        let mut message =
+            json!({"id":"reply","kind":"agent","state":"complete","revision":2,"content":text});
+        compact_message(&mut message);
+        assert_eq!(message["content"], "Courier B is the best fit.");
+        assert_eq!(message["response"]["long"], false);
+        assert_eq!(message["response"]["page"]["title"], "Courier comparison");
+        assert_eq!(message["response"]["page"]["sections"], 1);
+        assert_eq!(message["response"]["version"], checksum(text.as_bytes()));
+        assert_eq!(
+            body("reply", &text, "complete", 2, false).unwrap()["body"],
+            text
+        );
+        let frozen = message.clone();
+        compact_message(&mut message);
+        assert_eq!(frozen, message);
     }
     #[test]
     fn compact_modes_do_not_rewrite_human_messages_or_permission_controls() {

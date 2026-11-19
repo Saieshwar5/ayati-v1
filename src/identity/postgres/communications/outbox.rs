@@ -24,6 +24,14 @@ pub(in crate::identity::postgres) async fn complete(
 }
 
 impl PgStore {
+    /// Whether this request arrived through a transport other than Cuckoo Chat.
+    pub(crate) async fn asked_from_outside(&self, job: &Job) -> Result<bool> {
+        if !super::access::exists(&self.db).await? {
+            return Ok(false);
+        }
+        Ok(query(&self.db, "SELECT 1 AS found FROM relay_communication_inbox WHERE workspace=$1 AND reply=$2 AND transport<>'chat'",
+            vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.is_some())
+    }
     pub(crate) async fn simulate_dispatch(
         &self,
         actor: &User,

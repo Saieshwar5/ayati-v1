@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { ResponseReader } from './reader';
 import { FileViewer } from './file-viewer';
+import { PageReader } from '../pages/page-reader';
 import type { ResultSource, Selection } from './model';
 import './results.css';
 type Open = (selection: Selection) => void;
@@ -11,6 +12,7 @@ export const useResultSource = () => useContext(SourceContext);
 export const useResultReading = () => useContext(ReadingContext);
 export const useResults = () => useContext(ResultContext);
 export function ResultDialog({ selection, source, close }: { selection: Selection; source: ResultSource; close: () => void }) {
+  if (selection.kind === 'page') return <PageReader key={selection.id} id={selection.id} source={source} close={close} />;
   return selection.kind === 'response' ? <ResponseReader key={selection.id} id={selection.id} source={source} close={close} /> : <FileViewer key={selection.id} {...selection} source={source} close={close} />;
 }
 export function Results({ source, children, changed }: { source: ResultSource; children: ReactNode; changed: (open: boolean) => void }) {

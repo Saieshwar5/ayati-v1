@@ -1,4 +1,5 @@
-.panel-snapshot {
+/* Pages in replies draw the same charts (react/pages). */
+.panel-snapshot, .page-figure {
   --panel-series-1: var(--working);
   --panel-series-2: #9883c8;
   --panel-series-3: #439a91;
@@ -44,7 +45,7 @@
   .panel-chart-label { font-size: 28px; }
 }
 @media (forced-colors: active) {
-  .panel-snapshot {
+  .panel-snapshot, .page-figure {
     --panel-series-1: CanvasText; --panel-series-2: LinkText;
     --panel-series-3: Highlight; --panel-series-4: GrayText;
   }
