@@ -72,6 +72,17 @@ ever offered to an agent.
 | Google Calendar | Find events; Create an event | `googlecalendar` |
 | Google Sheets | Find a row; Read spreadsheet details | `googlesheets` |
 | Google Drive | Find files | `googledrive` |
+| Google Docs | Find, Read; Create, Replace a document's content | `googledocs` |
+| Outlook | Find, Read emails; Draft, Send | `outlook` |
+| Slack | Find channels, Find messages, Read a channel; Send a message | `slack` |
+| Notion | Find, Read pages; Create a page | `notion` |
+| GitHub | Find, Read issues; Create an issue, Comment | `github` |
+| Linear | Find, Read issues, List teams; Create an issue, Comment | `linear` |
+
+The last six were added 2026-11-19 through Composio only. Each action's fields
+were checked against Composio's tool definitions of that day; no account of
+these apps has been connected yet. They have no identity read, so reconnecting
+one starts its rules over, and no events.
 
 When an account connects, Cuckoo reads each provider tool's input schema,
 keeps only the reviewed fields, renames them to Cuckoo's names and keeps plain
