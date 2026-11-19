@@ -444,6 +444,8 @@ async fn guard(State(app): State<Shared>, request: Request<Body>, next: Next) ->
 }
 
 #[cfg(test)]
+mod cloud_template_tests;
+#[cfg(test)]
 mod tests;
 
 fn check(condition: bool, message: &str) -> anyhow::Result<()> {

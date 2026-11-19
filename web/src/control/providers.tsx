@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ago, control, type Provider, type Providers } from './api';
 import type { Go } from './app';
 import { ConnectorProviders } from './connector-providers';
+import { AppEvents } from './app-events';
 import { Loading, ReasonDialog, Tag, providerHue } from './shared';
 
 type Resource = { data?: Providers; error: string; setData: (data: Providers) => void; refresh: () => Promise<void> };
@@ -23,6 +24,7 @@ export function ProvidersScreen({ providers, canStoreKeys, selected, go }: { pro
         <div className="cc-cards">{list.map(p => <ProviderCard key={p.name} provider={p} current={p.name === current?.name} open={() => go('providers', { id: p.name })} />)}</div>
       </section>
       <ConnectorProviders />
+      <AppEvents />
     </div>
     {current && <ProviderPanel key={current.name} provider={current} all={list} canStoreKeys={canStoreKeys} onSaved={providers.setData} go={go} />}
     {adding && <AddProvider onClose={() => setAdding(false)} onSaved={providers.setData} />}
