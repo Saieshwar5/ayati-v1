@@ -194,6 +194,326 @@
           }
         }
       ]
+    },
+    {
+      "id": "google_docs",
+      "category": "files",
+      "description": "Documents",
+      "name": "Google Docs",
+      "providers": { "composio": "googledocs" },
+      "actions": [
+        {
+          "id": "google_docs.find_documents",
+          "title": "Find documents",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLEDOCS_SEARCH_DOCUMENTS",
+              "fields": { "query": "query", "max_results": "max_results", "page_token": "page_token", "modified_after": "modified_after" }
+            }
+          }
+        },
+        {
+          "id": "google_docs.read_document",
+          "title": "Read a document",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLEDOCS_GET_DOCUMENT_PLAINTEXT",
+              "fields": { "document_id": "document_id" }
+            }
+          }
+        },
+        {
+          "id": "google_docs.create_document",
+          "title": "Create a document",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN",
+              "fields": { "title": "title", "content": "markdown_text" }
+            }
+          }
+        },
+        {
+          "id": "google_docs.replace_content",
+          "title": "Replace a document's content",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "GOOGLEDOCS_UPDATE_DOCUMENT_MARKDOWN",
+              "fields": { "document_id": "id", "content": "markdown" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "outlook",
+      "category": "email_calendar",
+      "description": "Email",
+      "name": "Outlook",
+      "providers": { "composio": "outlook" },
+      "actions": [
+        {
+          "id": "outlook.find_emails",
+          "title": "Find emails",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "OUTLOOK_SEARCH_MESSAGES",
+              "fields": { "query": "query", "from": "fromEmail", "max_results": "size", "page_token": "page_token" }
+            }
+          }
+        },
+        {
+          "id": "outlook.read_email",
+          "title": "Read an email",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "OUTLOOK_GET_MESSAGE",
+              "fields": { "message_id": "message_id" }
+            }
+          }
+        },
+        {
+          "id": "outlook.draft_email",
+          "title": "Draft an email",
+          "effect": "write",
+          "required": ["to"],
+          "providers": {
+            "composio": {
+              "tool": "OUTLOOK_CREATE_DRAFT",
+              "fields": { "to": "to_recipients", "cc": "cc_recipients", "bcc": "bcc_recipients", "subject": "subject", "body": "body", "is_html": "is_html" }
+            }
+          }
+        },
+        {
+          "id": "outlook.send_email",
+          "title": "Send an email",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "OUTLOOK_SEND_EMAIL",
+              "fields": { "to": "to", "cc": "cc_emails", "bcc": "bcc_emails", "subject": "subject", "body": "body", "is_html": "is_html" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "slack",
+      "category": "messaging",
+      "description": "Team chat",
+      "name": "Slack",
+      "providers": { "composio": "slack" },
+      "actions": [
+        {
+          "id": "slack.find_channels",
+          "title": "Find channels",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "SLACK_FIND_CHANNELS",
+              "fields": { "query": "query", "max_results": "limit", "exact_match": "exact_match", "member_only": "member_only" }
+            }
+          }
+        },
+        {
+          "id": "slack.find_messages",
+          "title": "Find messages",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "SLACK_SEARCH_MESSAGES",
+              "fields": { "query": "query", "max_results": "count", "sort": "sort", "sort_direction": "sort_dir", "page": "page" }
+            }
+          }
+        },
+        {
+          "id": "slack.read_channel",
+          "title": "Read a channel's messages",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "SLACK_FETCH_CONVERSATION_HISTORY",
+              "fields": { "channel": "channel", "max_results": "limit", "oldest": "oldest", "latest": "latest", "page_token": "cursor" }
+            }
+          }
+        },
+        {
+          "id": "slack.send_message",
+          "title": "Send a message",
+          "effect": "write",
+          "required": ["text"],
+          "providers": {
+            "composio": {
+              "tool": "SLACK_SEND_MESSAGE",
+              "fields": { "channel": "channel", "text": "markdown_text", "thread": "thread_ts" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "notion",
+      "category": "files",
+      "description": "Notes and documents",
+      "name": "Notion",
+      "providers": { "composio": "notion" },
+      "actions": [
+        {
+          "id": "notion.find_pages",
+          "title": "Find pages",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "NOTION_SEARCH_NOTION_PAGE",
+              "fields": { "query": "query", "max_results": "page_size", "page_token": "start_cursor" }
+            }
+          }
+        },
+        {
+          "id": "notion.read_page",
+          "title": "Read a page",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "NOTION_GET_PAGE_MARKDOWN",
+              "fields": { "page_id": "page_id" }
+            }
+          }
+        },
+        {
+          "id": "notion.create_page",
+          "title": "Create a page",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "NOTION_CREATE_NOTION_PAGE",
+              "fields": { "parent_id": "parent_id", "title": "title", "content": "markdown" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "category": "projects",
+      "description": "Code, issues and pull requests",
+      "name": "GitHub",
+      "providers": { "composio": "github" },
+      "actions": [
+        {
+          "id": "github.find_issues",
+          "title": "Find issues and pull requests",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS",
+              "fields": { "query": "q", "max_results": "per_page", "page": "page", "sort": "sort", "order": "order" }
+            }
+          }
+        },
+        {
+          "id": "github.read_issue",
+          "title": "Read an issue",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "GITHUB_GET_AN_ISSUE",
+              "fields": { "owner": "owner", "repo": "repo", "issue_number": "issue_number" }
+            }
+          }
+        },
+        {
+          "id": "github.create_issue",
+          "title": "Create an issue",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "GITHUB_CREATE_AN_ISSUE",
+              "fields": { "owner": "owner", "repo": "repo", "title": "title", "body": "body", "labels": "labels", "assignees": "assignees" }
+            }
+          }
+        },
+        {
+          "id": "github.comment_on_issue",
+          "title": "Comment on an issue or pull request",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+              "fields": { "owner": "owner", "repo": "repo", "issue_number": "issue_number", "body": "body" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "linear",
+      "category": "projects",
+      "description": "Issues and projects",
+      "name": "Linear",
+      "providers": { "composio": "linear" },
+      "actions": [
+        {
+          "id": "linear.find_issues",
+          "title": "Find issues",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "LINEAR_SEARCH_ISSUES",
+              "fields": { "query": "query", "max_results": "first", "page_token": "after" }
+            }
+          }
+        },
+        {
+          "id": "linear.read_issue",
+          "title": "Read an issue",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "LINEAR_GET_LINEAR_ISSUE",
+              "fields": { "issue_id": "issue_id" }
+            }
+          }
+        },
+        {
+          "id": "linear.list_teams",
+          "title": "List teams",
+          "effect": "read",
+          "providers": {
+            "composio": {
+              "tool": "LINEAR_LIST_LINEAR_TEAMS",
+              "fields": { "max_results": "first", "page_token": "after" }
+            }
+          }
+        },
+        {
+          "id": "linear.create_issue",
+          "title": "Create an issue",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "LINEAR_CREATE_LINEAR_ISSUE",
+              "fields": { "team_id": "team_id", "title": "title", "description": "description", "priority": "priority", "due_date": "due_date", "assignee_id": "assignee_id" }
+            }
+          }
+        },
+        {
+          "id": "linear.comment_on_issue",
+          "title": "Comment on an issue",
+          "effect": "write",
+          "providers": {
+            "composio": {
+              "tool": "LINEAR_CREATE_LINEAR_COMMENT",
+              "fields": { "issue_id": "issueId", "body": "body" }
+            }
+          }
+        }
+      ]
     }
   ]
 }

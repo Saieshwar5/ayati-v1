@@ -30,7 +30,7 @@ secrets_key() {
         echo "ayati/secrets-key exists and is kept: replacing it would lock stored secrets." >&2; exit 1
     fi
     local work
-    work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+    work=$(mktemp -d); trap 'rm -rf "$work"; trap - RETURN' RETURN
     (umask 077; openssl rand -hex 32 > "$work/key")
     put_secret secrets-key "$work/key"
 }
@@ -62,7 +62,7 @@ secrets() {
 # Executors trust only this private CA; the controller holds the key (worker-control.md).
 worker_tls() {
     local work
-    work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+    work=$(mktemp -d); trap 'rm -rf "$work"; trap - RETURN' RETURN
     "$root/tools/worker-control-certs.sh" "$work/tls" worker-control.ayati.internal >/dev/null
     jq -n --arg key "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')" \
         --rawfile certificate "$work/tls/server.pem" --rawfile private_key "$work/tls/server.key" \
