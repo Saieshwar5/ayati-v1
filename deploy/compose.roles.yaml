@@ -1,0 +1,71 @@
+# Split roles overlay: the controller runs as two services on one database
+# (runtime/controller-roles.md).
+#   docker compose -f deploy/compose.yaml -f deploy/compose.roles.yaml up -d
+# `api` becomes the web controller: browsers only, no executor settings, no
+# route to the worker network. `work` serves executors and runs the scheduler
+# and background jobs; nothing publishes its ports. Scale each on its own:
+#   --scale work=2 --scale executor=4
+services:
+  api:
+    environment:
+      AYATI_CONTROLLER_ROLE: web
+      AYATI_DATABASE_CONNECTIONS: ${AYATI_WEB_DATABASE_CONNECTIONS:-10}
+      AYATI_WORKER_CONTROL_URL: !reset null
+      AYATI_WORKER_CONTROL_KEY_FILE: !reset null
+      AYATI_WORKER_CONTROL_LISTEN: !reset null
+      AYATI_WORKER_CONTROL_TLS_CERT: !reset null
+      AYATI_WORKER_CONTROL_TLS_KEY: !reset null
+    volumes: !reset []
+    networks: !override
+      default: {}
+    depends_on: !reset {}
+  work:
+    image: ${AYATI_IMAGE:-ayati:hosted-local}
+    platform: linux/amd64
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+      - /var/lib/ayati:rw,nosuid,nodev,size=1g,uid=10001,gid=10001,mode=0700
+    stop_grace_period: 90s
+    restart: unless-stopped
+    command: [identity]
+    environment:
+      AYATI_CONTROLLER_ROLE: work
+      AYATI_DATABASE_CONNECTIONS: ${AYATI_WORK_DATABASE_CONNECTIONS:-10}
+      AYATI_WORKER_CONTROL_URL: https://worker-control:8766
+      AYATI_WORKER_CONTROL_KEY_FILE: /run/controller/key
+      AYATI_WORKER_CONTROL_LISTEN: 0.0.0.0:8766
+      AYATI_WORKER_CONTROL_TLS_CERT: /run/controller/server.pem
+      AYATI_WORKER_CONTROL_TLS_KEY: /run/controller/server.key
+      # The origin people use, for links in what agents write. The browser port
+      # itself stays on loopback: it answers this container's health check only.
+      AYATI_PUBLIC_ORIGIN: ${AYATI_PUBLIC_ORIGIN:?Set the HTTPS public origin}
+      AYATI_DRAIN_SECONDS: ${AYATI_DRAIN_SECONDS:-15}
+      AYATI_SHUTDOWN_SECONDS: ${AYATI_SHUTDOWN_SECONDS:-60}
+      AYATI_WORKER_PROVIDERS: ${AYATI_WORKER_PROVIDERS:-openai}
+      AYATI_MODEL: ${AYATI_MODEL:?Set the default model}
+      RELAY_DATABASE_URL_FILE: /run/secrets/database_url
+      CUCKOO_LIBRARY_S3_BUCKET: ${CUCKOO_LIBRARY_S3_BUCKET:-}
+      CUCKOO_LIBRARY_S3_ENDPOINT: ${CUCKOO_LIBRARY_S3_ENDPOINT:-}
+      AYATI_ARCHIVE_S3_BUCKET: ${AYATI_ARCHIVE_S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    volumes: [controller-control:/run/controller:ro]
+    # No WorkOS key: a work controller signs nobody in and refuses to hold it.
+    secrets: [database_url]
+    networks:
+      default: {}
+      worker: {aliases: [worker-control]}
+    depends_on:
+      control-key: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, /opt/ayati/ayati, api-health]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+  executor:
+    depends_on: !override
+      work: {condition: service_healthy}

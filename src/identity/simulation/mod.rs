@@ -68,15 +68,23 @@ pub async fn serve(root: &Path, config: crate::config::Controller) -> Result<()>
         runtimes: workspaces::Runtimes::new(root.join("workspaces")),
         simulation: Some(simulation),
     });
-    let control = worker_control::start(app.clone()).await?;
+    // The same roles as `ayati identity` (role_startup.rs), for process tests.
+    let role = app.config.role;
+    let control = if role.work() {
+        worker_control::start(app.clone()).await?
+    } else {
+        None
+    };
     chat::start_dispatcher(app.clone());
-    automations::start(app.clone()).await;
-    super::communications::gateway::start(app.clone());
     super::metrics::start(app.clone());
-    super::data_cleanup::start(app.clone());
-    super::library::indexer::start(app.clone());
-    super::library::keeping::start(app.clone());
-    super::transcription::start(app.clone())?;
+    if role.work() {
+        automations::start(app.clone()).await;
+        super::communications::gateway::start(app.clone());
+        super::data_cleanup::start(app.clone());
+        super::library::indexer::start(app.clone());
+        super::library::keeping::start(app.clone());
+        super::transcription::start(app.clone())?;
+    }
     tracing::info!(
         "Company simulation: {}/index.html?view=simulation",
         app.config.origin

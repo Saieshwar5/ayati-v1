@@ -7,6 +7,9 @@ database URL, WorkOS key or connector credential; model provider keys stay on
 executors. See the [executor pool](executor-pool.md) for slots and dispatch, and
 [live replies](reply-streaming.md) for streamed output.
 
+With [controller roles](controller-roles.md), only a `work` (or `all`) controller
+listens for executors; a `web` controller refuses these settings.
+
 Every agent reply runs this way. The older embedded, polling-worker and
 temporary-assignment modes were removed on 2026-10-29. `AYATI_CHAT_EXECUTION`
 accepts only `pooled` (the default); `ayati simulate` alone may use `scripted`

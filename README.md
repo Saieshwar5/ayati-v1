@@ -22,6 +22,10 @@ configuration and database names remain. See [Cuckoo branding](runtime/cuckoo-br
 | Migration job | `ayati workspace-db migrate` | Explicit PostgreSQL schema changes; never run on API startup |
 | Operator CLI | `ayati admin` | [Cuckoo Control](runtime/cuckoo-control.md) from a terminal: the same actions and change log as the console at `/control` |
 
+The controller can run as two processes, `web` for people and `work` for agents, on
+the same database ([controller roles](runtime/controller-roles.md)); one process runs
+both by default.
+
 Executors never receive core database credentials or WorkOS keys. See
 [worker control](runtime/worker-control.md), the [shared executor pool](runtime/executor-pool.md)
 and [live replies](runtime/reply-streaming.md).

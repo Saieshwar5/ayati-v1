@@ -269,7 +269,10 @@ async fn validate_asked(
 /// control; only the scripted company simulation answers inside the controller.
 pub(super) fn start_dispatcher(app: Shared) {
     sync::start(app.clone());
-    presence::start(app.clone());
+    // Presence follows people's open live streams, which only a web process has.
+    if app.config.role.web() {
+        presence::start(app.clone());
+    }
     if app.simulation.is_some() && !app.store.pooled {
         super::simulation::dispatch::start(app);
     }

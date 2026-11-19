@@ -8,6 +8,7 @@ mod executor;
 mod operators;
 pub(crate) mod pipedream;
 mod reader;
+mod role;
 
 pub use admin::Admin;
 pub use archive::Archive;
@@ -16,6 +17,7 @@ pub use controller::{CloudWorkers, Controller, Execution, Library, Pool};
 pub use executor::{Executor, Identity};
 pub use pipedream::Pipedream;
 pub(crate) use reader::Reader;
+pub use role::Role;
 
 use anyhow::Result;
 use std::path::PathBuf;

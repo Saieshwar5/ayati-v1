@@ -17,6 +17,19 @@ executor crash, graceful drain, failed readiness and cancellation. The provider 
 scripted; no cloud or paid model is used. Preserve an immutable `AYATI_TEST_BIN`
 copy if Cargo will rebuild the binary while process tests are running.
 
+## Web and work controllers
+
+The [controller roles](../runtime/controller-roles.md) run as separate processes.
+With the same test database, real pinned Goose and a scripted provider:
+
+~~~sh
+node --test tests/controller_roles.mjs
+~~~
+
+It runs a web controller, a work controller and an executor on one database and
+checks queueing with no work controller, prompt pick-up through PostgreSQL's
+notification, the live stream, a schedule, and the loss of each controller in turn.
+
 ## Generic preparation before readiness
 
 Pooled fixtures require migration 15 and the separate prepared artifact:
