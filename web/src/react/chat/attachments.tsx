@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { Composer, type ComposerProps } from './composer';
@@ -18,11 +18,13 @@ async function uploadChatFile(chat: string, file: File, signal: AbortSignal): Pr
 
 export type ChatComposerProps = Omit<ComposerProps, 'send'> & {
   chat: string; files: Attachment[]; setFiles: (files: Attachment[]) => void;
+  /** More buttons beside Attach, and a line on top of the message box (your assistant's draft). */
+  tools?: ReactNode; notice?: ReactNode;
   /** Sends the draft with its files, plus a just-recorded voice message; true once accepted. */
   send: (voice?: Attachment) => Promise<boolean>;
 };
 
-export function ChatComposer({ chat, files, setFiles, send, ...props }: ChatComposerProps) {
+export function ChatComposer({ chat, files, setFiles, send, tools, notice, ...props }: ChatComposerProps) {
   const [error, setError] = useState(''), [uploading, setUploading] = useState(false);
   const alive = useRef(false), gate = useRef(false), current = useRef(files);
   const picker = useRef<HTMLInputElement>(null), abort = useRef<AbortController | undefined>(undefined);
@@ -56,13 +58,14 @@ export function ChatComposer({ chat, files, setFiles, send, ...props }: ChatComp
     sendDisabled={sendsVoice ? uploading : showsRow || props.sendDisabled || uploading}
     voice={showsRow ? { row: <VoiceRow voice={voice} />, cancel: phase.name === 'sending' ? undefined : voice.cancel } : undefined}
     attachments={<>
+      {notice}
       {files.map(file => <Button key={file.id} aria-label={`Remove ${file.name}`} disabled={props.disabled || uploading} onClick={() => setFiles(files.filter(f => f.id !== file.id))}>{file.name} ×</Button>)}
       {kept && <VoiceDraft phase={kept} disabled={!!props.disabled || uploading} retry={() => void voice.submit()} remove={voice.cancel} />}
     </>}
     trailing={kept ? undefined : <VoiceButton voice={voice} disabled={!!props.disabled || uploading} />}
     media={<>
       <input ref={picker} type="file" hidden aria-label="Choose attachment" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ''; }} />
-      <Button aria-label="Attach file" title="Attach file" disabled={props.disabled || uploading} onClick={() => picker.current?.click()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6l-10 10a6 6 0 0 1-8-8L13 3m-7 12 9-9a2 2 0 0 1 3 3l-9 9"/></svg></Button>
+      <span className="composer-tools"><Button aria-label="Attach file" title="Attach file" disabled={props.disabled || uploading} onClick={() => picker.current?.click()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6l-10 10a6 6 0 0 1-8-8L13 3m-7 12 9-9a2 2 0 0 1 3 3l-9 9"/></svg></Button>{tools}</span>
       {uploading && <small role="status">Uploading…</small>}
     </>} />
     {voice.problem && <p className="chat-error" role="alert">{voice.problem}</p>}

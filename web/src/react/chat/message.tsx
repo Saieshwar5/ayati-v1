@@ -22,8 +22,11 @@ import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
 import { ThreadLine, type threadSummary } from './thread-line';
 import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
-import { ThreadIcon } from './assistant-threads';
-export function ChatMessage({ message, directory, thread, openThread, reply, quoted, place = '', compact = false, focused = false }: { focused?: boolean; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string };
+import { AssistantMark } from './assistant-threads';
+import { TakeOver } from './assistant-takeover';
+export function ChatMessage({ message, directory, thread, openThread, reply, quoted, handOver, place = '', compact = false, focused = false }: { focused?: boolean;
+  /** Your assistant's name, when this message can hand the chat over to it (schema 136). */
+  handOver?: string; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string };
   /** Where this message is, as a forward of it says (`Direct message`, `#orders`). */
   place?: string }) {
   const openResult = useResults();
@@ -49,6 +52,8 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const [inspecting, setInspecting] = useState(false);
   const [keeping, setKeeping] = useState(false);
   const [forwarding, setForwarding] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
+  const writer = own && message.assisted?.by === 'assistant' ? directory.agents.find(item => item.id === message.assisted?.agent)?.name ?? 'your assistant' : undefined;
   const reactions = useReactions(message);
   const cancel = useCancelReply(message);
   const deleted = message.state === 'deleted';
@@ -72,16 +77,17 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
       {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
       {message.questions && <QuestionCards questions={message.questions} />}
       {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
-      {own && message.assisted?.by === 'assistant' && <p className="chat-assisted" title="Only you and workspace admins can see this"><ThreadIcon />Written by {directory.agents.find(item => item.id === message.assisted?.agent)?.name ?? 'your assistant'} · {message.assisted.title}</p>}
       {!own && edited}
       <ReactionBar message={message} reactions={reactions} directory={directory} />
       </>}
-      {own && <div className="chat-message-meta">{door}{edited}{time}<MessageReceipt message={message} /></div>}
+      {own && <div className="chat-message-meta">{writer && <span className="chat-assisted" title={`Written by ${writer} · ${message.assisted?.title}. Only you and workspace admins can see this.`}><AssistantMark size={12} />{writer}</span>}{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
     {thread && <ThreadLine summary={thread} directory={directory} open={openThread} />}
     {(message.chat || openThread) && !deleted && !editing && <MessageToolbar message={message} own={own} reactions={reactions} cancel={cancel} reply={reply} openThread={openThread} edit={() => setEditing(true)} remove={() => setDeleting(true)} keep={() => setKeeping(true)} forward={() => setForwarding(true)}
+      takeOver={handOver ? { label: `Let ${handOver} take over from here`, open: () => setTakingOver(true) } : undefined}
       details={message.kind === 'agent' && message.chat && (message.update_of || message.has_task !== false) ? () => setInspecting(true) : undefined} />}
     {deleting && <DeleteMessage message={message} close={() => setDeleting(false)} />}
+    {takingOver && handOver && <TakeOver message={message} name={name} assistantName={handOver} close={() => setTakingOver(false)} />}
     {forwarding && <ForwardMessage message={message} name={name} place={place} directory={directory} close={() => setForwarding(false)} />}
     {keeping && <SaveAnswer message={message} close={() => setKeeping(false)} />}
     {inspecting && <RequestDetails reply={message.update_of ?? message.id} close={() => setInspecting(false)} />}

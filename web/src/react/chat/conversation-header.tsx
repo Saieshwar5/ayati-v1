@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Button } from '../ui';
 import { ConversationFace, ParticipantFace, ParticipantName } from './conversation-face';
 import { directPartner, type Conversation, type Directory } from './model';
@@ -9,8 +10,10 @@ import { PresenceLine } from './presence-view';
 export type DetailsControl = { open: boolean; toggle: () => void; show: () => void; review: () => void };
 
 /** The connection is no longer shown here; it appears as a banner only while down (D245). */
-export function ConversationHeader({ chat, directory, title, back, search, level, levelChanged, details }: {
+export function ConversationHeader({ chat, directory, title, back, search, level, levelChanged, details, extra }: {
   chat: Conversation; directory: Directory; title: string; back: () => void; search: () => void;
+  /** Shown before the search button: what your assistant is doing in this chat. */
+  extra?: ReactNode;
   level?: Level; levelChanged: (level: Level) => void; details: DetailsControl;
 }) {
   const partner = directPartner(chat, directory);
@@ -29,6 +32,7 @@ export function ConversationHeader({ chat, directory, title, back, search, level
         {person ? <PresenceLine id={person} fallback={summary ?? ''} /> : <small className="chat-kind">{summary}</small>}
       </div>
     </div>
+    {extra}
     <Button className="ui-icon chat-search-button" aria-label={`Search in ${title}`} title="Search this conversation" onClick={search}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
     </Button>

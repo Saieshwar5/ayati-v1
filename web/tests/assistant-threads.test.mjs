@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 
-// Assistant threads (schema 128): suggested threads start only when you press
-// Start, a running thread can be stopped where it runs, a new thread is sent
-// once, and only your own messages carry the "written by" mark.
+// Your assistant replying for you (schemas 128 and 136): what it suggests starts
+// only when you press Start, a chat it replies in says so in its header and can
+// be stopped there, a chat is handed over from a message with one instruction,
+// and only your own messages carry its mark.
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=chat&conversation=room`;
 const session = { user: { id: 'ravi', email: 'ravi@example.test' }, workspaces: [{ id: w, name: 'Northwind', role: 'Member' }] };
 const directory = { role: 'Member',
@@ -21,7 +22,7 @@ function server(list, writes, { fail = 0 } = {}) {
   return async (path, options = {}) => {
     if (options.method === 'POST') {
       writes.push({ path: path.replace(`/api/identity/workspaces/${w}`, ''), body: JSON.parse(options.body) });
-      if (writes.length <= fail) return response({ error: 'You already have a running thread with HR Desk.' }, 409);
+      if (writes.length <= fail) return response({ error: 'Your assistant is already replying to Priya Sharma here.' }, 409);
       return response({ ok: true, chat: 'dm-hr' });
     }
     if (path.endsWith('/session')) return response(session);
@@ -41,67 +42,83 @@ async function show(render, part) {
 }
 const button = (node, label) => [...node.querySelectorAll('button')].find(b => b.textContent.trim() === label);
 
-test('a suggested thread shows in your assistant’s chat and starts once when you press Start', async () => {
+test('what your assistant suggests shows in its own chat and starts once when you press Start', async () => {
   const writes = [];
   await reactFixture(async ({ render, update }) => {
-    await show(render, view => createElement(view.ThreadBanner, { chat: 'room', assistantName: 'Ayati' }));
+    await show(render, view => createElement(view.AssistantRoom, { assistantName: 'Ayati' }));
     const banner = document.querySelector('.chat-thread-banner.suggested');
-    assert.match(banner.textContent, /Ayati suggests a thread with HR Desk.*Leave in December/);
+    assert.match(banner.textContent, /Ayati suggests talking to HR Desk for you.*Leave in December/);
     assert.match(banner.textContent, /22 to 26 December/);
     assert.match(banner.textContent, /sent as your message/);
+    assert.equal(document.querySelector('.chat-thread-strip'), null, 'nothing is handed over yet');
     assert.equal(writes.length, 0, 'nothing is sent by showing it');
-    const start = button(banner, 'Start thread');
+    const start = button(banner, 'Start');
     await update(() => { start.click(); start.click(); });
     assert.deepEqual(writes, [{ path: '/assistant/threads/t1/state', body: { state: 'running' } }], 'one request despite a double click');
   }, { url, fetch: server([thread('t1', 'suggested')], writes) });
 });
 
-test('a running thread says so where it runs and can be stopped there; a stopped one resumes or is deleted', async () => {
+test('a chat your assistant replies in says so in its header, the list and its own chat; stop, resume and delete', async () => {
   const writes = [];
   await reactFixture(async ({ render, click }) => {
     await show(render, view => createElement('div', null,
-      createElement(view.ThreadBanner, { chat: 'dm-hr', assistantName: 'Ayati' }),
-      createElement(view.ThreadRows, { selected: 'dm-hr', manage() {} })));
-    const banner = document.querySelector('.chat-thread-banner.running');
-    assert.match(banner.textContent, /Ayati is answering HR Desk for you.*Leave in December.*writing a reply/);
-    const row = document.querySelector('.chat-thread-row');
-    assert.match(row.textContent, /Leave in December.*with HR Desk/);
-    assert.match(row.getAttribute('href'), /conversation=dm-hr/);
-    assert.equal(row.getAttribute('aria-current'), 'page');
-    await click(button(banner, 'Stop'));
+      createElement(view.ThreadPill, { chat: 'dm-hr', assistantName: 'Ayati' }),
+      createElement(view.ThreadMark, { chat: 'dm-hr', assistantName: 'Ayati' }),
+      createElement(view.ThreadMark, { chat: 'dm-priya', assistantName: 'Ayati' }),
+      createElement(view.AssistantRoom, { assistantName: 'Ayati' })));
+    const pill = document.querySelector('.chat-thread-pill.running');
+    assert.match(pill.querySelector('summary').textContent, /Ayati is writing…/);
+    assert.match(pill.querySelector('.chat-thread-about').textContent, /What you asked.*Ask about leave in December/);
+    const marks = [...document.querySelectorAll('.chat-thread-mark')];
+    assert.deepEqual(marks.map(mark => mark.getAttribute('aria-label')), ['Ayati is replying for you'], 'only on the chat it replies in');
+    const strip = document.querySelector('.chat-thread-strip');
+    assert.match(strip.textContent, /Replying for you in 1 chat.*HR Desk.*Writing a reply/);
+    assert.ok(button(strip, 'Open'));
+    await click(button(pill, 'Stop'));
     assert.deepEqual(writes.at(-1), { path: '/assistant/threads/t1/state', body: { state: 'stopped' } });
-  }, { url, fetch: server([thread('t1', 'running', { working: true })], writes) });
+  }, { url, fetch: server([thread('t1', 'running', { working: true, instruction: 'Ask about leave in December' })], writes) });
   await reactFixture(async ({ render, click }) => {
-    await show(render, view => createElement(view.ThreadBanner, { chat: 'dm-hr', assistantName: 'Ayati' }));
-    const banner = document.querySelector('.chat-thread-banner.stopped');
-    assert.match(banner.textContent, /Thread stopped.*You stopped it/);
-    await click(button(banner, 'Resume'));
+    await show(render, view => createElement('div', null,
+      createElement(view.ThreadPill, { chat: 'dm-hr', assistantName: 'Ayati' }), createElement(view.ThreadMark, { chat: 'dm-hr', assistantName: 'Ayati' })));
+    const pill = () => document.querySelector('.chat-thread-pill.stopped');
+    assert.match(pill().textContent, /Ayati stopped.*You stopped it/);
+    assert.equal(document.querySelector('.chat-thread-mark').getAttribute('aria-label'), 'Ayati stopped replying here');
+    await click(button(pill(), 'Resume'));
     assert.deepEqual(writes.at(-1).body, { state: 'running' });
-    await click(button(document.querySelector('.chat-thread-banner.stopped'), 'Delete'));
+    await click(button(pill(), 'Delete'));
     assert.deepEqual(writes.at(-1).body, { state: 'deleted' });
   }, { url, fetch: server([thread('t1', 'stopped', { detail: 'You stopped it.' })], writes) });
 });
 
-test('a new thread needs who, what and the first message; a failed start keeps your words and retries with its ID', async () => {
+test('a chat is handed over from the other side’s message with one instruction; a failed start keeps your words and its ID', async () => {
   const writes = [];
   await reactFixture(async ({ render, click, change }) => {
-    await show(render, view => createElement(view.ThreadsDialog, { directory, assistantName: 'Ayati', close() {} }));
+    globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+    await (await import('../src/workspace-context.ts')).enterWorkspace();
+    const { ChatMessage } = await import('../src/react/chat/message.tsx');
+    const list = [
+      { id: 'm1', chat: 'dm-priya', author: 'priya', name: 'Priya Sharma', kind: 'user', content: 'Any update on the funding?', state: 'sent', at: 2 },
+      { id: 'm2', chat: 'dm-priya', author: 'ravi', name: 'Ravi Kumar', kind: 'user', content: 'Let me check.', state: 'sent', at: 3 }];
+    // The conversation offers it only on the other side's messages.
+    await render(() => createElement('div', null, list.map(message => createElement(ChatMessage, { key: message.id, message, directory, openThread() {}, handOver: message.author === 'priya' ? 'Ayati' : undefined }))));
+    const tool = id => document.querySelector(`[data-message-id="${id}"] .chat-takeover-tool`);
+    assert.equal(tool('m2'), null, 'not on your own message');
+    assert.equal(tool('m1').getAttribute('aria-label'), 'Let Ayati take over from here');
+    await click(tool('m1'));
     const dialog = () => document.querySelector('dialog');
-    assert.match(dialog().textContent, /No threads yet/);
-    await click(button(dialog(), 'New thread'));
-    const options = [...dialog().querySelectorAll('option')].map(node => node.textContent);
-    assert.deepEqual(options, ['Choose a person or an agent', 'HR Desk', 'Priya Sharma'], 'no assistants and not yourself');
-    assert.equal(button(dialog(), 'Start thread').disabled, true);
-    await change(dialog().querySelector('select'), 'agent:hr');
-    await change(dialog().querySelector('input'), 'Leave in December');
-    await change(dialog().querySelector('textarea'), 'Hi, I would like leave.');
-    await click(button(dialog(), 'Start thread'));
-    assert.match(dialog().textContent, /already have a running thread/);
-    assert.equal(dialog().querySelector('textarea').value, 'Hi, I would like leave.');
-    await click(button(dialog(), 'Start thread'));
+    assert.match(dialog().textContent, /Let Ayati take over from here.*Priya Sharma.*Any update on the funding\?/);
+    assert.match(dialog().textContent, /replies to Priya Sharma as you, starting with this message, until you stop it/);
+    assert.equal(button(dialog(), 'Start').disabled, true, 'it needs to know what to do');
+    await change(dialog().querySelector('textarea'), ' Tell her we are close. ');
+    await click(button(dialog(), 'Start'));
+    assert.match(dialog().textContent, /already replying/);
+    assert.equal(dialog().querySelector('textarea').value, ' Tell her we are close. ');
+    await click(button(dialog(), 'Start'));
     assert.equal(writes.length, 2);
-    assert.equal(writes[1].body.id, writes[0].body.id, 'the same thread keeps its ID');
-    assert.deepEqual({ ...writes[1].body, id: undefined }, { id: undefined, kind: 'agent', counterpart: 'hr', title: 'Leave in December', opening: 'Hi, I would like leave.' });
+    assert.equal(writes[1].body.id, writes[0].body.id, 'the same hand-over keeps its ID');
+    assert.deepEqual({ ...writes[1], body: { ...writes[1].body, id: undefined } },
+      { path: '/assistant/take-over', body: { id: undefined, chat: 'dm-priya', message: 'm1', instruction: 'Tell her we are close.' } });
+    assert.equal(dialog(), null, 'closed once started');
   }, { url, fetch: server([], writes, { fail: 1 }) });
 });
 
@@ -117,7 +134,9 @@ test('only your own message shows that your assistant wrote it', async () => {
       { id: 'm3', chat: 'dm-hr', author: 'priya', name: 'Priya Sharma', kind: 'user', content: 'Noted.', state: 'sent', at: 4, assisted }];
     await render(() => createElement('div', null, list.map(message => createElement(ChatMessage, { key: message.id, message, directory, openThread() {} }))));
     const mark = id => document.querySelector(`[data-message-id="${id}"] .chat-assisted`);
-    assert.match(mark('m1').textContent, /Written by Ayati · Leave in December/);
+    assert.equal(mark('m1').textContent, 'Ayati');
+    assert.match(mark('m1').title, /Written by Ayati · Leave in December/);
+    assert.ok(mark('m1').closest('.chat-message-meta'), 'beside its time');
     assert.equal(mark('m2'), null, 'what you wrote yourself has no mark');
     assert.equal(mark('m3'), null, 'never on someone else’s message');
   }, { url, fetch: server([], []) });

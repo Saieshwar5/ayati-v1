@@ -311,11 +311,16 @@ impl PgStore {
             ));
         }
         let title = text("title");
+        // A chat handed over from a message (schema 136) carries what the member asked for.
+        let asked = match text("instruction") {
+            asked if asked.is_empty() => String::new(),
+            asked => format!("\nWhat your person asked you to do there: {asked}\n"),
+        };
         let mut input = NewMessage {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             content: format!(
-                "Thread · {title}\n{name} answered in the thread \"{title}\" (thread ID {id}). You speak for your person there until they stop it.\n\nThe chat so far, oldest first:\n{lines}\n{RULES}"
+                "Thread · {title}\n{name} answered in the thread \"{title}\" (thread ID {id}). You speak for your person there until they stop it.\n{asked}\nThe chat so far, oldest first:\n{lines}\n{RULES}"
             ),
             agent: Some(text("agent")),
             agents: vec![],

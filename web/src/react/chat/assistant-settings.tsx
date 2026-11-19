@@ -25,7 +25,7 @@ export function AssistantSettings({ name, close }: { name: string; close: () => 
     close();
   });
   const unavailable = form?.available === false;
-  return <Dialog title={`${name} and you`} busy={save.busy} status={save.status || error} close={close}
+  return <Dialog title="Assistant settings" busy={save.busy} status={save.status || error} close={close}
     footer={<><Button onClick={close} disabled={save.busy}>Cancel</Button><Button primary disabled={!form || unavailable || save.busy} onClick={submit}>{save.busy ? 'Saving…' : 'Save'}</Button></>}>
     <div className="chat-threads">
       {!form && !error && <p className="chat-help" role="status">Loading…</p>}
@@ -48,4 +48,15 @@ export function AssistantSettings({ name, close }: { name: string; close: () => 
       </>}
     </div>
   </Dialog>;
+}
+
+/** In the header of your assistant's own chat: opens its settings. */
+export function AssistantSettingsButton({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+  return <>
+    <Button className="ui-icon chat-assistant-settings" aria-label="Assistant settings" title={`Assistant settings: what ${name} knows about you, how you write and regular checks`} onClick={() => setOpen(true)}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
+    </Button>
+    {open && <AssistantSettings name={name} close={() => setOpen(false)} />}
+  </>;
 }

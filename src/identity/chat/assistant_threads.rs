@@ -1,13 +1,17 @@
 //! Routes for a member's assistant threads (schema 128): list them, write a
 //! new one, start a suggested one, and stop, resume or delete one.
 use super::*;
-use crate::identity::postgres::assistants::threads::NewThread;
+use crate::identity::postgres::assistants::threads::{NewThread, takeover::TakeOver};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
         .route(
             "/api/identity/workspaces/{w}/assistant/threads",
             get(list).post(create),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/assistant/take-over",
+            post(take_over),
         )
         .route(
             "/api/identity/workspaces/{w}/assistant/threads/{thread}/state",
@@ -45,6 +49,20 @@ async fn create(
     if job.is_some() {
         app.runtimes.chat_wake.notify_one();
     }
+    Ok(Json(json!({"ok":true,"chat":chat})))
+}
+
+/// Hand a direct chat over from one of the other side's messages (schema 136).
+async fn take_over(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<TakeOver>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let chat = app.store.thread_take_over(&user, &w, &input).await?;
+    // The assistant is handed the chosen message now.
+    app.store.work.schedule.notify_one();
     Ok(Json(json!({"ok":true,"chat":chat})))
 }
 

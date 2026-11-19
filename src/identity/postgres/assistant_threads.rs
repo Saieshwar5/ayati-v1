@@ -20,6 +20,8 @@ use serde_json::json;
 
 #[path = "assistant_thread_runs.rs"]
 pub(crate) mod runs;
+#[path = "assistant_thread_takeover.rs"]
+pub(crate) mod takeover;
 #[cfg(test)]
 #[path = "assistant_threads_tests.rs"]
 mod tests;
@@ -190,7 +192,7 @@ impl PgStore {
         let threads = json_rows(
             &tx,
             "SELECT jsonb_build_object('id',t.id,'kind',t.kind,'counterpart',t.counterpart,'title',t.title,'opening',t.opening,
-               'chat',t.chat,'state',t.state,'detail',t.detail,'sent',t.sent,'origin',t.origin,'updated_ms',t.updated_ms,
+               'instruction',t.instruction,'anchor',t.anchor,'created_ms',t.created_ms,'chat',t.chat,'state',t.state,'detail',t.detail,'sent',t.sent,'origin',t.origin,'updated_ms',t.updated_ms,
                'name',CASE WHEN t.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=t.workspace AND a.id=t.counterpart)
                  ELSE (SELECT COALESCE(NULLIF(btrim(u.display_name),''),'A workspace member') FROM relay_users u WHERE u.id=t.counterpart) END,
                'working',EXISTS(SELECT 1 FROM relay_chat_jobs j WHERE j.workspace=t.workspace AND j.reply=t.job AND j.state<>'finished'),

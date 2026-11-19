@@ -26,8 +26,7 @@ import { useConversationOrder } from './conversation-order';
 import { applyPresence, clearPresence } from './presence';
 import { PresenceWords, StatusEmoji } from './presence-view';
 import { AssistantThreads, useAssistantThreads } from './assistant-threads-model';
-import { ThreadRows, ThreadsDialog } from './assistant-threads';
-import { AssistantSettings } from './assistant-settings';
+import { ThreadMark } from './assistant-threads';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
@@ -73,12 +72,10 @@ export function WorkspaceChat({ href }: { href: string }) {
   const openMessage = (id: string, message: string) => { setSearch(false); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}&message=${encodeURIComponent(message)}`)); };
   const direct = useDirectConversation(chats, open);
   const current = chats.find(chat => chat.id === selected);
-  // Your own assistant's chat sits first, above everything else (schema 127).
+  // Your own assistant's chat is the first row, above everything else (schema 127).
   const mine = directory?.agents.find(agent => agent.assistant && agent.yours)?.id;
   const assistantChat = mine ? chats.find(chat => chat.kind === 'direct' && chat.agents.length === 1 && chat.agents[0] === mine && chat.users.length === 1) : undefined;
   const threads = useAssistantThreads(assistantChat ? mine : undefined, assistantChat?.id);
-  const [managing, manageThreads] = useState(false);
-  const [settingUp, showSettings] = useState(false);
   const assistantName = directory?.agents.find(agent => agent.id === mine)?.name ?? 'Your assistant';
   const contact = (chat: Conversation) => {
     const name = directory ? conversationName(chat, directory) : chat.name;
@@ -91,6 +88,7 @@ export function WorkspaceChat({ href }: { href: string }) {
       <span>{partner ? <ParticipantName kind={partner.kind} name={name} /> : <span className="chat-name-text">{name}</span>}
         {partner?.kind === 'user' && <><StatusEmoji id={partner.who.id} /><PresenceWords id={partner.who.id} /></>}{chat.archived && <small>Archived</small>}</span>
       {levels[chat.id] === 'none' && <span className="chat-muted" title="Muted"><BellIcon muted /></span>}
+      <ThreadMark chat={chat.id} assistantName={assistantName} />
       {count > 0 && <small className={`chat-unread${mentioned[chat.id] ? ' chat-unread-mention' : ''}`} aria-label={`${count} unread messages${mentioned[chat.id] ? `, ${mentioned[chat.id]} for you` : ''}`}>{count}</small>}
     </a>{chat.id !== assistantChat?.id && <PinButton pin={{ kind: 'chat', id: chat.id }} name={name} preferences={preferences} busy={pins.busy} toggle={pins.toggle} />}</div>;
   };
@@ -121,7 +119,7 @@ export function WorkspaceChat({ href }: { href: string }) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       </Button>
     </header>
-      <div className="chat-directory-scroll"><AlertsPrompt />{assistantChat && <section aria-label="Your assistant"><header><h2>Your assistant</h2></header>{contact(assistantChat)}<ThreadRows selected={selected} manage={() => manageThreads(true)} settings={() => showSettings(true)} /></section>}{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
+      <div className="chat-directory-scroll"><AlertsPrompt />{assistantChat && <section aria-label="Your assistant">{contact(assistantChat)}</section>}{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
         {order.chats.filter(chat => chat.kind !== 'direct' && !chat.archived && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
         {!chats.some(chat => chat.kind !== 'direct' && !chat.archived) && <p className="chat-help">Organize work with your team.</p>}
       </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{order.chats.filter(chat => chat.kind === 'direct' && chat.id !== assistantChat?.id && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
@@ -147,7 +145,5 @@ export function WorkspaceChat({ href }: { href: string }) {
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
-    {settingUp && <AssistantSettings name={assistantName} close={() => showSettings(false)} />}
-    {managing && directory && <ThreadsDialog directory={directory} assistantName={assistantName} close={() => manageThreads(false)} />}
   </div></ShowProfile.Provider></AssistantThreads.Provider>;
 }
