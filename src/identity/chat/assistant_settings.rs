@@ -1,8 +1,10 @@
 //! Routes for what a member's assistant knows about them, its regular checks,
-//! and drafts it writes for them (schema 129).
+//! drafts it writes for them (schema 129) and its help setting up an agent
+//! (schema 139).
 use super::*;
 use crate::identity::postgres::assistants::memory::SaveMemory;
 use crate::identity::postgres::assistants::settings::{DraftRequest, SaveSettings};
+use crate::identity::postgres::assistants::setup::SetupRequest;
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
@@ -26,6 +28,14 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/assistant/drafts/{reply}/used",
             post(used),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/assistant/agent-setup",
+            get(setup_status).post(setup),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/assistant/agent-setup/{reply}",
+            get(setup_drafts),
         )
 }
 
@@ -132,4 +142,38 @@ async fn used(
         app.runtimes.chat_wake.notify_one();
     }
     Ok(Json(json!({"ok":true})))
+}
+
+/// Whether the member's assistant can help set up an agent here, and who it is.
+async fn setup_status(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agent_setup_status(&user, &w).await?))
+}
+
+/// One turn of the setup chat: the member's assistant is asked in its own room
+/// to draft an agent's ground rules and skills. Nothing is saved.
+async fn setup(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<SetupRequest>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    let (room, job) = app.store.agent_setup_request(&user, &w, &input).await?;
+    app.runtimes.chat_wake.notify_one();
+    Ok(Json(json!({"ok":true,"chat":room,"reply":job.reply})))
+}
+
+/// The drafts of one turn, once the assistant has answered.
+async fn setup_drafts(
+    State(app): State<Shared>,
+    RoutePath((w, reply)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.agent_setup(&user, &w, &reply).await?))
 }

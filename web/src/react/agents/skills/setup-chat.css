@@ -2,9 +2,18 @@
 .agent-skills-writing { display: grid; grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 24px; align-items: start; }
 .agent-skills-column { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .setup-chat { display: flex; flex-direction: column; gap: 10px; min-width: 0; border: 1px solid var(--border-panel); border-radius: 14px; padding: 12px 14px; background: var(--surface); }
-.setup-chat-header { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.setup-chat-header { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.setup-chat-header > span:last-child { display: grid; gap: 2px; min-width: 0; }
 .setup-chat-header strong { font-size: 14px; }
 .setup-chat-header small { color: var(--muted); font-size: 12px; }
+/* The member's assistant, when it is the one helping (schema 139). */
+.setup-chat-face { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; overflow: hidden; }
+.setup-chat-face img { display: block; width: 100%; height: 100%; }
+.setup-chat-message .ui-link { margin-left: 10px; }
+.setup-chat-used { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); font-size: 12.5px; }
+.setup-chat-used h4 { margin: 0; font-size: 12.5px; }
+.setup-chat-used ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.setup-chat-used p { margin: 0; color: var(--muted); }
 .setup-chat-messages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; }
 .setup-chat-message { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .setup-chat-message.agent { align-self: flex-start; background: var(--soft); border: 1px solid var(--border); border-top-left-radius: 4px; }

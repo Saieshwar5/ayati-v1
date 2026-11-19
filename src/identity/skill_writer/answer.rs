@@ -15,22 +15,23 @@ const MAX_SKILLS: usize = 8;
 const MAX_STEP_LINES: usize = 480;
 const UNREADABLE: &str = "The answer couldn't be read. Try again.";
 
+/// Drafts as a model handed them back, before any check.
 #[derive(Deserialize, Default)]
 #[serde(default)]
-struct Raw {
-    reply: String,
-    ground_rules: Option<String>,
-    skills: Vec<RawSkill>,
-    remove: Vec<String>,
-    reuse: Vec<String>,
-    missing_apps: Vec<String>,
+pub(crate) struct Raw {
+    pub reply: String,
+    pub ground_rules: Option<String>,
+    pub skills: Vec<RawSkill>,
+    pub remove: Vec<String>,
+    pub reuse: Vec<String>,
+    pub missing_apps: Vec<String>,
 }
 #[derive(Deserialize, Default)]
 #[serde(default)]
-struct RawSkill {
-    name: String,
-    description: String,
-    steps: String,
+pub(crate) struct RawSkill {
+    pub name: String,
+    pub description: String,
+    pub steps: String,
 }
 
 /// A skill ready to show and save: its fields and the SKILL.md made from them.
@@ -84,7 +85,7 @@ pub(crate) fn slug(name: &str) -> String {
     out
 }
 
-fn one_line(text: &str, limit: usize) -> String {
+pub(crate) fn one_line(text: &str, limit: usize) -> String {
     text.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -126,10 +127,21 @@ fn free_name(wanted: &str, agent: &str, taken: &HashSet<String>) -> String {
 
 /// Turns the model's answer into checked drafts for this request.
 pub(crate) fn read(content: &str, request: &Request, context: &WriterContext) -> Result<Answer> {
-    let raw = object(content)?;
     let own: HashSet<&str> = request.skills.iter().map(|s| s.name.as_str()).collect();
+    Ok(checked(object(content)?, &request.name, &own, context))
+}
+
+/// Checks drafts for the agent called `agent_name`, whose own drafts and saved
+/// skills are named in `own`: every skill becomes a SKILL.md that passes the
+/// upload checks, under a name that is valid and free in the workspace.
+pub(crate) fn checked(
+    raw: Raw,
+    agent_name: &str,
+    own: &HashSet<&str>,
+    context: &WriterContext,
+) -> Answer {
     let mut taken: HashSet<String> = context.names.iter().cloned().collect();
-    let agent = slug(&request.name);
+    let agent = slug(agent_name);
     let mut notes = vec![];
     let mut skills: Vec<Draft> = vec![];
     for (index, skill) in raw.skills.into_iter().take(MAX_SKILLS).enumerate() {
@@ -211,7 +223,7 @@ pub(crate) fn read(content: &str, request: &Request, context: &WriterContext) ->
             "Here are the drafts. Tell me what to change.".into()
         };
     }
-    Ok(Answer {
+    Answer {
         reply,
         ground_rules,
         skills,
@@ -219,5 +231,5 @@ pub(crate) fn read(content: &str, request: &Request, context: &WriterContext) ->
         reuse,
         missing_apps,
         notes,
-    })
+    }
 }

@@ -1,4 +1,4 @@
-# Assistants: every member's own agent (schemas 127 to 138)
+# Assistants: every member's own agent (schemas 127 to 139)
 
 Built 2026-11-17, the first piece of the personal assistant plan. Agents work
 for the team; **your assistant works for you**. Concept screens for the whole
@@ -29,6 +29,75 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   assistant". Other members never see someone else's assistant.
 - **When its owner leaves** the workspace, the existing rule applies: an agent
   with no owner is paused and takes no work; its record stays for admins.
+
+## Helping set up an agent (schema 139)
+
+Built 2026-11-19. The three create steps stay. In step 2 (What it does) and on
+an agent's Instructions tab, the helper in the chat panel is now **your own
+assistant** wherever it can work; the [skill writer](skills.md#written-in-chat)
+stays as the fallback, and without either both are written by hand.
+
+- **Who answers.** The panel shows your assistant's face and name ("Chat with
+  Ayati", "Change with Ayati"), not the agent that does not exist yet. No
+  operator setting is needed: it runs as your assistant, on its model and
+  against its budget, and each turn shows in Activity like its other work.
+- **Asked like a draft.** Each turn is your message in one **Agent setup**
+  thread in your assistant's room ("Setting up Iris: …"). The setup so far
+  (name, job title, apps, the workspace's skills, the ground rules and skills
+  already there, the last eight messages of the panel) travels with the task
+  as labelled data, not in the message. Looking back does not read this thread.
+- **What it is told.** For that task only its instructions gain the setup
+  guide (`skill_writer/guide.rs`, shown in the panel as "What Ayati is told
+  while setting up"): write the drafts first from what you said and what it
+  already knows about you, ask at most one question, do nothing else.
+- **Handed back in parts.** `write_agent_setup {part, name?, description?,
+  text?}`, one call per part: `ground_rules`, `skill`, `remove_skill`,
+  `reuse_skill`, `needs_app`, `job_title` (only suggested when the agent has
+  none) and `used` (one line it relied on from its memory or the Library,
+  shown as "What Ayati used" so you can check it). At most 40 parts a turn.
+- **Nothing is saved by it.** Parts are kept on the turn
+  (`relay_agent_setups`). Reading a turn runs the skill writer's checks: valid
+  names, free in the workspace, a SKILL.md that passes the upload checks. You
+  review the drafts in the same boxes as before and save through the ordinary
+  agent and skill routes: Create agent, or one proposal at a time on a saved
+  agent. The tool is refused in any other task and for anyone else's turn.
+- **Rules stay a person's.** When the agent being changed is someone's
+  assistant, no ground rules are drafted, and one handed back anyway is left
+  out with a note.
+- **While it writes** your words show at once and the box stays free; the
+  panel reads the turn every two seconds for up to three minutes. **Stop**
+  ends the wait and a failed or stopped turn gives your words back. The run
+  itself is not cancelled; what it writes later is not used.
+- **Limits.** A message of up to 2,000 characters; skills of up to 24,000
+  bytes of steps in all; a part's text up to 6,000 characters.
+
+`GET …/assistant/agent-setup` returns `{available, assistant: {id, name,
+avatar}, guide}` (available when the workspace runs pooled executors and your
+assistant exists and is not paused). `POST` with `{id, setup}` (`setup` is the
+skill writer's request) returns `{chat, reply}`; the same id asks once.
+`GET …/assistant/agent-setup/{reply}` returns `{state}` while it works, then
+the writer's answer plus `job_title` and `used`. Apply
+`m20261119_000139_agent_setups` (one table) with the administrator migration
+procedure before starting this version.
+
+Checks: PostgreSQL `assistants::setup::tests` (availability; one turn asked
+once in the Agent setup thread; the setup given to that task only; parts kept,
+bad parts and other tasks or members refused; checked drafts read only by the
+person who asked; nothing saved; only someone who may change a saved agent;
+the size limits; no ground rules for an assistant), guest `setup_schema`, and
+web `tests/assistant-agent-setup.test.mjs` (asked once despite a double click,
+drafts filling the step, the suggested job title, what it used, the app note;
+a refused, failed and stopped turn giving the words back; the timer cleared on
+leaving; the writer as fallback; proposals on an agent's page applied by the
+person). **Not run with a real model or a real executor**: how good its drafts
+are, and how long a turn takes compared with the writer's single call, are
+unmeasured.
+
+Limits: a setup turn has all of the assistant's usual tools; it is told to do
+nothing else, but a task is not yet limited to reading. The draft and the
+panel's conversation still live in the browser until Create agent, so a reload
+loses them (the turns stay in the Agent setup thread). Asking for an agent
+from your ordinary chat with your assistant is not built.
 
 ## Memory (schema 138)
 

@@ -8,6 +8,7 @@ mod people_schema;
 mod personal_panel_schema;
 mod question_schema;
 mod rule_schema;
+mod setup_schema;
 mod task_schema;
 mod thread_schema;
 mod web_schema;

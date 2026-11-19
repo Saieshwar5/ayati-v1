@@ -110,9 +110,15 @@ skill" (D234 slices 2–3).
 
 ## Written in chat
 
-While setting up an agent (create step 3) and on its Instructions tab, the person
+While setting up an agent (create step 2) and on its Instructions tab, the person
 describes the job and a model writes the **Ground rules** (the always-on
 instructions) and skills as drafts (designs/agent-built-skills 2 and 5).
+
+Since schema 139 the helper is the person's **own assistant** wherever it can
+work: it is asked in its own room and hands the drafts back with a tool; see
+[helping set up an agent](assistants.md#helping-set-up-an-agent-schema-139).
+The writer described below is the fallback when the assistant can't help
+(no pooled executors, or it is paused), and its checks are used for both.
 
 - **Setting:** `AYATI_SKILL_WRITER_MODEL=provider:model` from the model providers
   file. Without it the chat is hidden and both are written by hand ("Write a

@@ -200,6 +200,11 @@ pub(crate) async fn prepare_traced(
     {
         instructions.push_str(prompt::ASSISTANT);
         instructions.push_str(&db.about_person(&job.workspace, &job.requester).await?);
+        // A turn of the setup chat: it drafts an agent's ground rules and skills.
+        if let Some(setup) = db.agent_setup_context(job).await? {
+            instructions.push_str(crate::identity::skill_writer::guide::ASSISTANT_GUIDE);
+            request.push_str(&setup);
+        }
     }
     // A shared room: everyone in it reads the reply and shares one brief.
     let room = db.room_audience(job).await?;

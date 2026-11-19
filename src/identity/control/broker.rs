@@ -193,6 +193,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             let input = serde_json::from_value(arguments)?;
             pg.forget_memory(job, &input).await
         }
+        "write_agent_setup" => {
+            let Ok(input) = serde_json::from_value(arguments) else {
+                return Ok(
+                    json!({"state":"invalid","message":"Send one part with its own fields."}),
+                );
+            };
+            pg.write_agent_setup(job, &input).await
+        }
         "finish_thread" => {
             let input = serde_json::from_value(arguments)?;
             pg.finish_thread(job, &input).await

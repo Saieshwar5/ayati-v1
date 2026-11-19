@@ -6,10 +6,11 @@ import { SetupChat, type SkillWriting } from '../skills/setup-chat';
 import { applyAnswer, newDraft, type DraftSkill, type LibraryPick } from '../skills/writer-model';
 import { starters, untouched } from './starters';
 
-/** Create step 3 (designs/agent-built-skills 2): the person describes the job in
- * the setup chat and the writer drafts Ground rules (always on) and skills
- * (opened only when needed); nothing is saved until Create agent. Without a
- * writer both are written by hand. `children`: skills added from the library. */
+/** Create step 2 (designs/agent-built-skills 2): the person describes the job in
+ * the setup chat and their own assistant, or else the skill writer, drafts
+ * Ground rules (always on) and skills (opened only when needed); nothing is
+ * saved until Create agent. Without a helper both are written by hand.
+ * `children`: skills added from the library. */
 export function SkillsStep({ name, title, text, change, apps, connections, writing, drafts, setDrafts, library, reuse, children }: {
   name: string; title: string; text: string; change: (text: string, title?: string) => void;
   apps: boolean; connections: string[]; writing: SkillWriting;
@@ -23,6 +24,8 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
   const input = useRef<HTMLTextAreaElement>(null);
   const display = name.trim() || 'this agent';
   const chat = writing.available;
+  // Who answers in the chat: the member's assistant, or the agent's own voice.
+  const helper = writing.helper?.name;
   const start = (id: string) => {
     const starter = starters.find(item => item.id === id)!;
     if (chat) { writing.setComposer(starter.text(name)); input.current?.focus(); return; }
@@ -32,7 +35,9 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
   };
   const submit = () => writing.send({ name: name.trim(), role: title, connections, ground_rules: text,
     skills: drafts.map(({ name, description, steps }) => ({ name, description, steps })), focus }, answer => {
-    if (answer.ground_rules) change(answer.ground_rules);
+    // Its assistant may suggest a job title for an agent that has none.
+    const suggested = title.trim() ? undefined : answer.job_title ?? undefined;
+    if (answer.ground_rules || suggested) change(answer.ground_rules ?? text, suggested);
     setDrafts(old => applyAnswer(old, answer));
     if (answer.reuse.length) reuse(answer.reuse);
     setFocus(undefined);
@@ -60,7 +65,7 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
           <span>{draft.description}</span><small>{draft.steps.split('\n').filter(line => line.trim()).length} steps</small></span>
         <span className="draft-actions">
           <Button onClick={() => setEditing(draft)} aria-label={`Edit ${draft.name}`}>Edit</Button>
-          {chat && <Button onClick={() => ask(draft)} aria-label={`Ask ${display} about ${draft.name}`}>Ask {display}</Button>}
+          {chat && <Button onClick={() => ask(draft)} aria-label={`Ask ${helper ?? display} about ${draft.name}`}>Ask {helper ?? display}</Button>}
           <Button onClick={() => setDrafts(old => old.filter(item => item.key !== draft.key))} aria-label={`Remove ${draft.name}`}>Remove</Button>
         </span>
       </li>)}</ul>}
@@ -73,9 +78,11 @@ export function SkillsStep({ name, title, text, change, apps, connections, writi
       <Button className="ui-link" onClick={() => setPreviewing(true)}>See everything {display} receives</Button></p>
     {chat
       ? <div className="agent-skills-writing">
-        <SetupChat name={display} subtitle="Setting up · no tools; nothing is saved until you create it" writing={writing} submit={submit} input={input}
-          greeting={`Hi, I’m ${display}. Tell me what I should do, how to talk to people and what I must never do. I’ll write my ground rules and skills for you to check.`}
-          extra={writing.messages.length === 0 ? starterRow : undefined} />
+        <SetupChat name={helper ?? display} writing={writing} submit={submit} input={input}
+          subtitle={helper ? `Your assistant · helping you set up ${display} · nothing is saved until you create it` : 'Setting up · no tools; nothing is saved until you create it'}
+          greeting={helper ? `Tell me what ${display} should do, how it should talk to people and what it must never do. I’ll write its ground rules and skills on the right for you to check.`
+            : `Hi, I’m ${display}. Tell me what I should do, how to talk to people and what I must never do. I’ll write my ground rules and skills for you to check.`}
+          extra={writing.messages.length === 0 && !writing.pending ? starterRow : undefined} />
         {column}
       </div>
       : <div className="agent-create-main">
