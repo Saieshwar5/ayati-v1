@@ -58,6 +58,7 @@ fn settings(about: &str, checks: bool, checklist: &str) -> SaveSettings {
         checks: Some(checks),
         every_minutes: Some(60),
         checklist: Some(checklist.into()),
+        learn: None,
     }
 }
 fn draft_for(chat: &str, id: &str) -> DraftRequest {
@@ -115,6 +116,7 @@ async fn an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting
         checks: Some(true),
         every_minutes: Some(120),
         checklist: None,
+        learn: None,
     };
     db.save_assistant_settings(&ravi, &w, &checks_only)
         .await
@@ -130,6 +132,7 @@ async fn an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting
         checks: None,
         every_minutes: None,
         checklist: None,
+        learn: None,
     };
     db.save_assistant_settings(&ravi, &w, &notes_only)
         .await
@@ -224,9 +227,11 @@ async fn an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting
     // Ravi sends it himself; only he sees that his assistant wrote it.
     let sent = message("Yes, Friday at 3 works for me.", None);
     db.chat_send(&ravi, &w, &chat, &sent).await.unwrap();
-    db.draft_used(&ravi, &w, &job.reply, &sent.id)
+    let learning = db
+        .draft_used(&ravi, &w, &job.reply, &sent.id)
         .await
         .unwrap();
+    assert!(!learning, "a draft sent as written teaches nothing");
     let shown = |page: Value| {
         page["messages"]
             .as_array()
@@ -252,6 +257,117 @@ async fn an_assistant_keeps_notes_its_person_can_edit_and_drafts_without_posting
     )
     .await;
     assert_eq!(marked, 0);
+}
+
+/// Schema 137: what a member changes in a draft before sending it is shown to
+/// their assistant once, which may keep a line about how they write.
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn an_edited_draft_teaches_the_assistant_how_its_person_writes() {
+    let mut db = fixture().await;
+    db.pooled = true;
+    let ravi = user(&db, "ravi").await;
+    let priya = user(&db, "priya").await;
+    let w = workspace(&db, &ravi).await;
+    join(&db, &ravi, &w, &priya, "Member").await;
+    let mine = db
+        .ensure_assistant(&ravi, &w, "fixture", "openai")
+        .await
+        .unwrap();
+    let room = room_of(&db, &mine).await;
+    let chat = direct_with(&db, &priya, &w, &ravi).await;
+    db.chat_send(
+        &priya,
+        &w,
+        &chat,
+        &message("Can we meet on Friday at 3?", None),
+    )
+    .await
+    .unwrap();
+    // A draft the assistant wrote, and what Ravi sent in its place.
+    let drafted = |text: &'static str, sent: &'static str| {
+        let (db, ravi, w, chat) = (&db, &ravi, &w, &chat);
+        async move {
+            let id = uuid::Uuid::new_v4().to_string();
+            let (_, job) = db
+                .draft_request(ravi, w, &draft_for(chat, &id))
+                .await
+                .unwrap();
+            let job = claimed(db, &job).await;
+            db.chat_finish(&job, text, "complete").await.unwrap();
+            let sent = message(sent, None);
+            db.chat_send(ravi, w, chat, &sent).await.unwrap();
+            (job.reply, sent.id)
+        }
+    };
+    let formal = "Dear Priya, Friday at 3 would be perfectly fine for me. Kind regards, Ravi";
+    let (reply, sent) = drafted(formal, "Friday at 3 works.").await;
+    assert!(db.draft_used(&ravi, &w, &reply, &sent).await.unwrap());
+    assert!(
+        !db.draft_used(&ravi, &w, &reply, &sent).await.unwrap(),
+        "an edit is learned from once"
+    );
+
+    // One run in the assistant's room, under its own line, holding both texts.
+    let job = queued(&db, &room).await;
+    assert_eq!(job.agent, mine);
+    assert_eq!(job.requester, ravi.id);
+    let asked = one(
+        &db,
+        "SELECT r.content FROM relay_chat_jobs j JOIN relay_chat_messages r ON r.id=j.request_message WHERE j.reply=$1",
+        vec![job.reply.clone().into()],
+    )
+    .await;
+    let asked = asked.as_str().unwrap();
+    assert!(asked.contains(formal) && asked.contains("Friday at 3 works."));
+    let line = one(
+        &db,
+        "SELECT t.content FROM relay_chat_jobs j JOIN relay_chat_messages r ON r.id=j.request_message JOIN relay_chat_messages t ON t.id=r.thread WHERE j.reply=$1 AND r.chat=$2",
+        vec![job.reply.clone().into(), room.clone().into()],
+    )
+    .await;
+    assert_eq!(line, "What I learned from your edits");
+    // What it keeps is a note its person can read and edit.
+    let note = serde_json::from_value(
+        json!({"kind":"style","text":"Short replies, no greeting or sign-off."}),
+    )
+    .unwrap();
+    db.remember_about_person(&job, &note).await.unwrap();
+    db.chat_finish(
+        &job,
+        "Kept: you write short, without a greeting.",
+        "complete",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        db.assistant_settings(&ravi, &w).await.unwrap()["style"],
+        "Short replies, no greeting or sign-off."
+    );
+
+    // Its person can turn this off; then an edit starts no run.
+    let off = SaveSettings {
+        about: None,
+        style: None,
+        checks: None,
+        every_minutes: None,
+        checklist: None,
+        learn: Some(false),
+    };
+    db.save_assistant_settings(&ravi, &w, &off).await.unwrap();
+    assert_eq!(
+        db.assistant_settings(&ravi, &w).await.unwrap()["learn"],
+        false
+    );
+    let (reply, sent) = drafted(formal, "Works for me.").await;
+    assert!(!db.draft_used(&ravi, &w, &reply, &sent).await.unwrap());
+    let waiting = one(
+        &db,
+        "SELECT count(*) FROM relay_chat_jobs WHERE payload->>'chat'=$1 AND state<>'finished'",
+        vec![room.clone().into()],
+    )
+    .await;
+    assert_eq!(waiting, 0);
 }
 
 #[tokio::test]

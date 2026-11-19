@@ -18,6 +18,8 @@ use serde_json::json;
 
 #[path = "assistant_checks.rs"]
 mod checks;
+#[path = "assistant_learning.rs"]
+pub(crate) mod learning;
 #[cfg(test)]
 #[path = "assistant_settings_tests.rs"]
 mod tests;
@@ -31,6 +33,9 @@ pub struct SaveSettings {
     pub checks: Option<bool>,
     pub every_minutes: Option<i32>,
     pub checklist: Option<String>,
+    /// Learn how they write from their edits to drafts (schema 137).
+    #[serde(default)]
+    pub learn: Option<bool>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,14 +74,14 @@ fn person(id: &str) -> User {
 async fn stored(db: &impl ConnectionTrait, w: &str, user: &str) -> Result<Value> {
     Ok(json_rows(
         db,
-        "SELECT jsonb_build_object('about',about,'style',style,'checks',checks,'every_minutes',every_minutes,'checklist',checklist) AS data
+        "SELECT jsonb_build_object('about',about,'style',style,'checks',checks,'every_minutes',every_minutes,'checklist',checklist,'learn',learn) AS data
          FROM relay_assistant_settings WHERE workspace=$1 AND user_id=$2",
         vec![w.into(), user.into()],
     )
     .await?
     .into_iter()
     .next()
-    .unwrap_or_else(|| json!({"about":"","style":"","checks":false,"every_minutes":240,"checklist":""})))
+    .unwrap_or_else(|| json!({"about":"","style":"","checks":false,"every_minutes":240,"checklist":"","learn":true})))
 }
 
 /// The plain lines of a conversation, oldest first, as an assistant is shown them.
@@ -164,13 +169,13 @@ impl PgStore {
         .await?;
         execute(
             &tx,
-            "UPDATE relay_assistant_settings s SET about=n.about,style=n.style,checks=n.checks,every_minutes=n.every_minutes,checklist=n.checklist,
+            "UPDATE relay_assistant_settings s SET about=n.about,style=n.style,checks=n.checks,every_minutes=n.every_minutes,checklist=n.checklist,learn=n.learn,
                next_ms=CASE WHEN NOT n.checks THEN NULL
                  WHEN s.checks AND s.every_minutes=n.every_minutes THEN s.next_ms
                  ELSE (extract(epoch FROM clock_timestamp())*1000)::bigint+n.every_minutes::bigint*60000 END,
                updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint
              FROM (SELECT COALESCE($3::text,about) AS about,COALESCE($4::text,style) AS style,COALESCE($5::boolean,checks) AS checks,
-                 COALESCE($6::integer,every_minutes) AS every_minutes,COALESCE($7::text,checklist) AS checklist
+                 COALESCE($6::integer,every_minutes) AS every_minutes,COALESCE($7::text,checklist) AS checklist,COALESCE($8::boolean,learn) AS learn
                FROM relay_assistant_settings WHERE workspace=$1 AND user_id=$2) n
              WHERE s.workspace=$1 AND s.user_id=$2",
             vec![
@@ -181,6 +186,7 @@ impl PgStore {
                 input.checks.into(),
                 input.every_minutes.into(),
                 input.checklist.as_deref().map(|text| text.trim().to_owned()).into(),
+                input.learn.into(),
             ],
         )
         .await?;
@@ -337,8 +343,16 @@ impl PgStore {
         Ok(json!({"text": if state == "complete" { text } else { String::new() }, "state": state}))
     }
 
-    /// The member sent `message` from the assistant's draft `reply`: keep the private record.
-    pub async fn draft_used(&self, user: &User, w: &str, reply: &str, message: &str) -> Result<()> {
+    /// The member sent `message` from the assistant's draft `reply`: keep the
+    /// private record. Returns whether their assistant was asked what the
+    /// member's changes to the draft teach it (assistant_learning.rs).
+    pub async fn draft_used(
+        &self,
+        user: &User,
+        w: &str,
+        reply: &str,
+        message: &str,
+    ) -> Result<bool> {
         let agent = self
             .assistant_of(user, w)
             .await?
@@ -350,7 +364,7 @@ impl PgStore {
             "UPDATE relay_chat_messages m SET assisted=jsonb_build_object('agent',$4::text,'title','Draft','by','assistant','draft',$5::text)
              WHERE m.workspace=$1 AND m.id=$2 AND m.kind='user' AND m.author=$3 AND m.assisted IS NULL
                AND EXISTS(SELECT 1 FROM relay_chat_messages d WHERE d.workspace=$1 AND d.id=$5 AND d.kind='agent' AND d.author=$4 AND d.requester=$3)",
-            vec![w.into(), message.into(), user.id.clone().into(), agent.into(), reply.into()],
+            vec![w.into(), message.into(), user.id.clone().into(), agent.clone().into(), reply.into()],
         )
         .await?;
         if changed > 0 {
@@ -365,7 +379,17 @@ impl PgStore {
             .await?;
         }
         tx.commit().await?;
-        Ok(())
+        if changed == 0 {
+            return Ok(false);
+        }
+        // The record above is kept whatever happens here.
+        Ok(self
+            .learn_from_edit(user, w, &agent, reply, message)
+            .await
+            .unwrap_or_else(|error| {
+                tracing::warn!(%error, "An assistant could not learn from an edited draft");
+                false
+            }))
     }
 }
 

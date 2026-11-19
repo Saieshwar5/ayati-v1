@@ -144,6 +144,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::allowed_apps::AllowedApps),
             Box::new(super::allowed_apps::added::AddedApps),
             Box::new(super::assistants::threads::takeover::ThreadTakeOver),
+            Box::new(super::assistants::settings::learning::AssistantLearning),
         ]
     }
 }

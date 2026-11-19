@@ -9,6 +9,7 @@
 .assistant-rule-add { display: flex; gap: 8px; }
 .assistant-rule-add input { flex: 1; min-width: 0; padding: 10px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
 .assistant-checks { border-top: 0; padding-top: 0; margin-bottom: 24px; max-width: 620px; }
-.assistant-checks .ui-check span { display: grid; gap: 3px; }
+.assistant-checks .ui-check span, .assistant-about .ui-check span { display: grid; gap: 3px; }
+.assistant-about .ui-check { padding: 6px 0; }
 .assistant-checks textarea { min-height: 0; }
 @media (max-width: 600px) { .assistant-rule-add { flex-direction: column; } }

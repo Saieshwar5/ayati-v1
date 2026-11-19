@@ -1,4 +1,4 @@
-# Assistants: every member's own agent (schema 127)
+# Assistants: every member's own agent (schemas 127 to 137)
 
 Built 2026-11-17, the first piece of the personal assistant plan. Agents work
 for the team; **your assistant works for you**. Concept screens for the whole
@@ -67,6 +67,41 @@ Checks: PostgreSQL `an_assistant_keeps_notes_its_person_can_edit_and_drafts_with
 a rule added once despite a double submit, kept on a failed save, removed; the
 tab's name; an admin sees no notes and the page never reads them). Not yet
 checked in a live browser.
+
+## Learning from your edits (schema 137)
+
+Built 2026-11-19. The first way an assistant gets better on its own.
+
+- **The signal.** When you send a message your assistant drafted and the text
+  differs from its draft (more than spacing), the assistant is shown both
+  texts once. A draft sent as written teaches nothing and starts no run.
+- **What it does.** One run in a "What I learned from your edits" thread in
+  its room, as background work. It may keep up to two short lines with
+  `remember_about_person` (how you write, or something lasting about you) and
+  answers in one sentence what it kept, so you can see why a line appeared.
+  A one-off change of facts is to be ignored.
+- **Yours to see and undo.** What it keeps lands in *What it knows about you*
+  and *How you write* on its page, where you edit or remove any line. Unlike a
+  team agent's [lessons](agent-learning.md), nothing waits for approval,
+  because the notes reach only your own assistant. They are given to it as
+  information, never instructions; rules are only ever added by you.
+- **Switch.** *Learn from my edits* under About you, on by default
+  (`relay_assistant_settings.learn`, sent as `learn` to `…/assistant/settings`).
+- **Never in the way.** The private record on your sent message is saved
+  first. A paused assistant, a full queue or a used-up budget means that edit
+  is not learned from; nothing is retried.
+- Each text is cut to 2,000 characters. Each learned edit is one model run
+  against the assistant's budget.
+
+`POST …/assistant/drafts/{reply}/used` is unchanged for the client. Apply
+`m20261119_000137_assistant_learning` (one column) with the administrator
+migration procedure before starting this version.
+
+Checks: PostgreSQL `an_edited_draft_teaches_the_assistant_how_its_person_writes`
+(one run for an edited draft holding both texts, under its own line in the
+room; once per edit; the kept line readable in settings; no run when switched
+off) and, in the notes test, no run for a draft sent as written. Not yet
+checked with a real model: whether its lines are good is unproven.
 
 ## One room (second piece)
 
@@ -250,6 +285,15 @@ visit.
   writes, the draft written into the box, Discard restoring them).
 
 ## Not built yet
+
+- Learning from more than draft edits: a chat you stopped it in, corrections
+  in its own chat, and proposing a skill when you ask for the same kind of
+  work again.
+- Hiding what an assistant read in its person's own apps (mail, calendar)
+  from admins in Activity. Today admins see an assistant's work like any
+  agent's.
+- Schedules on weekdays only, or that keep their local time across daylight
+  saving. Every day and every week from a first run already work.
 
 - A "never share without asking" list enforced by the server (today it is
   guidance to the assistant).

@@ -39,9 +39,7 @@ export function AssistantAboutTab({ agent, rules, saved }: { agent: Agent; rules
       {agent.is_owner && <AboutYou name={agent.name} />}
       <AssistantRules name={agent.name} text={text} editable={Boolean(agent.editable)} busy={mutation.busy} status={mutation.status} save={save} />
       <AgentSkills key={skillsRevision} agent={agent} />
-      <section className="agent-knows" aria-label={`What ${agent.name} always reads`}>
-        <AlwaysRead agent={agent} />
-      </section>
+      <AlwaysRead agent={agent} />
     </div>
     <aside className="agent-create-side">
       {agent.editable && <AgentSkillChat agent={agent} rules={text}

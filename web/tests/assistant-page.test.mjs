@@ -52,7 +52,11 @@ test('what your assistant knows about you saves only those notes; a failed save 
     assert.match(document.body.textContent, /too long to keep/);
     assert.equal(areas()[1].value, 'Short and friendly.');
     await click(button('Save changes'));
-    assert.deepEqual(writes[1], { path: '/assistant/settings', body: { about: 'Head of sales.', style: 'Short and friendly.' } }, 'regular checks are not sent, so they are kept');
+    assert.deepEqual(writes[1], { path: '/assistant/settings', body: { about: 'Head of sales.', style: 'Short and friendly.', learn: true } }, 'regular checks are not sent, so they are kept');
+    // Learning from edits is on until its person turns it off.
+    await click(document.querySelector('input[type=checkbox]'));
+    await click(button('Save changes'));
+    assert.equal(writes[2].body.learn, false);
     assert.match(document.body.textContent, /Saved\./);
     assert.equal(button('Save changes').disabled, true);
   }, { url, fetch: server(writes, { fail: 1 }) });

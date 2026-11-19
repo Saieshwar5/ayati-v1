@@ -75,8 +75,12 @@ async fn used(
     Json(input): Json<Used>,
 ) -> ApiResult<Json<Value>> {
     let user = identity(&app, &headers).await?;
-    app.store
+    if app
+        .store
         .draft_used(&user, &w, &reply, &input.message)
-        .await?;
+        .await?
+    {
+        app.runtimes.chat_wake.notify_one();
+    }
     Ok(Json(json!({"ok":true})))
 }
