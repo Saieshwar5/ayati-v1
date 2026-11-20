@@ -3,6 +3,7 @@ import { startDesktopAlerts } from './chat/notifications';
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { installNavigation, subscribeNavigation, workspacePage } from '../navigation';
 import { WorkspaceShell } from './workspace-shell';
+import { DocumentTitle } from './document-title';
 import { SettingsPage } from './settings/settings-page';
 import { HomePage } from './home-page';
 import './agents/agents.css';
@@ -21,11 +22,8 @@ export function WorkspaceApplication() {
   useEffect(installNavigation, []);
   useEffect(startLive, []);
   useEffect(startDesktopAlerts, []);
-  useEffect(() => {
-    document.documentElement.dataset.page = page;
-    document.title = `${page[0].toUpperCase() + page.slice(1)} · Cuckoo`;
-  }, [page, href]);
-  return <LibraryUploads><WorkspaceShell page={page}>
+  useEffect(() => { document.documentElement.dataset.page = page; }, [page, href]);
+  return <LibraryUploads><DocumentTitle page={page} /><WorkspaceShell page={page}>
     {page === 'agents' ? <AgentsPage /> : page === 'settings' ? <SettingsPage href={href} /> : page === 'chat' ? <WorkspaceChat href={href} />
       : page === 'activity' ? <Suspense fallback={<p role="status">Opening Activity…</p>}><ActivityPage key={href} href={href} /></Suspense>
       : page === 'library' ? <LibraryBoundary><Suspense fallback={<p role="status">Opening Library…</p>}><LibraryPage href={href} /></Suspense></LibraryBoundary>

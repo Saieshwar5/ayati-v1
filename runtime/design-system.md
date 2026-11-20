@@ -16,8 +16,14 @@ Feature specifications still govern permissions, persistence and execution.
   something is for you (an @mention or an agent's reply to your request), like the
   conversation list; on the selected tile it inverts. It stops at 99+ and disappears
   when everything is read. Muted conversations add only what is for you. The link's
-  accessible name says the count ("Chat, 3 unread messages, 1 for you"). No other
-  rail item has a count: Home and Activity already show what needs you.
+  accessible name says the count ("Chat, 3 unread messages, 1 for you").
+- The rail's Activity icon carries, in the same style, how many things need you,
+  counted as Home and Activity → Needs me count them ("25+" when more pages
+  follow; "Activity, 2 need you"). It shares their reads and otherwise reads on
+  focus, access changes, an agent's message changing (at most every 3 s) and every
+  30 s while visible. No other rail item has a count.
+- The tab title starts with everything waiting, unread chat as the rail counts it
+  plus what needs you: "(3) Home · Cuckoo", capped at 99+.
 - Put the entire work area inside one rounded surface with shadow-led separation
   from the canvas. This supersedes the visible outer-border treatment. Use a
   transparent 1 px border to preserve content geometry. Keep the 12 px desktop

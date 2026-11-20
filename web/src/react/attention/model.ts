@@ -1,4 +1,5 @@
 import { identityRequest, workspaceId, workspaceUrl } from '../../workspace-context';
+import { publishNeedsYou } from './needs-you-store';
 
 export type AttentionView = 'needs_you' | 'recent';
 export type AttentionItem = {
@@ -11,10 +12,20 @@ export type AttentionItem = {
 };
 export type AttentionPage = { available: boolean; items: AttentionItem[]; next_before: string | null };
 export const attentionKey = (item: AttentionItem) => `${item.kind}/${item.id}/${item.version}`;
-export function loadAttention(view: AttentionView, before: string | null, signal?: AbortSignal) {
+/** Every read of the first `needs_you` page is shared with the rail and the tab title. */
+export async function loadAttention(view: AttentionView, before: string | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ view });
   if (before) params.set('before', before);
-  return identityRequest<AttentionPage>(`/workspaces/${workspaceId}/attention?${params}`, undefined, signal);
+  const shared = view === 'needs_you' && !before;
+  try {
+    const page = await identityRequest<AttentionPage>(`/workspaces/${workspaceId}/attention?${params}`, undefined, signal);
+    if (shared && !signal?.aborted) publishNeedsYou(page);
+    return page;
+  } catch (failure) {
+    // Denied or removed access clears the count; an outage keeps the last one.
+    if (shared && !signal?.aborted && failure instanceof Error && 'status' in failure && [400, 401, 403, 404].includes(Number(failure.status))) publishNeedsYou(undefined);
+    throw failure;
+  }
 }
 export function acknowledgeAttention(item: AttentionItem, reviewed = false) {
   return identityRequest<{ saved: true }>(`/workspaces/${workspaceId}/attention`, {
