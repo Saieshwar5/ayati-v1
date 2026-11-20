@@ -1,13 +1,16 @@
 import type { Message } from './model';
 
-/** Stream events and snapshots may cross in flight; revisions order their content. */
+/** Stream events and snapshots may cross in flight; revisions order their content.
+ * Only a history read says whether the viewer has read a message (`unread`), so
+ * a stream event for the same message keeps the mark it had. */
 export function newerMessage(current: Message, incoming: Message): Message {
   if ((current.revision ?? 0) > (incoming.revision ?? 0)) return current;
+  const unread = incoming.unread ?? current.unread;
   if ((current.revision ?? 0) === (incoming.revision ?? 0)) {
     if (current.state !== 'queued' && incoming.state === 'queued') return current;
-    return { ...incoming, delivered: Math.max(current.delivered ?? 0, incoming.delivered ?? 0), seen: Math.max(current.seen ?? 0, incoming.seen ?? 0) };
+    return { ...incoming, unread, delivered: Math.max(current.delivered ?? 0, incoming.delivered ?? 0), seen: Math.max(current.seen ?? 0, incoming.seen ?? 0) };
   }
-  return incoming;
+  return unread === incoming.unread ? incoming : { ...incoming, unread };
 }
 
 /** A handoff is at most three levels deep; each level reads just after the one it asked. */

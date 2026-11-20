@@ -25,7 +25,9 @@ import { ThreadLine, type threadSummary } from './thread-line';
 import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
 import { AssistantMark } from './assistant-threads';
 import { TakeOver } from './assistant-takeover';
-export function ChatMessage({ message, directory, thread, openThread, reply, quoted, handOver, place = '', compact = false, focused = false }: { focused?: boolean;
+export function ChatMessage({ message, directory, thread, openThread, reply, quoted, handOver, read, place = '', compact = false, focused = false }: { focused?: boolean;
+  /** Hears when this message has been read on this page (receipt.tsx). */
+  read?: (id: string) => void;
   /** Your assistant's name, when this message can hand the chat over to it (schema 136). */
   handOver?: string; compact?: boolean; message: Message; directory: Directory; thread?: ReturnType<typeof threadSummary>; openThread?: () => void; reply?: () => void; quoted?: { name: string; text: string };
   /** Where this message is, as a forward of it says (`Direct message`, `#orders`). */
@@ -41,7 +43,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const face = agent ? <AgentFace agent={agent} /> : message.kind === 'agent' ? <AgentFace agent={{ id: message.author, name }} />
     : person ? <PersonFace person={person} /> : <PersonFace person={{ id: message.author, name }} />;
   const profile = (agent || person) && (() => showProfile({ kind: agent ? 'agent' : 'user', id: message.author }));
-  const element = useSeen(message, own);
+  const element = useSeen(message, own, read);
   const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
   // A forward without words of its own shows only what it forwards (schema 125).
   const bareForward = Boolean(message.forwarded) && message.content === forwardedOnly;
