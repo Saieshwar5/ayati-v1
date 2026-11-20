@@ -19,8 +19,11 @@ The isolated simulation helper applies it only to its dedicated company database
 - **Delivered to N**: N other authenticated users' clients acknowledged receiving
   the content/attachment metadata. It does not prove downloaded media or reading.
 - **Seen by N**: those users' clients reported the particular message sufficiently
-  visible in a focused, visible document for 700 ms. Offscreen messages and unopened
-  thread replies are not implicitly seen. This is a UI observation, not comprehension.
+  visible in a focused, visible document for 700 ms: 60% of the message, or, for one
+  taller than the area it scrolls in, 60% of that area. Without the second rule a
+  long message could never be seen and its unread count would never clear. Offscreen
+  messages and unopened thread replies are not implicitly seen. This is a UI
+  observation, not comprehension.
 - **Checking delivery**: a network/timeout/server failure leaves acceptance uncertain.
   Retry the same ID and payload with exponential backoff/jitter and Retry-After.
   A later definite denial after an uncertain attempt pauses with an explicit
@@ -86,7 +89,10 @@ Seen implies delivered. Updates are monotone and exact retries cause no new jour
 events. IDs are batched (100 per request); pending acknowledgements are saved in scoped
 local storage and retried. If that storage fails they remain in memory and can be lost
 on reload, conservatively leaving receipts unconfirmed. Unread badges include unseen
-thread replies without marking them read when their parent is viewed.
+thread replies without marking them read when their parent is viewed. So the thread
+line under the parent says how many replies are new ("2 replies · 2 new", red when one
+is for you): history's unread marks, plus replies that arrive while the conversation
+is open, less those seen in the opened thread. The next history read replaces them.
 
 Unread counts only conversations Chat lists as active: archived channels and a
 schedule's work room never count. Counting starts when you could first see the

@@ -8,7 +8,7 @@ import { ChatComposer } from './attachments';
 import { requestAgents } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
 import type { Attachment, Message } from './model';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { ChatMessage } from './message';
 import { ChatThread } from './thread';
@@ -26,7 +26,7 @@ import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
 import { readingAnchor, restoreReading, type ReadingAnchor } from './reading-position';
-import { countsAsNew, firstUnread, JumpToLatest, latestSequence, UnreadLine, type UnreadStart } from './new-messages';
+import { arrivesUnreadInThread, countsAsNew, firstUnread, JumpToLatest, latestSequence, marksAfterRead, replyIsNew, UnreadLine, type ReplyMarks, type UnreadStart } from './new-messages';
 
 /** Scrolling within this distance of the top (px) starts loading the next older page. */
 const olderThreshold = 400;
@@ -77,6 +77,11 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const counted = useRef(new Set<string>());
   const [away, setAway] = useState(false);
   const [newBelow, setNewBelow] = useState(0);
+  // Thread replies count as unread until their thread is opened, so each thread
+  // line says how many are new: history's marks, plus replies that arrive while
+  // the conversation is open, less the ones read here.
+  const [replyMarks, setReplyMarks] = useState<ReplyMarks>(() => new Map());
+  const replyRead = useCallback((id: string) => setReplyMarks(marks => marks.get(id) === false ? marks : new Map(marks).set(id, false)), []);
   const viewer = workspaceSession?.user?.id;
   useEffect(() => {
     setFocused([]); setFocusError('');
@@ -108,6 +113,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
         if (!abort.signal.aborted && epoch===sourceEpoch.current) {
           const merged = mergeMessages(data.messages, [...incoming.current.values()]);
           setHistory({ ...data, messages: merged }); acknowledge(chat.id, data.messages); void confirmSent(data.messages).catch(() => {}); setError('');
+          setReplyMarks(marks => marksAfterRead(marks, data.messages));
           if (openedAt.current === undefined) { openedAt.current = latestSequence(data.messages); const start = firstUnread(data); setUnreadStart(start); if (start && !focus) bottom.current = false; }
         }
       } catch (e) { if (!abort.signal.aborted) { setError(errorMessage(e)); if (e instanceof Error && 'status' in e && [400,401,403,404].includes(Number(e.status))) { setHistory(undefined); forgetOlder(); incoming.current.clear(); } } }
@@ -128,6 +134,8 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
         const previous = incoming.current.get(message.id);
         incoming.current.set(message.id, previous ? newerMessage(previous, message) : message);
         if (countsAsNew(message, viewer, openedAt.current) && !counted.current.has(message.id)) { counted.current.add(message.id); if (!bottom.current) setNewBelow(count => count + 1); }
+        // Later events for the same reply (a receipt, a reaction) must not make a read one new again.
+        if (arrivesUnreadInThread(message, viewer, openedAt.current)) setReplyMarks(marks => marks.has(message.id) ? marks : new Map(marks).set(message.id, true));
         if (incoming.current.size > 400) incoming.current.delete(incoming.current.keys().next().value!);
         setOlder(old => old.map(m => m.id === message.id ? newerMessage(m, message) : m));
         setHistory(previous => previous ? { ...previous, messages: mergeMessages(previous.messages, [message]).slice(-400) } : previous);
@@ -201,6 +209,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const allMessages = mergeMessages(focused, older, history?.messages ?? []);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
+  const newReply = replyIsNew(replyMarks);
   // Sending a message means you have caught up, so the line goes, as it does on reopening.
   const line = unreadStart && !timeline.some(message => message.author === viewer && (message.sequence ?? 0) > (openedAt.current ?? Infinity)) ? unreadStart : undefined;
   const title = conversationName(chat, directory);
@@ -233,7 +242,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage handOver={handOver(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id)} place={place} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage handOver={handOver(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
@@ -249,7 +258,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       ]} />
     {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
-      <ChatThread focus={focus} direct={directAgent || undefined} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
+      <ChatThread focus={focus} read={replyRead} direct={directAgent || undefined} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />
     </ShowProfile.Provider>}
     {searching && <ConversationSearch chat={chat} title={title} directory={directory} close={() => setSearching(false)} />}
   </section></ManagedResults></ApprovalViewer>;

@@ -13,7 +13,9 @@ import { askedBy, continuingAgent, namesSomeone } from './thread-line';
 import { ThreadFollow } from './thread-follow';
 import './thread-panel.css';
 
-export function ChatThread({ chat, root, history, directory, close, people = [], focus, archived, direct, place }: { archived?: boolean; focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void>;
+export function ChatThread({ chat, root, history, directory, close, people = [], focus, archived, direct, place, read }: { archived?: boolean; focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void>;
+  /** Hears each reply read here, so the conversation's thread line stops calling it new. */
+  read?: (id: string) => void;
   /** In a direct chat with an agent, every reply asks that agent. */
   direct?: string;
   /** Where these messages are, as a forward of one says. */
@@ -70,7 +72,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
       <div ref={scroller} className="chat-thread-scroll" onScroll={noteScroll}>
         <div className="chat-thread-root"><ChatMessage message={root} directory={directory} place={place} /></div>
         <p className="chat-thread-divider">{count ? `${count} ${count === 1 ? 'reply' : 'replies'}` : 'No replies yet'}</p>
-        <div ref={transcript} role="log" aria-label="Thread replies">{replies.map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} place={place} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
+        <div ref={transcript} role="log" aria-label="Thread replies">{replies.map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} place={place} read={read} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
         {!count && !archived && <p className="chat-thread-empty"><strong>Start the thread</strong>Replies stay here, under this message, so the channel stays tidy.</p>}
       </div>
       <div className="chat-thread-reply">

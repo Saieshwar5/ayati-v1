@@ -27,6 +27,30 @@ export function countsAsNew(message: Message, viewer: string | undefined, opened
     && !message.thread && !message.update_of && ['sent', 'complete'].includes(message.state);
 }
 
+/** Whether a live message is a thread reply that arrives unread while the
+ * conversation is open: someone else's sent or finished reply, as the unread
+ * count counts it. History marks the earlier ones itself (`unread`). */
+export function arrivesUnreadInThread(message: Message, viewer: string | undefined, openedAt: number | undefined): boolean {
+  return openedAt !== undefined && (message.sequence ?? 0) > openedAt && message.author !== viewer
+    && Boolean(message.thread) && ['sent', 'complete'].includes(message.state);
+}
+
+/** What this visit knows about thread replies beyond history's unread marks:
+ * a reply that arrived while the conversation was open (true), or one read here (false). */
+export type ReplyMarks = ReadonlyMap<string, boolean>;
+
+/** Whether a thread reply is new to the viewer: this visit's knowledge first, then history's mark. */
+export const replyIsNew = (marks: ReplyMarks) => (message: Message) => marks.get(message.id) ?? Boolean(message.unread);
+
+/** After a history read the server speaks for every reply it returned, so only
+ * what was read here (its receipt may still be on its way) and arrivals the read
+ * does not cover are kept. */
+export function marksAfterRead(marks: ReplyMarks, read: Message[]): ReplyMarks {
+  const covered = new Set(read.map(message => message.id));
+  const kept = [...marks].filter(([id, unread]) => !unread || !covered.has(id));
+  return kept.length === marks.size ? marks : new Map(kept);
+}
+
 export function UnreadLine({ start }: { start: UnreadStart }) {
   const label = `${start.count}${start.more ? '+' : ''} unread ${start.count === 1 && !start.more ? 'message' : 'messages'}`;
   return <div className="chat-unread-line" role="separator" aria-label={label}><span aria-hidden="true">{label}</span></div>;

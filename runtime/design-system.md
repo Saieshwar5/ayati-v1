@@ -177,6 +177,9 @@ attachments and voice controls must reserve transcript space rather than cover
 messages. Keep own time and delivery indicators together on a predictable metadata
 line; omit the repeated own name/avatar. Retain visible reply counts and reveal
 ordinary reply actions on hover/focus, keeping them available on touch devices.
+A thread line with replies you have not read shows a small "N new" pill in the accent
+colour, red when one is for you, so a conversation's unread count always points at
+something to open. It goes as the replies are seen in the thread.
 The thread drawer keeps its reply box at the bottom: only the messages scroll, opening at
 the newest reply, under a "No replies yet" or "N replies" divider. The routing note and a
 compact Follow / Following button sit on one line above the reply box. The message toolbar

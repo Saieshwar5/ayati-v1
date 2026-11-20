@@ -1,20 +1,58 @@
 import { useEffect, useRef, useState } from 'react';
 import { acknowledge } from './live';
 import { chatRequest, type Message } from './model';
-export function useSeen(message: Message, own: boolean) {
+
+/** How much of a message, or of the area it is read in, must show before it counts as read. */
+const SHARE = 0.6;
+/** The shares of a message at which the browser reports its visibility. Each is
+ * under 1/0.6 of the next, so however tall a message is, one of them lies between
+ * "it fills 60% of the reading area" and "it fills all of it". */
+export const SEEN_STEPS = [0, ...Array.from({ length: 12 }, (_, step) => SHARE / 1.5 ** step)];
+
+/** Whether a message is shown enough to count as read: most of it is on screen
+ * or, for one taller than the area it scrolls in, it fills most of that area.
+ * Without the second rule a long message can never be read, and its unread
+ * count never goes. */
+export function shownEnough(share: number, visibleHeight: number, areaHeight: number): boolean {
+  return share >= SHARE || (areaHeight > 0 && visibleHeight >= SHARE * areaHeight);
+}
+
+/** What a message scrolls in; nothing when only the window scrolls. */
+function scrollArea(node: HTMLElement): HTMLElement | null {
+  for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+    const overflow = window.getComputedStyle(parent).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') return parent;
+  }
+  return null;
+}
+
+/** Marks someone else's message read once it has been shown for a moment in a
+ * focused, visible window. `read` hears which message, so a thread's count of
+ * new replies can drop at once; pass a stable function. */
+export function useSeen(message: Message, own: boolean, read?: (id: string) => void) {
   const element = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (own || !message.chat || !element.current || !['sent', 'complete'].includes(message.state)) return;
-    let visible = false, timer: number | undefined;
+    const node = element.current;
+    if (own || !message.chat || !node || !['sent', 'complete'].includes(message.state)) return;
+    let visible = false, timer: number | undefined, area: HTMLElement | null | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      if (visible && !document.hidden && document.hasFocus()) timer = window.setTimeout(() => acknowledge(message.chat!, [message], true), 700);
+      if (visible && !document.hidden && document.hasFocus()) timer = window.setTimeout(() => { acknowledge(message.chat!, [message], true); read?.(message.id); }, 700);
     };
-    const observer = new IntersectionObserver(entries => { visible = entries[0].isIntersecting && entries[0].intersectionRatio >= 0.6; schedule(); }, { threshold: [0, 0.6] });
-    observer.observe(element.current);
+    const observer = new IntersectionObserver(entries => {
+      const entry = entries[entries.length - 1];
+      visible = entry.isIntersecting && entry.intersectionRatio >= SHARE;
+      // On screen but not mostly so: it may be taller than the area it is read in.
+      if (entry.isIntersecting && !visible) {
+        if (area === undefined) area = scrollArea(node);
+        visible = shownEnough(entry.intersectionRatio, entry.intersectionRect.height, area?.clientHeight || window.innerHeight);
+      }
+      schedule();
+    }, { threshold: SEEN_STEPS });
+    observer.observe(node);
     window.addEventListener('focus', schedule); window.addEventListener('blur', schedule); document.addEventListener('visibilitychange', schedule);
     return () => { clearTimeout(timer); observer.disconnect(); window.removeEventListener('focus', schedule); window.removeEventListener('blur', schedule); document.removeEventListener('visibilitychange', schedule); };
-  }, [message.id, message.chat, message.state, own]);
+  }, [message.id, message.chat, message.state, own, read]);
   return element;
 }
 type Receipt = { name: string; agent?: boolean; delivered_at: number; seen_at: number | null };
