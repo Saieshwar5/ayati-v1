@@ -43,7 +43,10 @@ impl PgStore {
             "a.owner_id=$2"
         };
         let assistant = super::assistants::flag(&tx).await?;
-        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','handles',COALESCE(a.settings->>'handles',''),'manager',{owners},'yours',{yours},'assistant',{assistant}) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
+        // Whether it can take a message now (Chat's agent dot): paused by an owner,
+        // paused because its last owner left, or all agents paused by an admin.
+        // Only the state; what it is working on stays with its owners and admins.
+        let profiles=json_rows(&tx,&format!("SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'model',a.model,'shared',true,'audience',a.audience,'avatar',a.settings->>'avatar','handles',COALESCE(a.settings->>'handles',''),'manager',{owners},'yours',{yours},'assistant',{assistant},'paused',COALESCE(a.settings->'paused'='true'::jsonb,false),'needs_owner',a.owner_id IS NULL,'all_paused',(SELECT to_jsonb(w)->>'agents_paused_ms' IS NOT NULL FROM relay_workspaces w WHERE w.id=a.workspace)) AS data FROM relay_shared_agents a WHERE a.workspace=$1 AND relay_agent_can_talk(a.workspace,a.id,$2){filter} ORDER BY a.name"),values).await?;
         tx.commit().await?;
         Ok(profiles)
     }

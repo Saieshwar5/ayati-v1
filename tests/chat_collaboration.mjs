@@ -96,7 +96,7 @@ test('people and agents work together in chat, and private channels stay private
   await create.getByRole('button', { name: 'Create channel' }).click();
   await owner.getByRole('heading', { name: 'Orders', exact: true }).waitFor();
   const channel = new URL(owner.url()).searchParams.get('conversation');
-  await owner.getByRole('button', { name: 'Details', exact: true }).click();
+  await owner.getByRole('button', { name: /, details$/ }).click();
   const details = owner.getByRole('dialog', { name: 'Conversation details' });
   await details.getByRole('checkbox', { name: /Nova/ }).check();
   await details.getByRole('button', { name: 'Save agents' }).click();

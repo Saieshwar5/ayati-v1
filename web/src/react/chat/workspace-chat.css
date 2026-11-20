@@ -64,7 +64,6 @@
   .chat-back { display:inline-flex; }
   .chat-welcome > .chat-back { justify-self:start; }
   .chat-pane-header { padding:7px 10px; gap:7px; }
-  .chat-pane-header > .chat-avatar, .chat-header-identity { display:none; }
   .chat-pane-header h2 { font-size:14px; }
   .chat-message-list { padding:18px 12px; }
 }

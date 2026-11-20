@@ -1,5 +1,6 @@
 /* Approved OpenPencil 09 / option 1: one workspace, floating composer. */
-.workspace-chat { --chat-reading-width:760px; --chat-header-height:64px; }
+/* Both headers are 56 px (2026-11-20; 64 before): two text lines and 36 px buttons. */
+.workspace-chat { --chat-reading-width:760px; --chat-header-height:56px; }
 .workspace-chat .chat-directory { flex-basis:280px; width:280px; padding:0; }
 .workspace-chat .chat-directory > header { height:var(--chat-header-height); min-height:var(--chat-header-height); padding:0 20px; border:0; }
 .workspace-chat .chat-directory .chat-search-button { width:36px; height:36px; background:var(--soft); border-radius:10px; }
@@ -14,14 +15,23 @@
 .workspace-chat .chat-directory .chat-avatar.channel { background:var(--soft); border-radius:8px; font-size:15px; }
 .chat-search-results .chat-avatar.channel { background:var(--soft); border-radius:12px; font-size:23px; }
 .workspace-chat .chat-contact:focus-visible { outline-offset:-2px; }
-.workspace-chat .chat-pane-header { min-height:var(--chat-header-height); height:var(--chat-header-height); padding:10px 20px; gap:12px; flex-shrink:0; }
+.workspace-chat .chat-pane-header { min-height:var(--chat-header-height); height:var(--chat-header-height); padding:8px 16px 8px 12px; gap:8px; flex-shrink:0; }
 /* Borderless icon buttons (design system); a fill shows hover and an open menu. */
 .workspace-chat .chat-pane-header .ui-icon { border-color:transparent; background:transparent; box-shadow:none; }
 .workspace-chat .chat-pane-header .ui-icon:hover:not(:disabled), .workspace-chat .chat-pane-header .ui-icon[aria-expanded=true] { background:var(--selection); }
-.workspace-chat .chat-pane-header > .chat-avatar, .workspace-chat .chat-header-identity > .chat-avatar { width:40px; height:40px; flex-basis:40px; font-size:20px; }
-.workspace-chat .chat-pane-header > .chat-avatar.channel { border-radius:12px; background:var(--soft); }
+.workspace-chat .chat-header-who .chat-avatar { width:36px; height:36px; flex-basis:36px; font-size:14px; }
+.workspace-chat .chat-header-who > .chat-avatar.channel { border-radius:11px; background:var(--soft); font-size:18px; }
+/* Face, name and status are one target for the profile or details; a ▾ says it opens. */
+.workspace-chat .chat-pane-header > .chat-header-who.chat-header-who { display:flex; align-items:center; gap:10px; flex:0 1 auto; min-width:0; margin-right:auto; padding:4px 10px 4px 4px; border-radius:10px; cursor:pointer; }
+.workspace-chat .chat-header-who:hover { background:var(--soft); }
+.workspace-chat .chat-header-text { display:flex; flex-direction:column; min-width:0; }
+.workspace-chat .chat-header-name { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:0; border:0; background:none; color:inherit; font:inherit; cursor:pointer; }
+.workspace-chat .chat-header-name:focus-visible { outline:2px solid var(--focus); outline-offset:2px; border-radius:4px; }
+.workspace-chat .chat-header-name > .chat-participant-name, .workspace-chat .chat-header-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace-chat .chat-header-chevron { flex:none; color:var(--muted); transition:transform .15s; }
+.workspace-chat .chat-header-name[aria-expanded=true] .chat-header-chevron { transform:rotate(180deg); }
 .workspace-chat .chat-pane-header h2 { font-size:16px; }
-.workspace-chat .chat-header-meta { display:flex; align-items:center; gap:8px; min-width:0; margin-top:3px; }
+.workspace-chat .chat-header-meta { display:flex; align-items:center; gap:8px; min-width:0; margin-top:2px; }
 .workspace-chat .chat-kind { font-size:11px; color:var(--muted); margin:0; line-height:1.3; }
 .workspace-chat .chat-message-list { padding:24px max(16px,calc((100% - var(--chat-reading-width))/2)); }
 .workspace-chat .chat-message { grid-template-columns:36px minmax(0,1fr) auto; gap:4px 12px; }
@@ -45,7 +55,8 @@
 @media(max-width:600px) {
   .workspace-chat.show-chat-list .chat-directory { flex:1; width:100%; }
   .workspace-chat .chat-pane-header, [data-page=chat] .workspace-chat .chat > .header { padding:8px 10px; gap:8px; }
-  .workspace-chat .chat-pane-header > .chat-avatar, .workspace-chat .chat-header-identity { display:none; }
+  .workspace-chat .chat-header-who > .chat-avatar { display:none; }
+  .workspace-chat .chat-pane-header > .chat-header-who.chat-header-who { padding:2px 6px 2px 2px; }
   .workspace-chat .chat-pane-header h2 { font-size:14px; }
   .workspace-chat .chat-pane-header .chat-back { padding:7px; }
   .workspace-chat .chat-message-list { padding:20px 12px; }

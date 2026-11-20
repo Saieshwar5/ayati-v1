@@ -47,8 +47,9 @@ export function PersonFace({ person, className = 'chat-avatar', badge }: { perso
   </span>;
 }
 
-export function AgentFace({ agent, className = 'chat-avatar' }: { agent: AgentIdentity; className?: string }) {
-  return <span className={`${className} face agent`} aria-hidden="true"><img alt="" src={agentPicture(agent)} loading="lazy" /></span>;
+/** `badge` sits on the face's edge, such as Chat's agent state dot (agent-state.tsx). */
+export function AgentFace({ agent, className = 'chat-avatar', badge }: { agent: AgentIdentity; className?: string; badge?: ReactNode }) {
+  return <span className={`${className} face agent${badge ? ' face-badged' : ''}`} aria-hidden="true"><img alt="" src={agentPicture(agent)} loading="lazy" />{badge}</span>;
 }
 
 export function AiTag() {

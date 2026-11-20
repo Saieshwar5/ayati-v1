@@ -46,6 +46,8 @@ impl PgStore {
         if paused {
             super::task_revocation::inaccessible(&tx, w).await?;
         }
+        // Open Chat pages show the agent's state, so they read it again.
+        super::settings::pause::announce(&tx, w).await?;
         tx.commit().await?;
         Ok(json!({"paused": paused, "revision": revision + 1}))
     }

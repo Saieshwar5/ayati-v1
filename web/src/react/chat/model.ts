@@ -6,7 +6,9 @@ export type Participant = { id: string; name: string; email?: string; role?: str
   /** A member's own assistant (schema 127); with `yours`, the viewer's. */
   assistant?: boolean;
   /** What they handle, one line (schema 124). */
-  handles?: string };
+  handles?: string;
+  /** Agents: whether it can take a message now (agent-state.tsx). */
+  paused?: boolean; needs_owner?: boolean; all_paused?: boolean };
 /** `presence` holds who is online and their statuses (D245), read with the directory. */
 export type Directory = { users: Participant[]; agents: Participant[]; role: string; presence?: import('./presence').Presence[] };
 export type Conversation = { id: string; name: string; kind: 'group' | 'channel' | 'direct'; description: string; visibility?: 'private' | 'public'; announcements?: boolean;

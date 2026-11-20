@@ -7,6 +7,7 @@ import { chatRequest, type Conversation, type Directory } from './model';
 import { SidePanel } from './side-panel';
 import { activeStatus, shownOnline, usePresence } from './presence';
 import { clearsLabel, lastSeenLabel, PresenceDot, statusEmoji, statusLabel } from './presence-view';
+import { AgentDot, agentStateText, takesMessages } from './agent-state';
 
 export type ProfileTarget = { kind: 'user' | 'agent'; id: string };
 
@@ -38,11 +39,12 @@ export function ProfileDetails({ target, directory, chats, message }: {
     && (target.kind === 'user' ? chat.users.includes(target.id) : chat.agents.includes(target.id)));
   const self = target.kind === 'user' && target.id === workspaceSession?.user?.id;
   return <div className="profile-card">
-    {person ? <PersonFace person={person} className="profile-card-face" badge={<PresenceDot id={person.id} />} /> : <AgentFace agent={agent!} className="profile-card-face" />}
+    {person ? <PersonFace person={person} className="profile-card-face" badge={<PresenceDot id={person.id} />} /> : <AgentFace agent={agent!} className="profile-card-face" badge={<AgentDot agent={agent!} />} />}
     <div className="profile-card-identity">
       <h3>{who.name}{agent && <AiTag />}</h3>
       <p>{person ? person.title || (person.role === 'Admin' ? 'Workspace admin' : 'Member') : agent!.role}</p>
       {person && <ProfilePresence id={person.id} name={person.name} />}
+      {agent && <p className="profile-card-presence"><span className={`agent-line-dot agent-dot-${takesMessages(agent) ? 'ready' : 'paused'}`} aria-hidden="true" />{agentStateText(agent).label}{!takesMessages(agent) && ` · ${agentStateText(agent).detail}`}</p>}
     </div>
     {message && !self && <div className="profile-card-actions"><Button primary onClick={() => message({ ...target, name: who.name })}>Message</Button></div>}
     {(person ?? agent)?.handles && <ProfileLine label="Handles">{(person ?? agent)!.handles}</ProfileLine>}

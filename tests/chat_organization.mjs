@@ -39,7 +39,7 @@ test('personal pins persist while archived threaded work answers, receives a sep
   const otherSession=await openPage(app.cookie);await otherSession.goto(url);await until(()=>otherSession.locator('[aria-label="Pinned conversations"] a.chat-contact').count().then(count=>count===3),'Another session did not restore ordered pins');assert.equal(app.provider.requests.length,0);
   await observer.getByRole('button',{name:'Pin Delivery operations',exact:true}).click();await observer.getByRole('button',{name:'Unpin Delivery operations',exact:true}).waitFor();
   assert.deepEqual((await app.request(`${app.path}/chat-pins`,app.cookie)).value,preferences);
-  await observer.getByRole('button',{name:'Details',exact:true}).click();const memberDetails=observer.getByRole('dialog',{name:'Conversation details',exact:true});assert.equal(await memberDetails.getByRole('button',{name:'Archive channel',exact:true}).count(),0);await memberDetails.getByRole('button',{name:'Close',exact:true}).click();
+  await observer.getByRole('button',{name:/, details$/}).click();const memberDetails=observer.getByRole('dialog',{name:'Conversation details',exact:true});assert.equal(await memberDetails.getByRole('button',{name:'Archive channel',exact:true}).count(),0);await memberDetails.getByRole('button',{name:'Close',exact:true}).click();
   await page.reload();await page.getByRole('button',{name:'Unpin Delivery operations',exact:true}).waitFor();
   const composer=page.getByRole('textbox',{name:'Message',exact:true});await composer.fill('KEEP_ARCHIVE_DRAFT');
   await page.getByLabel('Choose attachment',{exact:true}).setInputFiles(join(root,'designs/result-reading/reader-concept-mobile.png'));
@@ -55,7 +55,7 @@ test('personal pins persist while archived threaded work answers, receives a sep
   const state=()=>JSON.parse(app.sql(`SELECT row_to_json(j) FROM relay_chat_jobs j WHERE reply='${job.reply}'`));
   await until(()=>state().state==='waiting','Question did not release execution',35000);assert.equal(remote.calls.length,0);
   const idleCalls=app.provider.requests.length;
-  await page.getByRole('button',{name:'Details',exact:true}).click();let details=page.getByRole('dialog',{name:'Conversation details',exact:true});await details.getByRole('button',{name:'Archive channel',exact:true}).click();
+  await page.getByRole('button',{name:/, details$/}).click();let details=page.getByRole('dialog',{name:'Conversation details',exact:true});await details.getByRole('button',{name:'Archive channel',exact:true}).click();
   let archive=page.getByRole('dialog',{name:'Archive channel',exact:true});await archive.getByText('1 visible unfinished request.',{exact:false}).waitFor();assert.equal(app.provider.requests.length,idleCalls);
   await page.screenshot({path:join(app.data,'archive-review-desktop.png')});await archive.getByRole('button',{name:'Archive channel',exact:true}).click();
   await page.locator('.chat-archive-banner').getByText('This channel is archived.',{exact:false}).waitFor();await details.getByRole('button',{name:'Close',exact:true}).click();

@@ -134,23 +134,38 @@ position and scoped drafts. Reject stale responses.
 Use the approved OpenPencil page 09 / option 1: one workspace with a floating
 composer. The desktop Chat sidebar is 280 px wide; intermediate windows use
 240 px before the existing phone list/conversation switch. Sidebar and conversation
-headers share a 64 px height. Only the conversation header has a bottom divider;
+headers share a 56 px height (64 px before 2026-11-20). Only the conversation header has a bottom divider;
 do not extend it under the sidebar's Chat title. Since D245 the header no longer
 shows your own connection ("Connected", "Reconnecting…"): a thin banner under it
 appears only while you are offline (warning colors, with Retry) or reconnecting
 (quiet, with a turning icon that stops under reduced motion). A direct message's
 header shows the other person instead: "● Online · 🗓️ In a meeting · until 11:30 AM",
-"Last seen 9:58 AM" (or a date), or their job title when nothing is known; agents
-show their job and never presence. Use 28 px single-line sidebar rows, 40 px header
-avatars (32 px on phones, where the header keeps the avatar and its dot) and 36 px
-incoming-message avatars. Unread rows use a bold name and an accent count.
+"Last seen 9:58 AM" (or a date), or their job title when nothing is known; an agent
+shows its state (below): "● Ready · its job", "● Working on your request…" or
+"○ Paused · Ananya Rao can resume it". The face, name and that line are one target
+with a small ▾ that opens the profile (direct messages) or Details (channels), as on
+phones; there is no separate Profile or Details button. The name is a button named
+"orders, details" or "Meera Iyer, profile". Then, borderless: an agent's settings
+(its owners and admins, and your assistant), search, the channel's faces and the
+bell. Use 28 px single-line sidebar rows, 36 px header avatars (32 px on phones,
+where the header keeps the avatar and its dot) and 36 px incoming-message avatars. Unread rows use a bold name and an accent count.
 
 Presence follows `designs/chat-and-account` screens 2, 3, 9 and 10 (D245). A green
 dot (`--online`, ringed with the surface) on a person's face means Cuckoo was open in
 about the last minute; there is no dot when away, when the status is Away or when they
-hide their presence, and agents never have one. Dots appear in the Chat list, the
-direct message header, People & agents, the profile panel, the @mention list and your
-own photo on the rail. The status emoji follows the name in the list, with its text
+hide their presence. Dots appear in the Chat list, the direct message header, People
+& agents, the profile panel, the @mention list and your own photo on the rail.
+
+Agents have a dot in the same places, and on the channel header's faces, with an
+agent's meaning (2026-11-20; before, agents had none): whether it will take your
+message now (`agent-state.tsx`). Green (`--online`): ready. Purple (`--working`),
+pulsing unless motion is reduced: working on your request in this conversation.
+Hollow grey: paused by an owner, paused because its last owner left, or all agents
+paused by an admin. There is no "busy for someone else": agents take several
+requests at once, and what an agent does for others stays in Activity. While a
+direct message's agent is paused its message box gives way to a quiet dashed bar
+("Iris is paused and takes no new messages", with Resume for its owners and
+admins), so nobody writes a message the server would refuse. The status emoji follows the name in the list, with its text
 on hover; the profile shows the status with when it clears; the @mention list shows
 it after the job. Rows read "Meera Iyer, online, In a meeting" to screen readers.
 Status text is shown only as text. Set a status is a native dialog opened from the
