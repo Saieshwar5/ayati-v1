@@ -214,6 +214,7 @@ mod event_triggers;
 #[cfg(test)]
 mod executor_task_tests;
 mod feedback;
+mod for_you;
 mod handoff_access;
 mod handoff_admission;
 #[cfg(test)]

@@ -2,6 +2,7 @@ pub(crate) mod asked_together;
 mod assistant_settings;
 mod assistant_threads;
 pub(super) mod execution;
+mod for_you;
 pub(crate) mod mentions;
 mod message_actions;
 pub(crate) mod model;
@@ -30,6 +31,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(assistant_threads::routes())
         .merge(assistant_settings::routes())
         .merge(notifications::routes())
+        .merge(for_you::routes())
         .merge(presence::routes())
         .route(
             "/api/identity/workspaces/{workspace}/chats/{chat}/messages/{message}",
