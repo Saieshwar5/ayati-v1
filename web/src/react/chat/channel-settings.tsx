@@ -1,7 +1,8 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useMutation } from '../requests';
 import { Button } from '../ui';
 import { LockIcon } from './conversation-face';
+import { Icon } from './panel-actions';
 import { chatRequest, type Conversation } from './model';
 
 type Replies = 'thread' | 'channel';
@@ -38,49 +39,26 @@ export function ChannelSettings({ chat, admin, changed }: { chat: Conversation; 
     setDone(true);
     await changed();
   });
-  const visibilityHelp = draft.visibility === 'public'
-    ? 'Everyone in the workspace can find and read it, including its existing history and published files.'
-    : 'Only people added to it can find and read it.';
-  return <section className="chat-details-section" aria-labelledby={`${id}-heading`} aria-busy={mutation.busy}>
-    <header className="chat-details-section-header"><h3 id={`${id}-heading`}>Channel settings</h3><small>Creator and admins</small></header>
+  // Only what has consequences is said in words: opening the history, or locking yourself out of posting.
+  const opening = draft.visibility === 'public' && saved.visibility === 'private';
+  return <section className="chat-details-section chat-settings" aria-label={`#${chat.name} settings`} aria-busy={mutation.busy}>
     <form className="ui-form chat-details-form" onSubmit={event => { event.preventDefault(); if (unsaved) save(); }}>
       <label className="ui-field">Name
         <input required maxLength={100} value={draft.name} onChange={event => edit({ name: event.target.value })} />
       </label>
       <label className="ui-field">Description
-        <textarea rows={3} maxLength={300} value={draft.description} placeholder="What this channel is for"
+        <textarea rows={2} maxLength={300} value={draft.description} placeholder="What this channel is for"
           onChange={event => edit({ description: event.target.value })} />
       </label>
-      {admin ? <fieldset className="chat-details-choice">
-        <legend>Who can find it</legend>
-        <div>
-          <label><input type="radio" name={`${id}-visibility`} value="public" checked={draft.visibility === 'public'} onChange={() => edit({ visibility: 'public' })} /><span aria-hidden="true">#</span> Public</label>
-          <label><input type="radio" name={`${id}-visibility`} value="private" checked={draft.visibility === 'private'} onChange={() => edit({ visibility: 'private' })} /><LockIcon /> Private</label>
-        </div>
-        <p className="ui-help">{visibilityHelp}</p>
-      </fieldset> : <div className="chat-details-fixed" role="group" aria-labelledby={`${id}-find`}>
-        <span id={`${id}-find`}>Who can find it</span>
-        <p>{saved.visibility === 'public' ? <span aria-hidden="true">#</span> : <LockIcon size={13} />}{saved.visibility === 'public' ? 'Public' : 'Private'}</p>
-        <p className="ui-help">Only workspace admins can change this, because it changes who can read the history.</p>
-      </div>}
-      <label className="ui-field">Who can post
-        <select value={draft.announcements ? 'admins' : 'everyone'} onChange={event => edit({ announcements: event.target.value === 'admins' })}>
-          <option value="everyone">Everyone in the channel</option>
-          <option value="admins">Only admins</option>
-        </select>
-        <span className="ui-help">{draft.announcements && !admin
-          ? 'You are not a workspace admin, so you could not post either. Agents still reply when asked.'
-          : 'Agents still reply when asked.'}</span>
-      </label>
-      <label className="ui-field">Agents answer
-        <select value={draft.replies} onChange={event => edit({ replies: event.target.value as Replies })}>
-          <option value="thread">In a thread under the question</option>
-          <option value="channel">In the channel</option>
-        </select>
-        <span className="ui-help">{draft.replies === 'thread'
-          ? 'Keeps the channel readable. Follow-ups in the thread go to the same agent.'
-          : 'Everyone sees every answer in the channel.'}</span>
-      </label>
+      <Choice legend="Who can post" name={`${id}-post`} value={draft.announcements ? 'admins' : 'everyone'} change={value => edit({ announcements: value === 'admins' })}
+        options={[{ value: 'everyone', label: 'Everyone' }, { value: 'admins', label: 'Only admins' }]}
+        note={draft.announcements && !admin ? 'You are not an admin, so you could not post either.' : undefined} />
+      <Choice legend="Agents answer" name={`${id}-replies`} value={draft.replies} change={value => edit({ replies: value as Replies })}
+        options={[{ value: 'thread', label: 'In a thread', icon: <Icon name="thread" /> }, { value: 'channel', label: 'In the channel', icon: <Icon name="message" /> }]} />
+      <Choice legend="Who can find it" name={`${id}-visibility`} value={admin ? draft.visibility : saved.visibility} disabled={!admin}
+        change={value => edit({ visibility: value as Values['visibility'] })}
+        options={[{ value: 'private', label: 'Private', icon: <LockIcon size={14} /> }, { value: 'public', label: 'Public', icon: <Icon name="hash" /> }]}
+        note={!admin ? 'Only admins change this' : opening ? 'Everyone in the workspace will be able to read its history and files.' : undefined} />
       <div className="chat-details-save">
         <Button primary type="submit" disabled={mutation.busy || !unsaved}>{mutation.busy ? 'Saving…' : 'Save changes'}</Button>
         {unsaved > 0 && <small>{unsaved} unsaved {unsaved === 1 ? 'change' : 'changes'}</small>}
@@ -89,4 +67,19 @@ export function ChannelSettings({ chat, admin, changed }: { chat: Conversation; 
       {mutation.status && <p className="chat-error" role="alert">{mutation.status}</p>}
     </form>
   </section>;
+}
+
+/** Two or three choices side by side: real radio buttons, drawn as one switch. */
+function Choice({ legend, name, value, options, change, disabled = false, note }: {
+  legend: string; name: string; value: string; change: (value: string) => void; disabled?: boolean; note?: string;
+  options: { value: string; label: string; icon?: ReactNode }[];
+}) {
+  return <fieldset className="chat-details-choice chat-choice-switch" disabled={disabled}>
+    <legend>{legend}</legend>
+    <div>{options.map(option => <label key={option.value}>
+      <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => change(option.value)} />
+      {option.icon}{option.label}
+    </label>)}</div>
+    {note && <p className="ui-help">{disabled && <LockIcon size={12} />}{note}</p>}
+  </fieldset>;
 }

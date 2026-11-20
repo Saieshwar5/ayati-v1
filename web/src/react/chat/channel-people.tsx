@@ -6,6 +6,7 @@ import { ChannelAdd } from './channel-add';
 import { ParticipantFace, ParticipantName } from './conversation-face';
 import { chatRequest, type Conversation, type Directory, type Participant } from './model';
 import type { ProfileTarget } from './profile-card';
+import { Icon } from './panel-actions';
 
 type Member = { kind: 'user' | 'agent'; who: Participant; known: boolean };
 type Kind = Member['kind'];
@@ -22,11 +23,11 @@ export function ChannelPeople({ chat, directory, changed, message, viewProfile }
   const manages = Boolean(chat.can_archive);
   const heading = useId();
   const [query, setQuery] = useState('');
-  const [adding, setAdding] = useState<Kind>();
+  const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState('');
   const mutation = useMutation();
   const search = useRef<HTMLInputElement>(null);
-  const addPeople = useRef<HTMLButtonElement>(null), addAgent = useRef<HTMLButtonElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
   // Each save sends the whole list, so a second change builds on the first
   // until the refreshed conversation arrives with both.
   const server = JSON.stringify([chat.users, chat.agents]);
@@ -43,8 +44,8 @@ export function ChannelPeople({ chat, directory, changed, message, viewProfile }
   });
   const add = (kind: Kind, who: Participant) => save(kind, [...(kind === 'user' ? users : agents), who.id], `Added ${who.name} to #${chat.name}.`);
   const remove = (member: Member) => void save(member.kind, (member.kind === 'user' ? users : agents).filter(id => id !== member.who.id),
-    `Removed ${member.who.name} from #${chat.name}.`).then(() => search.current?.focus());
-  const stopAdding = () => { const kind = adding; setAdding(undefined); (kind === 'agent' ? addAgent : addPeople).current?.focus(); };
+    `Removed ${member.who.name} from #${chat.name}.`).then(() => (search.current ?? addButton.current)?.focus());
+  const stopAdding = () => { setAdding(false); addButton.current?.focus(); };
 
   const byName = (a: Member, b: Member) => a.who.name.localeCompare(b.who.name);
   const people: Member[] = users.map(id => known('user', id, directory.users.find(user => user.id === id)));
@@ -53,19 +54,18 @@ export function ChannelPeople({ chat, directory, changed, message, viewProfile }
   const text = query.trim().toLowerCase();
   const shown = everyone.filter(({ who }) => `${who.name} ${who.title ?? ''} ${who.role ?? ''} ${who.email ?? ''}`.toLowerCase().includes(text));
   const counted = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  // A short list needs no search box; a long one gets one (2026-11-20).
+  const searchable = everyone.length > 8;
   return <section className="chat-details-section" aria-labelledby={heading}>
     <header className="chat-details-section-header">
-      <h3 id={heading}>People and agents</h3>
-      <small>{counted(users.length, 'person', 'people')} · {counted(agents.length, 'agent', 'agents')}</small>
+      <h3 id={heading}>People and agents <small>{counted(users.length, 'person', 'people')} · {counted(agents.length, 'agent', 'agents')}</small></h3>
+      {manages && <Button ref={addButton} className="chat-details-add-button" aria-label={`Add people or agents to #${chat.name}`} aria-expanded={adding}
+        onClick={() => adding ? stopAdding() : setAdding(true)}><Icon name="plus" />Add</Button>}
     </header>
-    {!adding && <input ref={search} type="search" className="chat-details-search" aria-label={`Find people and agents in #${chat.name}`}
+    {!adding && searchable && <input ref={search} type="search" className="chat-details-search" aria-label={`Find people and agents in #${chat.name}`}
       placeholder={`Find in #${chat.name}`} value={query} onChange={event => setQuery(event.target.value)} />}
-    {manages && <div className="chat-details-add">
-      <Button ref={addPeople} aria-expanded={adding === 'user'} onClick={() => adding === 'user' ? stopAdding() : setAdding('user')}><AddPersonIcon />Add people</Button>
-      <Button ref={addAgent} aria-expanded={adding === 'agent'} onClick={() => adding === 'agent' ? stopAdding() : setAdding('agent')}><AddAgentIcon />Add agent</Button>
-    </div>}
-    {adding ? <ChannelAdd key={adding} kind={adding} chat={chat} directory={directory} present={adding === 'user' ? users : agents}
-      busy={mutation.busy} add={who => add(adding, who)} done={stopAdding} /> : <>
+    {adding ? <ChannelAdd chat={chat} directory={directory} users={users} agents={agents}
+      busy={mutation.busy} add={(kind, who) => add(kind, who)} done={stopAdding} /> : <>
       {shown.length > 0 && <ul className="chat-details-members" aria-label={`People and agents in #${chat.name}`}>
         {shown.map(member => <MemberRow key={`${member.kind}:${member.who.id}`} member={member} chat={chat} me={me} manages={manages}
           manager={member.kind === 'user' && Boolean(chat.managers?.includes(member.who.id))}
@@ -76,7 +76,6 @@ export function ChannelPeople({ chat, directory, changed, message, viewProfile }
     </>}
     {mutation.status && <p className="chat-error" role="alert">{mutation.status}</p>}
     <p className="ui-status" role="status">{notice}</p>
-    <p className="chat-help">Agents act only when someone in the channel asks them.</p>
   </section>;
 }
 
@@ -91,8 +90,7 @@ function MemberRow({ member, chat, me, manages, manager, busy, message, viewProf
   const self = kind === 'user' && who.id === me;
   const detail = kind === 'agent' ? [who.role, who.manager && `managed by ${who.manager}`].filter(Boolean).join(' · ') : who.title ?? '';
   const identity = <>
-    {/* The presence dot will sit on this face with the later presence change. */}
-    <ParticipantFace kind={kind} who={who} />
+    <ParticipantFace kind={kind} who={who} presence />
     <span><ParticipantName kind={kind} name={self ? `${who.name} (you)` : who.name} />{detail && <small>{detail}</small>}</span>
   </>;
   const items = [
@@ -139,12 +137,4 @@ function MemberMenu({ name, busy, items }: { name: string; busy: boolean; items:
         disabled={item.danger && busy} onClick={() => pick(item.run)}>{item.label}</button>)}
     </div>}
   </span>;
-}
-
-function AddPersonIcon() {
-  return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0M18 8v6M15 11h6" /></svg>;
-}
-
-function AddAgentIcon() {
-  return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="3" /><path d="M12 4v4M9 13h.01M15 13h.01" /></svg>;
 }

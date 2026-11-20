@@ -1,0 +1,38 @@
+/* A profile (profile-card.tsx): who, then what you can do, then a few facts. */
+.profile-card { display: flex; flex-direction: column; gap: 20px; padding: 4px 0 8px; }
+.profile-card-identity { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.profile-card-identity .profile-card-face.face { width: 84px; height: 84px; flex-basis: 84px; margin-bottom: 8px; font-size: 28px; }
+.profile-card-identity .profile-card-face .presence-dot { right: 2px; bottom: 2px; width: 18px; height: 18px; max-width: none; max-height: none; box-shadow: 0 0 0 3px var(--surface); }
+.profile-card-identity h3 { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.profile-card-identity > p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.profile-card .profile-card-identity .profile-card-presence { display: block; margin: 4px 0 0; color: var(--text); font-size: 13px; }
+.profile-card-detail { color: var(--muted); }
+.profile-card .profile-card-identity .profile-card-status { margin-top: 8px; text-align: center; }
+
+.profile-card-facts { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.profile-card-fact { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 6px 2px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.profile-card-fact > .panel-icon { flex: none; color: var(--muted); }
+.profile-card-fact > div { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-line; line-height: 1.45; }
+.profile-card-none { color: var(--muted); }
+.profile-card-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile-card-chips > a, .profile-card-chips > span { padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12.5px; text-decoration: none; }
+.profile-card-chips > a:hover { background: var(--selection); }
+.profile-card-email { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.profile-card-email a { min-width: 0; overflow: hidden; color: var(--text); text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.profile-card-email a:hover { text-decoration: underline; }
+.profile-card-email .profile-card-copy { flex: none; width: 30px; min-height: 30px; padding: 6px; border-color: transparent; background: transparent; color: var(--muted); }
+.profile-card-email .profile-card-copy:hover { background: var(--soft); color: var(--text); }
+.profile-card-email .profile-card-copy svg { width: 16px; height: 16px; }
+.profile-card-email small { color: var(--muted); font-size: 11.5px; }
+.profile-card-owners { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.profile-card-owner { display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px 2px 2px; border: 0; border-radius: 999px; background: none; color: var(--text); font: inherit; cursor: pointer; }
+button.profile-card-owner:hover { background: var(--soft); }
+.profile-card-mini.face { width: 22px; height: 22px; flex-basis: 22px; font-size: 9px; }
+
+/* Add to channel: the channels you manage, one tap each. */
+.profile-card-add { display: flex; flex-direction: column; gap: 2px; margin-top: -8px; padding: 6px; border-radius: 12px; background: var(--soft); }
+.profile-card-add-row { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 0 10px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; }
+.profile-card-add-row:hover:not(:disabled) { background: var(--surface); }
+.profile-card-add-row:disabled { color: var(--muted); cursor: default; }
+.profile-card-add .chat-help:empty { display: none; }
+@media (pointer: coarse) { .profile-card-add-row, .profile-card-email .profile-card-copy { min-height: 44px; } }

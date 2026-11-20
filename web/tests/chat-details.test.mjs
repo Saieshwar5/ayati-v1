@@ -98,12 +98,17 @@ test('members are listed once with faces and AI tags; managers see add, remove a
     assert.match(panel().textContent, /Public · everyone in Lotus Interiors can find it/);
     assert.match(panel().textContent, /Created by Priya Shah · \D*12\D*2026/);
     assert.match(panel().textContent, /3 people · 1 agent/);
-    assert.equal(Boolean(inPanel('Add people')) && Boolean(inPanel('Add agent')) && Boolean(inPanel('Archive')), true);
+    // One Add for people and agents, and the settings one step away (2026-11-20).
+    assert.equal(Boolean(inPanel('Add people or agents to #orders')) && Boolean(inPanel('Archive')), true);
+    assert.equal(Boolean(inPanel('Add people')) || Boolean(inPanel('Add agent')), false, 'no separate Add buttons');
+    assert.equal([...panel().querySelectorAll('button')].filter(node => /^Sav/.test(node.textContent)).length, 0, 'no form in Details');
+    assert.equal(panel().querySelector('input[type=search]'), null, 'four members need no search box');
+    assert.doesNotMatch(panel().textContent, /Agents act only when/, 'no explanatory sentence');
+    await click(inPanel('Channel settings'));
+    assert.equal(panel().getAttribute('aria-label'), 'orders settings');
     assert.equal([...panel().querySelectorAll('button')].filter(node => /^Sav/.test(node.textContent)).length, 1, 'one Save');
-    await change(panel().querySelector('input[type=search]'), 'oper');
-    assert.deepEqual(memberNames(), ['Ravi Kumar']);
-    await change(panel().querySelector('input[type=search]'), 'zzz');
-    assert.match(panel().textContent, /Nobody in #orders matches “zzz”/);
+    await click(inPanel('Back to orders details'));
+    assert.equal(panel().getAttribute('aria-label'), 'orders details');
     assert.equal(writes.length, 0, 'reading never writes');
   }, { url: `${base}&conversation=orders`, fetch: api({ post: (path, body) => { writes.push({ path, body }); return response({ ok: true }); } }) });
 });
@@ -114,12 +119,11 @@ test('non-managers see the list without add, remove, archive or settings, and Vi
     await open(render, 'orders');
     await click(headerName());
     assert.deepEqual(memberNames(), ['Ravi Kumar (you)', 'Atlas', 'Meera Iyer', 'Priya Shah']);
-    for (const label of ['Add people', 'Add agent', 'Archive']) assert.equal(Boolean(inPanel(label)), false, label);
-    assert.doesNotMatch(panel().textContent, /Channel settings/);
+    for (const label of ['Add people or agents to #orders', 'Archive', 'Channel settings']) assert.equal(Boolean(inPanel(label)), false, label);
     await click(inPanel('Actions for Meera Iyer'));
     assert.deepEqual([...panel().querySelectorAll('[role=menuitem]')].map(node => node.textContent), ['Message', 'View profile']);
     await click(inPanel('View profile'));
-    assert.equal(panel().getAttribute('aria-label'), 'Profile');
+    assert.equal(panel().getAttribute('aria-label'), 'Meera Iyer profile');
     assert.match(panel().textContent, /Leads residential interiors\./);
     assert.equal(panel().contains(document.activeElement), true);
     await click(inPanel('Back to orders details'));
@@ -134,24 +138,24 @@ test('a manager adds a person and an agent with one request each, a double click
   await reactFixture(async ({ render, button, click, update }) => {
     await open(render, 'orders');
     await click(headerName());
-    await click(inPanel('Add people'));
-    assert.equal(document.activeElement.getAttribute('aria-label'), 'Search people to add', 'focus moves to the search');
-    assert.deepEqual([...panel().querySelectorAll('.chat-details-adding .chat-name-text')].map(node => node.textContent), ['Arjun Mehta']);
+    const addButton = inPanel('Add people or agents to #orders');
+    await click(addButton);
+    assert.equal(document.activeElement.getAttribute('aria-label'), 'Search people and agents to add', 'focus moves to the search');
+    // People and agents in one list; only-me agents and assistants cannot join.
+    assert.deepEqual([...panel().querySelectorAll('.chat-details-adding .chat-name-text')].map(node => node.textContent), ['Arjun Mehta', 'Nova']);
     const add = inPanel('Add Arjun Mehta');
     await update(() => { add.click(); add.click(); });
     assert.deepEqual(writes, [{ path: '/chats/orders/members', body: { users: ['priya', 'meera', 'ravi', 'arjun'] } }]);
     await update(() => pending.resolve(response({ ok: true })));
-    assert.match(panel().textContent, /Everyone in the workspace is already here\./);
     assert.match(panel().textContent, /Added Arjun Mehta to #orders\./);
-    await click(inPanel('Done'));
-    assert.equal(document.activeElement === inPanel('Add people'), true, 'focus returns to Add people');
-    assert.deepEqual(memberNames(), ['Priya Shah (you)', 'Atlas', 'Arjun Mehta', 'Meera Iyer', 'Ravi Kumar']);
-    await click(inPanel('Add agent'));
-    assert.deepEqual([...panel().querySelectorAll('.chat-details-adding .chat-name-text')].map(node => node.textContent), ['Nova'], 'only-me agents cannot join');
+    assert.deepEqual([...panel().querySelectorAll('.chat-details-adding .chat-name-text')].map(node => node.textContent), ['Nova']);
     await click(inPanel('Add Nova'));
     await update(() => pending.resolve(response({ ok: true })));
     assert.deepEqual(writes[1], { path: '/chats/orders/agents', body: { agents: ['atlas', 'nova'] } });
+    assert.match(panel().textContent, /Everyone who can join is already here\./);
     await click(inPanel('Done'));
+    assert.equal(document.activeElement === addButton, true, 'focus returns to Add');
+    assert.deepEqual(memberNames(), ['Priya Shah (you)', 'Atlas', 'Nova', 'Arjun Mehta', 'Meera Iyer', 'Ravi Kumar']);
     await click(inPanel('Actions for Priya Shah'));
     assert.equal(Boolean(inPanel('Remove from #orders')), false, 'managers stay in the channels they manage');
     await click(inPanel('Actions for Ravi Kumar'));
@@ -168,12 +172,13 @@ test('channel settings save together once; a failed save keeps the values and sh
   await reactFixture(async ({ render, button, click, change, update }) => {
     await open(render, 'orders');
     await click(headerName());
+    await click(inPanel('Channel settings'));
     const save = () => inPanel('Save changes') ?? inPanel('Saving…');
     assert.equal(save().disabled, true, 'nothing to save yet');
     const name = panel().querySelector('.chat-details-form input:not([type=radio])');
     await change(name, 'orders-team');
     await click(panel().querySelector('input[type=radio][value=private]'));
-    await change(panel().querySelector('.chat-details-form select'), 'admins');
+    await click(panel().querySelector('input[type=radio][value=admins]'));
     assert.match(panel().textContent, /3 unsaved changes/);
     await update(() => { save().click(); save().click(); });
     assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders-team', description: 'Orders from confirmation to delivery.', visibility: 'private', announcements: true } }]);
@@ -181,7 +186,7 @@ test('channel settings save together once; a failed save keeps the values and sh
     assert.match(panel().querySelector('[role=alert]').textContent, /Settings could not be saved/);
     assert.equal(name.value, 'orders-team');
     assert.equal(panel().querySelector('input[type=radio][value=private]').checked, true);
-    assert.equal(panel().querySelector('.chat-details-form select').value, 'admins');
+    assert.equal(panel().querySelector('input[type=radio][value=admins]').checked, true);
     assert.equal(save().disabled, false);
     await click(save());
     assert.deepEqual(writes[1], writes[0]);
@@ -189,6 +194,7 @@ test('channel settings save together once; a failed save keeps the values and sh
     await update(() => pending.resolve(response({ ok: true })));
     assert.match(panel().textContent, /Saved\./);
     assert.doesNotMatch(panel().textContent, /unsaved/);
+    await click(inPanel('Back to orders-team details'));
     assert.match(panel().textContent, /Only admins can post/);
     assert.equal(writes.length, 2);
   }, { url: `${base}&conversation=orders`, fetch: api({ chats: () => [current, general, direct], post: (path, body) => { writes.push({ path, body }); pending = held(); return pending.promise; } }) });
@@ -241,7 +247,8 @@ test('a direct message shows the person’s profile with notifications and Pin, 
     await click(headerName());
     assert.equal(panel().getAttribute('aria-label'), 'Meera Iyer profile');
     const text = panel().textContent;
-    for (const shown of [/Leads residential interiors\./, /meera@example\.test/, /Design lead/, /Direct messages have no member list, settings or archive\./]) assert.match(text, shown);
+    for (const shown of [/Leads residential interiors\./, /meera@example\.test/, /Design lead/]) assert.match(text, shown);
+    assert.doesNotMatch(text, /Direct messages have no member list/, 'no sentence about what is not there');
     for (const hidden of [/Channel settings/, /People and agents/, /Archive/, /Add people/]) assert.doesNotMatch(text, hidden);
     assert.equal(Boolean(inPanel('Notifications: All messages')), true, 'direct messages default to all');
     assert.equal(Boolean(inPanel('Pin')), true);
@@ -271,7 +278,7 @@ test('a late reply for the previous conversation never replaces the open one', a
   }) });
 });
 
-test('a creator who is not an admin edits the name, description and who can post, and sees who can find it as plain text', async () => {
+test('a creator who is not an admin edits the name, description and who can post, and sees who can find it as a switch they cannot change', async () => {
   const writes = []; let current = { ...orders, creator: 'meera', managers: ['priya', 'meera'] };
   await reactFixture(async ({ render, button, click, change, update }) => {
     await open(render, 'orders');
@@ -279,23 +286,24 @@ test('a creator who is not an admin edits the name, description and who can post
     const badges = [...panel().querySelectorAll('.chat-details-member')].filter(row => row.querySelector('.ui-badge')).map(row => row.querySelector('.chat-name-text').textContent);
     assert.deepEqual(badges, ['Meera Iyer (you)', 'Priya Shah'], 'the creator and admins are marked Manager');
     assert.match(panel().textContent, /Created by Meera Iyer/);
-    assert.equal(panel().querySelectorAll('input[type=radio]').length, 0, 'no visibility choice');
-    assert.match(panel().querySelector('.chat-details-fixed').textContent, /Who can find it#PublicOnly workspace admins can change this/);
+    await click(inPanel('Channel settings'));
+    // Who can find it shows as a switch they cannot change.
+    const visibility = [...panel().querySelectorAll('fieldset')].find(set => /Who can find it/.test(set.textContent));
+    assert.equal(visibility.disabled, true, 'only admins change who can find it');
+    assert.equal(visibility.querySelector('input[value=public]').checked, true);
+    assert.match(visibility.textContent, /Only admins change this/);
     const description = panel().querySelector('.chat-details-form textarea');
     assert.equal(description.value, 'Orders from confirmation to delivery.');
     await change(description, '  Slots, dispatch and invoices.  ');
-    await change(panel().querySelector('.chat-details-form select'), 'admins');
-    assert.match(panel().textContent, /You are not a workspace admin, so you could not post either/);
+    await click(panel().querySelector('input[type=radio][value=admins]'));
+    assert.match(panel().textContent, /You are not an admin, so you could not post either/);
     assert.match(panel().textContent, /2 unsaved changes/);
     await click(inPanel('Save changes'));
     assert.deepEqual(writes, [{ path: '/chats/orders/settings', body: { name: 'orders', description: 'Slots, dispatch and invoices.', visibility: 'public', announcements: true } }]);
-    assert.match(panel().querySelector('.chat-details-description').textContent, /Slots, dispatch and invoices\./);
     assert.match(panel().textContent, /Saved\./);
     // Agents answer in a thread by default; choosing the channel sends only that change.
-    const answers = [...panel().querySelectorAll('.chat-details-form select')].at(-1);
-    assert.equal(answers.value, 'thread');
-    await change(answers, 'channel');
-    assert.match(panel().textContent, /Everyone sees every answer in the channel/);
+    assert.equal(panel().querySelector('input[type=radio][value=thread]').checked, true);
+    await click(panel().querySelector('input[type=radio][value=channel]'));
     await click(inPanel('Save changes'));
     assert.deepEqual(writes[1].body, { name: 'orders', description: 'Slots, dispatch and invoices.', visibility: 'public', announcements: true, agent_replies: 'channel' });
   }, { url: `${base}&conversation=orders`, fetch: api({ user: 'meera', role: 'Member', chats: () => [current, general, direct],

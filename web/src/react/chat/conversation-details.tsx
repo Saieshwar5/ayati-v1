@@ -12,11 +12,13 @@ import type { Level } from './notifications';
 import type { Pin, Preferences } from './organization-model';
 import { PinAction } from './pin-control';
 import { ProfileDetails, ProfilePanel, type ProfileTarget } from './profile-card';
+import { Icon } from './panel-actions';
 import { SidePanel } from './side-panel';
 import './conversation-details.css';
 
 /** What the side panel shows: the open conversation's Details or someone's profile. */
-export type PanelView = { kind: 'details'; review?: string } | { kind: 'profile'; target: ProfileTarget; fromDetails?: boolean };
+/** `step: 'settings'` is a channel's settings, one step into Details with ‹ Back (2026-11-20). */
+export type PanelView = { kind: 'details'; review?: string; step?: 'settings' } | { kind: 'profile'; target: ProfileTarget; fromDetails?: boolean };
 type Pins = { preferences?: Preferences; busy: boolean; toggle: (pin: Pin) => void };
 type Shared = {
   directory: Directory; chats: Conversation[]; pins: Pins; changed: () => Promise<void>;
@@ -38,46 +40,50 @@ export function ChatPanel({ view, setView, chat, level, levelChanged, ...shared 
   }
   if (!chat) return null;
   const name = conversationName(chat, directory);
-  const direct = chat.kind === 'direct';
-  return <SidePanel key="details" label={direct ? `${name} profile` : `${name} details`} close={close}
-    title={direct ? name : <><span className="chat-side-panel-mark" aria-hidden="true">{chat.visibility === 'public' ? '#' : <LockIcon />}</span>{name}</>}>
+  if (chat.kind === 'direct') {
+    // Your direct message with someone: their profile, with this conversation's bell and Pin as its actions.
+    const partner = directPartner(chat, directory);
+    return <SidePanel key="details" label={`${name} profile`} close={close} title={<span className="visually-hidden">{name}</span>}>
+      {partner ? <ProfileDetails target={{ kind: partner.kind, id: partner.who.id }} directory={directory} chats={chats}
+        conversation={<ConversationActions chat={chat} level={level} levelChanged={levelChanged} pins={shared.pins} />} />
+        : <p className="chat-help">This person or agent is no longer in the workspace.</p>}
+    </SidePanel>;
+  }
+  if (view.step === 'settings' && chat.can_archive) return <SidePanel key="settings" label={`${name} settings`} close={close} title="Channel settings"
+    back={{ label: `Back to ${name} details`, go: () => setView({ kind: 'details' }) }}>
+    <ChannelSettings chat={chat} admin={directory.role === 'Admin'} changed={shared.changed} />
+  </SidePanel>;
+  return <SidePanel key="details" label={`${name} details`} close={close}
+    title={<><span className="chat-side-panel-mark" aria-hidden="true">{chat.visibility === 'public' ? '#' : <LockIcon />}</span>{name}</>}>
     <ConversationDetails key={chat.id} chat={chat} level={level} levelChanged={levelChanged} {...shared}
       review={view.review === chat.id} setReview={open => setView({ kind: 'details', review: open ? chat.id : undefined })}
+      openSettings={() => setView({ kind: 'details', step: 'settings' })}
       viewProfile={target => setView({ kind: 'profile', target, fromDetails: true })} />
   </SidePanel>;
 }
 
-function ConversationDetails({ chat, directory, chats, level, levelChanged, pins, review, setReview, changed, message, left, viewProfile }: Shared & {
+/** A conversation's bell and Pin, as round actions. */
+function ConversationActions({ chat, level, levelChanged, pins }: { chat: Conversation; level?: Level; levelChanged: (level: Level) => void; pins: Pins }) {
+  return <>
+    <NotifyMenu chat={chat} level={level} changed={levelChanged} labelled />
+    <PinAction pin={{ kind: 'chat', id: chat.id }} preferences={pins.preferences} busy={pins.busy} toggle={pins.toggle} />
+  </>;
+}
+
+/** A channel at a glance: what it is for, its actions, who is in it; settings one step away. */
+function ConversationDetails({ chat, directory, level, levelChanged, pins, review, setReview, changed, message, left, viewProfile, openSettings }: Shared & {
   chat: Conversation; level?: Level; levelChanged: (level: Level) => void;
-  review: boolean; setReview: (open: boolean) => void; viewProfile: (target: ProfileTarget) => void;
+  review: boolean; setReview: (open: boolean) => void; viewProfile: (target: ProfileTarget) => void; openSettings: () => void;
 }) {
   const archive = useRef<HTMLButtonElement>(null);
   const about = useId();
-  const actions = <div className="chat-details-actions">
-    <NotifyMenu chat={chat} level={level} changed={levelChanged} labelled />
-    <PinAction pin={{ kind: 'chat', id: chat.id }} preferences={pins.preferences} busy={pins.busy} toggle={pins.toggle} />
-    {chat.kind !== 'direct' && chat.can_archive && <Button ref={archive} className="chat-details-action" aria-expanded={review} onClick={() => setReview(!review)}>
-      <ArchiveIcon />{chat.archived ? 'Restore' : 'Archive'}
-    </Button>}
-  </div>;
-  if (chat.kind === 'direct') {
-    const partner = directPartner(chat, directory);
-    return <>
-      {actions}
-      {partner ? <ProfileDetails target={{ kind: partner.kind, id: partner.who.id }} directory={directory} chats={chats} />
-        : <p className="chat-help">This person or agent is no longer in the workspace.</p>}
-      <p className="chat-help chat-details-note">Direct messages have no member list, settings or archive.</p>
-    </>;
-  }
   // Focus goes back to Archive/Restore when the review closes, whichever way.
   const endReview = () => { setReview(false); archive.current?.focus(); };
   const workspace = currentWorkspace()?.name || 'the workspace';
   return <>
-    {actions}
-    {review && chat.can_archive && <ArchiveReview chat={chat} changed={changed} close={endReview} />}
-    <section className="chat-details-section" aria-labelledby={about}>
-      <h3 id={about}>About</h3>
-      <p className={chat.description ? 'chat-details-description' : 'chat-help'}>{chat.description || 'No description yet.'}</p>
+    <section className="chat-details-section chat-details-about" aria-labelledby={about}>
+      <h3 id={about} className="visually-hidden">About</h3>
+      {chat.description && <p className="chat-details-description">{chat.description}</p>}
       <ul className="chat-details-facts">
         <li>{chat.visibility === 'public' ? <span aria-hidden="true">#</span> : <LockIcon size={13} />}
           {chat.visibility === 'public' ? `Public · everyone in ${workspace} can find it` : 'Private · only people added can find it'}</li>
@@ -86,9 +92,18 @@ function ConversationDetails({ chat, directory, chats, level, levelChanged, pins
         {chat.archived && <li><ArchiveIcon />Archived · history and files stay readable</li>}
       </ul>
     </section>
+    <div className="panel-actions" role="group" aria-label={`#${chat.name}: actions`}>
+      <ConversationActions chat={chat} level={level} levelChanged={levelChanged} pins={pins} />
+      {chat.can_archive && <Button ref={archive} className="chat-details-action" aria-expanded={review} onClick={() => setReview(!review)}>
+        <ArchiveIcon />{chat.archived ? 'Restore' : 'Archive'}
+      </Button>}
+    </div>
+    {review && chat.can_archive && <ArchiveReview chat={chat} changed={changed} close={endReview} />}
     <ChannelPeople chat={chat} directory={directory} changed={changed} message={message} viewProfile={viewProfile} />
     {/* The creator and admins manage the channel; only admins change who can find it. */}
-    {chat.can_archive && <ChannelSettings chat={chat} admin={directory.role === 'Admin'} changed={changed} />}
+    {chat.can_archive && <button type="button" className="chat-details-link" aria-label="Channel settings" onClick={openSettings}>
+      <Icon name="settings" /><span>Channel settings</span><small>Name, posting, agents</small><Icon name="chevron" />
+    </button>}
     <ChannelLeave chat={chat} changed={changed} left={left} />
   </>;
 }

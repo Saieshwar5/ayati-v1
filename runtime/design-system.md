@@ -181,6 +181,27 @@ Names and avatars open a profile in the side panel beside the conversation, whic
 also holds channel Details (D245); People & agents at the foot of the list
 opens the whole-workspace directory (everyone sees every member).
 
+**Profiles and Details** (2026-11-20) share one shape in that 360 px panel: who or
+what, then a row of round actions (an icon on a soft 40 px tile, its word under it),
+then a few facts as icon rows. There is no visible panel title for a profile (the name
+under the face is the title; screen readers still get it) and no sentence that
+explains what is not there. A profile looks the same wherever it opens (a header, a
+message, People & agents, a channel's member list): an 84 px face with the presence
+or agent dot, name and AI tag, job or role, and the status line. Its actions depend
+on where you are and what you may do: Message (not inside your direct message with
+them, not to yourself); that conversation's bell and Pin (inside it); Add to channel
+(an agent, the channels you manage, one tap each); Resume first, then Settings (an
+agent's owners and admins); Edit profile (yourself). Facts: About or Handles, email
+with a copy button, the agent's owners with their faces (opening their profile),
+and shared channels as chips that open them. Channel Details: the description and
+one muted line of facts, the round actions (bell, Pin, Archive), People and agents
+with one ＋ Add for both (a search box only past eight members), a "Channel settings ›"
+row for its managers, and Leave. Settings are a step of their own with ‹ Back: name,
+description, and switches for who can post, where agents answer and who can find it
+(locked, "Only admins change this", for managers who are not admins). Words remain
+only where a choice has consequences: making a channel public opens its history, and
+a manager who is not an admin choosing "Only admins" could not post either.
+
 The search button beside Chat opens a focused dialog for authorized channels,
 people and agents, with category filters and name/email matching. This is directory
 search, not message-history search. Typing and filtering do not write. Choosing
