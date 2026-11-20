@@ -17,7 +17,7 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   its owner and admins, and opening one from a chat they are not in is recorded
   in the audit log ([activity](activity.md#who-sees-what)). Admins can't talk
   to someone else's assistant.
-- **First in Chat.** Your assistant's chat is the first row of the chat list,
+- **First in Chat.** Your assistant's chat is the first conversation in the chat list (under For you),
   above Channels, with no heading and nothing under it (2026-11-19), and is not
   repeated under Direct messages. Its chat says: "Ayati is your assistant. Only you can talk to it. You and
   workspace admins can see its work."

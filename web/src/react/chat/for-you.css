@@ -1,0 +1,52 @@
+/* Chat → For you (for-you.tsx): messages addressed to the person. */
+.for-you { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+.for-you-header { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 16px; padding:18px max(20px,calc((100% - var(--chat-reading-width, 760px))/2)) 14px; border-bottom:1px solid var(--border); }
+.for-you-title { flex:1; min-width:220px; }
+.for-you-title h2 { margin:0; font-size:18px; font-weight:600; }
+.for-you-title p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+.for-you-settings { text-decoration:none; font-size:13px; }
+.for-you-filters { flex-basis:100%; display:flex; flex-wrap:wrap; gap:6px; }
+.for-you-filters button { min-height:32px; padding:0 12px; border:1px solid var(--border-panel); border-radius:999px; background:var(--surface); color:var(--text); font:inherit; font-size:12.5px; cursor:pointer; }
+.for-you-filters button:hover { background:var(--soft); }
+.for-you-filters button[aria-pressed=true] { border-color:var(--accent); background:var(--accent); color:var(--on-accent); font-weight:600; }
+.for-you-list { flex:1; min-height:0; overflow-y:auto; padding:12px max(20px,calc((100% - var(--chat-reading-width, 760px))/2)) 24px; scrollbar-width:none; }
+.for-you-list ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.for-you-section { margin:10px 0 6px; font-size:12px; font-weight:600; color:var(--muted); }
+.for-you-item { display:flex; gap:12px; padding:12px 14px; border:1px solid transparent; border-radius:12px; color:var(--text); text-decoration:none; }
+.for-you-item:hover { background:var(--soft); }
+.for-you-item:focus-visible { outline-offset:-2px; }
+.for-you-item-new { border-color:var(--border); background:var(--surface); }
+.for-you-item .chat-avatar { width:36px; height:36px; flex:0 0 36px; font-size:12px; }
+.for-you-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.for-you-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; font-size:13px; }
+.for-you-meta strong { font-weight:600; }
+.for-you-item:not(.for-you-item-new) .for-you-meta strong { font-weight:500; }
+.for-you-reason { padding:1px 7px; border-radius:6px; background:var(--selection); font-size:11px; font-weight:600; }
+.for-you-item-new .for-you-reason-mention { background:color-mix(in srgb, var(--danger) 12%, var(--surface)); color:var(--danger); }
+.for-you-where { color:var(--muted); }
+.for-you-words { font-size:14px; line-height:1.45; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.for-you-item:not(.for-you-item-new) .for-you-words { color:var(--muted); }
+.for-you-unavailable { font-style:italic; color:var(--muted); }
+.for-you-dot { width:8px; height:8px; margin-top:6px; flex-shrink:0; border-radius:50%; background:var(--danger); }
+.for-you-older { display:flex; margin:14px auto 0; }
+.for-you-empty { max-width:440px; margin:56px auto; text-align:center; color:var(--muted); font-size:14px; line-height:1.5; }
+.for-you-empty > span { display:inline-flex; width:48px; height:48px; align-items:center; justify-content:center; border-radius:14px; background:var(--selection); color:var(--success); font-size:22px; }
+.for-you-empty h3 { margin:12px 0 6px; color:var(--text); font-size:17px; }
+.for-you-empty p { margin:0 0 8px; }
+/* The row at the top of the Chat list: laid out like a conversation row
+   (.chat-contact), but not one, so code and tests that mean conversations skip it. */
+.chat-directory .chat-for-you { display:flex; align-items:center; gap:10px; flex:1; min-width:0; min-height:40px; box-sizing:border-box; padding:5px 8px; margin:0; border-radius:9px; color:var(--text); text-decoration:none; font-size:13.5px; }
+.chat-for-you > span:nth-child(2) { flex:1; min-width:0; }
+.chat-for-you:focus-visible { outline-offset:-2px; }
+.chat-contact-row:has(.chat-for-you[aria-current=page]) { background:var(--selection); }
+.chat-for-you-mark { display:inline-flex; align-items:center; justify-content:center; border-radius:8px !important; background:var(--danger); color:var(--surface); }
+.chat-for-you-mark svg { width:16px; height:16px; }
+.chat-contact-row:has(.chat-for-you-new):not(:has([aria-current=page])) { background:color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.chat-for-you .chat-name-text { font-weight:700; }
+@media (max-width:600px) { .for-you-header { padding:10px 12px; } .for-you-list { padding:10px; } .for-you-filters { flex-wrap:nowrap; overflow-x:auto; } .for-you-filters button { flex-shrink:0; min-height:36px; } }
+@media (pointer:coarse) { .for-you-filters button { min-height:44px; } }
+@media (forced-colors:active) { .for-you-item-new, .for-you-filters button { border-color:CanvasText; } .for-you-dot { background:Highlight; } }
+/* "‹ For you" in a conversation opened from it (conversation-header.tsx). */
+.chat-return { flex-shrink:0; min-height:32px; box-sizing:border-box; display:inline-flex; align-items:center; padding:6px 10px; border:1px solid var(--border-panel); border-radius:999px; color:var(--text); font-size:12.5px; font-weight:600; text-decoration:none; }
+.chat-return:hover { background:var(--soft); }
+@media (pointer:coarse) { .chat-return { min-height:44px; } }

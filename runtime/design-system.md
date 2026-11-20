@@ -183,6 +183,22 @@ attachments and voice controls must reserve transcript space rather than cover
 messages. Keep own time and delivery indicators together on a predictable metadata
 line; omit the repeated own name/avatar. Retain visible reply counts and reveal
 ordinary reply actions on hover/focus, keeping them available on touch devices.
+**For you** (Chat, 2026-11-20) is one list of the messages addressed to you in
+channels and groups: @mentions, agent replies to your requests and replies in
+threads you follow. Its row is the first in the Chat list, with a red count of unread
+ones and a pale red background while there are some; the page takes the
+conversation's place: title and one line saying what belongs there, Notification
+settings, filter buttons (All, @Mentions, Agent replies, Threads, each with its
+new count), then New (cards with a red dot) and Earlier (plain, muted), and Older.
+A row says who (AI tag for agents), why ("@mention" tinted red while new, "Reply to
+your request", "Thread you follow"), where and when, and two lines of the message.
+It opens the conversation at that message, or its thread, with "‹ For you" in the
+header. The list never marks anything read: a message is read when seen where it
+is, so For you, the counts and the rail agree. Direct messages, approvals and agent
+questions stay out (their own rows, and Activity → Needs me). The empty state says
+what would appear and links to Needs me. On a phone it fills the screen with
+"‹ Chats", and the filters scroll sideways.
+
 A thread line with replies you have not read shows a small "N new" pill in the accent
 colour, red when one is for you, so a conversation's unread count always points at
 something to open. It goes as the replies are seen in the thread.
@@ -228,7 +244,7 @@ access boundaries and remaining work; a visual component grants no authority.
 
 Your assistant in Chat (2026-11-19, [assistants](assistants.md)): one four-point
 mark (`AssistantMark`) stands for everything it does for you. Its chat is the
-first row of the list with no heading or sub-rows. A chat it replies in carries
+first conversation in the list, right under For you, with no heading or sub-rows. A chat it replies in carries
 the mark on its row (`--online` while running, `--muted` once stopped) and a
 pill in the header with Stop, or Resume and Delete; under 760 px the pill keeps
 the mark and its buttons and drops its words. Messages it wrote show the mark

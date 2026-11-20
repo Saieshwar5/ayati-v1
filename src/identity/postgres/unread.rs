@@ -51,18 +51,26 @@ impl MigrationTrait for UnreadFromJoining {
 
 /// The conversations `c` and messages `m` unread counting looks at, with person
 /// `$2`'s workspace membership `me` and conversation membership `p`.
-const UNREAD_FROM: &str = "relay_chats c
+pub(super) const UNREAD_FROM: &str = "relay_chats c
  JOIN relay_members me ON me.workspace=c.workspace AND me.user_id=$2
  LEFT JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2
  JOIN relay_chat_messages m ON m.workspace=c.workspace AND m.chat=c.id";
-/// `m` is unread for person `$2`, in an active conversation they can see. `m.at` is
-/// in seconds and join times in milliseconds: a message from the second someone
-/// joined counts, rather than risk missing one. The counts and the history's unread
-/// marks share this, so the list's count and the conversation's unread line agree.
-const UNREAD_WHERE: &str = "NOT c.archived AND (c.visibility='public' OR p.user_id IS NOT NULL)
+/// `m` is someone else's sent or finished message that person `$2` could see when
+/// it arrived, in an active conversation they can see. `m.at` is in seconds and join
+/// times in milliseconds: a message from the second someone joined counts, rather
+/// than risk missing one.
+pub(super) const VISIBLE_WHERE: &str =
+    "NOT c.archived AND (c.visibility='public' OR p.user_id IS NOT NULL)
  AND m.author<>$2 AND m.state IN ('sent','complete')
- AND m.at>=greatest(me.joined_ms,CASE WHEN c.visibility='public' THEN 0 ELSE p.joined_ms END)/1000
- AND NOT EXISTS(SELECT 1 FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.user_id=$2 AND r.seen_at IS NOT NULL)";
+ AND m.at>=greatest(me.joined_ms,CASE WHEN c.visibility='public' THEN 0 ELSE p.joined_ms END)/1000";
+/// Person `$2` has seen `m`.
+pub(super) const SEEN: &str = "EXISTS(SELECT 1 FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.user_id=$2 AND r.seen_at IS NOT NULL)";
+/// `m` is unread for person `$2`. The counts, the history's unread marks and For you
+/// (for_you.rs) share this, so the list's count, the conversation's unread line and
+/// For you agree.
+fn unread_where() -> String {
+    format!("{VISIBLE_WHERE} AND NOT {SEEN}")
+}
 
 /// A history page's common table `unread_replies`: thread replies in conversation
 /// `$2` that person `$4` has not read and that are older than the page's own
@@ -71,7 +79,7 @@ const UNREAD_WHERE: &str = "NOT c.archived AND (c.visibility='public' OR p.user_
 /// where they are (schema 94 rules, history.rs).
 pub(super) fn older_unread_replies() -> String {
     let from = UNREAD_FROM.replace("$2", "$4");
-    let unread = UNREAD_WHERE.replace("$2", "$4");
+    let unread = unread_where().replace("$2", "$4");
     format!(
         "unread_replies AS (SELECT m.* FROM {from}
          WHERE c.workspace=$1 AND c.id=$2 AND m.thread IS NOT NULL
@@ -98,9 +106,10 @@ impl PgStore {
                'muted',coalesce(n.level,CASE WHEN c.kind='direct' THEN 'all' ELSE $3 END)='none') AS data
              FROM {UNREAD_FROM}
              LEFT JOIN relay_chat_notify n ON n.workspace=c.workspace AND n.chat=c.id AND n.user_id=$2
-             WHERE c.workspace=$1{hidden} AND {UNREAD_WHERE}
+             WHERE c.workspace=$1{hidden} AND {unread}
              GROUP BY m.chat,c.kind,n.level",
-            for_me = super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?)
+            for_me = super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?),
+            unread = unread_where()
         );
         let items = json_rows(
             &tx,
@@ -132,8 +141,9 @@ pub(super) async fn mark_page(
     let hidden = super::work_rooms::hidden(tx).await?;
     let sql = format!(
         "SELECT m.id FROM {UNREAD_FROM}
-         WHERE c.workspace=$1 AND c.id=$3{hidden} AND {UNREAD_WHERE}
-         AND m.id IN (SELECT jsonb_array_elements_text($4::jsonb))"
+         WHERE c.workspace=$1 AND c.id=$3{hidden} AND {unread}
+         AND m.id IN (SELECT jsonb_array_elements_text($4::jsonb))",
+        unread = unread_where()
     );
     let unread = rows(
         tx,

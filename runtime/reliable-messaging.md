@@ -114,6 +114,17 @@ The rail adds every unread message of an unmuted conversation, and from a muted 
 only what is for you. Changing a bell or the channel default on this page reads the
 counts again at once. A server without the flag mutes nothing.
 
+**For you** (`GET /api/identity/workspaces/{w}/for-you`, `postgres/for_you.rs`) lists
+the messages the counts call "for you" (`channel_threads::for_me`) in channels and
+groups, never direct messages. It shares the counts' visibility and unread rule
+(`VISIBLE_WHERE`, `SEEN`), so its New section is exactly what the For you row counts:
+the sum of `mentions` over channels and groups. The first page has every unread item
+(up to 100, no time limit, as the counts have none) and the newest read ones;
+`?before=` pages go back through read items 90 days, 25 at a time. Items are
+400-character previews with their reason (`mention`, `agent_reply`, `thread`);
+agent replies are checked against current source access as history checks them.
+The page reads again 500 ms after any change that can alter the counts.
+
 Since schema 140 (`m20261120_000140_notify_level_changes`) a change to a bell or to
 the notification defaults also reaches the person's other devices. A trigger on
 `relay_chat_notify` and `relay_member_preferences` records a `levels` change whose

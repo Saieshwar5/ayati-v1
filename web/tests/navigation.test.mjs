@@ -376,7 +376,7 @@ test('rebrands only the built-in guide while preserving custom agent names', asy
   }
 });
 
-test('your assistant is the first row in the chat list, once, and says who can see it', async () => {
+test('your assistant comes right after For you in the chat list, once, and says who can see it', async () => {
   const chats = [
     {id:'dm-hr',name:'HR Desk',kind:'direct',description:'',users:['owner'],agents:['hr']},
     {id:'dm-mine',name:'Ayati',kind:'direct',description:'',users:['owner'],agents:['mine']}];
@@ -385,7 +385,10 @@ test('your assistant is the first row in the chat list, once, and says who can s
     try {
       await render(setup.WorkspaceApplication);
       await until(update,()=>document.querySelector('.chat-contact'));
-      const sections = [...document.querySelectorAll('.chat-directory-scroll section')];
+      // For you comes first (Chat → For you), then your assistant.
+      const all = [...document.querySelectorAll('.chat-directory-scroll section')];
+      assert.equal(all[0].getAttribute('aria-label'), 'For you');
+      const sections = all.slice(1);
       assert.equal(sections[0].getAttribute('aria-label'), 'Your assistant');
       assert.match(sections[0].textContent, /^Ayati/, 'one row: no heading and nothing under it');
       assert.equal(sections[0].querySelectorAll('a, button:not(.chat-pin-button)').length, 1);

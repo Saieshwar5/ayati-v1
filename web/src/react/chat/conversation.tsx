@@ -34,7 +34,9 @@ const olderThreshold = 400;
 
 const noDetails: DetailsControl = { open: false, toggle: () => {}, show: () => {}, review: () => {} };
 
-export function ConversationPane({ chat, directory, back, focus, level, levelChanged = () => {}, details = noDetails }: { chat: Conversation; directory: Directory; back: () => void; focus?: string; level?: Level; levelChanged?: (level: Level) => void; details?: DetailsControl }) {
+export function ConversationPane({ chat, directory, back, focus, returnTo, level, levelChanged = () => {}, details = noDetails }: { chat: Conversation; directory: Directory; back: () => void; focus?: string;
+  /** Opened from Chat → For you: the header links back to it. */
+  returnTo?: string; level?: Level; levelChanged?: (level: Level) => void; details?: DetailsControl }) {
   const pendingMessages = useSyncExternalStore(subscribeOutbox, outboxSnapshot);
   const connection = useSyncExternalStore(subscribeStatus, liveStatus);
   const incoming = useRef(new Map<string, Message>());
@@ -234,7 +236,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   const canHandOver = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2 && handed?.state !== 'running';
   const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
-    <ConversationHeader chat={chat} directory={directory} title={title} back={back} search={() => setSearching(true)}
+    <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)}
       level={level} levelChanged={levelChanged} details={details}
       extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
     <ConnectionBanner status={connection} />

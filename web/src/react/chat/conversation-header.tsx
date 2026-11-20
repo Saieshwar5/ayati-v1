@@ -10,8 +10,10 @@ import { PresenceLine } from './presence-view';
 export type DetailsControl = { open: boolean; toggle: () => void; show: () => void; review: () => void };
 
 /** The connection is no longer shown here; it appears as a banner only while down (D245). */
-export function ConversationHeader({ chat, directory, title, back, search, level, levelChanged, details, extra }: {
+export function ConversationHeader({ chat, directory, title, back, returnTo, search, level, levelChanged, details, extra }: {
   chat: Conversation; directory: Directory; title: string; back: () => void; search: () => void;
+  /** Opened from Chat → For you: a link back to it, in place of the phone's ‹ Chats. */
+  returnTo?: string;
   /** Shown before the search button: what your assistant is doing in this chat. */
   extra?: ReactNode;
   level?: Level; levelChanged: (level: Level) => void; details: DetailsControl;
@@ -22,7 +24,7 @@ export function ConversationHeader({ chat, directory, title, back, search, level
     : [chat.visibility === 'public' ? 'Public channel' : 'Private channel', `${chat.users.length} ${chat.users.length === 1 ? 'person' : 'people'}`,
       chat.agents.length ? `${chat.agents.length} ${chat.agents.length === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
   return <header className="chat-pane-header">
-    <Button className="chat-back" onClick={back}>‹ Chats</Button>
+    {returnTo ? <a className="chat-return" href={returnTo}>‹ For you</a> : <Button className="chat-back" onClick={back}>‹ Chats</Button>}
     {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} onClick={details.show}>
       <ConversationFace chat={chat} directory={directory} />
     </button> : <ConversationFace chat={chat} directory={directory} />}
