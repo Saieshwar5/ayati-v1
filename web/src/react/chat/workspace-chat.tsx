@@ -1,5 +1,5 @@
 import { subscribeChanges } from './live';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
 import { workspaceUrl } from '../../workspace-context';
 import { Button } from '../ui';
@@ -29,6 +29,7 @@ import { AssistantThreads, useAssistantThreads } from './assistant-threads-model
 import { ThreadMark } from './assistant-threads';
 import { ForYouPage } from './for-you';
 import { forYouCount } from './for-you-model';
+import { chatPlaceUrl, forgetChatPlace, rememberChatPlace, rememberedChatPlace } from './last-chat-place';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
@@ -52,6 +53,17 @@ export function WorkspaceChat({ href }: { href: string }) {
   const pins = usePinActions(preferences, next => setPreferences(previous => previous && previous.revision > next.revision ? previous : next), sourceEpoch, () => refresh.current());
   const pinned = (pin: Pin) => preferences?.pins.some(item => samePin(item, pin)) ?? false;
   const order = useConversationOrder(chats, refresh);
+  // Arriving at a bare Chat link (the rail, or Back) reopens where you last were here.
+  // Runs once per arrival: Chat unmounts on other pages. Replace keeps Back unchanged.
+  const restored = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    const arrived = new URL(window.location.href).searchParams;
+    if (arrived.get('view') !== 'chat' || arrived.has('conversation') || arrived.has('section')) return;
+    const place = rememberedChatPlace();
+    if (!place) return;
+    if (place.kind === 'conversation') restored.current = place.id;
+    navigate(workspaceUrl(chatPlaceUrl(place)), { replace: true });
+  }, []);
   useEffect(() => {
     const abort = new AbortController(); let busy = false, again = false;
     const load = async () => {
@@ -81,6 +93,17 @@ export function WorkspaceChat({ href }: { href: string }) {
   const openMessage = (id: string, message: string) => { setSearch(false); setShowList(false); navigate(workspaceUrl(`/?view=chat&conversation=${encodeURIComponent(id)}&message=${encodeURIComponent(message)}`)); };
   const direct = useDirectConversation(chats, open);
   const current = chats.find(chat => chat.id === selected);
+  // Remember only what actually opened, never an unavailable link.
+  useEffect(() => {
+    if (current) rememberChatPlace({ kind: 'conversation', id: current.id });
+    else if (forYou) rememberChatPlace({ kind: 'for-you' });
+  }, [current?.id, forYou]);
+  // A remembered conversation that is gone (deleted, access removed) falls back to the welcome.
+  useEffect(() => {
+    if (!directory || !selected || selected !== restored.current || current) return;
+    restored.current = undefined; forgetChatPlace();
+    navigate(workspaceUrl('/?view=chat'), { replace: true });
+  }, [directory, selected, current]);
   // Your own assistant's chat is the first row, above everything else (schema 127).
   const mine = directory?.agents.find(agent => agent.assistant && agent.yours)?.id;
   const assistantChat = mine ? chats.find(chat => chat.kind === 'direct' && chat.agents.length === 1 && chat.agents[0] === mine && chat.users.length === 1) : undefined;
@@ -158,7 +181,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     {panel && directory && <ChatPanel view={panel} setView={setPanel} chat={current} directory={directory} chats={chats} message={messageTarget}
       level={current && levels[current.id]} levelChanged={level => { if (current) setLevels(previous => ({ ...previous, [current.id]: level })); }}
       pins={{ preferences, busy: pins.busy, toggle: pins.toggle }} changed={() => refresh.current()}
-      left={() => { setPanel(undefined); setShowList(true); navigate(workspaceUrl('/?view=chat')); void refresh.current(); }} />}
+      left={() => { forgetChatPlace(); setPanel(undefined); setShowList(true); navigate(workspaceUrl('/?view=chat')); void refresh.current(); }} />}
     {search && directory && <SearchConversations directory={directory} chats={chats} close={() => setSearch(false)} opened={open} openMessage={openMessage} />}
     {chooser && directory && <CreateConversation mode={chooser} directory={directory} chats={chats} close={() => setChooser(undefined)} created={open} />}
     {people && directory && <PeopleDirectory directory={directory} chats={chats} preferences={preferences} togglePin={pins.toggle} close={() => showPeople(false)} opened={id => { showPeople(false); open(id); }} />}
