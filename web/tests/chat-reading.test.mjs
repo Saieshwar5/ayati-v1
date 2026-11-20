@@ -152,3 +152,52 @@ test('a thread line says how many replies are new until they are read in the thr
     } });
   } finally { seen.restore(); Object.assign(globalThis, original); }
 });
+
+test('threads with new replies are listed above the messages and open from there', async () => {
+  const seen = visibility();
+  let stream, stopLive, reads = 0, extra = [];
+  const original = { EventSource: globalThis.EventSource };
+  globalThis.EventSource = class { constructor() { this.listeners = new Map(); stream = this; } addEventListener(name, fn) { this.listeners.set(name, fn); } close() {} };
+  // An old question, carried on the first page for its unread reply, above newer read messages.
+  const page = () => ({ agents: [], next_before: 300, messages: [
+    message('old', 5, { content: 'Can someone check the **Friday** delivery?' }), message('r1', 9, { thread: 'old', unread: true, for_me: true }),
+    message('m1', 301), message('m2', 302), ...extra] });
+  try {
+    await reactFixture(async ({ dom, render, update, click }) => {
+      await (await import('../src/workspace-context.ts')).enterWorkspace();
+      const { ConversationPane } = await import('../src/react/chat/conversation.tsx');
+      const { startLive } = await import('../src/react/chat/live.ts');
+      reading(dom);
+      await render(ConversationPane, { chat, directory, back: () => {} });
+      await update(() => { stopLive = startLive(); });
+      let cursor = 1;
+      const arrive = (...messages) => update(() => stream.listeners.get('changes')({ data: JSON.stringify({ cursor: cursor++, events: messages.map(item => ({ kind: 'message', chat: 'ops', message: item })) }) }));
+      const bar = () => document.querySelector('[role=region][aria-label="Threads with new replies"]');
+      try {
+        assert.equal(bar().querySelector('.chat-new-replies-title').textContent, 'New replies in 1 thread');
+        const button = bar().querySelector('button');
+        assert.equal(button.getAttribute('aria-label'), 'Open thread “Can someone check the Friday delivery?”: 1 new reply, for you');
+        assert.ok(button.querySelector('.chat-thread-new-mention'));
+
+        await click(button);
+        const dialog = document.querySelector('dialog');
+        assert.ok(dialog?.querySelector('[data-message-id="r1"]'), 'the thread opens on its reply');
+        await seen.show(dialog.querySelector('[data-message-id="r1"]'));
+        await linger();
+        assert.equal(bar(), null, 'nothing new is left');
+
+        // A reply arrives in a thread whose question is not loaded: the first page is read again and brings it.
+        const before = reads;
+        extra = [message('older', 2, { content: 'Stock count for March' }), message('r2', 303, { thread: 'older', unread: true })];
+        await arrive(message('r2', 303, { thread: 'older' }));
+        assert.equal(reads, before + 1);
+        assert.equal(bar().querySelector('button').textContent, 'Stock count for March1 new');
+      } finally { await update(() => stopLive?.()); }
+    }, { url, fetch: async path => {
+      const at = new URL(path, 'http://localhost').pathname;
+      if (at.endsWith('/message-capabilities')) return response({ live: true });
+      if (at.endsWith('/chats/ops/messages')) { reads++; return response(page()); }
+      return response(session);
+    } });
+  } finally { seen.restore(); Object.assign(globalThis, original); }
+});

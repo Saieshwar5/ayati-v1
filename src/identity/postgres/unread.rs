@@ -64,6 +64,22 @@ const UNREAD_WHERE: &str = "NOT c.archived AND (c.visibility='public' OR p.user_
  AND m.at>=greatest(me.joined_ms,CASE WHEN c.visibility='public' THEN 0 ELSE p.joined_ms END)/1000
  AND NOT EXISTS(SELECT 1 FROM relay_message_receipts r WHERE r.workspace=m.workspace AND r.message=m.id AND r.user_id=$2 AND r.seen_at IS NOT NULL)";
 
+/// A history page's common table `unread_replies`: thread replies in conversation
+/// `$2` that person `$4` has not read and that are older than the page's own
+/// messages (`recent`), newest first and at most 50. The count counts them, so
+/// the page carries them, and their questions, for the conversation to show
+/// where they are (schema 94 rules, history.rs).
+pub(super) fn older_unread_replies() -> String {
+    let from = UNREAD_FROM.replace("$2", "$4");
+    let unread = UNREAD_WHERE.replace("$2", "$4");
+    format!(
+        "unread_replies AS (SELECT m.* FROM {from}
+         WHERE c.workspace=$1 AND c.id=$2 AND m.thread IS NOT NULL
+         AND m.sequence<coalesce((SELECT min(sequence) FROM recent),$3) AND {unread}
+         ORDER BY m.sequence DESC LIMIT 50)"
+    )
+}
+
 impl PgStore {
     pub async fn unread(&self, user: &User, w: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;

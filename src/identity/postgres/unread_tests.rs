@@ -336,3 +336,63 @@ async fn unread_says_which_conversations_the_person_muted() {
     assert!(muted(&db, &member, &w, &other).await, "the default applies");
     assert!(!muted(&db, &member, &w, &direct).await, "direct messages");
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn the_first_page_carries_unread_thread_replies_older_than_it() {
+    let db = fixture().await;
+    let owner = user(&db, "unread-older-owner").await;
+    let member = user(&db, "unread-older-member").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let c = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
+    let question = message("Old question", None);
+    db.chat_send(&member, &w, &c, &question).await.unwrap();
+    let mut read = message("Old reply already read", None);
+    read.thread = Some(question.id.clone());
+    let mut waiting = message("Old reply not read", None);
+    waiting.thread = Some(question.id.clone());
+    for reply in [&read, &waiting] {
+        db.chat_send(&member, &w, &c, reply).await.unwrap();
+    }
+    db.acknowledge(
+        &owner,
+        &w,
+        &c,
+        &[question.id.clone(), read.id.clone()],
+        true,
+    )
+    .await
+    .unwrap();
+    // Two hundred newer messages push all of it off the first page.
+    for n in 0..205 {
+        db.chat_send(&owner, &w, &c, &message(&format!("Newer {n}"), None))
+            .await
+            .unwrap();
+    }
+    assert_eq!(count(&db, &owner, &w, &c).await, 1, "the reply is counted");
+
+    let page = db.chat_page(&owner, &w, &c, None).await.unwrap();
+    assert!(page["next_before"].is_i64(), "older messages remain");
+    let messages = page["messages"].as_array().unwrap();
+    let find = |text: &str| messages.iter().find(|m| m["content"] == text);
+    let reply = find("Old reply not read").expect("the unread reply is on the first page");
+    assert_eq!(reply["unread"], true);
+    assert_eq!(reply["thread"], question.id.as_str());
+    assert!(
+        find("Old question").is_some(),
+        "with its question, to open it from"
+    );
+    assert!(
+        find("Old reply already read").is_none(),
+        "read replies stay on older pages"
+    );
+    assert_eq!(
+        messages.len(),
+        202,
+        "200 newest, the reply and its question"
+    );
+    // Someone else's page has no unread reply to carry.
+    let theirs = db.chat_page(&member, &w, &c, None).await.unwrap();
+    assert_eq!(theirs["messages"].as_array().unwrap().len(), 200);
+}

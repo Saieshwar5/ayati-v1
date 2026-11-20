@@ -14,3 +14,12 @@
 .chat-jump-latest svg { width:14px; height:14px; }
 @media (pointer:coarse) { .chat-jump-latest .ui-button { min-height:44px; } }
 @media (forced-colors:active) { .chat-jump-latest .ui-button { border-color:ButtonText; } .chat-unread-line::before, .chat-unread-line::after { background:CanvasText; } }
+
+/* Threads with replies not read yet, above the messages (new-replies-bar.tsx). */
+.chat-new-replies { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:8px max(16px,calc((100% - var(--chat-reading-width, 760px))/2)); border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
+.chat-new-replies-title { font-weight:600; color:var(--text); }
+.chat-new-replies-thread { display:inline-flex; align-items:center; gap:6px; min-width:0; max-width:min(320px,100%); min-height:30px; padding:3px 4px 3px 10px; border:1px solid var(--border-structure); border-radius:999px; background:var(--surface); color:var(--text); font:inherit; cursor:pointer; }
+.chat-new-replies-thread:hover { background:var(--soft); }
+.chat-new-replies-words { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (pointer:coarse) { .chat-new-replies-thread { min-height:44px; } }
+@media (forced-colors:active) { .chat-new-replies-thread { border-color:ButtonText; } }
