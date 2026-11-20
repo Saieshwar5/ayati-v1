@@ -1,6 +1,7 @@
 //! Notification levels are personal and never grant access; unread counts
 //! separately count what is for you.
 use super::tests::*;
+use super::{PgStore, User};
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
@@ -100,4 +101,50 @@ async fn unread_counts_separate_mentions_of_you() {
         .unwrap()
         .clone();
     assert_eq!(theirs["message"]["for_me"], false);
+}
+
+/// The live changes `person` receives after `cursor`, by kind.
+async fn kinds_after(db: &PgStore, person: &User, w: &str, cursor: i64) -> Vec<String> {
+    db.sync_page(person, w, Some(cursor)).await.unwrap()["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|event| event["kind"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_changed_level_or_default_reaches_only_that_persons_other_devices() {
+    use crate::identity::postgres::settings::preferences::Preferences;
+    let db = fixture().await;
+    let owner = user(&db, "levels-sync-owner").await;
+    let w = workspace(&db, &owner).await;
+    let member = user(&db, "levels-sync-member").await;
+    join(&db, &owner, &w, &member, "Member").await;
+    let shared = chat(&db, &owner, &w, vec![member.id.clone()], vec![]).await;
+    let now = || async {
+        db.sync_page(&owner, &w, None).await.unwrap()["cursor"]
+            .as_i64()
+            .unwrap()
+    };
+
+    let cursor = now().await;
+    db.set_chat_notify(&member, &w, &shared, "none")
+        .await
+        .unwrap();
+    assert_eq!(kinds_after(&db, &member, &w, cursor).await, ["levels"]);
+    assert!(
+        kinds_after(&db, &owner, &w, cursor).await.is_empty(),
+        "nobody else hears of it"
+    );
+
+    let cursor = now().await;
+    let quiet = Preferences {
+        channel_level: "none".into(),
+        ..Preferences::default()
+    };
+    db.save_preferences(&member, &w, &quiet).await.unwrap();
+    assert_eq!(kinds_after(&db, &member, &w, cursor).await, ["levels"]);
+    assert!(kinds_after(&db, &owner, &w, cursor).await.is_empty());
 }

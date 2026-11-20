@@ -27,6 +27,7 @@ import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
 import { readingAnchor, restoreReading, type ReadingAnchor } from './reading-position';
 import { arrivesUnreadInThread, countsAsNew, firstUnread, JumpToLatest, latestSequence, marksAfterRead, replyIsNew, UnreadLine, type ReplyMarks, type UnreadStart } from './new-messages';
+import { NewRepliesBar, threadsWithNew } from './new-replies-bar';
 
 /** Scrolling within this distance of the top (px) starts loading the next older page. */
 const olderThreshold = 400;
@@ -82,6 +83,8 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
   // the conversation is open, less the ones read here.
   const [replyMarks, setReplyMarks] = useState<ReplyMarks>(() => new Map());
   const replyRead = useCallback((id: string) => setReplyMarks(marks => marks.get(id) === false ? marks : new Map(marks).set(id, false)), []);
+  // Which messages are loaded, for live events that arrive outside a render.
+  const loaded = useRef(new Set<string>());
   const viewer = workspaceSession?.user?.id;
   useEffect(() => {
     setFocused([]); setFocusError('');
@@ -135,7 +138,11 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
         incoming.current.set(message.id, previous ? newerMessage(previous, message) : message);
         if (countsAsNew(message, viewer, openedAt.current) && !counted.current.has(message.id)) { counted.current.add(message.id); if (!bottom.current) setNewBelow(count => count + 1); }
         // Later events for the same reply (a receipt, a reaction) must not make a read one new again.
-        if (arrivesUnreadInThread(message, viewer, openedAt.current)) setReplyMarks(marks => marks.has(message.id) ? marks : new Map(marks).set(message.id, true));
+        if (arrivesUnreadInThread(message, viewer, openedAt.current)) {
+          setReplyMarks(marks => marks.has(message.id) ? marks : new Map(marks).set(message.id, true));
+          // A reply in a thread whose question is not loaded: the first page brings the question.
+          if (!loaded.current.has(message.thread!)) void load();
+        }
         if (incoming.current.size > 400) incoming.current.delete(incoming.current.keys().next().value!);
         setOlder(old => old.map(m => m.id === message.id ? newerMessage(m, message) : m));
         setHistory(previous => previous ? { ...previous, messages: mergeMessages(previous.messages, [message]).slice(-400) } : previous);
@@ -207,6 +214,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
     finally { read.pending = false; if (alive.current) setLoadingOlder(false); }
   };
   const allMessages = mergeMessages(focused, older, history?.messages ?? []);
+  useEffect(() => { loaded.current = new Set([...focused, ...older, ...(history?.messages ?? [])].map(message => message.id)); }, [focused, older, history]);
   const visibleHistory = history ? { ...history, messages: allMessages } : undefined;
   const timeline = visibleHistory?.messages.filter(message => !message.thread) ?? [];
   const newReply = replyIsNew(replyMarks);
@@ -230,6 +238,7 @@ export function ConversationPane({ chat, directory, back, focus, level, levelCha
       level={level} levelChanged={levelChanged} details={details}
       extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
     <ConnectionBanner status={connection} />
+    <NewRepliesBar threads={threadsWithNew(allMessages, newReply)} open={setThread} />
     {chat.id === room && <AssistantRoom assistantName={assistantName} />}
     {chat.archived && <div className="chat-archive-banner" role="status"><span>This channel is archived. History and saved work stay available; new messages are closed.</span>{chat.can_archive && <Button onClick={details.review}>Restore channel</Button>}</div>}
     <div className="chat-message-list" role="log" aria-label="Messages" ref={messages} onScroll={() => {

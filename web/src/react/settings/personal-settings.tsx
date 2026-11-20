@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { chatRequest } from '../chat/model';
+import { subscribeChanges } from '../chat/live';
 import { useMutation, useResource } from '../requests';
 import { setNotifyDefaults } from '../chat/notifications';
 import { refreshUnread } from '../chat/unread-counts';
@@ -44,6 +45,9 @@ function NotificationDefaults() {
   const resource = useResource(loadPreferences);
   const mutation = useMutation();
   const data = resource.data;
+  // Changed on another device (schema 140): show what is saved now.
+  const { refresh } = resource;
+  useEffect(() => subscribeChanges(change => { if (change.kind === 'levels') void refresh(); }), [refresh]);
   const save = (change: Partial<Saved>) => {
     if (!data) return;
     const next = { ...data, ...change };

@@ -19,3 +19,25 @@ impl MigrationTrait for ChatNotifications {
         ))
     }
 }
+
+/// Schema 140: notification choices reach the person's other devices.
+pub(super) struct NotifyLevelChanges;
+impl MigrationName for NotifyLevelChanges {
+    fn name(&self) -> &str {
+        "m20261120_000140_notify_level_changes"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for NotifyLevelChanges {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("chat_notify_changes.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Notification level changes require a forward migration".into(),
+        ))
+    }
+}

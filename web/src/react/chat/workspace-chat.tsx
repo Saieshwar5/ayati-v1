@@ -62,8 +62,12 @@ export function WorkspaceChat({ href }: { href: string }) {
       finally { busy = false; if (again && !abort.signal.aborted) { again = false; void load(); } }
     };
     refresh.current = load; void load();
+    // Only the bells: a level changed here or on another device (schema 140).
+    const readLevels = () => void chatRequest<{ levels: Record<string, Level> }>('/chat-notifications', undefined, abort.signal)
+      .then(notify => { if (!abort.signal.aborted) setLevels(notify.levels ?? {}); }).catch(() => {});
     const unsubscribe = subscribeChanges(change => {
       if (change.kind === 'access' || change.kind === 'reset') { sourceEpoch.current++; void load(); }
+      if (change.kind === 'levels') readLevels();
     });
     return () => { sourceEpoch.current++; abort.abort(); unsubscribe(); };
   }, []);

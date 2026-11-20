@@ -107,6 +107,8 @@ impl PgStore {
         let mut sample_access_changed = false;
         let mut panel_access_changed = false;
         let mut agents_changed = false;
+        // The person changed a bell or their notification defaults (schema 140).
+        let mut levels_changed = false;
         // When the oldest change in this page was saved, for delivery timing.
         let mut saved_ms: Option<i64> = None;
         for row in events {
@@ -119,6 +121,9 @@ impl PgStore {
             } else if row.try_get::<String>("", "kind")? == "agents" {
                 // All agents were paused or resumed.
                 agents_changed = true;
+            } else if row.try_get::<String>("", "kind")? == "levels" {
+                levels_changed |=
+                    row.try_get::<Option<String>>("", "audience")?.as_deref() == Some(&user.id);
             } else if row.try_get::<String>("", "kind")? == "panel_access" {
                 panel_access_changed |=
                     row.try_get::<Option<String>>("", "audience")?.as_deref() == Some(&user.id);
@@ -139,6 +144,9 @@ impl PgStore {
         }
         if panel_access_changed {
             output.push(json!({"kind":"panel_access"}));
+        }
+        if levels_changed {
+            output.push(json!({"kind":"levels"}));
         }
         if agents_changed {
             output.push(json!({"kind":"agents"}));
