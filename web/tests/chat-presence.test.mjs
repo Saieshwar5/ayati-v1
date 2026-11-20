@@ -61,7 +61,7 @@ test('presence from another workspace, another account or an older read is ignor
   }, { url, fetch: fetcher([]) });
 });
 
-test('dots and names: online people have a green dot and read "name, online, status"; agents never do', async () => {
+test('dots and names: online people have a green dot and read "name, online, status"; agents show their state, never online', async () => {
   const people = [present('ravi', true, { status: meeting }), present('kavya', false, { last_seen: Date.now() - 5 * minute })];
   await reactFixture(async ({ render, click, button }) => {
     await start();
@@ -74,7 +74,9 @@ test('dots and names: online people have a green dot and read "name, online, sta
     assert.equal(row('Ravi Kumar').querySelector('.presence-status-emoji').getAttribute('title'), 'In a meeting', 'the text on hover');
     assert.equal(row('Kavya Nair').querySelector('.presence-dot'), null, 'away: no dot');
     assert.equal(named(row('Kavya Nair')), 'Kavya Nair');
-    assert.equal(row('Atlas').querySelector('.presence-dot'), null, 'agents have no presence');
+    // An agent's dot is its state (ready here), not presence: it never reads as online.
+    assert.ok(row('Atlas').querySelector('.presence-dot.agent-dot-ready'), 'a ready agent');
+    assert.equal(named(row('Atlas')).includes('online'), false);
     // The header shows the other person, not this tab's connection.
     const header = document.querySelector('.chat-pane-header');
     assert.ok(header.querySelector('.chat-header-identity .presence-dot'));
@@ -121,7 +123,7 @@ test('the direct message header reads online with the status, last seen, or the 
     assert.equal(meta(), 'Away', 'Away shows as away even with Cuckoo open');
     assert.equal(document.querySelector('.presence-dot'), null);
     await render(ConversationHeader, props(chats[2]));
-    assert.equal(meta(), 'Orders assistant', 'an agent shows its job, never presence');
+    assert.equal(meta(), 'Ready · Orders assistant', 'an agent shows its state and job, never presence');
   }, { url, fetch: fetcher([]) });
 });
 
@@ -168,11 +170,12 @@ test('live presence events update faces without reading the directory again', as
         assert.equal(streams.length, 1);
         const before = reads.filter(path => path.endsWith('/chat-directory')).length;
         await update(() => streams[0].emit('presence', { people: [present('ravi', true, { revision: 5 })] }));
-        assert.equal(document.querySelectorAll('.presence-dot').length, 1, 'the person, not the agent');
+        assert.equal(document.querySelectorAll('.person .presence-dot').length, 1, 'the person is online');
+        assert.ok(document.querySelector('.agent .presence-dot.agent-dot-ready'), 'the agent shows its state, whatever presence says');
         await update(() => streams[0].emit('presence', { people: [present('ravi', false, { revision: 6 })] }));
-        assert.equal(document.querySelectorAll('.presence-dot').length, 0);
+        assert.equal(document.querySelectorAll('.person .presence-dot').length, 0);
         await update(() => streams[0].emit('presence', { people: [present('ravi', true, { revision: 5 })] }));
-        assert.equal(document.querySelectorAll('.presence-dot').length, 0, 'a late, older change is ignored');
+        assert.equal(document.querySelectorAll('.person .presence-dot').length, 0, 'a late, older change is ignored');
         await update(() => streams[0].listeners.get('presence')?.({ data: 'not json' }));
         assert.equal(reads.filter(path => path.endsWith('/chat-directory')).length, before, 'no refetch');
       } finally { stop?.(); }

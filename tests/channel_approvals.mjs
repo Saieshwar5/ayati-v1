@@ -55,7 +55,7 @@ test('Ask first reaches every manager, someone else approves, and conversation m
   // its members while work waits would fence that work, so they joined at the start.)
   assert.equal((await app.request(`${app.path}/control/actions/${action.id}`,observer)).value.can_decide,false);
   await app.request(`${control}/actions/${action.id}/decision`,observer,{id:randomUUID(),decision:'approve'},400);
-  await observerPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${source}`);const card=observerPage.getByRole('region',{name:'Saved approval request',exact:true});await card.getByText('Waiting for approval from',{exact:false}).waitFor();await card.getByRole('button',{name:'Details',exact:true}).click();
+  await observerPage.goto(`${app.base}/w/${w}/?view=chat&conversation=${source}`);const card=observerPage.getByRole('region',{name:'Saved approval request',exact:true});await card.getByText('Waiting for approval from',{exact:false}).waitFor();await card.getByRole('button',{name:/, details$/}).click();
   assert.equal(await observerPage.getByRole('button',{name:'Approve this action'}).count(),0);
   await review.getByRole('button',{name:'Approve this action',exact:true}).click();await until(async()=>remote.records.get('one').address==='PRIVATE_REVIEWED_ADDRESS','Approved external write missing');
   assert.equal(remote.calls.filter(c=>c.name==='update_order').length,1);

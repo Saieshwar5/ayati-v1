@@ -287,3 +287,33 @@ link) and `tests/chat_first_visit.mjs` against a real controller and Chromium.
 Library, Agents and other dialogs that use `autoFocus` inside `Dialog` have the same
 focus issue and are not changed here.
 
+## Conversation header and agent state (2026-11-20)
+
+The header is 56 px (was 64), with the list's Chat title. Its face, name and the
+line under the name are one target with a ▾ that opens the profile or Details; the
+name is the button ("orders, details", "Meera Iyer, profile"), and the separate
+Profile and Details buttons are gone. A team agent's owners and admins get its
+settings (Instructions) beside search, as your assistant always had.
+
+The chat directory's agents carry `paused` (settings), `needs_owner` (no owner) and
+`all_paused` (an admin paused all agents). Chat shows them as an agent's dot and
+line, and in a direct message replaces the message box with a quiet bar while the
+agent takes no messages; its owners and admins resume it there. "Working on your
+request…" (or "Waiting for approval", "Waiting for an answer") comes from the
+agent's reply still in progress in that conversation, so no server change. Pausing
+or resuming one agent now announces an `agents` change, as pausing all agents
+already did, and open Chat pages read the directory again.
+
+| State | Dot | Line under the name |
+|---|---|---|
+| Ready | green | Ready · its job |
+| Working for you here | purple, pulsing | Working on your request… |
+| Paused by an owner | hollow | Paused · Ananya Rao can resume it (You can resume it) |
+| Last owner left | hollow | Paused · Its owner left · an admin can give it a new one |
+| All agents paused | hollow | Paused · An admin paused all agents |
+
+Checked: `web/tests/chat-agent-state.test.mjs` (each state, the bar, a member
+without Resume, one resume for a double click, the `agents` change, working and
+waiting) and the PostgreSQL pause test (`activity_controls_tests.rs`: the directory
+says paused and resumed, and the change is announced).
+

@@ -1,17 +1,19 @@
 import { AgentFace, AiTag, PersonFace } from '../faces';
 import { directPartner, type Conversation, type Directory, type Participant } from './model';
 import { PresenceDot } from './presence-view';
+import { AgentDot } from './agent-state';
 
 /** A channel shows # (or a lock when private); a direct message shows the other side, with their online dot. */
-export function ConversationFace({ chat, directory }: { chat: Conversation; directory: Directory }) {
+export function ConversationFace({ chat, directory, working = false }: { chat: Conversation; directory: Directory; working?: boolean }) {
   const partner = directPartner(chat, directory);
-  if (partner) return <ParticipantFace kind={partner.kind} who={partner.who} presence />;
+  if (partner) return <ParticipantFace kind={partner.kind} who={partner.who} presence working={working} />;
   return <span className="chat-avatar channel" aria-hidden="true">{chat.visibility === 'public' ? '#' : <LockIcon />}</span>;
 }
 
-/** `presence` adds a person's green dot (D245); agents never have one. */
-export function ParticipantFace({ kind, who, presence = false }: { kind: 'user' | 'agent'; who: Participant; presence?: boolean }) {
-  if (kind === 'agent') return <AgentFace agent={who} />;
+/** `presence` adds a person's green dot (D245) or an agent's state dot: ready,
+ * working for you (`working`) or paused (2026-11-20). */
+export function ParticipantFace({ kind, who, presence = false, working = false }: { kind: 'user' | 'agent'; who: Participant; presence?: boolean; working?: boolean }) {
+  if (kind === 'agent') return <AgentFace agent={who} badge={presence ? <AgentDot agent={who} working={working} /> : undefined} />;
   // The dot subscribes on its own, so a change rerenders only the faces showing that person.
   return <PersonFace person={who} badge={presence ? <PresenceDot id={who.id} /> : undefined} />;
 }

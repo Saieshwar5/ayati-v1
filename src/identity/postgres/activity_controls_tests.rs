@@ -3,6 +3,7 @@
 //! asked; never when an action's outcome is unknown).
 use super::super::tests::{chat, fixture, join, message, user, workspace};
 use super::super::*;
+use serde_json::json;
 
 /// Makes `person` the agent's one owner; the admin who created it stays an admin.
 async fn make_owner(db: &PgStore, w: &str, agent: &str, person: &User) {
@@ -79,12 +80,23 @@ async fn the_owner_and_admins_pause_one_agent_and_others_cannot() {
     assert!(!paused(&db, &agent).await.0);
 
     let before = paused(&db, &agent).await.1;
+    let announced = || async {
+        let row = query(&db.db, "SELECT count(*) AS n FROM relay_sync_events WHERE workspace=$1 AND kind='agents'", vec![w.clone().into()]).await.unwrap().unwrap();
+        row.try_get::<i64>("", "n").unwrap()
+    };
+    let announced_before = announced().await;
+    let ready = db.allowed_shared_agent(&admin, &w, &agent).await.unwrap().unwrap();
+    assert_eq!((ready["paused"].clone(), ready["needs_owner"].clone(), ready["all_paused"].clone()), (json!(false), json!(false), json!(false)));
     let result = db
         .agent_pause_set(&manager, &w, &agent, true)
         .await
         .unwrap();
     assert_eq!(result["paused"], true);
     assert_eq!(paused(&db, &agent).await, (true, before + 1));
+    // Chat's directory says so, and open pages are told to read it again.
+    let seen_in_chat = db.allowed_shared_agent(&admin, &w, &agent).await.unwrap().unwrap();
+    assert_eq!(seen_in_chat["paused"], true);
+    assert_eq!(announced().await, announced_before + 1);
     // Asking again changes nothing, so a double click is harmless.
     db.agent_pause_set(&manager, &w, &agent, true)
         .await
@@ -122,6 +134,7 @@ async fn the_owner_and_admins_pause_one_agent_and_others_cannot() {
     // The owner (here also the admin) resumes it.
     db.agent_pause_set(&admin, &w, &agent, false).await.unwrap();
     assert!(!paused(&db, &agent).await.0);
+    assert_eq!(db.allowed_shared_agent(&admin, &w, &agent).await.unwrap().unwrap()["paused"], false);
 }
 
 #[tokio::test]
