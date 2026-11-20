@@ -1,0 +1,18 @@
+/* An agent's state (agent-state.tsx): where a person's online dot is, with an
+   agent's meaning. Green: takes your message now. Purple, pulsing: working for
+   you here. Hollow: paused. */
+.presence-dot.agent-dot-ready, .agent-line-dot.agent-dot-ready { background: var(--online); }
+.presence-dot.agent-dot-working, .agent-line-dot.agent-dot-working { background: var(--working); animation: agent-working 1.4s ease-in-out infinite; }
+.presence-dot.agent-dot-paused, .agent-line-dot.agent-dot-paused { background: var(--surface); border: 2px solid var(--muted); }
+.agent-line-dot { display: inline-block; width: 7px; height: 7px; box-sizing: border-box; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.agent-line-dot.agent-dot-paused { border-width: 1.5px; }
+.agent-line { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-line-label { color: var(--text); }
+.agent-line-detail { color: var(--muted); }
+@keyframes agent-working { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .agent-dot-working { animation: none !important; } }
+@media (forced-colors: active) { .agent-dot-paused { border-color: CanvasText; } .agent-dot-ready, .agent-dot-working { background: Highlight; } }
+
+/* In place of the message box while the agent takes no messages. */
+.chat-paused-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 14px; margin: 14px max(16px, calc((100% - var(--chat-reading-width, 760px)) / 2)) 24px; padding: 14px 16px; border: 1px dashed var(--border-control); border-radius: 16px; color: var(--muted); font-size: 13.5px; text-align: center; }
+@media (max-width: 600px) { .chat-paused-bar { margin: 10px 10px 14px; } }

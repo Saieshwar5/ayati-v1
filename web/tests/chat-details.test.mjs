@@ -49,12 +49,14 @@ async function open(render, conversation) {
 const panel = () => document.querySelector('aside.chat-side-panel');
 const inPanel = label => [...(panel()?.querySelectorAll('button') ?? [])].find(node => node.textContent === label || node.getAttribute('aria-label') === label);
 const memberNames = () => [...panel().querySelectorAll('.chat-details-members .chat-name-text')].map(node => node.textContent);
+/** The conversation's name in its header opens Details (channels) or the profile (direct messages). */
+const headerName = () => document.querySelector('.chat-pane-header .chat-header-name');
 const escape = (dom, update) => update(() => document.activeElement.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
 
 test('Details opens as a panel beside the conversation, takes focus, and Escape or Close returns it to the trigger', async () => {
   await reactFixture(async ({ render, button, click, update, dom }) => {
     await open(render, 'orders');
-    const trigger = button('Details');
+    const trigger = headerName();
     assert.equal(trigger.getAttribute('aria-expanded'), 'false');
     await click(trigger);
     assert.equal(document.querySelectorAll('dialog').length, 0, 'not a modal dialog');
@@ -67,7 +69,7 @@ test('Details opens as a panel beside the conversation, takes focus, and Escape 
     assert.equal(document.activeElement.textContent, '#orders', 'on its title');
     await escape(dom, update);
     assert.equal(Boolean(panel()), false);
-    assert.equal(document.activeElement === trigger, true, 'focus returns to Details');
+    assert.equal(document.activeElement === trigger, true, 'focus returns to the name that opened it');
     await click(trigger);
     await click(inPanel('Close orders details'));
     assert.equal(Boolean(panel()), false);
@@ -82,7 +84,7 @@ test('members are listed once with faces and AI tags; managers see add, remove a
   const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     assert.deepEqual(memberNames(), ['Priya Shah (you)', 'Atlas', 'Meera Iyer', 'Ravi Kumar']);
     assert.equal(panel().textContent.split('Meera Iyer').length - 1, 1, 'each member appears once');
     assert.equal(panel().querySelectorAll('input[type=checkbox]').length, 0, 'no checkbox list of the workspace');
@@ -110,7 +112,7 @@ test('non-managers see the list without add, remove, archive or settings, and Vi
   const writes = [];
   await reactFixture(async ({ render, button, click }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     assert.deepEqual(memberNames(), ['Ravi Kumar (you)', 'Atlas', 'Meera Iyer', 'Priya Shah']);
     for (const label of ['Add people', 'Add agent', 'Archive']) assert.equal(Boolean(inPanel(label)), false, label);
     assert.doesNotMatch(panel().textContent, /Channel settings/);
@@ -131,7 +133,7 @@ test('a manager adds a person and an agent with one request each, a double click
   const writes = []; let pending;
   await reactFixture(async ({ render, button, click, update }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Add people'));
     assert.equal(document.activeElement.getAttribute('aria-label'), 'Search people to add', 'focus moves to the search');
     assert.deepEqual([...panel().querySelectorAll('.chat-details-adding .chat-name-text')].map(node => node.textContent), ['Arjun Mehta']);
@@ -165,7 +167,7 @@ test('channel settings save together once; a failed save keeps the values and sh
   const writes = []; let pending, current = orders;
   await reactFixture(async ({ render, button, click, change, update }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     const save = () => inPanel('Save changes') ?? inPanel('Saving…');
     assert.equal(save().disabled, true, 'nothing to save yet');
     const name = panel().querySelector('.chat-details-form input:not([type=radio])');
@@ -196,7 +198,7 @@ test('archive review opens in place inside Details and lists the unfinished work
   const writes = []; let archived = false;
   await reactFixture(async ({ render, button, click, update, dom }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     const archive = inPanel('Archive');
     await click(archive);
     assert.equal(document.querySelectorAll('dialog').length, 0, 'no stacked modal');
@@ -236,7 +238,7 @@ test('archive review opens in place inside Details and lists the unfinished work
 test('a direct message shows the person’s profile with notifications and Pin, and no member list, settings or archive', async () => {
   await reactFixture(async ({ render, button, click }) => {
     await open(render, 'dm-meera');
-    await click(button('Profile'));
+    await click(headerName());
     assert.equal(panel().getAttribute('aria-label'), 'Meera Iyer profile');
     const text = panel().textContent;
     for (const shown of [/Leads residential interiors\./, /meera@example\.test/, /Design lead/, /Direct messages have no member list, settings or archive\./]) assert.match(text, shown);
@@ -251,7 +253,7 @@ test('a late reply for the previous conversation never replaces the open one', a
   const late = held();
   await reactFixture(async ({ render, button, click, update }) => {
     const WorkspaceChat = await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Archive'));
     assert.match(panel().textContent, /Checking unfinished work/);
     await render(WorkspaceChat, { href: `${base}&conversation=general` });
@@ -273,7 +275,7 @@ test('a creator who is not an admin edits the name, description and who can post
   const writes = []; let current = { ...orders, creator: 'meera', managers: ['priya', 'meera'] };
   await reactFixture(async ({ render, button, click, change, update }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     const badges = [...panel().querySelectorAll('.chat-details-member')].filter(row => row.querySelector('.ui-badge')).map(row => row.querySelector('.chat-name-text').textContent);
     assert.deepEqual(badges, ['Meera Iyer (you)', 'Priya Shah'], 'the creator and admins are marked Manager');
     assert.match(panel().textContent, /Created by Meera Iyer/);
@@ -304,7 +306,7 @@ test('Leave asks in place, sends once, keeps the question after a failure, and a
   const writes = []; let pending, current = orders;
   await reactFixture(async ({ render, button, click, update, dom }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Leave #orders'));
     assert.equal(writes.length, 0, 'opening the question writes nothing');
     assert.equal(document.activeElement.textContent, 'Leave #orders?', 'focus moves to the question');
@@ -335,7 +337,7 @@ test('leaving a private channel returns to the list; its last manager is told to
   const writes = [];
   await reactFixture(async ({ render, button, click, dom }) => {
     await open(render, 'general');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Leave #general'));
     assert.match(panel().textContent, /You stop seeing #general, its history and files/);
     await click(inPanel('Leave channel'));
@@ -346,7 +348,7 @@ test('leaving a private channel returns to the list; its last manager is told to
     post: (path, body) => { writes.push({ path, body }); return response({ ok: true }); } }) });
   await reactFixture(async ({ render, button, click }) => {
     await open(render, 'general');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Leave #general'));
     assert.match(panel().textContent, /Nobody else in #general could manage it\. Add a workspace admin to it before you leave\./);
     assert.equal(inPanel('Leave channel').disabled, true);
@@ -360,7 +362,7 @@ test('the archive review lists each unfinished request with its agent, state and
   ];
   await reactFixture(async ({ render, button, click }) => {
     await open(render, 'orders');
-    await click(button('Details'));
+    await click(headerName());
     await click(inPanel('Archive'));
     const rows = [...panel().querySelectorAll('.chat-archive-item')];
     assert.deepEqual(rows.map(row => row.querySelector('.chat-archive-asked').textContent), ['@Atlas Menon delivery slot', 'Reply to Mrs Rao']);

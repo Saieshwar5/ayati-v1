@@ -24,6 +24,7 @@ import { useAssistantDraft } from './assistant-draft';
 import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
+import { PausedBar, takesMessages, workingForYou } from './agent-state';
 import { ConversationSearch } from './conversation-search';
 import type { Level } from './notifications';
 import { readingAnchor, restoreReading, type ReadingAnchor } from './reading-position';
@@ -246,9 +247,12 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     updateDraft(text);
     requestAnimationFrame(() => { const field = composerField(); field?.focus(); field?.setSelectionRange(text.length, text.length); });
   };
+  // A direct message's agent: what it is doing for you here, and whether it takes messages now.
+  const working = partner?.kind === 'agent' ? workingForYou(allMessages, partner.who.id) : undefined;
+  const agentFree = partner?.kind !== 'agent' || takesMessages(partner.who);
   const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
-    <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)}
+    <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)} working={working}
       level={level} levelChanged={levelChanged} details={details}
       extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
     <ConnectionBanner status={connection} />
@@ -274,13 +278,13 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
-    {emptyAssistant && !draft && !chat.archived && <ExampleRequests use={startExample} />}
-    <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
+    {emptyAssistant && !draft && !chat.archived && agentFree && <ExampleRequests use={startExample} />}
+    {!agentFree && partner?.kind === 'agent' ? <PausedBar agent={partner.who} admin={directory.role === 'Admin'} /> : <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…" tools={assist.tool} notice={assist.notice}
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
-      ]} />
+      ]} />}
     {/* A name in a thread opens its profile beside the conversation, so the thread closes first. */}
     {visibleHistory && thread && allMessages.some(message => message.id === thread) && <ShowProfile.Provider value={target => { setThread(undefined); showProfile(target); }}>
       <ChatThread focus={focus} read={replyRead} direct={directAgent || undefined} place={place} people={directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const }))} key={thread} archived={chat.archived} chat={chat.id} root={allMessages.find(message => message.id === thread)!} history={visibleHistory} directory={directory} close={() => setThread(undefined)} refresh={() => refresh.current()} />

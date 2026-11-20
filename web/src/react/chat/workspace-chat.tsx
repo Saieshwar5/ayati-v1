@@ -91,6 +91,8 @@ export function WorkspaceChat({ href }: { href: string }) {
       .then(notify => { if (!abort.signal.aborted) setLevels(notify.levels ?? {}); }).catch(() => {});
     const unsubscribe = subscribeChanges(change => {
       if (change.kind === 'access' || change.kind === 'reset') { sourceEpoch.current++; void load(); }
+      // An agent or all agents were paused or resumed: their dots and message boxes change.
+      if (change.kind === 'agents') void load();
       if (change.kind === 'levels') readLevels();
     });
     return () => { sourceEpoch.current++; abort.abort(); unsubscribe(); };
