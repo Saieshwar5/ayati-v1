@@ -21,11 +21,13 @@ export function localDestination(href: string, current = new URL(window.location
   if (url.search === current.search && url.hash !== current.hash) return;
   return url;
 }
-export function navigate(href: string): void {
+/** `replace` swaps the current history entry, for redirects that should not add a Back step. */
+export function navigate(href: string, { replace = false }: { replace?: boolean } = {}): void {
   const destination = localDestination(href);
   if (!destination) { location.assign(href); return; }
   if (destination.href === window.location.href) return;
-  window.history.pushState(null, '', destination);
+  if (replace) window.history.replaceState(null, '', destination);
+  else window.history.pushState(null, '', destination);
   window.dispatchEvent(new window.Event(eventName));
 }
 export function subscribeNavigation(changed: () => void): () => void {
