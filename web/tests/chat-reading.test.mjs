@@ -201,3 +201,52 @@ test('threads with new replies are listed above the messages and open from there
     } });
   } finally { seen.restore(); Object.assign(globalThis, original); }
 });
+
+test('a visible window that is not focused counts as read only while the person uses it', async () => {
+  const seen = visibility();
+  try {
+    await reactFixture(async ({ dom, render }) => {
+      await (await import('../src/workspace-context.ts')).enterWorkspace();
+      const { useSeen } = await import('../src/react/chat/receipt.tsx');
+      const { RECENT_USE_MS } = await import('../src/react/chat/reading-attention.ts');
+      const read = [];
+      const note = id => read.push(id);
+      function Probe({ items }) {
+        return createElement('div', null, items.map(item => createElement(Row, { key: item.id, item })));
+      }
+      function Row({ item }) { return createElement('article', { ref: useSeen(item, false, note), 'data-id': item.id }); }
+      const use = (type = 'pointermove') => act(async () => { document.dispatchEvent(new dom.window.Event(type, { bubbles: true })); });
+      reading(dom, false);
+      await render(Probe, { items: [message('a', 1)] });
+      const row = id => document.querySelector(`[data-id="${id}"]`);
+
+      await seen.show(row('a'));
+      await linger();
+      assert.deepEqual(read, [], 'Cuckoo on another screen, nobody using it');
+      await use();
+      await linger();
+      assert.deepEqual(read, ['a'], 'moving the pointer over it reads what is shown');
+
+      // Scrolling the page itself is not the person.
+      await render(Probe, { items: [message('a', 1), message('b', 2)] });
+      const realNow = Date.now;
+      try {
+        Date.now = () => realNow() + RECENT_USE_MS + 1000;
+        await act(async () => { document.querySelector('div').dispatchEvent(new dom.window.Event('scroll')); });
+        await seen.show(row('b'));
+        await linger();
+        assert.deepEqual(read, ['a'], 'long after the last use');
+        await use('wheel');
+        await linger();
+        assert.deepEqual(read, ['a', 'b'], 'scrolling with the wheel is using it');
+      } finally { Date.now = realNow; }
+
+      // A hidden tab never reads, used or not.
+      Object.defineProperty(dom.window.document, 'hidden', { configurable: true, value: true });
+      await render(Probe, { items: [message('a', 1), message('b', 2), message('c', 3)] });
+      await use(); await seen.show(row('c'));
+      await linger();
+      assert.deepEqual(read, ['a', 'b']);
+    }, { url, fetch: async () => response(session) });
+  } finally { seen.restore(); }
+});

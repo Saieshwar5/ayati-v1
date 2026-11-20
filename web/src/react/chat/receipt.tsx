@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { acknowledge } from './live';
+import { attentive, subscribeAttention } from './reading-attention';
 import { chatRequest, type Message } from './model';
 
 /** How much of a message, or of the area it is read in, must show before it counts as read. */
@@ -26,18 +27,24 @@ function scrollArea(node: HTMLElement): HTMLElement | null {
   return null;
 }
 
-/** Marks someone else's message read once it has been shown for a moment in a
- * focused, visible window. `read` hears which message, so a thread's count of
- * new replies can drop at once; pass a stable function. */
+/** Marks someone else's message read once it has been shown for a moment while
+ * the person is looking at the page (reading-attention.ts). `read` hears which
+ * message, so a thread's count of new replies can drop at once; pass a stable function. */
 export function useSeen(message: Message, own: boolean, read?: (id: string) => void) {
   const element = useRef<HTMLElement>(null);
   useEffect(() => {
     const node = element.current;
     if (own || !message.chat || !node || !['sent', 'complete'].includes(message.state)) return;
-    let visible = false, timer: number | undefined, area: HTMLElement | null | undefined;
+    // Read once is enough: focus and renewed use must not send it again.
+    let visible = false, done = false, timer: number | undefined, area: HTMLElement | null | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      if (visible && !document.hidden && document.hasFocus()) timer = window.setTimeout(() => { acknowledge(message.chat!, [message], true); read?.(message.id); }, 700);
+      if (done || !visible || !attentive()) return;
+      timer = window.setTimeout(() => {
+        // Still looked at: an unfocused window counts only while it is being used.
+        if (!attentive()) return;
+        done = true; acknowledge(message.chat!, [message], true); read?.(message.id);
+      }, 700);
     };
     const observer = new IntersectionObserver(entries => {
       const entry = entries[entries.length - 1];
@@ -50,8 +57,9 @@ export function useSeen(message: Message, own: boolean, read?: (id: string) => v
       schedule();
     }, { threshold: SEEN_STEPS });
     observer.observe(node);
+    const unsubscribe = subscribeAttention(schedule);
     window.addEventListener('focus', schedule); window.addEventListener('blur', schedule); document.addEventListener('visibilitychange', schedule);
-    return () => { clearTimeout(timer); observer.disconnect(); window.removeEventListener('focus', schedule); window.removeEventListener('blur', schedule); document.removeEventListener('visibilitychange', schedule); };
+    return () => { clearTimeout(timer); observer.disconnect(); unsubscribe(); window.removeEventListener('focus', schedule); window.removeEventListener('blur', schedule); document.removeEventListener('visibilitychange', schedule); };
   }, [message.id, message.chat, message.state, own, read]);
   return element;
 }
