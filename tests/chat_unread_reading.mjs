@@ -71,7 +71,7 @@ test('reading a conversation clears its unread count, and thread replies say the
   await cleared(threaded);
   await line.locator('.chat-thread-new').waitFor({ state: 'detached' });
   await row('threaded').locator('.chat-unread').waitFor({ state: 'detached' });
-  await page.locator('.workspace-rail .workspace-nav-unread').waitFor({ state: 'detached' });
+  await page.locator('.workspace-rail [title=Chat] .workspace-nav-unread').waitFor({ state: 'detached' });
   app.pass('thread replies are marked new and are read in the thread');
 
   // 4. A reply that arrives while the channel is open (thread closed) is marked new at once.
@@ -80,4 +80,47 @@ test('reading a conversation clears its unread count, and thread replies say the
   await line.locator('.chat-thread-new').getByText('1 new', { exact: true }).waitFor();
   await cleared(threaded, 1);
   app.pass('a reply arriving in a closed thread is marked new');
+
+  // 5. A thread far older than the loaded history: the bar above the messages opens it.
+  const archive = await channel('archive');
+  const old = await say(archive, 'An old question about March stock');
+  await say(archive, 'A reply nobody has read yet', { thread: old });
+  for (let n = 0; n < 205; n++) await app.request(`${app.path}/chats/${archive}/messages`, app.cookie, { id: randomUUID(), content: `Newer note ${n}` });
+  await cleared(archive, 2);
+  await open(archive);
+  const bar = page.getByRole('region', { name: 'Threads with new replies' });
+  await bar.getByText('New replies in 1 thread', { exact: true }).waitFor();
+  await bar.getByRole('button', { name: /^Open thread “An old question about March stock”: 1 new reply$/ }).click();
+  await page.getByRole('dialog', { name: 'Thread', exact: true }).getByText('A reply nobody has read yet').waitFor();
+  await cleared(archive);
+  await bar.waitFor({ state: 'detached' });
+  app.pass('an unread reply under a question older than the loaded history is listed and read from the bar');
+
+  // 6. Muted on another device: this page's bell, the rail and the tab title follow.
+  const other = await channel('other device');
+  await say(other, 'Something on a channel you are about to mute');
+  await page.goto(`${app.base}/w/${w}/?view=home`);
+  const chatCount = page.locator('.workspace-rail [title=Chat] .workspace-nav-unread');
+  await chatCount.getByText('2', { exact: true }).waitFor();
+  await until(async () => (await page.title()) === '(2) Home · Cuckoo', 'the tab title shows what is waiting', 15000);
+  await app.request(`${app.path}/chats/${other}/notifications`, app.cookie, { level: 'none' });
+  await chatCount.getByText('1', { exact: true }).waitFor({ timeout: 15000 });
+  await until(async () => (await page.title()) === '(1) Home · Cuckoo', 'the tab title follows the mute', 15000);
+  await page.locator('.workspace-rail [title=Chat]').click();
+  await row('other device').locator('.chat-muted').waitFor();
+  app.pass('a mute made on another device reaches the open page');
+
+  // 7. A visible window that is not focused reads only while it is used.
+  await open(plain);
+  // Headless Chromium reports every page focused, so this stands in for the
+  // operating system moving focus to another app; the page stays visible.
+  await page.evaluate(() => { document.hasFocus = () => false; window.dispatchEvent(new Event('blur')); });
+  assert.equal(await page.evaluate(() => document.hidden), false, 'the window is still visible');
+  await say(plain, 'Sent while you were typing in another window');
+  await page.getByText('Sent while you were typing in another window').waitFor();
+  await page.waitForTimeout(3000);
+  assert.equal(await unread(plain), 1, 'not read while nobody uses that window');
+  await page.mouse.move(640, 400); await page.mouse.move(660, 420);
+  await cleared(plain);
+  app.pass('a visible, unfocused window reads once the person uses it');
 });
