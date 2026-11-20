@@ -5,6 +5,8 @@ import { useMutation } from '../requests';
 import { chatRequest, type Conversation, type Directory } from './model';
 import { useDirectConversation, type DirectTarget } from './direct-conversation';
 import { ParticipantFace, ParticipantName } from './conversation-face';
+import { startFacts, teamAgent } from './start-model';
+import { createAgentHref, inviteHref } from './chat-start';
 
 export function CreateConversation({ directory, chats = [], mode, close, created }: {
   directory: Directory; chats?: Conversation[]; mode: 'channel' | 'direct'; close: () => void;
@@ -16,29 +18,34 @@ export function CreateConversation({ directory, chats = [], mode, close, created
   const [selected, setSelected] = useState<string[]>([]);
   const mutation = useMutation();
   const id = useRef(crypto.randomUUID());
+  // React's autoFocus runs while the dialog is still closed; the dialog focuses this once open.
+  const nameField = useRef<HTMLInputElement>(null), searchField = useRef<HTMLInputElement>(null);
+  const facts = startFacts(directory);
   const direct = useDirectConversation(chats, created);
   const busy = mode === 'direct' ? direct.busy : mutation.busy;
   const status = mode === 'direct' ? direct.status : mutation.status;
   const users = directory.users.filter(user => user.id !== workspaceSession?.user?.id);
-  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' || agent.audience !== 'only_me').map(agent => ({ ...agent, kind: 'agent' as const }))];
+  const choices: DirectTarget[] = [...users.map(user => ({ ...user, kind: 'user' as const })), ...directory.agents.filter(agent => mode === 'direct' || teamAgent(agent)).map(agent => ({ ...agent, kind: 'agent' as const }))];
   const create = (members: string[], title: string) => mutation.run(async () => {
     const users = members.filter(key => key.startsWith('user:')).map(key => key.slice(5));
     const agents = members.filter(key => key.startsWith('agent:')).map(key => key.slice(6));
     const result = await chatRequest<{ id: string }>('/chats', { id: id.current, kind: mode, name: title, description, users, agents });
     created(result.id);
   });
-  return <Dialog title={mode === 'channel' ? 'Create channel' : 'New message'} busy={busy} status={status} close={close}>
+  return <Dialog title={mode === 'channel' ? 'Create channel' : 'New message'} busy={busy} status={status} close={close} initialFocus={mode === 'channel' ? nameField : searchField}>
     <form className="chat-create" onSubmit={event => { event.preventDefault(); if (selected.length) void create(selected, name); }}>
-      {mode === 'channel' && <><label>Channel name<input autoFocus required maxLength={100} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. inventory" /></label>
+      {mode === 'channel' && <><label>Channel name<input ref={nameField} required maxLength={100} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. inventory" /></label>
         <label>Purpose <span>(optional)</span><input maxLength={300} value={description} onChange={e => setDescription(e.target.value)} placeholder="Stock, suppliers and incoming deliveries" /></label>
         <p className="chat-help">Private channel · only invited members can read messages. You are included.</p></>}
-      <label>{mode === 'channel' ? 'Add people or agents' : 'Find a person or agent'}<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search workspace…" /></label>
+      <label>{mode === 'channel' ? 'Add people or agents' : 'Find a person or agent'}<input ref={searchField} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search workspace…" /></label>
       <div className="chat-choice-list">{choices.filter(item => `${item.name} ${item.email ?? ''}`.toLowerCase().includes(query.toLowerCase())).map(item => {
         const key = `${item.kind}:${item.id}`;
         return mode === 'channel' ? <label className="chat-choice" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e => setSelected(values => e.target.checked ? [...values, key] : values.filter(value => value !== key))} /><span><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? item.role : item.title || item.email}</small></span></label>
           : <button type="button" className="chat-contact" key={key} onClick={() => void direct.choose(item)}><ParticipantFace kind={item.kind} who={item} /><span><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? item.role : item.title || item.email}</small></span></button>;
       })}</div>
-      {!choices.length && <p className="chat-help">Invite a workspace member or create an agent to start a conversation.</p>}
+      {/* Nobody else here yet: the way to add someone, not a sentence about it. */}
+      {facts.admin && !facts.people.length && <a className="chat-invite-row" href={inviteHref()}><span aria-hidden="true">+</span>Invite people</a>}
+      {!choices.length && <a className="chat-invite-row" href={createAgentHref()}><span aria-hidden="true">+</span>Create agent</a>}
       {mode === 'channel' && <Button primary type="submit" disabled={!name.trim() || !selected.length || mutation.busy}>Create channel</Button>}
     </form>
   </Dialog>;

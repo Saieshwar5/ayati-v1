@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { workspaceSession, workspaceUrl } from '../../workspace-context';
 import { Button, Dialog } from '../ui';
 import { ParticipantFace, ParticipantName } from './conversation-face';
@@ -29,6 +29,7 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const direct = useDirectConversation(chats, opened);
+  const search = useRef<HTMLInputElement>(null);
   const showProfile = useShowProfile();
   const me = workspaceSession?.user?.id;
   const everyone: DirectTarget[] = [
@@ -42,10 +43,10 @@ export function PeopleDirectory({ directory, chats, preferences, togglePin, clos
   const pinTarget = (target: DirectTarget) => void direct.run(async () => {
     togglePin({ kind: 'chat', id: await direct.ensure(target) });
   });
-  return <Dialog title="People & agents" busy={direct.busy} status={direct.status} close={close}
+  return <Dialog title="People & agents" busy={direct.busy} status={direct.status} close={close} initialFocus={search}
     footer={directory.role === 'Admin' ? <a className="ui-button" href={workspaceUrl('/?view=settings&section=people')}>Invite people</a> : undefined}>
     <div className="people-directory">
-      <input type="search" aria-label="Search people and agents" placeholder="Search by name or job" value={query} onChange={event => setQuery(event.target.value)} autoFocus />
+      <input type="search" aria-label="Search people and agents" placeholder="Search by name or job" value={query} onChange={event => setQuery(event.target.value)} ref={search} />
       <div className="people-directory-filters" role="group" aria-label="Show">
         {([['all', 'All'], ['user', 'People'], ['agent', 'Agents']] as const).map(([value, label]) =>
           <Button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} <small>{count(value)}</small></Button>)}

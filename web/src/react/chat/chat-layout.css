@@ -4,7 +4,9 @@
 .workspace-chat .chat-directory > header { height:var(--chat-header-height); min-height:var(--chat-header-height); padding:0 20px; border:0; }
 .workspace-chat .chat-directory .chat-search-button { width:36px; height:36px; background:var(--soft); border-radius:10px; }
 .workspace-chat .chat-directory-scroll { padding:16px 12px; }
-.workspace-chat .chat-directory section { margin-bottom:30px; }
+.workspace-chat .chat-directory section { margin-bottom:18px; }
+/* For you and your assistant read as one group at the top. */
+.workspace-chat .chat-directory section[aria-label="For you"] { margin-bottom:2px; }
 .workspace-chat .chat-directory section > header { margin-bottom:8px; }
 .workspace-chat .chat-directory .chat-contact { min-height:40px; padding:5px 8px; gap:10px; border-radius:9px; }
 .workspace-chat .chat-directory .chat-avatar { width:28px; height:28px; flex-basis:28px; font-size:11px; }
@@ -13,6 +15,9 @@
 .chat-search-results .chat-avatar.channel { background:var(--soft); border-radius:12px; font-size:23px; }
 .workspace-chat .chat-contact:focus-visible { outline-offset:-2px; }
 .workspace-chat .chat-pane-header { min-height:var(--chat-header-height); height:var(--chat-header-height); padding:10px 20px; gap:12px; flex-shrink:0; }
+/* Borderless icon buttons (design system); a fill shows hover and an open menu. */
+.workspace-chat .chat-pane-header .ui-icon { border-color:transparent; background:transparent; box-shadow:none; }
+.workspace-chat .chat-pane-header .ui-icon:hover:not(:disabled), .workspace-chat .chat-pane-header .ui-icon[aria-expanded=true] { background:var(--selection); }
 .workspace-chat .chat-pane-header > .chat-avatar, .workspace-chat .chat-header-identity > .chat-avatar { width:40px; height:40px; flex-basis:40px; font-size:20px; }
 .workspace-chat .chat-pane-header > .chat-avatar.channel { border-radius:12px; background:var(--soft); }
 .workspace-chat .chat-pane-header h2 { font-size:16px; }

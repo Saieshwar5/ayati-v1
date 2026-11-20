@@ -45,7 +45,6 @@
 .chat-welcome > div { max-width:350px; text-align:center; }
 .chat-welcome h2 { font-size:22px; font-weight:500; }
 .chat-welcome p,.chat-empty p { font-size:14px; color:var(--muted); line-height:1.6; }
-.chat-welcome-mark { font-size:35px; color:var(--muted); }
 .chat-empty { padding:35px 0; text-align:center; color:var(--muted); }
 .chat-empty h3 { font-size:17px; color:var(--text); font-weight:500; }
 .chat-create label:not(.chat-choice) { display:block; font-size:13px; margin:0 0 18px; }
@@ -53,7 +52,8 @@
 .chat-create label > span { color:var(--muted); }
 .chat-choice-list { max-height:260px; overflow:auto; margin:12px 0 20px; }
 .chat-choice { display:flex; align-items:center; gap:10px; padding:11px 3px; font-size:13px; }
-.chat-choice span { flex:1; overflow-wrap:anywhere; }
+/* Only the text column grows: a nested name or AI tag stretching would cut the name short. */
+.chat-choice > span { flex:1; min-width:0; overflow-wrap:anywhere; }
 .chat-choice small { color:var(--muted); }
 .chat-back { display:none; }
 @media(max-width:900px) { .chat-directory { width:195px; flex-basis:195px; padding-right:10px; } }

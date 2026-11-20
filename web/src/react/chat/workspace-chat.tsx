@@ -30,6 +30,10 @@ import { ThreadMark } from './assistant-threads';
 import { ForYouPage } from './for-you';
 import { forYouCount } from './for-you-model';
 import { chatPlaceUrl, forgetChatPlace, rememberChatPlace, rememberedChatPlace } from './last-chat-place';
+import { nobodyForChannel, nobodyToMessage, onlyAssistantChat, startFacts, usePendingInvites } from './start-model';
+import { ChatStart, inviteHref, StartTiles } from './chat-start';
+import { AddSomeone } from './add-someone';
+import { AgentFace, PersonFace } from '../faces';
 
 export function WorkspaceChat({ href }: { href: string }) {
   const url = new URL(href), selected = url.searchParams.get('conversation');
@@ -46,6 +50,9 @@ export function WorkspaceChat({ href }: { href: string }) {
   const [error, setError] = useState('');
   const [search, setSearch] = useState(false);
   const [chooser, setChooser] = useState<'channel' | 'direct'>();
+  // Under a ＋ when nobody could be added yet: invite people or create an agent first.
+  const [adding, setAdding] = useState<'channel' | 'direct'>();
+  const plusButtons = { channel: useRef<HTMLButtonElement>(null), direct: useRef<HTMLButtonElement>(null) };
   const [people, showPeople] = useState(false);
   const [panel, setPanel] = useState<PanelView>();
   const [showList, setShowList] = useState(!selected && !forYou);
@@ -109,6 +116,22 @@ export function WorkspaceChat({ href }: { href: string }) {
   const assistantChat = mine ? chats.find(chat => chat.kind === 'direct' && chat.agents.length === 1 && chat.agents[0] === mine && chat.users.length === 1) : undefined;
   const threads = useAssistantThreads(assistantChat ? mine : undefined, assistantChat?.id);
   const assistantName = directory?.agents.find(agent => agent.id === mine)?.name ?? 'Your assistant';
+  const facts = directory ? startFacts(directory) : undefined;
+  const invites = usePendingInvites(facts?.admin ?? false);
+  const firstVisit = Boolean(facts) && onlyAssistantChat(chats, assistantChat?.id);
+  /** A section's ＋: the ordinary dialog, or the choice to add someone first. */
+  const plus = (mode: 'channel' | 'direct') => {
+    if (!facts) return;
+    if (mode === 'channel' ? nobodyForChannel(facts) : nobodyToMessage(facts)) setAdding(previous => previous === mode ? undefined : mode);
+    else { setAdding(undefined); setChooser(mode); }
+  };
+  const closeAdding = (restoreFocus: boolean) => {
+    const mode = adding; setAdding(undefined);
+    if (restoreFocus && mode) plusButtons[mode].current?.focus();
+  };
+  const addSomeone = (mode: 'channel' | 'direct') => adding === mode && facts && <AddSomeone mode={mode} facts={facts} invites={invites} close={closeAdding} />;
+  const plusButton = (mode: 'channel' | 'direct', label: string) => <Button ref={plusButtons[mode]} className="ui-icon" data-add-someone={mode}
+    aria-label={label} title={label} aria-expanded={adding === mode || undefined} disabled={!directory} onClick={() => plus(mode)}>＋</Button>;
   const contact = (chat: Conversation) => {
     const name = directory ? conversationName(chat, directory) : chat.name;
     const partner = directory ? directPartner(chat, directory) : undefined;
@@ -158,14 +181,20 @@ export function WorkspaceChat({ href }: { href: string }) {
           <span><span className="chat-name-text">For you</span></span>
           {waitingForYou > 0 && <small className="chat-unread chat-unread-mention" aria-label={`${waitingForYou} new for you`}>{waitingForYou > 99 ? '99+' : waitingForYou}</small>}
         </a></div></section>
-        {assistantChat && <section aria-label="Your assistant">{contact(assistantChat)}</section>}{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2><Button className="ui-icon" aria-label="Create channel" title="Create channel" disabled={!directory} onClick={() => setChooser('channel')}>＋</Button></header>
+        {assistantChat && <section aria-label="Your assistant">{contact(assistantChat)}</section>}{activePinned.length > 0 && <section aria-label="Pinned conversations"><header><h2>Pinned</h2><small>Personal</small></header>{activePinned}</section>}<section><header><h2>Channels</h2>{plusButton('channel', 'Create channel')}</header>
+        {addSomeone('channel')}
         {order.chats.filter(chat => chat.kind !== 'direct' && !chat.archived && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
-        {!chats.some(chat => chat.kind !== 'direct' && !chat.archived) && <p className="chat-help">Organize work with your team.</p>}
-      </section><section><header><h2>Direct messages</h2><Button className="ui-icon" aria-label="New message" title="New message" disabled={!directory} onClick={() => setChooser('direct')}>＋</Button></header>{order.chats.filter(chat => chat.kind === 'direct' && chat.id !== assistantChat?.id && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
-      </section>{archived.length > 0 && <section><header><Button className="chat-archive-toggle" aria-expanded={archivedVisible} onClick={() => showArchived(value => !value)}>Archived channels ({archived.length})</Button></header>{archivedVisible && archived.map(contact)}</section>}</div>
-      <Button className="chat-people-button" disabled={!directory} onClick={() => showPeople(true)}>
+      </section><section><header><h2>Direct messages</h2>{plusButton('direct', 'New message')}</header>{addSomeone('direct')}{order.chats.filter(chat => chat.kind === 'direct' && chat.id !== assistantChat?.id && !pinned({ kind: 'chat', id: chat.id })).map(contact)}
+        {facts?.admin && !facts.people.length && adding !== 'direct' && <a className={`chat-invite-row${firstVisit ? ' chat-start-desktop-only' : ''}`} href={inviteHref()}><span aria-hidden="true">+</span>Invite people</a>}
+      </section>{archived.length > 0 && <section><header><Button className="chat-archive-toggle" aria-expanded={archivedVisible} onClick={() => showArchived(value => !value)}>Archived channels ({archived.length})</Button></header>{archivedVisible && archived.map(contact)}</section>}
+        {firstVisit && facts && <div className="chat-start-list"><StartTiles compact facts={facts} invites={invites} message={who => void direct.choose(who)} showAll={() => showPeople(true)} /></div>}</div>
+      <Button className="chat-people-button" disabled={!directory} onClick={() => showPeople(true)}
+        aria-label={directory ? `People & agents, ${directory.users.length} ${directory.users.length === 1 ? 'person' : 'people'}, ${directory.agents.length} ${directory.agents.length === 1 ? 'agent' : 'agents'}` : undefined}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M3 20a6 6 0 0 1 12 0" /><rect x="15" y="9" width="7" height="6" rx="2" /></svg>
-        People &amp; agents{directory && <small>{directory.users.length} · {directory.agents.length}</small>}
+        People &amp; agents{directory && <span className="chat-thread-faces chat-people-faces" aria-hidden="true">
+          {directory.agents.slice(0, 1).map(agent => <AgentFace key={agent.id} agent={agent} className="chat-thread-face" />)}
+          {directory.users.slice(0, 3).map(user => <PersonFace key={user.id} person={user} className="chat-thread-face" />)}
+        </span>}
       </Button>
       {preferences?.available === false && <p className="chat-help">Personal pins and channel archive are unavailable in this workspace.</p>}
       {direct.status && <p className="chat-error" role="alert">{direct.status}</p>}
@@ -176,7 +205,10 @@ export function WorkspaceChat({ href }: { href: string }) {
     <div className="chat-content">
       {forYou ? <ForYouPage directory={directory} back={() => setShowList(true)} />
         : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} returnTo={url.searchParams.get('from') === 'for-you' ? forYouHref : undefined} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} details={details} />
-        : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button><div><span className="chat-welcome-mark">↗</span><h2>{selected ? 'Opening conversation' : 'A place to work together'}</h2><p>{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : 'Message a person, talk to an agent, or bring your team together in a channel.'}</p>{!selected && <Button primary disabled={!directory} onClick={() => setChooser('direct')}>New message</Button>}</div></div>}
+        : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button>{!selected && facts
+          ? <ChatStart facts={facts} invites={invites} openAssistant={assistantChat ? () => open(assistantChat.id) : undefined}
+            message={who => void direct.choose(who)} showAll={() => showPeople(true)} />
+          : <div><h2>{selected ? 'Opening conversation' : 'Chat'}</h2><p role="status">{selected ? error || (directory ? 'This conversation is unavailable or you no longer have access.' : 'Loading your conversations…') : error || 'Loading your conversations…'}</p></div>}</div>}
     </div>
     {panel && directory && <ChatPanel view={panel} setView={setPanel} chat={current} directory={directory} chats={chats} message={messageTarget}
       level={current && levels[current.id]} levelChanged={level => { if (current) setLevels(previous => ({ ...previous, [current.id]: level })); }}

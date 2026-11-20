@@ -256,3 +256,34 @@ scenarios. Stop-to-attach, failed-upload retry and cancellation are covered expl
 Layout checks cover a single-row empty composer, desktop, narrow and 320px dark/short
 windows. The offscreen receipt check uses a short viewport because compact messages
 can now all fit in the previous desktop viewport. No real provider calls were made.
+
+## First visit (2026-11-20)
+
+Chat with nothing open is a start area, not a welcome sentence
+(`web/src/react/chat/chat-start.tsx`). Who can be added comes from the chat
+directory already loaded (`start-model.ts`): people other than you, team agents
+(never an assistant, which joins no channel) and whether you are an admin. Admins
+also read their pending invitations (`GET …/people`); members read nothing extra.
+Everything shown is presentation: the server authorizes invitations and conversations.
+
+| Situation | Start area | Channels ＋ | Direct messages ＋ |
+|---|---|---|---|
+| Admin, nobody else | Assistant · Invite people · Create agent | Add someone first | Nobody to message yet (Invite first) |
+| Member, nobody else | Assistant · Create agent | Add someone first (Create agent) | Nobody to message yet (Create agent) |
+| Team agents, no people | as above | Create channel form, + Invite people row (admin) | New message list, + Invite people row (admin) |
+| People here | Assistant · faces + All · Invite (admin) · Create agent | Create channel form | New message list |
+
+An invitation counts as waiting while it is `pending` and unexpired; one whose
+email delivery is unconfirmed grants no access and is not shown. Create agent links
+to `?view=agents&new=1`, which opens the create steps once (resuming an unfinished
+agent) and removes the flag from the address. Chat's dialogs now start in their text
+field: React's `autoFocus` ran while the `<dialog>` was closed, so `showModal()` put
+focus on Close; they pass `initialFocus` instead. Agent names in the channel picker
+are no longer cut short (`.chat-choice > span`).
+
+Checked: `tests/chat-first-visit.test.mjs` (roles, the ＋ choice and focus return,
+one-click direct messages, dialog focus, examples that never send, the Create agent
+link) and `tests/chat_first_visit.mjs` against a real controller and Chromium.
+Library, Agents and other dialogs that use `autoFocus` inside `Dialog` have the same
+focus issue and are not changed here.
+

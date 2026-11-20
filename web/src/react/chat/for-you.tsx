@@ -62,27 +62,28 @@ export function ForYouPage({ directory, back }: { directory?: Directory; back: (
   const shown = (items: ForYouItem[]) => filter === 'all' ? items : items.filter(item => item.reason === filter);
   const count = (id: ForYouFilter) => id === 'all' ? fresh.length : fresh.filter(item => item.reason === id).length;
   const newShown = shown(fresh), earlierShown = shown(earlier);
+  // Nothing at all yet: no filters to choose between and no description to read.
+  const nothing = Boolean(first) && !fresh.length && !earlier.length;
   return <section className="for-you" aria-label="For you">
     <header className="for-you-header">
       <Button className="chat-back" onClick={back}>‹ Chats</Button>
       <div className="for-you-title">
         <h2>For you</h2>
-        <p>@mentions, replies to your requests, and replies in threads you follow</p>
+        {!nothing && <p>@mentions, replies to your requests, and replies in threads you follow</p>}
       </div>
       <a className="ui-button for-you-settings" href={workspaceUrl('/?view=settings&section=preferences')}>Notification settings</a>
-      <div className="for-you-filters" role="group" aria-label="Show">
+      {!nothing && <div className="for-you-filters" role="group" aria-label="Show">
         {FILTERS.map(({ id, label }) => <button type="button" key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>
           {label}{count(id) > 0 && <span aria-label={`, ${count(id)} new`}> · {count(id)}</span>}
         </button>)}
-      </div>
+      </div>}
     </header>
     <div className="for-you-list">
       {!first && !error && <p className="chat-help" role="status">Loading what is for you…</p>}
       {error && <p className="chat-error" role="alert">{error}</p>}
-      {first && !fresh.length && !earlier.length ? <div className="for-you-empty">
+      {nothing ? <div className="for-you-empty">
         <span aria-hidden="true">✓</span>
         <h3>Nothing for you right now</h3>
-        <p>When someone @mentions you, an agent answers your request, or there is a reply in a thread you follow, it shows here.</p>
         <p>Approvals and agent questions are in <a href={workspaceUrl('/?view=activity&tab=needs')}>Activity → Needs me</a>.</p>
       </div> : first && <>
         {newShown.length > 0 && <><h3 className="for-you-section">New · {newShown.length}</h3>

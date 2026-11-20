@@ -55,12 +55,13 @@ async function workspaceApp(chats, run) {
     return response({});
   } });
 }
-const welcome = () => document.querySelector('.chat-welcome h2')?.textContent;
+/** Chat with nothing open: the start area (chat-start.tsx). */
+const welcome = () => document.querySelector('.chat-start') ? 'start' : undefined;
 const header = () => document.querySelector('.chat-pane-header h2')?.textContent;
 
 test('coming back to Chat from another page reopens the last conversation, and Back skips the bare Chat step', async () => {
   await workspaceApp(() => [inventory], async ({ dom, click, update, until, rail }) => {
-    await until(() => welcome() === 'A place to work together');
+    await until(() => welcome() === 'start');
     await click([...document.querySelectorAll('.chat-directory a')].find(a => a.textContent.includes('Inventory')));
     await until(() => header() === 'Inventory');
     await click(rail('Home'));
@@ -75,7 +76,7 @@ test('coming back to Chat from another page reopens the last conversation, and B
     await click(rail('Chat'));
     await until(() => header() === 'Inventory');
     await click(rail('Chat'));
-    await until(() => welcome() === 'A place to work together');
+    await until(() => welcome() === 'start');
   });
 });
 
@@ -101,7 +102,7 @@ test('a remembered conversation that is gone falls back to the welcome and is fo
     await until(() => document.querySelector('.home'));
     chats = [];
     await click(rail('Chat'));
-    await until(() => welcome() === 'A place to work together');
+    await until(() => welcome() === 'start');
     assert.equal(dom.window.location.search, '?view=chat');
     assert.equal(dom.window.sessionStorage.getItem(`relay.chat.place.owner.${workspace}`), null);
   });

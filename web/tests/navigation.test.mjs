@@ -396,8 +396,9 @@ test('your assistant comes right after For you in the chat list, once, and says 
       assert.match(direct.textContent, /HR Desk/);
       assert.equal(direct.textContent.includes('Ayati'), false, 'listed once, not again under Direct messages');
       await click(sections[0].querySelector('a.chat-contact'));
-      await until(update,()=>document.querySelector('.chat-visibility-note'));
-      assert.match(document.querySelector('.chat-visibility-note').textContent, /Ayati is your assistant\. Only you can talk to it\. You and workspace admins can see its work\./);
+      // Before its first message the chat introduces it, with who can see its work.
+      await until(update,()=>document.querySelector('.chat-assistant-intro'));
+      assert.match(document.querySelector('.chat-assistant-intro').textContent, /Only you can talk to Ayati · admins can see its work/);
     } finally { await setup.cleanup(); }
   },{url:`http://localhost${base}?view=chat`,fetch:async path=>{
     path = new URL(path, 'http://localhost').pathname;

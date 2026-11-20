@@ -8,7 +8,10 @@
 /* Workspace directory entry at the foot of the chat list. */
 .chat-people-button { display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 8px 12px 12px; padding: 9px 10px; border-radius: 10px; font-size: 12.5px; }
 .chat-people-button svg { width: 16px; height: 16px; flex: none; }
-.chat-people-button small { margin-left: auto; color: var(--muted); font-size: 11.5px; }
+/* A quiet row with a few faces, not an outlined button (2026-11-20). */
+.chat-directory .chat-people-button { border-color: transparent; background: transparent; box-shadow: none; }
+.chat-directory .chat-people-button:hover:not(:disabled) { background: var(--soft); }
+.chat-people-faces { margin-left: auto; }
 
 /* Clickable faces and names open a profile. */
 .chat-header-identity, .chat-message-face, .chat-message-author { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
