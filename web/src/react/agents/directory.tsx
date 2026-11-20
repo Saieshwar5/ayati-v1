@@ -52,6 +52,27 @@ export function AgentsPage() {
     setShowProfile(true);
   // Opened once per draft, when both it and the directory are here.
   }, [fromChat.data, ready]);
+  // A "Create agent" link (Chat's start tiles: ?view=agents&new=1) opens the create
+  // steps once, resuming this person's unfinished agent if they have one. The flag
+  // leaves the address at once, so Back and reload do not open them again.
+  const [linkedNew] = useState(() => !linkedDraft && new URLSearchParams(location.search).get('new') === '1');
+  useEffect(() => {
+    if (!linkedNew) return;
+    const url = new URL(window.location.href); url.searchParams.delete('new'); window.history.replaceState(null, '', url);
+  }, [linkedNew]);
+  const openedNew = useRef(false);
+  useEffect(() => {
+    if (!linkedNew || !data || openedNew.current) return;
+    openedNew.current = true;
+    const generation = epoch.current;
+    void loadSavedDraft().catch(() => undefined).then(saved => {
+      if (generation !== epoch.current) return;
+      const fresh = newAgent(data);
+      setCreating(saved ? { agent: agentFrom(saved, fresh), resume: saved } : { agent: fresh });
+      setShowProfile(true);
+    });
+  // Opened once, when the directory is here.
+  }, [linkedNew, ready]);
   useEffect(() => subscribeChanges(change => {
     if (change.kind === 'reset' || change.kind === 'event_access') { void refresh().catch(() => {}); return; }
     if (change.kind !== 'access') return;

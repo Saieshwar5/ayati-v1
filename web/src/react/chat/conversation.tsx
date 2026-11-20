@@ -21,6 +21,7 @@ import { ShowProfile, useShowProfile } from './profile-card';
 import { AssistantRoom, ThreadPill, TookOverLine } from './assistant-threads';
 import { threadIn, useThreads } from './assistant-threads-model';
 import { useAssistantDraft } from './assistant-draft';
+import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
 import { ConversationSearch } from './conversation-search';
@@ -234,6 +235,17 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const assist = useAssistantDraft({ chat: chat.id, name: assistantName, value: draft, change: updateDraft, sent: draftSent, disabled: busy || Boolean(chat.archived) });
   // Only a direct chat with one other side, and only from a message that side sent.
   const canHandOver = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2 && handed?.state !== 'running';
+  // Your own assistant's chat before its first message: who it is, examples to start from, the cursor ready.
+  const emptyAssistant = partner?.kind === 'agent' && partner.who.assistant && partner.who.yours && history?.messages.length === 0 ? partner.who : undefined;
+  const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
+  useEffect(() => {
+    // Not on touch screens, where focusing would cover the page with the keyboard.
+    if (emptyAssistant && window.matchMedia?.('(pointer: fine)').matches) composerField()?.focus();
+  }, [Boolean(emptyAssistant)]);
+  const startExample = (text: string) => {
+    updateDraft(text);
+    requestAnimationFrame(() => { const field = composerField(); field?.focus(); field?.setSelectionRange(text.length, text.length); });
+  };
   const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)}
@@ -249,10 +261,11 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
       if (node.scrollTop < olderThreshold) void loadOlder();
     }}>
       {olderCursor && <Button disabled={loadingOlder} onClick={() => void loadOlder(true)}>{loadingOlder ? 'Loading older messages…' : 'Load older messages'}</Button>}
-      {partner?.kind === 'agent' && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin', Boolean(partner.who.assistant))}</p>}
+      {partner?.kind === 'agent' && !emptyAssistant && <p className="chat-visibility-note">{agentChatNote(title, Boolean(partner.who.yours), directory.role === 'Admin', Boolean(partner.who.assistant))}</p>}
       {chat.kind !== 'direct' && availableAgents.length > 0 && <p className="chat-visibility-note chat-agent-rule">{agentRuleNote(availableAgents.map(agent => agent.name), chat.agent_replies)}</p>}
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
-      {history?.messages.length === 0 && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
+      {emptyAssistant && <AssistantIntro assistant={emptyAssistant} />}
+      {history?.messages.length === 0 && !emptyAssistant && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
       {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage handOver={handOver(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
@@ -261,6 +274,7 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     {focusError && <p className="chat-error" role="alert">The linked request is unavailable. {focusError}</p>}
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
+    {emptyAssistant && !draft && !chat.archived && <ExampleRequests use={startExample} />}
     <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
       placeholder="Message…" tools={assist.tool} notice={assist.notice}
       candidates={[

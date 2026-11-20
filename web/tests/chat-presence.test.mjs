@@ -82,7 +82,7 @@ test('dots and names: online people have a green dot and read "name, online, sta
     assert.match(header.querySelector('.chat-header-meta').textContent, /^Online · 🗓️ In a meeting$/);
     assert.doesNotMatch(header.textContent, /Connect/);
     // The People & agents directory and the profile panel.
-    await click(button('People & agents3 · 1'));
+    await click(button('People & agents, 3 people, 1 agent'));
     assert.ok(button('View profile of Ravi Kumar, online, In a meeting'));
     assert.ok(button('View profile of Kavya Nair'));
     assert.ok(button('View profile of Atlas'));

@@ -39,10 +39,12 @@
 .chat-for-you > span:nth-child(2) { flex:1; min-width:0; }
 .chat-for-you:focus-visible { outline-offset:-2px; }
 .chat-contact-row:has(.chat-for-you[aria-current=page]) { background:var(--selection); }
-.chat-for-you-mark { display:inline-flex; align-items:center; justify-content:center; border-radius:8px !important; background:var(--danger); color:var(--surface); }
+/* Quiet while nothing waits; red and bold only when something is for you. */
+.chat-for-you-mark { display:inline-flex; align-items:center; justify-content:center; border-radius:8px !important; background:var(--soft); color:var(--muted); box-shadow:inset 0 0 0 1px var(--border); }
+.chat-for-you-new .chat-for-you-mark { background:var(--danger); color:var(--surface); box-shadow:none; }
 .chat-for-you-mark svg { width:16px; height:16px; }
 .chat-contact-row:has(.chat-for-you-new):not(:has([aria-current=page])) { background:color-mix(in srgb, var(--danger) 8%, var(--surface)); }
-.chat-for-you .chat-name-text { font-weight:700; }
+.chat-for-you-new .chat-name-text { font-weight:700; }
 @media (max-width:600px) { .for-you-header { padding:10px 12px; } .for-you-list { padding:10px; } .for-you-filters { flex-wrap:nowrap; overflow-x:auto; } .for-you-filters button { flex-shrink:0; min-height:36px; } }
 @media (pointer:coarse) { .for-you-filters button { min-height:44px; } }
 @media (forced-colors:active) { .for-you-item-new, .for-you-filters button { border-color:CanvasText; } .for-you-dot { background:Highlight; } }

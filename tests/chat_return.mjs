@@ -1,6 +1,6 @@
 // Leaving Chat for another page and coming back reopens the conversation you
 // had open, in a real browser against a real controller, instead of the
-// first-visit "A place to work together" welcome.
+// first-visit start (your assistant, Invite people, Create agent).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -30,7 +30,7 @@ test('coming back to Chat reopens the last conversation', {
   await context.addCookies([{ name, value, url: app.base, httpOnly: true, sameSite: 'Lax' }]);
   page = await context.newPage();
   await page.goto(`${app.base}/w/${w}/?view=chat`);
-  const welcome = page.getByRole('heading', { name: 'A place to work together' });
+  const welcome = page.getByRole('region', { name: 'Start' });
   const header = page.locator('.chat-pane-header').getByRole('heading', { name: 'orders' });
   const rail = label => page.locator(`.workspace-rail [title=${label}]`);
   await welcome.waitFor();

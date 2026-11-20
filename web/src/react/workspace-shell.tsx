@@ -7,7 +7,8 @@ import { ChatNavLabel } from './chat/nav-unread';
 import { ActivityNavLabel } from './attention/nav-needs-you';
 
 export type WorkspacePage = 'home' | 'chat' | 'activity' | 'agents' | 'library' | 'settings';
-function Icon({ name }: { name: WorkspacePage }) {
+/** The rail's picture for each page; Chat's start tiles reuse the Agents robot. */
+export function PageIcon({ name }: { name: WorkspacePage }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     {name === 'home' && <><path d="m3 10 9-7 9 7v10H3Z" /><path d="M9 20v-7h6v7" /></>}
     {name === 'chat' && <><path d="M21 11a8 8 0 0 1-8 8H5l-3 3V11a9 9 0 0 1 19 0Z" /><path d="M7 11h10" /></>}
@@ -27,7 +28,7 @@ export function WorkspaceShell({ page, children }: { page: WorkspacePage; childr
     <nav aria-label="Workspace">{pages.map(name => {
       const label = name[0].toUpperCase() + name.slice(1);
       return <a key={name} className={`workspace-nav nav-${name}`} href={workspaceUrl(`/?view=${name}`)} title={label}
-        aria-current={page === name ? 'page' : undefined}><Icon name={name} />{name === 'chat' ? <ChatNavLabel /> : name === 'activity' ? <ActivityNavLabel /> : <span>{label}</span>}</a>;
+        aria-current={page === name ? 'page' : undefined}><PageIcon name={name} />{name === 'chat' ? <ChatNavLabel /> : name === 'activity' ? <ActivityNavLabel /> : <span>{label}</span>}</a>;
     })}</nav>
     <AccountMenu />
   </aside><div className="workspace-body">{workspaceSession?.simulation && <div className="company-simulation-banner">Simulation · scripted agents · <a href="/index.html?view=simulation">Switch employee</a></div>}

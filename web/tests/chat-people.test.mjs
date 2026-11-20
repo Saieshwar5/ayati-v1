@@ -26,7 +26,7 @@ test('everyone in the workspace and every usable agent appear together, agents m
     await render(WorkspaceChat,{href:url});
     // Unread channels stand out and agent pictures are round robots or uploads.
     assert.ok(document.querySelector('a.chat-contact.chat-contact-unread'));
-    await click(button('People & agents3 · 2'));
+    await click(button('People & agents, 3 people, 2 agents'));
     const names=[...document.querySelectorAll('dialog li .chat-name-text')].map(node=>node.textContent);
     assert.deepEqual(names,['Atlas','Meera Iyer (you)','Nova','Priya Shah','Ravi Kumar']);
     const atlas=[...document.querySelectorAll('dialog li')].find(li=>li.textContent.includes('Atlas'));
@@ -52,7 +52,7 @@ test('a profile card opens from the directory and Message starts one direct conv
   await reactFixture(async({render,button,click})=>{
     await start();const {WorkspaceChat}=await import('../src/react/chat/workspace-chat.tsx');
     await render(WorkspaceChat,{href:url});
-    await click(button('People & agents3 · 2'));
+    await click(button('People & agents, 3 people, 2 agents'));
     await click(button('View profile of Ravi Kumar'));
     // The profile opens in the side panel beside the conversation; the directory dialog closes.
     assert.equal(document.querySelectorAll('dialog').length,0);
@@ -75,7 +75,7 @@ test('an agent card shows who manages it and adds it to a channel the viewer man
   await reactFixture(async({render,button,click,change,submit})=>{
     await start();const {WorkspaceChat}=await import('../src/react/chat/workspace-chat.tsx');
     await render(WorkspaceChat,{href:url});
-    await click(button('People & agents3 · 2'));
+    await click(button('People & agents, 3 people, 2 agents'));
     await click(button('View profile of Atlas'));
     const card=document.querySelector('aside.chat-side-panel');
     assert.equal(card.getAttribute('aria-label'),'Agent profile');
